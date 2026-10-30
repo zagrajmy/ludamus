@@ -10,6 +10,7 @@ export const ShellModel = Schema.Struct({
   isThemeRead: Schema.Boolean,
   theme: ThemeChoice,
 });
+
 export type ShellModel = typeof ShellModel.Type;
 
 export const initShell = (flags: ShellFlags): ShellModel => ({

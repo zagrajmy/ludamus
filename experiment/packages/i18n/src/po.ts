@@ -14,7 +14,7 @@ export class PoSyntaxError extends Schema.TaggedError<PoSyntaxError>()(
 
 export interface PoCatalog {
   readonly messages: Readonly<Record<string, string>>;
-  readonly plurals: Readonly<Record<string, ReadonlyArray<string>>>;
+  readonly plurals: Readonly<Record<string, readonly string[]>>;
   readonly pluralForms: string;
 }
 
@@ -22,7 +22,7 @@ interface Entry {
   context: string | undefined;
   id: string | undefined;
   idPlural: string | undefined;
-  translations: Array<string>;
+  translations: string[];
   fuzzy: boolean;
 }
 
@@ -151,7 +151,7 @@ const pluralFormsOf = (header: string) => {
 export const parsePo = (
   text: string
 ): Result.Result<PoCatalog, PoSyntaxError> => {
-  const entries: Array<Entry> = [];
+  const entries: Entry[] = [];
   let entry = emptyEntry();
   let field: Field | undefined;
   const lines = text.split(/\r?\n/);
@@ -239,7 +239,7 @@ export const parsePo = (
   finish();
 
   const messages: Record<string, string> = {};
-  const plurals: Record<string, ReadonlyArray<string>> = {};
+  const plurals: Record<string, readonly string[]> = {};
   let pluralForms = "";
 
   for (const { context, fuzzy, id, idPlural, translations } of entries) {
@@ -269,5 +269,5 @@ export const parsePo = (
     }
   }
 
-  return Result.succeed({ messages, plurals, pluralForms });
+  return Result.succeed({ messages, pluralForms, plurals });
 };

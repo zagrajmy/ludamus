@@ -9,7 +9,7 @@ export type IconPath = Readonly<{
 }>;
 
 export type IconData = Readonly<{
-  paths: ReadonlyArray<IconPath>;
+  paths: readonly IconPath[];
   variant: "micro" | "mini" | "outline" | "solid";
 }>;
 

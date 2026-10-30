@@ -41,7 +41,7 @@ export const shellHead = (options: {
   const { flags, title } = options;
   const i18n = translator(flags.shell.locale);
   const description = escapeAttribute(descriptionOf(flags, i18n));
-  const origin = new URL(flags.shell.requestUrl).origin;
+  const { origin } = new URL(flags.shell.requestUrl);
   const image = escapeAttribute(`${origin}/static/og-image.jpg`);
   const escapedTitle = escapeAttribute(title);
 

@@ -17,7 +17,7 @@ export const menuSurfaceClass = (
 
 export const menuSurface = <Message>(
   options: Readonly<{
-    children: ReadonlyArray<Child>;
+    children: readonly Child[];
     extraClass: string;
     isOpen: boolean;
     origin?: string;
@@ -40,7 +40,7 @@ export type DisclosureMenuOptions<Message> = Readonly<{
   onToggle: (isOpen: boolean) => Message;
   panel: (isOpen: boolean) => Html;
   panelClass: string;
-  trigger: ReadonlyArray<Child>;
+  trigger: readonly Child[];
   triggerClass: string;
   triggerLabel?: string;
 }>;
@@ -108,10 +108,10 @@ export const actionDropdown = <Message>(
     hover?: boolean;
     id: string;
     isOpen: boolean;
-    items: ReadonlyArray<Html>;
+    items: readonly Html[];
     label?: string;
     onToggle: (isOpen: boolean) => Message;
-    trigger: ReadonlyArray<Child>;
+    trigger: readonly Child[];
     triggerClass?: string;
   }>,
   h: HtmlBuilder<Message>

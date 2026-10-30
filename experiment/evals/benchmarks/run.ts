@@ -5,8 +5,8 @@ import { parseArgs } from "node:util";
 import { cookieHeaderFor, storedCookies } from "./auth.ts";
 import { runLighthouse } from "./lighthouse.ts";
 import { measureLoad } from "./load.ts";
-import { measurePageWeight } from "./pageweight.ts";
 import { benchPages, pageUrl } from "./pages.ts";
+import { measurePageWeight } from "./pageweight.ts";
 
 const { values } = parseArgs({
   options: {
@@ -24,10 +24,14 @@ if (values.label === undefined) {
 }
 
 const origin = values.url.replace(/\/$/u, "");
-const resultsDirectory = values.out ?? resolve(import.meta.dirname, "../results");
+
+const resultsDirectory =
+  values.out ?? resolve(import.meta.dirname, "../results");
+
 mkdirSync(resultsDirectory, { recursive: true });
 
 const started = new Date().toISOString();
+
 const pages = [];
 
 for (const page of benchPages) {
@@ -42,7 +46,12 @@ for (const page of benchPages) {
     url,
     warmupRequests: 5,
   });
-  const weight = await measurePageWeight(url, storedCookies(page.authState), origin);
+
+  const weight = await measurePageWeight(
+    url,
+    storedCookies(page.authState),
+    origin
+  );
   const lighthouse = values.lighthouse ? runLighthouse(url, cookie) : null;
 
   pages.push({ ...page, lighthouse, load, weight });
@@ -52,6 +61,9 @@ for (const page of benchPages) {
 }
 
 const output = { label: values.label, origin, pages, started };
+
 const file = resolve(resultsDirectory, `bench-${values.label}.json`);
+
 writeFileSync(file, `${JSON.stringify(output, null, 2)}\n`);
+
 process.stdout.write(`wrote ${file}\n`);

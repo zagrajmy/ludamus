@@ -6,6 +6,7 @@ export const LandingConvention = Schema.Struct({
   eventSlug: Schema.String,
   name: Schema.String,
 });
+
 export type LandingConvention = typeof LandingConvention.Type;
 
 export const LandingFlags = Schema.Struct({
@@ -14,4 +15,5 @@ export const LandingFlags = Schema.Struct({
   encountersEnabled: Schema.Boolean,
   showcaseUrl: Schema.String,
 });
+
 export type LandingFlags = typeof LandingFlags.Type;

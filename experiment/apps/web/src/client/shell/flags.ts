@@ -8,6 +8,7 @@ export const ShellSphere = Schema.Struct({
   logoUrl: Schema.OptionFromOptional(Schema.String),
   name: Schema.String,
 });
+
 export type ShellSphere = typeof ShellSphere.Type;
 
 export const ShellViewer = Schema.Struct({
@@ -16,6 +17,7 @@ export const ShellViewer = Schema.Struct({
   hasPanelAccess: Schema.Boolean,
   name: Schema.String,
 });
+
 export type ShellViewer = typeof ShellViewer.Type;
 
 export const ShellLinks = Schema.Struct({
@@ -30,6 +32,7 @@ export const ShellLinks = Schema.Struct({
   profile: Schema.String,
   sphere: Schema.String,
 });
+
 export type ShellLinks = typeof ShellLinks.Type;
 
 export const ShellFlags = Schema.Struct({
@@ -44,4 +47,5 @@ export const ShellFlags = Schema.Struct({
   viewer: Schema.OptionFromOptional(ShellViewer),
   year: Schema.Int,
 });
+
 export type ShellFlags = typeof ShellFlags.Type;

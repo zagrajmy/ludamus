@@ -11,6 +11,7 @@ export const loadAbout = Effect.fn("AboutPage.load")(function* loadAbout(
   const store = yield* LandingStore;
   const stats = yield* store.stats;
   const conventions = yield* loadConventions(context);
+
   const flags: AboutFlags = {
     contactEmail,
     conventions: conventions.map((convention) => ({

@@ -17,12 +17,12 @@ interface LocalDateTime {
 }
 
 interface LocaleNames {
-  readonly months: ReadonlyArray<string>;
-  readonly monthsGenitive: ReadonlyArray<string>;
-  readonly monthsAbbreviated: ReadonlyArray<string>;
-  readonly monthsAssociatedPress: ReadonlyArray<string>;
-  readonly weekdays: ReadonlyArray<string>;
-  readonly weekdaysAbbreviated: ReadonlyArray<string>;
+  readonly months: readonly string[];
+  readonly monthsGenitive: readonly string[];
+  readonly monthsAbbreviated: readonly string[];
+  readonly monthsAssociatedPress: readonly string[];
+  readonly weekdays: readonly string[];
+  readonly weekdaysAbbreviated: readonly string[];
   readonly beforeNoon: string;
   readonly afterNoon: string;
   readonly beforeNoonUpper: string;

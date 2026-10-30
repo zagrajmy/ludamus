@@ -17,8 +17,8 @@ export const markdownToPlainText = (source: string) =>
   source === ""
     ? ""
     : renderMarkdown(source)
-        .replace(/<[^>]*>/gu, "")
-        .replace(
+        .replaceAll(/<[^>]*>/gu, "")
+        .replaceAll(
           /&(?:#39|amp|gt|lt|quot);/gu,
           (entity) => entities[entity] ?? entity
         )

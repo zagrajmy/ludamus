@@ -15,13 +15,12 @@ const SessionPayload = Schema.Struct({
   _auth_user_hash: Schema.optional(Schema.String),
   _auth_user_id: Schema.optional(Schema.String),
 });
+
 export type SessionPayload = typeof SessionPayload.Type;
 
-const base64UrlDecode = (value: string) =>
-  Buffer.from(value, "base64url");
+const base64UrlDecode = (value: string) => Buffer.from(value, "base64url");
 
-const base64UrlEncode = (value: Buffer) =>
-  value.toString("base64url");
+const base64UrlEncode = (value: Buffer) => value.toString("base64url");
 
 const saltedHmac = (keySalt: string, value: string, secret: string) => {
   const key = createHash("sha256").update(`${keySalt}${secret}`).digest();
@@ -50,7 +49,7 @@ export const decodeSessionData = (sessionData: string, secret: string) =>
   Effect.gen(function* decodeDjangoSession() {
     const lastColon = sessionData.lastIndexOf(":");
 
-    if (lastColon < 0) {
+    if (lastColon === -1) {
       return yield* new InvalidSession({ reason: "no signature" });
     }
 
@@ -68,7 +67,7 @@ export const decodeSessionData = (sessionData: string, secret: string) =>
 
     const timestampColon = signedValue.lastIndexOf(":");
 
-    if (timestampColon < 0) {
+    if (timestampColon === -1) {
       return yield* new InvalidSession({ reason: "no timestamp" });
     }
 
@@ -78,12 +77,14 @@ export const decodeSessionData = (sessionData: string, secret: string) =>
 
     const json = yield* Effect.try({
       catch: () => new InvalidSession({ reason: "undecodable payload" }),
-      try: () => (compressed ? inflateSync(raw) : raw).toString("utf8"),
+      try: () => (compressed ? inflateSync(raw) : raw).toString("utf-8"),
     });
 
     return yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(SessionPayload)
     )(json).pipe(
-      Effect.mapError(() => new InvalidSession({ reason: "unexpected payload" }))
+      Effect.mapError(
+        () => new InvalidSession({ reason: "unexpected payload" })
+      )
     );
   });

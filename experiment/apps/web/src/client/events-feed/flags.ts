@@ -7,6 +7,7 @@ export const Announcement = Schema.Struct({
   id: Schema.Int,
   title: Schema.String,
 });
+
 export type Announcement = typeof Announcement.Type;
 
 export const EventsFeedFlags = Schema.Struct({
@@ -16,4 +17,5 @@ export const EventsFeedFlags = Schema.Struct({
   showHidden: Schema.Boolean,
   upcoming: Schema.Array(FeedItem),
 });
+
 export type EventsFeedFlags = typeof EventsFeedFlags.Type;

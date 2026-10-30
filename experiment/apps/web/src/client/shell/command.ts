@@ -17,12 +17,12 @@ const readStorage = (key: string) =>
   );
 
 const writeStorage = (key: string, value: Option.Option<string>) =>
-  Effect.try(() =>
+  Effect.try(() => {
     Option.match(value, {
       onNone: () => window.localStorage.removeItem(key),
       onSome: (stored) => window.localStorage.setItem(key, stored),
-    })
-  ).pipe(Effect.ignore);
+    });
+  }).pipe(Effect.ignore);
 
 const decodeTheme = Schema.decodeUnknownOption(ThemeChoice);
 

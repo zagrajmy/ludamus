@@ -17,6 +17,7 @@ export const FlashLevel = Schema.Literals([
   "success",
   "warning",
 ]);
+
 export type FlashLevel = typeof FlashLevel.Type;
 
 export const Flash = Schema.Struct({
@@ -24,6 +25,7 @@ export const Flash = Schema.Struct({
   level: FlashLevel,
   text: Schema.String,
 });
+
 export type Flash = typeof Flash.Type;
 
 const isSticky = (level: FlashLevel) =>
@@ -38,7 +40,7 @@ const tone: Readonly<Record<FlashLevel, string>> = {
 
 export const flashMessages = <Message>(
   options: Readonly<{
-    flashes: ReadonlyArray<Flash>;
+    flashes: readonly Flash[];
     onDismiss: (id: string) => Message;
     translator: Translator;
   }>,

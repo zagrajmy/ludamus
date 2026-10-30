@@ -7,9 +7,10 @@ import { mediaUrl } from "../request-context.js";
 import type { RequestContext } from "../request-context.js";
 
 export const contactEmail = "kontakt@zagrajmy.net";
+
 export const showcaseUrl = "https://kapitularz.zagrajmy.net/";
 
-const conventionSubdomains: ReadonlyArray<string> = [
+const conventionSubdomains: readonly string[] = [
   "kapitularz",
   "bachanalia",
   "o2f",
@@ -24,6 +25,7 @@ export const loadConventions = Effect.fn("Landing.conventions")(
   function* loadConventions(context: RequestContext) {
     const store = yield* LandingStore;
     const domains = conventionDomains(context);
+
     const rows = yield* store.conventions({
       domains,
       now: storedTimestamp(context.now),
@@ -40,6 +42,7 @@ export const loadLanding = Effect.fn("LandingPage.load")(function* loadLanding(
   context: RequestContext
 ) {
   const conventions = yield* loadConventions(context);
+
   const flags: LandingFlags = {
     contactEmail,
     conventions: conventions.map((convention) => ({

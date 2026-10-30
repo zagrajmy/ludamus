@@ -9,4 +9,5 @@ export const LandingMessage = defineMessageUnion({
   GotLocationHash: { hash: Schema.String },
   ReplacedAudienceHash: {},
 });
+
 export type LandingMessage = typeof LandingMessage.Type;

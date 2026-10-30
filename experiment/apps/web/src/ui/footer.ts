@@ -6,6 +6,7 @@ import { themeSwitcher } from "./theme-switcher.js";
 import type { ThemeChoice } from "./theme-switcher.js";
 
 export const sourceUrl = "https://github.com/zagrajmy/ludamus";
+
 export const licenseUrl =
   "https://github.com/zagrajmy/ludamus/blob/main/LICENSE";
 

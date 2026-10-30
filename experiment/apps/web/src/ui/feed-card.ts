@@ -31,6 +31,7 @@ export const FeedEventCard = Schema.Struct({
   sessionCount: Schema.Int,
   slug: Schema.String,
 });
+
 export type FeedEventCard = typeof FeedEventCard.Type;
 
 export const EncounterAttendance = defineTaggedUnion({
@@ -39,6 +40,7 @@ export const EncounterAttendance = defineTaggedUnion({
   SignedUp: { count: Schema.Int, max: Schema.Int },
   SpotsLeft: { left: Schema.Int },
 });
+
 export type EncounterAttendance = typeof EncounterAttendance.Type;
 
 export const FeedEncounterCard = Schema.Struct({
@@ -53,12 +55,14 @@ export const FeedEncounterCard = Schema.Struct({
   shareCode: Schema.String,
   title: Schema.String,
 });
+
 export type FeedEncounterCard = typeof FeedEncounterCard.Type;
 
 export const FeedItem = defineTaggedUnion({
   Encounter: { card: FeedEncounterCard },
   Event: { card: FeedEventCard },
 });
+
 export type FeedItem = typeof FeedItem.Type;
 
 export type FeedTagTone = "quiet" | "secondary" | "state";
@@ -108,7 +112,7 @@ export const feedTag = <Message>(
 const cardFrame =
   "relative flex flex-col rounded-2xl border border-neutral-200/50 bg-bg-secondary ring-offset-[.5px] ring-offset-background duration-100 dark:border-neutral-700/50";
 
-const tagRow = <Message>(tags: ReadonlyArray<Html>, h: HtmlBuilder<Message>) =>
+const tagRow = <Message>(tags: readonly Html[], h: HtmlBuilder<Message>) =>
   h.div(
     [h.Class("ml-[70px] flex min-h-7 min-w-0 items-end justify-end gap-x-3.5")],
     tags
@@ -126,9 +130,9 @@ export const eventCard = <Message>(
   h: HtmlBuilder<Message>
 ) => {
   const { card, translator } = options;
-  const hiddenTag = !options.showHidden
-    ? h.empty
-    : card.isLinkOnly
+
+  const hiddenTag = options.showHidden
+    ? card.isLinkOnly
       ? feedTag(
           {
             icon: linkOutline,
@@ -146,7 +150,8 @@ export const eventCard = <Message>(
             },
             h
           )
-        : h.empty;
+        : h.empty
+    : h.empty;
 
   return h.a(
     [
@@ -248,7 +253,7 @@ export const copyPopoverClass =
 
 export const copyButton = <Message>(
   options: Readonly<{
-    children: ReadonlyArray<Html | string>;
+    children: readonly (Html | string)[];
     copied: boolean;
     onCopy: Message;
     translator: Translator;
@@ -445,7 +450,7 @@ export const encounterCard = <Message>(
 };
 
 export const feedGrid = <Message>(
-  options: Readonly<{ cards: ReadonlyArray<Html>; extraClass?: string }>,
+  options: Readonly<{ cards: readonly Html[]; extraClass?: string }>,
   h: HtmlBuilder<Message>
 ) =>
   h.div(

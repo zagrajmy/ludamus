@@ -6,6 +6,7 @@ export const EventsFeedModel = Schema.Struct({
   ...EventsFeedFlags.fields,
   copiedShareCode: Schema.Option(Schema.String),
 });
+
 export type EventsFeedModel = typeof EventsFeedModel.Type;
 
 export const initEventsFeed = (flags: EventsFeedFlags): EventsFeedModel => ({

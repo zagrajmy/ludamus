@@ -24,7 +24,7 @@ const gravatarUrl = Effect.fn("Shell.gravatarUrl")(function* gravatarUrl(
     return Option.none<string>();
   }
 
-  const digest = yield* Effect.promise(() =>
+  const digest = yield* Effect.promise(async () =>
     crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized))
   );
 
@@ -41,6 +41,7 @@ const shellViewer = Effect.fn("Shell.viewer")(function* shellViewer(
     viewer.useGravatar === 1 || viewer.avatarUrl === ""
       ? yield* gravatarUrl(viewer.email)
       : Option.some(viewer.avatarUrl);
+
   const found: ShellViewer = {
     avatarUrl,
     email: viewer.email,
@@ -57,12 +58,15 @@ export const loadShellFlags = Effect.fn("Shell.load")(function* loadShellFlags(
   const supportEmail = yield* Config.String("SUPPORT_EMAIL").pipe(
     Config.withDefault("support@example.com")
   );
+
   const viewer = Option.isNone(context.viewer)
     ? Option.none<ShellViewer>()
     : Option.some(
         yield* shellViewer(context.viewer.value, context.hasPanelAccess)
       );
+
   const root = rootOrigin(context);
+
   const flags: ShellFlags = {
     analyticsEnabled: false,
     flashes: [],

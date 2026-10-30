@@ -14,10 +14,15 @@ const { values } = parseArgs({
 });
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
+
 const experiment = resolve(repoRoot, "experiment");
+
 const resultsDirectory = resolve(experiment, "evals/results");
+
 const scratch = resolve(resultsDirectory, "raw");
+
 const seed = resolve(repoRoot, "dev.e2e.sqlite3");
+
 const venv = resolve(repoRoot, ".venv/bin");
 
 mkdirSync(scratch, { recursive: true });
@@ -29,7 +34,10 @@ if (!existsSync(seed)) {
 const e2eEnv = (): Record<string, string> => {
   const env: Record<string, string> = {};
 
-  for (const rawLine of readFileSync(resolve(repoRoot, ".env.e2e"), "utf8").split("\n")) {
+  for (const rawLine of readFileSync(
+    resolve(repoRoot, ".env.e2e"),
+    "utf-8"
+  ).split("\n")) {
     const line = rawLine.trim();
 
     if (line === "" || line.startsWith("#")) {
@@ -37,7 +45,9 @@ const e2eEnv = (): Record<string, string> => {
     }
 
     const separator = line.indexOf("=");
-    env[line.slice(0, separator)] = line.slice(separator + 1).replace(/^['"]|['"]$/gu, "");
+    env[line.slice(0, separator)] = line
+      .slice(separator + 1)
+      .replaceAll(/^['"]|['"]$/gu, "");
   }
 
   return env;
@@ -60,7 +70,9 @@ const waitForServer = async (url: string, timeoutMs: number) => {
 
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url.replace("localhost", "127.0.0.1"), { redirect: "manual" });
+      const response = await fetch(url.replace("localhost", "127.0.0.1"), {
+        redirect: "manual",
+      });
 
       if (response.status < 500) {
         return;
@@ -109,6 +121,7 @@ const stop = async (child: ReturnType<typeof spawn>) => {
 const benchOld = async () => {
   const port = 8010;
   const database = retargetDatabase(port);
+
   const env = {
     ...process.env,
     ...e2eEnv(),
@@ -148,6 +161,7 @@ const benchOld = async () => {
 const benchNew = async () => {
   const port = 8011;
   const database = retargetDatabase(port);
+
   const env = {
     ...process.env,
     DATABASE_PATH: database,
@@ -155,11 +169,16 @@ const benchNew = async () => {
     PUBLIC_ORIGIN: `http://localhost:${port}`,
     SECRET_KEY: e2eEnv().SECRET_KEY ?? "e2e-secret-key",
   };
-  const server = spawn("node", [resolve(experiment, "apps/server/dist/main.js")], {
-    cwd: experiment,
-    env,
-    stdio: ["ignore", "ignore", "inherit"],
-  });
+
+  const server = spawn(
+    "node",
+    [resolve(experiment, "apps/server/dist/main.js")],
+    {
+      cwd: experiment,
+      env,
+      stdio: ["ignore", "ignore", "inherit"],
+    }
+  );
 
   try {
     await waitForServer(`http://localhost:${port}/healthz/`, 60_000);
@@ -177,10 +196,14 @@ if (values.only !== "old") {
   await benchNew();
 }
 
-const report = spawnSync("node", [resolve(experiment, "evals/benchmarks/report.ts")], {
-  cwd: experiment,
-  stdio: "inherit",
-});
+const report = spawnSync(
+  "node",
+  [resolve(experiment, "evals/benchmarks/report.ts")],
+  {
+    cwd: experiment,
+    stdio: "inherit",
+  }
+);
 
 if (report.status !== 0) {
   throw new Error("report generation failed");

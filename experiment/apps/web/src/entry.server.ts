@@ -12,7 +12,7 @@ import { loadShellFlags } from "./server/shell.js";
 
 export { renderDocument } from "./server/document.js";
 
-export const prerenderPaths: ReadonlyArray<string> = [];
+export const prerenderPaths: readonly string[] = [];
 
 const pageHeaders = { "cache-control": "private, no-store", vary: "cookie" };
 
@@ -48,6 +48,7 @@ const renderPageEffect = Effect.fn("renderPage")(
       page: routed.flags,
       shell: yield* loadShellFlags(context),
     };
+
     const application = yield* Server.renderToString(
       { Flags, init, routing: {}, view },
       { flags, url: request.url }

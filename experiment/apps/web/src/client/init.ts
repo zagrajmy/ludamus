@@ -25,15 +25,12 @@ type PageInit = Readonly<{
 const initPage = (flags: PageFlags): PageInit =>
   PageFlags.match<PageInit>(flags, {
     About: ({ flags: about }) => ({
-      commands: [],
       page: PageModel.About({ model: about }),
     }),
     ContentPage: ({ flags: content }) => ({
-      commands: [],
       page: PageModel.ContentPage({ model: content }),
     }),
     EventsFeed: ({ flags: feed }) => ({
-      commands: [],
       page: PageModel.EventsFeed({ model: initEventsFeed(feed) }),
     }),
     Landing: ({ flags: landing }) => ({
@@ -44,11 +41,9 @@ const initPage = (flags: PageFlags): PageInit =>
       page: PageModel.Landing({ model: initLanding(landing) }),
     }),
     NotFound: ({ flags: notFound }) => ({
-      commands: [],
       page: PageModel.NotFound({ model: notFound }),
     }),
     NotPorted: ({ flags: notPorted }) => ({
-      commands: [],
       page: PageModel.NotPorted({ model: notPorted }),
     }),
   });

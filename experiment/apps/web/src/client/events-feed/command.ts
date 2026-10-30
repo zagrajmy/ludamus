@@ -18,7 +18,7 @@ export const CopyShareLink = Command.define("CopyShareLink", {
   execute: ({ shareCode }) =>
     Effect.tryPromise({
       catch: (cause) => new ClipboardUnavailable({ reason: String(cause) }),
-      try: () =>
+      try: async () =>
         navigator.clipboard.writeText(
           `${window.location.origin}${encounterSharePath(shareCode)}`
         ),

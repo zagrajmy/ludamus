@@ -63,11 +63,17 @@ describe("landing audience", () => {
       message(
         LandingMessage.GotLocationHash({ hash: "g-conventions-heading" })
       ),
-      model((current) => expect(current.audience).toBe("players")),
+      model((current) => {
+        expect(current.audience).toBe("players");
+      }),
       message(LandingMessage.GotLocationHash({ hash: "pricing" })),
-      model((current) => expect(current.audience).toBe("players")),
+      model((current) => {
+        expect(current.audience).toBe("players");
+      }),
       message(LandingMessage.GotLocationHash({ hash: "" })),
-      model((current) => expect(current.audience).toBe("organizers"))
+      model((current) => {
+        expect(current.audience).toBe("organizers");
+      })
     );
   });
 

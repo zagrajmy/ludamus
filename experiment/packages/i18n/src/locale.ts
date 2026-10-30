@@ -20,12 +20,12 @@ interface LanguageRange {
   readonly quality: number;
 }
 
-const parseRanges = (header: string): ReadonlyArray<LanguageRange> => {
+const parseRanges = (header: string): readonly LanguageRange[] => {
   const pattern =
     /([A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*|\*)(?:\s*;\s*q=(0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?))?(?:\s*,\s*|$)/y;
 
   const lowered = header.toLowerCase();
-  const ranges: Array<LanguageRange> = [];
+  const ranges: LanguageRange[] = [];
 
   while (pattern.lastIndex < lowered.length) {
     const start = pattern.lastIndex;

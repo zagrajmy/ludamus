@@ -15,4 +15,5 @@ export const Message = defineMessageUnion({
   GotShellMessage: { message: ShellMessage },
   LeftPage: { href: Schema.String },
 });
+
 export type Message = typeof Message.Type;

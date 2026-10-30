@@ -16,6 +16,7 @@ export const FeedEventRow = Schema.Struct({
   startTime: Schema.String,
   visibility: Schema.String,
 });
+
 export type FeedEventRow = typeof FeedEventRow.Type;
 
 export const FeedEncounterRow = Schema.Struct({
@@ -33,6 +34,7 @@ export const FeedEncounterRow = Schema.Struct({
   startTime: Schema.String,
   title: Schema.String,
 });
+
 export type FeedEncounterRow = typeof FeedEncounterRow.Type;
 
 export const AnnouncementRow = Schema.Struct({
@@ -40,6 +42,7 @@ export const AnnouncementRow = Schema.Struct({
   id: Schema.Int,
   title: Schema.String,
 });
+
 export type AnnouncementRow = typeof AnnouncementRow.Type;
 
 export const EncountersPolicy = Schema.Literals([
@@ -47,6 +50,7 @@ export const EncountersPolicy = Schema.Literals([
   "managers",
   "none",
 ]);
+
 export type EncountersPolicy = typeof EncountersPolicy.Type;
 
 export const SphereChromeRow = Schema.Struct({
@@ -57,6 +61,7 @@ export const SphereChromeRow = Schema.Struct({
   name: Schema.String,
   siteId: Schema.Int,
 });
+
 export type SphereChromeRow = typeof SphereChromeRow.Type;
 
 export const ViewerChromeRow = Schema.Struct({
@@ -69,12 +74,14 @@ export const ViewerChromeRow = Schema.Struct({
   useGravatar: SqliteFlag,
   username: Schema.String,
 });
+
 export type ViewerChromeRow = typeof ViewerChromeRow.Type;
 
 export const LandingStatsRow = Schema.Struct({
   events: Schema.Int,
   sessions: Schema.Int,
 });
+
 export type LandingStatsRow = typeof LandingStatsRow.Type;
 
 export const LandingConventionRow = Schema.Struct({
@@ -83,4 +90,5 @@ export const LandingConventionRow = Schema.Struct({
   eventSlug: Schema.String,
   name: Schema.String,
 });
+
 export type LandingConventionRow = typeof LandingConventionRow.Type;

@@ -70,17 +70,21 @@ export const loadRequestContext = Effect.fn("RequestContext.load")(
     }
 
     const sessions = yield* SessionResolver;
+
     const user = yield* sessions.fromCookieHeader(
       request.headers.get("cookie")
     );
+
     const viewer = Option.isNone(user)
       ? Option.none<ViewerChromeRow>()
       : yield* shells.viewer({
           sphereId: sphere.value.id,
           userId: user.value.id,
         });
+
     const millis = yield* Clock.currentTimeMillis;
     const chosen = cookie(request.headers.get("cookie"), "django_language");
+
     const locale =
       chosen === "en" || chosen === "pl"
         ? chosen

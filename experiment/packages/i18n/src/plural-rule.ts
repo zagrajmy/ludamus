@@ -23,9 +23,9 @@ interface Token {
   readonly offset: number;
 }
 
-const BINARY: ReadonlyArray<
-  Readonly<Record<string, (left: number, right: number) => number>>
-> = [
+const BINARY: readonly Readonly<
+  Record<string, (left: number, right: number) => number>
+>[] = [
   { "||": (left, right) => Number(left !== 0 || right !== 0) },
   { "&&": (left, right) => Number(left !== 0 && right !== 0) },
   {
@@ -48,8 +48,8 @@ const BINARY: ReadonlyArray<
 
 const tokenize = (
   source: string
-): Result.Result<ReadonlyArray<Token>, PluralFormsError> => {
-  const tokens: Array<Token> = [];
+): Result.Result<readonly Token[], PluralFormsError> => {
+  const tokens: Token[] = [];
   const pattern = /\s*(\d+|n|==|!=|<=|>=|&&|\|\||[<>!%*/+\-?:()])/y;
   let position = 0;
 
@@ -80,7 +80,7 @@ const tokenize = (
 
 const parseExpression = (
   source: string,
-  tokens: ReadonlyArray<Token>
+  tokens: readonly Token[]
 ): Result.Result<Evaluate, PluralFormsError> => {
   let index = 0;
   const peek = () => tokens[index]?.text;
@@ -225,7 +225,7 @@ const settingOf = (header: string, name: string) => {
     }
   }
 
-  return undefined;
+  return;
 };
 
 export const compilePluralForms = (

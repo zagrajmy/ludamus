@@ -13,7 +13,7 @@ import { navbar } from "../../ui/navbar.js";
 export type PageLayout = "bleed" | "contained";
 
 export type PageBody = Readonly<{
-  content: ReadonlyArray<Child>;
+  content: readonly Child[];
   layout: PageLayout;
 }>;
 

@@ -8,9 +8,9 @@ export class LandingStore extends Context.Service<
   LandingStore,
   {
     readonly conventions: (options: {
-      readonly domains: ReadonlyArray<string>;
+      readonly domains: readonly string[];
       readonly now: string;
-    }) => Effect.Effect<ReadonlyArray<LandingConventionRow>, StoreError>;
+    }) => Effect.Effect<readonly LandingConventionRow[], StoreError>;
     readonly stats: Effect.Effect<LandingStatsRow, StoreError>;
   }
 >()("@zagrajmy/core/LandingStore") {}

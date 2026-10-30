@@ -14,6 +14,7 @@ export type Routed = Data.TaggedEnum<{
   Page: { readonly flags: PageFlags; readonly status: number };
   Redirect: { readonly location: string; readonly status: 301 | 302 };
 }>;
+
 export const Routed = Data.taggedEnum<Routed>();
 
 const isContentSlug = (slug: string): slug is ContentSlug =>

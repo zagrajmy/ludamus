@@ -1,4 +1,5 @@
-import { Sphere, StoreError } from "@zagrajmy/core";
+import type { StoreError } from "@zagrajmy/core";
+import { Sphere } from "@zagrajmy/core";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
@@ -33,5 +34,7 @@ export const SphereStoreLive = Layer.effect(
 );
 
 export const SphereRow = Sphere;
+
 export type SphereRow = typeof Sphere.Type;
+
 export const SphereRowSchema = Schema.Struct(Sphere.fields);

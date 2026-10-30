@@ -7,4 +7,5 @@ export const EventsFeedMessage = defineMessageUnion({
   FailedCopyShareLink: { shareCode: Schema.String },
   SucceededCopyShareLink: { shareCode: Schema.String },
 });
+
 export type EventsFeedMessage = typeof EventsFeedMessage.Type;

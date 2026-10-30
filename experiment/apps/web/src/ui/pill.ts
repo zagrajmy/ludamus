@@ -42,7 +42,7 @@ const visiblePills = 3;
 export const pillList = <Message>(
   options: Readonly<{
     icon?: IconData;
-    items: ReadonlyArray<string>;
+    items: readonly string[];
     translator: Translator;
   }>,
   h: HtmlBuilder<Message>
@@ -62,23 +62,21 @@ export const pillList = <Message>(
   return h.ul(
     [h.Class("flex min-w-0 flex-wrap items-center gap-1")],
     [
-      ...options.items
-        .slice(0, visiblePills)
-        .map((value) =>
-          h.li(
-            [h.Class("flex min-w-0")],
-            [
-              pill(
-                {
-                  ...(options.icon === undefined ? {} : { icon: options.icon }),
-                  size: "sm",
-                  value,
-                },
-                h
-              ),
-            ]
-          )
-        ),
+      ...options.items.slice(0, visiblePills).map((value) =>
+        h.li(
+          [h.Class("flex min-w-0")],
+          [
+            pill(
+              {
+                ...(options.icon === undefined ? {} : { icon: options.icon }),
+                size: "sm",
+                value,
+              },
+              h
+            ),
+          ]
+        )
+      ),
       rest.length === 0
         ? h.empty
         : h.li(

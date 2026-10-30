@@ -19,9 +19,11 @@ export const PageFlags = defineTaggedUnion({
   NotFound: { flags: NotFoundFlags },
   NotPorted: { flags: NotPortedFlags },
 });
+
 export type PageFlags = typeof PageFlags.Type;
 
 export const Flags = Schema.Struct({ page: PageFlags, shell: ShellFlags });
+
 export type Flags = typeof Flags.Type;
 
 export const PageModel = defineTaggedUnion({
@@ -32,7 +34,9 @@ export const PageModel = defineTaggedUnion({
   NotFound: { model: NotFoundFlags },
   NotPorted: { model: NotPortedFlags },
 });
+
 export type PageModel = typeof PageModel.Type;
 
 export const Model = Schema.Struct({ page: PageModel, shell: ShellModel });
+
 export type Model = typeof Model.Type;

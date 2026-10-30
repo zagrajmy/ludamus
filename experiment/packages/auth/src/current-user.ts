@@ -1,6 +1,7 @@
+import { AppConfig } from "@zagrajmy/core";
 import { DjangoSessionStore, UserStore } from "@zagrajmy/database";
 import type { UserRow } from "@zagrajmy/database";
-import { Config, Context, DateTime, Effect, Layer, Option } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Redacted } from "effect";
 
 import { decodeSessionData, sessionAuthHash } from "./django-signing.js";
 
@@ -27,7 +28,7 @@ export const cookieValue = (cookieHeader: string | null, name: string) => {
 
   for (const pair of cookieHeader.split(";")) {
     const separator = pair.indexOf("=");
-    const key = (separator < 0 ? pair : pair.slice(0, separator)).trim();
+    const key = (separator === -1 ? pair : pair.slice(0, separator)).trim();
 
     if (key === name) {
       return Option.some(pair.slice(separator + 1).trim());
@@ -40,7 +41,7 @@ export const cookieValue = (cookieHeader: string | null, name: string) => {
 export const SessionResolverLive = Layer.effect(
   SessionResolver,
   Effect.gen(function* makeSessionResolver() {
-    const secret = yield* Config.String("SECRET_KEY");
+    const secret = Redacted.value((yield* AppConfig).secretKey);
     const sessions = yield* DjangoSessionStore;
     const users = yield* UserStore;
 
@@ -53,7 +54,9 @@ export const SessionResolverLive = Layer.effect(
         return Option.none<UserRow>();
       }
 
-      const expires = DateTime.make(`${row.value.expireDate.replace(" ", "T")}Z`);
+      const expires = DateTime.make(
+        `${row.value.expireDate.replace(" ", "T")}Z`
+      );
       const now = yield* DateTime.now;
 
       if (Option.isSome(expires) && DateTime.isLessThan(expires.value, now)) {

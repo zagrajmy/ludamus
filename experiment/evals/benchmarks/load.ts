@@ -25,12 +25,19 @@ export type LoadResult = Readonly<{
   totalMs: Summary;
 }>;
 
-type Sample = Readonly<{ bytes: number; status: number; totalMs: number; ttfbMs: number }>;
+type Sample = Readonly<{
+  bytes: number;
+  status: number;
+  totalMs: number;
+  ttfbMs: number;
+}>;
 
 const loopbackFor = (hostname: string) =>
-  hostname === "localhost" || hostname.endsWith(".localhost") ? "127.0.0.1" : hostname;
+  hostname === "localhost" || hostname.endsWith(".localhost")
+    ? "127.0.0.1"
+    : hostname;
 
-const once = (agent: Agent, url: URL, cookie: string | undefined) =>
+const once = async (agent: Agent, url: URL, cookie: string | undefined) =>
   new Promise<Sample>((resolvePromise, rejectPromise) => {
     const started = performance.now();
     let firstByte = started;
@@ -71,7 +78,9 @@ const once = (agent: Agent, url: URL, cookie: string | undefined) =>
     outgoing.end();
   });
 
-export const measureLoad = async (options: LoadOptions): Promise<LoadResult> => {
+export const measureLoad = async (
+  options: LoadOptions
+): Promise<LoadResult> => {
   const url = new URL(options.url);
   const agent = new Agent({ keepAlive: true, maxSockets: options.connections });
 
@@ -93,7 +102,8 @@ export const measureLoad = async (options: LoadOptions): Promise<LoadResult> => 
         ttfb.push(sample.ttfbMs);
         total.push(sample.totalMs);
         bytes += sample.bytes;
-        statuses[String(sample.status)] = (statuses[String(sample.status)] ?? 0) + 1;
+        statuses[String(sample.status)] =
+          (statuses[String(sample.status)] ?? 0) + 1;
       } catch {
         errors += 1;
       }

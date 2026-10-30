@@ -10,8 +10,11 @@ import { SqlClient } from "effect/sql/SqlClient";
 import { decodeRows } from "./rows.js";
 
 const eventsPerSphere = 500;
+
 const announcementsPerSphere = 50;
+
 const upcomingEncounters = 500;
+
 const pastEncounters = 24;
 
 export const FeedStoreLive = Layer.effect(

@@ -44,7 +44,7 @@ const vitalsScript = `
 
 export const measurePageWeight = async (
   url: string,
-  cookies: ReadonlyArray<StoredCookie>,
+  cookies: readonly StoredCookie[],
   origin: string
 ): Promise<PageWeight> => {
   const { chromium } = loadPlaywright();
@@ -100,8 +100,12 @@ export const measurePageWeight = async (
   await page.waitForTimeout(1500);
 
   const timing = await page.evaluate(() => {
-    const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
-    const vitals = (window as unknown as { __vitals: { lcp: number | null; cls: number } }).__vitals;
+    const navigation = performance.getEntriesByType(
+      "navigation"
+    )[0] as PerformanceNavigationTiming;
+    const vitals = (
+      window as unknown as { __vitals: { lcp: number | null; cls: number } }
+    ).__vitals;
 
     return {
       cls: vitals.cls,
@@ -121,7 +125,8 @@ export const measurePageWeight = async (
     domContentLoadedMs: Math.round(timing.domContentLoaded),
     htmlBytes: byType.document?.bytes ?? 0,
     jsBytes: byType.script?.bytes ?? 0,
-    largestContentfulPaintMs: timing.lcp === null ? null : Math.round(timing.lcp),
+    largestContentfulPaintMs:
+      timing.lcp === null ? null : Math.round(timing.lcp),
     loadMs: Math.round(timing.load),
     requests,
     status: response?.status() ?? 0,

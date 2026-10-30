@@ -78,6 +78,7 @@ const audienceSwitch = (context: PageContext, h: H) =>
 
 const heroHeading =
   "ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance";
+
 const heroLead =
   "ld d3 mt-[1.4rem] text-[clamp(1.05rem,2vw,1.25rem)] text-foreground-secondary max-w-xl";
 

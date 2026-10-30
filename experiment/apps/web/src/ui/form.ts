@@ -22,7 +22,7 @@ const labelLook =
   "block text-sm font-medium text-foreground-secondary first-letter:uppercase";
 
 export type Described = Readonly<{
-  errors?: ReadonlyArray<string>;
+  errors?: readonly string[];
   help?: string;
   id: string;
 }>;
@@ -51,7 +51,7 @@ export const label = <Message>(
   }>,
   h: HtmlBuilder<Message>
 ) => {
-  const children: ReadonlyArray<Child> = [
+  const children: readonly Child[] = [
     options.text,
     ...(options.required === true
       ? [
@@ -78,7 +78,7 @@ export const label = <Message>(
 export const helpAndErrors = <Message>(
   field: Described,
   h: HtmlBuilder<Message>
-): Array<Html> => {
+): Html[] => {
   const describedBy = helpId(field);
 
   return [
@@ -98,7 +98,7 @@ export const helpAndErrors = <Message>(
 
 export type TextFieldOptions<Message> = Described &
   Readonly<{
-    attributes?: ReadonlyArray<Attribute<Message>>;
+    attributes?: readonly Attribute<Message>[];
     autocomplete?: string;
     disabled?: boolean;
     name: string;
@@ -132,7 +132,7 @@ export const textInput = <Message>(
 
 export type TextareaOptions<Message> = Described &
   Readonly<{
-    attributes?: ReadonlyArray<TextareaAttribute<Message>>;
+    attributes?: readonly TextareaAttribute<Message>[];
     name: string;
     placeholder?: string;
     required?: boolean;
@@ -162,13 +162,14 @@ export type SelectOption = Readonly<{ label: string; value: string }>;
 
 export type SelectOptions<Message> = Described &
   Readonly<{
-    attributes?: ReadonlyArray<Attribute<Message>>;
+    attributes?: readonly Attribute<Message>[];
     disabled?: boolean;
-    groups?: ReadonlyArray<
-      Readonly<{ label: string; options: ReadonlyArray<SelectOption> }>
-    >;
+    groups?: readonly Readonly<{
+      label: string;
+      options: ReadonlyArray<SelectOption>;
+    }>[];
     name: string;
-    options?: ReadonlyArray<SelectOption>;
+    options?: readonly SelectOption[];
     required?: boolean;
     selected: string;
   }>;
@@ -226,6 +227,7 @@ export const field = <Message>(
     },
     h
   );
+
   const controls = [options.control, ...helpAndErrors(options.described, h)];
 
   return h.div(
@@ -248,7 +250,7 @@ export const field = <Message>(
 
 export type CheckboxOptions<Message> = Readonly<{
   ariaLabel?: string;
-  attributes?: ReadonlyArray<Attribute<Message>>;
+  attributes?: readonly Attribute<Message>[];
   checked: boolean;
   disabled?: boolean;
   id?: string;
@@ -307,7 +309,7 @@ export const checkboxToggle = <Message>(
 
 export const radio = <Message>(
   options: Readonly<{
-    attributes?: ReadonlyArray<Attribute<Message>>;
+    attributes?: readonly Attribute<Message>[];
     checked: boolean;
     label: Child;
     name: string;
@@ -333,7 +335,7 @@ export const radio = <Message>(
   );
 
 export type Choice<Message> = Readonly<{
-  attributes?: ReadonlyArray<Attribute<Message>>;
+  attributes?: readonly Attribute<Message>[];
   checked: boolean;
   id: string;
   label: Child;
@@ -343,7 +345,7 @@ export type Choice<Message> = Readonly<{
 export const choiceGroup = <Message>(
   options: Described &
     Readonly<{
-      choices: ReadonlyArray<Choice<Message>>;
+      choices: readonly Choice<Message>[];
       inputType: "checkbox" | "radio";
       name: string;
       toggle?: boolean;
@@ -397,7 +399,7 @@ export const choiceGroup = <Message>(
 };
 
 export const formErrors = <Message>(
-  errors: ReadonlyArray<string>,
+  errors: readonly string[],
   h: HtmlBuilder<Message>
 ) =>
   errors.map((error) =>

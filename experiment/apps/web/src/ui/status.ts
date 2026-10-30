@@ -35,7 +35,7 @@ export const statusHero = <Message>(
     lead: string;
   }>,
   h: HtmlBuilder<Message>
-): ReadonlyArray<Html> => {
+): readonly Html[] => {
   const compact = options.errorCode !== undefined && options.errorCode !== "";
 
   return [

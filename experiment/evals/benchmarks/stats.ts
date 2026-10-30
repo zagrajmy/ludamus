@@ -1,14 +1,20 @@
-export const percentile = (sorted: ReadonlyArray<number>, fraction: number): number => {
+export const percentile = (
+  sorted: readonly number[],
+  fraction: number
+): number => {
   if (sorted.length === 0) {
     return Number.NaN;
   }
 
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(fraction * sorted.length) - 1));
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(fraction * sorted.length) - 1)
+  );
 
   return sorted[index] ?? Number.NaN;
 };
 
-export const summarize = (samples: ReadonlyArray<number>) => {
+export const summarize = (samples: readonly number[]) => {
   const sorted = [...samples].sort((a, b) => a - b);
   const total = sorted.reduce((sum, value) => sum + value, 0);
 

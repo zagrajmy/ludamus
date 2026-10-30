@@ -6,7 +6,7 @@ export type PageLinks = Readonly<{
   next?: string;
   number: number;
   pageSize: number;
-  pageSizes: ReadonlyArray<Readonly<{ href: string; size: number }>>;
+  pageSizes: readonly Readonly<{ href: string; size: number }>[];
   previous?: string;
   total: number;
   totalPages: number;

@@ -8,6 +8,7 @@ export const adjustmentsHorizontalOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const adjustmentsHorizontalSolid: IconData = {
   paths: [
     {
@@ -16,6 +17,7 @@ export const adjustmentsHorizontalSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const adjustmentsHorizontalMini: IconData = {
   paths: [
     {
@@ -24,6 +26,7 @@ export const adjustmentsHorizontalMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const adjustmentsHorizontalMicro: IconData = {
   paths: [
     {
@@ -32,6 +35,7 @@ export const adjustmentsHorizontalMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const arrowDownTrayOutline: IconData = {
   paths: [
     {
@@ -40,16 +44,18 @@ export const arrowDownTrayOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const arrowDownTraySolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowDownTrayMini: IconData = {
   paths: [
     {
@@ -61,6 +67,7 @@ export const arrowDownTrayMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const arrowDownTrayMicro: IconData = {
   paths: [
     {
@@ -72,40 +79,45 @@ export const arrowDownTrayMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const arrowLeftOutline: IconData = {
   paths: [{ d: "M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" }],
   variant: "outline",
 };
+
 export const arrowLeftSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.03 3.97a.75.75 0 0 1 0 1.06l-6.22 6.22H21a.75.75 0 0 1 0 1.5H4.81l6.22 6.22a.75.75 0 1 1-1.06 1.06l-7.5-7.5a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 0 1 1.06 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowLeftMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const arrowLeftMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25h8.69A.75.75 0 0 1 14 8Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const arrowPathOutline: IconData = {
   paths: [
     {
@@ -114,36 +126,40 @@ export const arrowPathOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const arrowPathSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm15.408 3.352a.75.75 0 0 0-.919.53 7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 15.059-4.035.75.75 0 0 0-.53-.918Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowPathMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0V5.36l-.31-.31A7 7 0 0 0 3.239 8.188a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.11l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const arrowPathMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M13.836 2.477a.75.75 0 0 1 .75.75v3.182a.75.75 0 0 1-.75.75h-3.182a.75.75 0 0 1 0-1.5h1.37l-.84-.841a4.5 4.5 0 0 0-7.08.932.75.75 0 0 1-1.3-.75 6 6 0 0 1 9.44-1.242l.842.84V3.227a.75.75 0 0 1 .75-.75Zm-.911 7.5A.75.75 0 0 1 13.199 11a6 6 0 0 1-9.44 1.241l-.84-.84v1.371a.75.75 0 0 1-1.5 0V9.591a.75.75 0 0 1 .75-.75H5.35a.75.75 0 0 1 0 1.5H3.98l.841.841a4.5 4.5 0 0 0 7.08-.932.75.75 0 0 1 1.025-.273Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const arrowRightOnRectangleOutline: IconData = {
   paths: [
     {
@@ -152,31 +168,34 @@ export const arrowRightOnRectangleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const arrowRightOnRectangleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 1 1.5 0v3.75a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3V5.25a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V9A.75.75 0 0 1 15 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-6Zm10.72 4.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06l1.72-1.72H9a.75.75 0 0 1 0-1.5h10.94l-1.72-1.72a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowRightOnRectangleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
+      clipRule: "evenodd",
       d: "M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const arrowTopRightOnSquareOutline: IconData = {
   paths: [
     {
@@ -185,31 +204,34 @@ export const arrowTopRightOnSquareOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const arrowTopRightOnSquareSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.75 2.25H21a.75.75 0 0 1 .75.75v5.25a.75.75 0 0 1-1.5 0V4.81L8.03 17.03a.75.75 0 0 1-1.06-1.06L19.19 3.75h-3.44a.75.75 0 0 1 0-1.5Zm-10.5 4.5a1.5 1.5 0 0 0-1.5 1.5v10.5a1.5 1.5 0 0 0 1.5 1.5h10.5a1.5 1.5 0 0 0 1.5-1.5V10.5a.75.75 0 0 1 1.5 0v8.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V8.25a3 3 0 0 1 3-3h8.25a.75.75 0 0 1 0 1.5H5.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowTopRightOnSquareMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
+      clipRule: "evenodd",
       d: "M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const arrowTopRightOnSquareMicro: IconData = {
   paths: [
     {
@@ -221,6 +243,7 @@ export const arrowTopRightOnSquareMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const arrowUpTrayOutline: IconData = {
   paths: [
     {
@@ -229,16 +252,18 @@ export const arrowUpTrayOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const arrowUpTraySolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowUpTrayMini: IconData = {
   paths: [
     {
@@ -250,6 +275,7 @@ export const arrowUpTrayMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const arrowUpTrayMicro: IconData = {
   paths: [
     {
@@ -261,74 +287,83 @@ export const arrowUpTrayMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const arrowUturnLeftOutline: IconData = {
   paths: [{ d: "M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" }],
   variant: "outline",
 };
+
 export const arrowUturnLeftSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.53 2.47a.75.75 0 0 1 0 1.06L4.81 8.25H15a6.75 6.75 0 0 1 0 13.5h-3a.75.75 0 0 1 0-1.5h3a5.25 5.25 0 1 0 0-10.5H4.81l4.72 4.72a.75.75 0 1 1-1.06 1.06l-6-6a.75.75 0 0 1 0-1.06l6-6a.75.75 0 0 1 1.06 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const arrowUturnLeftMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.793 2.232a.75.75 0 0 1-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 0 1 0 10.75H10.75a.75.75 0 0 1 0-1.5h2.875a3.875 3.875 0 0 0 0-7.75H3.622l4.146 3.957a.75.75 0 0 1-1.036 1.085l-5.5-5.25a.75.75 0 0 1 0-1.085l5.5-5.25a.75.75 0 0 1 1.06.025Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const arrowUturnLeftMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12.5 9.75A2.75 2.75 0 0 0 9.75 7H4.56l2.22 2.22a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L4.56 5.5h5.19a4.25 4.25 0 0 1 0 8.5h-1a.75.75 0 0 1 0-1.5h1a2.75 2.75 0 0 0 2.75-2.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const bars3Outline: IconData = {
   paths: [{ d: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" }],
   variant: "outline",
 };
+
 export const bars3Solid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75ZM3 12a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const bars3Mini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75ZM2 10a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 10Zm0 5.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const bars3Micro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2 3.75A.75.75 0 0 1 2.75 3h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75ZM2 8a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 8Zm0 4.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const beakerOutline: IconData = {
   paths: [
     {
@@ -337,36 +372,40 @@ export const beakerOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const beakerSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.5 3.798v5.02a3 3 0 0 1-.879 2.121l-2.377 2.377a9.845 9.845 0 0 1 5.091 1.013 8.315 8.315 0 0 0 5.713.636l.285-.071-3.954-3.955a3 3 0 0 1-.879-2.121v-5.02a23.614 23.614 0 0 0-3 0Zm4.5.138a.75.75 0 0 0 .093-1.495A24.837 24.837 0 0 0 12 2.25a25.048 25.048 0 0 0-3.093.191A.75.75 0 0 0 9 3.936v4.882a1.5 1.5 0 0 1-.44 1.06l-6.293 6.294c-1.62 1.621-.903 4.475 1.471 4.88 2.686.46 5.447.698 8.262.698 2.816 0 5.576-.239 8.262-.697 2.373-.406 3.092-3.26 1.47-4.881L15.44 9.879A1.5 1.5 0 0 1 15 8.818V3.936Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const beakerMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.5 3.528v4.644c0 .729-.29 1.428-.805 1.944l-1.217 1.216a8.75 8.75 0 0 1 3.55.621l.502.201a7.25 7.25 0 0 0 4.178.365l-2.403-2.403a2.75 2.75 0 0 1-.805-1.944V3.528a40.205 40.205 0 0 0-3 0Zm4.5.084.19.015a.75.75 0 1 0 .12-1.495 41.364 41.364 0 0 0-6.62 0 .75.75 0 0 0 .12 1.495L7 3.612v4.56c0 .331-.132.649-.366.883L2.6 13.09c-1.496 1.496-.817 4.15 1.403 4.475C5.961 17.852 7.963 18 10 18s4.039-.148 5.997-.436c2.22-.325 2.9-2.979 1.403-4.475l-4.034-4.034A1.25 1.25 0 0 1 13 8.172v-4.56Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const beakerMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11 3.5v2.257c0 .597.237 1.17.659 1.591l2.733 2.733c.39.39.608.918.608 1.469a2.04 2.04 0 0 1-1.702 2.024C11.573 13.854 9.803 14 8 14s-3.573-.146-5.298-.426A2.04 2.04 0 0 1 1 11.55c0-.551.219-1.08.608-1.47l2.733-2.732A2.25 2.25 0 0 0 5 5.758V3.5h-.25a.75.75 0 0 1 0-1.5h6.5a.75.75 0 0 1 0 1.5H11ZM6.5 5.757V3.5h3v2.257a3.75 3.75 0 0 0 1.098 2.652l.158.158a3.36 3.36 0 0 0-.075.034c-.424.2-.916.194-1.335-.016l-1.19-.595a4.943 4.943 0 0 0-2.07-.52A3.75 3.75 0 0 0 6.5 5.757Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const bellOutline: IconData = {
   paths: [
     {
@@ -375,36 +414,40 @@ export const bellOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const bellSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const bellMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 2a6 6 0 0 0-6 6c0 1.887-.454 3.665-1.257 5.234a.75.75 0 0 0 .515 1.076 32.91 32.91 0 0 0 3.256.508 3.5 3.5 0 0 0 6.972 0 32.903 32.903 0 0 0 3.256-.508.75.75 0 0 0 .515-1.076A11.448 11.448 0 0 1 16 8a6 6 0 0 0-6-6ZM8.05 14.943a33.54 33.54 0 0 0 3.9 0 2 2 0 0 1-3.9 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const bellMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 5a4 4 0 0 0-8 0v2.379a1.5 1.5 0 0 1-.44 1.06L2.294 9.707a1 1 0 0 0-.293.707V11a1 1 0 0 0 1 1h2a3 3 0 1 0 6 0h2a1 1 0 0 0 1-1v-.586a1 1 0 0 0-.293-.707L12.44 8.44A1.5 1.5 0 0 1 12 7.38V5Zm-5.5 7a1.5 1.5 0 0 0 3 0h-3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const bellAlertOutline: IconData = {
   paths: [
     {
@@ -413,45 +456,49 @@ export const bellAlertOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const bellAlertSolid: IconData = {
   paths: [
     {
       d: "M5.85 3.5a.75.75 0 0 0-1.117-1 9.719 9.719 0 0 0-2.348 4.876.75.75 0 0 0 1.479.248A8.219 8.219 0 0 1 5.85 3.5ZM19.267 2.5a.75.75 0 1 0-1.118 1 8.22 8.22 0 0 1 1.987 4.124.75.75 0 0 0 1.48-.248A9.72 9.72 0 0 0 19.266 2.5Z",
     },
     {
+      clipRule: "evenodd",
       d: "M12 2.25A6.75 6.75 0 0 0 5.25 9v.75a8.217 8.217 0 0 1-2.119 5.52.75.75 0 0 0 .298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 1 0 7.48 0 24.583 24.583 0 0 0 4.83-1.244.75.75 0 0 0 .298-1.205 8.217 8.217 0 0 1-2.118-5.52V9A6.75 6.75 0 0 0 12 2.25ZM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 0 0 4.496 0l.002.1a2.25 2.25 0 1 1-4.5 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const bellAlertMini: IconData = {
   paths: [
     {
       d: "M4.214 3.227a.75.75 0 0 0-1.156-.955 8.97 8.97 0 0 0-1.856 3.825.75.75 0 0 0 1.466.316 7.47 7.47 0 0 1 1.546-3.186ZM16.942 2.272a.75.75 0 0 0-1.157.955 7.47 7.47 0 0 1 1.547 3.186.75.75 0 0 0 1.466-.316 8.971 8.971 0 0 0-1.856-3.825Z",
     },
     {
+      clipRule: "evenodd",
       d: "M10 2a6 6 0 0 0-6 6c0 1.887-.454 3.665-1.257 5.234a.75.75 0 0 0 .515 1.076 32.91 32.91 0 0 0 3.256.508 3.5 3.5 0 0 0 6.972 0 32.903 32.903 0 0 0 3.256-.508.75.75 0 0 0 .515-1.076A11.448 11.448 0 0 1 16 8a6 6 0 0 0-6-6Zm0 14.5a2 2 0 0 1-1.95-1.557 33.54 33.54 0 0 0 3.9 0A2 2 0 0 1 10 16.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const bellAlertMicro: IconData = {
   paths: [
     {
       d: "M3.6 1.7A.75.75 0 1 0 2.4.799a6.978 6.978 0 0 0-1.123 2.247.75.75 0 1 0 1.44.418c.187-.644.489-1.24.883-1.764ZM13.6.799a.75.75 0 1 0-1.2.9 5.48 5.48 0 0 1 .883 1.765.75.75 0 1 0 1.44-.418A6.978 6.978 0 0 0 13.6.799Z",
     },
     {
+      clipRule: "evenodd",
       d: "M8 1a4 4 0 0 1 4 4v2.379c0 .398.158.779.44 1.06l1.267 1.268a1 1 0 0 1 .293.707V11a1 1 0 0 1-1 1h-2a3 3 0 1 1-6 0H3a1 1 0 0 1-1-1v-.586a1 1 0 0 1 .293-.707L3.56 8.44A1.5 1.5 0 0 0 4 7.38V5a4 4 0 0 1 4-4Zm0 12.5A1.5 1.5 0 0 1 6.5 12h3A1.5 1.5 0 0 1 8 13.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const bellSlashOutline: IconData = {
   paths: [
     {
@@ -460,19 +507,21 @@ export const bellSlashOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const bellSlashSolid: IconData = {
   paths: [
     {
       d: "M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM20.57 16.476c-.223.082-.448.161-.674.238L7.319 4.137A6.75 6.75 0 0 1 18.75 9v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206Z",
     },
     {
+      clipRule: "evenodd",
       d: "M5.25 9c0-.184.007-.366.022-.546l10.384 10.384a3.751 3.751 0 0 1-7.396-1.119 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const bellSlashMini: IconData = {
   paths: [
     {
@@ -481,12 +530,13 @@ export const bellSlashMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const bellSlashMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 7.379v-.904l6.743 6.742A3 3 0 0 1 5 12H3a1 1 0 0 1-1-1v-.586a1 1 0 0 1 .293-.707L3.56 8.44A1.5 1.5 0 0 0 4 7.38ZM6.5 12a1.5 1.5 0 0 0 3 0h-3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M14 11a.997.997 0 0 1-.096.429L4.92 2.446A4 4 0 0 1 12 5v2.379c0 .398.158.779.44 1.06l1.267 1.268a1 1 0 0 1 .293.707V11ZM2.22 2.22a.75.75 0 0 1 1.06 0l10.5 10.5a.75.75 0 1 1-1.06 1.06L2.22 3.28a.75.75 0 0 1 0-1.06Z",
@@ -494,6 +544,7 @@ export const bellSlashMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const bookOpenOutline: IconData = {
   paths: [
     {
@@ -502,6 +553,7 @@ export const bookOpenOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const bookOpenSolid: IconData = {
   paths: [
     {
@@ -510,6 +562,7 @@ export const bookOpenSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const bookOpenMini: IconData = {
   paths: [
     {
@@ -518,6 +571,7 @@ export const bookOpenMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const bookOpenMicro: IconData = {
   paths: [
     {
@@ -526,6 +580,7 @@ export const bookOpenMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const buildingOfficeOutline: IconData = {
   paths: [
     {
@@ -534,36 +589,40 @@ export const buildingOfficeOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const buildingOfficeSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5h-.75V3.75a.75.75 0 0 0 0-1.5h-15ZM9 6a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm-.75 3.75A.75.75 0 0 1 9 9h1.5a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75ZM9 12a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H9Zm3.75-5.25A.75.75 0 0 1 13.5 6H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM13.5 9a.75.75 0 0 0 0 1.5H15A.75.75 0 0 0 15 9h-1.5Zm-.75 3.75a.75.75 0 0 1 .75-.75H15a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM9 19.5v-2.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 9 19.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const buildingOfficeMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 9a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM11 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const buildingOfficeMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.75 2a.75.75 0 0 0 0 1.5H4v9h-.25a.75.75 0 0 0 0 1.5H6a.5.5 0 0 0 .5-.5v-3A.5.5 0 0 1 7 10h2a.5.5 0 0 1 .5.5v3a.5.5 0 0 0 .5.5h2.25a.75.75 0 0 0 0-1.5H12v-9h.25a.75.75 0 0 0 0-1.5h-8.5ZM6.5 4a.5.5 0 0 0-.5.5V5a.5.5 0 0 0 .5.5H7a.5.5 0 0 0 .5-.5v-.5A.5.5 0 0 0 7 4h-.5ZM6 7a.5.5 0 0 1 .5-.5H7a.5.5 0 0 1 .5.5v.5A.5.5 0 0 1 7 8h-.5a.5.5 0 0 1-.5-.5V7Zm3-3a.5.5 0 0 0-.5.5V5a.5.5 0 0 0 .5.5h.5A.5.5 0 0 0 10 5v-.5a.5.5 0 0 0-.5-.5H9Zm-.5 3a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 .5.5v.5a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5V7Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const buildingOffice2Outline: IconData = {
   paths: [
     {
@@ -572,36 +631,40 @@ export const buildingOffice2Outline: IconData = {
   ],
   variant: "outline",
 };
+
 export const buildingOffice2Solid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5H15v-18a.75.75 0 0 0 0-1.5H3ZM6.75 19.5v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75ZM6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 6.75ZM6.75 9a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM6 12.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 6a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75Zm-.75 3.75A.75.75 0 0 1 10.5 9h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 12a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM16.5 6.75v15h5.25a.75.75 0 0 0 0-1.5H21v-12a.75.75 0 0 0 0-1.5h-4.5Zm1.5 4.5a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 2.25a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75v-.008a.75.75 0 0 0-.75-.75h-.008ZM18 17.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const buildingOffice2Mini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 2.75A.75.75 0 0 1 1.75 2h10.5a.75.75 0 0 1 0 1.5H12v13.75a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5H2v-13h-.25A.75.75 0 0 1 1 2.75ZM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM4.5 9a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM8 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM8.5 9a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM14.25 6a.75.75 0 0 0-.75.75V17a1 1 0 0 0 1 1h3.75a.75.75 0 0 0 0-1.5H18v-9h.25a.75.75 0 0 0 0-1.5h-4Zm.5 3.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const buildingOffice2Micro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.75 2a.75.75 0 0 0 0 1.5H2v9h-.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 .75-.75v-1.5a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v1.5c0 .414.336.75.75.75h.5a.75.75 0 0 0 .75-.75V3.5h.25a.75.75 0 0 0 0-1.5h-7.5ZM3.5 5.5A.5.5 0 0 1 4 5h.5a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5v-.5Zm.5 2a.5.5 0 0 0-.5.5v.5A.5.5 0 0 0 4 9h.5a.5.5 0 0 0 .5-.5V8a.5.5 0 0 0-.5-.5H4Zm2-2a.5.5 0 0 1 .5-.5H7a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-.5.5h-.5A.5.5 0 0 1 6 6v-.5Zm.5 2A.5.5 0 0 0 6 8v.5a.5.5 0 0 0 .5.5H7a.5.5 0 0 0 .5-.5V8a.5.5 0 0 0-.5-.5h-.5ZM11.5 6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.75a.75.75 0 0 0 0-1.5H14v-5h.25a.75.75 0 0 0 0-1.5H11.5Zm.5 1.5h.5a.5.5 0 0 1 .5.5v.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5V8a.5.5 0 0 1 .5-.5Zm0 2.5a.5.5 0 0 0-.5.5v.5a.5.5 0 0 0 .5.5h.5a.5.5 0 0 0 .5-.5v-.5a.5.5 0 0 0-.5-.5H12Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const calendarOutline: IconData = {
   paths: [
     {
@@ -610,36 +673,40 @@ export const calendarOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const calendarSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const calendarMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const calendarMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 1.75a.75.75 0 0 1 1.5 0V3h5V1.75a.75.75 0 0 1 1.5 0V3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2V1.75ZM4.5 6a1 1 0 0 0-1 1v4.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-7Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const calendarDaysOutline: IconData = {
   paths: [
     {
@@ -648,45 +715,49 @@ export const calendarDaysOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const calendarDaysSolid: IconData = {
   paths: [
     {
       d: "M12.75 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM8.25 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9.75 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12.75 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM14.25 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",
     },
     {
+      clipRule: "evenodd",
       d: "M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const calendarDaysMini: IconData = {
   paths: [
     {
       d: "M5.25 12a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H6a.75.75 0 0 1-.75-.75V12ZM6 13.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V14a.75.75 0 0 0-.75-.75H6ZM7.25 12a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H8a.75.75 0 0 1-.75-.75V12ZM8 13.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V14a.75.75 0 0 0-.75-.75H8ZM9.25 10a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H10a.75.75 0 0 1-.75-.75V10ZM10 11.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V12a.75.75 0 0 0-.75-.75H10ZM9.25 14a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H10a.75.75 0 0 1-.75-.75V14ZM12 9.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V10a.75.75 0 0 0-.75-.75H12ZM11.25 12a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H12a.75.75 0 0 1-.75-.75V12ZM12 13.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V14a.75.75 0 0 0-.75-.75H12ZM13.25 10a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 .75.75v.01a.75.75 0 0 1-.75.75H14a.75.75 0 0 1-.75-.75V10ZM14 11.25a.75.75 0 0 0-.75.75v.01c0 .414.336.75.75.75h.01a.75.75 0 0 0 .75-.75V12a.75.75 0 0 0-.75-.75H14Z",
     },
     {
+      clipRule: "evenodd",
       d: "M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const calendarDaysMicro: IconData = {
   paths: [
     {
       d: "M5.75 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM5 10.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM10.25 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM7.25 8.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM8 9.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0-1.5Z",
     },
     {
+      clipRule: "evenodd",
       d: "M4.75 1a.75.75 0 0 0-.75.75V3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2V1.75a.75.75 0 0 0-1.5 0V3h-5V1.75A.75.75 0 0 0 4.75 1ZM3.5 7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V7Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chartBarOutline: IconData = {
   paths: [
     {
@@ -695,6 +766,7 @@ export const chartBarOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const chartBarSolid: IconData = {
   paths: [
     {
@@ -703,6 +775,7 @@ export const chartBarSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const chartBarMini: IconData = {
   paths: [
     {
@@ -711,6 +784,7 @@ export const chartBarMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const chartBarMicro: IconData = {
   paths: [
     {
@@ -719,246 +793,275 @@ export const chartBarMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const checkOutline: IconData = {
   paths: [{ d: "m4.5 12.75 6 6 9-13.5" }],
   variant: "outline",
 };
+
 export const checkSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const checkMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const checkMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const checkCircleOutline: IconData = {
   paths: [
     { d: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" },
   ],
   variant: "outline",
 };
+
 export const checkCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const checkCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const checkCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.844-8.791a.75.75 0 0 0-1.188-.918l-3.7 4.79-1.649-1.833a.75.75 0 1 0-1.114 1.004l2.25 2.5a.75.75 0 0 0 1.15-.043l4.25-5.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chevronDownOutline: IconData = {
   paths: [{ d: "m19.5 8.25-7.5 7.5-7.5-7.5" }],
   variant: "outline",
 };
+
 export const chevronDownSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const chevronDownMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const chevronDownMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chevronLeftOutline: IconData = {
   paths: [{ d: "M15.75 19.5 8.25 12l7.5-7.5" }],
   variant: "outline",
 };
+
 export const chevronLeftSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.72 12.53a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 1 1 1.06 1.06L9.31 12l6.97 6.97a.75.75 0 1 1-1.06 1.06l-7.5-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const chevronLeftMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const chevronLeftMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.78 4.22a.75.75 0 0 1 0 1.06L7.06 8l2.72 2.72a.75.75 0 1 1-1.06 1.06L5.47 8.53a.75.75 0 0 1 0-1.06l3.25-3.25a.75.75 0 0 1 1.06 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chevronRightOutline: IconData = {
   paths: [{ d: "m8.25 4.5 7.5 7.5-7.5 7.5" }],
   variant: "outline",
 };
+
 export const chevronRightSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const chevronRightMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const chevronRightMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chevronUpOutline: IconData = {
   paths: [{ d: "m4.5 15.75 7.5-7.5 7.5 7.5" }],
   variant: "outline",
 };
+
 export const chevronUpSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.47 7.72a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 0 1-1.06-1.06l7.5-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const chevronUpMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const chevronUpMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.78 9.78a.75.75 0 0 1-1.06 0L8 7.06 5.28 9.78a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const chevronUpDownOutline: IconData = {
   paths: [{ d: "M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" }],
   variant: "outline",
 };
+
 export const chevronUpDownSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.47 4.72a.75.75 0 0 1 1.06 0l3.75 3.75a.75.75 0 0 1-1.06 1.06L12 6.31 8.78 9.53a.75.75 0 0 1-1.06-1.06l3.75-3.75Zm-3.75 9.75a.75.75 0 0 1 1.06 0L12 17.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const chevronUpDownMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.53 3.47a.75.75 0 0 0-1.06 0L6.22 6.72a.75.75 0 0 0 1.06 1.06L10 5.06l2.72 2.72a.75.75 0 1 0 1.06-1.06l-3.25-3.25Zm-4.31 9.81 3.25 3.25a.75.75 0 0 0 1.06 0l3.25-3.25a.75.75 0 1 0-1.06-1.06L10 14.94l-2.72-2.72a.75.75 0 0 0-1.06 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const chevronUpDownMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.22 10.22a.75.75 0 0 1 1.06 0L8 11.94l1.72-1.72a.75.75 0 1 1 1.06 1.06l-2.25 2.25a.75.75 0 0 1-1.06 0l-2.25-2.25a.75.75 0 0 1 0-1.06ZM10.78 5.78a.75.75 0 0 1-1.06 0L8 4.06 6.28 5.78a.75.75 0 0 1-1.06-1.06l2.25-2.25a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const clipboardOutline: IconData = {
   paths: [
     {
@@ -967,36 +1070,40 @@ export const clipboardOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const clipboardSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.5 3A1.501 1.501 0 0 0 9 4.5h6A1.5 1.5 0 0 0 13.5 3h-3Zm-2.693.178A3 3 0 0 1 10.5 1.5h3a3 3 0 0 1 2.694 1.678c.497.042.992.092 1.486.15 1.497.173 2.57 1.46 2.57 2.929V19.5a3 3 0 0 1-3 3H6.75a3 3 0 0 1-3-3V6.257c0-1.47 1.073-2.756 2.57-2.93.493-.057.989-.107 1.487-.15Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const clipboardMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M13.887 3.182c.396.037.79.08 1.183.128C16.194 3.45 17 4.414 17 5.517V16.75A2.25 2.25 0 0 1 14.75 19h-9.5A2.25 2.25 0 0 1 3 16.75V5.517c0-1.103.806-2.068 1.93-2.207.393-.048.787-.09 1.183-.128A3.001 3.001 0 0 1 9 1h2c1.373 0 2.531.923 2.887 2.182ZM7.5 4A1.5 1.5 0 0 1 9 2.5h2A1.5 1.5 0 0 1 12.5 4v.5h-5V4Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const clipboardMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.986 3H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1.014A2.25 2.25 0 0 1 7.25 1h1.5a2.25 2.25 0 0 1 2.236 2ZM9.5 4v-.75a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0-.75.75V4h3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const clipboardDocumentOutline: IconData = {
   paths: [
     {
@@ -1005,12 +1112,13 @@ export const clipboardDocumentOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const clipboardDocumentSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M17.663 3.118c.225.015.45.032.673.05C19.876 3.298 21 4.604 21 6.109v9.642a3 3 0 0 1-3 3V16.5c0-5.922-4.576-10.775-10.384-11.217.324-1.132 1.3-2.01 2.548-2.114.224-.019.448-.036.673-.051A3 3 0 0 1 13.5 1.5H15a3 3 0 0 1 2.663 1.618ZM12 4.5A1.5 1.5 0 0 1 13.5 3H15a1.5 1.5 0 0 1 1.5 1.5H12Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M3 8.625c0-1.036.84-1.875 1.875-1.875h.375A3.75 3.75 0 0 1 9 10.5v1.875c0 1.036.84 1.875 1.875 1.875h1.875A3.75 3.75 0 0 1 16.5 18v2.625c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625v-12Z",
@@ -1021,12 +1129,13 @@ export const clipboardDocumentSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const clipboardDocumentMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.988 3.012A2.25 2.25 0 0 1 18 5.25v6.5A2.25 2.25 0 0 1 15.75 14H13.5v-3.379a3 3 0 0 0-.879-2.121l-3.12-3.121a3 3 0 0 0-1.402-.791 2.252 2.252 0 0 1 1.913-1.576A2.25 2.25 0 0 1 12.25 1h1.5a2.25 2.25 0 0 1 2.238 2.012ZM11.5 3.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v.25h-3v-.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M3.5 6A1.5 1.5 0 0 0 2 7.5v9A1.5 1.5 0 0 0 3.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L8.44 6.439A1.5 1.5 0 0 0 7.378 6H3.5Z",
@@ -1034,12 +1143,13 @@ export const clipboardDocumentMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const clipboardDocumentMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.986 3H12a2 2 0 0 1 2 2v6a2 2 0 0 1-1.5 1.937v-2.523a2.5 2.5 0 0 0-.732-1.768L8.354 5.232A2.5 2.5 0 0 0 6.586 4.5H4.063A2 2 0 0 1 6 3h.014A2.25 2.25 0 0 1 8.25 1h1.5a2.25 2.25 0 0 1 2.236 2ZM10.5 4v-.75a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0-.75.75V4h3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M3 6a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-3.586a1 1 0 0 0-.293-.707L7.293 6.293A1 1 0 0 0 6.586 6H3Z",
@@ -1047,40 +1157,45 @@ export const clipboardDocumentMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const clockOutline: IconData = {
   paths: [{ d: "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" }],
   variant: "outline",
 };
+
 export const clockSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const clockMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const clockMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .414.336.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const cog6ToothOutline: IconData = {
   paths: [
     {
@@ -1090,36 +1205,40 @@ export const cog6ToothOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const cog6ToothSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const cog6ToothMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const cog6ToothMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6.455 1.45A.5.5 0 0 1 6.952 1h2.096a.5.5 0 0 1 .497.45l.186 1.858a4.996 4.996 0 0 1 1.466.848l1.703-.769a.5.5 0 0 1 .639.206l1.047 1.814a.5.5 0 0 1-.14.656l-1.517 1.09a5.026 5.026 0 0 1 0 1.694l1.516 1.09a.5.5 0 0 1 .141.656l-1.047 1.814a.5.5 0 0 1-.639.206l-1.703-.768c-.433.36-.928.649-1.466.847l-.186 1.858a.5.5 0 0 1-.497.45H6.952a.5.5 0 0 1-.497-.45l-.186-1.858a4.993 4.993 0 0 1-1.466-.848l-1.703.769a.5.5 0 0 1-.639-.206l-1.047-1.814a.5.5 0 0 1 .14-.656l1.517-1.09a5.033 5.033 0 0 1 0-1.694l-1.516-1.09a.5.5 0 0 1-.141-.656L2.46 3.593a.5.5 0 0 1 .639-.206l1.703.769c.433-.36.928-.65 1.466-.848l.186-1.858Zm-.177 7.567-.022-.037a2 2 0 0 1 3.466-1.997l.022.037a2 2 0 0 1-3.466 1.997Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const computerDesktopOutline: IconData = {
   paths: [
     {
@@ -1128,36 +1247,40 @@ export const computerDesktopOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const computerDesktopSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.25 5.25a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3V15a3 3 0 0 1-3 3h-3v.257c0 .597.237 1.17.659 1.591l.621.622a.75.75 0 0 1-.53 1.28h-9a.75.75 0 0 1-.53-1.28l.621-.622a2.25 2.25 0 0 0 .659-1.59V18h-3a3 3 0 0 1-3-3V5.25Zm1.5 0v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const computerDesktopMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2 4.25A2.25 2.25 0 0 1 4.25 2h11.5A2.25 2.25 0 0 1 18 4.25v8.5A2.25 2.25 0 0 1 15.75 15h-3.105a3.501 3.501 0 0 0 1.1 1.677A.75.75 0 0 1 13.26 18H6.74a.75.75 0 0 1-.484-1.323A3.501 3.501 0 0 0 7.355 15H4.25A2.25 2.25 0 0 1 2 12.75v-8.5Zm1.5 0a.75.75 0 0 1 .75-.75h11.5a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75v-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const computerDesktopMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v5.5A2.25 2.25 0 0 1 11.75 12h-1.312c.1.128.21.248.328.36a.75.75 0 0 1 .234.545v.345a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-.345a.75.75 0 0 1 .234-.545c.118-.111.228-.232.328-.36H4.25A2.25 2.25 0 0 1 2 9.75v-5.5Zm2.25-.75a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h7.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-.75-.75h-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const documentOutline: IconData = {
   paths: [
     {
@@ -1166,6 +1289,7 @@ export const documentOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const documentSolid: IconData = {
   paths: [
     {
@@ -1177,6 +1301,7 @@ export const documentSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const documentMini: IconData = {
   paths: [
     {
@@ -1185,6 +1310,7 @@ export const documentMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const documentMicro: IconData = {
   paths: [
     {
@@ -1193,6 +1319,7 @@ export const documentMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const documentDuplicateOutline: IconData = {
   paths: [
     {
@@ -1201,6 +1328,7 @@ export const documentDuplicateOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const documentDuplicateSolid: IconData = {
   paths: [
     {
@@ -1212,6 +1340,7 @@ export const documentDuplicateSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const documentDuplicateMini: IconData = {
   paths: [
     {
@@ -1223,6 +1352,7 @@ export const documentDuplicateMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const documentDuplicateMicro: IconData = {
   paths: [
     {
@@ -1234,6 +1364,7 @@ export const documentDuplicateMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const documentTextOutline: IconData = {
   paths: [
     {
@@ -1242,12 +1373,13 @@ export const documentTextOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const documentTextSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z",
@@ -1255,26 +1387,29 @@ export const documentTextSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const documentTextMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm2.25 8.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Zm0 3a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const documentTextMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm1 5.75A.75.75 0 0 1 5.75 7h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 5 7.75Zm0 3a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const ellipsisHorizontalOutline: IconData = {
   paths: [
     {
@@ -1283,16 +1418,18 @@ export const ellipsisHorizontalOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const ellipsisHorizontalSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const ellipsisHorizontalMini: IconData = {
   paths: [
     {
@@ -1301,6 +1438,7 @@ export const ellipsisHorizontalMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const ellipsisHorizontalMicro: IconData = {
   paths: [
     {
@@ -1309,6 +1447,7 @@ export const ellipsisHorizontalMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const ellipsisVerticalOutline: IconData = {
   paths: [
     {
@@ -1317,16 +1456,18 @@ export const ellipsisVerticalOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const ellipsisVerticalSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const ellipsisVerticalMini: IconData = {
   paths: [
     {
@@ -1335,6 +1476,7 @@ export const ellipsisVerticalMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const ellipsisVerticalMicro: IconData = {
   paths: [
     {
@@ -1343,6 +1485,7 @@ export const ellipsisVerticalMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const envelopeOutline: IconData = {
   paths: [
     {
@@ -1351,6 +1494,7 @@ export const envelopeOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const envelopeSolid: IconData = {
   paths: [
     {
@@ -1362,6 +1506,7 @@ export const envelopeSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const envelopeMini: IconData = {
   paths: [
     {
@@ -1373,6 +1518,7 @@ export const envelopeMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const envelopeMicro: IconData = {
   paths: [
     {
@@ -1384,6 +1530,7 @@ export const envelopeMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const envelopeOpenOutline: IconData = {
   paths: [
     {
@@ -1392,6 +1539,7 @@ export const envelopeOpenOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const envelopeOpenSolid: IconData = {
   paths: [
     {
@@ -1403,26 +1551,29 @@ export const envelopeOpenSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const envelopeOpenMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.106 6.447A2 2 0 0 0 1 8.237V16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.236a2 2 0 0 0-1.106-1.789l-7-3.5a2 2 0 0 0-1.788 0l-7 3.5Zm1.48 4.007a.75.75 0 0 0-.671 1.342l5.855 2.928a2.75 2.75 0 0 0 2.46 0l5.852-2.927a.75.75 0 1 0-.67-1.341l-5.853 2.926a1.25 1.25 0 0 1-1.118 0l-5.856-2.928Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const envelopeOpenMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.756 4.568A1.5 1.5 0 0 0 1 5.871V12.5A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5V5.87a1.5 1.5 0 0 0-.756-1.302l-5.5-3.143a1.5 1.5 0 0 0-1.488 0l-5.5 3.143Zm1.82 2.963a.75.75 0 0 0-.653 1.35l4.1 1.98a2.25 2.25 0 0 0 1.955 0l4.1-1.98a.75.75 0 1 0-.653-1.35L8.326 9.51a.75.75 0 0 1-.652 0L3.575 7.53Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const exclamationCircleOutline: IconData = {
   paths: [
     {
@@ -1431,36 +1582,40 @@ export const exclamationCircleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const exclamationCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const exclamationCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const exclamationCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const exclamationTriangleOutline: IconData = {
   paths: [
     {
@@ -1469,36 +1624,40 @@ export const exclamationTriangleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const exclamationTriangleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const exclamationTriangleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const exclamationTriangleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const eyeSlashOutline: IconData = {
   paths: [
     {
@@ -1507,6 +1666,7 @@ export const eyeSlashOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const eyeSlashSolid: IconData = {
   paths: [
     {
@@ -1521,12 +1681,13 @@ export const eyeSlashSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const eyeSlashMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.28 2.22a.75.75 0 0 0-1.06 1.06l14.5 14.5a.75.75 0 1 0 1.06-1.06l-1.745-1.745a10.029 10.029 0 0 0 3.3-4.38 1.651 1.651 0 0 0 0-1.185A10.004 10.004 0 0 0 9.999 3a9.956 9.956 0 0 0-4.744 1.194L3.28 2.22ZM7.752 6.69l1.092 1.092a2.5 2.5 0 0 1 3.374 3.373l1.091 1.092a4 4 0 0 0-5.557-5.557Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "m10.748 13.93 2.523 2.523a9.987 9.987 0 0 1-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 0 1 0-1.186A10.007 10.007 0 0 1 2.839 6.02L6.07 9.252a4 4 0 0 0 4.678 4.678Z",
@@ -1534,12 +1695,13 @@ export const eyeSlashMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const eyeSlashMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.28 2.22a.75.75 0 0 0-1.06 1.06l10.5 10.5a.75.75 0 1 0 1.06-1.06l-1.322-1.323a7.012 7.012 0 0 0 2.16-3.11.87.87 0 0 0 0-.567A7.003 7.003 0 0 0 4.82 3.76l-1.54-1.54Zm3.196 3.195 1.135 1.136A1.502 1.502 0 0 1 9.45 8.389l1.136 1.135a3 3 0 0 0-4.109-4.109Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "m7.812 10.994 1.816 1.816A7.003 7.003 0 0 1 1.38 8.28a.87.87 0 0 1 0-.566 6.985 6.985 0 0 1 1.113-2.039l2.513 2.513a3 3 0 0 0 2.806 2.806Z",
@@ -1547,6 +1709,7 @@ export const eyeSlashMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const fingerPrintOutline: IconData = {
   paths: [
     {
@@ -1555,36 +1718,40 @@ export const fingerPrintOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const fingerPrintSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 3.75a6.715 6.715 0 0 0-3.722 1.118.75.75 0 1 1-.828-1.25 8.25 8.25 0 0 1 12.8 6.883c0 3.014-.574 5.897-1.62 8.543a.75.75 0 0 1-1.395-.551A21.69 21.69 0 0 0 18.75 10.5 6.75 6.75 0 0 0 12 3.75ZM6.157 5.739a.75.75 0 0 1 .21 1.04A6.715 6.715 0 0 0 5.25 10.5c0 1.613-.463 3.12-1.265 4.393a.75.75 0 0 1-1.27-.8A6.715 6.715 0 0 0 3.75 10.5c0-1.68.503-3.246 1.367-4.55a.75.75 0 0 1 1.04-.211ZM12 7.5a3 3 0 0 0-3 3c0 3.1-1.176 5.927-3.105 8.056a.75.75 0 1 1-1.112-1.008A10.459 10.459 0 0 0 7.5 10.5a4.5 4.5 0 1 1 9 0c0 .547-.022 1.09-.067 1.626a.75.75 0 0 1-1.495-.123c.041-.495.062-.996.062-1.503a3 3 0 0 0-3-3Zm0 2.25a.75.75 0 0 1 .75.75c0 3.908-1.424 7.485-3.781 10.238a.75.75 0 0 1-1.14-.975A14.19 14.19 0 0 0 11.25 10.5a.75.75 0 0 1 .75-.75Zm3.239 5.183a.75.75 0 0 1 .515.927 19.417 19.417 0 0 1-2.585 5.544.75.75 0 0 1-1.243-.84 17.915 17.915 0 0 0 2.386-5.116.75.75 0 0 1 .927-.515Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const fingerPrintMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 2.5c-1.31 0-2.526.386-3.546 1.051a.75.75 0 0 1-.82-1.256A8 8 0 0 1 18 9a22.47 22.47 0 0 1-1.228 7.351.75.75 0 1 1-1.417-.49A20.97 20.97 0 0 0 16.5 9 6.5 6.5 0 0 0 10 2.5ZM4.333 4.416a.75.75 0 0 1 .218 1.038A6.466 6.466 0 0 0 3.5 9a7.966 7.966 0 0 1-1.293 4.362.75.75 0 0 1-1.257-.819A6.466 6.466 0 0 0 2 9c0-1.61.476-3.11 1.295-4.365a.75.75 0 0 1 1.038-.219ZM10 6.12a3 3 0 0 0-3.001 3.041 11.455 11.455 0 0 1-2.697 7.24.75.75 0 0 1-1.148-.965A9.957 9.957 0 0 0 5.5 9c0-.028.002-.055.004-.082a4.5 4.5 0 0 1 8.996.084V9.15l-.005.297a.75.75 0 1 1-1.5-.034c.003-.11.004-.219.005-.328a3 3 0 0 0-3-2.965Zm0 2.13a.75.75 0 0 1 .75.75c0 3.51-1.187 6.745-3.181 9.323a.75.75 0 1 1-1.186-.918A13.687 13.687 0 0 0 9.25 9a.75.75 0 0 1 .75-.75Zm3.529 3.698a.75.75 0 0 1 .584.885 18.883 18.883 0 0 1-2.257 5.84.75.75 0 1 1-1.29-.764 17.386 17.386 0 0 0 2.078-5.377.75.75 0 0 1 .885-.584Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const fingerPrintMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 3c-.988 0-1.908.286-2.682.78a.75.75 0 0 1-.806-1.266A6.5 6.5 0 0 1 14.5 8c0 1.665-.333 3.254-.936 4.704a.75.75 0 0 1-1.385-.577C12.708 10.857 13 9.464 13 8a5 5 0 0 0-5-5ZM3.55 4.282a.75.75 0 0 1 .23 1.036A4.973 4.973 0 0 0 3 8a.75.75 0 0 1-1.5 0c0-1.282.372-2.48 1.014-3.488a.75.75 0 0 1 1.036-.23ZM8 5.875A2.125 2.125 0 0 0 5.875 8a3.625 3.625 0 0 1-3.625 3.625H2.213a.75.75 0 1 1 .008-1.5h.03A2.125 2.125 0 0 0 4.376 8a3.625 3.625 0 1 1 7.25 0c0 .078-.001.156-.003.233a.75.75 0 1 1-1.5-.036c.002-.066.003-.131.003-.197A2.125 2.125 0 0 0 8 5.875ZM7.995 7.25a.75.75 0 0 1 .75.75 6.502 6.502 0 0 1-4.343 6.133.75.75 0 1 1-.498-1.415A5.002 5.002 0 0 0 7.245 8a.75.75 0 0 1 .75-.75Zm2.651 2.87a.75.75 0 0 1 .463.955 9.39 9.39 0 0 1-3.008 4.25.75.75 0 0 1-.936-1.171 7.892 7.892 0 0 0 2.527-3.57.75.75 0 0 1 .954-.463Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const folderOutline: IconData = {
   paths: [
     {
@@ -1593,6 +1760,7 @@ export const folderOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const folderSolid: IconData = {
   paths: [
     {
@@ -1601,6 +1769,7 @@ export const folderSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const folderMini: IconData = {
   paths: [
     {
@@ -1609,6 +1778,7 @@ export const folderMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const folderMicro: IconData = {
   paths: [
     {
@@ -1617,6 +1787,7 @@ export const folderMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const funnelOutline: IconData = {
   paths: [
     {
@@ -1625,26 +1796,29 @@ export const funnelOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const funnelSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.792 2.938A49.069 49.069 0 0 1 12 2.25c2.797 0 5.54.236 8.209.688a1.857 1.857 0 0 1 1.541 1.836v1.044a3 3 0 0 1-.879 2.121l-6.182 6.182a1.5 1.5 0 0 0-.439 1.061v2.927a3 3 0 0 1-1.658 2.684l-1.757.878A.75.75 0 0 1 9.75 21v-5.818a1.5 1.5 0 0 0-.44-1.06L3.13 7.938a3 3 0 0 1-.879-2.121V4.774c0-.897.64-1.683 1.542-1.836Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const funnelMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const funnelMicro: IconData = {
   paths: [
     {
@@ -1653,6 +1827,7 @@ export const funnelMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const handRaisedOutline: IconData = {
   paths: [
     {
@@ -1661,6 +1836,7 @@ export const handRaisedOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const handRaisedSolid: IconData = {
   paths: [
     {
@@ -1669,16 +1845,18 @@ export const handRaisedSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const handRaisedMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11 2a1 1 0 1 0-2 0v6.5a.5.5 0 0 1-1 0V3a1 1 0 1 0-2 0v5.5a.5.5 0 0 1-1 0V5a1 1 0 1 0-2 0v7a7 7 0 1 0 14 0V8a1 1 0 1 0-2 0v3.5a.5.5 0 0 1-1 0V3a1 1 0 1 0-2 0v5.5a.5.5 0 0 1-1 0V2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const handRaisedMicro: IconData = {
   paths: [
     {
@@ -1687,6 +1865,7 @@ export const handRaisedMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const homeOutline: IconData = {
   paths: [
     {
@@ -1695,6 +1874,7 @@ export const homeOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const homeSolid: IconData = {
   paths: [
     {
@@ -1706,16 +1886,18 @@ export const homeSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const homeMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const homeMicro: IconData = {
   paths: [
     {
@@ -1724,6 +1906,7 @@ export const homeMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const identificationOutline: IconData = {
   paths: [
     {
@@ -1732,36 +1915,40 @@ export const identificationOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const identificationSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 3.75a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V6.75a3 3 0 0 0-3-3h-15Zm4.125 3a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Zm-3.873 8.703a4.126 4.126 0 0 1 7.746 0 .75.75 0 0 1-.351.92 7.47 7.47 0 0 1-3.522.877 7.47 7.47 0 0 1-3.522-.877.75.75 0 0 1-.351-.92ZM15 8.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15ZM14.25 12a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H15a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const identificationMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V6Zm4 1.5a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm2 3a4 4 0 0 0-3.665 2.395.75.75 0 0 0 .416 1A8.98 8.98 0 0 0 7 14.5a8.98 8.98 0 0 0 3.249-.604.75.75 0 0 0 .416-1.001A4.001 4.001 0 0 0 7 10.5Zm5-3.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm0 6.5a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm.75-4a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const identificationMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H3Zm2.5 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM10 5.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm.75 3.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5ZM10 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 10 8Zm-2.378 3c.346 0 .583-.343.395-.633A2.998 2.998 0 0 0 5.5 9a2.998 2.998 0 0 0-2.517 1.367c-.188.29.05.633.395.633h4.244Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const inboxOutline: IconData = {
   paths: [
     {
@@ -1770,36 +1957,40 @@ export const inboxOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const inboxSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6.912 3a3 3 0 0 0-2.868 2.118l-2.411 7.838a3 3 0 0 0-.133.882V18a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-4.162c0-.299-.045-.596-.133-.882l-2.412-7.838A3 3 0 0 0 17.088 3H6.912Zm13.823 9.75-2.213-7.191A1.5 1.5 0 0 0 17.088 4.5H6.912a1.5 1.5 0 0 0-1.434 1.059L3.265 12.75H6.11a3 3 0 0 1 2.684 1.658l.256.513a1.5 1.5 0 0 0 1.342.829h3.218a1.5 1.5 0 0 0 1.342-.83l.256-.512a3 3 0 0 1 2.684-1.658h2.844Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const inboxMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 11.27c0-.246.033-.492.099-.73l1.523-5.521A2.75 2.75 0 0 1 5.273 3h9.454a2.75 2.75 0 0 1 2.651 2.019l1.523 5.52c.066.239.099.485.099.732V15a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3.73Zm3.068-5.852A1.25 1.25 0 0 1 5.273 4.5h9.454a1.25 1.25 0 0 1 1.205.918l1.523 5.52c.006.02.01.041.015.062H14a1 1 0 0 0-.86.49l-.606 1.02a1 1 0 0 1-.86.49H8.236a1 1 0 0 1-.894-.553l-.448-.894A1 1 0 0 0 6 11H2.53l.015-.062 1.523-5.52Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const inboxMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.784 3A2.25 2.25 0 0 0 2.68 4.449L1.147 8.475A2.25 2.25 0 0 0 1 9.276v1.474A2.25 2.25 0 0 0 3.25 13h9.5A2.25 2.25 0 0 0 15 10.75V9.276c0-.274-.05-.545-.147-.801l-1.534-4.026A2.25 2.25 0 0 0 11.216 3H4.784Zm-.701 1.983a.75.75 0 0 1 .7-.483h6.433a.75.75 0 0 1 .701.483L13.447 9h-2.412a1 1 0 0 0-.832.445l-.406.61a1 1 0 0 1-.832.445h-1.93a1 1 0 0 1-.832-.445l-.406-.61A1 1 0 0 0 4.965 9H2.553l1.53-4.017Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const informationCircleOutline: IconData = {
   paths: [
     {
@@ -1808,36 +1999,40 @@ export const informationCircleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const informationCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const informationCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const informationCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM9 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM6.75 8a.75.75 0 0 0 0 1.5h.75v1.75a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8.25 8h-1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const keyOutline: IconData = {
   paths: [
     {
@@ -1846,36 +2041,40 @@ export const keyOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const keySolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.75 1.5a6.75 6.75 0 0 0-6.651 7.906c.067.39-.032.717-.221.906l-6.5 6.499a3 3 0 0 0-.878 2.121v2.818c0 .414.336.75.75.75H6a.75.75 0 0 0 .75-.75v-1.5h1.5A.75.75 0 0 0 9 19.5V18h1.5a.75.75 0 0 0 .53-.22l2.658-2.658c.19-.189.517-.288.906-.22A6.75 6.75 0 1 0 15.75 1.5Zm0 3a.75.75 0 0 0 0 1.5A2.25 2.25 0 0 1 18 8.25a.75.75 0 0 0 1.5 0 3.75 3.75 0 0 0-3.75-3.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const keyMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 7a5 5 0 1 1 3.61 4.804l-1.903 1.903A1 1 0 0 1 9 14H8v1a1 1 0 0 1-1 1H6v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 .293-.707L8.196 8.39A5.002 5.002 0 0 1 8 7Zm5-3a.75.75 0 0 0 0 1.5A1.5 1.5 0 0 1 14.5 7 .75.75 0 0 0 16 7a3 3 0 0 0-3-3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const keyMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M14 6a4 4 0 0 1-4.899 3.899l-1.955 1.955a.5.5 0 0 1-.353.146H5v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-2.293a.5.5 0 0 1 .146-.353l3.955-3.955A4 4 0 1 1 14 6Zm-4-2a.75.75 0 0 0 0 1.5.5.5 0 0 1 .5.5.75.75 0 0 0 1.5 0 2 2 0 0 0-2-2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const lightBulbOutline: IconData = {
   paths: [
     {
@@ -1884,19 +2083,21 @@ export const lightBulbOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const lightBulbSolid: IconData = {
   paths: [
     {
       d: "M12 .75a8.25 8.25 0 0 0-4.135 15.39c.686.398 1.115 1.008 1.134 1.623a.75.75 0 0 0 .577.706c.352.083.71.148 1.074.195.323.041.6-.218.6-.544v-4.661a6.714 6.714 0 0 1-.937-.171.75.75 0 1 1 .374-1.453 5.261 5.261 0 0 0 2.626 0 .75.75 0 1 1 .374 1.452 6.712 6.712 0 0 1-.937.172v4.66c0 .327.277.586.6.545.364-.047.722-.112 1.074-.195a.75.75 0 0 0 .577-.706c.02-.615.448-1.225 1.134-1.623A8.25 8.25 0 0 0 12 .75Z",
     },
     {
+      clipRule: "evenodd",
       d: "M9.013 19.9a.75.75 0 0 1 .877-.597 11.319 11.319 0 0 0 4.22 0 .75.75 0 1 1 .28 1.473 12.819 12.819 0 0 1-4.78 0 .75.75 0 0 1-.597-.876ZM9.754 22.344a.75.75 0 0 1 .824-.668 13.682 13.682 0 0 0 2.844 0 .75.75 0 1 1 .156 1.492 15.156 15.156 0 0 1-3.156 0 .75.75 0 0 1-.668-.824Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const lightBulbMini: IconData = {
   paths: [
     {
@@ -1905,6 +2106,7 @@ export const lightBulbMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const lightBulbMicro: IconData = {
   paths: [
     {
@@ -1913,6 +2115,7 @@ export const lightBulbMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const linkOutline: IconData = {
   paths: [
     {
@@ -1921,16 +2124,18 @@ export const linkOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const linkSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M19.902 4.098a3.75 3.75 0 0 0-5.304 0l-4.5 4.5a3.75 3.75 0 0 0 1.035 6.037.75.75 0 0 1-.646 1.353 5.25 5.25 0 0 1-1.449-8.45l4.5-4.5a5.25 5.25 0 1 1 7.424 7.424l-1.757 1.757a.75.75 0 1 1-1.06-1.06l1.757-1.757a3.75 3.75 0 0 0 0-5.304Zm-7.389 4.267a.75.75 0 0 1 1-.353 5.25 5.25 0 0 1 1.449 8.45l-4.5 4.5a5.25 5.25 0 1 1-7.424-7.424l1.757-1.757a.75.75 0 1 1 1.06 1.06l-1.757 1.757a3.75 3.75 0 1 0 5.304 5.304l4.5-4.5a3.75 3.75 0 0 0-1.035-6.037.75.75 0 0 1-.354-1Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const linkMini: IconData = {
   paths: [
     {
@@ -1942,21 +2147,23 @@ export const linkMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const linkMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-5.396-4.402.75.75 0 0 1 1.251.827 2 2 0 0 0 3.085 2.514l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
+      clipRule: "evenodd",
       d: "M7.086 9.975a.75.75 0 0 1-1.06 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 5.396 4.402.75.75 0 0 1-1.251-.827 2 2 0 0 0-3.085-2.514l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const listBulletOutline: IconData = {
   paths: [
     {
@@ -1965,26 +2172,29 @@ export const listBulletOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const listBulletSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.625 6.75a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0A.75.75 0 0 1 8.25 6h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75ZM2.625 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0ZM7.5 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 7.5 12Zm-4.875 5.25a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const listBulletMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M6 4.75A.75.75 0 0 1 6.75 4h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 4.75ZM6 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 10Zm0 5.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1-.75-.75ZM1.99 4.75a1 1 0 0 1 1-1H3a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 15.25a1 1 0 0 1 1-1H3a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 10a1 1 0 0 1 1-1H3a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V10Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const listBulletMicro: IconData = {
   paths: [
     {
@@ -1993,6 +2203,7 @@ export const listBulletMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const lockClosedOutline: IconData = {
   paths: [
     {
@@ -2001,36 +2212,40 @@ export const lockClosedOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const lockClosedSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const lockClosedMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const lockClosedMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const magnifyingGlassOutline: IconData = {
   paths: [
     {
@@ -2039,36 +2254,40 @@ export const magnifyingGlassOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const magnifyingGlassSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const magnifyingGlassMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const magnifyingGlassMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const mapOutline: IconData = {
   paths: [
     {
@@ -2077,36 +2296,40 @@ export const mapOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const mapSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.161 2.58a1.875 1.875 0 0 1 1.678 0l4.993 2.498c.106.052.23.052.336 0l3.869-1.935A1.875 1.875 0 0 1 21.75 4.82v12.485c0 .71-.401 1.36-1.037 1.677l-4.875 2.437a1.875 1.875 0 0 1-1.676 0l-4.994-2.497a.375.375 0 0 0-.336 0l-3.868 1.935A1.875 1.875 0 0 1 2.25 19.18V6.695c0-.71.401-1.36 1.036-1.677l4.875-2.437ZM9 6a.75.75 0 0 1 .75.75V15a.75.75 0 0 1-1.5 0V6.75A.75.75 0 0 1 9 6Zm6.75 3a.75.75 0 0 0-1.5 0v8.25a.75.75 0 0 0 1.5 0V9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const mapMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.157 2.176a1.5 1.5 0 0 0-1.147 0l-4.084 1.69A1.5 1.5 0 0 0 2 5.25v10.877a1.5 1.5 0 0 0 2.074 1.386l3.51-1.452 4.26 1.762a1.5 1.5 0 0 0 1.146 0l4.083-1.69A1.5 1.5 0 0 0 18 14.75V3.872a1.5 1.5 0 0 0-2.073-1.386l-3.51 1.452-4.26-1.762ZM7.58 5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-1.5 0v-6.5A.75.75 0 0 1 7.58 5Zm5.59 2.75a.75.75 0 0 0-1.5 0v6.5a.75.75 0 0 0 1.5 0v-6.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const mapMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.37 2.257a1.25 1.25 0 0 1 1.214-.054l3.378 1.69 2.133-1.313A1.25 1.25 0 0 1 14 3.644v7.326c0 .434-.225.837-.595 1.065l-2.775 1.708a1.25 1.25 0 0 1-1.214.053l-3.378-1.689-2.133 1.313A1.25 1.25 0 0 1 2 12.354V5.029c0-.434.225-.837.595-1.064L5.37 2.257ZM6 4a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 6 4Zm4.75 2.75a.75.75 0 0 0-1.5 0v4.5a.75.75 0 0 0 1.5 0v-4.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const mapPinOutline: IconData = {
   paths: [
     { d: "M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" },
@@ -2116,36 +2339,40 @@ export const mapPinOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const mapPinSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const mapPinMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const mapPinMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "m7.539 14.841.003.003.002.002a.755.755 0 0 0 .912 0l.002-.002.003-.003.012-.009a5.57 5.57 0 0 0 .19-.153 15.588 15.588 0 0 0 2.046-2.082c1.101-1.362 2.291-3.342 2.291-5.597A5 5 0 0 0 3 7c0 2.255 1.19 4.235 2.292 5.597a15.591 15.591 0 0 0 2.046 2.082 8.916 8.916 0 0 0 .189.153l.012.01ZM8 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const megaphoneOutline: IconData = {
   paths: [
     {
@@ -2154,6 +2381,7 @@ export const megaphoneOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const megaphoneSolid: IconData = {
   paths: [
     {
@@ -2162,6 +2390,7 @@ export const megaphoneSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const megaphoneMini: IconData = {
   paths: [
     {
@@ -2170,6 +2399,7 @@ export const megaphoneMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const megaphoneMicro: IconData = {
   paths: [
     {
@@ -2178,68 +2408,77 @@ export const megaphoneMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const minusOutline: IconData = {
   paths: [{ d: "M5 12h14" }],
   variant: "outline",
 };
+
 export const minusSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.25 12a.75.75 0 0 1 .75-.75h14a.75.75 0 0 1 0 1.5H5a.75.75 0 0 1-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const minusMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const minusMicro: IconData = {
   paths: [{ d: "M3.75 7.25a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" }],
   variant: "micro",
 };
+
 export const minusCircleOutline: IconData = {
   paths: [{ d: "M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" }],
   variant: "outline",
 };
+
 export const minusCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm3 10.5a.75.75 0 0 0 0-1.5H9a.75.75 0 0 0 0 1.5h6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const minusCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM6.75 9.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const minusCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm4-7a.75.75 0 0 0-.75-.75h-6.5a.75.75 0 0 0 0 1.5h6.5A.75.75 0 0 0 12 8Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const moonOutline: IconData = {
   paths: [
     {
@@ -2248,26 +2487,29 @@ export const moonOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const moonSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const moonMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.455 2.004a.75.75 0 0 1 .26.77 7 7 0 0 0 9.958 7.967.75.75 0 0 1 1.067.853A8.5 8.5 0 1 1 6.647 1.921a.75.75 0 0 1 .808.083Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const moonMicro: IconData = {
   paths: [
     {
@@ -2276,6 +2518,7 @@ export const moonMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const noSymbolOutline: IconData = {
   paths: [
     {
@@ -2284,36 +2527,40 @@ export const noSymbolOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const noSymbolSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "m6.72 5.66 11.62 11.62A8.25 8.25 0 0 0 6.72 5.66Zm10.56 12.68L5.66 6.72a8.25 8.25 0 0 0 11.62 11.62ZM5.105 5.106c3.807-3.808 9.98-3.808 13.788 0 3.808 3.807 3.808 9.98 0 13.788-3.807 3.808-9.98 3.808-13.788 0-3.808-3.807-3.808-9.98 0-13.788Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const noSymbolMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "m5.965 4.904 9.131 9.131a6.5 6.5 0 0 0-9.131-9.131Zm8.07 10.192L4.904 5.965a6.5 6.5 0 0 0 9.131 9.131ZM4.343 4.343a8 8 0 1 1 11.314 11.314A8 8 0 0 1 4.343 4.343Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const noSymbolMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.05 3.05a7 7 0 1 1 9.9 9.9 7 7 0 0 1-9.9-9.9Zm1.627.566 7.707 7.707a5.501 5.501 0 0 0-7.707-7.707Zm6.646 8.768L3.616 4.677a5.501 5.501 0 0 0 7.707 7.707Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const paperClipOutline: IconData = {
   paths: [
     {
@@ -2322,36 +2569,40 @@ export const paperClipOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const paperClipSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18.97 3.659a2.25 2.25 0 0 0-3.182 0l-10.94 10.94a3.75 3.75 0 1 0 5.304 5.303l7.693-7.693a.75.75 0 0 1 1.06 1.06l-7.693 7.693a5.25 5.25 0 1 1-7.424-7.424l10.939-10.94a3.75 3.75 0 1 1 5.303 5.304L9.097 18.835l-.008.008-.007.007-.002.002-.003.002A2.25 2.25 0 0 1 5.91 15.66l7.81-7.81a.75.75 0 0 1 1.061 1.06l-7.81 7.81a.75.75 0 0 0 1.054 1.068L18.97 6.84a2.25 2.25 0 0 0 0-3.182Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const paperClipMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.621 4.379a3 3 0 0 0-4.242 0l-7 7a3 3 0 0 0 4.241 4.243h.001l.497-.5a.75.75 0 0 1 1.064 1.057l-.498.501-.002.002a4.5 4.5 0 0 1-6.364-6.364l7-7a4.5 4.5 0 0 1 6.368 6.36l-3.455 3.553A2.625 2.625 0 1 1 9.52 9.52l3.45-3.451a.75.75 0 1 1 1.061 1.06l-3.45 3.451a1.125 1.125 0 0 0 1.587 1.595l3.454-3.553a3 3 0 0 0 0-4.242Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const paperClipMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.914 4.086a2 2 0 0 0-2.828 0l-5 5a2 2 0 1 0 2.828 2.828l.556-.555a.75.75 0 0 1 1.06 1.06l-.555.556a3.5 3.5 0 0 1-4.95-4.95l5-5a3.5 3.5 0 0 1 4.95 4.95l-1.972 1.972a2.125 2.125 0 0 1-3.006-3.005L9.97 4.97a.75.75 0 1 1 1.06 1.06L9.058 8.003a.625.625 0 0 0 .884.883l1.972-1.972a2 2 0 0 0 0-2.828Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const pencilOutline: IconData = {
   paths: [
     {
@@ -2360,6 +2611,7 @@ export const pencilOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const pencilSolid: IconData = {
   paths: [
     {
@@ -2368,6 +2620,7 @@ export const pencilSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const pencilMini: IconData = {
   paths: [
     {
@@ -2376,16 +2629,18 @@ export const pencilMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const pencilMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.013 2.513a1.75 1.75 0 0 1 2.475 2.474L6.226 12.25a2.751 2.751 0 0 1-.892.596l-2.047.848a.75.75 0 0 1-.98-.98l.848-2.047a2.75 2.75 0 0 1 .596-.892l7.262-7.261Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const pencilSquareOutline: IconData = {
   paths: [
     {
@@ -2394,6 +2649,7 @@ export const pencilSquareOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const pencilSquareSolid: IconData = {
   paths: [
     {
@@ -2405,6 +2661,7 @@ export const pencilSquareSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const pencilSquareMini: IconData = {
   paths: [
     {
@@ -2416,6 +2673,7 @@ export const pencilSquareMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const pencilSquareMicro: IconData = {
   paths: [
     {
@@ -2427,6 +2685,7 @@ export const pencilSquareMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const photoOutline: IconData = {
   paths: [
     {
@@ -2435,36 +2694,40 @@ export const photoOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const photoSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const photoMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0l-1.91 1.909.47.47a.75.75 0 1 1-1.06 1.06L6.53 8.091a.75.75 0 0 0-1.06 0l-2.97 2.97ZM12 7a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const photoMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm10.5 5.707a.5.5 0 0 0-.146-.353l-1-1a.5.5 0 0 0-.708 0L9.354 9.646a.5.5 0 0 1-.708 0L6.354 7.354a.5.5 0 0 0-.708 0l-2 2a.5.5 0 0 0-.146.353V12a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5V9.707ZM12 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const playOutline: IconData = {
   paths: [
     {
@@ -2473,16 +2736,18 @@ export const playOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const playSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const playMini: IconData = {
   paths: [
     {
@@ -2491,6 +2756,7 @@ export const playMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const playMicro: IconData = {
   paths: [
     {
@@ -2499,20 +2765,23 @@ export const playMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const plusOutline: IconData = {
   paths: [{ d: "M12 4.5v15m7.5-7.5h-15" }],
   variant: "outline",
 };
+
 export const plusSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const plusMini: IconData = {
   paths: [
     {
@@ -2521,6 +2790,7 @@ export const plusMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const plusMicro: IconData = {
   paths: [
     {
@@ -2529,40 +2799,45 @@ export const plusMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const plusCircleOutline: IconData = {
   paths: [{ d: "M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" }],
   variant: "outline",
 };
+
 export const plusCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const plusCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const plusCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm.75-10.25v2.5h2.5a.75.75 0 0 1 0 1.5h-2.5v2.5a.75.75 0 0 1-1.5 0v-2.5h-2.5a.75.75 0 0 1 0-1.5h2.5v-2.5a.75.75 0 0 1 1.5 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const printerOutline: IconData = {
   paths: [
     {
@@ -2571,36 +2846,40 @@ export const printerOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const printerSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.875 1.5C6.839 1.5 6 2.34 6 3.375v2.99c-.426.053-.851.11-1.274.174-1.454.218-2.476 1.483-2.476 2.917v6.294a3 3 0 0 0 3 3h.27l-.155 1.705A1.875 1.875 0 0 0 7.232 22.5h9.536a1.875 1.875 0 0 0 1.867-2.045l-.155-1.705h.27a3 3 0 0 0 3-3V9.456c0-1.434-1.022-2.7-2.476-2.917A48.716 48.716 0 0 0 18 6.366V3.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM16.5 6.205v-2.83A.375.375 0 0 0 16.125 3h-8.25a.375.375 0 0 0-.375.375v2.83a49.353 49.353 0 0 1 9 0Zm-.217 8.265c.178.018.317.16.333.337l.526 5.784a.375.375 0 0 1-.374.409H7.232a.375.375 0 0 1-.374-.409l.526-5.784a.373.373 0 0 1 .333-.337 41.741 41.741 0 0 1 8.566 0Zm.967-3.97a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H18a.75.75 0 0 1-.75-.75V10.5ZM15 9.75a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V10.5a.75.75 0 0 0-.75-.75H15Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const printerMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.097 1.126.153A2.212 2.212 0 0 1 18 8.653v4.097A2.25 2.25 0 0 1 15.75 15h-.241l.305 1.984A1.75 1.75 0 0 1 14.084 19H5.915a1.75 1.75 0 0 1-1.73-2.016L4.492 15H4.25A2.25 2.25 0 0 1 2 12.75V8.653c0-1.082.775-2.034 1.874-2.198.374-.056.75-.107 1.127-.153L5 6.25v-3.5Zm8.5 3.397a41.533 41.533 0 0 0-7 0V2.75a.25.25 0 0 1 .25-.25h6.5a.25.25 0 0 1 .25.25v3.397ZM6.608 12.5a.25.25 0 0 0-.247.212l-.693 4.5a.25.25 0 0 0 .247.288h8.17a.25.25 0 0 0 .246-.288l-.692-4.5a.25.25 0 0 0-.247-.212H6.608Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const printerMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4 5a2 2 0 0 0-2 2v3a2 2 0 0 0 1.51 1.94l-.315 1.896A1 1 0 0 0 4.18 15h7.639a1 1 0 0 0 .986-1.164l-.316-1.897A2 2 0 0 0 14 10V7a2 2 0 0 0-2-2V2a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v3Zm1.5 0V2.5h5V5h-5Zm5.23 5.5H5.27l-.5 3h6.459l-.5-3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const puzzlePieceOutline: IconData = {
   paths: [
     {
@@ -2609,6 +2888,7 @@ export const puzzlePieceOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const puzzlePieceSolid: IconData = {
   paths: [
     {
@@ -2617,6 +2897,7 @@ export const puzzlePieceSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const puzzlePieceMini: IconData = {
   paths: [
     {
@@ -2625,6 +2906,7 @@ export const puzzlePieceMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const puzzlePieceMicro: IconData = {
   paths: [
     {
@@ -2633,6 +2915,7 @@ export const puzzlePieceMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const qrCodeOutline: IconData = {
   paths: [
     {
@@ -2644,45 +2927,48 @@ export const qrCodeOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const qrCodeSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 4.875C3 3.839 3.84 3 4.875 3h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 0 1 3 9.375v-4.5ZM4.875 4.5a.375.375 0 0 0-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 0 0 .375-.375v-4.5a.375.375 0 0 0-.375-.375h-4.5Zm7.875.375c0-1.036.84-1.875 1.875-1.875h4.5C20.16 3 21 3.84 21 4.875v4.5c0 1.036-.84 1.875-1.875 1.875h-4.5a1.875 1.875 0 0 1-1.875-1.875v-4.5Zm1.875-.375a.375.375 0 0 0-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 0 0 .375-.375v-4.5a.375.375 0 0 0-.375-.375h-4.5ZM6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75A.75.75 0 0 1 6 7.5v-.75Zm9.75 0A.75.75 0 0 1 16.5 6h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75ZM3 14.625c0-1.036.84-1.875 1.875-1.875h4.5c1.036 0 1.875.84 1.875 1.875v4.5c0 1.035-.84 1.875-1.875 1.875h-4.5A1.875 1.875 0 0 1 3 19.125v-4.5Zm1.875-.375a.375.375 0 0 0-.375.375v4.5c0 .207.168.375.375.375h4.5a.375.375 0 0 0 .375-.375v-4.5a.375.375 0 0 0-.375-.375h-4.5Zm7.875-.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75Zm6 0a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75ZM6 16.5a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75Zm9.75 0a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75Zm-3 3a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75Zm6 0a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75v-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const qrCodeMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3.75 2A1.75 1.75 0 0 0 2 3.75v3.5C2 8.216 2.784 9 3.75 9h3.5A1.75 1.75 0 0 0 9 7.25v-3.5A1.75 1.75 0 0 0 7.25 2h-3.5ZM3.5 3.75a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.5a.25.25 0 0 1-.25.25h-3.5a.25.25 0 0 1-.25-.25v-3.5ZM3.75 11A1.75 1.75 0 0 0 2 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0 0 9 16.25v-3.5A1.75 1.75 0 0 0 7.25 11h-3.5Zm-.25 1.75a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.5a.25.25 0 0 1-.25.25h-3.5a.25.25 0 0 1-.25-.25v-3.5Zm7.5-9c0-.966.784-1.75 1.75-1.75h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0 1 16.25 9h-3.5A1.75 1.75 0 0 1 11 7.25v-3.5Zm1.75-.25a.25.25 0 0 0-.25.25v3.5c0 .138.112.25.25.25h3.5a.25.25 0 0 0 .25-.25v-3.5a.25.25 0 0 0-.25-.25h-3.5Zm-7.26 1a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-.01Zm9 0a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-.01Zm-9 9a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Zm9 0a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Zm-3.5-1.5a1 1 0 0 1 1-1H12a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V12Zm6-1a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1H17a1 1 0 0 0 1-1V12a1 1 0 0 0-1-1h-.01Zm-1 6a1 1 0 0 1 1-1H17a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V17Zm-4-1a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1H12a1 1 0 0 0 1-1V17a1 1 0 0 0-1-1h-.01Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const qrCodeMicro: IconData = {
   paths: [
     { d: "M4.75 4.25a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z" },
     {
+      clipRule: "evenodd",
       d: "M2 3.5A1.5 1.5 0 0 1 3.5 2H6a1.5 1.5 0 0 1 1.5 1.5V6A1.5 1.5 0 0 1 6 7.5H3.5A1.5 1.5 0 0 1 2 6V3.5Zm1.5 0H6V6H3.5V3.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     { d: "M4.25 11.25a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0Z" },
     {
+      clipRule: "evenodd",
       d: "M2 10a1.5 1.5 0 0 1 1.5-1.5H6A1.5 1.5 0 0 1 7.5 10v2.5A1.5 1.5 0 0 1 6 14H3.5A1.5 1.5 0 0 1 2 12.5V10Zm1.5 2.5V10H6v2.5H3.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     { d: "M11.25 4.25a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z" },
     {
+      clipRule: "evenodd",
       d: "M10 2a1.5 1.5 0 0 0-1.5 1.5V6A1.5 1.5 0 0 0 10 7.5h2.5A1.5 1.5 0 0 0 14 6V3.5A1.5 1.5 0 0 0 12.5 2H10Zm2.5 1.5H10V6h2.5V3.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M8.5 9.417a.917.917 0 1 1 1.833 0 .917.917 0 0 1-1.833 0ZM8.5 13.083a.917.917 0 1 1 1.833 0 .917.917 0 0 1-1.833 0ZM13.083 8.5a.917.917 0 1 0 0 1.833.917.917 0 0 0 0-1.833ZM12.166 13.084a.917.917 0 1 1 1.833 0 .917.917 0 0 1-1.833 0ZM11.25 10.333a.917.917 0 1 0 0 1.833.917.917 0 0 0 0-1.833Z",
@@ -2690,6 +2976,7 @@ export const qrCodeMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const questionMarkCircleOutline: IconData = {
   paths: [
     {
@@ -2698,36 +2985,40 @@ export const questionMarkCircleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const questionMarkCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 0 1-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 0 1-.837.552c-.676.328-1.028.774-1.028 1.152v.75a.75.75 0 0 1-1.5 0v-.75c0-1.279 1.06-2.107 1.875-2.502.182-.088.351-.199.503-.331.83-.727.83-1.857 0-2.584ZM12 18a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const questionMarkCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const questionMarkCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0Zm-6 3.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM7.293 5.293a1 1 0 1 1 .99 1.667c-.459.134-1.033.566-1.033 1.29v.25a.75.75 0 1 0 1.5 0v-.115a2.5 2.5 0 1 0-2.518-4.153.75.75 0 1 0 1.061 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const queueListOutline: IconData = {
   paths: [
     {
@@ -2736,6 +3027,7 @@ export const queueListOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const queueListSolid: IconData = {
   paths: [
     {
@@ -2744,6 +3036,7 @@ export const queueListSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const queueListMini: IconData = {
   paths: [
     {
@@ -2752,6 +3045,7 @@ export const queueListMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const queueListMicro: IconData = {
   paths: [
     {
@@ -2760,6 +3054,7 @@ export const queueListMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const rectangleGroupOutline: IconData = {
   paths: [
     {
@@ -2768,26 +3063,29 @@ export const rectangleGroupOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const rectangleGroupSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.5 7.125c0-1.036.84-1.875 1.875-1.875h6c1.036 0 1.875.84 1.875 1.875v3.75c0 1.036-.84 1.875-1.875 1.875h-6A1.875 1.875 0 0 1 1.5 10.875v-3.75Zm12 1.5c0-1.036.84-1.875 1.875-1.875h5.25c1.035 0 1.875.84 1.875 1.875v8.25c0 1.035-.84 1.875-1.875 1.875h-5.25a1.875 1.875 0 0 1-1.875-1.875v-8.25ZM3 16.125c0-1.036.84-1.875 1.875-1.875h5.25c1.036 0 1.875.84 1.875 1.875v2.25c0 1.035-.84 1.875-1.875 1.875h-5.25A1.875 1.875 0 0 1 3 18.375v-2.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const rectangleGroupMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M2.5 3A1.5 1.5 0 0 0 1 4.5v4A1.5 1.5 0 0 0 2.5 10h6A1.5 1.5 0 0 0 10 8.5v-4A1.5 1.5 0 0 0 8.5 3h-6Zm11 2A1.5 1.5 0 0 0 12 6.5v7a1.5 1.5 0 0 0 1.5 1.5h4a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 17.5 5h-4Zm-10 7A1.5 1.5 0 0 0 2 13.5v2A1.5 1.5 0 0 0 3.5 17h6a1.5 1.5 0 0 0 1.5-1.5v-2A1.5 1.5 0 0 0 9.5 12h-6Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const rectangleGroupMicro: IconData = {
   paths: [
     {
@@ -2796,6 +3094,7 @@ export const rectangleGroupMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const rectangleStackOutline: IconData = {
   paths: [
     {
@@ -2804,6 +3103,7 @@ export const rectangleStackOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const rectangleStackSolid: IconData = {
   paths: [
     {
@@ -2812,6 +3112,7 @@ export const rectangleStackSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const rectangleStackMini: IconData = {
   paths: [
     {
@@ -2820,6 +3121,7 @@ export const rectangleStackMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const rectangleStackMicro: IconData = {
   paths: [
     {
@@ -2828,6 +3130,7 @@ export const rectangleStackMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const shareOutline: IconData = {
   paths: [
     {
@@ -2836,16 +3139,18 @@ export const shareOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const shareSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.75 4.5a3 3 0 1 1 .825 2.066l-8.421 4.679a3.002 3.002 0 0 1 0 1.51l8.421 4.679a3 3 0 1 1-.729 1.31l-8.421-4.678a3 3 0 1 1 0-4.132l8.421-4.679a3 3 0 0 1-.096-.755Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const shareMini: IconData = {
   paths: [
     {
@@ -2854,6 +3159,7 @@ export const shareMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const shareMicro: IconData = {
   paths: [
     {
@@ -2862,6 +3168,7 @@ export const shareMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const shieldExclamationOutline: IconData = {
   paths: [
     {
@@ -2870,36 +3177,40 @@ export const shieldExclamationOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const shieldExclamationSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M11.484 2.17a.75.75 0 0 1 1.032 0 11.209 11.209 0 0 0 7.877 3.08.75.75 0 0 1 .722.515 12.74 12.74 0 0 1 .635 3.985c0 5.942-4.064 10.933-9.563 12.348a.749.749 0 0 1-.374 0C6.314 20.683 2.25 15.692 2.25 9.75c0-1.39.223-2.73.635-3.985a.75.75 0 0 1 .722-.516l.143.001c2.996 0 5.718-1.17 7.734-3.08ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75ZM12 15a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75v-.008a.75.75 0 0 0-.75-.75H12Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const shieldExclamationMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.339 2.237a.531.531 0 0 0-.678 0 11.947 11.947 0 0 1-7.078 2.75.5.5 0 0 0-.479.425A12.11 12.11 0 0 0 2 7c0 5.163 3.26 9.564 7.834 11.257a.48.48 0 0 0 .332 0C14.74 16.564 18 12.163 18 7c0-.538-.035-1.069-.104-1.589a.5.5 0 0 0-.48-.425 11.947 11.947 0 0 1-7.077-2.75ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const shieldExclamationMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.5 1.709a.75.75 0 0 1 1 0 8.963 8.963 0 0 0 4.84 2.217.75.75 0 0 1 .654.72 10.499 10.499 0 0 1-5.647 9.672.75.75 0 0 1-.694-.001 10.499 10.499 0 0 1-5.647-9.672.75.75 0 0 1 .654-.719A8.963 8.963 0 0 0 7.5 1.71ZM8 5a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-1.5 0v-2A.75.75 0 0 1 8 5Zm0 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const speakerWaveOutline: IconData = {
   paths: [
     {
@@ -2908,6 +3219,7 @@ export const speakerWaveOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const speakerWaveSolid: IconData = {
   paths: [
     {
@@ -2919,6 +3231,7 @@ export const speakerWaveSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const speakerWaveMini: IconData = {
   paths: [
     {
@@ -2930,6 +3243,7 @@ export const speakerWaveMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const speakerWaveMicro: IconData = {
   paths: [
     {
@@ -2941,6 +3255,7 @@ export const speakerWaveMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const speakerXMarkOutline: IconData = {
   paths: [
     {
@@ -2949,6 +3264,7 @@ export const speakerXMarkOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const speakerXMarkSolid: IconData = {
   paths: [
     {
@@ -2957,6 +3273,7 @@ export const speakerXMarkSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const speakerXMarkMini: IconData = {
   paths: [
     {
@@ -2965,6 +3282,7 @@ export const speakerXMarkMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const speakerXMarkMicro: IconData = {
   paths: [
     {
@@ -2973,6 +3291,7 @@ export const speakerXMarkMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const square3Stack3dOutline: IconData = {
   paths: [
     {
@@ -2981,6 +3300,7 @@ export const square3Stack3dOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const square3Stack3dSolid: IconData = {
   paths: [
     {
@@ -2995,6 +3315,7 @@ export const square3Stack3dSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const square3Stack3dMini: IconData = {
   paths: [
     {
@@ -3009,6 +3330,7 @@ export const square3Stack3dMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const square3Stack3dMicro: IconData = {
   paths: [
     {
@@ -3023,6 +3345,7 @@ export const square3Stack3dMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const squares2x2Outline: IconData = {
   paths: [
     {
@@ -3031,26 +3354,29 @@ export const squares2x2Outline: IconData = {
   ],
   variant: "outline",
 };
+
 export const squares2x2Solid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M3 6a3 3 0 0 1 3-3h2.25a3 3 0 0 1 3 3v2.25a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6Zm9.75 0a3 3 0 0 1 3-3H18a3 3 0 0 1 3 3v2.25a3 3 0 0 1-3 3h-2.25a3 3 0 0 1-3-3V6ZM3 15.75a3 3 0 0 1 3-3h2.25a3 3 0 0 1 3 3V18a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-2.25Zm9.75 0a3 3 0 0 1 3-3H18a3 3 0 0 1 3 3V18a3 3 0 0 1-3 3h-2.25a3 3 0 0 1-3-3v-2.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const squares2x2Mini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const squares2x2Micro: IconData = {
   paths: [
     {
@@ -3059,6 +3385,7 @@ export const squares2x2Micro: IconData = {
   ],
   variant: "micro",
 };
+
 export const starOutline: IconData = {
   paths: [
     {
@@ -3067,36 +3394,40 @@ export const starOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const starSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const starMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const starMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 1.75a.75.75 0 0 1 .692.462l1.41 3.393 3.664.293a.75.75 0 0 1 .428 1.317l-2.791 2.39.853 3.575a.75.75 0 0 1-1.12.814L7.998 12.08l-3.135 1.915a.75.75 0 0 1-1.12-.814l.852-3.574-2.79-2.39a.75.75 0 0 1 .427-1.318l3.663-.293 1.41-3.393A.75.75 0 0 1 8 1.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const sunOutline: IconData = {
   paths: [
     {
@@ -3105,6 +3436,7 @@ export const sunOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const sunSolid: IconData = {
   paths: [
     {
@@ -3113,6 +3445,7 @@ export const sunSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const sunMini: IconData = {
   paths: [
     {
@@ -3121,6 +3454,7 @@ export const sunMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const sunMicro: IconData = {
   paths: [
     {
@@ -3129,6 +3463,7 @@ export const sunMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const tableCellsOutline: IconData = {
   paths: [
     {
@@ -3137,36 +3472,40 @@ export const tableCellsOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const tableCellsSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.5 5.625c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 0 1 1.5 18.375V5.625ZM21 9.375A.375.375 0 0 0 20.625 9h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5ZM10.875 18.75a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5ZM3.375 15h7.5a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375Zm0-3.75h7.5a.375.375 0 0 0 .375-.375v-1.5A.375.375 0 0 0 10.875 9h-7.5A.375.375 0 0 0 3 9.375v1.5c0 .207.168.375.375.375Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const tableCellsMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M.99 5.24A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25l.01 9.5A2.25 2.25 0 0 1 16.76 17H3.26A2.267 2.267 0 0 1 1 14.74l-.01-9.5Zm8.26 9.52v-.625a.75.75 0 0 0-.75-.75H3.25a.75.75 0 0 0-.75.75v.615c0 .414.336.75.75.75h5.373a.75.75 0 0 0 .627-.74Zm1.5 0a.75.75 0 0 0 .627.74h5.373a.75.75 0 0 0 .75-.75v-.615a.75.75 0 0 0-.75-.75H11.5a.75.75 0 0 0-.75.75v.625Zm6.75-3.63v-.625a.75.75 0 0 0-.75-.75H11.5a.75.75 0 0 0-.75.75v.625c0 .414.336.75.75.75h5.25a.75.75 0 0 0 .75-.75Zm-8.25 0v-.625a.75.75 0 0 0-.75-.75H3.25a.75.75 0 0 0-.75.75v.625c0 .414.336.75.75.75H8.5a.75.75 0 0 0 .75-.75ZM17.5 7.5v-.625a.75.75 0 0 0-.75-.75H11.5a.75.75 0 0 0-.75.75V7.5c0 .414.336.75.75.75h5.25a.75.75 0 0 0 .75-.75Zm-8.25 0v-.625a.75.75 0 0 0-.75-.75H3.25a.75.75 0 0 0-.75.75V7.5c0 .414.336.75.75.75H8.5a.75.75 0 0 0 .75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const tableCellsMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15 11a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6ZM7.25 7.5a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5V8a.5.5 0 0 0 .5.5h3.75a.5.5 0 0 0 .5-.5v-.5Zm1.5 3a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 .5.5v.5a.5.5 0 0 1-.5.5H9.25a.5.5 0 0 1-.5-.5v-.5ZM13.5 8v-.5A.5.5 0 0 0 13 7H9.25a.5.5 0 0 0-.5.5V8a.5.5 0 0 0 .5.5H13a.5.5 0 0 0 .5-.5Zm-6.75 3.5a.5.5 0 0 0 .5-.5v-.5a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v.5a.5.5 0 0 0 .5.5h3.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const tagOutline: IconData = {
   paths: [
     {
@@ -3176,36 +3515,40 @@ export const tagOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const tagSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.25 2.25a3 3 0 0 0-3 3v4.318a3 3 0 0 0 .879 2.121l9.58 9.581c.92.92 2.39 1.186 3.548.428a18.849 18.849 0 0 0 5.441-5.44c.758-1.16.492-2.629-.428-3.548l-9.58-9.581a3 3 0 0 0-2.122-.879H5.25ZM6.375 7.5a1.125 1.125 0 1 0 0-2.25 1.125 1.125 0 0 0 0 2.25Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const tagMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 2A2.5 2.5 0 0 0 2 4.5v3.879a2.5 2.5 0 0 0 .732 1.767l7.5 7.5a2.5 2.5 0 0 0 3.536 0l3.878-3.878a2.5 2.5 0 0 0 0-3.536l-7.5-7.5A2.5 2.5 0 0 0 8.38 2H4.5ZM5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const tagMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M4.5 2A2.5 2.5 0 0 0 2 4.5v2.879a2.5 2.5 0 0 0 .732 1.767l4.5 4.5a2.5 2.5 0 0 0 3.536 0l2.878-2.878a2.5 2.5 0 0 0 0-3.536l-4.5-4.5A2.5 2.5 0 0 0 7.38 2H4.5ZM5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const ticketOutline: IconData = {
   paths: [
     {
@@ -3214,36 +3557,40 @@ export const ticketOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const ticketSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1.5 6.375c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v3.026a.75.75 0 0 1-.375.65 2.249 2.249 0 0 0 0 3.898.75.75 0 0 1 .375.65v3.026c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 0 1 1.5 17.625v-3.026a.75.75 0 0 1 .374-.65 2.249 2.249 0 0 0 0-3.898.75.75 0 0 1-.374-.65V6.375Zm15-1.125a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm.75 4.5a.75.75 0 0 0-1.5 0v.75a.75.75 0 0 0 1.5 0v-.75Zm-.75 3a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-1.5 0v-.75a.75.75 0 0 1 .75-.75Zm.75 4.5a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-.75ZM6 12a.75.75 0 0 1 .75-.75H12a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 12Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const ticketMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15.75 3A2.25 2.25 0 0 1 18 5.25v1.214c0 .423-.277.788-.633 1.019A2.997 2.997 0 0 0 16 10c0 1.055.544 1.982 1.367 2.517.356.231.633.596.633 1.02v1.213A2.25 2.25 0 0 1 15.75 17H4.25A2.25 2.25 0 0 1 2 14.75v-1.213c0-.424.277-.789.633-1.02A2.998 2.998 0 0 0 4 10a2.997 2.997 0 0 0-1.367-2.517C2.277 7.252 2 6.887 2 6.463V5.25A2.25 2.25 0 0 1 4.25 3h11.5ZM13.5 7.396a.75.75 0 0 0-1.5 0v1.042a.75.75 0 0 0 1.5 0V7.396Zm0 4.167a.75.75 0 0 0-1.5 0v1.041a.75.75 0 0 0 1.5 0v-1.041Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const ticketMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M1 4.5A1.5 1.5 0 0 1 2.5 3h11A1.5 1.5 0 0 1 15 4.5v1c0 .276-.227.494-.495.562a2 2 0 0 0 0 3.876c.268.068.495.286.495.562v1a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 11.5v-1c0-.276.227-.494.495-.562a2 2 0 0 0 0-3.876C1.227 5.994 1 5.776 1 5.5v-1Zm9 1.25a.75.75 0 0 1 1.5 0v1a.75.75 0 0 1-1.5 0v-1Zm.75 2.75a.75.75 0 0 0-.75.75v1a.75.75 0 0 0 1.5 0v-1a.75.75 0 0 0-.75-.75Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const trashOutline: IconData = {
   paths: [
     {
@@ -3252,36 +3599,40 @@ export const trashOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const trashSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const trashMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const trashMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const userOutline: IconData = {
   paths: [
     {
@@ -3290,16 +3641,18 @@ export const userOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const userSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const userMini: IconData = {
   paths: [
     {
@@ -3308,6 +3661,7 @@ export const userMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const userMicro: IconData = {
   paths: [
     {
@@ -3316,6 +3670,7 @@ export const userMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const userCircleOutline: IconData = {
   paths: [
     {
@@ -3324,36 +3679,40 @@ export const userCircleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const userCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const userCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-5.5-2.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM10 12a5.99 5.99 0 0 0-4.793 2.39A6.483 6.483 0 0 0 10 16.5a6.483 6.483 0 0 0 4.793-2.11A5.99 5.99 0 0 0 10 12Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const userCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0Zm-5-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM8 9c-1.825 0-3.422.977-4.295 2.437A5.49 5.49 0 0 0 8 13.5a5.49 5.49 0 0 0 4.294-2.063A4.997 4.997 0 0 0 8 9Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const userGroupOutline: IconData = {
   paths: [
     {
@@ -3362,12 +3721,13 @@ export const userGroupOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const userGroupSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z",
@@ -3375,6 +3735,7 @@ export const userGroupSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const userGroupMini: IconData = {
   paths: [
     {
@@ -3383,6 +3744,7 @@ export const userGroupMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const userGroupMicro: IconData = {
   paths: [
     {
@@ -3391,6 +3753,7 @@ export const userGroupMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const userMinusOutline: IconData = {
   paths: [
     {
@@ -3399,6 +3762,7 @@ export const userMinusOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const userMinusSolid: IconData = {
   paths: [
     {
@@ -3407,6 +3771,7 @@ export const userMinusSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const userMinusMini: IconData = {
   paths: [
     {
@@ -3415,6 +3780,7 @@ export const userMinusMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const userMinusMicro: IconData = {
   paths: [
     {
@@ -3423,6 +3789,7 @@ export const userMinusMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const userPlusOutline: IconData = {
   paths: [
     {
@@ -3431,6 +3798,7 @@ export const userPlusOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const userPlusSolid: IconData = {
   paths: [
     {
@@ -3439,6 +3807,7 @@ export const userPlusSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const userPlusMini: IconData = {
   paths: [
     {
@@ -3447,6 +3816,7 @@ export const userPlusMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const userPlusMicro: IconData = {
   paths: [
     {
@@ -3455,6 +3825,7 @@ export const userPlusMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const usersOutline: IconData = {
   paths: [
     {
@@ -3463,6 +3834,7 @@ export const usersOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const usersSolid: IconData = {
   paths: [
     {
@@ -3471,6 +3843,7 @@ export const usersSolid: IconData = {
   ],
   variant: "solid",
 };
+
 export const usersMini: IconData = {
   paths: [
     {
@@ -3479,6 +3852,7 @@ export const usersMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const usersMicro: IconData = {
   paths: [
     {
@@ -3487,6 +3861,7 @@ export const usersMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const wrenchScrewdriverOutline: IconData = {
   paths: [
     {
@@ -3495,30 +3870,32 @@ export const wrenchScrewdriverOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const wrenchScrewdriverSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 6.75a5.25 5.25 0 0 1 6.775-5.025.75.75 0 0 1 .313 1.248l-3.32 3.319c.063.475.276.934.641 1.299.365.365.824.578 1.3.64l3.318-3.319a.75.75 0 0 1 1.248.313 5.25 5.25 0 0 1-5.472 6.756c-1.018-.086-1.87.1-2.309.634L7.344 21.3A3.298 3.298 0 1 1 2.7 16.657l8.684-7.151c.533-.44.72-1.291.634-2.309A5.342 5.342 0 0 1 12 6.75ZM4.117 19.125a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "m10.076 8.64-2.201-2.2V4.874a.75.75 0 0 0-.364-.643l-3.75-2.25a.75.75 0 0 0-.916.113l-.75.75a.75.75 0 0 0-.113.916l2.25 3.75a.75.75 0 0 0 .643.364h1.564l2.062 2.062 1.575-1.297Z",
     },
     {
+      clipRule: "evenodd",
       d: "m12.556 17.329 4.183 4.182a3.375 3.375 0 0 0 4.773-4.773l-3.306-3.305a6.803 6.803 0 0 1-1.53.043c-.394-.034-.682-.006-.867.042a.589.589 0 0 0-.167.063l-3.086 3.748Zm3.414-1.36a.75.75 0 0 1 1.06 0l1.875 1.876a.75.75 0 1 1-1.06 1.06L15.97 17.03a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const wrenchScrewdriverMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M14.5 10a4.5 4.5 0 0 0 4.284-5.882c-.105-.324-.51-.391-.752-.15L15.34 6.66a.454.454 0 0 1-.493.11 3.01 3.01 0 0 1-1.618-1.616.455.455 0 0 1 .11-.494l2.694-2.692c.24-.241.174-.647-.15-.752a4.5 4.5 0 0 0-5.873 4.575c.055.873-.128 1.808-.8 2.368l-7.23 6.024a2.724 2.724 0 1 0 3.837 3.837l6.024-7.23c.56-.672 1.495-.855 2.368-.8.096.007.193.01.291.01ZM5 16a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M14.5 11.5c.173 0 .345-.007.514-.022l3.754 3.754a2.5 2.5 0 0 1-3.536 3.536l-4.41-4.41 2.172-2.607c.052-.063.147-.138.342-.196.202-.06.469-.087.777-.067.128.008.257.012.387.012ZM6 4.586l2.33 2.33a.452.452 0 0 1-.08.09L6.8 8.214 4.586 6H3.309a.5.5 0 0 1-.447-.276l-1.7-3.402a.5.5 0 0 1 .093-.577l.49-.49a.5.5 0 0 1 .577-.094l3.402 1.7A.5.5 0 0 1 6 3.31v1.277Z",
@@ -3526,12 +3903,13 @@ export const wrenchScrewdriverMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const wrenchScrewdriverMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M15 4.5A3.5 3.5 0 0 1 11.435 8c-.99-.019-2.093.132-2.7.913l-4.13 5.31a2.015 2.015 0 1 1-2.827-2.828l5.309-4.13c.78-.607.932-1.71.914-2.7L8 4.5a3.5 3.5 0 0 1 4.477-3.362c.325.094.39.497.15.736L10.6 3.902a.48.48 0 0 0-.033.653c.271.314.565.608.879.879a.48.48 0 0 0 .653-.033l2.027-2.027c.239-.24.642-.175.736.15.09.31.138.637.138.976ZM3.75 13a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
     {
       d: "M11.5 9.5c.313 0 .62-.029.917-.084l1.962 1.962a2.121 2.121 0 0 1-3 3l-2.81-2.81 1.35-1.734c.05-.064.158-.158.426-.233.278-.078.639-.11 1.062-.102l.093.001ZM5 4l1.446 1.445a2.256 2.256 0 0 1-.047.21c-.075.268-.169.377-.233.427l-.61.474L4 5H2.655a.25.25 0 0 1-.224-.139l-1.35-2.7a.25.25 0 0 1 .047-.289l.745-.745a.25.25 0 0 1 .289-.047l2.7 1.35A.25.25 0 0 1 5 2.654V4Z",
@@ -3539,6 +3917,7 @@ export const wrenchScrewdriverMicro: IconData = {
   ],
   variant: "micro",
 };
+
 export const xCircleOutline: IconData = {
   paths: [
     {
@@ -3547,50 +3926,56 @@ export const xCircleOutline: IconData = {
   ],
   variant: "outline",
 };
+
 export const xCircleSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const xCircleMini: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "mini",
 };
+
 export const xCircleMicro: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "micro",
 };
+
 export const xMarkOutline: IconData = {
   paths: [{ d: "M6 18 18 6M6 6l12 12" }],
   variant: "outline",
 };
+
 export const xMarkSolid: IconData = {
   paths: [
     {
+      clipRule: "evenodd",
       d: "M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z",
       fillRule: "evenodd",
-      clipRule: "evenodd",
     },
   ],
   variant: "solid",
 };
+
 export const xMarkMini: IconData = {
   paths: [
     {
@@ -3599,6 +3984,7 @@ export const xMarkMini: IconData = {
   ],
   variant: "mini",
 };
+
 export const xMarkMicro: IconData = {
   paths: [
     {

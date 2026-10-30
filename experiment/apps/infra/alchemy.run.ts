@@ -4,14 +4,23 @@ import { Effect, Layer } from "effect";
 
 const stack = Alchemy.Stack(
   "Zagrajmy",
-  { providers: Layer.mergeAll(Cloudflare.providers()), state: Cloudflare.state() },
+  {
+    providers: Layer.mergeAll(Cloudflare.providers()),
+    state: Cloudflare.state(),
+  },
   Effect.gen(function* zagrajmyStack() {
-    const database = yield* Cloudflare.Hyperdrive.Connection("zagrajmy-postgres", {
-      origin: Alchemy.secret("DATABASE_URL"),
-    });
+    const database = yield* Cloudflare.Hyperdrive.Connection(
+      "zagrajmy-postgres",
+      {
+        origin: Alchemy.secret("DATABASE_URL"),
+      }
+    );
 
     const backend = yield* Cloudflare.Worker("zagrajmy-backend", {
-      bindings: { DATABASE: database, SECRET_KEY: Alchemy.secret("SECRET_KEY") },
+      bindings: {
+        DATABASE: database,
+        SECRET_KEY: Alchemy.secret("SECRET_KEY"),
+      },
       entrypoint: "../server/src/worker.ts",
     });
 

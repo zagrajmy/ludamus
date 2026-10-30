@@ -10,10 +10,11 @@ export const AvatarPerson = Schema.Struct({
   avatarUrl: Schema.OptionFromOptional(Schema.String),
   name: Schema.String,
 });
+
 export type AvatarPerson = typeof AvatarPerson.Type;
 
 const palette = (name: string) => {
-  const length = [...name].length;
+  const { length } = [...name];
 
   if (length % 4 === 0) {
     return { background: "bg-coral-400", text: "text-neutral-900" };

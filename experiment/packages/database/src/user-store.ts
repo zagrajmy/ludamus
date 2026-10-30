@@ -1,4 +1,4 @@
-import { StoreError } from "@zagrajmy/core";
+import type { StoreError } from "@zagrajmy/core";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
@@ -13,6 +13,7 @@ export const UserRow = Schema.Struct({
   slug: Schema.String,
   username: Schema.String,
 });
+
 export type UserRow = typeof UserRow.Type;
 
 export class UserStore extends Context.Service<

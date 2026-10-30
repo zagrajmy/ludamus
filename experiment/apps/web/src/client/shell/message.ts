@@ -16,4 +16,5 @@ export const ShellMessage = defineMessageUnion({
   StoredConsent: {},
   ToggledAccountMenu: { isOpen: Schema.Boolean },
 });
+
 export type ShellMessage = typeof ShellMessage.Type;

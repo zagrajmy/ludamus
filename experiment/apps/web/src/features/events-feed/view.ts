@@ -40,11 +40,11 @@ const createEncounterButton = (
 const cards = (
   options: Readonly<{
     context: PageContext;
-    items: ReadonlyArray<FeedItem>;
+    items: readonly FeedItem[];
     model: EventsFeedModel;
   }>,
   h: HtmlBuilder<EventsFeedMessage>
-): ReadonlyArray<Html> => {
+): readonly Html[] => {
   const { context, model } = options;
 
   return options.items.map((item) =>

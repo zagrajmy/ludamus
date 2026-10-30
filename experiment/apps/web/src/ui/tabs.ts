@@ -46,14 +46,16 @@ export const tabList = <Message>(
   options: Readonly<{
     ariaLabel?: string;
     extraClass?: string;
-    tabs: ReadonlyArray<TabLink>;
+    tabs: readonly TabLink[];
     variant?: TabVariant;
   }>,
   h: HtmlBuilder<Message>
 ) => {
   const variant = options.variant ?? "underline";
+
   const label =
     options.ariaLabel === undefined ? [] : [h.AriaLabel(options.ariaLabel)];
+
   const links = options.tabs.map((tab) => tabLink(tab, variant, h));
 
   return variant === "segment"

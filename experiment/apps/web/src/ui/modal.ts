@@ -10,8 +10,8 @@ import { exclamationTriangleOutline, xMarkMini } from "./icons.js";
 export { Dialog };
 
 export type ModalOptions<Message> = Readonly<{
-  body: ReadonlyArray<Child>;
-  footer?: ReadonlyArray<Child>;
+  body: readonly Child[];
+  footer?: readonly Child[];
   model: Dialog.Model;
   panelClass?: string;
   title: string;
@@ -21,7 +21,7 @@ export type ModalOptions<Message> = Readonly<{
 
 const frame = <Message>(
   options: Readonly<{
-    content: (render: Dialog.RenderInfo) => ReadonlyArray<Child>;
+    content: (render: Dialog.RenderInfo) => readonly Child[];
     hasDescription?: boolean;
     model: Dialog.Model;
     panelClass?: string;

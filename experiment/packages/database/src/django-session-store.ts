@@ -1,4 +1,4 @@
-import { StoreError } from "@zagrajmy/core";
+import type { StoreError } from "@zagrajmy/core";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
@@ -9,6 +9,7 @@ export const DjangoSessionRow = Schema.Struct({
   sessionData: Schema.String,
   sessionKey: Schema.String,
 });
+
 export type DjangoSessionRow = typeof DjangoSessionRow.Type;
 
 export class DjangoSessionStore extends Context.Service<

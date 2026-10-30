@@ -4,6 +4,7 @@ import type { HtmlBuilder } from "foldkit/html";
 import type { Translator } from "./i18n.js";
 
 export const ThemeChoice = Schema.Literals(["system", "light", "dark"]);
+
 export type ThemeChoice = typeof ThemeChoice.Type;
 
 export const themeStorageKey = "theme";

@@ -22,7 +22,7 @@ const sortedByKey = <Value>(record: Readonly<Record<string, Value>>) =>
 
 const source = process.argv[2] ?? fileURLToPath(DJANGO_CATALOG);
 
-const parsed = parsePo(readFileSync(source, "utf8"));
+const parsed = parsePo(readFileSync(source, "utf-8"));
 
 if (Result.isFailure(parsed)) {
   process.stderr.write(`${source}: ${parsed.failure.message}\n`);
@@ -54,8 +54,8 @@ writeFileSync(
   `${JSON.stringify(
     {
       language: "pl",
-      pluralForms: catalog.pluralForms,
       messages: sortedByKey(catalog.messages),
+      pluralForms: catalog.pluralForms,
       plurals: sortedByKey(catalog.plurals),
     },
     null,

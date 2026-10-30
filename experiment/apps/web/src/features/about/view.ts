@@ -20,7 +20,7 @@ export const aboutDescription = (translator: Translator) => translator.t(lead);
 type Topic = readonly [heading: string, body: string];
 
 const linkList = <Message>(
-  links: ReadonlyArray<readonly [string, string]>,
+  links: readonly (readonly [string, string])[],
   h: HtmlBuilder<Message>
 ) =>
   h.ul(
@@ -36,19 +36,19 @@ export const aboutView = <Message>(
   h: HtmlBuilder<Message>
 ) => {
   const { t, tc } = context.translator;
-  const topics = (items: ReadonlyArray<Topic>) =>
+
+  const topics = (items: readonly Topic[]) =>
     items.flatMap(([heading, body]) => [h.h3([], [heading]), h.p([], [body])]);
-  const section = (
-    id: string,
-    heading: string,
-    children: ReadonlyArray<Child>
-  ) =>
+
+  const section = (id: string, heading: string, children: readonly Child[]) =>
     h.section(
       [h.AriaLabelledBy(id)],
       [h.h2([h.Id(id)], [heading]), ...children]
     );
-  const fact = (term: string, definition: ReadonlyArray<Child>) =>
+
+  const fact = (term: string, definition: readonly Child[]) =>
     h.div([h.Key(term)], [h.dt([], [term]), h.dd([], definition)]);
+
   const factContext = "about key facts";
 
   return h.article(

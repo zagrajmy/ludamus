@@ -6,6 +6,7 @@ import { icon } from "./icon.js";
 import type { IconData } from "./icon.js";
 
 export type ButtonVariant = "danger" | "primary" | "secondary";
+
 export type ButtonSize = "lg" | "md" | "sm";
 
 const sizeClasses: Readonly<Record<ButtonSize, string>> = {
@@ -27,7 +28,7 @@ const variantClasses: Readonly<Record<ButtonVariant, string>> = {
 };
 
 type CommonOptions<Message> = Readonly<{
-  attributes?: ReadonlyArray<Attribute<Message>>;
+  attributes?: readonly Attribute<Message>[];
   disabled?: boolean;
   extraClass?: string;
   fullWidthMobile?: boolean;
@@ -98,7 +99,7 @@ export const linkButton = <Message>(
 
 export const iconButton = <Message>(
   options: Readonly<{
-    attributes?: ReadonlyArray<Attribute<Message>>;
+    attributes?: readonly Attribute<Message>[];
     icon: IconData;
     iconClass?: string;
     label: string;

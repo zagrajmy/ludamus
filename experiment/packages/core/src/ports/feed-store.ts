@@ -19,15 +19,15 @@ export class FeedStore extends Context.Service<
   {
     readonly listAnnouncements: (
       sphereId: number
-    ) => Effect.Effect<ReadonlyArray<AnnouncementRow>, StoreError>;
+    ) => Effect.Effect<readonly AnnouncementRow[], StoreError>;
     readonly listEvents: (
       sphereId: number
-    ) => Effect.Effect<ReadonlyArray<FeedEventRow>, StoreError>;
+    ) => Effect.Effect<readonly FeedEventRow[], StoreError>;
     readonly listPastEncounters: (
       window: EncounterWindow
-    ) => Effect.Effect<ReadonlyArray<FeedEncounterRow>, StoreError>;
+    ) => Effect.Effect<readonly FeedEncounterRow[], StoreError>;
     readonly listUpcomingEncounters: (
       window: EncounterWindow
-    ) => Effect.Effect<ReadonlyArray<FeedEncounterRow>, StoreError>;
+    ) => Effect.Effect<readonly FeedEncounterRow[], StoreError>;
   }
 >()("@zagrajmy/core/FeedStore") {}

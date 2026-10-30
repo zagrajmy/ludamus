@@ -6,9 +6,12 @@ import { Effect, Option } from "effect";
 
 import type { EventsFeedFlags } from "../../client/events-feed/flags.js";
 import { EncounterAttendance, FeedItem } from "../../ui/feed-card.js";
-import { parseStoredInstant } from "../format/instant.js";
+import {
+  parseStoredInstant,
+  isBefore,
+  storedTimestamp,
+} from "../format/instant.js";
 import type { Instant } from "../format/instant.js";
-import { isBefore, storedTimestamp } from "../format/instant.js";
 import { markdownToPlainText } from "../markdown.js";
 import { mediaUrl, placeholderCoverUrl } from "../request-context.js";
 import type { RequestContext } from "../request-context.js";
@@ -80,8 +83,8 @@ type Dated = Readonly<{ item: FeedItem; start: Instant }>;
 
 const eventItems = (options: {
   readonly context: RequestContext;
-  readonly events: ReadonlyArray<FeedEventRow>;
-}): ReadonlyArray<Dated> =>
+  readonly events: readonly FeedEventRow[];
+}): readonly Dated[] =>
   options.events.map((event, position) => {
     const start = instantOf(event.startTime);
     const published = optionalInstant(event.publicationTime);
@@ -141,9 +144,9 @@ const present = (value: string) =>
 
 const encounterItems = (options: {
   readonly context: RequestContext;
-  readonly encounters: ReadonlyArray<FeedEncounterRow>;
+  readonly encounters: readonly FeedEncounterRow[];
   readonly viewerId: number | null;
-}): ReadonlyArray<Dated> =>
+}): readonly Dated[] =>
   options.encounters.map((encounter) => {
     const start = instantOf(encounter.startTime);
     const isMine = encounter.creatorId === options.viewerId;
@@ -180,7 +183,7 @@ const encounterItems = (options: {
   });
 
 export const mergeFeed = (options: {
-  readonly items: ReadonlyArray<Dated>;
+  readonly items: readonly Dated[];
   readonly newestFirst: boolean;
 }) =>
   options.items
@@ -195,30 +198,39 @@ export const loadEventsFeed = Effect.fn("EventsFeedPage.load")(
   function* loadEventsFeed(context: RequestContext) {
     const store = yield* FeedStore;
     const { now } = context;
+
     const viewerId = Option.match(context.viewer, {
       onNone: () => null,
       onSome: (viewer) => viewer.id,
     });
+
     const events = (yield* store.listEvents(context.sphere.id)).filter(
       (event) => context.hasPanelAccess || isListedEvent(event, now)
     );
+
     const isEnded = (event: FeedEventRow) =>
       before(instantOf(event.endTime), now);
+
     const upcomingEvents = events.filter((event) => !isEnded(event));
     const pastEvents = events.filter(isEnded).toReversed();
     const encountersOn = context.sphere.encountersPolicy !== "none";
+
     const window = {
       now: storedTimestamp(now),
       sphereId: context.sphere.id,
       viewerId,
     };
+
     const upcomingEncounters = encountersOn
       ? yield* store.listUpcomingEncounters(window)
       : [];
+
     const pastEncounters = encountersOn
       ? yield* store.listPastEncounters(window)
       : [];
+
     const announcements = yield* store.listAnnouncements(context.sphere.id);
+
     const canCreateEncounter =
       viewerId !== null &&
       (context.sphere.encountersPolicy === "everyone" ||

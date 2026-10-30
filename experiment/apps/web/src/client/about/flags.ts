@@ -11,4 +11,5 @@ export const AboutFlags = Schema.Struct({
   eventCount: Schema.Int,
   sessionCount: Schema.Int,
 });
+
 export type AboutFlags = typeof AboutFlags.Type;
