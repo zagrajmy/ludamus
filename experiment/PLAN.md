@@ -70,6 +70,15 @@ to the same examples.
   template's plugins (no comments, no module-level mutable state, boundaries,
   anti-slop), oxfmt, `tsc --strict` with the base tsconfig. `effect-tsrs` and
   tsgo diagnostics are not wired yet.
+- **D10 rat-stack is the reference; deviations are listed, not hidden.**
+  [AGENTS.md](https://ratstack.sh/AGENTS.md) is the law we build against,
+  its skills are the playbooks (`add-a-capability`, `add-a-store`,
+  `query-design`, `test-behaviour`, `rat-stack-mode`), and
+  [docs/ratstack-conformance.md](docs/ratstack-conformance.md) records every
+  place this experiment or the Django app breaks a rule, with the reason.
+  The MCP server at `https://ratstack.sh/mcp` (`.mcp.json`, `rat-stack`) and
+  `https://ratstack.sh/llms-full.txt` are the search surfaces; read the owning
+  rule and skill before changing code.
 
 ## Layer map (GLIMPSE → rat-stack)
 
@@ -96,12 +105,22 @@ contracts and schemas from `@zagrajmy/core`, never stores, never
 viewer, locale, nav, flash messages. `page` is a tagged union, one case per
 page, holding exactly the data that page's template got in its context.
 
-Each page is a folder `apps/web/src/features/<page>/` exporting:
+Each page follows rat-stack's web feature blueprint, split in two:
 
-- `Flags` (Schema): what the server computes for this page.
-- `Model` (Schema), `init(flags, url)`, `Message`, `update`, `view(model, ctx, h)`.
-- Commands named verb-first (`EnrollInSession`), result messages past tense
-  (`SucceededEnroll`, `FailedEnroll`).
+- `apps/web/src/client/<page>/` owns the Foldkit program: `Flags` (Schema,
+  what the server computes for this page), `Model` (Schema), `init(flags,
+  url)`, `Message`, `update`, and named `Command.define` definitions
+  (verb-first, `EnrollInSession`; result messages past tense,
+  `SucceededEnroll`, `FailedEnroll`). Remote state lives in the Model as
+  Foldkit `AsyncData`.
+- `apps/web/src/features/<page>/` is the thin view: it reads the Model and
+  sends Messages. No transport, retries or startup in a view.
+
+One send follows one path: feature → Message → `update` → Command →
+`RpcClient` over the contract's `toRpcGroup` → capability → store. Browser
+modules import only `@zagrajmy/core/contracts` and
+`@zagrajmy/capability/rpc-group` from those packages; every schema a view
+needs is exported from `contracts.ts`.
 
 The server side is `apps/web/src/server/pages/<page>.ts`: `load(request
 context) => Effect<PageFlags, PageError>`, calling capability handlers
@@ -149,15 +168,31 @@ Django's, `e2e-secret-key` for the seed), `PORT`, `PUBLIC_ORIGIN`.
 
 ## Conventions for contributors (human or agent)
 
+- Read `node_modules/effect/AGENTS.md` before writing Effect code (rat-stack's
+  source-first rule); it ships with the pinned version.
 - No comments except `SAFETY:` above a type assertion and a reason after `--`
   on a lint directive. Names carry the meaning.
-- Functions with 3+ parameters take one options object (anti-slop
-  `no-object-parameters` is scoped as rat-stack scopes it; follow the lint).
+- Functions with 3+ parameters take one options object. Never type a
+  parameter as `object` or `unknown` (anti-slop `no-object-parameters`,
+  `no-unknown-parameters`): parse external input with Schema at the boundary
+  and pass the parsed type.
+- A service is a `Context.Service` class whose `make` captures its
+  dependencies so its methods carry no requirements, with `static layer`
+  beside it in the same file (`packages/core/src/file-inspector.ts` in the
+  template). Config is a service too (`AppConfig` mirrors `.env.schema`),
+  not `Config.String` calls scattered through stores.
+- Stores decode input before issuing statements, bound every read with an
+  explicit limit, and distinguish invalid input from storage failure
+  (`add-a-store`, `query-design`): constant round trips per capability,
+  batched `IN` reads, no query in a loop over rows.
 - Every row read from SQL is decoded with a Schema. Every error is a
   `Schema.TaggedError` with a `message` getter. No `any`, no `as` without
   `SAFETY:`.
 - `Effect.fn("Name.method")(function* name() {...})` for every effectful
   function so spans carry names.
+- Contracts live in `packages/core/src/contracts.ts`; `Rpc.make`, `HttpApi*`,
+  `Tool.make` appear only inside `packages/capability`; projections are
+  instantiated in one module of the composition root.
 - Views are pure. Side effects are Commands. Model is a Schema struct.
 - Message names: UI intent in past tense (`ClickedEnroll`, `ChangedFilter`),
   Command results `Succeeded…`/`Failed…`.
@@ -168,4 +203,8 @@ Django's, `e2e-secret-key` for the seed), `PORT`, `PUBLIC_ORIGIN`.
   component already has them.
 - Tests: `*.story.test.ts` (update), `*.scene.test.ts` (view), `*.test.ts`
   (capabilities with `@effect/vitest` against a read-only copy of the seeded
-  DB). Write the failure modes down first. Playwright is the acceptance bar.
+  DB). A domain rule is an `it.prop`; anything with history is a model test;
+  one example per seam. `it.effect`/`it.layer` only, never `Effect.run*` or
+  `ManagedRuntime.make` in a test. Plant a bug and watch the test fail before
+  trusting it. Write the failure modes down first. Playwright is the
+  acceptance bar.
