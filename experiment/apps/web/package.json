@@ -22,12 +22,15 @@
     "@zagrajmy/database": "workspace:*",
     "@zagrajmy/i18n": "workspace:*",
     "effect": "4.0.7",
-    "foldkit": "0.169.0"
+    "foldkit": "0.169.0",
+    "marked": "18.0.14"
   },
   "devDependencies": {
     "@effect/platform-node": "4.0.7",
     "@effect/vitest": "4.0.7",
     "@foldkit/vite-plugin": "0.28.0",
+    "@hasparus/tailwind": "1.1.8",
+    "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "@types/node": "24.19.2",
     "jsdom": "30.1.3",

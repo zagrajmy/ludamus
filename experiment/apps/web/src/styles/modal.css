@@ -1,0 +1,328 @@
+:root {
+  /* Single source of truth: the live ::backdrop blur and the morph's
+     root-snapshot blur must match so the hand-off at the end of the view
+     transition is seamless. */
+  --modal-backdrop-blur: 4px;
+
+  /* The share of the visible viewport a capped dialog may take. Read by
+     .modal-capped and by the schedule's filter sheet.
+     SAFETY: an unresolved var() computes to max-height:none in silence; the
+     e2e cap assertions are what notice a consumer left reading a dead name. */
+  --modal-max-h: 90dvh;
+}
+
+@layer components {
+  /* NOTE: opt-in, not part of .modal — a dialog whose content cannot outgrow
+     the screen should size to its content rather than sit in a tall box. */
+  .modal-capped {
+    max-height: var(--modal-max-h);
+    overflow: hidden;
+  }
+
+  .modal-footer {
+    padding-bottom: calc(0.75rem + 2px);
+  }
+
+  .modal-footer-lg {
+    padding-bottom: calc(1rem + 2px);
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    margin: auto;
+    opacity: 0;
+    transform: scale(0.9) translateY(16px);
+    height: fit-content;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    @apply shadow-lg;
+  }
+
+  .modal[open] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+    transition:
+      opacity 0.35s var(--ease-spring-a-bit),
+      transform 0.35s var(--ease-spring-a-bit),
+      overlay 0.35s allow-discrete,
+      display 0.35s allow-discrete;
+  }
+
+  /* Every open dialog is a transition group of its own, so a dismissal draws
+     modal-close-out on its snapshot. A morphing session dialog overrides this
+     with session-morph inline for the morph's lifetime (modal.ts). */
+  .modal[open] {
+    view-transition-name: app-modal;
+  }
+
+  .modal:not([open]) {
+    display: none;
+  }
+
+  .modal:not([open]),
+  .modal:not([open]) * {
+    pointer-events: none !important;
+  }
+
+  /* The backdrop does not inherit from the dialog, and the closed dialog sits
+     in the top layer for the whole exit transition above — so without this a
+     tap in that third of a second lands on the fading backdrop, not the page. */
+  .modal:not([open])::backdrop {
+    pointer-events: none;
+  }
+
+  @starting-style {
+    .modal[open] {
+      opacity: 0;
+      transform: scale(0.9) translateY(16px);
+    }
+  }
+
+  .modal::backdrop {
+    background-color: transparent;
+    backdrop-filter: blur(0);
+    transition:
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete,
+      background-color 0.2s var(--ease-out),
+      backdrop-filter 0.2s var(--ease-out);
+  }
+
+  .modal[open]::backdrop {
+    background-color: color-mix(
+      in srgb,
+      var(--color-background) 50%,
+      transparent
+    );
+    backdrop-filter: blur(var(--modal-backdrop-blur));
+  }
+
+  @starting-style {
+    .modal[open]::backdrop {
+      background-color: transparent;
+      backdrop-filter: blur(0);
+    }
+  }
+}
+
+.session.session-suppressed {
+  @apply pointer-events-none border-dashed bg-neutral-100 dark:bg-neutral-800/60;
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.session.session-suppressed > * {
+  visibility: hidden;
+}
+
+/* The page stays live under a modal transition. Two rules make that so, and
+   neither works alone: the root opts out of the transition for its lifetime
+   (modal.ts holds the class), because a captured element is painted only as
+   its snapshot and takes no taps, and the root captured is the whole page;
+   and the pseudo-tree, which covers the viewport and by default takes every
+   pointer event, lets them fall through to the live page under it. Only the
+   card and the dialog are snapshots, and those are what animate. */
+:root.vt-page-live {
+  view-transition-name: none;
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(session-morph),
+::view-transition-group(morph-title),
+::view-transition-group(morph-host),
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-footer) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+:root:not(:has(dialog.modal[id^="session-"][open])) {
+  --vt-morph-duration: var(--vt-morph-exit-duration);
+}
+
+::view-transition-old(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+  opacity: 0;
+}
+
+::view-transition-new(morph-avatar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Each of these carries its own name, so it is lifted out of the card's snapshot
+   into a group of its own, and an old-only group is appended after
+   session-morph — it paints on top of the arriving modal, not behind it. None of
+   them appears in the paired-group timing above either, so without this they
+   would sit crisply legible over the new modal for the UA's default 0.25s fade.
+   Cut them at the start instead. Same treatment the title and host already get. */
+::view-transition-old(morph-title),
+::view-transition-old(morph-host),
+::view-transition-old(morph-tags),
+::view-transition-old(morph-meta),
+::view-transition-old(morph-time) {
+  animation: none;
+  opacity: 0;
+}
+
+/* The tab bar exists only in the modal, so it is captured as a new-only group —
+   no old geometry to interpolate, so it renders at its final layout for the whole
+   morph while the sheet is still a fraction of its final width. Nesting it inside
+   session-morph puts it under the container's transform and clip, so it travels
+   and crops with the sheet. It keeps its name, which is what separates this from
+   dropping the name: the stagger below still applies, so the bar still waits for
+   the title to fly past instead of painting over it.
+
+   The footer does not want this. Nesting fixes where a group is drawn but not
+   where it starts from, and a new-only group starts at its own slot inside the
+   container — which for a card in the last column is the far right of the
+   viewport, so the bar slid in sideways. It is paired instead: see the anchor in
+   _session_card.html.
+
+   Level 2, and no WebKit support yet — Safari drops the declaration and keeps the
+   flat behaviour for the tabs. That degrades well because the cost is
+   proportional to how far the sheet travels sideways, and on a phone it barely
+   does: the dialog is near full-width, so the card grows ~11% in width against
+   ~108% in height. */
+[data-morph="tabs"] {
+  view-transition-group: nearest;
+}
+
+/* The anchor renders nothing, so its snapshot is an empty strip. Cut it rather
+   than let it cross-fade for the UA's default 0.25s over the arriving bar. */
+::view-transition-old(morph-footer) {
+  animation: none;
+  opacity: 0;
+}
+
+/* The footer carries the modal's surface colour because the container snapshot
+   underneath is mid-cross-fade with the card and would otherwise show through. */
+::view-transition-new(morph-footer) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+/* Static labels the title flies through on its way to the header. Hold each
+   back until the title has cleared it, so the two never render on top of one
+   another, and stagger them so the modal's chrome settles before its body
+   copy does. */
+::view-transition-new(morph-tabs) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.5)
+    var(--vt-morph-ease) calc(var(--vt-morph-duration) * 0.35) both;
+}
+
+::view-transition-new(morph-desc-label) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.4)
+    var(--vt-morph-ease) calc(var(--vt-morph-duration) * 0.5) both;
+}
+
+/* The venue gets its own ramp rather than sharing the one above. It is small,
+   secondary text with no counterpart on the card, so a bare opacity fade over
+   0.4 of the morph reads as switching on rather than arriving. Resolving it out
+   of a blur gives the eye something to track, and running to exactly 1.0 (0.5
+   delay + 0.5 duration) lands it as the morph settles without extending the
+   transition — the pseudo-elements live until the longest animation on them
+   ends. Safari rasterises `filter` on a view-transition snapshot; the page-blur
+   keyframes below already rely on that. */
+::view-transition-new(morph-venue) {
+  animation: vt-venue-in calc(var(--vt-morph-duration) * 0.5)
+    var(--vt-morph-ease) calc(var(--vt-morph-duration) * 0.5) both;
+}
+
+@keyframes vt-chrome-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 8px, not the 4px the backdrop uses: this is 14px secondary text, and at 4px
+   the frames are almost indistinguishable from a plain fade. Both ends are
+   written out because interpolating a blur against an implicit `none` relies on
+   filter list-identity rules, and being explicit costs one line. */
+@keyframes vt-venue-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+::view-transition-old(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.55);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-new(session-morph) {
+  animation-duration: var(--vt-morph-duration);
+  animation-timing-function: var(--vt-morph-ease);
+}
+
+::view-transition-group(app-modal) {
+  animation-duration: 0.26s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(app-modal) {
+  animation: modal-close-out 0.26s var(--ease-out) both;
+}
+
+::view-transition-new(app-modal) {
+  animation: none;
+}
+
+@keyframes modal-close-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+    filter: blur(6px);
+  }
+}
+
+/* The blur behind a modal is the live ::backdrop's own transition (above): the
+   page is not captured, so there is no root snapshot to paint a blur onto,
+   and Safari's refusal to rasterise backdrop-filter into a snapshot no
+   longer matters — the backdrop never leaves the live tree. */
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(app-modal) {
+    animation: modal-close-fade 0.15s ease both;
+  }
+
+  @keyframes modal-close-fade {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @starting-style {
+    .modal[open] {
+      transform: none;
+    }
+  }
+
+  .modal,
+  .modal[open] {
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+
+  /* No morph rules here on purpose. `canMorph` in modal.ts refuses to start a
+     session morph under reduced motion, so no session-morph / morph-* name is
+     ever applied and every such selector would be dead. The gate lives in the
+     JS because it also has to pick the non-animated open path. */
+}

@@ -1,61 +1,105 @@
-import { Option } from "effect";
-import type { Document, HtmlBuilder } from "foldkit/html";
+import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
-import type { Model } from "../client/model.js";
 import { Message } from "../client/message.js";
-import { eventsFeed } from "./events-feed.js";
+import { PageModel } from "../client/model.js";
+import type { Model } from "../client/model.js";
+import { translator } from "../ui/i18n.js";
+import { aboutTitle, aboutView } from "./about/view.js";
+import { contentPageTitle, contentPageView } from "./content-page/view.js";
+import { eventsFeedTitle, eventsFeedView } from "./events-feed/view.js";
+import { landingTitle, landingView } from "./landing/view.js";
+import {
+  notFoundTitle,
+  notFoundView,
+  notPortedTitle,
+  notPortedView,
+} from "./not-found/view.js";
+import type { PageContext } from "./page-context.js";
+import { documentTitle } from "./shell/title.js";
+import type { PageTitle } from "./shell/title.js";
+import { shellView } from "./shell/view.js";
+import type { PageLayout } from "./shell/view.js";
 
-const header = (model: Model, h: HtmlBuilder<Message>) =>
-  h.header(
-    [h.Class("border-b border-slate-200 bg-white")],
-    [
-      h.nav(
-        [
-          h.Class("mx-auto flex max-w-5xl items-center justify-between px-4 py-3"),
-          h.AriaLabel("Main"),
-        ],
-        [
-          h.a(
-            [h.Href("/events/"), h.Class("text-lg font-semibold")],
-            [model.shell.sphere.name]
-          ),
-          Option.match(model.shell.viewer, {
-            onNone: () =>
-              h.a([h.Href("/crowd/login-required/"), h.Class("underline")], ["Log in"]),
-            onSome: (viewer) =>
-              h.button(
-                [h.OnClick(Message.ToggledMenu()), h.Class("underline")],
-                [viewer.displayName]
-              ),
-          }),
-        ]
-      ),
-    ]
-  );
+type RenderedPage = Readonly<{
+  content: Html;
+  layout: PageLayout;
+  title: PageTitle;
+}>;
 
-export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
-  body: h.div(
-    [h.Class("min-h-screen bg-slate-50 text-slate-900")],
-    [
-      header(model, h),
-      h.main(
-        [h.Class("mx-auto max-w-5xl px-4 py-8")],
-        [
-          Page(model, h),
-        ]
-      ),
-    ]
-  ),
-  lang: model.shell.locale,
-  title: pageTitle(model),
+const renderPage = (
+  model: Model,
+  context: PageContext,
+  h: HtmlBuilder<Message>
+): RenderedPage =>
+  PageModel.match<RenderedPage>(model.page, {
+    About: ({ model: about }) => ({
+      content: aboutView(about, context, h),
+      layout: "contained",
+      title: aboutTitle(context),
+    }),
+    ContentPage: ({ model: content }) => ({
+      content: contentPageView(content, context, h),
+      layout: "contained",
+      title: contentPageTitle(content, context),
+    }),
+    EventsFeed: ({ model: feed }) => ({
+      content: h.submodel({
+        model: feed,
+        slotId: "events-feed",
+        toParentMessage: (message) => Message.GotEventsFeedMessage({ message }),
+        view: eventsFeedView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: eventsFeedTitle(context),
+    }),
+    Landing: ({ model: landing }) => ({
+      content: h.submodel({
+        model: landing,
+        slotId: "landing",
+        toParentMessage: (message) => Message.GotLandingMessage({ message }),
+        view: landingView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "bleed",
+      title: landingTitle(context),
+    }),
+    NotFound: () => ({
+      content: notFoundView(context, h),
+      layout: "contained",
+      title: notFoundTitle(context),
+    }),
+    NotPorted: ({ model: notPorted }) => ({
+      content: notPortedView(notPorted, context, h),
+      layout: "contained",
+      title: notPortedTitle(notPorted),
+    }),
+  });
+
+export const pageContext = (model: Model): PageContext => ({
+  shell: model.shell,
+  translator: translator(model.shell.locale),
 });
 
-const Page = (model: Model, h: HtmlBuilder<Message>) =>
-  model.page._tag === "EventsFeed"
-    ? eventsFeed(model.page.events, h)
-    : h.section([], [h.h1([h.Class("text-2xl font-bold")], ["Not found"])]);
+export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
+  const context = pageContext(model);
+  const page = renderPage(model, context, h);
 
-const pageTitle = (model: Model) =>
-  model.page._tag === "EventsFeed"
-    ? `Events | ${model.shell.sphere.name}`
-    : `Not found | ${model.shell.sphere.name}`;
+  return {
+    body: shellView(
+      {
+        body: { content: [page.content], layout: page.layout },
+        shell: model.shell,
+        toMessage: (message) => Message.GotShellMessage({ message }),
+        translator: context.translator,
+      },
+      h
+    ),
+    lang: model.shell.locale,
+    title: documentTitle({
+      isRootSphere: model.shell.isRootSphere,
+      page: page.title,
+      sphereName: model.shell.sphere.name,
+    }),
+  };
+};

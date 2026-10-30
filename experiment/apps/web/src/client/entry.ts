@@ -4,9 +4,10 @@ import { view } from "../features/app.js";
 import { init } from "./init.js";
 import { Message } from "./message.js";
 import { Flags, Model } from "./model.js";
+import { subscriptions } from "./subscriptions.js";
 import { update } from "./update.js";
 
-import "../styles.css";
+import "../styles/index.css";
 
 const application = Runtime.makeApplication({
   Flags,
@@ -17,6 +18,7 @@ const application = Runtime.makeApplication({
     onUrlChange: (url) => Message.ChangedUrl({ url }),
     onUrlRequest: (request) => Message.ClickedLink({ request }),
   },
+  subscriptions,
   update,
   view,
 });
