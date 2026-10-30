@@ -31,7 +31,7 @@ def render_input(field: BoundField, *, inplace_class: str = "") -> str:
     """
     widget = field.field.widget
     attrs = widget.attrs
-    value = field.value()
+    value = widget.format_value(field.value())
     input_type = attrs.get("type", getattr(widget, "input_type", "text"))
     spellcheck = attrs.get("spellcheck")
     if spellcheck is None and input_type in _NO_SPELLCHECK_TYPES:
@@ -48,9 +48,7 @@ def render_input(field: BoundField, *, inplace_class: str = "") -> str:
             "id": field.id_for_label,
             "input_type": "text" if input_type == "color" else input_type,
             "label": field.label,
-            # Stringified so falsy values render too: 0 must come out as
-            # value="0", not as an empty box.
-            "value": "" if value is None else str(value),
+            "value": "" if value is None else value,
             "required": field.field.required,
             "disabled": attrs.get("disabled", False),
             "readonly": attrs.get("readonly", False),
