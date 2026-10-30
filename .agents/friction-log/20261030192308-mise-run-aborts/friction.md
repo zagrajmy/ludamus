@@ -13,6 +13,8 @@ With MISE_ENV=sandbox every `mise run` (any task, frog included) exits after `Fa
 
 ## Possible Solution
 
+Workaround that works today: `MISE_TASK_RUN_AUTO_INSTALL=false mise run <task>` skips the auto-install and runs the task body.
+
 Keep `workflow = "release.yml"` out of the hk pin when the sandbox alias maps it to cargo (mise.sandbox.toml), or set the option only in the non-sandbox config.
 
 ## Minimal Reproducible Example
