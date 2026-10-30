@@ -3,6 +3,7 @@ import type { Layer } from "effect";
 import { Effect } from "effect";
 import type * as Rpc from "effect/rpc/Rpc";
 import type * as RpcGroup from "effect/rpc/RpcGroup";
+import type * as RpcMiddleware from "effect/rpc/RpcMiddleware";
 
 import type { AnyCapability, ContractOf, RequirementsOf } from "./contract.js";
 import { toRpcGroup } from "./to-rpc-group.js";
@@ -12,25 +13,51 @@ export type ContractsOf<Caps extends readonly AnyCapability[]> = {
   readonly [K in keyof Caps]: ContractOf<Caps[K]>;
 };
 
-export interface RpcProjection<Caps extends readonly AnyCapability[]> {
-  readonly group: RpcGroup.RpcGroup<RpcsOf<ContractsOf<Caps>>[number]>;
+type ProjectedRpcs<
+  Caps extends readonly AnyCapability[],
+  Middleware extends RpcMiddleware.AnyService,
+> = Rpc.AddMiddleware<RpcsOf<ContractsOf<Caps>>[number], Middleware>;
+
+export interface RpcProjection<
+  Caps extends readonly AnyCapability[],
+  Middleware extends RpcMiddleware.AnyService = never,
+> {
+  readonly group: RpcGroup.RpcGroup<ProjectedRpcs<Caps, Middleware>>;
   readonly layer: Layer.Layer<
-    Rpc.ToHandler<RpcsOf<ContractsOf<Caps>>[number]>,
+    Rpc.ToHandler<ProjectedRpcs<Caps, Middleware>>,
     never,
-    RequirementsOf<Caps>
+    Exclude<
+      RequirementsOf<Caps>,
+      RpcMiddleware.Provides<Middleware["Identifier"]>
+    >
   >;
 }
 
-export const toRpc = <const Caps extends readonly AnyCapability[]>(
-  capabilities: Caps
-): RpcProjection<Caps> => {
+export interface RpcProjectionOptions<
+  Middleware extends RpcMiddleware.AnyService,
+> {
+  readonly middleware?: Middleware | undefined;
+}
+
+export const toRpc = <
+  const Caps extends readonly AnyCapability[],
+  Middleware extends RpcMiddleware.AnyService = never,
+>(
+  capabilities: Caps,
+  options?: RpcProjectionOptions<Middleware>
+): RpcProjection<Caps, Middleware> => {
   const contracts = capabilities.map((capability) => capability.contract);
   // SAFETY: mapping preserves the capability order and each implementation exposes its exact contract.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const contractTuple = contracts as ContractsOf<Caps>;
-  const { group } = toRpcGroup(contractTuple);
+  const projected = toRpcGroup(contractTuple).group;
 
-  const built = group.toLayer(
+  const group =
+    options?.middleware === undefined
+      ? projected
+      : projected.middleware(options.middleware);
+
+  const built = projected.toLayer(
     Effect.gen(function* buildHandlers() {
       const context = yield* Effect.context<RequirementsOf<Caps>>();
 
@@ -62,9 +89,15 @@ export const toRpc = <const Caps extends readonly AnyCapability[]>(
     })
   );
 
-  // SAFETY: the group contains exactly the RPCs derived from the capability contracts, and the handlers capture but do not provide their requirements.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const layer = built as RpcProjection<Caps>["layer"];
+  // SAFETY: the group contains exactly the RPCs derived from the capability contracts, and the handlers capture but do not provide their requirements; the services the middleware provides reach each handler per request, because the captured build context is merged over the request's context rather than replacing it.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-chained-type-assertions -- The middleware variant changes only the RPC middleware set, which the runtime loop never reads.
+  const layer = built as unknown as RpcProjection<Caps, Middleware>["layer"];
 
-  return { group, layer };
+  // SAFETY: adding middleware keeps every RPC's tag, key and schemas; ProjectedRpcs names the same RPCs with the middleware recorded.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-chained-type-assertions -- The conditional middleware branch erases the RPC union that ProjectedRpcs restores.
+  const typedGroup = group as unknown as RpcGroup.RpcGroup<
+    ProjectedRpcs<Caps, Middleware>
+  >;
+
+  return { group: typedGroup, layer };
 };

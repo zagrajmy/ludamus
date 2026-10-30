@@ -1,15 +1,6 @@
 export { CallWatch, type Around, type CallWatchService } from "./call-watch.js";
 
 export {
-  ActorWatch,
-  watchActor,
-  type ActorEvent,
-  type ActorSnapshot,
-  type ActorWatchService,
-  type WatchableActor,
-} from "./actor-watch.js";
-
-export {
   defineContract,
   failureSchemaOf,
   type Annotations,
@@ -51,36 +42,6 @@ export {
 } from "./catalog.js";
 
 export {
-  Sandbox,
-  SandboxError,
-  SandboxDiagnostic,
-  type Invoke,
-  type InvokeOutcome,
-  type SandboxRun,
-  type SandboxLimits,
-} from "./sandbox-service.js";
-
-export {
-  layerSubprocess,
-  type SubprocessOptions,
-} from "./sandbox-subprocess.js";
-
-export {
-  ExecuteInput,
-  ExecuteResult,
-  SearchResult,
-  toCodeMode,
-  invokerFor,
-  toExecuteCapability,
-  type CodeModeOptions,
-  type CodeModeProjection,
-  type DeclarationPlacement,
-  type ExecuteOptions,
-} from "./to-code-mode.js";
-
-export { toCommand, type ToCommandOptions } from "./to-command.js";
-
-export {
   GROUP as HTTP_API_GROUP,
   toHttpApi,
   type HttpApiProjection,
@@ -99,7 +60,12 @@ export {
   type ToolsOf,
 } from "./to-toolkit.js";
 
-export { toRpc, type ContractsOf, type RpcProjection } from "./to-rpc.js";
+export {
+  toRpc,
+  type ContractsOf,
+  type RpcProjection,
+  type RpcProjectionOptions,
+} from "./to-rpc.js";
 
 export {
   toRpcGroup,
@@ -107,3 +73,13 @@ export {
   type RpcOf,
   type RpcsOf,
 } from "./to-rpc-group.js";
+
+export { isMutation, requiresSignIn } from "./access.js";
+
+export {
+  CrossSiteRequest,
+  Refusal,
+  Refusals,
+  SignInRequired,
+  UnknownHost,
+} from "./refusal.js";

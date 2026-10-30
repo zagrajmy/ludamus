@@ -1,6 +1,17 @@
-# Capability sandbox
+# @zagrajmy/capability
 
-`layerSubprocess` uses a restricted Node `vm` context as defense in depth for agent-written code, not as a security boundary for hostile code; authorized capabilities can still reach the network, so untrusted code belongs in the Worker-loader sandbox.
+rat-stack's capability package, vendored under the `@zagrajmy` scope: `defineContract`, `implement`, the catalog, approval, call watch, and the RPC, HTTP API and MCP toolkit projections.
+
+## What this copy removed, and why
+
+Removed: the code-mode sandbox (`sandbox-*.ts`, `layerSubprocess`, `code-mode.ts`, `to-code-mode.ts`), the CLI projection (`to-command.ts`), `actor-watch.ts` (XState actors), and their tests (`sandbox*.test.ts`, `to-code-mode`, `code-mode-context`, `to-command`), plus the template's wiki fixtures and the tests that only exercised them (`runtime-boundary`, `concurrency-ownership`). The sandbox tests spawn `node:vm` subprocesses and time out in this container; nothing in Zagrajmy uses code mode, a CLI projection or actors. Restore them from rat-stack when an app here needs them.
+
+## What this copy added
+
+- `toRpc(capabilities, { middleware })` attaches an `RpcMiddleware` to every RPC and drops the services it `provides` from the layer's requirements. The handlers capture the layer's build context and merge it over the request's context, so a service the middleware provides per call (the sphere from the Host header, the signed-in user) reaches the handler.
+- `toHttpApi(..., { errors })` now also lets host errors leave routed endpoints, not only `POST /<name>` ones.
+- Access annotations. `Annotations.anonymousSafe` (default `false`) marks a write a signed-out visitor may make. `isMutation(contract)` is `!readOnly`; `requiresSignIn(contract)` is `isMutation && !anonymousSafe`. A host applies them to every surface: a mutation must come from the same origin, and a mutation that is not anonymous-safe needs a signed-in user. Read-only contracts need neither. Mark a contract `readOnly: true` when it changes nothing, `anonymousSafe: true` only when the Django view it ports accepts anonymous users (the anonymous proposal form, for example).
+- Refusals every projection may answer, exported from the browser-safe `rpc-group` entry: `UnknownHost` (404), `CrossSiteRequest` (403), `SignInRequired` (401), their union `Refusal`, and `Refusals`, a client-side `RpcMiddleware` that declares them so a browser `RpcClient` decodes them as typed failures.
 
 # HTTP routes, provide hooks, and failures
 

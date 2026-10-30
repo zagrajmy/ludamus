@@ -95,8 +95,13 @@ class UndeclaredFailure extends Data.TaggedError("UndeclaredFailure")<{
   readonly contract: string;
 }> {}
 
-const declaredFailuresOnly = (contract: AnyContract) => {
-  const isDeclared = Schema.is(failureSchemaOf(contract));
+const declaredFailuresOnly = (
+  contract: AnyContract,
+  hostErrors: readonly Schema.Top[]
+) => {
+  const isDeclared = Schema.is(
+    Schema.Union([failureSchemaOf(contract), ...hostErrors])
+  );
 
   return <A, R>(
     handled: Effect.Effect<A, unknown, R>
@@ -527,7 +532,7 @@ export const toHttpApi = <
     const failureGuard =
       capability.contract.http === undefined
         ? <A, E, R>(handled: Effect.Effect<A, E, R>) => handled
-        : declaredFailuresOnly(capability.contract);
+        : declaredFailuresOnly(capability.contract, hostErrors);
 
     implementations[capability.contract.name] = (request) =>
       Effect.flatMap(inputOf(capability.contract, request), (input) =>

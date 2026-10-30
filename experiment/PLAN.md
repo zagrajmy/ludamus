@@ -160,11 +160,27 @@ mise run test:e2e:prep          # seeds dev.e2e.sqlite3 and the auth states (Dja
 cd experiment && pnpm install && pnpm build
 mise run experiment:serve       # Node host on :8000 against the seeded DB
 mise run experiment:e2e -- event-details.spec.ts   # existing specs, new server
+mise run experiment:e2e:matrix  # whole suite → evals/results/e2e-matrix.{json,md}
+mise run experiment:e2e:matrix -- --baseline   # same suite against Django
 mise run experiment:evals       # old vs new benchmarks → evals/REPORT.md
 ```
 
-Environment (`.env.schema`): `DATABASE_PATH`, `SECRET_KEY` (must equal
-Django's, `e2e-secret-key` for the seed), `PORT`, `PUBLIC_ORIGIN`.
+Environment (`.env.schema`, read once into `AppConfig` from
+`@zagrajmy/core`): `DATABASE_PATH`, `SECRET_KEY` (must equal Django's,
+`e2e-secret-key` for the seed), `PORT`, `PUBLIC_ORIGIN`, `MCP_TOKEN` (unset
+keeps `/mcp` off).
+
+The host serves `/rpc`, `/api/*` with `/openapi.json` and `/docs`, `/mcp`,
+`/healthz/`, then static assets and the Foldkit fetch handler. Every surface
+takes the sphere from the `Host` header (an unknown host is a 404), the viewer
+from the `sessionid` cookie and the locale from `Accept-Language`. A contract
+that is not `readOnly` accepts same-origin calls only (`Sec-Fetch-Site:
+cross-site` or a foreign `Origin` is a 403 `CrossSiteRequest`) and needs a
+signed-in viewer (401 `SignInRequired`) unless it is marked `anonymousSafe`.
+`experiment:e2e` reuses a new server already on :8000, otherwise starts one and
+stops it afterwards; it refuses to run while Django or anything else holds the
+port. In this sandbox `mise run` needs `MISE_TASK_RUN_AUTO_INSTALL=false`
+(one tool alias fails to install).
 
 ## Conventions for contributors (human or agent)
 

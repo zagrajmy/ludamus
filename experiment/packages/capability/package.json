@@ -8,26 +8,11 @@
   ],
   "type": "module",
   "types": "./src/index.ts",
-  "imports": {
-    "#built-sandbox-service": {
-      "types": "./src/sandbox-service.ts",
-      "default": "./dist/sandbox-service.js"
-    },
-    "#built-sandbox-subprocess": {
-      "types": "./src/sandbox-subprocess.ts",
-      "default": "./dist/sandbox-subprocess.js"
-    }
-  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./actor-watch": {
-      "types": "./src/actor-watch.ts",
-      "import": "./dist/actor-watch.js",
-      "default": "./dist/actor-watch.js"
     },
     "./call-watch": {
       "types": "./src/call-watch.ts",
@@ -74,25 +59,20 @@
       "import": "./dist/rpc-group.js",
       "default": "./dist/rpc-group.js"
     },
-    "./sandbox-port": {
-      "types": "./src/sandbox-port.ts",
-      "import": "./dist/sandbox-port.js",
-      "default": "./dist/sandbox-port.js"
+    "./catalog": {
+      "types": "./src/catalog.ts",
+      "import": "./dist/catalog.js",
+      "default": "./dist/catalog.js"
     },
-    "./sandbox": {
-      "types": "./src/sandbox-service.ts",
-      "import": "./dist/sandbox-service.js",
-      "default": "./dist/sandbox-service.js"
+    "./access": {
+      "types": "./src/access.ts",
+      "import": "./dist/access.js",
+      "default": "./dist/access.js"
     },
-    "./code-mode/execute": {
-      "types": "./src/to-code-mode.ts",
-      "import": "./dist/to-code-mode.js",
-      "default": "./dist/to-code-mode.js"
-    },
-    "./code-mode": {
-      "types": "./src/code-mode.ts",
-      "import": "./dist/code-mode.js",
-      "default": "./dist/code-mode.js"
+    "./refusal": {
+      "types": "./src/refusal.ts",
+      "import": "./dist/refusal.js",
+      "default": "./dist/refusal.js"
     }
   },
   "scripts": {

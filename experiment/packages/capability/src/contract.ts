@@ -5,6 +5,7 @@ import { ApprovalDenied } from "./approval-denied.js";
 import type { Approval } from "./approval.js";
 
 export interface Annotations {
+  readonly anonymousSafe: boolean;
   readonly readOnly: boolean;
   readonly destructive: boolean;
   readonly idempotent: boolean;
@@ -189,6 +190,7 @@ export interface DefineContractOptions<
 }
 
 const defaultAnnotations: Annotations = {
+  anonymousSafe: false,
   destructive: false,
   idempotent: false,
   openWorld: false,
