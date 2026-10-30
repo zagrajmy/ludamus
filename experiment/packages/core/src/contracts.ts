@@ -130,3 +130,31 @@ export { Track, TrackListItem, TrackSessionCounts } from "./track.js";
 export { AgeBand, User, UserSummary, UserType } from "./user.js";
 
 export const contracts = [listEventsContract] as const;
+
+export {
+  ClaimResult,
+  EnrollmentAccess,
+  EnrollmentWindowData,
+  Offer,
+} from "./enrollment/schemas.js";
+export {
+  EnrollRequestChoice,
+  EnrollmentBatch,
+  EnrollmentRequest,
+  SkipReason,
+} from "./enrollment/enroll.js";
+export {
+  FieldAnswer,
+  FieldControl,
+  FieldControls,
+  FieldRequirement,
+  FieldValidation,
+  OrganizerField,
+  OrganizerFieldOption,
+} from "./proposal/fields.js";
+export {
+  CivilDate,
+  DayOfWindows,
+  LocalDateTime,
+  LocalWindow,
+} from "./timeslots/day-turnover.js";
