@@ -197,7 +197,9 @@ Django's, `e2e-secret-key` for the seed), `PORT`, `PUBLIC_ORIGIN`.
 - Message names: UI intent in past tense (`ClickedEnroll`, `ChangedFilter`),
   Command results `Succeeded…`/`Failed…`.
 - Strings shown to people go through `t`. English msgids are the keys and
-  must match `django.po` msgids where the Django template had one.
+  must match `django.po` msgids where the Django template had one. The
+  gettext-shaped `n(singular, plural, count, vars?)` and `nc(...)` are the one
+  sanctioned positional exception to the options-object rule.
 - Reproduce the Django markup's roles, labels, headings and `data-*` hooks
   that specs read; do not reproduce its class names unless the tessera
   component already has them.
