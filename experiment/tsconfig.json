@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["*.config.ts", "scripts/*.ts", "tools/oxlint/**/*.ts", "evals/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".turbo"]
+}
