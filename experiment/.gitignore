@@ -7,3 +7,4 @@ coverage/
 .env.local
 evals/results/**/raw/
 evals/results/e2e/
+.vitest/
