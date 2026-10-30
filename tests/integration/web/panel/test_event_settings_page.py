@@ -9,6 +9,7 @@ from django.urls import reverse
 from PIL import Image
 
 from ludamus.pacts import EventDTO, NotFoundError
+from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
@@ -684,6 +685,33 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.slug == original_slug
+
+    def test_duplicate_slug_rerender_keeps_stored_images(
+        self, panel_client, sphere, event, faker
+    ):
+        event.cover_image = "events/cover.png"
+        event.logo = "events/brand.png"
+        event.save()
+        other_event = EventFactory(sphere=sphere, slug=faker.slug())
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, slug=other_event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    slug=["An event with this slug already exists."]
+                ),
+            },
+            template_name="panel/settings.html",
+        )
+        form = response.context["form"]
+        assert form["cover_image"].initial == StoredFile(event.cover_image.url)
+        assert form["logo"].initial == StoredFile(event.logo.url)
 
     def test_updates_event_slug(self, panel_client, event, faker):
         new_slug = faker.slug()
