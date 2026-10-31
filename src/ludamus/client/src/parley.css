@@ -1,0 +1,70 @@
+@layer components {
+  /* Parley's window rises out of the chat button's corner on the same spring
+     the consent card and modals use, cut shorter for a corner-sized surface.
+     React mounts the frame fresh for each view, so @starting-style supplies
+     the from-state on every open and every list/room switch. */
+  .parley-frame {
+    transform-origin: bottom right;
+    transition:
+      opacity 0.24s var(--ease-spring-a-bit),
+      transform 0.24s var(--ease-spring-a-bit),
+      filter 120ms ease;
+  }
+
+  @starting-style {
+    .parley-frame {
+      opacity: 0;
+      transform: scale(0.94) translateY(0.75rem);
+      filter: blur(4px);
+    }
+  }
+
+  .parley-menu {
+    transition:
+      opacity 0.14s var(--ease-out),
+      transform 0.14s var(--ease-out);
+  }
+
+  @starting-style {
+    .parley-menu {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  .parley-pulse {
+    animation: parley-pulse 1.2s var(--ease-out) infinite;
+  }
+
+  @keyframes parley-pulse {
+    50% {
+      opacity: 0.3;
+      transform: scale(0.7);
+    }
+  }
+
+  .parley-thread {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  .parley-frame ::selection {
+    background: var(--color-coral-200);
+    color: var(--color-neutral-900);
+  }
+
+  .parley-composer {
+    caret-color: var(--color-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .parley-frame,
+    .parley-menu {
+      transition: none;
+    }
+
+    .parley-pulse {
+      animation: none;
+    }
+  }
+}
