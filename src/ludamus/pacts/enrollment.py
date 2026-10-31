@@ -74,6 +74,7 @@ class PromotionStateDTO(BaseModel):
     session_id: int
     session_title: str
     event_slug: str
+    start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
     presenter_id: int | None
