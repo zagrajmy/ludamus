@@ -1,8 +1,13 @@
 import { Context } from "effect";
 import type { DateTime, Duration, Effect, Option } from "effect";
 
-import type { EventSeat } from "./conflicts.js";
-import type { EnrollmentWrite, EnrollSessionState } from "./enroll.js";
+import type {
+  HouseholdSeat,
+  LockedSession,
+  RosterPerson,
+  SessionContext,
+} from "./api.js";
+import type { EnrollmentWrite } from "./enroll.js";
 import type { EnrollmentStoreError, MembershipApiError } from "./errors.js";
 import type { PromotionWrite } from "./promotion.js";
 import type {
@@ -12,9 +17,9 @@ import type {
   HeldSeatNotification,
   Offer,
   OfferNotification,
+  PartyEnrolledNotification,
   PromotionNotification,
   PromotionState,
-  UserEnrollmentConfig,
 } from "./schemas.js";
 
 export class EnrollmentTransaction extends Context.Service<
@@ -32,6 +37,16 @@ export class PromotionStore extends Context.Service<
     readonly lockAndReadState: (
       sessionId: number
     ) => Effect.Effect<Option.Option<PromotionState>, EnrollmentStoreError>;
+    readonly lockSessionRow: (
+      sessionId: number
+    ) => Effect.Effect<boolean, EnrollmentStoreError>;
+    readonly lockOfferHolders: (
+      participationIds: readonly number[]
+    ) => Effect.Effect<void, EnrollmentStoreError>;
+    readonly conflictedOfferIds: (query: {
+      readonly sessionId: number;
+      readonly participationIds: readonly number[];
+    }) => Effect.Effect<readonly number[], EnrollmentStoreError>;
     readonly apply: (
       writes: readonly PromotionWrite[]
     ) => Effect.Effect<void, EnrollmentStoreError>;
@@ -41,9 +56,10 @@ export class PromotionStore extends Context.Service<
     readonly readOfferClaimWindow: (
       sessionId: number
     ) => Effect.Effect<Duration.Duration, EnrollmentStoreError>;
-    readonly readOfferByToken: (
-      token: string
-    ) => Effect.Effect<Option.Option<Offer>, EnrollmentStoreError>;
+    readonly readOfferByToken: (query: {
+      readonly token: string;
+      readonly sphereId: number;
+    }) => Effect.Effect<Option.Option<Offer>, EnrollmentStoreError>;
     readonly readOfferByParticipation: (
       participationId: number
     ) => Effect.Effect<Option.Option<Offer>, EnrollmentStoreError>;
@@ -51,43 +67,62 @@ export class PromotionStore extends Context.Service<
       readonly userId: number;
       readonly sessionId: number;
     }) => Effect.Effect<Option.Option<Offer>, EnrollmentStoreError>;
-    readonly listLapsedOffers: (
-      now: DateTime.Utc
-    ) => Effect.Effect<readonly number[], EnrollmentStoreError>;
+    readonly listLapsedOffers: (query: {
+      readonly now: DateTime.Utc;
+      readonly sphereId: number;
+    }) => Effect.Effect<readonly number[], EnrollmentStoreError>;
     readonly markClaimed: (claim: {
       readonly participationIds: readonly number[];
       readonly claimedAt: DateTime.Utc;
-    }) => Effect.Effect<void, EnrollmentStoreError>;
+    }) => Effect.Effect<number, EnrollmentStoreError>;
     readonly drop: (
       participationIds: readonly number[]
-    ) => Effect.Effect<void, EnrollmentStoreError>;
+    ) => Effect.Effect<number, EnrollmentStoreError>;
   }
 >()("@zagrajmy/core/enrollment/PromotionStore") {}
 
 export class EnrollmentStore extends Context.Service<
   EnrollmentStore,
   {
-    readonly lockSession: (request: {
+    readonly readSessionContext: (query: {
+      readonly sphereId: number;
+      readonly sessionId: number;
+      readonly viewerId: number;
+      readonly now: DateTime.Utc;
+    }) => Effect.Effect<Option.Option<SessionContext>, EnrollmentStoreError>;
+    readonly readPeople: (
+      userIds: readonly number[]
+    ) => Effect.Effect<readonly RosterPerson[], EnrollmentStoreError>;
+    readonly householdSeats: (query: {
+      readonly userIds: readonly number[];
+      readonly eventId: number;
+    }) => Effect.Effect<readonly HouseholdSeat[], EnrollmentStoreError>;
+    readonly conflictedUserIds: (query: {
+      readonly sessionId: number;
+      readonly userIds: readonly number[];
+    }) => Effect.Effect<readonly number[], EnrollmentStoreError>;
+    readonly lockSessionRow: (
+      sessionId: number
+    ) => Effect.Effect<boolean, EnrollmentStoreError>;
+    readonly lockSeatHolders: (
+      userIds: readonly number[]
+    ) => Effect.Effect<void, EnrollmentStoreError>;
+    readonly readSeatState: (request: {
       readonly sessionId: number;
       readonly viewerId: number;
       readonly householdUserIds: readonly number[];
-    }) => Effect.Effect<
-      Option.Option<EnrollSessionState>,
-      EnrollmentStoreError
-    >;
+      readonly now: DateTime.Utc;
+    }) => Effect.Effect<Option.Option<LockedSession>, EnrollmentStoreError>;
     readonly apply: (batch: {
       readonly sessionId: number;
       readonly viewerId: number;
+      readonly guestName: string;
       readonly writes: readonly EnrollmentWrite[];
     }) => Effect.Effect<void, EnrollmentStoreError>;
     readonly occupyingUserIds: (query: {
       readonly userIds: readonly number[];
       readonly eventId: number;
     }) => Effect.Effect<readonly number[], EnrollmentStoreError>;
-    readonly eventSeats: (query: {
-      readonly userIds: readonly number[];
-      readonly eventId: number;
-    }) => Effect.Effect<readonly EventSeat[], EnrollmentStoreError>;
   }
 >()("@zagrajmy/core/enrollment/EnrollmentStore") {}
 
@@ -117,30 +152,6 @@ export class EnrollmentWindowStore extends Context.Service<
   }
 >()("@zagrajmy/core/enrollment/EnrollmentWindowStore") {}
 
-export class MembershipStore extends Context.Service<
-  MembershipStore,
-  {
-    readonly readUserConfig: (key: {
-      readonly windowId: number;
-      readonly userEmail: string;
-    }) => Effect.Effect<
-      Option.Option<UserEnrollmentConfig>,
-      EnrollmentStoreError
-    >;
-    readonly writeUserConfig: (config: {
-      readonly windowId: number;
-      readonly userEmail: string;
-      readonly allowedSlots: number;
-      readonly fetchedFromApi: boolean;
-      readonly lastCheck: DateTime.Utc;
-    }) => Effect.Effect<void, EnrollmentStoreError>;
-    readonly readDomainSlots: (key: {
-      readonly windowId: number;
-      readonly domain: string;
-    }) => Effect.Effect<Option.Option<number>, EnrollmentStoreError>;
-  }
->()("@zagrajmy/core/enrollment/MembershipStore") {}
-
 export class TicketApi extends Context.Service<
   TicketApi,
   {
@@ -165,6 +176,9 @@ export class EnrollmentNotifier extends Context.Service<
     ) => Effect.Effect<void, EnrollmentStoreError>;
     readonly notifySeatHeld: (
       notification: HeldSeatNotification
+    ) => Effect.Effect<void, EnrollmentStoreError>;
+    readonly notifyPartyEnrolled: (
+      notification: PartyEnrolledNotification
     ) => Effect.Effect<void, EnrollmentStoreError>;
   }
 >()("@zagrajmy/core/enrollment/EnrollmentNotifier") {}

@@ -49,6 +49,10 @@ model-tested over generated command sequences
 | `mergeCustom`, `splitStored`, `WRITE_IN_SEPARATOR`, `isEmptyAnswer` | `mills/field_values.py`, `pacts/submissions.is_empty_answer` |
 | `uniqueSlug` | `mills/slugs.unique_slug` (`nextSuffix` stands in for `token_urlsafe(3)`) |
 | `carriedAnswers`, `discordAnswer`, `proposalRateLimitKey`, `PROPOSAL_RATE_LIMIT_SECONDS`, `REUSABLE_SESSIONS_LIMIT`, `PROFILE_DISCORD_USERNAME_MAX_LENGTH` | `specs/proposal.py`, `mills/propose._discord_answer`, `check_rate_limit` key |
+| `proposalSlugify`, `slugCandidates`, `PROPOSAL_SLUG_ATTEMPTS`, `asciiFold` | `mills/submissions/mapping.slugify` + `generate_unique_slug` (the proposal path: `unidecode`, 8 tries, then `SlugCollisionError`); `asciiFold` is `unidecode`'s table for Latin-1/Extended-A/B, IPA, Greek, Cyrillic, Latin Extended Additional and the punctuation/letterlike blocks, generated from Python, and drops anything else |
+| `parseClientIp`, `parseIpv4Address`, `parseIpv6Address` | `gates/web/django/helpers._parse_ip` (`str(ipaddress.ip_address(value.strip()))`, Python 3.14 formatting incl. `::ffff:a.b.c.d`) |
+| `cleanChar`, `cleanInteger`, `cleanChoice`, `cleanEmail`, `isValidEmail`, `FieldError`, `FormErrors` | Django `CharField`/`IntegerField`/`ChoiceField`/`EmailField` cleaning and `EmailValidator`, errors as msgid + vars so the view translates them |
+| `wizardSteps`, `stepAfter`, `stepAtOrBefore`, `pickCategory`, `validatePersonalStep`, `validateDetailsStep`, `validateDynamicFields`, `accountAnswersEverything`, `accountPersonalAnswers` | `event/propose.py` `_Wizard.steps/after/at_or_before/category/account_answers_everything`, `event/propose_forms.build_personal_data_form` / `build_session_details_form` + `fold_custom_answers` |
 | `pyStrip`, `pyLength`, `pyIsDigitString`, `pyDecimalInt`, `PY_SPACE_CLASS`, `PY_DECIMAL_CLASS` | Python `str.strip`, `len`, `str.isdigit`, `int`, `re` `\s` / `\d` (tables generated from Python 3.14, Unicode 16) |
 
 ### `timeslots/` (import from `@zagrajmy/core/timeslots/index`)
@@ -171,6 +175,10 @@ it reproduces the JSON byte for byte.
 | `field_answers` | 289 |
 | `carried_answers` | 55 |
 | `unique_slug` | 286 |
+| `proposal_slug` | 397 |
+| `client_ip` | 383 |
+| `details_form` | 325 |
+| `personal_form` | 398 |
 | `day_turnover` | 289 |
 | `slot_windows_by_local_date` | 299 |
 
@@ -199,6 +207,8 @@ least one test red (tests listed are the ones that failed).
 | Write-in control does not overwrite a colliding field | field requirements and validation replays |
 | DST gap resolved to the earlier instant | both timeslot replays |
 | Three slug attempts instead of four | `unique_slug` replay |
+| Proposal slug tries 4 times instead of 8 | `proposal_slug` replay |
+| IPv4 octets with leading zeros accepted | `client_ip` replay, `personal_form` replay (email `[1.2.3.04]` literal) |
 
 ## Running
 

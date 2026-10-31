@@ -22,6 +22,7 @@ const viewer = UserRow.make({
   email: "ola@example.com",
   id: 7,
   isActive: 1,
+  isSuperuser: 0,
   name: "Ola",
   password: "",
   slug: "ola",
@@ -38,6 +39,7 @@ const enrollContract = defineContract("enroll", {
 const enroll = implement(enrollContract, () => Effect.succeed({ ok: true }));
 
 const fakeContext = RequestContext.of({
+  clientIp: () => Option.none(),
   services: () => Effect.die("unused by the HTTP hooks"),
   sphere: (host) =>
     host === HOST
@@ -47,6 +49,7 @@ const fakeContext = RequestContext.of({
     Effect.succeed(
       headers.cookie === undefined ? Option.none() : Option.some(viewer)
     ),
+  viewer: () => Effect.succeed(Option.none()),
 });
 
 const call = (headers: Readonly<Record<string, string>>) =>

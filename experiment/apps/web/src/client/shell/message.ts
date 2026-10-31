@@ -15,6 +15,7 @@ export const ShellMessage = defineMessageUnion({
   GotStoredTheme: { theme: ThemeChoice },
   StoredConsent: {},
   ToggledAccountMenu: { isOpen: Schema.Boolean },
+  ToggledNotificationsMenu: { isOpen: Schema.Boolean },
 });
 
 export type ShellMessage = typeof ShellMessage.Type;

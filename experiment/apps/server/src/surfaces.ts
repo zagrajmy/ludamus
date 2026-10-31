@@ -8,6 +8,8 @@ import { toToolkit } from "@zagrajmy/capability/toolkit";
 import {
   AppConfig,
   CurrentSphere,
+  ClientIp,
+  CurrentViewer,
   capabilities,
   mcpEnabled,
 } from "@zagrajmy/core";
@@ -95,7 +97,9 @@ const mcpServices = Layer.effectContext(
 
     return Context.make(CurrentSphere, sphere).pipe(
       Context.add(CurrentUser, Option.none()),
-      Context.add(CurrentLocale, DEFAULT_LOCALE)
+      Context.add(CurrentViewer, Option.none()),
+      Context.add(CurrentLocale, DEFAULT_LOCALE),
+      Context.add(ClientIp, Option.none())
     );
   })
 );

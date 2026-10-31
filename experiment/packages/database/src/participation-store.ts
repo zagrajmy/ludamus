@@ -232,13 +232,10 @@ export const makeParticipationStore = Effect.gen(
       JOIN session mine ON mine.id = me.session_id
       JOIN session other ON other.event_id = mine.event_id AND other.id <> mine.id AND other.deleted_at IS NULL
       JOIN agenda_item oa ON oa.session_id = other.id
-      JOIN session_participant p ON p.session_id = other.id AND p.status = 'confirmed'
+      JOIN session_participant p ON p.session_id = other.id AND p.status IN ('confirmed', 'offered')
       WHERE me.session_id = ${input.sessionId}
         AND ${sql.in("p.user_id", input.userIds)}
-        AND (
-          (oa.start_time >= me.start_time AND oa.start_time < me.end_time)
-          OR (oa.end_time > me.start_time AND oa.end_time <= me.end_time)
-        )
+        AND oa.start_time < me.end_time AND oa.end_time > me.start_time
       ORDER BY p.user_id
       LIMIT ${input.userIds.length}
     `.pipe(decodeRows("ParticipationStore.conflictedUserIds", UserIdRow));

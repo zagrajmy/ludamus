@@ -7,13 +7,14 @@ import {
   NodeServices,
 } from "@effect/platform-node";
 import { SessionResolverLive } from "@zagrajmy/auth";
-import { AppConfig } from "@zagrajmy/core";
-import { DatabaseLive } from "@zagrajmy/database";
-import { Effect, FileSystem, Layer, Logger, Schema } from "effect";
+import { AppConfig, mailDirectory } from "@zagrajmy/core";
+import { DatabaseLive, fileMailOutbox } from "@zagrajmy/database";
+import { Effect, FileSystem, Layer, Logger, Option, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 
 import { healthRoutes } from "./health.js";
 import { gateMcp } from "./mcp-gate.js";
+import { mediaRoutes } from "./media.js";
 import { RequestContext } from "./request-context.js";
 import { logRequests } from "./request-log.js";
 import { surfaces } from "./surfaces.js";
@@ -41,7 +42,17 @@ const requireDatabase = Effect.fn("Server.requireDatabase")(
 
 const DatabaseFileLive = Layer.effectDiscard(requireDatabase());
 
+const MailOutboxLive = Layer.unwrap(
+  Effect.gen(function* mailOutboxFromConfig() {
+    return Option.match(mailDirectory(yield* AppConfig), {
+      onNone: () => Layer.empty,
+      onSome: fileMailOutbox,
+    });
+  })
+);
+
 const ServicesLive = RequestContext.layer.pipe(
+  Layer.provideMerge(MailOutboxLive),
   Layer.provideMerge(SessionResolverLive),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(DatabaseFileLive),
@@ -54,7 +65,7 @@ const ServerLive = Layer.unwrap(
     const config = yield* AppConfig;
     const gate = gateMcp(config.mcpToken);
 
-    return HttpRouter.serve(Layer.mergeAll(surfaces, healthRoutes, webRoutes), {
+    return HttpRouter.serve(Layer.mergeAll(surfaces, healthRoutes, mediaRoutes, webRoutes), {
       disableLogger: true,
       middleware: (app) => logRequests(gate(app)),
     }).pipe(

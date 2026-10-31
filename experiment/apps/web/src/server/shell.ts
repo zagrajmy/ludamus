@@ -1,7 +1,9 @@
 import type { ViewerChromeRow } from "@zagrajmy/core/feed";
+import { NotificationStore } from "@zagrajmy/core/ports/notification-store";
 import { Config, Effect, Option } from "effect";
 
 import type { ShellFlags, ShellViewer } from "../client/shell/flags.js";
+import { readFlashes } from "./flash.js";
 import {
   absoluteUrl,
   mediaUrl,
@@ -67,9 +69,21 @@ export const loadShellFlags = Effect.fn("Shell.load")(function* loadShellFlags(
 
   const root = rootOrigin(context);
 
+  const notifications = Option.isNone(context.viewer)
+    ? Option.none()
+    : Option.some(
+        yield* (yield* NotificationStore).navbar(context.viewer.value.id).pipe(
+          Effect.catch((error) =>
+            Effect.logWarning("navbar notifications unavailable", error).pipe(
+              Effect.as({ items: [], unreadCount: 0 })
+            )
+          )
+        )
+      );
+
   const flags: ShellFlags = {
     analyticsEnabled: false,
-    flashes: [],
+    flashes: readFlashes(context.request),
     isRootSphere: context.isRootSphere,
     links: {
       about: `${root}/about/`,
@@ -84,6 +98,7 @@ export const loadShellFlags = Effect.fn("Shell.load")(function* loadShellFlags(
       sphere: `${sphereOrigin(context)}/`,
     },
     locale: context.translator.locale,
+    notifications,
     requestUrl: absoluteUrl(context),
     sphere: {
       domain: context.sphere.domain,

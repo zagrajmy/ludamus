@@ -10,7 +10,7 @@ import type { Child } from "../../ui/html.js";
 import type { Translator } from "../../ui/i18n.js";
 import { navbar } from "../../ui/navbar.js";
 
-export type PageLayout = "bleed" | "contained";
+export type PageLayout = "bleed" | "contained" | "panel";
 
 export type PageBody = Readonly<{
   content: readonly Child[];
@@ -19,7 +19,7 @@ export type PageBody = Readonly<{
 
 export const mainContentId = "main-content";
 
-const mainClasses: Readonly<Record<PageLayout, string>> = {
+const mainClasses: Readonly<Record<Exclude<PageLayout, "panel">, string>> = {
   bleed: "grow flex flex-col w-full mb-8",
   contained:
     "grow flex flex-col max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full mb-8",
@@ -35,11 +35,15 @@ export const shellView = <Message>(
   h: HtmlBuilder<Message>
 ): Html => {
   const { shell, toMessage, translator } = options;
+  const { layout } = options.body;
+  const isPanel = layout === "panel";
 
   return h.div(
     [
       h.Class(
-        "app-shell font-sans antialiased bg-background text-foreground print:bg-white"
+        isPanel
+          ? "panel-shell app-shell relative font-sans antialiased bg-background text-foreground"
+          : "app-shell font-sans antialiased bg-background text-foreground print:bg-white"
       ),
     ],
     [
@@ -58,6 +62,10 @@ export const shellView = <Message>(
           navbar(
             {
               isMenuOpen: shell.isAccountMenuOpen,
+              isNotificationsOpen: shell.isNotificationsOpen,
+              notifications: shell.notifications,
+              onToggleNotifications: (isOpen) =>
+                toMessage(ShellMessage.ToggledNotificationsMenu({ isOpen })),
               isRootSphere: shell.isRootSphere,
               links: shell.links,
               onToggleMenu: (isOpen) =>
@@ -69,22 +77,27 @@ export const shellView = <Message>(
             },
             h
           ),
-          flashMessages(
-            {
-              flashes: shell.flashes,
-              onDismiss: (id) => toMessage(ShellMessage.DismissedFlash({ id })),
-              translator,
-            },
-            h
-          ),
-          h.main(
-            [
-              h.Id(mainContentId),
-              h.Tabindex(-1),
-              h.Class(cx(mainClasses[options.body.layout], "outline-none")),
-            ],
-            options.body.content
-          ),
+          ...(layout === "panel"
+            ? options.body.content
+            : [
+                flashMessages(
+                  {
+                    flashes: shell.flashes,
+                    onDismiss: (id) =>
+                      toMessage(ShellMessage.DismissedFlash({ id })),
+                    translator,
+                  },
+                  h
+                ),
+                h.main(
+                  [
+                    h.Id(mainContentId),
+                    h.Tabindex(-1),
+                    h.Class(cx(mainClasses[layout], "outline-none")),
+                  ],
+                  options.body.content
+                ),
+              ]),
           footer(
             {
               aboutHref: shell.links.about,

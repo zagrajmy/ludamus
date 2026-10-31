@@ -239,6 +239,9 @@ importers:
       '@zagrajmy/core':
         specifier: workspace:*
         version: link:../core
+      '@zagrajmy/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       effect:
         specifier: 4.0.7
         version: 4.0.7

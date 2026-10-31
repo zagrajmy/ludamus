@@ -29,6 +29,7 @@
   "dependencies": {
     "@effect/sql-sqlite-node": "4.0.7",
     "@zagrajmy/core": "workspace:*",
+    "@zagrajmy/i18n": "workspace:*",
     "effect": "4.0.7"
   },
   "devDependencies": {

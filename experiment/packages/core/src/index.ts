@@ -1,6 +1,18 @@
+import { enrollmentCapabilities } from "./enrollment/capabilities.js";
+import { panelCapabilities } from "./panel/capabilities.js";
+import { proposeCapabilities } from "./propose/capabilities.js";
+import {
+  readEventPage,
+  readEventSession,
+} from "./event-page/read-event-page.js";
 import { listEvents } from "./list-events.js";
 
-export { AppConfig, configLayer, mcpEnabled } from "./app-config.js";
+export {
+  AppConfig,
+  configLayer,
+  mailDirectory,
+  mcpEnabled,
+} from "./app-config.js";
 
 export type { AppSettings } from "./app-config.js";
 
@@ -239,4 +251,32 @@ export { StoreTransaction } from "./ports/transaction.js";
 
 export { UserDirectory } from "./ports/user-store.js";
 
-export const capabilities = [listEvents] as const;
+export const capabilities = [
+  listEvents,
+  readEventPage,
+  readEventSession,
+  ...panelCapabilities,
+  ...enrollmentCapabilities,
+  ...proposeCapabilities,
+] as const;
+
+export {
+  readEventPage,
+  readEventSession,
+} from "./event-page/read-event-page.js";
+
+export { CurrentViewer, Viewer } from "./ports/current-viewer.js";
+
+export { PanelStore } from "./ports/panel-store.js";
+
+export { ClientIp } from "./ports/client-ip.js";
+
+export { ProposerStore } from "./ports/proposer-store.js";
+
+export { SubmissionThrottle } from "./ports/submission-throttle.js";
+
+export { checkProposalStep } from "./propose/check-proposal-step.js";
+
+export { readProposalForm } from "./propose/read-proposal-form.js";
+
+export { submitProposal } from "./propose/submit-proposal.js";

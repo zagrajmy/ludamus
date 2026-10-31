@@ -484,3 +484,43 @@ export const membershipOutcome = (options: {
     }
   }
 };
+
+export const RecheckedClaim = Schema.Struct({
+  ...ClaimDecision.fields,
+  drop: Schema.Array(Schema.Int),
+  refillSessionId: Schema.NullOr(Schema.Int),
+});
+
+export type RecheckedClaim = typeof RecheckedClaim.Type;
+
+export const decideClaimRechecked = (options: {
+  readonly offer: Offer | null;
+  readonly now: DateTime.Utc;
+  readonly conflictedParticipationIds: readonly number[];
+}): RecheckedClaim => {
+  const decision = decideClaim(options);
+  const { offer } = options;
+
+  const conflicted =
+    offer === null
+      ? []
+      : offer.participantIds.filter((id) =>
+          options.conflictedParticipationIds.includes(id)
+        );
+
+  if (decision.markClaimed === null || offer === null || conflicted.length === 0) {
+    return { ...decision, drop: [], refillSessionId: null };
+  }
+
+  return {
+    drop: conflicted,
+    markClaimed: null,
+    refillSessionId: offer.sessionId,
+    result: {
+      eventSlug: offer.eventSlug,
+      reason: "conflict",
+      sessionId: offer.sessionId,
+      success: false,
+    },
+  };
+};

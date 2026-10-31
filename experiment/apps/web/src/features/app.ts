@@ -6,6 +6,8 @@ import type { Model } from "../client/model.js";
 import { translator } from "../ui/i18n.js";
 import { aboutTitle, aboutView } from "./about/view.js";
 import { contentPageTitle, contentPageView } from "./content-page/view.js";
+import { enrollPageTitle, enrollPageView } from "./enroll-page/view.js";
+import { eventPageTitle, eventPageView } from "./event-page/view.js";
 import { eventsFeedTitle, eventsFeedView } from "./events-feed/view.js";
 import { landingTitle, landingView } from "./landing/view.js";
 import {
@@ -14,7 +16,10 @@ import {
   notPortedTitle,
   notPortedView,
 } from "./not-found/view.js";
+import { offerPageTitle, offerPageView } from "./offer-page/view.js";
 import type { PageContext } from "./page-context.js";
+import { panelTitle, panelView } from "./panel/view.js";
+import { proposeTitle, proposeView } from "./propose/view.js";
 import { documentTitle } from "./shell/title.js";
 import type { PageTitle } from "./shell/title.js";
 import { shellView } from "./shell/view.js";
@@ -41,6 +46,39 @@ const renderPage = (
       content: contentPageView(content, context, h),
       layout: "contained",
       title: contentPageTitle(content, context),
+    }),
+    EnrollPage: ({ model: enroll }) => ({
+      content: h.submodel({
+        model: enroll,
+        slotId: "enroll-page",
+        toParentMessage: (message) => Message.GotEnrollPageMessage({ message }),
+        view: enrollPageView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: enrollPageTitle(enroll, context.translator),
+    }),
+    OfferPage: ({ model: offer }) => ({
+      content: h.submodel({
+        model: offer,
+        slotId: "offer-page",
+        toParentMessage: (message) => Message.GotOfferPageMessage({ message }),
+        view: offerPageView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: offerPageTitle(offer, context.translator),
+    }),
+    EventPage: ({ model: eventPage }) => ({
+      content: h.submodel({
+        model: eventPage,
+        slotId: "event-page",
+        toParentMessage: (message) => Message.GotEventPageMessage({ message }),
+        view: eventPageView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: eventPageTitle(eventPage),
     }),
     EventsFeed: ({ model: feed }) => ({
       content: h.submodel({
@@ -73,6 +111,28 @@ const renderPage = (
       content: notPortedView(notPorted, context, h),
       layout: "contained",
       title: notPortedTitle(notPorted),
+    }),
+    Panel: ({ model: panel }) => ({
+      content: h.submodel({
+        model: panel,
+        slotId: "panel",
+        toParentMessage: (message) => Message.GotPanelMessage({ message }),
+        view: panelView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "panel",
+      title: panelTitle(panel, context),
+    }),
+    Propose: ({ model: propose }) => ({
+      content: h.submodel({
+        model: propose,
+        slotId: "propose",
+        toParentMessage: (message) => Message.GotProposeMessage({ message }),
+        view: proposeView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: proposeTitle(context),
     }),
   });
 

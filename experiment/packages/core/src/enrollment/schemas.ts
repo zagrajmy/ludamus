@@ -1,19 +1,6 @@
 import { Schema } from "effect";
 
-export const PromotionMode = Schema.Literals(["auto", "offer_claim"]);
-
-export type PromotionMode = typeof PromotionMode.Type;
-
-export const SessionParticipationStatus = Schema.Literals([
-  "confirmed",
-  "waiting",
-  "offered",
-]);
-
-export type SessionParticipationStatus = typeof SessionParticipationStatus.Type;
-
-export const OCCUPYING_PARTICIPATION_STATUSES: readonly SessionParticipationStatus[] =
-  ["confirmed", "offered"];
+import { PromotionMode } from "../proposal-category.js";
 
 export const UNLIMITED_SLOTS = 1_000_000_000;
 
@@ -65,7 +52,11 @@ export const PromotionResult = Schema.Struct({
 
 export type PromotionResult = typeof PromotionResult.Type;
 
-export const ClaimFailureReason = Schema.Literals(["not_found", "expired"]);
+export const ClaimFailureReason = Schema.Literals([
+  "not_found",
+  "expired",
+  "conflict",
+]);
 
 export type ClaimFailureReason = typeof ClaimFailureReason.Type;
 
@@ -129,6 +120,16 @@ export const HeldSeatNotification = Schema.Struct({
 });
 
 export type HeldSeatNotification = typeof HeldSeatNotification.Type;
+
+export const PartyEnrolledNotification = Schema.Struct({
+  actorName: Schema.String,
+  eventSlug: Schema.String,
+  recipientUserId: Schema.Int,
+  sessionId: Schema.Int,
+  sessionTitle: Schema.String,
+});
+
+export type PartyEnrolledNotification = typeof PartyEnrolledNotification.Type;
 
 export const EnrollmentWindowData = Schema.Struct({
   allowAnonymousEnrollment: Schema.Boolean,

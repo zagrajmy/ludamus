@@ -122,7 +122,7 @@ describe("documented findings (VERIFICATION.md), reproduced by the port", () => 
     ).toBe(UNLIMITED_SLOTS);
   });
 
-  it.fails("finding: an offered seat in an overlapping session does not block enrolling (finding_offered_seat.bend)", () => {
+  it("fixed by plan 021: an offered seat in an overlapping session blocks enrolling (was finding_offered_seat.bend)", () => {
     const conflicts = conflictedUserIds({
       seats: [
         {
@@ -214,7 +214,7 @@ describe("documented findings (VERIFICATION.md), reproduced by the port", () => 
 });
 
 describe("new findings from the port (not yet in VERIFICATION.md)", () => {
-  it.fails("finding: a confirmed seat in a session that wholly contains this one is not a conflict (conflicted_user_ids range test)", () => {
+  it("fixed by plan 021: a confirmed seat in a session that wholly contains this one is a conflict (was the conflicted_user_ids range test)", () => {
     const conflicts = conflictedUserIds({
       seats: [
         {

@@ -1656,6 +1656,216 @@ def export_slot_windows_by_local_date() -> None:
     )
 
 
+
+# ------------------------------------------------------------------- propose
+
+SLUG_ALPHABET = (
+    "abcXYZ019 -_.,!?'\"\t\n\x1c/łŁóÓźżćęąśńŚßæÆøœþðđĸŉŋſıħŧŀ×©®™½µ¿ª€¥£§°«»‰·•"
+    "αβΓΩάΐЖжЁёЇїҐґЩщ—–…„”“’‘ẞỳḀ  ​😀"
+)
+
+
+def export_proposal_slug() -> None:
+    from ludamus.mills.submissions import mapping
+
+    @st.composite
+    def cases(draw: st.DrawFn) -> dict[str, Any]:
+        title = draw(
+            st.text(alphabet=SLUG_ALPHABET, max_size=70)
+            | st.sampled_from(["", "Ł" * 60, "a" * 50, "a" * 49 + " b", "--x--", "Ünïcödé Tïtlé"])
+        )
+        fallback = draw(st.sampled_from(["", "session"]))
+        suffixes = draw(
+            st.lists(st.sampled_from(["AAAA", "b-_9", "zzzz", "Q1w2"]), min_size=8, max_size=8)
+        )
+        base = mapping.slugify(title) or fallback
+        candidates = [base] + [
+            f"{mapping.slugify(base, max_length=50 - len(sfx) - 1)}-{sfx}" for sfx in suffixes[:7]
+        ]
+        taken = sorted(draw(st.sets(st.sampled_from(candidates))))
+        return {"title": title, "fallback": fallback, "suffixes": suffixes, "taken": taken}
+
+    def run(case: dict[str, Any]) -> dict[str, Any]:
+        suffixes = iter(case["suffixes"])
+        with patch.object(mapping, "token_urlsafe", lambda _n: next(suffixes)):
+            try:
+                output: Any = mapping.generate_unique_slug(
+                    case["title"], lambda s: s in case["taken"], fallback=case["fallback"]
+                )
+            except mapping.SlugCollisionError:
+                output = {"error": "SlugCollisionError"}
+        return {
+            "input": case,
+            "output": {"slug": output, "slugify": mapping.slugify(case["title"])},
+        }
+
+    collect(
+        "proposal_slug",
+        python="ludamus.mills.submissions.mapping.generate_unique_slug + slugify",
+        strategy=cases(),
+        run=run,
+        examples=400,
+    )
+
+
+IP_SAMPLES = [
+    "", " ", "1.2.3.4", " 10.0.0.1 ", "01.2.3.4", "256.1.1.1", "1.2.3", "1.2.3.4.5",
+    "١.2.3.4", "::", "::1", "1::", "::ffff:1.2.3.4", "::ffff:0102:0304", "::1.2.3.4",
+    "1:0:0:2:0:0:0:3", "0:0:1:0:0:1:0:0", "fe80::1%eth0", "fe80::1%", "fe80::1%a%b",
+    "1:2:3:4:5:6:7:8", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7::", "::2:3:4:5:6:7:8",
+    "1::2::3", ":1:2:3:4:5:6:7", "1:2:3:4:5:6:7:", "ABCD:EF01::", "12345::", "g::1",
+    "1.2.3.4/32", "::/0", "2001:db8::1.2.3.4", "::ffff:1.2.3.04", "　::1　",
+    "0000:0000:0000:0000:0000:ffff:7f00:0001",
+    "1111:2222:3333:4444:5555:6666:7777:8888:9999:aaaa",
+]
+
+
+def export_client_ip() -> None:
+    from ludamus.gates.web.django.helpers import _parse_ip
+
+    collect(
+        "client_ip",
+        python="ludamus.gates.web.django.helpers._parse_ip",
+        strategy=st.sampled_from(IP_SAMPLES)
+        | st.ip_addresses().map(lambda a: a.exploded)
+        | st.ip_addresses().map(lambda a: str(a).upper())
+        | st.ip_addresses(v=6).map(lambda a: f"{a}%{a.version}")
+        | st.text(alphabet="0123456789abcdefABCDEF:.%/ ", max_size=24),
+        run=lambda value: {"input": {"raw": value}, "output": _parse_ip(value)},
+        examples=400,
+    )
+
+
+def _messages(form: Any) -> dict[str, list[str]]:
+    return {key: [str(e) for e in errors] for key, errors in form.errors.items()}
+
+
+BUILTIN_TOKENS = ["", " ", "0", "1", "5", "6", "7", "-1", "80", "81", " 3 ", "3.0", "3.5",
+                  "1_0", "x", "٣", "99999999999", "\x00", "a" * 256, "Title", "PT1H", "PT2H", "PT9H"]
+
+
+def export_details_form() -> None:
+    from types import SimpleNamespace
+
+    from ludamus.gates.web.django.event.propose_forms import build_session_details_form
+    from ludamus.pacts.legacy import SessionFieldRequirementDTO
+
+    @st.composite
+    def cases(draw: st.DrawFn) -> dict[str, Any]:
+        category = draw(
+            st.none()
+            | st.fixed_dictionaries(
+                {
+                    "minParticipantsLimit": st.sampled_from([0, 1, 3]),
+                    "maxParticipantsLimit": st.sampled_from([0, 6]),
+                    "durations": st.lists(st.sampled_from(["PT1H", "PT2H", "PT30M", "bogus"]), unique=True, max_size=2),
+                }
+            )
+        )
+        pairs = draw(organizer_fields())
+        data: dict[str, list[str]] = {}
+        plausible = {
+            "title": ["Title", " Tytuł "], "description": ["About it"], "participants_limit": ["", "1", "4", "6"],
+            "min_age": ["", "0", "16"], "facilitator_name": ["Ola"], "duration": ["PT1H", "PT2H", "PT30M"],
+        }
+        for key, good in plausible.items():
+            roll = draw(st.integers(0, 9))
+            if roll >= 3:
+                data[key] = [draw(st.sampled_from(good))]
+            elif roll >= 1:
+                data[key] = [draw(st.sampled_from(BUILTIN_TOKENS))]
+        for field, _required in pairs:
+            for key in (f"session_{field.slug}", f"session_{field.slug}_custom"):
+                if draw(st.booleans()):
+                    data[key] = draw(st.lists(st.sampled_from(ANSWER_TOKENS), min_size=1, max_size=2))
+        return {"category": category, "pairs": pairs, "data": data}
+
+    def run(case: dict[str, Any]) -> dict[str, Any]:
+        category = case["category"]
+        dto = None if category is None else SimpleNamespace(
+            min_participants_limit=category["minParticipantsLimit"],
+            max_participants_limit=category["maxParticipantsLimit"],
+            durations=category["durations"],
+        )
+        requirements = [SessionFieldRequirementDTO(field=f, is_required=r) for f, r in case["pairs"]]
+        query = QueryDict(mutable=True)
+        for key, values in case["data"].items():
+            query.setlist(key, values)
+        form = build_session_details_form(requirements, category=dto)(data=query)
+        valid = form.is_valid()
+        cleaned = None
+        if valid:
+            folded = fold_custom_answers(
+                cleaned=form.cleaned_data, fields=[f for f, _r in case["pairs"]], prefix="session"
+            )
+            cleaned = {k: v for k, v in folded.items() if v}
+        return {
+            "input": {"category": category, "pairs": pairs_json(case["pairs"]), "data": case["data"]},
+            "output": {"errors": _messages(form), "cleaned": cleaned},
+        }
+
+    collect(
+        "details_form",
+        python="ludamus.gates.web.django.event.propose_forms.build_session_details_form + fold",
+        strategy=cases(),
+        run=run,
+        examples=400,
+    )
+
+
+EMAIL_SAMPLES = [
+    "", " ", "a@b.co", " anon@example.com ", "a@localhost", "a@b", "a@b.c", "a@-b.co",
+    "a@b-.co", "a.b@c.de", "a..b@c.de", ".a@b.co", '"a b"@c.de', "a@[127.0.0.1]",
+    "a@[::1]", "a@[1.2.3.04]", "a@b.xn--p1ai", "ą@b.co", "a@ą.pl", "a@b.co\x00",
+    "İ@b.co", "ı@b.co", "K@b.co", "a@@b.co", "a@b.co.", "x" * 310 + "@example.com",
+    "e2e-discord@test.local",
+]
+
+
+def export_personal_form() -> None:
+    from ludamus.gates.web.django.event.propose_forms import build_personal_data_form
+
+    @st.composite
+    def cases(draw: st.DrawFn) -> dict[str, Any]:
+        pairs = draw(organizer_fields())
+        data: dict[str, list[str]] = {}
+        if draw(st.integers(0, 4)):
+            data["contact_email"] = [draw(st.sampled_from(EMAIL_SAMPLES) | st.emails())]
+        for field, _required in pairs:
+            for key in (f"personal_{field.slug}", f"personal_{field.slug}_custom"):
+                if draw(st.booleans()):
+                    data[key] = draw(st.lists(st.sampled_from(ANSWER_TOKENS), min_size=1, max_size=2))
+        return {"pairs": pairs, "data": data}
+
+    def run(case: dict[str, Any]) -> dict[str, Any]:
+        query = QueryDict(mutable=True)
+        for key, values in case["data"].items():
+            query.setlist(key, values)
+        form = build_personal_data_form(case["pairs"])(data=query)
+        valid = form.is_valid()
+        cleaned = None
+        if valid:
+            folded = fold_custom_answers(
+                cleaned=form.cleaned_data, fields=[f for f, _r in case["pairs"]], prefix="personal"
+            )
+            cleaned = {
+                "answers": {k: v for k, v in folded.items() if k != "contact_email" and v},
+                "contactEmail": form.cleaned_data["contact_email"],
+            }
+        return {
+            "input": {"pairs": pairs_json(case["pairs"]), "data": case["data"]},
+            "output": {"errors": _messages(form), "cleaned": cleaned},
+        }
+
+    collect(
+        "personal_form",
+        python="ludamus.gates.web.django.event.propose_forms.build_personal_data_form + fold",
+        strategy=cases(),
+        run=run,
+        examples=400,
+    )
+
+
 EXPORTS = {
     "select_promotable_parties": export_select_promotable_parties,
     "fill_freed_seats": export_fill_freed_seats,
@@ -1674,6 +1884,10 @@ EXPORTS = {
     "field_answers": export_field_answers,
     "carried_answers": export_carried_answers,
     "unique_slug": export_unique_slug,
+    "proposal_slug": export_proposal_slug,
+    "client_ip": export_client_ip,
+    "details_form": export_details_form,
+    "personal_form": export_personal_form,
     "day_turnover": export_day_turnover,
     "slot_windows_by_local_date": export_slot_windows_by_local_date,
 }

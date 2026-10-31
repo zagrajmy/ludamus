@@ -1,3 +1,4 @@
+import { NavbarNotifications } from "@zagrajmy/core/notification";
 import { Schema } from "effect";
 
 import { Flash } from "../../ui/flash.js";
@@ -41,6 +42,7 @@ export const ShellFlags = Schema.Struct({
   isRootSphere: Schema.Boolean,
   links: ShellLinks,
   locale: Locale,
+  notifications: Schema.OptionFromOptional(NavbarNotifications),
   requestUrl: Schema.String,
   sphere: ShellSphere,
   supportEmail: Schema.String,

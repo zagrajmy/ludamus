@@ -8,6 +8,7 @@ export const UserRow = Schema.Struct({
   email: Schema.String,
   id: Schema.Int,
   isActive: Schema.Number,
+  isSuperuser: Schema.Number,
   name: Schema.String,
   password: Schema.String,
   slug: Schema.String,
@@ -34,7 +35,7 @@ export const UserStoreLive = Layer.effect(
       byId: (id) =>
         sql`
           SELECT id, username, email, name, slug, password,
-                 is_active AS isActive
+                 is_active AS isActive, is_superuser AS isSuperuser
           FROM user WHERE id = ${id}
         `.pipe(
           decodeRows("UserStore.byId", UserRow),

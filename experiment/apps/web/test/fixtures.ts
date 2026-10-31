@@ -42,6 +42,7 @@ export const shellFlags = (
     sphere: "http://crew.localhost:8000/",
   },
   locale: "en",
+  notifications: Option.none(),
   requestUrl: "http://crew.localhost:8000/",
   sphere: {
     domain: "crew.localhost:8000",

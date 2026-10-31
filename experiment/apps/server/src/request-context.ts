@@ -1,12 +1,18 @@
 import { CurrentUser, SessionResolver } from "@zagrajmy/auth";
 import { UnknownHost } from "@zagrajmy/capability/refusal";
-import { CurrentSphere } from "@zagrajmy/core";
+import { ClientIp, CurrentSphere, CurrentViewer, UserId } from "@zagrajmy/core";
+import { parseClientIp } from "@zagrajmy/core/proposal/client-ip";
 import { SphereStore } from "@zagrajmy/database";
 import { CurrentLocale, negotiateLocale } from "@zagrajmy/i18n";
 import { Context, Effect, Layer, Option } from "effect";
 import type { Headers } from "effect/http/Headers";
 
-export type RequestServices = CurrentLocale | CurrentSphere | CurrentUser;
+export type RequestServices =
+  | ClientIp
+  | CurrentLocale
+  | CurrentSphere
+  | CurrentUser
+  | CurrentViewer;
 
 const originHost = (origin: string) =>
   URL.canParse(origin) ? Option.some(new URL(origin).host) : Option.none();
@@ -51,6 +57,23 @@ const make = Effect.gen(function* makeRequestContext() {
     return yield* sessions.fromCookieHeader(headers.cookie ?? null);
   });
 
+  const viewer = Effect.fn("RequestContext.viewer")(function* viewer(
+    headers: Headers
+  ) {
+    const found = yield* user(headers);
+
+    return Option.map(found, (row) => ({
+      id: UserId.make(row.id),
+      isSuperuser: row.isSuperuser === 1,
+    }));
+  });
+
+  const clientIp = (headers: Headers) =>
+    Option.flatMap(
+      Option.fromNullishOr(headers["cf-connecting-ip"]),
+      parseClientIp
+    );
+
   const services = Effect.fn("RequestContext.services")(function* services(
     headers: Headers
   ) {
@@ -60,13 +83,21 @@ const make = Effect.gen(function* makeRequestContext() {
     return Context.make(CurrentSphere, current).pipe(
       Context.add(CurrentUser, viewer),
       Context.add(
+        CurrentViewer,
+        Option.map(viewer, (user) => ({
+          id: UserId.make(user.id),
+          isSuperuser: user.isSuperuser === 1,
+        }))
+      ),
+      Context.add(
         CurrentLocale,
         negotiateLocale(headers["accept-language"] ?? null)
-      )
+      ),
+      Context.add(ClientIp, clientIp(headers))
     );
   });
 
-  return { services, sphere, user };
+  return { clientIp, services, sphere, user, viewer };
 });
 
 export class RequestContext extends Context.Service<

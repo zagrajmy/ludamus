@@ -27,3 +27,18 @@ export class Backend extends Context.Service<
     Layer.provide(transport)
   );
 }
+
+const keepAliveTransport = RpcClient.layerProtocolHttp({ url: RPC_URL }).pipe(
+  Layer.provide(FetchHttpClient.layer),
+  Layer.provide(
+    Layer.succeed(FetchHttpClient.RequestInit, {
+      credentials: "same-origin",
+      keepalive: true,
+    })
+  ),
+  Layer.provide(RpcSerialization.layerJson)
+);
+
+export const keepAliveBackend = Layer.effect(Backend, make).pipe(
+  Layer.provide(keepAliveTransport)
+);

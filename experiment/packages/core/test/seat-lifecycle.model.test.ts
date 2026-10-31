@@ -14,10 +14,10 @@ import {
 import type {
   EnrollmentWrite,
   Offer,
-  PromotionMode,
   PromotionWrite,
-  SessionParticipationStatus,
 } from "../src/enrollment/index.js";
+import type { ParticipationStatus } from "../src/participation.js";
+import type { PromotionMode } from "../src/proposal-category.js";
 import { BASE, between } from "./support/arbitraries.js";
 
 const CLAIM_WINDOW = Duration.minutes(60);
@@ -57,7 +57,7 @@ const Scenario = Schema.Struct({
 interface Row {
   readonly participationId: number;
   readonly userId: number;
-  status: SessionParticipationStatus;
+  status: ParticipationStatus;
   expiresAt: DateTime.Utc | null;
   token: string | null;
 }
@@ -91,7 +91,7 @@ class Store {
   }
 
   view(): View {
-    const users = (status: SessionParticipationStatus): readonly number[] =>
+    const users = (status: ParticipationStatus): readonly number[] =>
       this.rows.filter((row) => row.status === status).map((row) => row.userId);
 
     return {

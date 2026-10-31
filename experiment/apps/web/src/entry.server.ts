@@ -5,6 +5,15 @@ import { init } from "./client/init.js";
 import { Flags } from "./client/model.js";
 import { view } from "./features/app.js";
 import { withShellHead } from "./server/document.js";
+import {
+  clearedFlashCookie,
+  flashCookieHeader,
+  hasFlashCookie,
+} from "./server/flash.js";
+import {
+  isProposeStepPath,
+  respondToProposeStep,
+} from "./server/pages/propose.js";
 import { loadRequestContext } from "./server/request-context.js";
 import { route } from "./server/router.js";
 import { serverRuntime } from "./server/runtime.js";
@@ -26,6 +35,15 @@ const plain = (status: number, body: string) =>
 
 const renderPageEffect = Effect.fn("renderPage")(
   function* renderPageEffect(request: Request) {
+    if (
+      request.method === "POST" &&
+      isProposeStepPath(new URL(request.url).pathname)
+    ) {
+      return Server.Responded(
+        yield* respondToProposeStep(yield* loadRequestContext(request))
+      );
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       return Server.Responded(
         new Response(null, { headers: { allow: "GET, HEAD" }, status: 405 })
@@ -36,11 +54,14 @@ const renderPageEffect = Effect.fn("renderPage")(
     const routed = yield* route(context);
 
     if (routed._tag === "Redirect") {
+      const headers = new Headers({ location: routed.location });
+
+      if (routed.flashes !== undefined && routed.flashes.length > 0) {
+        headers.append("set-cookie", flashCookieHeader(routed.flashes));
+      }
+
       return Server.Responded(
-        new Response(null, {
-          headers: { location: routed.location },
-          status: routed.status,
-        })
+        new Response(null, { headers, status: routed.status })
       );
     }
 
@@ -55,7 +76,9 @@ const renderPageEffect = Effect.fn("renderPage")(
     );
 
     return Server.Rendered(withShellHead(application, flags), {
-      headers: pageHeaders,
+      headers: hasFlashCookie(request)
+        ? { ...pageHeaders, "set-cookie": clearedFlashCookie }
+        : pageHeaders,
       status: routed.status,
     });
   },

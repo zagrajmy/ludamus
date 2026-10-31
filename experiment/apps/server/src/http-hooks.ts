@@ -1,7 +1,7 @@
 import { CurrentUser } from "@zagrajmy/auth";
 import type { AnyCapability, AnyContract } from "@zagrajmy/capability/contract";
 import { UnknownHost } from "@zagrajmy/capability/refusal";
-import { CurrentSphere } from "@zagrajmy/core";
+import { ClientIp, CurrentSphere, CurrentViewer } from "@zagrajmy/core";
 import { CurrentLocale, negotiateLocale } from "@zagrajmy/i18n";
 import { Effect, Option, Schema } from "effect";
 import type { HttpServerRequest } from "effect/http";
@@ -91,9 +91,21 @@ export const httpHooks = (
     {
       failure: Schema.Never,
       from: (request: HttpServerRequest.HttpServerRequest) =>
+        context.viewer(request.headers),
+      tag: CurrentViewer,
+    },
+    {
+      failure: Schema.Never,
+      from: (request: HttpServerRequest.HttpServerRequest) =>
         Effect.succeed(
           negotiateLocale(request.headers["accept-language"] ?? null)
         ),
       tag: CurrentLocale,
+    },
+    {
+      failure: Schema.Never,
+      from: (request: HttpServerRequest.HttpServerRequest) =>
+        Effect.succeed(context.clientIp(request.headers)),
+      tag: ClientIp,
     },
   ] as const;

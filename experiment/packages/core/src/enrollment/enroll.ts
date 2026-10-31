@@ -3,8 +3,8 @@ import { Option, Result, Schema } from "effect";
 import { NotEnoughSpotsError } from "./errors.js";
 import {
   OCCUPYING_PARTICIPATION_STATUSES,
-  SessionParticipationStatus,
-} from "./schemas.js";
+  ParticipationStatus,
+} from "../participation.js";
 import type { EnrollmentWindowLike } from "./schemas.js";
 import { canEnroll, policyAvailableSlots, policyForActor } from "./windows.js";
 
@@ -45,7 +45,7 @@ export const SeatAvailability = Schema.Struct({
 export type SeatAvailability = typeof SeatAvailability.Type;
 
 export const ExistingParticipation = Schema.Struct({
-  status: SessionParticipationStatus,
+  status: ParticipationStatus,
   userId: Schema.Int,
 });
 
@@ -114,7 +114,7 @@ export const EnrollmentBatch = Schema.Struct({
 
 export type EnrollmentBatch = typeof EnrollmentBatch.Type;
 
-const isOccupying = (status: SessionParticipationStatus | null): boolean =>
+const isOccupying = (status: ParticipationStatus | null): boolean =>
   status !== null && OCCUPYING_PARTICIPATION_STATUSES.includes(status);
 
 const seats = (options: {
@@ -215,7 +215,7 @@ const STATUS_BY_CHOICE = {
 } as const;
 
 interface Ledger {
-  readonly rows: Map<number, SessionParticipationStatus | null>;
+  readonly rows: Map<number, ParticipationStatus | null>;
   readonly writes: EnrollmentWrite[];
   readonly cancelledUsers: string[];
   readonly confirmedUsers: string[];
@@ -440,7 +440,7 @@ export const HouseholdMember = Schema.Struct({
   isMember: Schema.Boolean,
   name: Schema.String,
   needsAccept: Schema.Boolean,
-  status: Schema.NullOr(SessionParticipationStatus),
+  status: Schema.NullOr(ParticipationStatus),
   userId: Schema.Int,
 });
 

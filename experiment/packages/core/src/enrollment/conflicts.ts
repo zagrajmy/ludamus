@@ -1,6 +1,9 @@
 import { DateTime, Schema } from "effect";
 
-import { SessionParticipationStatus } from "./schemas.js";
+import {
+  OCCUPYING_PARTICIPATION_STATUSES,
+  ParticipationStatus,
+} from "../participation.js";
 
 export const AgendaSpan = Schema.Struct({
   endTime: Schema.DateTimeUtcFromString,
@@ -13,7 +16,7 @@ export const EventSeat = Schema.Struct({
   endTime: Schema.DateTimeUtcFromString,
   sessionId: Schema.Int,
   startTime: Schema.DateTimeUtcFromString,
-  status: SessionParticipationStatus,
+  status: ParticipationStatus,
   userId: Schema.Int,
 });
 
@@ -22,16 +25,9 @@ export type EventSeat = typeof EventSeat.Type;
 export const overlapsWith = (options: {
   readonly item: AgendaSpan;
   readonly other: AgendaSpan;
-}): boolean => {
-  const { item, other } = options;
-
-  return (
-    (DateTime.isLessThanOrEqualTo(other.startTime, item.startTime) &&
-      DateTime.isLessThan(item.startTime, other.endTime)) ||
-    (DateTime.isLessThan(other.startTime, item.endTime) &&
-      DateTime.isLessThanOrEqualTo(item.endTime, other.endTime))
-  );
-};
+}): boolean =>
+  DateTime.isLessThan(options.other.startTime, options.item.endTime) &&
+  DateTime.isGreaterThan(options.other.endTime, options.item.startTime);
 
 export const conflictedUserIds = (options: {
   readonly sessionId: number;
@@ -50,11 +46,8 @@ export const conflictedUserIds = (options: {
       (seat) =>
         seat.sessionId !== options.sessionId &&
         options.userIds.includes(seat.userId) &&
-        seat.status === "confirmed" &&
-        ((DateTime.isGreaterThanOrEqualTo(seat.startTime, span.startTime) &&
-          DateTime.isLessThan(seat.startTime, span.endTime)) ||
-          (DateTime.isGreaterThan(seat.endTime, span.startTime) &&
-            DateTime.isLessThanOrEqualTo(seat.endTime, span.endTime)))
+        OCCUPYING_PARTICIPATION_STATUSES.includes(seat.status) &&
+        overlapsWith({ item: span, other: seat })
     )
     .map((seat) => seat.userId);
 

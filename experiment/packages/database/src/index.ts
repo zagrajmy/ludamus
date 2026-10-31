@@ -27,6 +27,10 @@ export { EncounterStoreLive } from "./encounter-store.js";
 
 export { EnrollmentConfigStoreLive } from "./enrollment-config-store.js";
 
+export { EnrollmentLive } from "./enrollment-layer.js";
+
+export { fileMailOutbox, MailOutbox } from "./enrollment-notifier.js";
+
 export { EventStoreLive } from "./event-store.js";
 
 export { FacilitatorStoreLive } from "./facilitator-store.js";

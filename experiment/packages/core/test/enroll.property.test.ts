@@ -4,8 +4,6 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import {
   EnrollRequestChoice,
-  OCCUPYING_PARTICIPATION_STATUSES,
-  SessionParticipationStatus,
   actorAvailableSlots,
   canEnroll,
   desiredStateRequests,
@@ -19,6 +17,10 @@ import type {
   EnrollmentRequest,
   HouseholdMember,
 } from "../src/enrollment/index.js";
+import {
+  OCCUPYING_PARTICIPATION_STATUSES,
+  ParticipationStatus,
+} from "../src/participation.js";
 import { between } from "./support/arbitraries.js";
 
 const Household: readonly number[] = [1, 2, 3, 4];
@@ -53,7 +55,7 @@ const BatchDraft = Schema.Struct({
   partyId: Schema.NullOr(Schema.Literal(7)),
   presenterId: Schema.NullOr(between(1, 5)),
   shadowbanned: Schema.Array(UserId).check(Schema.isMaxLength(2)),
-  statuses: Schema.Array(Schema.NullOr(SessionParticipationStatus)).check(
+  statuses: Schema.Array(Schema.NullOr(ParticipationStatus)).check(
     Schema.isMinLength(4),
     Schema.isMaxLength(4)
   ),
@@ -315,7 +317,7 @@ const MemberDraft = Schema.Struct({
   desiredIn: Schema.Boolean,
   isActive: Schema.Boolean,
   needsAccept: Schema.Boolean,
-  status: Schema.NullOr(SessionParticipationStatus),
+  status: Schema.NullOr(ParticipationStatus),
 });
 
 const DesiredDraft = Schema.Struct({

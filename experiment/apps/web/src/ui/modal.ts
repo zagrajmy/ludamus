@@ -5,7 +5,11 @@ import { cx } from "./cx.js";
 import type { Child } from "./html.js";
 import type { Translator } from "./i18n.js";
 import { icon } from "./icon.js";
-import { exclamationTriangleOutline, xMarkMini } from "./icons.js";
+import {
+  bellAlertOutline,
+  exclamationTriangleOutline,
+  xMarkMini,
+} from "./icons.js";
 
 export { Dialog };
 
@@ -140,6 +144,7 @@ export const modal = <Message>(
 export const confirmDialog = <Message>(
   options: Readonly<{
     confirmLabel?: string;
+    icon?: "bell-alert" | "exclamation-triangle";
     message: string;
     model: Dialog.Model;
     onConfirm: Message;
@@ -156,8 +161,26 @@ export const confirmDialog = <Message>(
           [h.Class("flex items-start gap-3 px-6 py-4")],
           [
             h.span(
-              [h.Class("mt-0.5 flex-shrink-0 text-danger")],
-              [icon(exclamationTriangleOutline, { class: "w-6 h-6" }, h)]
+              [
+                h.Class("mt-0.5 flex-shrink-0 text-danger"),
+                h.DataAttribute("confirm-icon-slot", ""),
+              ],
+              [
+                h.span(
+                  [
+                    h.DataAttribute("confirm-icon", "exclamation-triangle"),
+                    ...(options.icon === "bell-alert" ? [h.Hidden(true)] : []),
+                  ],
+                  [icon(exclamationTriangleOutline, { class: "w-6 h-6" }, h)]
+                ),
+                h.span(
+                  [
+                    h.DataAttribute("confirm-icon", "bell-alert"),
+                    ...(options.icon === "bell-alert" ? [] : [h.Hidden(true)]),
+                  ],
+                  [icon(bellAlertOutline, { class: "w-6 h-6" }, h)]
+                ),
+              ]
             ),
             h.div(
               [],

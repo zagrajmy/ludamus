@@ -43,4 +43,7 @@ export const updateShell = (model: ShellModel, message: ShellMessage): Return =>
     ToggledAccountMenu: ({ isOpen }) => ({
       model: modifyFields(model, { isAccountMenuOpen: () => isOpen }),
     }),
+    ToggledNotificationsMenu: ({ isOpen }) => ({
+      model: modifyFields(model, { isNotificationsOpen: () => isOpen }),
+    }),
   });

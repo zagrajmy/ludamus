@@ -1,3 +1,4 @@
+import type { NavbarNotifications } from "@zagrajmy/core/notification";
 import { Option } from "effect";
 import type { HtmlBuilder } from "foldkit/html";
 
@@ -15,6 +16,7 @@ import {
   userCircleOutline,
 } from "./icons.js";
 import { disclosureMenu, menuSurface } from "./menu.js";
+import { notificationsMenu } from "./notifications-menu.js";
 
 export type NavbarViewer = Readonly<{
   avatarUrl: Option.Option<string>;
@@ -35,6 +37,9 @@ export type NavbarLinks = Readonly<{
 
 export type NavbarOptions<Message> = Readonly<{
   isMenuOpen: boolean;
+  isNotificationsOpen?: boolean;
+  notifications?: Option.Option<NavbarNotifications>;
+  onToggleNotifications?: (isOpen: boolean) => Message;
   isRootSphere: boolean;
   links: NavbarLinks;
   onToggleMenu: (isOpen: boolean) => Message;
@@ -307,7 +312,27 @@ export const navbar = <Message>(
                         ]
                       ),
                     onSome: (viewer) =>
-                      accountMenu({ ...options, signedIn: viewer }, h),
+                      h.div(
+                        [h.Class("flex items-center gap-2")],
+                        [
+                          ...(options.notifications === undefined ||
+                          options.onToggleNotifications === undefined ||
+                          Option.isNone(options.notifications)
+                            ? []
+                            : [
+                                notificationsMenu(
+                                  {
+                                    isOpen: options.isNotificationsOpen ?? false,
+                                    notifications: options.notifications.value,
+                                    onToggle: options.onToggleNotifications,
+                                    translator,
+                                  },
+                                  h
+                                ),
+                              ]),
+                          accountMenu({ ...options, signedIn: viewer }, h),
+                        ]
+                      ),
                   }),
                 ]
               ),

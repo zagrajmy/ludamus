@@ -27,6 +27,13 @@ const descriptionOf = (flags: Flags, i18n: Translator) => {
     return landingDescription(i18n);
   }
 
+  if (
+    flags.page._tag === "EventPage" &&
+    flags.page.flags.linkPreview.description !== ""
+  ) {
+    return flags.page.flags.linkPreview.description;
+  }
+
   return defaultDescription({
     isRootSphere: flags.shell.isRootSphere,
     sphereName: flags.shell.sphere.name,
@@ -43,7 +50,15 @@ export const shellHead = (options: {
   const description = escapeAttribute(descriptionOf(flags, i18n));
   const { origin } = new URL(flags.shell.requestUrl);
   const image = escapeAttribute(`${origin}/static/og-image.jpg`);
-  const escapedTitle = escapeAttribute(title);
+  const previewTitle =
+    flags.page._tag === "EventPage" && flags.page.flags.linkPreview.title !== ""
+      ? flags.page.flags.linkPreview.title
+      : title;
+  const escapedTitle = escapeAttribute(previewTitle);
+  const robots =
+    flags.page._tag === "EventPage" && flags.page.flags.hero.isUnlisted
+      ? ['<meta name="robots" content="noindex">']
+      : [];
 
   return [
     `<meta name="description" content="${description}">`,
@@ -61,6 +76,7 @@ export const shellHead = (options: {
     '<link rel="alternate icon" type="image/x-icon" href="/static/favicon.ico">',
     `<meta name="theme-color" content="${themeColors.light}">`,
     `<script>${themeInitScript}</script>`,
+    ...robots,
   ].join("\n");
 };
 
