@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+*.log
+.env
+.env.local
+evals/results/**/raw/
+evals/results/e2e/
+.vitest/
+.scratch/

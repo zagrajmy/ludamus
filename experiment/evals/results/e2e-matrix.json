@@ -1,0 +1,54 @@
+{
+  "runs": {
+    "new": {
+      "baseUrl": "http://localhost:8000",
+      "durationMs": 25751.210000000003,
+      "exitCode": 1,
+      "files": {
+        "about.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "feed-cards.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "footer-license.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "page-title.spec.ts": {
+          "failed": 2,
+          "flaky": 0,
+          "passed": 0,
+          "skipped": 0
+        },
+        "theme-color.spec.ts": {
+          "failed": 2,
+          "flaky": 0,
+          "passed": 0,
+          "skipped": 0
+        }
+      },
+      "filter": [
+        "feed-cards.spec.ts",
+        "page-title.spec.ts",
+        "about.spec.ts",
+        "footer-license.spec.ts",
+        "theme-color.spec.ts"
+      ],
+      "finishedAt": "2026-10-30T19:57:47.972Z",
+      "projects": [
+        "chromium",
+        "chromium-auth"
+      ],
+      "reportFile": "evals/results/e2e/2026-10-30T19-57-21Z-matrix-new/report.json"
+    }
+  }
+}

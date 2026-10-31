@@ -1,0 +1,490 @@
+{
+  "label": "old",
+  "origin": "http://localhost:8010",
+  "pages": [
+    {
+      "host": "crew.localhost",
+      "label": "events feed (crew sphere root)",
+      "path": "/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 32919,
+        "connections": 4,
+        "durationMs": 1573,
+        "errors": 0,
+        "requests": 61,
+        "requestsPerSecond": 38.78191687943851,
+        "statuses": {
+          "200": 61
+        },
+        "totalMs": {
+          "count": 61,
+          "max": 225.7004770000001,
+          "mean": 101.12751463934428,
+          "min": 34.192026,
+          "p50": 96.10438999999997,
+          "p95": 207.8258380000001,
+          "p99": 225.7004770000001
+        },
+        "ttfbMs": {
+          "count": 61,
+          "max": 225.55552000000012,
+          "mean": 100.49012967213116,
+          "min": 33.96400500000004,
+          "p50": 94.36328300000014,
+          "p95": 207.72747399999992,
+          "p99": 225.55552000000012
+        },
+        "url": "http://crew.localhost:8010/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 33833,
+            "count": 1
+          },
+          "script": {
+            "bytes": 456556,
+            "count": 15
+          }
+        },
+        "consoleErrors": 17,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 286,
+        "htmlBytes": 33833,
+        "jsBytes": 456556,
+        "largestContentfulPaintMs": null,
+        "loadMs": 286,
+        "requests": 16,
+        "status": 200,
+        "transferBytes": 490389,
+        "url": "http://crew.localhost:8010/"
+      }
+    },
+    {
+      "label": "landing (root sphere, anonymous)",
+      "path": "/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 166743,
+        "connections": 4,
+        "durationMs": 1596,
+        "errors": 0,
+        "requests": 46,
+        "requestsPerSecond": 28.819554896998365,
+        "statuses": {
+          "200": 46
+        },
+        "totalMs": {
+          "count": 46,
+          "max": 278.5110130000003,
+          "mean": 134.64448354347823,
+          "min": 50.44085200000063,
+          "p50": 125.50274100000024,
+          "p95": 273.2594429999999,
+          "p99": 278.5110130000003
+        },
+        "ttfbMs": {
+          "count": 46,
+          "max": 277.90258900000026,
+          "mean": 133.52408702173906,
+          "min": 50.1302169999999,
+          "p50": 124.2570169999999,
+          "p95": 272.92367699999977,
+          "p99": 277.90258900000026
+        },
+        "url": "http://localhost:8010/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 167621,
+            "count": 1
+          },
+          "script": {
+            "bytes": 486749,
+            "count": 16
+          }
+        },
+        "consoleErrors": 18,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 305,
+        "htmlBytes": 167621,
+        "jsBytes": 486749,
+        "largestContentfulPaintMs": null,
+        "loadMs": 305,
+        "requests": 17,
+        "status": 200,
+        "transferBytes": 654370,
+        "url": "http://localhost:8010/"
+      }
+    },
+    {
+      "label": "event page (3 sessions)",
+      "path": "/event/autumn-open/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 113616,
+        "connections": 4,
+        "durationMs": 1808,
+        "errors": 0,
+        "requests": 20,
+        "requestsPerSecond": 11.060364866726662,
+        "statuses": {
+          "200": 20
+        },
+        "totalMs": {
+          "count": 20,
+          "max": 526.1956469999986,
+          "mean": 339.5486490499999,
+          "min": 137.69685799999934,
+          "p50": 319.92071900000155,
+          "p95": 525.0222919999997,
+          "p99": 526.1956469999986
+        },
+        "ttfbMs": {
+          "count": 20,
+          "max": 525.9954749999997,
+          "mean": 337.4837482500001,
+          "min": 117.09799799999928,
+          "p50": 318.6148890000004,
+          "p95": 524.7904099999996,
+          "p99": 525.9954749999997
+        },
+        "url": "http://localhost:8010/event/autumn-open/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 114531,
+            "count": 1
+          },
+          "script": {
+            "bytes": 851911,
+            "count": 28
+          }
+        },
+        "consoleErrors": 30,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 482,
+        "htmlBytes": 114531,
+        "jsBytes": 851911,
+        "largestContentfulPaintMs": null,
+        "loadMs": 483,
+        "requests": 29,
+        "status": 200,
+        "transferBytes": 966442,
+        "url": "http://localhost:8010/event/autumn-open/"
+      }
+    },
+    {
+      "label": "event page (dense, 100+ sessions)",
+      "path": "/event/kapitularz-2025-anonymized/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 426999,
+        "connections": 4,
+        "durationMs": 1787,
+        "errors": 0,
+        "requests": 18,
+        "requestsPerSecond": 10.074308412271849,
+        "statuses": {
+          "200": 18
+        },
+        "totalMs": {
+          "count": 18,
+          "max": 432.3716779999995,
+          "mean": 368.055872611111,
+          "min": 108.03894299999956,
+          "p50": 395.488797,
+          "p95": 432.3716779999995,
+          "p99": 432.3716779999995
+        },
+        "ttfbMs": {
+          "count": 18,
+          "max": 431.8535639999991,
+          "mean": 367.5900938333332,
+          "min": 107.4333889999998,
+          "p50": 394.809940000001,
+          "p95": 431.8535639999991,
+          "p99": 431.8535639999991
+        },
+        "url": "http://localhost:8010/event/kapitularz-2025-anonymized/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 428059,
+            "count": 1
+          },
+          "script": {
+            "bytes": 851989,
+            "count": 28
+          }
+        },
+        "consoleErrors": 30,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 708,
+        "htmlBytes": 428059,
+        "jsBytes": 851989,
+        "largestContentfulPaintMs": null,
+        "loadMs": 708,
+        "requests": 29,
+        "status": 200,
+        "transferBytes": 1280048,
+        "url": "http://localhost:8010/event/kapitularz-2025-anonymized/"
+      }
+    },
+    {
+      "label": "proposal wizard entry",
+      "path": "/event/open-mic/session/propose/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 38045,
+        "connections": 4,
+        "durationMs": 1639,
+        "errors": 0,
+        "requests": 42,
+        "requestsPerSecond": 25.620128140864267,
+        "statuses": {
+          "200": 42
+        },
+        "totalMs": {
+          "count": 42,
+          "max": 190.39416400000118,
+          "mean": 151.18807971428586,
+          "min": 60.58338499999809,
+          "p50": 151.09551699999793,
+          "p95": 184.76873999999953,
+          "p99": 190.39416400000118
+        },
+        "ttfbMs": {
+          "count": 42,
+          "max": 190.20309800000177,
+          "mean": 150.82170130952406,
+          "min": 60.46928099999786,
+          "p50": 150.8790540000009,
+          "p95": 184.6442709999974,
+          "p99": 190.20309800000177
+        },
+        "url": "http://localhost:8010/event/open-mic/session/propose/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 39230,
+            "count": 1
+          },
+          "script": {
+            "bytes": 486785,
+            "count": 16
+          }
+        },
+        "consoleErrors": 18,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 334,
+        "htmlBytes": 39230,
+        "jsBytes": 486785,
+        "largestContentfulPaintMs": null,
+        "loadMs": 334,
+        "requests": 17,
+        "status": 200,
+        "transferBytes": 526015,
+        "url": "http://localhost:8010/event/open-mic/session/propose/"
+      }
+    },
+    {
+      "label": "about",
+      "path": "/about/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 44568,
+        "connections": 4,
+        "durationMs": 1554,
+        "errors": 0,
+        "requests": 87,
+        "requestsPerSecond": 55.970704747852665,
+        "statuses": {
+          "200": 87
+        },
+        "totalMs": {
+          "count": 87,
+          "max": 111.43835499999841,
+          "mean": 70.28273264367805,
+          "min": 22.458096999998816,
+          "p50": 68.55704999999944,
+          "p95": 93.19881099999839,
+          "p99": 111.43835499999841
+        },
+        "ttfbMs": {
+          "count": 87,
+          "max": 111.38894399999845,
+          "mean": 69.54895916091967,
+          "min": 21.853830000000016,
+          "p50": 68.17423200000121,
+          "p95": 88.0359380000009,
+          "p99": 111.38894399999845
+        },
+        "url": "http://localhost:8010/about/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 45445,
+            "count": 1
+          },
+          "script": {
+            "bytes": 456341,
+            "count": 15
+          }
+        },
+        "consoleErrors": 17,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 284,
+        "htmlBytes": 45445,
+        "jsBytes": 456341,
+        "largestContentfulPaintMs": null,
+        "loadMs": 284,
+        "requests": 16,
+        "status": 200,
+        "transferBytes": 501786,
+        "url": "http://localhost:8010/about/"
+      }
+    },
+    {
+      "authState": ".auth-state-manager.json",
+      "label": "panel facilitators (manager)",
+      "path": "/panel/event/frostfire-con/facilitators/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 156453,
+        "connections": 4,
+        "durationMs": 1862,
+        "errors": 0,
+        "requests": 21,
+        "requestsPerSecond": 11.27922155865892,
+        "statuses": {
+          "200": 21
+        },
+        "totalMs": {
+          "count": 21,
+          "max": 401.6854960000019,
+          "mean": 327.31024219047634,
+          "min": 117.94647099999929,
+          "p50": 335.98268499999904,
+          "p95": 395.49967200000174,
+          "p99": 401.6854960000019
+        },
+        "ttfbMs": {
+          "count": 21,
+          "max": 401.5468630000032,
+          "mean": 326.9527186190479,
+          "min": 117.70458599999984,
+          "p50": 335.70947700000033,
+          "p95": 395.25906600000235,
+          "p99": 401.5468630000032
+        },
+        "url": "http://localhost:8010/panel/event/frostfire-con/facilitators/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 157476,
+            "count": 1
+          },
+          "script": {
+            "bytes": 753889,
+            "count": 20
+          },
+          "image": {
+            "bytes": 869,
+            "count": 1
+          }
+        },
+        "consoleErrors": 22,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 559,
+        "htmlBytes": 157476,
+        "jsBytes": 753889,
+        "largestContentfulPaintMs": null,
+        "loadMs": 559,
+        "requests": 22,
+        "status": 200,
+        "transferBytes": 912234,
+        "url": "http://localhost:8010/panel/event/frostfire-con/facilitators/"
+      }
+    },
+    {
+      "authState": ".auth-state.json",
+      "label": "event page (signed in)",
+      "path": "/event/enroll-states/",
+      "lighthouse": null,
+      "load": {
+        "bytesPerResponse": 102315,
+        "connections": 4,
+        "durationMs": 1792,
+        "errors": 0,
+        "requests": 19,
+        "requestsPerSecond": 10.600291772584702,
+        "statuses": {
+          "200": 19
+        },
+        "totalMs": {
+          "count": 19,
+          "max": 427.219046000002,
+          "mean": 351.6812935789479,
+          "min": 149.6905110000007,
+          "p50": 368.1038439999975,
+          "p95": 427.219046000002,
+          "p99": 427.219046000002
+        },
+        "ttfbMs": {
+          "count": 19,
+          "max": 427.0360400000027,
+          "mean": 351.31527163157944,
+          "min": 149.50423199999932,
+          "p50": 367.9358289999982,
+          "p95": 427.0360400000027,
+          "p99": 427.0360400000027
+        },
+        "url": "http://localhost:8010/event/enroll-states/"
+      },
+      "weight": {
+        "byType": {
+          "document": {
+            "bytes": 103408,
+            "count": 1
+          },
+          "script": {
+            "bytes": 1128418,
+            "count": 28
+          },
+          "image": {
+            "bytes": 4128,
+            "count": 2
+          }
+        },
+        "consoleErrors": 30,
+        "cssBytes": 0,
+        "cumulativeLayoutShift": 0,
+        "domContentLoadedMs": 885,
+        "htmlBytes": 103408,
+        "jsBytes": 1128418,
+        "largestContentfulPaintMs": null,
+        "loadMs": 885,
+        "requests": 31,
+        "status": 200,
+        "transferBytes": 1235954,
+        "url": "http://localhost:8010/event/enroll-states/"
+      }
+    }
+  ],
+  "started": "2026-10-30T19:24:58.013Z"
+}

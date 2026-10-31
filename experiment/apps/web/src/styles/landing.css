@@ -1,0 +1,185 @@
+.landing {
+  /* Print artifacts stay paper in both themes, but pure white against
+       the dark page is a glare step rather than a sheet of paper. */
+  --paper: #fff;
+  /* The active act tab: a white chip in light mode, where the primary
+       tint reads pink; the tint stays in dark mode, where it is neutral. */
+  --ktab-on: var(--color-bg-secondary);
+  --ktab-on-edge: var(--color-border);
+}
+
+.dark .landing {
+  --paper: #f2efeb;
+  /* NOTE: the print act's chrome and text follow the page theme. */
+  --stage-paper: var(--color-background);
+  --stage-ink: var(--color-foreground);
+  --ktab-on: var(--color-primary-light);
+  --ktab-on-edge: var(--color-primary-light);
+}
+
+/* page-load choreography (skipped entirely under reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .landing .ld {
+    opacity: 0;
+    animation: landingLdIn 0.85s var(--ease-out) forwards;
+  }
+
+  .landing .d0 {
+    animation-delay: 0.02s;
+  }
+
+  .landing .d1 {
+    animation-delay: 0.1s;
+  }
+
+  .landing .d2 {
+    animation-delay: 0.18s;
+  }
+
+  .landing .d3 {
+    animation-delay: 0.3s;
+  }
+
+  .landing .d4 {
+    animation-delay: 0.42s;
+  }
+
+  .landing .d5 {
+    animation-delay: 0.56s;
+  }
+}
+
+@keyframes landingLdIn {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* scroll reveals (static fallback = visible) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .landing .reveal {
+      animation: landingRevIn linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+
+@keyframes landingRevIn {
+  from {
+    opacity: 0;
+    translate: 0 26px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* ---------- the proofreader's strike (headline + spreadsheet) ---------- */
+.landing .strike-phrase {
+  white-space: nowrap;
+}
+
+.landing .strike-phrase svg {
+  position: absolute;
+  left: -2%;
+  bottom: -0.18em;
+  width: 104%;
+  height: 0.28em;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.landing .strike-big {
+  position: absolute;
+  inset: -4% -3%;
+  width: 106%;
+  height: 108%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.landing .strike-big path,
+.landing .strike-phrase path {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing .strike-big path {
+    stroke-dasharray: 640;
+    stroke-dashoffset: 640;
+    animation: landingStrike 0.7s var(--ease-out) 0.45s forwards;
+  }
+}
+
+@keyframes landingStrike {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 30rem) {
+  .landing .strike-phrase {
+    white-space: normal;
+    text-decoration: underline;
+    text-decoration-color: var(--color-primary);
+    text-decoration-thickness: 0.09em;
+    text-underline-offset: 0.12em;
+  }
+
+  .landing .strike-phrase svg {
+    display: none;
+  }
+}
+
+/* Once the load choreography has played, switching the audience view must
+   not replay it: display:none -> block restarts CSS animations, so
+   landing.ts latches .ld-done after the last delay+duration. */
+.landing.ld-done .ld {
+  animation: none;
+  opacity: 1;
+}
+
+/* ---------- print: everything visible, interactive chrome gone ---------- */
+@media print {
+  .landing .ld,
+  .landing .reveal {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .landing a.btn,
+  .landing .ktabs {
+    display: none;
+  }
+
+  .landing .stage,
+  .landing .card,
+  .landing .doorcard {
+    break-inside: avoid;
+  }
+}
+
+/* ---------- reduced motion: everything instant ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+}

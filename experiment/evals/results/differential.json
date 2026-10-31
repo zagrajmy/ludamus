@@ -1,0 +1,103 @@
+{
+  "failedTests": 0,
+  "functions": [
+    {
+      "cases": 55,
+      "mismatches": 0,
+      "name": "carried_answers"
+    },
+    {
+      "cases": 289,
+      "mismatches": 0,
+      "name": "day_turnover"
+    },
+    {
+      "cases": 272,
+      "mismatches": 0,
+      "name": "desired_state_requests"
+    },
+    {
+      "cases": 300,
+      "mismatches": 0,
+      "name": "distinct_recipients"
+    },
+    {
+      "cases": 489,
+      "mismatches": 0,
+      "name": "durations"
+    },
+    {
+      "cases": 286,
+      "mismatches": 0,
+      "name": "enrollment_policy"
+    },
+    {
+      "cases": 289,
+      "mismatches": 0,
+      "name": "field_answers"
+    },
+    {
+      "cases": 300,
+      "mismatches": 0,
+      "name": "field_requirements"
+    },
+    {
+      "cases": 398,
+      "mismatches": 0,
+      "name": "field_validation"
+    },
+    {
+      "cases": 364,
+      "mismatches": 0,
+      "name": "fill_freed_seats"
+    },
+    {
+      "cases": 300,
+      "mismatches": 0,
+      "name": "is_valid_window_period"
+    },
+    {
+      "cases": 157,
+      "mismatches": 0,
+      "name": "membership_lookup"
+    },
+    {
+      "cases": 150,
+      "mismatches": 0,
+      "name": "offer_resolution"
+    },
+    {
+      "cases": 389,
+      "mismatches": 0,
+      "name": "process_enrollments"
+    },
+    {
+      "cases": 354,
+      "mismatches": 0,
+      "name": "select_promotable_parties"
+    },
+    {
+      "cases": 299,
+      "mismatches": 0,
+      "name": "slot_windows_by_local_date"
+    },
+    {
+      "cases": 286,
+      "mismatches": 0,
+      "name": "unique_slug"
+    },
+    {
+      "cases": 277,
+      "mismatches": 0,
+      "name": "viewer_access"
+    },
+    {
+      "cases": 293,
+      "mismatches": 0,
+      "name": "window_eligibility"
+    }
+  ],
+  "generated": "2026-10-30T20:13:44.480Z",
+  "passedTests": 19,
+  "totalCases": 5547
+}
