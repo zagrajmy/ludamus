@@ -18,7 +18,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
           path: ~/.local/share/aube/store
@@ -39,7 +39,7 @@ jobs:
   frontend-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/cache@v6
@@ -72,7 +72,7 @@ jobs:
   audit-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise run dep:audit
 
@@ -93,7 +93,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
       # no-op on the SQLite backend used by the `test-unit` job below.
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
 
       # The mills ratchet, before the combined run: tests/unit must cover
@@ -141,7 +141,7 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # NOTE: the browser install below is a no-op for browsers this cache
       # restored.
       - uses: actions/cache@v6
@@ -260,7 +260,7 @@ jobs:
           || contains(needs.*.result, 'skipped')
           || contains(needs.*.result, 'cancelled') }}
         run: exit 1
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
 
       - uses: actions/download-artifact@v4
@@ -282,7 +282,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ludamus
@@ -296,7 +296,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise run test:props:crosshair
 
@@ -308,7 +308,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
       - run: mise run test:bombadil
