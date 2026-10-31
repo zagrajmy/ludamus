@@ -65,7 +65,8 @@ def validate_uploaded_image_format(image: object) -> None:
 
 
 def validate_uploaded_image(image: object) -> None:
-    if image:
+    # NOTE: An unchanged field cleans to the form's initial StoredFile, not a File.
+    if isinstance(image, File):
         validate_uploaded_image_size(image)
         validate_uploaded_image_format(image)
 
