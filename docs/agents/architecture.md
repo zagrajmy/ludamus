@@ -258,6 +258,37 @@ Enrollment behaviour currently bolted onto the `Session` model
 `is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
 `enroll` mills/specs, not on the model.
 
+**Seat lock order.** Every transaction that decides a seat (enroll,
+waitlist, cancel, held seats and guests in `_process_enrollments`;
+`lock_and_read_state` for promotion; `_claim`, `decline_offer` and
+`expire_offer` through `_read_locked_party`; anonymous `enroll` and
+`cancel`) takes, before it reads what it decides on:
+
+1. the `Session` row (`select_for_update`), and no other `Session` row;
+2. `lock_seat_holders` in `links/db/django/enrollment.py`: one
+   `SELECT … FOR UPDATE OF` on `User`, ordered by pk, covering the people
+   whose seats it decides, their pass owners (the manager of a login-less
+   companion), and, when it may refill the session in the same transaction,
+   the session's waiters and their owners;
+3. then the checks (`has_conflicts`, the pass allowance, capacity) and the
+   writes.
+
+Production runs `ATOMIC_REQUESTS`, so a refill after a cancel
+(`fill_freed_seats`) runs in the request's transaction: that is why the
+cancel, claim and anonymous-cancel paths lock the waiters up front, so the
+refill's own lock statement asks only for rows the transaction holds. A
+transaction never waits for a `Session` row while holding `User` rows, and
+asks for `User` rows in one ordered statement, so the order cannot
+deadlock. Anything that writes a `User` row or a row referencing one (the
+foreign key takes `FOR KEY SHARE`) inside a seat transaction must be in
+that statement: the anonymous rename runs after the locks for that reason.
+The one write left outside it is the shadowban warning `notify_signups`
+sends after the batch, to people who are not in it; that wait closes a cycle
+only if the other transaction also decides a seat of someone in this one,
+and Postgres then aborts one of the two.
+`formal/enrollment` proves no double booking and no overspent passes under
+this order; the `verify-enrollment-seats` skill keeps the model in step.
+
 #### Pages: Events feed
 
 The sphere's front page and its only feed: announcements, then upcoming

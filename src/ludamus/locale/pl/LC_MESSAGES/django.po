@@ -1141,6 +1141,14 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/chronology/offers.py
 #: src/ludamus/gates/web/django/dashboard.py
+msgid ""
+"This spot overlaps a session you already have a seat in, so it was released."
+msgstr ""
+"To miejsce nakłada się w czasie na punkt programu, w którym masz już "
+"miejsce, więc zostało zwolnione."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
 

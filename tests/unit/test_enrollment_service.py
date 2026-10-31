@@ -116,12 +116,16 @@ class FakeParticipations:
     def __init__(self, occupying=frozenset()):
         self._occupying = set(occupying)
         self.seated: list[GuestSeatData] = []
+        self.locked: list[tuple[list[int], int | None]] = []
 
     def occupying_user_ids(self, *, user_ids, event_id):
         return {_EVENT_ID: self._occupying}[event_id] & set(user_ids)
 
     def create_confirmed(self, seat):
         self.seated.append(seat)
+
+    def lock_seat_holders(self, *, user_ids, waiters_of=None):
+        self.locked.append((list(user_ids), waiters_of))
 
 
 class FakeUsers:
@@ -1020,6 +1024,17 @@ class TestEnrollmentServiceSlots:
             virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[users[1]],
         )
+
+
+class TestLockSeatHolders:
+    def test_the_enroll_views_lock_reaches_the_participations_store(self):
+        # The view decides who; the store takes the row locks in one statement.
+        participations = FakeParticipations()
+        service = _service(participations=participations)
+
+        service.lock_seat_holders(user_ids=(3, 1), waiters_of=8)
+
+        assert participations.locked == [([3, 1], 8)]
 
 
 class TestCreateGuests:

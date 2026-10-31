@@ -1,7 +1,12 @@
 # One person's rows in two sessions, A and B, whose agenda items overlap.
 #
 # Seats are left to seats.bend: here every session has room, so a check fails
-# only on the lock, the row's status, or a time conflict.
+# only on a lock, the row's status, or a time conflict.
+#
+# Every transaction that decides one of P's seats takes the Session row lock,
+# then P's User row lock (lock_seat_holders), and only then runs its check; it
+# keeps both until it commits. A pending write in either session therefore
+# means its transaction holds P's lock: `lock_p` is that lock.
 
 import Base
 
@@ -17,7 +22,7 @@ type Status is Data:
   Confirmed{}
 
 # Per session: Unlocked, or the row the request holding `select_for_update`
-# on the Session row will write for this person when it commits.
+# on the Session row (and P's User row) will write for P when it commits.
 type Lock is Data:
   Unlocked{}
   Writes{to: Status}
@@ -27,24 +32,29 @@ type Person is Data:
 
 type Op is Data:
   # _process_enrollments for "enroll", or AnonymousEnrollmentService.enroll:
-  # has_conflicts, then the Session row lock and the write.
+  # the Session row lock, lock_seat_holders, has_conflicts, then the write.
   Enroll{side: Side}
-  # _hold_member_seats -> hold_seat for an ACCEPT_INVITES member: the same
-  # has_conflicts check, then an OFFERED row.
+  # _hold_member_seats -> hold_seat for an ACCEPT_INVITES member: inside the
+  # same batch, after the same locks and has_conflicts check; an OFFERED row.
   Hold{side: Side}
-  # fill_freed_seats: lock_and_read_state reads has_conflict from
-  # conflicted_user_ids; AUTO confirms, OFFER_CLAIM (`offer`) offers.
+  # fill_freed_seats: lock_and_read_state locks the Session row and the
+  # waiters, then reads has_conflict from conflicted_user_ids; AUTO confirms,
+  # OFFER_CLAIM (`offer`) offers.
   Promote{side: Side, offer: Bool}
-  # The lock holder's writes and COMMIT.
+  # The lock holder's writes and COMMIT; both locks go.
   Commit{side: Side}
-  # Choice "waitlist", or create_waiting: no conflict check.
+  # Choice "waitlist", or create_waiting: no conflict check. The code takes
+  # P's lock here too; the model asks only for the Session lock, which lets
+  # more runs through, never fewer.
   Join{side: Side}
-  # _handle_cancellation, anonymous cancel.
+  # _handle_cancellation, anonymous cancel; the same over-approximation.
   Cancel{side: Side}
-  # claim_offer / claim_member_offer -> _claim -> mark_claimed: locks the
-  # OFFERED rows, not the Session row, and checks only the deadline.
+  # claim_offer / claim_member_offer -> _claim: the Session row lock (inside
+  # the offer read), lock_seat_holders, then conflicted_user_ids. A clash drops
+  # the offer; otherwise mark_claimed. Write and commit run under both locks,
+  # so nothing of P's moves in between: one step.
   Claim{side: Side}
-  # decline_offer / expire_offer -> drop.
+  # decline_offer / expire_offer -> drop, under the Session row lock.
   Drop{side: Side}
 
 def start() -> Person:
@@ -60,6 +70,16 @@ def pick(c: Bool, +yes: Person, +no: Person) -> Person:
 def is_confirmed(s: Status) -> Bool:
   match s:
     case Confirmed{}:
+      True{}
+    case _:
+      False{}
+
+# OCCUPYING_PARTICIPATION_STATUSES: a held chair counts as a seat.
+def is_occupying(s: Status) -> Bool:
+  match s:
+    case Confirmed{}:
+      True{}
+    case Offered{}:
       True{}
     case _:
       False{}
@@ -121,9 +141,15 @@ def other(side: Side) -> Side:
     case B{}:
       A{}
 
-# SessionManager.conflicted_user_ids / has_conflicts: CONFIRMED rows only.
+# SessionManager.conflicted_user_ids / has_conflicts: occupying rows.
 def has_conflict(+side: Side, +p: Person) -> Bool:
-  is_confirmed(row(other(side), p))
+  is_occupying(row(other(side), p))
+
+# P's User row lock: free while no transaction is mid-write for P.
+def lock_p(p: Person) -> Bool:
+  match p:
+    case Person{a, b, la, lb}:
+      Bool.not(is_unlocked(la) && is_unlocked(lb))
 
 def set_row(side: Side, p: Person, s: Status) -> Person:
   match side:
@@ -147,11 +173,17 @@ def set_lock(side: Side, p: Person, l: Lock) -> Person:
         case Person{a, b, la, lb}:
           Person{a, b, la, l}
 
-# Lock the side's Session row and remember the write; a request that fails a
-# check rolls back and leaves no trace.
+# Lock the side's Session row and P's row, then check, and remember the
+# write; a request that fails a check rolls back and leaves no trace. A free
+# lock_p means the side's Session lock is free too.
 def reserve(+side: Side, +p: Person, ok: Bool, to: Status) -> Person:
-  pick(is_unlocked(lock(side, p)) && (Bool.not(has_conflict(side, p)) && ok),
+  pick(Bool.not(lock_p(p)) && (Bool.not(has_conflict(side, p)) && ok),
     set_lock(side, p, Writes{to}), p)
+
+# The claim's recheck: a clash releases the offer, else it is confirmed.
+def claimed(+side: Side, +p: Person) -> Person:
+  pick(has_conflict(side, p), set_row(side, p, Out{}),
+    set_row(side, p, Confirmed{}))
 
 def promoted(offer: Bool) -> Status:
   match offer:
@@ -185,9 +217,10 @@ def step(+p: Person, e: Op) -> Person:
       pick(is_unlocked(lock(side, p)) && Bool.not(is_out(row(side, p))),
         set_row(side, p, Out{}), p)
     case Claim{+side}:
-      pick(is_offered(row(side, p)), set_row(side, p, Confirmed{}), p)
+      pick(Bool.not(lock_p(p)) && is_offered(row(side, p)), claimed(side, p), p)
     case Drop{+side}:
-      pick(is_offered(row(side, p)), set_row(side, p, Out{}), p)
+      pick(is_unlocked(lock(side, p)) && is_offered(row(side, p)),
+        set_row(side, p, Out{}), p)
 
 def replay(ops: List<Op>, p: Person) -> Person:
   match ops:

@@ -1,9 +1,6 @@
-# file                      kind     what it shows while it checks
+# file          kind     what it shows while it checks
 # Every file must print ALL PROOFS CHECK. A finding that stops checking is
 # either fixed (delete the file, state its law in LAWS.bend) or a model that
 # drifted from the code; never edit a witness until it checks again.
-PROOF.bend                  law      every law in LAWS.bend holds
-finding_two_requests.bend   finding  two requests at once double-book a person
-finding_offered_seat.bend   finding  a held or offered seat gets past the conflict check
-finding_allowance_race.bend finding  two requests at once seat more people than the owner has passes
-seats.gen.mjs               js       seats.bend compiled for the differential test
+PROOF.bend      law      every law in LAWS.bend holds
+seats.gen.mjs   js       seats.bend compiled for the differential test

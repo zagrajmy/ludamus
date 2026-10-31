@@ -16,7 +16,6 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
-from ludamus.pacts.ids import UserId
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,6 +26,47 @@ if TYPE_CHECKING:
 
 TODAY = datetime.now(tz=UTC).date()
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AllowanceCheck:
+    # The pass-allowance question the form asked, kept so the enroll view can
+    # ask it again under the seat locks and get the authoritative answer.
+    users: list[UserDTO]
+    event: EventDTO
+    virtual_config: VirtualEnrollmentConfig
+    users_to_enroll: list[UserDTO]
+
+    def passes(self, enrollment: EnrollmentServiceProtocol) -> bool:
+        return enrollment.can_enroll_users(
+            users=self.users,
+            event=self.event,
+            virtual_config=self.virtual_config,
+            users_to_enroll=self.users_to_enroll,
+        )
+
+    def refusal(self, enrollment: EnrollmentServiceProtocol) -> str:
+        used_slots = enrollment.get_used_slots(users=self.users, event=self.event)
+        available_slots = enrollment.get_vc_available_slots(
+            users=self.users, event=self.event, virtual_config=self.virtual_config
+        )
+        return (
+            f"{self.users_to_enroll[0].full_name}: Cannot enroll more users. You "
+            f"have already enrolled {used_slots} out of "
+            f"{self.virtual_config.allowed_slots} "
+            "unique people "
+            "(each person can enroll in multiple sessions). "
+            f"Only {available_slots} slots remaining for "
+            "new people."
+        )
+
+
+class EnrollmentForm(forms.Form):
+    # Set by clean when the submit spends the viewer's passes.
+    allowance_check: AllowanceCheck | None = None
+    # Template guard: the strict template checks treat a missing variable as an
+    # error, so the guests block keys off an always-present flag.
+    has_guests: bool = False
 
 
 def _can_join_waitlist(
@@ -201,7 +241,6 @@ def _make_enrollment_clean(
     # Only user_* fields count against the membership slot cap: +N guests are
     # walk-ins without memberships, so they intentionally bypass it — the
     # session capacity check still gates them.
-    name_by_pk = {user.pk: user.full_name for user in all_users}
 
     def _is_new_seat(field_name: str, value: object) -> bool:
         if not field_name.startswith("user_"):
@@ -215,7 +254,7 @@ def _make_enrollment_clean(
             and int(field_name.split("_")[1]) not in currently_seated_pks
         )
 
-    def clean(self: forms.Form) -> dict[str, Any] | None:
+    def clean(self: EnrollmentForm) -> dict[str, Any] | None:
         if not (cleaned_data := forms.Form.clean(self)):
             return cleaned_data
 
@@ -227,38 +266,21 @@ def _make_enrollment_clean(
             if user.pk == int(field_name.split("_")[1])
         ]
 
-        if (
-            enroll_requests
-            and slot_allowance
-            and not enrollment.can_enroll_users(
-                users=all_users,
-                event=event,
-                virtual_config=slot_allowance,
-                users_to_enroll=enroll_requests,
-            )
-        ):
-            used_slots = enrollment.get_used_slots(users=all_users, event=event)
-            available_slots = enrollment.get_vc_available_slots(
-                users=all_users, event=event, virtual_config=slot_allowance
-            )
+        if not (enroll_requests and slot_allowance):
+            return cleaned_data
+        self.allowance_check = AllowanceCheck(
+            users=all_users,
+            event=event,
+            virtual_config=slot_allowance,
+            users_to_enroll=enroll_requests,
+        )
+        if not self.allowance_check.passes(enrollment):
             user_field = next(
                 field_name
                 for field_name, value in cleaned_data.items()
                 if _is_new_seat(field_name, value)
             )
-            user_name = name_by_pk.get(UserId(int(user_field.split("_")[1])), "User")
-            self.add_error(
-                user_field,
-                (
-                    f"{user_name}: Cannot enroll more users. You have "
-                    f"already enrolled {used_slots} out of "
-                    f"{slot_allowance.allowed_slots} "
-                    "unique people "
-                    "(each person can enroll in multiple sessions). "
-                    f"Only {available_slots} slots remaining for "
-                    "new people."
-                ),
-            )
+            self.add_error(user_field, self.allowance_check.refusal(enrollment))
 
         return cleaned_data
 
@@ -357,7 +379,7 @@ def create_enrollment_form(
     current_user: UserDTO,
     roster: EnrollmentRoster,
     enrollment: EnrollmentServiceProtocol,
-) -> type[forms.Form]:
+) -> type[EnrollmentForm]:
     event = EventDTO.model_validate(session.event)
     current_user_enrollment_config = enrollment.virtual_config(
         event=event, user_email=current_user.email
@@ -464,9 +486,8 @@ def create_enrollment_form(
             label=_("Guests without an account"),
         )
 
-    form = type("EnrollmentForm", (forms.Form,), form_fields)
-    form.clean = clean  # type: ignore [attr-defined]
-    # Template guard: the strict template checks treat a missing variable as an
-    # error, so the guests block keys off an always-present flag.
-    form.has_guests = roster.guest_count is not None  # type: ignore [attr-defined]
-    return form
+    return type(
+        "EnrollmentForm",
+        (EnrollmentForm,),
+        {**form_fields, "clean": clean, "has_guests": roster.guest_count is not None},
+    )

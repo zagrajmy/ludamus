@@ -7,17 +7,29 @@ description: Check the Bend proofs about enrollment seats before and after chang
 
 `formal/enrollment/` models how sessions hand out seats, in
 [Bend](https://github.com/bendlang/bend), a language whose checker verifies
-proofs. It covers two properties that tests rarely reach:
+proofs. It covers three properties that tests rarely reach:
 
 - **Capacity: proven.** No session ever seats more people than
   `participants_limit`. Breaking it puts more people at a table than it has
   chairs. The proof holds for every limit, any number of people and requests,
   and every order of events, at any length.
-- **No double booking: broken.** Nobody should hold CONFIRMED seats in two
+- **No double booking: proven.** Nobody holds CONFIRMED seats in two
   sessions whose agenda items overlap. Breaking it takes a seat from someone
-  on the waiting list and leaves an empty chair at one of the two tables. Two
-  ways to break it are on `main` today. Each is written as a concrete trace
-  that Bend computes to a double booking.
+  on the waiting list and leaves an empty chair at one of the two tables. The
+  proof holds for every order of enrolls, holds, promotions, claims, cancels
+  and drops, interleaved however two transactions can be, under the lock
+  order below.
+- **Passes never overspent: proven.** A pass owner never has more distinct
+  people seated across the event than they hold passes, however two requests
+  that spend them interleave.
+
+Both rest on one lock order, taken by every transaction that decides a seat
+before it reads what it decides on: the `Session` row, then
+`lock_seat_holders` (`links/db/django/enrollment.py`), one `SELECT … FOR
+UPDATE OF` on `User` ordered by pk over the people whose seats it decides,
+their pass owners, and the session's waiters when it may refill the session
+in the same transaction. `docs/agents/architecture.md` (event noun) says why
+it cannot deadlock.
 
 ## Run it
 
@@ -51,40 +63,37 @@ maps every verification tool to the layer it covers.
 | File | What it is |
 | --- | --- |
 | `seats.bend` | One session's seats: `taken` rows, and `held` seats the lock holder will write. Ops: `Check`, `Commit`, `Free`, `Claim`, `Join` |
-| `schedule.bend` | One person's rows in sessions A and B, which overlap, with each session's lock. Ops: `Enroll`, `Hold`, `Promote`, `Commit`, `Join`, `Cancel`, `Claim`, `Drop` |
-| `allowance.bend` | One pass owner's household across the event, against two enroll requests into different sessions. Ops: `Check`, `Commit` |
-| `LAWS.bend` | The claims: `capacity`, plus `conflict_blocks_serial_enroll` and `allowance_refuses_serial_third`, which pin the models' checks to the checks in the code |
-| `PROOF.bend` | The proofs. Capacity: `taken + held <= limit` holds at the start and every op keeps it |
-| `finding_*.bend` | One known bug each: a law that a trace reaching it exists, proven by the trace itself |
+| `schedule.bend` | One person's rows in sessions A and B, which overlap, with each session's lock and the person's lock (`lock_p`, held while either session has a write pending). Ops: `Enroll`, `Hold`, `Promote`, `Commit`, `Join`, `Cancel`, `Claim`, `Drop` |
+| `allowance.bend` | One pass owner's household across the event, against two enroll requests into different sessions, with the owner's lock (`owner_free`). Ops: `Check`, `Commit` |
+| `LAWS.bend` | The claims: `capacity`, `no_double_booking`, `allowance_never_overspent`, plus serial runs (`enroll_seats_serial_first`, `conflict_blocks_serial_enroll`, `allowance_seats_serial_second`, `allowance_refuses_serial_third`) that pin the models' checks to the checks in the code from both sides |
+| `PROOF.bend` | The proofs. Each is an invariant over the committed rows and the write in flight that holds at the start and every op keeps |
+| `finding_*.bend` | One known bug each, when there is one: a law that a trace reaching it exists, proven by the trace itself. None is open for enrollment |
 | `seats.gen.mjs`, `replay_seats.mjs` | `seats.bend` compiled to JS, and the Node runner the differential test calls |
 
 ## Known findings
 
-All three are open on `main`. The finding files check for as long as the
-bugs exist.
+None of the enrollment models has an open finding. Three were closed by
+taking the lock order above (plan 021):
 
-1. **`finding_two_requests.bend`: two requests at once double-book a
-   person.** Trace: `Enroll A, Enroll B, Commit A, Commit B`. Person P sends an
-   enroll for session A and one for session B, which overlap. Each request
-   locks only its own `Session` row (`select_for_update` in
-   `_process_enrollments`). Each runs `has_conflicts` before the other commits,
-   so each sees no conflict, and both commit. `lock_and_read_state` locks one
-   session too, so `fill_freed_seats` can race an enroll the same way. This
-   finding comes from the model. It has not been reproduced on Postgres.
-2. **`finding_offered_seat.bend`: a held or offered seat gets past the
-   conflict check.** Trace: `Hold A, Commit A, Enroll B, Commit B, Claim A`. A
-   leader holds a seat for P in A (`hold_seat`), or the waiting list offers P
-   one (OFFER_CLAIM). `conflicted_user_ids` counts only CONFIRMED rows, so P's
-   OFFERED seat in A does not count, and P enrolls in B. P then claims A, and
-   `_claim` → `mark_claimed` never rechecks. It was reproduced against the real
-   views and services: the enroll POST answered "Enrolled", `claim_offer`
-   succeeded, and both rows were `confirmed`.
-3. **`finding_allowance_race.bend`: two requests at once seat more people than
-   the owner holds passes.** Trace: the owner is seated; request 1 checks
-   companion First, request 2 checks companion Second, both commit. The form
-   checks the allowance in `can_enroll_users` before `_process_enrollments`
-   takes any lock, and each request then locks a different session, so both
-   read {owner} and see 2 <= 2. This finding comes from the model.
+1. **Two requests at once double-booked a person** (`Enroll A, Enroll B,
+   Commit A, Commit B`): each locked only its own `Session` row. Both now
+   lock the person's `User` row first, so the second reads the first's seat.
+   `fill_freed_seats` racing an enroll is closed the same way: it locks the
+   waiters before `has_conflict`.
+2. **A held or offered seat got past the conflict check** (`Hold A, Commit
+   A, Enroll B, Commit B, Claim A`): `conflicted_user_ids` counted only
+   CONFIRMED rows. It now counts `OCCUPYING_PARTICIPATION_STATUSES`, and
+   `_claim` rechecks under the locks; a clash drops the clashing members'
+   offer (`reason="conflict"`) and the seat rolls on.
+3. **Two requests at once seated more people than the owner holds passes**:
+   the form's `can_enroll_users` ran before any lock. The enroll view now
+   asks again under the owner's lock (`AllowanceCheck.passes`) and refuses
+   with the form's message.
+
+The Postgres tests in
+`tests/integration/web/chronology/test_enrollment_locking.py` replay 1 and 3
+and the promotion race with two connections; they fail on the code before
+the locks.
 
 A related single-request bug lives outside the models: promotion charges a pass
 for a waiter who already holds a seat in the event (`_slots_remaining`), so a
@@ -93,27 +102,23 @@ it on the real database in
 `tests/integration/web/chronology/test_promotion_allowance_properties.py`,
 which is a strict xfail until it is fixed.
 
-The fix for finding 2 is to count OFFERED rows in the conflict check, or to
-recheck conflicts in `_claim`. Finding 1 needs a lock that every session the
-person could clash with shares. One option is `select_for_update` on the
-person's `User` row before `has_conflicts`, taken in user-id order when a
-batch seats several people.
-
 ## Does my change touch the model?
 
 Each op names the code it stands for in its comment.
 
 | Model | Code |
 | --- | --- |
-| `seats.Check{want}`, `schedule.Enroll` | `_process_enrollments` → `_is_capacity_invalid` → `_check_and_create_enrollment`. Also `AnonymousEnrollmentService.enroll` (`lock_seating`, `is_full`) |
+| `seats.Check{want}`, `schedule.Enroll` | `_process_enrollments` → `_lock_seat_holders` → `_is_capacity_invalid` → `_check_and_create_enrollment`. Also `AnonymousEnrollmentService.enroll` (`lock_seating`, `lock_seat_holders`, `has_conflicts`, `is_full`) |
 | `seats.Check{want}`, `schedule.Hold` | `_hold_member_seats` → `WaitlistPromotionService.hold_seat` |
-| `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` → `select_promotable_parties` |
+| `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` (Session row, then `lock_seat_holders(waiters_of=…)`) → `select_promotable_parties` |
 | `Commit` | the writes and COMMIT of any check |
 | `seats.Free`, `schedule.Cancel` / `Drop` | `_handle_cancellation`, anonymous `cancel`, `decline_offer` / `expire_offer` → `drop` |
-| `Claim` | `claim_offer` / `claim_member_offer` → `_claim` → `mark_claimed` |
+| `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row) → `_claim` → `lock_seat_holders`, `conflicted_user_ids`, then `drop` or `mark_claimed` |
 | `seats.fits` | `Session.seats_left` |
 | `schedule.has_conflict` | `SessionManager.conflicted_user_ids` |
 | `held`, `lock_a` / `lock_b` | `select_for_update` on the `Session` row |
+| `schedule.lock_p`, `allowance.owner_free` | `lock_seat_holders`: the `User` rows of the people decided and their pass owners |
+| `allowance.Check` | `AllowanceCheck.passes` under the locks in `_process_enrollments` (the form's earlier `can_enroll_users` only refuses sooner) |
 
 The model must change when your change does any of these:
 
@@ -135,7 +140,8 @@ Make one op do what the code now does, at the same grain:
   makes it.
 - **A failed check leaves the state as it was.** The request rolled back.
 - **Locks.** In `seats.bend`, `held` is the session lock: a `Check` while it is
-  `Some` waits. In `schedule.bend`, `lock_a` / `lock_b` do the same. To drop a
+  `Some` waits. In `schedule.bend`, `lock_a` / `lock_b` do the same, and a
+  check also waits while `lock_p` (the person's row) is held. To drop a
   lock, let the check go through while the lock is held, and give each
   in-flight write somewhere to live, such as a list.
 - **Never weaken a law to get a pass.** Keep `capacity` as stated.
@@ -208,11 +214,15 @@ connections. Do not change product code unless the user asks.
   rows themselves. The proof treats one session at a time with a fixed
   `participants_limit`. Organizer edits to the limit and unscheduling are out.
 - The schedule model has one person, two overlapping sessions, and seats
-  always free. The findings show that a path exists. They are not a search,
-  so other paths to the same bug may exist.
+  always free. Its proof covers every interleaving of those ops, but timetable
+  moves (an agenda item moved onto another while seats are held) are out:
+  `_claim` rechecks for that case, and nothing else does.
 - The allowance model has one owner, two companions and two requests, and
   covers the enroll gate; promotion's own allowance read
-  (`owner_slots_remaining`) has the same shape but is not modelled.
+  (`owner_slots_remaining`) runs under the same owner lock but is not
+  modelled.
+- Deadlock freedom is argued, not modelled: the lock order in
+  `docs/agents/architecture.md`. The Postgres tests exercise it.
 - Left out: parties and the whole-party rule; guests as separate people;
   enrollment windows; presenter and shadowban skips; offer deadlines;
   notifications.
