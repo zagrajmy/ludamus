@@ -649,6 +649,20 @@ test.describe("Backoffice Panel", () => {
     await expect(requirementSelect).toHaveValue("optional");
   });
 
+  test("field create forms refuse a select without options", async ({ page }) => {
+    for (const path of ["personal-data", "session-fields"]) {
+      await page.goto(`/panel/event/frostfire-con/cfp/${path}/create/`);
+      await page.locator("#id_name").fill("Empty Select");
+      await page.locator("#id_question").fill("Pick one?");
+      await page.locator("#id_field_type").selectOption("select");
+      await page.getByRole("button", { name: "Create" }).click();
+
+      await expect(
+        page.getByText("Add at least one option, or allow custom values."),
+      ).toBeVisible();
+    }
+  });
+
   test("cfp picker shows checkbox fields as optional only", async ({ page }, testInfo) => {
     const retrySuffix = testInfo.retry === 0 ? "" : `-r${testInfo.retry}`;
     const nameSuffix = `${testInfo.project.name}${retrySuffix}`;

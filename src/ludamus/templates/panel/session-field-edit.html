@@ -76,8 +76,9 @@
                                     <textarea name="options"
                                               id="id_options"
                                               rows="5"
-                                              class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                              class="w-full border {% if form.options.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                                               placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
+                                    {% if form.options.errors %}<p class="mt-1 text-sm text-danger">{{ form.options.errors.0 }}</p>{% endif %}
                                     <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
                                     {% translate "Allow multiple selections" as t_is_multiple %}
                                     {% translate "Allow custom values" as t_allow_custom %}
