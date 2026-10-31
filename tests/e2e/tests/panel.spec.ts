@@ -269,6 +269,42 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
   });
 
+  test("shows a rejected slug and end time next to their fields", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/settings/");
+
+    await page.getByLabel("Slug").fill("thornwood-days");
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("An event with this slug already exists.")).toBeVisible();
+    await expect(page.getByLabel("Slug")).toHaveValue("thornwood-days");
+
+    await page.getByLabel("Slug").fill("frostfire-con");
+    await page.getByLabel("End time").fill(await page.getByLabel("Start time").inputValue());
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("End time must be after start time.")).toBeVisible();
+  });
+
+  test("writes the proposal description as Markdown", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/settings/proposals/");
+
+    const description = page.getByRole("textbox", { name: "Proposal Description" });
+    const original = await description.inputValue();
+    try {
+      await description.fill("Bring **one-shots**");
+      await expect(
+        description.locator("xpath=following-sibling::pre[1]").locator(".mdhl-strong"),
+      ).toHaveText("**one-shots**");
+      await page.getByRole("button", { name: "Save Settings" }).click();
+
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+      await expect(description).toHaveValue("Bring **one-shots**");
+    } finally {
+      await page.goto("/panel/event/frostfire-con/settings/proposals/");
+      await description.fill(original);
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+    }
+  });
+
   // --- Step 2: Venues List, Create, Detail, Edit ---
 
   test("lists the space tree for the event", async ({ page }) => {

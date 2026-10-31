@@ -6,7 +6,9 @@ const FEED = "http://feed.localhost:8000/";
 const EVENT = "Harvest Convention";
 
 test.describe("Event description Markdown", () => {
-  test("renders on the event page and reads as plain text on its card", async ({ page }) => {
+  test("renders on the event page and reads as plain text on its card and link preview", async ({
+    page,
+  }) => {
     await page.goto(FEED);
     const card = page.locator("#events").getByRole("link").filter({ hasText: EVENT });
     await expect(card).toContainText("Three days of board games and open tables.");
@@ -25,6 +27,14 @@ test.describe("Event description Markdown", () => {
       "Three days of board games and open tables.",
       "The bar stays open late.",
     ]);
+    const summary = "Three days of board games and open tables. The bar stays open late.";
+    for (const meta of [
+      'meta[name="description"]',
+      'meta[property="og:description"]',
+      'meta[name="twitter:description"]',
+    ]) {
+      await expect(page.locator(meta)).toHaveAttribute("content", summary);
+    }
     await attachArtifacts(test.info(), {
       name: "event-description",
       region: description,

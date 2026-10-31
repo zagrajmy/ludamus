@@ -19,7 +19,7 @@ test.describe("Anonymous proposals", () => {
     await page.getByLabel(/title/i).fill("Anonymous One-Shot");
     await page
       .getByLabel(/about this session/i)
-      .fill("A drop-in adventure pitched without an account.");
+      .fill("A **drop-in** adventure pitched without an account.");
     await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     // The category offers a single duration, so the wizard answers for the
@@ -35,6 +35,8 @@ test.describe("Anonymous proposals", () => {
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
     await expect(page.getByText("anon@example.com")).toBeVisible();
     await expect(page.getByText("Anonymous One-Shot")).toBeVisible();
+    await expect(wizard.locator("strong", { hasText: "drop-in" })).toBeVisible();
+    await expect(wizard).not.toContainText("**drop-in**");
     // The duration nobody was asked for still reaches the review.
     await expect(page.getByText("1h", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Submit Proposal" }).click();

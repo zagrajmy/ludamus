@@ -54,7 +54,11 @@ from ludamus.gates.web.django.entities import (
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.event.status_pills import event_status_pills
-from ludamus.gates.web.django.meta import LinkPreview, session_link_preview
+from ludamus.gates.web.django.meta import (
+    LinkPreview,
+    markdown_summary,
+    session_link_preview,
+)
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -314,19 +318,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
-        context["link_preview"] = self._session_link_preview(sessions_data)
+        context["link_preview"] = self._link_preview(sessions_data)
 
         return context
 
     # SAFETY: only a session the schedule already lists. A private or
     # unpublished one never reaches sessions_data, so its title can't leak.
-    def _session_link_preview(
-        self, sessions_data: dict[int, SessionData]
-    ) -> LinkPreview:
+    def _link_preview(self, sessions_data: dict[int, SessionData]) -> LinkPreview:
         raw = self.request.GET.get("session", "")
-        if not raw.isdecimal() or (data := sessions_data.get(int(raw))) is None:
-            return LinkPreview()
-        return session_link_preview(data=data, event_name=self.object.name)
+        if raw.isdecimal() and (data := sessions_data.get(int(raw))) is not None:
+            return session_link_preview(data=data, event_name=self.object.name)
+        return LinkPreview(description=markdown_summary(self.object.description))
 
     def _get_anonymous_context(self) -> dict[str, Any]:
         ctx: dict[str, Any] = {}

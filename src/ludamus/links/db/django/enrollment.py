@@ -211,6 +211,7 @@ class ParticipationPromotionRepository:
             session_id=session.pk,
             session_title=session.title,
             event_slug=event.slug,
+            start_time=session.agenda_item.start_time,
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
