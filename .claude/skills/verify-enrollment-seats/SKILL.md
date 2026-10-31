@@ -95,12 +95,6 @@ The Postgres tests in
 and the promotion race with two connections; they fail on the code before
 the locks.
 
-A related single-request bug lives outside the models: promotion charges a pass
-for a waiter who already holds a seat in the event (`_slots_remaining`), so a
-one-pass holder seated anywhere is never promoted. Hypothesis found and shrank
-it on the real database in
-`tests/integration/web/chronology/test_promotion_allowance_properties.py`,
-which is a strict xfail until it is fixed.
 
 ## Does my change touch the model?
 
@@ -110,7 +104,7 @@ Each op names the code it stands for in its comment.
 | --- | --- |
 | `seats.Check{want}`, `schedule.Enroll` | `_process_enrollments` → `_lock_seat_holders` → `_is_capacity_invalid` → `_check_and_create_enrollment`. Also `AnonymousEnrollmentService.enroll` (`lock_seating`, `lock_seat_holders`, `has_conflicts`, `is_full`) |
 | `seats.Check{want}`, `schedule.Hold` | `_hold_member_seats` → `WaitlistPromotionService.hold_seat` |
-| `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` (Session row, then `lock_seat_holders(waiters_of=…)`) → `select_promotable_parties` |
+| `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` (Session row, the WAITING read, then `lock_seat_holders` on the waiters) → `select_promotable_parties` |
 | `Commit` | the writes and COMMIT of any check |
 | `seats.Free`, `schedule.Cancel` / `Drop` | `_handle_cancellation`, anonymous `cancel`, `decline_offer` / `expire_offer` → `drop` |
 | `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row) → `_claim` → `lock_seat_holders`, `conflicted_user_ids`, then `drop` or `mark_claimed` |
@@ -218,9 +212,11 @@ connections. Do not change product code unless the user asks.
   moves (an agenda item moved onto another while seats are held) are out:
   `_claim` rechecks for that case, and nothing else does.
 - The allowance model has one owner, two companions and two requests, and
-  covers the enroll gate; promotion's own allowance read
-  (`owner_slots_remaining`) runs under the same owner lock but is not
-  modelled.
+  covers the enroll gate. Promotion applies the same rule
+  (`owner_slots_remaining` less the waiters without `holds_event_seat`),
+  read under the same owner lock, but is not modelled;
+  `test_promotion_allowance_properties.py` checks on the real database
+  that it admits exactly whom the gate admits.
 - Deadlock freedom is argued, not modelled: the lock order in
   `docs/agents/architecture.md`. The Postgres tests exercise it.
 - Left out: parties and the whole-party rule; guests as separate people;

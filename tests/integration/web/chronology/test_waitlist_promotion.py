@@ -593,10 +593,11 @@ class TestPromotionRepositoryUnscheduledSession:
 
 
 # lock+select session, enrollment-configs prefetch (serves both the
-# most-liberal and the active-config checks), waiting list, sponsors, batched
-# conflicts, user-config __in, domain-config __in, companions + used slots
-# (one config-holding owner), available-seats count, shadowban ids, and the
-# seat-holder lock on the waiters and their owners.
+# most-liberal and the active-config checks), waiting list, sponsors, the
+# seat-holder lock on the waiters and their owners, batched conflicts,
+# user-config __in, domain-config __in, companions (one config-holding owner),
+# one occupancy snapshot for seated waiters and used slots, available-seats
+# count, shadowban ids.
 STATE_QUERIES = 12
 BASE_WAITERS = 3
 GROWN_WAITERS = 5

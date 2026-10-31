@@ -51,7 +51,6 @@ A test or model that exposes a bug on `main` is kept, not skipped:
 
 | Area | Finding | Evidence |
 | --- | --- | --- |
-| Enrollment | Promotion charges a pass for a waiter already seated in the event, so one-pass holders are never promoted | `test_promotion_allowance_properties.py` (shrunk to one pass, owner seated) |
 | Programme | Two accepts at once put two proposals in one room and slot | `formal/programme/finding_two_accepts.bend` |
 | Programme | A double-submitted accept answers with a 500 | `formal/programme/finding_double_submit.bend` |
 | Announcements | Overlapping sweeps announce an event twice (also printables reminders) | `formal/announcements/finding_overlapping_sweeps.bend` |

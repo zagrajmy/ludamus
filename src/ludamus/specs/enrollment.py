@@ -8,7 +8,6 @@ members fit at once).
 
 from __future__ import annotations
 
-from collections import Counter
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -61,11 +60,21 @@ def _initial_slots_by_owner(waiting: list[WaitingParticipantDTO]) -> dict[int, i
     return slots_by_owner
 
 
+def _slots_needed(members: list[WaitingParticipantDTO]) -> dict[int, int]:
+    # A pass covers one distinct person per event, so a member already seated
+    # elsewhere in it is counted in the owner's allowance and costs nothing.
+    # Every owner keeps an entry, zero included: an overdrawn owner fits nobody.
+    needed = dict.fromkeys((p.recipient_user_id for p in members), 0)
+    for member in members:
+        if not member.holds_event_seat:
+            needed[member.recipient_user_id] += 1
+    return needed
+
+
 def _membership_slot_action(
-    eligible: list[WaitingParticipantDTO], slots_by_owner: dict[int, int]
+    slots_needed: dict[int, int], slots_by_owner: dict[int, int]
 ) -> Literal["skip", "stop"] | None:
     # None when every member fits their owner's remaining membership slots.
-    slots_needed = Counter(p.recipient_user_id for p in eligible)
     shortfall = [
         owner
         for owner, needed in slots_needed.items()
@@ -103,7 +112,8 @@ def select_promotable_parties(
         ]
         if not eligible:
             continue
-        match _membership_slot_action(eligible, slots_by_owner):
+        slots_needed = _slots_needed(eligible)
+        match _membership_slot_action(slots_needed, slots_by_owner):
             case "skip":
                 continue
             case "stop":
@@ -112,7 +122,7 @@ def select_promotable_parties(
             break
         selected.append(eligible)
         seats_remaining -= len(eligible)
-        for owner, count in Counter(p.recipient_user_id for p in eligible).items():
+        for owner, count in slots_needed.items():
             slots_by_owner[owner] -= count
 
     return selected
