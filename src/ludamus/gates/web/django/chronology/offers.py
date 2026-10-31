@@ -43,6 +43,15 @@ class SessionOfferClaimView(View):
                 request, _("Spot claimed — you are now confirmed for this session.")
             )
             return redirect("web:chronology:event", slug=result.event_slug)
+        if result.reason == "conflict":
+            messages.error(
+                request,
+                _(
+                    "This spot overlaps a session you already have a seat in, "
+                    "so it was released."
+                ),
+            )
+            return redirect("web:chronology:event", slug=result.event_slug)
         messages.error(request, _("This offer has expired or was already claimed."))
         return redirect("web:index")
 

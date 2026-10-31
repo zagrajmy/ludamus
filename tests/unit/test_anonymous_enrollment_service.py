@@ -126,6 +126,7 @@ class FakeRepo:
             statuses_read=[],
             conflicts_checked=[],
             seatings_locked=[],
+            seat_holders_locked=[],
         )
 
     def read_event(self, event_slug):
@@ -162,6 +163,9 @@ class FakeRepo:
         return _seating(
             participants_limit=participants_limit, enrolled_count=enrolled_count
         )
+
+    def lock_seat_holders(self, *, user_ids, waiters_of=None):
+        self.log.seat_holders_locked.append((list(user_ids), waiters_of))
 
     def create_or_confirm(self, *, session_id, user_id):
         self.log.confirmed.append((session_id, user_id))
@@ -365,6 +369,10 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.CONFLICT
+        # Read under the session and person locks, so a racing enroll into an
+        # overlapping session has committed before this check runs.
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        assert repo.log.seat_holders_locked == [([_USER_PK], None)]
         assert not repo.log.confirmed
         assert not repo.log.waiting
 
@@ -385,6 +393,8 @@ class TestCancel:
         assert result.session_title == "Warsztat"
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
         assert repo.log.seatings_locked == [_SESSION_ID]
+        # The refill runs in the same request: its waiters are locked up front.
+        assert repo.log.seat_holders_locked == [([_USER_PK], _SESSION_ID)]
         assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
 

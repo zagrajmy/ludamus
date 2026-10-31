@@ -108,7 +108,7 @@ from .design_fixtures import (
     mock_session_proposal,
     mock_user,
 )
-from .forms import create_enrollment_form
+from .forms import AllowanceCheck, EnrollmentForm, create_enrollment_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1293,9 +1293,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session: Session,
         party_pk: int | None,
         guests_target: int | None = None,
+        allowance: AllowanceCheck | None = None,
     ) -> Enrollments:
         enrollments = Enrollments()
 
+        # SAFETY: the lock order of every seat decision (architecture.md):
+        # this Session row, then lock_seat_holders, then the checks.
         session = Session.objects.select_for_update().get(id=session.id)
         # The guest delta is derived from the absolute target under the session
         # lock, so a replayed submit (double-click, refresh) is a no-op instead
@@ -1310,6 +1313,30 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             )
         guest_seats_needed = max(guests_delta, 0)
         guest_seats_freed = max(-guests_delta, 0)
+        self._lock_seat_holders(
+            session,
+            enrollment_requests,
+            frees_seats=bool(guest_seats_freed)
+            or any(
+                req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
+            ),
+        )
+        # The form asked first, before any lock; this answer is the one that
+        # counts, read after every other request on these passes committed.
+        if allowance is not None and not allowance.passes(
+            self.request.services.enrollment
+        ):
+            logger.info(
+                "Enroll into session %s refused under the lock: passes spent",
+                session.id,
+            )
+            raise RedirectError(
+                reverse(
+                    "web:chronology:session-enrollment",
+                    kwargs={"event_slug": session.event.slug, "session_id": session.id},
+                ),
+                error=allowance.refusal(self.request.services.enrollment),
+            )
         if self._is_capacity_invalid(
             enrollment_requests,
             session,
@@ -1366,6 +1393,24 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         self._hold_member_seats(session, enrollments, party_pk)
         return enrollments
+
+    def _lock_seat_holders(
+        self,
+        session: Session,
+        enrollment_requests: list[EnrollmentRequest],
+        *,
+        frees_seats: bool,
+    ) -> None:
+        # The viewer always: they host the guests and own the passes the batch
+        # spends. A batch that frees a seat refills it in this request's
+        # transaction, so it takes the waiters now as well.
+        self.request.services.enrollment.lock_seat_holders(
+            user_ids=[
+                self.request.context.current_user_id,
+                *(req.user.pk for req in enrollment_requests),
+            ],
+            waiters_of=session.id if frees_seats else None,
+        )
 
     @staticmethod
     def _handle_cancellation(
@@ -1594,7 +1639,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _manage_enrollments(
         self,
         *,
-        form: forms.Form,
+        form: EnrollmentForm,
         session: Session,
         roster: EnrollmentRoster,
         party_pk: int | None,
@@ -1615,6 +1660,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     session=session,
                     party_pk=party_pk,
                     guests_target=guests_target,
+                    allowance=form.allowance_check,
                 )
 
             # T1: a freed seat promotes/offers the next waiter (who is notified

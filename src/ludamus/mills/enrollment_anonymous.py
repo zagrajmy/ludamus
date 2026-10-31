@@ -27,7 +27,6 @@ from ludamus.pacts.enrollment import (
 from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES, NotFoundError
 
 if TYPE_CHECKING:
-
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
@@ -106,17 +105,19 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
         session = self._session_context(enrollment_request)
         self._require_open(session, enrollment_request)
         user = self._user_for(enrollment_request, session)
-        self._update_name(user, name)
-        if self._enrollment_repository.has_conflicts(
-            session_id=session.session_id, user=user
-        ):
-            return AnonymousEnrollResultDTO(
-                outcome=AnonymousEnrollOutcome.CONFLICT,
-                session_title=session.title,
-                event_slug=session.event_slug,
-            )
+        self._require_name(user, name)
         with self._transaction.atomic():
             seating = self._enrollment_repository.lock_seating(session.session_id)
+            self._enrollment_repository.lock_seat_holders(user_ids=[user.pk])
+            self._update_name(user, name)
+            if self._enrollment_repository.has_conflicts(
+                session_id=session.session_id, user=user
+            ):
+                return AnonymousEnrollResultDTO(
+                    outcome=AnonymousEnrollOutcome.CONFLICT,
+                    session_title=session.title,
+                    event_slug=session.event_slug,
+                )
             policy = EnrollmentPolicy.for_anonymous(seating.eligible_windows)
             if not policy.can_enroll:
                 raise AnonymousEnrollmentError(
@@ -144,9 +145,15 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
         self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
     ) -> AnonymousCancelResultDTO:
         session, user = self._validate(enrollment_request)
-        self._update_name(user, name)
+        self._require_name(user, name)
         with self._transaction.atomic():
             seating = self._enrollment_repository.lock_seating(session.session_id)
+            # The waiters too: the refill below runs in this request's
+            # transaction and must ask for no row this one does not hold yet.
+            self._enrollment_repository.lock_seat_holders(
+                user_ids=[user.pk], waiters_of=session.session_id
+            )
+            self._update_name(user, name)
             status = self._enrollment_repository.delete_participation(
                 session_id=session.session_id, user_id=user.pk
             )
@@ -268,9 +275,14 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             enrollment_request.anonymous_event_id
         )
 
+    @staticmethod
+    def _require_name(user: UserDTO, name: str) -> None:
+        if not (name or user.name):
+            raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NAME_REQUIRED)
+
     def _update_name(self, user: UserDTO, name: str) -> None:
+        # Under the seat locks: the write locks this person's row, and every
+        # row a seat transaction locks comes from its one ordered statement.
         if name:
             user.name = name
             self._user_repository.update(user.slug, UserData(name=name))
-        if not user.name:
-            raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NAME_REQUIRED)

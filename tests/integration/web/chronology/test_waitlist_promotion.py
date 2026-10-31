@@ -24,6 +24,7 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
     SessionFactory,
+    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -271,6 +272,52 @@ class TestOfferClaimAndExpiry:
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
         assert participation.claimed_at is not None
 
+    def test_claim_view_releases_a_spot_overlapping_a_seat_already_held(
+        self, client, session, event, waiter
+    ):
+        participation = self._offer(session, event, waiter)
+        next_waiter = UserFactory(username="next", email="next@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=next_waiter, status=SessionParticipationStatus.WAITING
+        )
+        # The timetable moved a session the waiter is confirmed in onto this
+        # one after the offer went out.
+        clash = SessionFactory(event=event, category=None)
+        AgendaItemFactory(
+            session=clash,
+            space=SpaceFactory(event=event),
+            start_time=session.agenda_item.start_time,
+            end_time=session.agenda_item.end_time,
+        )
+        SessionParticipation.objects.create(
+            session=clash, user=waiter, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "This spot overlaps a session you already have a seat in, "
+                        "so it was released."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        rolled = SessionParticipation.objects.get(user=next_waiter)
+        assert rolled.status == SessionParticipationStatus.OFFERED.value
+
     def test_claim_view_get_shows_offer(self, client, session, event, waiter):
         participation = self._offer(session, event, waiter)
 
@@ -291,6 +338,7 @@ class TestOfferClaimAndExpiry:
                     session_title=session.title,
                     event_slug=event.slug,
                     participant_ids=[participation.pk],
+                    user_ids=[waiter.pk],
                     recipients=[waiter.pk],
                     offer_expires_at=participation.offer_expires_at,
                 ),
@@ -545,11 +593,12 @@ class TestPromotionRepositoryUnscheduledSession:
 
 
 # lock+select session, enrollment-configs prefetch (serves both the
-# most-liberal and the active-config checks), waiting list, sponsors, batched
-# conflicts, user-config __in, domain-config __in, companions (one
-# config-holding owner), one occupancy snapshot for seated waiters and used
-# slots, available-seats count, shadowban ids.
-STATE_QUERIES = 11
+# most-liberal and the active-config checks), waiting list, sponsors, the
+# seat-holder lock on the waiters and their owners, batched conflicts,
+# user-config __in, domain-config __in, companions (one config-holding owner),
+# one occupancy snapshot for seated waiters and used slots, available-seats
+# count, shadowban ids.
+STATE_QUERIES = 12
 BASE_WAITERS = 3
 GROWN_WAITERS = 5
 

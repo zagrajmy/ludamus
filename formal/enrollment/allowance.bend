@@ -2,9 +2,13 @@
 # that spend the passes.
 #
 # A pass covers one distinct person per event. The enroll form checks the
-# allowance (can_enroll_users inside form.is_valid) before _process_enrollments
-# takes any lock, and the lock it then takes is the Session row of the session
-# being enrolled into. Two requests into two sessions share no lock at all.
+# allowance (can_enroll_users inside form.is_valid) before any lock, as an
+# early answer. _process_enrollments then locks the Session row and, through
+# lock_seat_holders, the User rows of the people it seats and of their pass
+# owner, and asks again (AllowanceCheck.passes); that answer decides. Two
+# requests into two sessions share the owner's row, so the second asks only
+# once the first has committed. promotion's owner_slots_remaining is read
+# under the same owner lock, and is not modelled here.
 
 import Base
 
@@ -18,7 +22,8 @@ type Member is Data:
 type Seated is Data:
   Seated{owner: Bool, first: Bool, second: Bool}
 
-# A request in flight: Idle, or the member it read as fitting and will seat.
+# A request in flight: Idle, or the member it read as fitting and will seat;
+# a request in flight holds the owner's lock until it commits.
 type Request is Data:
   Idle{}
   Adds{who: Member}
@@ -32,9 +37,11 @@ type Household is Data:
   Household{seated: Seated, l1: Request, l2: Request}
 
 type Op is Data:
-  # form.is_valid -> can_enroll_users: |already seated ∪ {who}| <= allowed.
+  # The recheck under the owner's lock, can_enroll_users:
+  # |already seated ∪ {who}| <= allowed. The form's earlier check reads the
+  # same thing with no lock and only ever refuses sooner, so it is left out.
   Check{lane: Lane, who: Member}
-  # _process_enrollments writes the seat and commits.
+  # _process_enrollments writes the seat and commits, releasing the lock.
   Commit{lane: Lane}
 
 def start() -> Household:
@@ -73,6 +80,12 @@ def is_idle(r: Request) -> Bool:
       True{}
     case _:
       False{}
+
+# The owner's User row lock: free while no request is in flight.
+def owner_free(h: Household) -> Bool:
+  match h:
+    case Household{s, a, b}:
+      is_idle(a) && is_idle(b)
 
 def pick(c: Bool, +yes: Household, +no: Household) -> Household:
   match c:
@@ -124,7 +137,7 @@ def step(+allowed: Nat, +h: Household, e: Op) -> Household:
   match e:
     case Check{+l, +who}:
       fits = Nat.is_le(count(seat(who, seated(h))), allowed)
-      pick(is_idle(lane(l, h)) && fits, set_lane(l, h, Adds{who}), h)
+      pick(owner_free(h) && fits, set_lane(l, h, Adds{who}), h)
     case Commit{+l}:
       commit(l, h, lane(l, h))
 
