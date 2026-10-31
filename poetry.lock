@@ -1168,14 +1168,14 @@ tomli = {version = ">=2.0.1", markers = "python_full_version < \"3.15.0\""}
 
 [[package]]
 name = "diff-cover"
-version = "10.6.0"
+version = "11.0.0"
 description = "Run coverage and linting reports on diffs"
 optional = false
-python-versions = ">=3.10"
+python-versions = ">=3.11"
 groups = ["dev"]
 files = [
-    {file = "diff_cover-10.6.0-py3-none-any.whl", hash = "sha256:a701553060f72d59b81f9cb1645b75ef66204427eb9dd99873c91092220e52ce"},
-    {file = "diff_cover-10.6.0.tar.gz", hash = "sha256:8d1194dfb537f70480ac97c9c45dd40721cf4c326c9903fbe997db67a4db6195"},
+    {file = "diff_cover-11.0.0-py3-none-any.whl", hash = "sha256:8b0a5b356d525718ee18c14b163ce179c75ccdc5b8d5474ef22ade6a0e1fa65d"},
+    {file = "diff_cover-11.0.0.tar.gz", hash = "sha256:5450247cc885ac0c252f0d7a4cf91608f454377c6f88e579bc9ead410af50c36"},
 ]
 
 [package.dependencies]
@@ -1183,9 +1183,6 @@ chardet = ">=3.0.0"
 jinja2 = ">=2.7.1"
 pluggy = ">=0.13.1,<2"
 pygments = ">=2.19.1,<3"
-
-[package.extras]
-toml = ["tomli (>=1.2.1)"]
 
 [[package]]
 name = "dill"
@@ -5803,4 +5800,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "5b110e6b9d69624819316e3092f2b8e86bcc67f5427fd5f17a37ba5edc2b82b0"
+content-hash = "23c08c6fc6868173ebde1f5cce9b97cac48a0cd9fd0e58ee736ccf34e3ff2733"
