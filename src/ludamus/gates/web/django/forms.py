@@ -386,6 +386,18 @@ class ProposalCategoryForm(forms.Form):
         return cleaned
 
 
+def check_select_has_options(form: forms.Form, cleaned: dict[str, object]) -> None:
+    # A select with nothing to pick and no write-in cannot be answered, and a
+    # required one blocks every proposal.
+    options = cleaned.get("options")
+    if (
+        cleaned.get("field_type") == "select"
+        and not cleaned.get("allow_custom")
+        and not (isinstance(options, str) and options.strip())
+    ):
+        form.add_error("options", _("Add at least one option, or allow custom values."))
+
+
 class PersonalDataFieldForm(forms.Form):
     """Form for creating/editing personal data fields."""
 
@@ -459,6 +471,7 @@ class PersonalDataFieldForm(forms.Form):
             # for a checkbox, so its own error paragraph never renders.
             self.add_error("is_required", _("A checkbox cannot be required."))
             self.add_error(None, _("A checkbox cannot be required."))
+        check_select_has_options(self, cleaned)
         return cleaned
 
 
@@ -534,6 +547,11 @@ class SessionFieldForm(forms.Form):
     )
     icon = forms.CharField(max_length=50, required=False)
     is_public = forms.BooleanField(required=False, initial=False)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or self.cleaned_data
+        check_select_has_options(self, cleaned)
+        return cleaned
 
 
 class TimeSlotForm(forms.Form):

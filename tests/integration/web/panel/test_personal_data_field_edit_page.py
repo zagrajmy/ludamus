@@ -593,3 +593,45 @@ class TestPersonalDataFieldEditPageView:
 
         context_field = response.context["field"]
         assert context_field.allow_custom is True
+
+    def test_post_refuses_to_empty_options_on_select_field(self, panel_client, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Your diet?",
+            slug="diet",
+            field_type="select",
+            is_required=True,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="Vegan", order=0
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Diet",
+                "question": "Your diet?",
+                "options": "",
+                "is_required": "on",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-edit.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "field": response.context["field"],
+                "form": FormErrorsMatcher(
+                    options=["Add at least one option, or allow custom values."]
+                ),
+                "can_switch_type": False,
+                "text_kind_choices": [
+                    ("text", "Text"),
+                    ("discord", "Discord username"),
+                ],
+            },
+        )
+        assert list(field.options.values_list("label", flat=True)) == ["Vegan"]

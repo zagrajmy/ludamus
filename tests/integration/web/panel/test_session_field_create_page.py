@@ -6,7 +6,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import SessionField, SessionFieldRequirement
 from tests.integration.conftest import ProposalCategoryFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -348,3 +352,30 @@ class TestSessionFieldCreatePageView:
         assert not SessionFieldRequirement.objects.filter(
             field=field, category=foreign_category
         ).exists()
+
+    def test_post_rejects_select_without_options(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data={
+                "name": "Difficulty",
+                "question": "What difficulty level?",
+                "field_type": "select",
+                "options": "",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/session-field-create.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "categories": [],
+                "form": FormErrorsMatcher(
+                    options=["Add at least one option, or allow custom values."]
+                ),
+                "required_category_pks": set(),
+                "optional_category_pks": set(),
+            },
+        )
+        assert not SessionField.objects.filter(event=event).exists()
