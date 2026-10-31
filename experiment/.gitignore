@@ -8,3 +8,4 @@ coverage/
 evals/results/**/raw/
 evals/results/e2e/
 .vitest/
+.scratch/
