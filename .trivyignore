@@ -1,0 +1,3 @@
+# follow-redirects 1.16.2 is younger than .npmrc's min-release-age; only the
+# local auth0-simulator (via http-proxy) pulls follow-redirects in.
+CVE-2026-116689 exp:2026-11-02
