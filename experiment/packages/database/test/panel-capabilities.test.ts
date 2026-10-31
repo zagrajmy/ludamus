@@ -7,11 +7,16 @@ import {
 } from "@zagrajmy/core/panel/facilitators";
 import { changeProposalStatusHandler } from "@zagrajmy/core/panel/proposals";
 import {
+  FormInvalid,
+  PanelAccessDenied,
+  formError,
+} from "@zagrajmy/core/panel/schemas";
+import {
   createTrackHandler,
   deleteTrackHandler,
   updateTrackHandler,
 } from "@zagrajmy/core/panel/tracks";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
 import { DatabaseTest } from "../src/database-test.js";
@@ -54,7 +59,7 @@ const trackForm = {
 };
 
 const scalar = (query: string) =>
-  Effect.gen(function* scalar() {
+  Effect.gen(function* readScalar() {
     const sql = yield* SqlClient;
 
     const rows = yield* sql
@@ -99,10 +104,7 @@ layer(DatabaseTest, { buildPerTest: true })(
           Effect.flip
         );
 
-        expect(failure).toMatchObject({
-          _tag: "PanelAccessDenied",
-          reason: "no_panel_access",
-        });
+        expect(failure).toEqual(new PanelAccessDenied({ reason: "no_panel_access" }));
       })
     );
 
@@ -115,10 +117,7 @@ layer(DatabaseTest, { buildPerTest: true })(
             Effect.flip
           );
 
-          expect(failure).toMatchObject({
-            _tag: "PanelAccessDenied",
-            reason: "sign_in",
-          });
+          expect(failure).toEqual(new PanelAccessDenied({ reason: "sign_in" }));
         })
     );
 
@@ -137,10 +136,7 @@ layer(DatabaseTest, { buildPerTest: true })(
           Effect.flip
         );
 
-        expect(failure).toMatchObject({
-          _tag: "PanelAccessDenied",
-          reason: "read_only",
-        });
+        expect(failure).toEqual(new PanelAccessDenied({ reason: "read_only" }));
         expect(yield* countRows("track")).toBe(before);
       })
     );
@@ -160,16 +156,9 @@ layer(DatabaseTest, { buildPerTest: true })(
             spaceIds: [Number(foreignSpaceId)],
           }).pipe(asRootManager, Effect.flip);
 
-          expect(failure).toMatchObject({
-            _tag: "FormInvalid",
-            errors: [
-              {
-                field: "",
-                msgid:
-                  "Choose spaces from this event and managers from this sphere.",
-              },
-            ],
-          });
+          expect(failure).toEqual(
+        new FormInvalid({ errors: [formError("", "Choose spaces from this event and managers from this sphere.")] })
+      );
           expect(yield* countRows("track")).toBe(before);
         })
     );
@@ -210,16 +199,9 @@ layer(DatabaseTest, { buildPerTest: true })(
             name: "LANTERN STORIES",
           }).pipe(asRootManager, Effect.flip);
 
-          expect(failure).toMatchObject({
-            _tag: "FormInvalid",
-            errors: [
-              {
-                field: "name",
-                msgid:
-                  "A track with this name already exists in this event. Pick another name.",
-              },
-            ],
-          });
+          expect(failure).toEqual(
+        new FormInvalid({ errors: [formError("name", "A track with this name already exists in this event. Pick another name.")] })
+      );
         })
     );
 
@@ -289,10 +271,11 @@ layer(DatabaseTest, { buildPerTest: true })(
             isCollective: false,
           }).pipe(asRootManager, Effect.flip);
 
-          expect(failure).toMatchObject({
-            _tag: "FormInvalid",
-            errors: [{ field: "accreditation_type" }],
-          });
+          expect(
+        Predicate.isTagged(failure, "FormInvalid")
+          ? failure.errors.map((entry) => entry.field)
+          : []
+      ).toEqual(["accreditation_type"]);
           expect(
             yield* scalar(
               "SELECT accreditation_type AS value FROM facilitator WHERE id = 82"

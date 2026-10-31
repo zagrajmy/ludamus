@@ -149,7 +149,7 @@ const bulkCheckbox = (
       ariaLabel: options.ariaLabel,
       attributes: [
         h.OnClick(options.onToggle),
-        ...Option.toArray(Option.map(options.id, (id) => h.Id(id))),
+        ...Option.toArray(options.id.pipe(Option.map((id) => h.Id(id)))),
       ],
       checked: options.checked,
     },
@@ -444,8 +444,8 @@ const facilitatorRow = (
           bulkCheckbox(
             {
               ariaLabel: t("Select %(name)s", { name: row.displayName }),
-              id: Option.none(),
               checked,
+              id: Option.none(),
               onToggle: toList(
                 FacilitatorListMessage.ToggledRow({
                   checked: !checked,

@@ -1398,7 +1398,8 @@ export const compactSchedule = (
                       options.grid.rows.flatMap((row) =>
                         RoomRow.match(row, {
                           DayHeading: () => [],
-                          Time: (time) => (time.opensSlot ? [time.slotKey] : []),
+                          Time: (time) =>
+                            time.opensSlot ? [time.slotKey] : [],
                         })
                       )
                     )

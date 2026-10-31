@@ -37,7 +37,9 @@ export const ReadStoredCategories = Command.define("ReadStoredCategories", {
       ),
     []
   ).pipe(
-    Effect.map((collapsed) => PanelMessage.LoadedStoredCategories({ collapsed }))
+    Effect.map((collapsed) =>
+      PanelMessage.LoadedStoredCategories({ collapsed })
+    )
   ),
   messages: [PanelMessage.LoadedStoredCategories],
 });

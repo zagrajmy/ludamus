@@ -21,20 +21,22 @@ export const SaveFacilitator = Command.define("SaveFacilitator", {
         const backend = yield* Backend;
 
         const saved = yield* Option.match(facilitatorSlug, {
-          onNone: () => backend.createFacilitator({
-                accreditationType: form.accreditationType,
-                assignMe: form.assignMe,
-                displayName: form.displayName,
-                eventSlug: form.eventSlug,
-                isCollective: form.isCollective,
-              }),
-          onSome: (slug) => backend.updateFacilitator({
-                accreditationType: form.accreditationType,
-                eventSlug: form.eventSlug,
-                facilitatorSlug: slug,
-                internalComment: form.internalComment,
-                isCollective: form.isCollective,
-              }),
+          onNone: () =>
+            backend.createFacilitator({
+              accreditationType: form.accreditationType,
+              assignMe: form.assignMe,
+              displayName: form.displayName,
+              eventSlug: form.eventSlug,
+              isCollective: form.isCollective,
+            }),
+          onSome: (slug) =>
+            backend.updateFacilitator({
+              accreditationType: form.accreditationType,
+              eventSlug: form.eventSlug,
+              facilitatorSlug: slug,
+              internalComment: form.internalComment,
+              isCollective: form.isCollective,
+            }),
         });
 
         return FacilitatorFormMessage.SucceededSaveFacilitator({

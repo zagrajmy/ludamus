@@ -216,9 +216,9 @@ export const deleteFacilitatorHandler = Effect.fn("Panel.deleteFacilitator")(
         const scope = { eventId: event.id, id: facilitator.id };
         const counts = yield* facilitators.countSessions(scope);
 
-        if (counts.live > 0 || counts.deleted > 0) {
-          return yield* new FacilitatorHasSessions(counts);
-        }
+        yield* counts.live > 0 || counts.deleted > 0
+          ? Effect.fail(new FacilitatorHasSessions(counts))
+          : Effect.void;
 
         yield* facilitators.softDelete(scope);
         yield* (yield* ChangeLogStore).logFacilitatorChange({

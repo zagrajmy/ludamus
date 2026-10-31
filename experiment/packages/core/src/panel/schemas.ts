@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 
-import { AccreditationType } from "../facilitator.js";
 import { SessionId, UserId } from "../ids.js";
 import { SessionStatus } from "../session.js";
 
@@ -34,55 +33,6 @@ export const SphereManager = Schema.Struct({
 });
 
 export type SphereManager = typeof SphereManager.Type;
-
-export const PanelRefusalReason = Schema.Literals([
-  "sign_in",
-  "no_panel_access",
-  "read_only",
-]);
-
-export type PanelRefusalReason = typeof PanelRefusalReason.Type;
-
-export class PanelAccessDenied extends Schema.TaggedError<PanelAccessDenied>()(
-  "PanelAccessDenied",
-  { reason: PanelRefusalReason },
-  { description: "PanelAccessDenied", httpApiStatus: 403 }
-) {
-  override get message(): string {
-    return this.reason === "read_only"
-      ? "Your role can read the panel, but not make changes here."
-      : "You don't have permission to access the backoffice panel.";
-  }
-}
-
-export const FormErrorVars = Schema.Record(
-  Schema.String,
-  Schema.Union([Schema.String, Schema.Number])
-);
-
-export const FormError = Schema.Struct({
-  field: Schema.String,
-  msgid: Schema.String,
-  vars: FormErrorVars,
-});
-
-export type FormError = typeof FormError.Type;
-
-export class FormInvalid extends Schema.TaggedError<FormInvalid>()(
-  "FormInvalid",
-  { errors: Schema.Array(FormError) },
-  { description: "FormInvalid", httpApiStatus: 422 }
-) {
-  override get message(): string {
-    return this.errors.map((error) => error.msgid).join(" ");
-  }
-}
-
-export const formError = (
-  field: string,
-  msgid: string,
-  vars: typeof FormErrorVars.Type = {}
-): FormError => ({ field, msgid, vars });
 
 export const EventSlugInput = { eventSlug: Schema.String };
 
@@ -137,16 +87,6 @@ export const FacilitatorRef = Schema.Struct({
   facilitatorSlug: Schema.String,
 });
 
-export class FacilitatorHasSessions extends Schema.TaggedError<FacilitatorHasSessions>()(
-  "FacilitatorHasSessions",
-  { deleted: Schema.Int, live: Schema.Int },
-  { description: "FacilitatorHasSessions", httpApiStatus: 409 }
-) {
-  override get message(): string {
-    return `This facilitator is named on ${this.live + this.deleted} sessions`;
-  }
-}
-
 export const ProposalRef = Schema.Struct({
   ...EventSlugInput,
   proposalId: Schema.Int,
@@ -156,16 +96,6 @@ export const ProposalStatusChange = Schema.Struct({
   ...ProposalRef.fields,
   status: SessionStatus,
 });
-
-export class ProposalScheduled extends Schema.TaggedError<ProposalScheduled>()(
-  "ProposalScheduled",
-  {},
-  { description: "ProposalScheduled", httpApiStatus: 409 }
-) {
-  override get message(): string {
-    return "This session is scheduled and can only be accepted.";
-  }
-}
 
 export const ProposalAcceptance = Schema.Struct({
   ...ProposalRef.fields,
@@ -203,4 +133,16 @@ export type ProposalForm = typeof ProposalForm.Type;
 
 export const SavedProposal = Schema.Struct({ id: Schema.Int });
 
-export { AccreditationType };
+export { AccreditationType } from "../facilitator.js";
+
+export { FacilitatorHasSessions } from "./facilitator-has-sessions.js";
+
+export { FormError, FormErrorVars, formError } from "./form-error.js";
+
+export { FormInvalid } from "./form-invalid.js";
+
+export { PanelAccessDenied } from "./panel-access-denied.js";
+
+export { ProposalScheduled } from "./proposal-scheduled.js";
+
+export { PanelRefusalReason } from "./refusal-reason.js";

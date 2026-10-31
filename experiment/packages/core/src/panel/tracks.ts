@@ -60,6 +60,9 @@ const validName = (raw: string) => {
     : Effect.succeed(name.value);
 };
 
+const sortedUnique = (ids: readonly number[]) =>
+  [...new Set(ids)].toSorted((left, right) => left - right);
+
 const scopedSelection = Effect.fn("Panel.scopedTrackSelection")(
   function* scopedSelection(options: {
     readonly eventId: EventId;
@@ -80,12 +83,9 @@ const scopedSelection = Effect.fn("Panel.scopedTrackSelection")(
       });
     }
 
-    const sorted = (ids: readonly number[]) =>
-      [...new Set(ids)].toSorted((left, right) => left - right);
-
     return {
-      managerIds: sorted(options.form.managerIds).map((id) => UserId.make(id)),
-      spaceIds: sorted(options.form.spaceIds).map((id) => SpaceId.make(id)),
+      managerIds: sortedUnique(options.form.managerIds).map((id) => UserId.make(id)),
+      spaceIds: sortedUnique(options.form.spaceIds).map((id) => SpaceId.make(id)),
     };
   }
 );

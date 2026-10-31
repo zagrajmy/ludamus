@@ -139,14 +139,65 @@ big ints (the fixtures cap runs at 12 digits).
 | `MembershipStore`, `TicketApi` | User/domain allowance rows and the ticketing API; `TicketApi` fails with `MembershipApiError`, which `membershipOutcome` treats as "no answer". |
 | `EnrollmentNotifier`, `OfferExpiryScheduler`, `ClaimTokens` | Notifications, the per-offer expiry timer, and 48-byte URL-safe claim tokens. |
 
-Locking: SQLite (the experiment) serialises writers, so `BEGIN IMMEDIATE`
-for `atomic` gives at least the Python guarantee. On Postgres the store must
-take `SELECT … FOR UPDATE` on the session row before reading the state the
-decision uses, exactly as Python does; that proves capacity (`PROOF.bend`).
-It does not prevent the two race findings: to fix those, also lock every
-seated person's `User` row in user-id order before reading conflicts and the
-allowance, and count OFFERED rows in `conflictedUserIds` (or recheck in the
-claim).
+Locking follows plan 021 (`plans/021-enrollment-row-locking.md`). Every
+seat-deciding transaction takes, in this order: (1) the session row
+(`lockSessionRow`), (2) the user rows of everyone whose seat it decides plus
+each person's slot owner (the sponsoring manager of a companion), in one
+statement ordered by id (`lockSeatHolders`, or `lockOfferHolders` for a party
+named by its offered rows), and only then reads the state it checks
+(conflicts, allowance, capacity) and writes. `submitEnrollments` reruns the
+allowance check under those locks; `PromotionStore.lockAndReadState` takes the
+session row, reads the waiters, locks them and their owners, then computes
+conflicts and slots; claim, decline and expiry lock the session of the offer
+first and re-read the party under it. On Postgres the two lock calls are
+`SELECT … FOR UPDATE` (`of=("self",)`); on SQLite they are plain reads,
+because `@effect/sql-sqlite-node` opens every write transaction with
+`BEGIN IMMEDIATE` (verified in its `SqliteClient.ts`: `beginTransaction:
+"BEGIN IMMEDIATE"` for writable clients, one connection behind a
+`Semaphore(1)`, five-second busy timeout), so writers are already serialised.
+
+Plan 021 also changed two rules, ahead of the same change in the Python:
+`conflictedUserIds` counts OCCUPYING rows (confirmed and offered), and the
+overlap predicate is `other.start < end && other.end > start` (`overlapsWith`
+too). The two findings this fixed (offered seat, wholly containing session)
+are now plain regression tests in `test/findings.test.ts`; the store SQL in
+`packages/database` uses the same predicate. A claim rechecks conflicts per
+member (`decideClaimRechecked`): a conflicting member's row is dropped, the
+claim answers `reason: "conflict"`, and the freed seat is refilled after
+commit. The two race findings stay `it.fails` at the pure level; they are
+fixed by the lock order, which only Postgres exercises.
+
+## Capabilities (`*-capability.ts`, registered as `enrollmentCapabilities`)
+
+| Capability | Annotations | Who may call | Ports it uses |
+| --- | --- | --- | --- |
+| `readEnrollmentForm` | readOnly, idempotent | signed-in viewer (`LoginRequired` otherwise); session scoped to `CurrentSphere` | `EnrollmentStore`, `PartyStore`, `UserDirectory`, `SafetyStore`, `EnrollmentConfigStore`, `TicketApi` |
+| `readEnrollFooter` | readOnly, idempotent | signed-in viewer; at most 50 sessions | as above |
+| `submitEnrollments` | mutation | signed-in viewer, same origin | all of the above plus `EnrollmentTransaction`, `PromotionStore`, `EnrollmentNotifier`, `OfferExpiryScheduler`, `ClaimTokens` |
+| `readOffer` | readOnly, idempotent, anonymousSafe | anyone holding the token; offer scoped to the sphere | `PromotionStore` |
+| `claimOffer`, `declineOffer` | mutation, idempotent, anonymousSafe | anyone holding the token (Django's views are login-free), same origin | `PromotionStore`, `EnrollmentTransaction`, notifier, scheduler, tokens |
+| `expireOffers` | mutation, idempotent, anonymousSafe | anyone (MCP has no user); only lapsed offers of the current sphere | same |
+| `toggleBookmark` | mutation | signed-in viewer | `BookmarkStore`, `StoreTransaction` |
+
+A session id from another sphere is `NotFound` before any write
+(`EnrollmentStore.readSessionContext` filters on `event.sphere_id`). Each
+handler loads the state, calls the pure decision (`processEnrollments`,
+`desiredStateRequests`, `planFillFreedSeats`, `decideClaimRechecked`, …),
+applies its writes inside `EnrollmentTransaction.atomic`, then runs the
+post-commit effects (expiry scheduling, refill after a cancel, party-member
+notifications). Ports implemented in `packages/database`:
+`enrollment-store.ts`, `promotion-store.ts`, `enrollment-services.ts`
+(transaction, claim tokens, the expiry scheduler that logs the deadline the
+row already stores, and the "no ticketing integration" `TicketApi`, which
+fails every lookup with `MembershipApiError` exactly like Python's
+`_NoTicketApi`), `enrollment-notifier.ts` (writes Django's `notification`
+rows with the same kinds, titles, bodies, absolute URLs and Python-JSON
+payloads, in Polish, the default locale; mail goes to the `MailOutbox`
+reference, which logs by default and writes Django file-backend messages
+when `EMAIL_FILE_PATH` or `EMAIL_URL=filemail:///…` is set). The real HTTP
+ticketing client is out of scope. `MembershipStore` was dropped from the
+ports: `EnrollmentConfigStore` already holds those rows.
+`EnrollmentWindowStore` (panel window CRUD) is not implemented here.
 
 ## Differential fixtures
 

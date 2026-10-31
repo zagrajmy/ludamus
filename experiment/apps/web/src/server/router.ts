@@ -1,10 +1,9 @@
 import { NotificationStore } from "@zagrajmy/core/ports/notification-store";
-import { Data, Effect, Option } from "effect";
+import { Effect, Option } from "effect";
 
 import { contentSlugs } from "../client/content-page/flags.js";
 import type { ContentSlug } from "../client/content-page/flags.js";
 import { PageFlags } from "../client/model.js";
-import type { FlashNote } from "./flash.js";
 import { loadAbout } from "./pages/about.js";
 import { loadContentPage } from "./pages/content-page.js";
 import { ENROLL_PAGE_PATH, loadEnrollPage } from "./pages/enroll-page.js";
@@ -16,17 +15,9 @@ import { loadPropose, proposeSlugOf } from "./pages/propose.js";
 import { isPanelPath, routePanel } from "./pages/panel/router.js";
 import { rootOrigin } from "./request-context.js";
 import type { RequestContext } from "./request-context.js";
+import { Routed } from "./routed.js";
 
-export type Routed = Data.TaggedEnum<{
-  Page: { readonly flags: PageFlags; readonly status: number };
-  Redirect: {
-    readonly flashes?: readonly FlashNote[];
-    readonly location: string;
-    readonly status: 301 | 302;
-  };
-}>;
-
-export const Routed = Data.taggedEnum<Routed>();
+export { Routed } from "./routed.js";
 
 const isContentSlug = (slug: string): slug is ContentSlug =>
   contentSlugs.some((known) => known === slug);

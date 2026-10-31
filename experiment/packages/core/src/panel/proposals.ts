@@ -82,9 +82,9 @@ export const changeProposalStatusHandler = Effect.fn(
 
       const placed = yield* (yield* AgendaItemStore).readBySession(session.id);
 
-      if (change.status !== "accepted" && Option.isSome(placed)) {
-        return yield* new ProposalScheduled();
-      }
+      yield* change.status !== "accepted" && Option.isSome(placed)
+        ? Effect.fail(new ProposalScheduled())
+        : Effect.void;
 
       yield* (yield* SessionStore).update({
         changes: { status: change.status },

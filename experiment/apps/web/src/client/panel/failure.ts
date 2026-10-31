@@ -77,7 +77,7 @@ export const catchPanelFailure = <A, B, E extends Tagged, R>(
         onSuccess: (value: A): A | B => value,
       })
     ),
-    Effect.catchDefect(() => Effect.succeed(onFailure(PanelFailure.Broken())))
+    Effect.catchDefect(() => Effect.sync(() => onFailure(PanelFailure.Broken())))
   );
 
 export const BROKEN_SAVE =
@@ -96,6 +96,6 @@ export const errorsFor = (
   field: string,
   translator: Translator
 ) =>
-  errors.flatMap((error) =>
-    error.field === field ? [translator.t(error.msgid, error.vars)] : []
+  errors.flatMap((entry) =>
+    entry.field === field ? [translator.t(entry.msgid, entry.vars)] : []
   );

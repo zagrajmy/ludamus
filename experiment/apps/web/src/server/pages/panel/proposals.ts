@@ -9,9 +9,9 @@ import {
   SessionStore,
   SpaceStore,
   TrackStore,
+  SessionStatus,
   UserDirectory,
 } from "@zagrajmy/core";
-import { SessionStatus } from "@zagrajmy/core";
 import type {
   Event,
   FieldValue,
@@ -22,7 +22,7 @@ import type {
 import type { PanelAccess } from "@zagrajmy/core/panel/access";
 import { readProposalInEvent } from "@zagrajmy/core/panel/proposals";
 import { formatDate } from "@zagrajmy/i18n";
-import { DateTime, Effect, Option, Schema } from "effect";
+import { DateTime, Effect, Option, Predicate, Schema } from "effect";
 
 import type {
   ProposalColumn,
@@ -92,6 +92,17 @@ const parseSort = (raw: string): Option.Option<SessionSort> => {
         fieldId: SessionFieldId.make(Number(key.slice(6))),
       })
     : Option.none();
+};
+
+const managedFirst = (
+  left: Readonly<{ isManaged: boolean; name: string }>,
+  right: Readonly<{ isManaged: boolean; name: string }>
+) => {
+  if (left.isManaged !== right.isManaged) {
+    return left.isManaged ? -1 : 1;
+  }
+
+  return left.name.localeCompare(right.name);
 };
 
 const listFilters = (
@@ -299,13 +310,7 @@ export const loadProposals = Effect.fn("PanelPages.loadProposals")(
           isManaged: managedIds.has(track.id),
           name: track.name,
         }))
-        .toSorted((left, right) =>
-          left.isManaged === right.isManaged
-            ? left.name.localeCompare(right.name)
-            : left.isManaged
-              ? -1
-              : 1
-        ),
+        .toSorted(managedFirst),
     };
 
     return flags;
@@ -313,11 +318,11 @@ export const loadProposals = Effect.fn("PanelPages.loadProposals")(
 );
 
 export const durationParts = (iso: string) => {
-  const match = /^P(?:T)?(?:(\d+)H)?(?:(\d+)M)?$/u.exec(iso);
+  const match = /^P(?:T)?(?:(?<hours>\d+)H)?(?:(?<minutes>\d+)M)?$/u.exec(iso);
 
   return {
-    hours: Number(match?.[1] ?? 0),
-    minutes: Number(match?.[2] ?? 0),
+    hours: Number(match?.groups?.hours ?? 0),
+    minutes: Number(match?.groups?.minutes ?? 0),
   };
 };
 
@@ -336,11 +341,11 @@ export const durationLabel = (iso: string) => {
 };
 
 const fieldText = (value: FieldValue, context: RequestContext) => {
-  if (typeof value === "boolean") {
+  if (Predicate.isBoolean(value)) {
     return value ? context.translator.t("Yes") : context.translator.t("No");
   }
 
-  return typeof value === "string" ? value : value.join(", ");
+  return Predicate.isString(value) ? value : value.join(", ");
 };
 
 const readScoped = (event: Event, proposalId: number) =>

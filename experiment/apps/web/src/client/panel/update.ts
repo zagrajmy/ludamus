@@ -227,7 +227,8 @@ export const updatePanel = (model: PanelModel, message: PanelMessage): Return =>
           StoreCategory({ category, collapsed: collapsed.includes(category) }),
         ],
         model: modifyFields(model, {
-          chrome: (chrome) => modifyFields(chrome, { collapsed: () => collapsed }),
+          chrome: (chrome) =>
+            modifyFields(chrome, { collapsed: () => collapsed }),
         }),
       };
     },
@@ -267,6 +268,19 @@ export const updatePanel = (model: PanelModel, message: PanelMessage): Return =>
     }),
     GotConfirmDialogMessage: ({ message: dialogMessage }) =>
       withDialog(model, Dialog.update(model.confirmDialog, dialogMessage)),
+    LeftPanel: () => ({ model }),
+    LoadedStoredCategories: ({ collapsed }) => ({
+      model: modifyFields(model, {
+        chrome: (chrome) =>
+          modifyFields(chrome, { collapsed: () => collapsed }),
+      }),
+    }),
+    PressedEscape: () => ({
+      model: modifyFields(model, {
+        chrome: (chrome) =>
+          modifyFields(chrome, { isSidebarOpen: () => false }),
+      }),
+    }),
     RelayedFacilitatorForm: ({ message: formMessage }) =>
       foldFacilitatorForm(model, formMessage),
     RelayedFacilitatorList: ({ message: listMessage }) =>
@@ -274,19 +288,8 @@ export const updatePanel = (model: PanelModel, message: PanelMessage): Return =>
     RelayedProposalDetail: () => foldProposals(model, message),
     RelayedProposalForm: () => foldProposals(model, message),
     RelayedProposalList: () => foldProposals(model, message),
-    LoadedStoredCategories: ({ collapsed }) => ({
-      model: modifyFields(model, {
-        chrome: (chrome) => modifyFields(chrome, { collapsed: () => collapsed }),
-      }),
-    }),
     RelayedTrackForm: ({ message: formMessage }) =>
       foldTrackForm(model, formMessage),
-    LeftPanel: () => ({ model }),
-    PressedEscape: () => ({
-      model: modifyFields(model, {
-        chrome: (chrome) => modifyFields(chrome, { isSidebarOpen: () => false }),
-      }),
-    }),
     RequestedAction: ({ action }) =>
       handleOut(model, PanelOut.RequestedAction({ action })),
     RequestedConfirm: ({ action, prompt }) =>
@@ -306,7 +309,9 @@ export const updatePanel = (model: PanelModel, message: PanelMessage): Return =>
           model: modifyFields(model, {
             page: () =>
               PanelPageModel.Timetable({
-                model: modifyFields(timetable, { selected: () => Option.some(id) }),
+                model: modifyFields(timetable, {
+                  selected: () => Option.some(id),
+                }),
               }),
           }),
         }),
@@ -316,7 +321,8 @@ export const updatePanel = (model: PanelModel, message: PanelMessage): Return =>
     StoredChrome: () => ({ model }),
     ToggledSidebar: ({ isOpen }) => ({
       model: modifyFields(model, {
-        chrome: (chrome) => modifyFields(chrome, { isSidebarOpen: () => isOpen }),
+        chrome: (chrome) =>
+          modifyFields(chrome, { isSidebarOpen: () => isOpen }),
       }),
     }),
   });

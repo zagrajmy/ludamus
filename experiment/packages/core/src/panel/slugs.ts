@@ -3,19 +3,19 @@ import { Effect, Random } from "effect";
 const URLSAFE =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
-const TRANSLITERATIONS: Readonly<Record<string, string>> = {
-  Æ: "AE",
-  Ð: "D",
-  Ø: "O",
-  Þ: "Th",
-  ß: "ss",
-  æ: "ae",
-  ð: "d",
-  ø: "o",
-  þ: "th",
-  Ł: "L",
-  ł: "l",
-};
+const TRANSLITERATIONS = new Map([
+  ["Æ", "AE"],
+  ["Ð", "D"],
+  ["Ł", "L"],
+  ["Ø", "O"],
+  ["Þ", "Th"],
+  ["ß", "ss"],
+  ["æ", "ae"],
+  ["ð", "d"],
+  ["ł", "l"],
+  ["ø", "o"],
+  ["þ", "th"],
+]);
 
 const words = (ascii: string) =>
   ascii
@@ -25,16 +25,14 @@ const words = (ascii: string) =>
 
 export const djangoSlugify = (value: string) =>
   words(
-    value.normalize("NFKD").replaceAll(/[^\u0000-\u007F]/gu, "")
+    value.normalize("NFKD").replaceAll(/[^\p{ASCII}]/gu, "")
   ).replaceAll(/^[-_]+|[-_]+$/gu, "");
 
 export const transliteratedSlugify = (value: string, maxLength = 50) =>
   words(
-    [...value]
-      .map((char) => TRANSLITERATIONS[char] ?? char)
-      .join("")
+    value.replaceAll(/[ÆÐŁØÞßæðłøþ]/gu, (char) => TRANSLITERATIONS.get(char) ?? char)
       .normalize("NFKD")
-      .replaceAll(/[^\u0000-\u007F]/gu, "")
+      .replaceAll(/[^\p{ASCII}]/gu, "")
   )
     .replaceAll(/^-+|-+$/gu, "")
     .slice(0, maxLength)

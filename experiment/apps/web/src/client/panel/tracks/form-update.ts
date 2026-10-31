@@ -97,7 +97,10 @@ export const updateTrackForm = (
     }),
     ToggledManager: ({ checked, id }) => ({
       model: modifyFields(model, {
-        values: (values) => modifyFields(values, { managerIds: () => toggled(values.managerIds, id, checked) }),
+        values: (values) =>
+          modifyFields(values, {
+            managerIds: () => toggled(values.managerIds, id, checked),
+          }),
       }),
     }),
     ToggledPublic: ({ checked }) => ({
@@ -107,7 +110,10 @@ export const updateTrackForm = (
     }),
     ToggledSpace: ({ checked, id }) => ({
       model: modifyFields(model, {
-        values: (values) => modifyFields(values, { spaceIds: () => toggled(values.spaceIds, id, checked) }),
+        values: (values) =>
+          modifyFields(values, {
+            spaceIds: () => toggled(values.spaceIds, id, checked),
+          }),
       }),
     }),
   });

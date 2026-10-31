@@ -63,10 +63,13 @@ export const loadTrackForm = Effect.fn("PanelPages.loadTrackForm")(
       trackSlug: trackSlug.value,
     }).pipe(
       Effect.map(Option.some),
-      Effect.catchTag("NotFound", () => Effect.succeed(Option.none<TrackEdit>()))
+      Effect.catchTag("NotFound", () =>
+        Effect.succeed(Option.none<TrackEdit>())
+      )
     );
 
-    return pipe(edit, 
+    return pipe(
+      edit,
       Option.map(({ managerIds, spaceIds, track }): TrackFormFlags => ({
         ...base,
         trackSlug: Option.some(track.slug),

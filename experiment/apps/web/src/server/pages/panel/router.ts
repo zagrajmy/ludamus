@@ -9,7 +9,7 @@ import type { PanelNav } from "../../../client/panel/chrome.js";
 import { PanelPageFlags } from "../../../client/panel/flags.js";
 import type { PanelPageFlags as PageFlagsType } from "../../../client/panel/flags.js";
 import type { RequestContext } from "../../request-context.js";
-import { Routed } from "../../router.js";
+import { Routed } from "../../routed.js";
 import { loadCfp } from "./cfp.js";
 import { eventChrome, providePanelServices } from "./context.js";
 import {
@@ -103,92 +103,6 @@ const panelPage = (
 
 const eventMissing = (context: RequestContext) =>
   redirect("/panel/", context.translator.t("Event not found."));
-
-const routeEventPage = Effect.fn("PanelRouter.routeEventPage")(
-  function* routeEventPage(
-    context: RequestContext,
-    chrome: PanelChrome,
-    rest: readonly string[]
-  ) {
-    const { slug } = chrome.event;
-    const section = rest.join("/");
-
-    const at = (activeNav: PanelNav, pageFlags: PageFlagsType) =>
-      panelPage(context, { activeNav, chrome, page: pageFlags });
-
-    if (rest.length === 0) {
-      const stats = yield* (yield* PanelStore).eventStats(chrome.event.id);
-
-      return at(
-        "index",
-        PanelPageFlags.Dashboard({
-          flags: {
-            ...stats,
-            totalSessions: stats.pendingProposals + stats.scheduledSessions,
-          },
-        })
-      );
-    }
-
-    if (section === "cfp") {
-      return at(
-        "cfp",
-        PanelPageFlags.Cfp({ flags: yield* loadCfp(context, chrome.event) })
-      );
-    }
-
-    if (section === "timetable") {
-      return at(
-        "timetable",
-        PanelPageFlags.Timetable({
-          flags: yield* loadTimetable(context, chrome.event),
-        })
-      );
-    }
-
-    if (section === "tracks") {
-      return at(
-        "tracks",
-        PanelPageFlags.Tracks({ flags: yield* loadTracks(chrome.event) })
-      );
-    }
-
-    if (section === "tracks/create") {
-      const form = yield* loadTrackForm(chrome.event, Option.none());
-
-      return Option.match(form, {
-        onNone: () => notPorted(context),
-        onSome: (flags) => at("tracks", PanelPageFlags.TrackForm({ flags })),
-      });
-    }
-
-    if (rest.length === 3 && rest[0] === "tracks" && rest[2] === "edit") {
-      const form = yield* loadTrackForm(
-        chrome.event,
-        Option.fromNullishOr(rest[1])
-      );
-
-      return Option.match(form, {
-        onNone: () =>
-          redirect(
-            `/panel/event/${slug}/tracks/`,
-            context.translator.t("Track not found.")
-          ),
-        onSome: (flags) => at("tracks", PanelPageFlags.TrackForm({ flags })),
-      });
-    }
-
-    if (rest[0] === "proposals") {
-      return yield* routeProposals(context, chrome, rest.slice(1));
-    }
-
-    if (rest[0] === "facilitators") {
-      return yield* routeFacilitators(context, chrome, rest.slice(1));
-    }
-
-    return notPorted(context);
-  }
-);
 
 const routeProposals = Effect.fn("PanelRouter.routeProposals")(
   function* routeProposals(
@@ -330,6 +244,92 @@ const routeFacilitators = Effect.fn("PanelRouter.routeFacilitators")(
         onNone: missing,
         onSome: (flags) => at(PanelPageFlags.FacilitatorForm({ flags })),
       });
+    }
+
+    return notPorted(context);
+  }
+);
+
+const routeEventPage = Effect.fn("PanelRouter.routeEventPage")(
+  function* routeEventPage(
+    context: RequestContext,
+    chrome: PanelChrome,
+    rest: readonly string[]
+  ) {
+    const { slug } = chrome.event;
+    const section = rest.join("/");
+
+    const at = (activeNav: PanelNav, pageFlags: PageFlagsType) =>
+      panelPage(context, { activeNav, chrome, page: pageFlags });
+
+    if (rest.length === 0) {
+      const stats = yield* (yield* PanelStore).eventStats(chrome.event.id);
+
+      return at(
+        "index",
+        PanelPageFlags.Dashboard({
+          flags: {
+            ...stats,
+            totalSessions: stats.pendingProposals + stats.scheduledSessions,
+          },
+        })
+      );
+    }
+
+    if (section === "cfp") {
+      return at(
+        "cfp",
+        PanelPageFlags.Cfp({ flags: yield* loadCfp(context, chrome.event) })
+      );
+    }
+
+    if (section === "timetable") {
+      return at(
+        "timetable",
+        PanelPageFlags.Timetable({
+          flags: yield* loadTimetable(context, chrome.event),
+        })
+      );
+    }
+
+    if (section === "tracks") {
+      return at(
+        "tracks",
+        PanelPageFlags.Tracks({ flags: yield* loadTracks(chrome.event) })
+      );
+    }
+
+    if (section === "tracks/create") {
+      const form = yield* loadTrackForm(chrome.event, Option.none());
+
+      return Option.match(form, {
+        onNone: () => notPorted(context),
+        onSome: (flags) => at("tracks", PanelPageFlags.TrackForm({ flags })),
+      });
+    }
+
+    if (rest.length === 3 && rest[0] === "tracks" && rest[2] === "edit") {
+      const form = yield* loadTrackForm(
+        chrome.event,
+        Option.fromNullishOr(rest[1])
+      );
+
+      return Option.match(form, {
+        onNone: () =>
+          redirect(
+            `/panel/event/${slug}/tracks/`,
+            context.translator.t("Track not found.")
+          ),
+        onSome: (flags) => at("tracks", PanelPageFlags.TrackForm({ flags })),
+      });
+    }
+
+    if (rest[0] === "proposals") {
+      return yield* routeProposals(context, chrome, rest.slice(1));
+    }
+
+    if (rest[0] === "facilitators") {
+      return yield* routeFacilitators(context, chrome, rest.slice(1));
     }
 
     return notPorted(context);
