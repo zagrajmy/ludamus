@@ -11,6 +11,7 @@ import re
 from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from django.contrib import messages
@@ -1200,6 +1201,38 @@ class TestEventImportRowSaveView:
                 f"question_{index}": "Title",
                 "target_0": "session.title",
             },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_review_url(event, integration),
+            messages=[(messages.ERROR, "Invalid row submission.")],
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == before
+
+    # NOTE: a multipart body refuses a field name this long before the view
+    # runs, so only a urlencoded one can reach `int` with it.
+    def test_post_with_an_index_too_long_for_int_redirects_with_error(
+        self, panel_client, event, connection_with_secret
+    ):
+        integration = make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        before = integration.settings_json
+        index = "9" * 4301
+
+        response = panel_client.post(
+            _row_save_url(event, integration),
+            data=urlencode(
+                {
+                    "index": index,
+                    f"question_{index}": "Title",
+                    "target_0": "session.title",
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
         )
 
         assert_response(
