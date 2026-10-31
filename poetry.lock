@@ -3694,14 +3694,14 @@ files = [
 
 [[package]]
 name = "posthog"
-version = "7.75.6"
+version = "7.76.0"
 description = "Integrate PostHog into any python application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "posthog-7.75.6-py3-none-any.whl", hash = "sha256:b95ec6a155d38d4804ac7a3b004066a1d5faa238c5e20e1cfb42b7a446abe6a3"},
-    {file = "posthog-7.75.6.tar.gz", hash = "sha256:c1675dfd34be02cf85d0f6e31b0c17c51feaae67bbbfbd2eef571f4cc3824ae0"},
+    {file = "posthog-7.76.0-py3-none-any.whl", hash = "sha256:45f8ac338059068fa13aabf942517916c0e46a890d08a4981338e330cfa9b2e5"},
+    {file = "posthog-7.76.0.tar.gz", hash = "sha256:649f1451ae808b1faf7c11cd38238d14c6092d8008a3cb9f33dc8fc16d119bf3"},
 ]
 
 [package.dependencies]
@@ -5803,4 +5803,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "5b110e6b9d69624819316e3092f2b8e86bcc67f5427fd5f17a37ba5edc2b82b0"
+content-hash = "f9a129d2999c318447affb3b2d293376f22da4c7e590e0f6166bf773018751bf"
