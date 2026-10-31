@@ -53,6 +53,7 @@ against `main`, test first, reviewed with torment-nexus and merged on green.
 | --- | --- | --- |
 | `conflicted_user_ids` misses a session that wholly contains the candidate | enrollment port property tests | in progress (branch `fix/enrollment-conflict-containment-and-duration-digits`) |
 | Duration parser accepts `isdigit()` characters `int()` rejects, so `²` becomes a 500 on import review | differential export of `pacts/durations.py` | same PR |
-| Promotion charges a pass for a waiter already seated in the event (documented open finding, reproduced by the port as an expected failure) | VERIFICATION.md open finding; `enrollment/` port | queued |
-| Offered/held seat passes the conflict check; two enrolls double-book; allowance race (documented open findings, each needs a locking design, not a local fix) | VERIFICATION.md; `enrollment/README.md` names the locks | not spun out: needs a design decision on row locking (see enrollment README) |
+| Promotion charges a pass for a waiter already seated in the event (documented open finding, reproduced by the port as an expected failure) | VERIFICATION.md open finding; `enrollment/` port | merged: #1644 |
+| Offered/held seat passes the conflict check; two enrolls double-book; allowance race (documented open findings) | VERIFICATION.md; `enrollment/README.md` | in progress: plan 021 (`plans/021-enrollment-row-locking.md`), branch `fix/enrollment-row-locking` |
+| `audit-deps` red on `main`: pyasn1 0.6.4 and follow-redirects 1.16.1 advisories | CI of the fix PRs | merged: #1645 |
 
