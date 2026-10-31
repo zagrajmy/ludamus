@@ -38,8 +38,10 @@ OPEN_MINUTES = 8 * 60
 def open_hours_event_fixture(sphere):
     # The shared fixture runs from UTC midnight to a second short of the next
     # one, which leaves its local clock window at a ragged 01:00-02:00. The
-    # grid is drawn from those hours, so pin them to whole local ones.
-    start = datetime(2026, 8, 6, 8, 0, tzinfo=UTC)  # 10:00 in Warsaw
+    # grid is drawn from those hours, so pin them to whole local ones. NOTE:
+    # the date stays in the future because waitlist promotion skips sessions
+    # that have already started.
+    start = datetime(2037, 8, 6, 8, 0, tzinfo=UTC)  # 10:00 in Warsaw
     return EventFactory(
         sphere=sphere,
         start_time=start,
