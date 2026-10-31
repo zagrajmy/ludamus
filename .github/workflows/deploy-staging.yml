@@ -33,7 +33,7 @@ jobs:
       sha: ${{ steps.resolve.outputs.sha }}
       should_deploy: ${{ steps.resolve.outputs.should_deploy }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -59,7 +59,7 @@ jobs:
     steps:
       # This job runs the helper scripts, not the deployed code, so the
       # workspace holds github.sha and there is no .workflow/ sleight of hand.
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
 
@@ -105,7 +105,7 @@ jobs:
       contents: read
       deployments: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
 
