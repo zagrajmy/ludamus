@@ -43,7 +43,7 @@
                 </section>
             {% endif %}
             <div class="px-6 pb-6 border-t border-border">
-                {% url 'web:event:session-propose-timeslots' event_slug=event.slug as back_url %}
+                {% url 'web:event:session-propose-days' event_slug=event.slug as back_url %}
                 {% include "event/propose/parts/_nav.html" %}
             </div>
         </form>

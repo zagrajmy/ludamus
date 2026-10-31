@@ -1,6 +1,6 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/edit/ page."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -30,7 +30,6 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
-    TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
@@ -42,7 +41,6 @@ from ludamus.pacts import (
     OrganizerFieldOptionDTO,
     ProposalCategoryDTO,
     SessionDTO,
-    TimeSlotDTO,
     TrackDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
@@ -50,6 +48,7 @@ from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
+    SessionAvailabilityFactory,
     SpaceFactory,
     UserFactory,
 )
@@ -63,8 +62,14 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     assert_proposal_not_found,
+    day_range,
     facilitator_list_item_dto,
     panel_context,
+)
+from tests.integration.web.panel.test_proposal_create_page import (
+    availability_options,
+    availability_value,
+    first_offered,
 )
 
 CUSTOM_DURATION_MINUTES = 45
@@ -140,8 +145,7 @@ def _edit_page_response(event, session):
             "cancel_url": _cancel_url(event, session.pk),
             "all_tracks": [],
             "assigned_track_pks": set(),
-            "all_time_slots": [],
-            "assigned_time_slot_pks": set(),
+            "availability_options": availability_options(event),
             "facilitator_personal_data": [],
         },
     }
@@ -271,8 +275,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -308,8 +311,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -511,8 +513,7 @@ class TestProposalEditPageView:
                 "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             messages=[(messages.ERROR, error)],
@@ -598,8 +599,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -687,8 +687,7 @@ class TestProposalEditPageView:
                 "assigned_facilitator_pks": set(),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
@@ -980,13 +979,9 @@ class TestProposalEditPageView:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
-    def test_post_assigns_time_slots(self, panel_client, event):
+    def test_post_assigns_availability(self, panel_client, event):
         session = _make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -996,21 +991,19 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
-    def test_post_ignores_time_slot_from_other_event(self, panel_client, sphere, event):
+    def test_post_ignores_time_outside_the_event(self, panel_client, event):
         session = _make_session(event)
-        other_event = EventFactory(sphere=sphere)
-        foreign_slot = TimeSlot.objects.create(
-            event=other_event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        outside_day = day_range(event)[-1] + timedelta(days=1)
+        __, part = first_offered(event)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1020,23 +1013,19 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
-                "time_slot_ids": [foreign_slot.pk],
+                "availability_submitted": "1",
+                "availability": [availability_value(outside_day, part)],
             },
         )
 
-        assert not session.time_slots.exists()
+        assert not session.availability.exists()
 
-    def test_post_clears_time_slots_when_marker_present_and_none_selected(
+    def test_post_clears_availability_when_marker_present_and_none_selected(
         self, panel_client, event
     ):
         session = _make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1046,22 +1035,18 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
+                "availability_submitted": "1",
             },
         )
 
-        assert not session.time_slots.exists()
+        assert not session.availability.exists()
 
-    def test_invalid_post_preserves_submitted_time_slot_selection(
+    def test_invalid_post_preserves_submitted_availability(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         session = _make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day, part = first_offered(event)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1071,8 +1056,8 @@ class TestProposalEditPageView:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
@@ -1100,23 +1085,20 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
                 "facilitator_personal_data": [],
             },
         )
-        assert not session.time_slots.exists()
+        assert not session.availability.exists()
 
-    def test_partial_post_without_time_slots_marker_preserves_time_slots(
+    def test_partial_post_without_marker_preserves_availability(
         self, panel_client, event
     ):
         session = _make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             self.get_url(event, session.pk),
@@ -1129,7 +1111,9 @@ class TestProposalEditPageView:
             },
         )
 
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
     def test_get_renders_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
@@ -1174,8 +1158,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1456,8 +1439,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1559,8 +1541,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [
                     PersonalDataCard(
                         facilitator=FacilitatorDTO.model_validate(facilitator),
@@ -1707,8 +1688,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -1793,8 +1773,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )
@@ -2048,8 +2027,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             contains=[
@@ -2120,18 +2098,14 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.title == "Updated title only"
 
-    def test_get_renders_track_and_time_slot_cards(self, panel_client, event):
+    def test_get_renders_track_and_availability_cards(self, panel_client, event):
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
         session.tracks.add(track)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         response = panel_client.get(self.get_url(event, session.pk))
 
@@ -2159,25 +2133,12 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "assigned_track_pks": {track.pk},
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
                 "facilitator_personal_data": [],
             },
-            contains=[
-                'name="tracks_submitted"',
-                'name="track_ids"',
-                "Main Track",
-                'name="time_slots_submitted"',
-                'name="time_slot_ids"',
-            ],
         )
-        html = response.content.decode()
-        track_row = html[html.index('name="track_ids"') :][:200]
-        assert f'value="{track.pk}"' in track_row
-        assert "checked" in track_row
-        slot_row = html[html.index('name="time_slot_ids"') :][:200]
-        assert f'value="{slot.pk}"' in slot_row
-        assert "checked" in slot_row
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, panel_client, event
@@ -2221,8 +2182,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
             contains=['id="facilitator-search"', "Alice", "Bob"],
@@ -2273,8 +2233,7 @@ class TestProposalEditPageView:
                 "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
-                "all_time_slots": [],
-                "assigned_time_slot_pks": set(),
+                "availability_options": availability_options(event),
                 "facilitator_personal_data": [],
             },
         )

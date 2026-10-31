@@ -63,9 +63,9 @@ def event_create_form(events: Sequence[EventDTO]) -> type[forms.Form]:
             ],
             initial=latest.pk,
             help_text=_(
-                "Copies its venues, tracks with their managers, time slots, session"
-                " and personal-data fields, categories, enrollment and discount"
-                " rules, and settings. Dates move with the new start, proposal"
+                "Copies its venues, tracks with their managers, session and"
+                " personal-data fields, categories, enrollment and discount rules,"
+                " and settings. Dates move with the new start, proposal"
                 " windows included. Sessions are not copied."
             ),
         )

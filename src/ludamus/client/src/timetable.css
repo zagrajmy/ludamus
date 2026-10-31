@@ -160,25 +160,8 @@
     min-height: max(20px, calc(var(--duration) * var(--minute-px)));
     left: calc(var(--lane-start) + 2px);
     width: calc(var(--lane-width) - 4px);
-    /* Over the assign-mode tint and closed hours (5, 6), so a booking left in
-       closed hours stays visible while assigning. */
+    /* Over the assign-mode tint (5). */
     z-index: 7;
-  }
-
-  /* Hours no time slot covers. Drawn before the sessions, so a booking left
-     there by an edited slot stays visible on top of it. */
-  .timetable-closed {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(var(--offset) * var(--minute-px) + 20px);
-    height: calc(var(--duration) * var(--minute-px));
-    background: repeating-linear-gradient(
-      -45deg,
-      color-mix(in oklch, var(--color-foreground-muted) 18%, transparent) 0 6px,
-      transparent 6px 12px
-    );
-    pointer-events: none;
   }
 
   .timetable-column.assign-mode-active {
@@ -196,13 +179,6 @@
 
   .timetable-column.assign-mode-active.room-too-small::after {
     background: color-mix(in oklch, var(--color-danger) 10%, transparent);
-  }
-
-  /* Lifted over the green while assigning, on an opaque base so closed hours
-     stay grey instead of reading as droppable. */
-  .timetable-column.assign-mode-active .timetable-closed {
-    background-color: var(--color-bg-secondary);
-    z-index: 6;
   }
 
   .timetable-hover-preview {
@@ -246,17 +222,13 @@
     --guide-tone: var(--color-danger);
   }
 
-  /* A preference, not a problem: an outline only, so it never reads as the
-     warning a filled amber band would. Drawn over the sessions, so a slot
-     already booked still shows its edges. */
-  .timetable-preferred-slot {
+  .timetable-offered {
     position: absolute;
-    left: 2px;
-    right: 2px;
-    border: 2px dashed rgba(202, 138, 4, 0.8);
-    border-radius: 4px;
+    left: 0;
+    right: 0;
+    background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+    border-block: 1px solid color-mix(in oklab, var(--color-primary) 40%, transparent);
     pointer-events: none;
-    z-index: 8;
   }
 
   .timetable-session:hover,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import date, datetime
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import urlencode
@@ -31,24 +30,18 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.availability import part_window
 from ludamus.pacts.chronology import (
     DateSelection,
     MultiselectOptionDTO,
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.durations import duration_minutes as duration_minutes_of
 from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
-
-
-def _parse_iso_duration_minutes(iso: str) -> int:
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso)):
-        return 60
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    return hours * 60 + minutes
 
 
 def timetable_tab_urls(slug: str) -> dict[str, str]:
@@ -94,6 +87,15 @@ def _as_pk(raw: str) -> int | None:
 
 
 _FACILITATOR_OPTION_LIMIT = 25
+
+
+_MAX_EXTEND_HOURS = 12
+
+
+def _extend_hours(query: QueryDict, key: str) -> int:
+    raw = query.get(key, "0")
+    value = int(raw) if raw.isdigit() else 0
+    return min(value, _MAX_EXTEND_HOURS)
 
 
 def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
@@ -231,6 +233,8 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
                 date_selection=date_selection,
                 space_pks=space_pks,
                 facilitator_pks=facilitator_pks,
+                extend_before_hours=_extend_hours(self.request.GET, "earlier"),
+                extend_after_hours=_extend_hours(self.request.GET, "later"),
             ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
@@ -413,16 +417,20 @@ class TimetableSessionDetailPartView(PanelAccessMixin, EventContextMixin, View):
 
         agenda_item = uow.agenda_items.read_by_session(pk)
         facilitators = uow.sessions.read_facilitators(pk)
-        time_slots = uow.sessions.read_preferred_time_slots(pk)
+        availability = uow.sessions.read_availability(pk)
 
-        duration_minutes = _parse_iso_duration_minutes(session.duration)
+        duration_minutes = duration_minutes_of(session.duration)
 
         back_url = _build_back_url(slug, self.request.GET)
 
-        time_slots_json = json.dumps(
+        # Parts have hours, so the drag hint can paint the real bands rather
+        # than outlining a whole day.
+        tz = get_current_timezone()
+        availability_json = json.dumps(
             [
-                {"start": s.start_time.isoformat(), "end": s.end_time.isoformat()}
-                for s in time_slots
+                {"start": window[0].isoformat(), "end": window[1].isoformat()}
+                for entry in availability
+                for window in (part_window(entry.day, entry.part, tz),)
             ]
         )
 
@@ -430,8 +438,8 @@ class TimetableSessionDetailPartView(PanelAccessMixin, EventContextMixin, View):
             "session": session,
             "agenda_item": agenda_item,
             "facilitators": facilitators,
-            "time_slots": time_slots,
-            "time_slots_json": time_slots_json,
+            "availability": availability,
+            "availability_json": availability_json,
             "duration_minutes": duration_minutes,
             "slug": slug,
             "event": current_event,
@@ -470,6 +478,8 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
                 date_selection=date_selection,
                 space_pks=_parse_pks(self.request.GET, "space"),
                 facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
+                extend_before_hours=_extend_hours(self.request.GET, "earlier"),
+                extend_after_hours=_extend_hours(self.request.GET, "later"),
             ),
         )
 
@@ -617,7 +627,9 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
             event_pk=current_event.pk, tz=get_current_timezone()
         )
         context["track_progress"] = overview.track_progress(current_event.pk)
-        context["capacity_hours"] = overview.capacity_hours(current_event.pk)
+        context["capacity_hours"] = overview.capacity_hours(
+            event_pk=current_event.pk, tz=get_current_timezone()
+        )
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "overview"
@@ -639,14 +651,14 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         conflict_service = self.request.services.timetable_conflicts
         overview = self.request.services.timetable_overview
         all_conflicts = overview.get_all_conflicts(current_event.pk)
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=None
+        time_violations = conflict_service.list_offered_time_violations(
+            event_pk=current_event.pk, track_pk=None, tz=get_current_timezone()
         )
 
         context["conflicts_grouped"] = overview.all_conflicts_grouped(
             current_event.pk, conflicts=all_conflicts
         )
-        context["slot_violations"] = slot_violations
+        context["time_violations"] = time_violations
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "problems"
