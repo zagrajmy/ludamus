@@ -3282,7 +3282,14 @@ class TestImportRowSavePostHelpers:
 
     @pytest.mark.parametrize(
         ("hours", "minutes"),
-        (("99", "30"), ("-5", "30"), ("1", "abc"), ("9" * 4301, "30")),
+        (
+            ("99", "30"),
+            ("-5", "30"),
+            ("1", "abc"),
+            ("9" * 4301, "30"),
+            ("²", "30"),
+            ("1", "\u0661\u0660"),
+        ),
     )
     def test_post_rejects_duration_the_steppers_would_not_allow(
         self, panel_client, event, connection_with_secret, hours, minutes

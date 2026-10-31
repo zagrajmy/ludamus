@@ -1,13 +1,23 @@
+import string
+import sys
+
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
     InvalidDurationError,
     build_duration,
     format_duration,
     normalize_duration,
     parse_duration,
     parse_duration_part,
+)
+
+_ISDIGIT_TRUE = tuple(
+    char for code in range(sys.maxunicode + 1) if (char := chr(code)).isdigit()
 )
 
 
@@ -25,6 +35,41 @@ class TestParseDurationPart:
     def test_overlong_digit_string_is_rejected(self) -> None:
         with pytest.raises(InvalidDurationError):
             parse_duration_part("1" * 20, maximum=MAX_DURATION_HOURS)
+
+    # `str.isdigit` is true for all of these; `int` also reads the Arabic-Indic.
+    @pytest.mark.parametrize("raw", ("²", "1²", "³", "\u0661", "\u0661\u0662"))
+    def test_a_digit_outside_ascii_is_refused(self, raw: str) -> None:
+        with pytest.raises(InvalidDurationError):
+            parse_duration_part(raw, maximum=MAX_DURATION_HOURS)
+
+    @pytest.mark.parametrize(
+        ("raw", "maximum", "expected"),
+        (
+            (" 23 ", MAX_DURATION_HOURS, MAX_DURATION_HOURS),
+            ("07", MAX_DURATION_MINUTES, 7),
+            ("", MAX_DURATION_MINUTES, 0),
+        ),
+    )
+    def test_ascii_digits_are_read(self, raw: str, maximum: int, expected: int) -> None:
+        assert parse_duration_part(raw, maximum=maximum) == expected
+
+    @given(
+        raw=st.text(
+            alphabet=st.sampled_from(_ISDIGIT_TRUE)
+            | st.sampled_from(string.digits + " "),
+            max_size=3,
+        ),
+        maximum=st.sampled_from((MAX_DURATION_HOURS, MAX_DURATION_MINUTES)),
+    )
+    def test_a_part_is_ascii_digits_in_range_or_refused(
+        self, raw: str, maximum: int
+    ) -> None:
+        try:
+            part = parse_duration_part(raw, maximum=maximum)
+        except InvalidDurationError:
+            return
+        assert raw.strip().isascii()
+        assert 0 <= part <= maximum
 
 
 class TestBuildDuration:

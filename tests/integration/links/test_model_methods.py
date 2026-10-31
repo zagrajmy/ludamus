@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -195,6 +195,33 @@ class TestAgendaItem:
                 )
             )
             == f"{title} by {name} (True)"
+        )
+
+    @pytest.mark.parametrize(
+        ("start_hour", "end_hour", "overlaps"),
+        (
+            pytest.param(9, 13, True, id="contains"),
+            pytest.param(10.5, 11.5, True, id="inside"),
+            pytest.param(9, 11, True, id="ends-inside"),
+            pytest.param(11, 13, True, id="starts-inside"),
+            pytest.param(10, 12, True, id="same-window"),
+            pytest.param(8, 10, False, id="ends-as-it-starts"),
+            pytest.param(12, 14, False, id="starts-as-it-ends"),
+        ),
+    )
+    def test_overlaps_with_agrees_from_either_side(
+        self, *, start_hour: float, end_hour: float, overlaps: bool
+    ):
+        ten = datetime(2026, 6, 1, 10, tzinfo=UTC)
+        item = AgendaItem(start_time=ten, end_time=ten + timedelta(hours=2))
+        other = AgendaItem(
+            start_time=ten + timedelta(hours=start_hour - 10),
+            end_time=ten + timedelta(hours=end_hour - 10),
+        )
+
+        assert (item.overlaps_with(other), other.overlaps_with(item)) == (
+            overlaps,
+            overlaps,
         )
 
 
