@@ -49,6 +49,7 @@ from ludamus.pacts.tags import (
     TAG_SLUG_MAX_LENGTH,
 )
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
+from ludamus.pacts.windows import windows_overlap
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -1507,8 +1508,10 @@ class AgendaItem(models.Model):
             and other_item.end_time
             and self.start_time
             and self.end_time
-            and other_item.start_time < self.end_time
-            and self.start_time < other_item.end_time
+            and windows_overlap(
+                (self.start_time, self.end_time),
+                (other_item.start_time, other_item.end_time),
+            )
         )
 
 

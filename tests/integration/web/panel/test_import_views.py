@@ -1184,8 +1184,9 @@ class TestEventImportRowSaveView:
             messages=[(messages.SUCCESS, "Question saved.")],
         )
 
+    @pytest.mark.parametrize("index", ("abc", "²"))
     def test_post_with_invalid_index_redirects_with_error(
-        self, panel_client, event, connection_with_secret
+        self, panel_client, event, connection_with_secret, index
     ):
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
@@ -1194,7 +1195,11 @@ class TestEventImportRowSaveView:
 
         response = panel_client.post(
             _row_save_url(event, integration),
-            data={"index": "abc", "target_0": "session.title"},
+            data={
+                "index": index,
+                f"question_{index}": "Title",
+                "target_0": "session.title",
+            },
         )
 
         assert_response(

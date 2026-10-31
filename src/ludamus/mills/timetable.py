@@ -11,7 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import Window, slot_windows_by_local_date
+from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -53,6 +53,7 @@ from ludamus.pacts.timetable import (
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
 )
+from ludamus.pacts.windows import Window, windows_overlap
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -703,7 +704,7 @@ def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, dateti
 
 
 def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
-    return b.start_time < a.end_time and b.end_time > a.start_time
+    return windows_overlap((a.start_time, a.end_time), (b.start_time, b.end_time))
 
 
 class _EventConflictContext(NamedTuple):

@@ -702,7 +702,7 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import", slug=slug)
         raw_index = (self.request.POST.get("index") or "").strip()
         question = self.request.POST.get(f"question_{raw_index}") if raw_index else None
-        if not raw_index.isdigit() or not question:
+        if not (raw_index.isascii() and raw_index.isdigit()) or not question:
             messages.error(self.request, _("Invalid row submission."))
             return redirect("panel:import-review", slug=slug, pk=active.pk)
         index = int(raw_index)

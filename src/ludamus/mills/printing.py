@@ -37,6 +37,7 @@ from ludamus.pacts.printing import (
     PrintTimetableRowDTO,
     PrintTimetableTileDTO,
 )
+from ludamus.pacts.windows import windows_overlap
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -54,6 +55,7 @@ if TYPE_CHECKING:
         PrintablesReminderRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.windows import Window
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4
@@ -70,8 +72,8 @@ def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
     return PrintSessionDTO(title=item.session_title, presenter_name=item.presenter_name)
 
 
-def _overlaps(item: AgendaItemDTO, start: datetime, end: datetime) -> bool:
-    return item.start_time < end and item.end_time > start
+def _overlaps(item: AgendaItemDTO, time_range: Window) -> bool:
+    return windows_overlap((item.start_time, item.end_time), time_range)
 
 
 def _entry_start(entry: DoorCardEntryDTO) -> datetime:
@@ -198,7 +200,7 @@ class PrintMaterialsService:
         )
         items = self._agenda_items.list_by_event(query.event_pk, public_only=True)
         if query.time_range is not None:
-            items = [item for item in items if _overlaps(item, *query.time_range)]
+            items = [item for item in items if _overlaps(item, query.time_range)]
         items_by_space = self._group_by_space(items)
 
         cards: list[DoorCardDTO] = []
@@ -253,7 +255,7 @@ class PrintMaterialsService:
         )
         if query.time_range is not None:
             all_items = [
-                item for item in all_items if _overlaps(item, *query.time_range)
+                item for item in all_items if _overlaps(item, query.time_range)
             ]
         # One sheet per day and space chunk that holds anything.
         space_pks = {space.pk for space in spaces}
@@ -294,7 +296,7 @@ class PrintMaterialsService:
             else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
-            items = [item for item in items if _overlaps(item, *query.time_range)]
+            items = [item for item in items if _overlaps(item, query.time_range)]
         grouped = self._group_by_space(items)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []

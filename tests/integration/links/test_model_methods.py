@@ -39,7 +39,8 @@ from ludamus.links.db.django.models import (
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 
 _MIDNIGHT = datetime(2026, 6, 1, tzinfo=UTC)
-# Each other window against a 10:00-12:00 one; intervals are half-open.
+_CANDIDATE_START, _CANDIDATE_END = 10, 12
+# NOTE: windows are half-open, so touching ends do not overlap.
 _WINDOWS = (
     pytest.param(9, 13, True, id="contains"),
     pytest.param(10.5, 11.5, True, id="inside"),
@@ -218,7 +219,9 @@ class TestAgendaItem:
     def test_overlaps_with_agrees_from_either_side(
         self, *, start_hour: float, end_hour: float, overlaps: bool
     ):
-        item = AgendaItem(start_time=_at(10), end_time=_at(12))
+        item = AgendaItem(
+            start_time=_at(_CANDIDATE_START), end_time=_at(_CANDIDATE_END)
+        )
         other = AgendaItem(start_time=_at(start_hour), end_time=_at(end_hour))
 
         assert (item.overlaps_with(other), other.overlaps_with(item)) == (
@@ -240,7 +243,9 @@ class TestSessionManagerConflictedUserIds:
     def test_a_confirmed_seat_conflicts_exactly_when_the_windows_overlap(
         self, event, *, start_hour: float, end_hour: float, conflicts: bool
     ):
-        candidate = self._scheduled(event, start_hour=10, end_hour=12)
+        candidate = self._scheduled(
+            event, start_hour=_CANDIDATE_START, end_hour=_CANDIDATE_END
+        )
         other = self._scheduled(event, start_hour=start_hour, end_hour=end_hour)
         user = UserFactory()
         SessionParticipation.objects.create(
@@ -252,7 +257,9 @@ class TestSessionManagerConflictedUserIds:
         assert result == ({user.pk} if conflicts else set())
 
     def test_only_confirmed_seats_of_the_asked_users_conflict(self, event):
-        candidate = self._scheduled(event, start_hour=10, end_hour=12)
+        candidate = self._scheduled(
+            event, start_hour=_CANDIDATE_START, end_hour=_CANDIDATE_END
+        )
         containing = self._scheduled(event, start_hour=9, end_hour=13)
         seated, waiting, unasked = UserFactory(), UserFactory(), UserFactory()
         for user, status in (

@@ -18,8 +18,7 @@ from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 
 if TYPE_CHECKING:
     from ludamus.pacts import TimeSlotDTO
-
-type Window = tuple[datetime, datetime]
+    from ludamus.pacts.windows import Window
 
 
 @dataclass(frozen=True)
