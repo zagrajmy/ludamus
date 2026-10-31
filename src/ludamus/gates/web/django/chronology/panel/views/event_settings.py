@@ -20,12 +20,15 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
-from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import EventVisibility
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.pacts.legacy import EventDTO
 
 
 def _override_to_choice(*, value: bool | None) -> str:
@@ -68,6 +71,15 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
     return data
 
 
+def _stored_images(event: EventDTO) -> dict[str, StoredFile | None]:
+    return {
+        "cover_image": stored_file(
+            event.cover_image_url, event.cover_image_original_name
+        ),
+        "logo": stored_file(event.logo_url, event.logo_original_name),
+    }
+
+
 class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Event settings page view."""
 
@@ -103,13 +115,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "slug": current_event.slug,
                 "description": current_event.description,
                 "address": current_event.address,
-                "cover_image": stored_file(
-                    current_event.cover_image_url,
-                    current_event.cover_image_original_name,
-                ),
-                "logo": stored_file(
-                    current_event.logo_url, current_event.logo_original_name
-                ),
+                **_stored_images(current_event),
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (
@@ -138,7 +144,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        form = EventSettingsForm(self.request.POST, self.request.FILES)
+        form = EventSettingsForm(
+            self.request.POST, self.request.FILES, initial=_stored_images(current_event)
+        )
         if not form.is_valid():
             return self._render_with_form(context=context, slug=slug, form=form)
 
@@ -152,8 +160,16 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 data=_event_update_data(cd, new_slug),
             )
         except EventSlugTakenError:
-            messages.error(self.request, _("An event with this slug already exists."))
-            return redirect("panel:event-settings", slug=slug)
+            form.add_error("slug", _("An event with this slug already exists."))
+            return self._render_with_form(context=context, slug=slug, form=form)
+        except EventDatesInvalidError:
+            form.add_error("end_time", _("End time must be after start time."))
+            return self._render_with_form(context=context, slug=slug, form=form)
+        except EventPublicationInvalidError:
+            form.add_error(
+                "publication_time", _("Publication time must not be after start time.")
+            )
+            return self._render_with_form(context=context, slug=slug, form=form)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")

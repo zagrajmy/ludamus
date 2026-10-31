@@ -1407,6 +1407,16 @@ msgid "An event with this slug already exists."
 msgstr "Wydarzenie o tym slugu już istnieje."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/event/panel/views/event_create.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Publication time must not be after start time."
+msgstr "Czas publikacji nie może być późniejszy niż czas rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Event settings saved successfully."
 msgstr "Ustawienia wydarzenia zostały zapisane."
 
@@ -2739,6 +2749,7 @@ msgid "Event name is required."
 msgstr "Nazwa wydarzenia jest wymagana."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2750,11 +2761,13 @@ msgid "Part of the event's address. Leave empty to derive it from the name."
 msgstr "Część adresu wydarzenia. Zostaw puste, żeby utworzyć go z nazwy."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Start time"
 msgstr "Czas rozpoczęcia"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "End time"
 msgstr "Czas zakończenia"
@@ -2923,11 +2936,6 @@ msgstr "Usunięto okno zapisów."
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Another event in this sphere uses this slug."
 msgstr "Inne wydarzenie w tej sferze ma już ten slug."
-
-#: src/ludamus/gates/web/django/event/panel/views/event_create.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "End time must be after start time."
-msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Pick an event from this sphere."
@@ -3282,6 +3290,10 @@ msgid ""
 msgstr ""
 "Wyświetlone w harmonogramie do druku. Maks. 8 MB. JPG, PNG, WebP, AVIF lub "
 "SVG."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "URL identifier for this event. Must be unique."
+msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event slug is required."
@@ -10287,12 +10299,10 @@ msgid "End Date"
 msgstr "Data końcowa"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
-#: src/ludamus/templates/panel/settings.html
 msgid "Start Time"
 msgstr "Czas rozpoczęcia"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
-#: src/ludamus/templates/panel/settings.html
 msgid "End Time"
 msgstr "Czas zakończenia"
 
@@ -12917,14 +12927,6 @@ msgid "Event Name"
 msgstr "Nazwa wydarzenia"
 
 #: src/ludamus/templates/panel/settings.html
-msgid "URL Slug"
-msgstr "Slug URL"
-
-#: src/ludamus/templates/panel/settings.html
-msgid "URL identifier for this event. Must be unique."
-msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
-
-#: src/ludamus/templates/panel/settings.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Visibility"
 msgstr "Widoczność"
@@ -13507,6 +13509,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "URL Slug"
+#~ msgstr "Slug URL"
 
 #~ msgid "Markdown supported."
 #~ msgstr "Obsługuje Markdown."
