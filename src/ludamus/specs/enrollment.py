@@ -61,11 +61,20 @@ def _initial_slots_by_owner(waiting: list[WaitingParticipantDTO]) -> dict[int, i
     return slots_by_owner
 
 
+def _slots_spent(members: list[WaitingParticipantDTO]) -> Counter[int]:
+    # A pass covers one distinct person per event, so a member already seated
+    # elsewhere in it is counted in the owner's allowance and costs nothing.
+    # Every owner keeps an entry, zero included: an overdrawn owner fits nobody.
+    spent = Counter(dict.fromkeys((p.recipient_user_id for p in members), 0))
+    spent.update(p.recipient_user_id for p in members if not p.holds_event_seat)
+    return spent
+
+
 def _membership_slot_action(
     eligible: list[WaitingParticipantDTO], slots_by_owner: dict[int, int]
 ) -> Literal["skip", "stop"] | None:
     # None when every member fits their owner's remaining membership slots.
-    slots_needed = Counter(p.recipient_user_id for p in eligible)
+    slots_needed = _slots_spent(eligible)
     shortfall = [
         owner
         for owner, needed in slots_needed.items()
@@ -112,7 +121,7 @@ def select_promotable_parties(
             break
         selected.append(eligible)
         seats_remaining -= len(eligible)
-        for owner, count in Counter(p.recipient_user_id for p in eligible).items():
+        for owner, count in _slots_spent(eligible).items():
             slots_by_owner[owner] -= count
 
     return selected

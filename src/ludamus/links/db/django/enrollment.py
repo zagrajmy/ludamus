@@ -166,8 +166,10 @@ class ParticipationPromotionRepository:
             .order_by("creation_time")
         )
         sponsors = sponsors_by_member(p.user for p in participations)
-        conflicted = Session.objects.conflicted_user_ids(
-            session, [p.user_id for p in participations]
+        waiter_ids = [p.user_id for p in participations]
+        conflicted = Session.objects.conflicted_user_ids(session, waiter_ids)
+        seated = EnrollmentParticipationRepository.occupying_user_ids(
+            user_ids=waiter_ids, event_id=event.pk
         )
         recipients = {
             p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
@@ -197,6 +199,7 @@ class ParticipationPromotionRepository:
                     creation_time=participation.creation_time,
                     has_conflict=participation.user_id in conflicted,
                     owner_slots_remaining=slots_by_owner[recipient.pk],
+                    holds_event_seat=user.pk in seated,
                     recipient_user_id=recipient.pk,
                 )
             )
@@ -274,7 +277,10 @@ class ParticipationPromotionRepository:
                 user_ids=[member.pk for member in members], event_id=event_dto.pk
             )
         )
-        return max(0, allowed - used)
+        # NOTE: unclamped. A household seated past its passes (a race, or passes
+        # withdrawn) must read as overdrawn, or a waiter already counted in
+        # `used` would pass where `can_enroll_users` refuses them.
+        return allowed - used
 
     @staticmethod
     def confirm(participation_ids: list[int]) -> None:
