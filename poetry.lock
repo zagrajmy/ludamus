@@ -5301,6 +5301,25 @@ anyio = ">=4.0.0,<5"
 full = ["httpx (>=0.27.0,<0.29.0)", "httpx2 (>=2.0.0)", "itsdangerous", "jinja2", "opentelemetry-api", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
+name = "stripe"
+version = "16.0.1"
+description = "Python bindings for the Stripe API"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "stripe-16.0.1-py3-none-any.whl", hash = "sha256:f87d6aaf6d20c9e788c8532d23511eb42be4602e48cf4f425327e96ccb7e4f00"},
+    {file = "stripe-16.0.1.tar.gz", hash = "sha256:44f20abd85c5cdac1d019c290b2fa055db2b6f4890f7f3b2daa493eb48c9a0d2"},
+]
+
+[package.dependencies]
+requests = ">=2.20"
+typing_extensions = ">=4.7.0"
+
+[package.extras]
+async = ["httpx"]
+
+[[package]]
 name = "taplo"
 version = "0.9.3"
 description = "A CLI for Taplo TOML toolkit"
@@ -5803,4 +5822,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "5b110e6b9d69624819316e3092f2b8e86bcc67f5427fd5f17a37ba5edc2b82b0"
+content-hash = "3d1fb1c0338fbe29c5befacfff2948da30da0143fcc88de15b736c3c89d072fe"

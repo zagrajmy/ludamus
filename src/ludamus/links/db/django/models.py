@@ -26,6 +26,7 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     SessionStatus,
 )
+from ludamus.pacts.billing import STANDARD_TICKET_FEE_BPS, PlanSource
 from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy
@@ -49,6 +50,16 @@ from ludamus.pacts.tags import (
     TAG_SLUG_MAX_LENGTH,
 )
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
+from ludamus.pacts.tickets import (
+    DEFAULT_CURRENCY,
+    GUEST_CLIENT_LENGTH,
+    MAX_TICKET_PRICE,
+    MIN_TICKET_PRICE,
+    ORDER_REFERENCE_MAX_LENGTH,
+    TICKET_TYPE_DESCRIPTION_MAX_LENGTH,
+    TICKET_TYPE_NAME_MAX_LENGTH,
+    OrderStatus,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -2407,3 +2418,215 @@ class ImportLogEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.integration_id}/{self.row_index} {self.status}"
+
+
+class SpherePlan(models.Model):
+    """A sphere's deal with Zagrajmy; no row, or no terms on it, is no deal.
+
+    The money (ticket fee, fixed price) and the Technical Partner help are
+    agreed separately: any mix of them is a deal a maintainer can record.
+    """
+
+    sphere = models.OneToOneField(Sphere, on_delete=models.CASCADE, related_name="plan")
+    technical_partner = models.BooleanField(default=False)
+    # Basis points; null: the standard rate.
+    ticket_fee_bps = models.PositiveSmallIntegerField(blank=True, null=True)
+    # Minor units (grosze) a year; null: no fixed price.
+    yearly_price = models.PositiveIntegerField(blank=True, null=True)
+    # A maintainer records a deal paid by bank transfer as MANUAL; Stripe
+    # webhooks then leave its dates alone.
+    source = models.CharField(
+        max_length=20,
+        choices=[(s.value, s.name.title()) for s in PlanSource],
+        default=PlanSource.MANUAL,
+    )
+    # The deal holds until then; null: until someone ends it.
+    paid_until = models.DateTimeField(blank=True, null=True)
+    stripe_customer_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
+    stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sphere_plan"
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(ticket_fee_bps__isnull=True)
+                | Q(ticket_fee_bps__lte=STANDARD_TICKET_FEE_BPS),
+                name="sphere_plan_fee_at_most_standard",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.sphere} plan"
+
+
+class PayoutAccount(models.Model):
+    """The sphere's connected Stripe account, where ticket money lands."""
+
+    sphere = models.OneToOneField(
+        Sphere, on_delete=models.CASCADE, related_name="payout_account"
+    )
+    stripe_account_id = models.CharField(max_length=255, unique=True)
+    details_submitted = models.BooleanField(default=False)
+    charges_enabled = models.BooleanField(default=False)
+    payouts_enabled = models.BooleanField(default=False)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "payout_account"
+
+    def __str__(self) -> str:
+        return self.stripe_account_id
+
+
+class TicketType(models.Model):
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="ticket_types"
+    )
+    name = models.CharField(max_length=TICKET_TYPE_NAME_MAX_LENGTH)
+    description = models.TextField(
+        max_length=TICKET_TYPE_DESCRIPTION_MAX_LENGTH, blank=True, default=""
+    )
+    # Minor units (grosze).
+    price = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default=DEFAULT_CURRENCY)
+    # Null: no cap of its own.
+    quantity = models.PositiveIntegerField(blank=True, null=True)
+    sales_start = models.DateTimeField(blank=True, null=True)
+    sales_end = models.DateTimeField(blank=True, null=True)
+    # Archived, never deleted, once sold: order lines point here.
+    is_archived = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ticket_type"
+        ordering = ("order", "pk")
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(price__gte=MIN_TICKET_PRICE, price__lte=MAX_TICKET_PRICE),
+                name="ticket_type_price_chargeable",
+            ),
+            models.CheckConstraint(
+                condition=Q(sales_start__isnull=True)
+                | Q(sales_end__isnull=True)
+                | Q(sales_start__lt=F("sales_end")),
+                name="ticket_type_sales_window_ordered",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class TicketOrder(models.Model):
+    # PROTECT: an event that took money keeps its records; deleting it in the
+    # admin fails instead of erasing who paid for what.
+    event = models.ForeignKey(
+        Event, on_delete=models.PROTECT, related_name="ticket_orders"
+    )
+    buyer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ticket_orders",
+    )
+    # The order page's address: whoever has it sees the order, until the
+    # order is claimed into an account.
+    reference = models.CharField(max_length=ORDER_REFERENCE_MAX_LENGTH, unique=True)
+    # Empty while a guest is still in Checkout: Stripe asks them for it.
+    email = models.EmailField(blank=True, default="")
+    # NOTE: a guest's network, keyed, never the address itself; kept only
+    # while the order holds seats, to limit how many one network holds.
+    guest_client = models.CharField(
+        max_length=GUEST_CLIENT_LENGTH, blank=True, default=""
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[(s.value, s.name.title()) for s in OrderStatus],
+        default=OrderStatus.PENDING,
+    )
+    currency = models.CharField(max_length=3)
+    total = models.PositiveIntegerField()
+    platform_fee = models.PositiveIntegerField()
+    # Snapshot: the account the money went to, even if the sphere reconnects.
+    stripe_account_id = models.CharField(max_length=255)
+    stripe_checkout_session_id = models.CharField(
+        max_length=255, blank=True, default=""
+    )
+    stripe_payment_intent_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
+    hold_until = models.DateTimeField()
+    paid_at = models.DateTimeField(blank=True, null=True)
+    refunded_at = models.DateTimeField(blank=True, null=True)
+    # When a claim confirmation last went to `email` (`CLAIM_MAIL_INTERVAL`).
+    claim_mailed_at = models.DateTimeField(blank=True, null=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ticket_order"
+        ordering = ("-creation_time", "-pk")
+        indexes = (
+            models.Index(fields=("event", "status"), name="ticket_order_event_idx"),
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=("stripe_checkout_session_id",),
+                condition=~Q(stripe_checkout_session_id=""),
+                name="ticket_order_unique_checkout_session",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"#{self.pk} {self.email} {self.status}"
+
+
+class TicketOrderLine(models.Model):
+    order = models.ForeignKey(
+        TicketOrder, on_delete=models.CASCADE, related_name="lines"
+    )
+    ticket_type = models.ForeignKey(
+        TicketType, on_delete=models.PROTECT, related_name="order_lines"
+    )
+    quantity = models.PositiveSmallIntegerField()
+    unit_price = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = "ticket_order_line"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("order", "ticket_type"), name="ticket_order_line_unique_type"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.quantity} x {self.ticket_type}"
+
+
+class Ticket(models.Model):
+    order = models.ForeignKey(
+        TicketOrder, on_delete=models.CASCADE, related_name="tickets"
+    )
+    ticket_type = models.ForeignKey(
+        TicketType, on_delete=models.PROTECT, related_name="tickets"
+    )
+    holder = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="tickets"
+    )
+    # Admits its holder while the order is paid; a refund ends that.
+    code = models.CharField(max_length=16, unique=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ticket"
+        ordering = ("pk",)
+
+    def __str__(self) -> str:
+        return self.code

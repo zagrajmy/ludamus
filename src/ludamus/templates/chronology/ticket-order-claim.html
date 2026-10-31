@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Add tickets to your account" %} • {{ event.name }}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    <div class="max-w-2xl mx-auto space-y-6">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-foreground">{% translate "Add tickets to your account" %}</h1>
+            <p class="mt-1 text-foreground-muted">
+                <a href="{% url 'web:chronology:event' slug=event.slug %}"
+                   class="underline decoration-dotted underline-offset-4 hover:decoration-solid">{{ event.name }}</a>
+            </p>
+        </div>
+        <p class="text-foreground">
+            {% blocktranslate trimmed with account=current_user.name|default:current_user.username %}
+                The tickets will move to {{ account }}: they'll be under My tickets, and their order link stops working for anyone else.
+            {% endblocktranslate %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            {% translate "Add to my account" as claim_label %}
+            {% tessera_button claim_label icon="ticket" %}
+        </form>
+    </div>
+{% endblock body %}

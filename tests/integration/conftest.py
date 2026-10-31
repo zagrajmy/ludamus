@@ -4,6 +4,7 @@ from secrets import token_urlsafe
 from unittest.mock import MagicMock
 
 import pytest
+import responses
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
@@ -38,6 +39,8 @@ from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
+from tests.integration.stripe_helpers import BILLING_SECRET as STRIPE_BILLING_SECRET
+from tests.integration.stripe_helpers import CONNECT_SECRET as STRIPE_CONNECT_SECRET
 from tests.template_checks import MissingTemplateVariableFilter
 
 User = get_user_model()
@@ -603,3 +606,17 @@ def _no_posthog_client(monkeypatch):
     # Setup only: a test that monkeypatches client() has not had that patch
     # undone yet at teardown, and cache_clear does not exist on the stand-in.
     reporting.client.cache_clear()
+
+
+@pytest.fixture(name="stripe_settings")
+def stripe_settings_fixture(settings):
+    settings.STRIPE_SECRET_KEY = "sk_test_ludamus"
+    settings.STRIPE_CONNECT_WEBHOOK_SECRET = STRIPE_CONNECT_SECRET
+    settings.STRIPE_BILLING_WEBHOOK_SECRET = STRIPE_BILLING_SECRET
+    return settings
+
+
+@pytest.fixture(name="stripe_api")
+def stripe_api_fixture():
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as mock:
+        yield mock

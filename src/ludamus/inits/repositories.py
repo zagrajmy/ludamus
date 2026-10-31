@@ -2,6 +2,7 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.billing import SpherePlanRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.crowd import (
@@ -34,6 +35,11 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
 from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
+from ludamus.links.db.django.tickets import (
+    PayoutAccountRepository,
+    TicketOrderRepository,
+    TicketTypeRepository,
+)
 from ludamus.pacts.crowd import UserType
 
 
@@ -274,3 +280,19 @@ class Repositories:
     @cached_property
     def encounter_invitees(self) -> EncounterInviteeRepository:
         return EncounterInviteeRepository()
+
+    @cached_property
+    def ticket_types(self) -> TicketTypeRepository:
+        return TicketTypeRepository()
+
+    @cached_property
+    def ticket_orders(self) -> TicketOrderRepository:
+        return TicketOrderRepository()
+
+    @cached_property
+    def payout_accounts(self) -> PayoutAccountRepository:
+        return PayoutAccountRepository()
+
+    @cached_property
+    def sphere_plans(self) -> SpherePlanRepository:
+        return SpherePlanRepository()

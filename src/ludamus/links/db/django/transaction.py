@@ -22,6 +22,10 @@ class DjangoTransaction:
         return transaction.atomic()
 
     @staticmethod
+    def durable() -> AbstractContextManager[None]:
+        return transaction.atomic(durable=True)
+
+    @staticmethod
     @contextmanager
     def savepoint() -> Generator[None]:
         # A nested savepoint: a constraint/data violation rolls back only this

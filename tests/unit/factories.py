@@ -22,6 +22,10 @@ class FakeTransaction:
         return nullcontext()
 
     @staticmethod
+    def durable() -> AbstractContextManager[None]:
+        return nullcontext()
+
+    @staticmethod
     def savepoint() -> AbstractContextManager[None]:
         return nullcontext()
 

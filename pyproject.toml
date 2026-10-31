@@ -49,6 +49,7 @@ segno = "~1.6.6"
 unidecode = "~1.4.0"
 urllib3 = "~2.8.0"
 whitenoise = "~6.12.0"
+stripe = "~16.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -561,9 +562,11 @@ ignore_names = [
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
+    "awaiting_stripe",
     "button_class",
     "cloud_overflow",
     "date_leaf",
+    "estimated_net",
     "filter_categories",
     "has_guests",
     "has_secret",
@@ -577,6 +580,7 @@ ignore_names = [
     "location_crumbs",
     "location_label",
     "marks_now",
+    "on_sale",
     "opens_slot",
     "overflow_count",
     "panel_id",
@@ -588,6 +592,7 @@ ignore_names = [
     "slot_key",
     "span",
     "spots_scarce",
+    "subtotal",
     "unassigned_count",
     "unread_count",
     "user_bookmarked",
