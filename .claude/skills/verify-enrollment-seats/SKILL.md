@@ -86,13 +86,6 @@ bugs exist.
    takes any lock, and each request then locks a different session, so both
    read {owner} and see 2 <= 2. This finding comes from the model.
 
-A related single-request bug lives outside the models: promotion charges a pass
-for a waiter who already holds a seat in the event (`_slots_remaining`), so a
-one-pass holder seated anywhere is never promoted. Hypothesis found and shrank
-it on the real database in
-`tests/integration/web/chronology/test_promotion_allowance_properties.py`,
-which is a strict xfail until it is fixed.
-
 The fix for finding 2 is to count OFFERED rows in the conflict check, or to
 recheck conflicts in `_claim`. Finding 1 needs a lock that every session the
 person could clash with shares. One option is `select_for_update` on the
@@ -211,8 +204,10 @@ connections. Do not change product code unless the user asks.
   always free. The findings show that a path exists. They are not a search,
   so other paths to the same bug may exist.
 - The allowance model has one owner, two companions and two requests, and
-  covers the enroll gate; promotion's own allowance read
-  (`owner_slots_remaining`) has the same shape but is not modelled.
+  covers the enroll gate. Promotion applies the same rule
+  (`owner_slots_remaining` less the waiters without `holds_event_seat`) but is
+  not modelled; `test_promotion_allowance_properties.py` checks on the real
+  database that it admits exactly whom the gate admits.
 - Left out: parties and the whole-party rule; guests as separate people;
   enrollment windows; presenter and shadowban skips; offer deadlines;
   notifications.
