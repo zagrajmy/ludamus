@@ -41,6 +41,7 @@ def _state(waiting, *, seats=1, presenter_id=None):
         session_id=1,
         session_title="S",
         event_slug="ev",
+        start_time=_BASE + timedelta(days=7),
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=presenter_id,

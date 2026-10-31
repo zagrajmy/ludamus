@@ -43,17 +43,7 @@
                                                required>
                                     </div>
                                     {% tessera_field form.cover_image %}
-                                    <div>
-                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_slug">{% translate "URL Slug" %}</label>
-                                        <input type="text"
-                                               name="slug"
-                                               id="id_slug"
-                                               value="{{ form.slug.value|default:'' }}"
-                                               class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                               required>
-                                        <p class="mt-1 text-sm text-foreground-muted">{% translate "URL identifier for this event. Must be unique." %}</p>
-                                    </div>
+                                    {% tessera_field form.slug %}
                                     {% tessera_field form.description %}
                                     {% tessera_field form.address %}
                                     {% tessera_field form.logo %}
@@ -75,16 +65,8 @@
                             <div class="card-body">
                                 <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Event Dates" %}</h3>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div>
-                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_start_time">{% translate "Start Time" %}</label>
-                                        {{ form.start_time }}
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_end_time">{% translate "End Time" %}</label>
-                                        {{ form.end_time }}
-                                    </div>
+                                    {% tessera_field form.start_time %}
+                                    {% tessera_field form.end_time %}
                                 </div>
                             </div>
                         </div>

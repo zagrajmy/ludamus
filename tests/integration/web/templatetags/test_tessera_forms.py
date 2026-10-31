@@ -1,5 +1,7 @@
 """Tests for tessera form templatetags, focusing on XSS prevention."""
 
+from datetime import UTC, datetime
+
 from django import forms
 from django.forms.widgets import CheckboxSelectMultiple, RadioSelect, Select
 
@@ -316,3 +318,24 @@ class TestFieldAccessibility:
         assert "<fieldset" in html
         assert "<legend" in html
         assert "<label for=" not in html.split("<legend", 1)[0]
+
+
+class WallClockForm(forms.Form):
+    starts = forms.DateTimeField(
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        )
+    )
+
+
+class TestInputValue:
+    """An input carries its value in the shape the widget formats it to."""
+
+    def test_datetime_local_drops_seconds_the_browser_would_reject(self) -> None:
+        form = WallClockForm(
+            initial={"starts": datetime(2026, 5, 1, 8, 0, 30, tzinfo=UTC)}
+        )
+
+        html = tessera_field(form["starts"])
+
+        assert 'value="2026-05-01T10:00"' in html

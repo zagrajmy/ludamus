@@ -9,8 +9,13 @@ from django.urls import reverse
 from PIL import Image
 
 from ludamus.pacts import EventDTO, NotFoundError
+from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import PNG_BYTES, EventFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -418,12 +423,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=["Image dimensions are too large."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Image dimensions are too large."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -441,12 +448,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=["Image too large. Maximum size is 8 MB."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Image too large. Maximum size is 8 MB."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -460,12 +469,16 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    cover_image=[
+                        "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+                    ]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["cover_image"] == [
-            "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
-        ]
         event.refresh_from_db()
         assert not event.cover_image
 
@@ -500,12 +513,14 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    logo=["Image too large. Maximum size is 8 MB."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["logo"] == [
-            "Image too large. Maximum size is 8 MB."
-        ]
         event.refresh_from_db()
         assert not event.logo
 
@@ -574,14 +589,64 @@ class TestEventSettingsPageViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=self._render_context(response, event),
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    name=["Event name is too long (max 255 characters)."]
+                ),
+            },
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["name"] == [
-            "Event name is too long (max 255 characters)."
-        ]
         event.refresh_from_db()
         assert event.name == original_name
+
+    def test_error_on_end_not_after_start(self, panel_client, event):
+        original_end = event.end_time
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, end_time=event.start_time.strftime("%Y-%m-%dT%H:%M")
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    end_time=["End time must be after start time."]
+                ),
+            },
+            template_name="panel/settings.html",
+        )
+        event.refresh_from_db()
+        assert event.end_time == original_end
+
+    def test_error_on_publication_after_start(self, panel_client, event):
+        original_publication = event.publication_time
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    publication_time=["Publication time must not be after start time."]
+                ),
+            },
+            template_name="panel/settings.html",
+        )
+        event.refresh_from_db()
+        assert event.publication_time == original_publication
 
     def test_error_event_not_found_during_update(self, panel_client, event):
         with patch(
@@ -609,12 +674,44 @@ class TestEventSettingsPageViewPost:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "An event with this slug already exists.")],
-            url=f"/panel/event/{original_slug}/settings/",
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    slug=["An event with this slug already exists."]
+                ),
+            },
+            template_name="panel/settings.html",
         )
         event.refresh_from_db()
         assert event.slug == original_slug
+
+    def test_duplicate_slug_rerender_keeps_stored_images(
+        self, panel_client, sphere, event, faker
+    ):
+        event.cover_image = "events/cover.png"
+        event.logo = "events/brand.png"
+        event.save()
+        other_event = EventFactory(sphere=sphere, slug=faker.slug())
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, slug=other_event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    slug=["An event with this slug already exists."]
+                ),
+            },
+            template_name="panel/settings.html",
+        )
+        form = response.context["form"]
+        assert form["cover_image"].initial == StoredFile(event.cover_image.url)
+        assert form["logo"].initial == StoredFile(event.logo.url)
 
     def test_updates_event_slug(self, panel_client, event, faker):
         new_slug = faker.slug()

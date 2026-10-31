@@ -11,15 +11,9 @@
 {% endblock title %}
 {% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
 {% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
-{% block meta_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock meta_description %}
-{% block og_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock og_description %}
-{% block twitter_description %}
-    {% firstof link_preview.description event.description|truncatewords:20 default_description %}
-{% endblock twitter_description %}
+{% block meta_description %}{{ link_preview.description|default:default_description }}{% endblock meta_description %}
+{% block og_description %}{{ link_preview.description|default:default_description }}{% endblock og_description %}
+{% block twitter_description %}{{ link_preview.description|default:default_description }}{% endblock twitter_description %}
 {% block extra_head %}
     {# "Never listed" has to hold for search engines too, once the link is posted somewhere public. #}
     {% if event.visibility == "unlisted" %}<meta name="robots" content="noindex">{% endif %}

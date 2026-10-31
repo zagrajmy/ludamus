@@ -29,6 +29,10 @@ def _summary(description_html: str) -> str:
     return Truncator(unescape(strip_tags(description_html))).words(SUMMARY_WORDS)
 
 
+def markdown_summary(description: str) -> str:
+    return _summary(render_markdown(description)) if description else ""
+
+
 def encounter_description(encounter: EncounterDTO, description_html: str) -> str:
     start = localtime(encounter.start_time)
     parts = [f"{date_format(start)}, {time_format(start)}"]
@@ -55,8 +59,8 @@ def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
         parts.append(f"— {place}")
     if session.facilitator_name and (name := data.presenter.full_name):
         parts.append(f"· {name}")
-    if session.description:
-        parts.append(f"| {_summary(render_markdown(session.description))}")
+    if summary := markdown_summary(session.description):
+        parts.append(f"| {summary}")
     return LinkPreview(
         title=f"{session.title} • {event_name}",
         description=" ".join(parts),
