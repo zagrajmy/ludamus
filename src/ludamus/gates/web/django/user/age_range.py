@@ -10,7 +10,10 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.crowd.auth import sign_out_to_guardian_page
+from ludamus.gates.web.django.crowd.auth import (
+    SESSION_ID_KEY,
+    sign_out_to_guardian_page,
+)
 from ludamus.gates.web.django.crowd.forms import AgeRangeForm
 
 if TYPE_CHECKING:
@@ -67,7 +70,9 @@ class ProfileAgeRangePageView(LoginRequiredMixin, View):
                 return _page(request, form=form, confirm_disable=True)
             request.services.crowd_auth.disable_underage_account(user_slug)
             logger.info("Account disabled: declared below minimum age")
-            return sign_out_to_guardian_page(request)
+            return sign_out_to_guardian_page(
+                request, session_id=request.session.get(SESSION_ID_KEY, "")
+            )
         dropped = request.services.crowd_auth.confirm_age(
             user_slug=user_slug, age_band=age_band
         )

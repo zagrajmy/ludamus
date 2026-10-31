@@ -189,23 +189,61 @@ class SphereDomainRepositoryProtocol(Protocol):
     def domain_exists(domain: str) -> bool: ...
 
 
-class AuthProvisionDTO(BaseModel):
+class IdentityDTO(BaseModel):
+    """A signed-in person as the identity provider (WorkOS) reports them."""
+
+    provider_user_id: str
+    email: str
+    email_verified: bool
+    name: str
+    avatar_url: str
+    # The Auth0 user_id the WorkOS import carried over as external_id; empty
+    # for anyone who signed up after the move.
+    legacy_id: str
+
+
+class AuthenticationDTO(BaseModel):
+    identity: IdentityDTO
+    # The AuthKit session behind this login, needed to end it at logout.
+    session_id: str
+
+
+class LoginDTO(BaseModel):
     user: UserDTO
     claim_outcome: ClaimOutcome | None = None
+    session_id: str
     # The provider's address collided with another account's, so the new
     # account was created without one; the login callback tells the user.
     email_conflict: bool = False
 
 
+class IdentityRejectedError(Exception):
+    """The identity provider refused the authorization code."""
+
+
+class IdentityProviderProtocol(Protocol):
+    def authorization_url(
+        self, *, redirect_uri: str, state: str, sign_up: bool
+    ) -> str: ...
+    def authenticate(self, code: str) -> AuthenticationDTO: ...
+    def logout_url(self, *, session_id: str, return_to: str) -> str: ...
+
+
 class CrowdAuthServiceProtocol(Protocol):
-    def provision_user(
-        self, *, username: str, create_data: UserData, claim_token: str = ""
-    ) -> AuthProvisionDTO: ...
-    def has_account(self, username: str) -> bool: ...
+    def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str: ...
+    def authenticate(self, code: str) -> AuthenticationDTO: ...
+    def has_account(self, identity: IdentityDTO) -> bool: ...
+    def complete_login(
+        self,
+        *,
+        authentication: AuthenticationDTO,
+        claim_token: str = "",
+        age_band: AgeBand = AgeBand.UNKNOWN,
+    ) -> LoginDTO: ...
+    def logout_url(self, *, session_id: str, return_to: str) -> str: ...
     def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool: ...
     def disable_underage_account(self, user_slug: str) -> None: ...
-    def reject_signup(self, *, username: str, slug: str, password: str) -> None: ...
-    def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO: ...
+    def reject_signup(self, identity: IdentityDTO) -> None: ...
     def is_known_sphere_domain(self, domain: str) -> bool: ...
 
 
@@ -216,7 +254,7 @@ class AvatarUrlProviderProtocol(Protocol):
 class AvatarPageDTO(BaseModel):
     user: UserDTO
     gravatar_url: str | None
-    has_auth0_avatar: bool
+    has_provider_avatar: bool
 
 
 class ProfileServiceProtocol(Protocol):

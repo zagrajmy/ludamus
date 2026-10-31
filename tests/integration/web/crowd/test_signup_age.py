@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from secrets import token_urlsafe
 from unittest.mock import ANY, patch
+from urllib.parse import urlencode
 
 import pytest
 from django.contrib import messages
@@ -18,33 +19,38 @@ from tests.integration.utils import (
     assert_login_required,
     assert_response,
 )
+from tests.integration.web.crowd.workos_responses import (
+    AUTHENTICATE,
+    SESSION_ID,
+    authenticate_response,
+)
 
-CALLBACK_URL = reverse("web:crowd:auth0:login-callback")
-GATE_URL = reverse("web:crowd:auth0:signup-age")
+CALLBACK_URL = reverse("web:crowd:auth:login-callback")
+GATE_URL = reverse("web:crowd:auth:signup-age")
 PROFILE_AGE_URL = reverse("user:profile-age-range")
 GUARDIAN_CONTEXT = {
     "min_age": 13,
     "guardian_login_url": (
-        "https://auth0.example.com/v2/logout?returnTo=http%3A%2F%2Ftestserver"
-        "%2Fcrowd%2Fauth0%2Fdo%2Flogout%2Fredirect%3Flast_domain%3Dtestserver"
-        "%26redirect_to%3D%2Fcrowd%2Fauth0%2Fdo%2Flogin"
-        "&client_id=test-auth0-client-id"
+        "https://api.workos.com/user_management/sessions/logout?"
+        + urlencode(
+            {
+                "session_id": SESSION_ID,
+                "return_to": "http://testserver/crowd/auth/do/login",
+            }
+        )
     ),
 }
 
 
-def _reach_gate(client, sub, **claims):
+def _reach_gate(client, sub, **user):
     state_token = token_urlsafe(32)
     cache.set(
         f"oauth_state:{state_token}",
         json.dumps({"redirect_to": None, "created_at": datetime.now(UTC).isoformat()}),
         timeout=600,
     )
-    with patch(
-        "ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token",
-        return_value={"userinfo": {"sub": sub, **claims}},
-    ):
-        return client.get(CALLBACK_URL, {"state": state_token})
+    with patch(AUTHENTICATE, return_value=authenticate_response(sub, **user)):
+        return client.get(CALLBACK_URL, {"state": state_token, "code": "abc"})
 
 
 def _answer(client, age_band):
@@ -128,8 +134,8 @@ class TestSignupAgeGate:
             client,
             sub,
             email="child@example.com",
-            name="Child",
-            picture="https://pic.test/x",
+            first_name="Child",
+            profile_picture_url="https://pic.test/x",
         )
 
         response = _answer(client, "under_13")
@@ -140,7 +146,7 @@ class TestSignupAgeGate:
             template_name="crowd/signup_guardian.html",
             context_data=GUARDIAN_CONTEXT,
         )
-        user = User.objects.get(username=f"auth0|{sub}")
+        user = User.objects.get(username=f"workos|{sub}")
         assert user.is_active is False
         assert user.user_type == UserType.ACTIVE
         assert user.age_band == "unknown"
@@ -169,7 +175,7 @@ class TestSignupAgeGate:
 
         original.refresh_from_db()
         later.refresh_from_db()
-        assert original.username == f"auth0|{sub}"
+        assert original.username == f"workos|{sub}"
         assert original.user_type == UserType.ACTIVE
         assert original.age_band == "13_15"
         assert later.user_type == UserType.CONNECTED
@@ -184,7 +190,7 @@ class TestSignupAgeGate:
         _reach_gate(client, sub)
         _reach_gate(other, sub)
         _answer(other, "16_plus")
-        user = User.objects.get(username=f"auth0|{sub}")
+        user = User.objects.get(username=f"workos|{sub}")
         SphereSubscription.objects.create(user=user, sphere=non_root_sphere)
 
         response = _answer(client, "under_13")
@@ -206,7 +212,9 @@ class TestSignupAgeGate:
         sub = faker.uuid4()
         other = Client()
         for pending_client in (client, other):
-            _reach_gate(pending_client, sub, email="child@example.com", name="Child")
+            _reach_gate(
+                pending_client, sub, email="child@example.com", first_name="Child"
+            )
         _answer(client, "under_13")
 
         response = _answer(other, "16_plus")
@@ -219,7 +227,7 @@ class TestSignupAgeGate:
                 (messages.ERROR, "This account is inactive. Contact support for help.")
             ],
         )
-        user = User.objects.get(username=f"auth0|{sub}")
+        user = User.objects.get(username=f"workos|{sub}")
         assert user.is_active is False
         assert user.age_band == "unknown"
         assert (user.email, user.name, user.avatar_url) == ("", "", "")
@@ -262,7 +270,7 @@ class TestSignupAgeGate:
         replay = client.post(GATE_URL, {"age_band": age_band})
 
         user = User.objects.get()
-        assert user.username == f"auth0|{sub}"
+        assert user.username == f"workos|{sub}"
         assert user.age_band == age_band
         assert client.session["_auth_user_id"] == str(user.pk)
         assert_response(
@@ -322,7 +330,7 @@ class TestSignupAgeGate:
     def test_later_login_discards_pending_signup(self, client, faker):
         existing_sub = faker.uuid4()
         User.objects.create(
-            username=f"auth0|{existing_sub}", slug="existing", name="Existing"
+            username=f"workos|{existing_sub}", slug="existing", name="Existing"
         )
         _reach_gate(client, faker.uuid4())
         old_token = (
@@ -384,7 +392,7 @@ class TestProfileAgeRange:
         self, authenticated_client, active_user, faker
     ):
         sub = faker.uuid4()
-        User.objects.filter(pk=active_user.pk).update(username=f"auth0|{sub}")
+        User.objects.filter(pk=active_user.pk).update(username=f"workos|{sub}")
 
         response = _update(authenticated_client, "under_13", confirm="disable")
 
@@ -392,7 +400,10 @@ class TestProfileAgeRange:
             response,
             HTTPStatus.OK,
             template_name="crowd/signup_guardian.html",
-            context_data=GUARDIAN_CONTEXT,
+            context_data={
+                **GUARDIAN_CONTEXT,
+                "guardian_login_url": "http://testserver/crowd/auth/do/login",
+            },
         )
         active_user.refresh_from_db()
         assert active_user.is_active is False

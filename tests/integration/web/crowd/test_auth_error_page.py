@@ -65,7 +65,7 @@ class TestAuthErrorPage:
                 {"error": "invalid request!", "tracking": "d9bd4fc6d133caf8b064"},
             )
 
-        assert "Auth0 error redirect: error=- tracking=d9bd4fc6d133caf8b064" in (
+        assert "Login error redirect: error=- tracking=d9bd4fc6d133caf8b064" in (
             caplog.text
         )
 
@@ -73,4 +73,4 @@ class TestAuthErrorPage:
         with caplog.at_level("WARNING", logger="ludamus.gates.web.django.auth_pages"):
             client.get(self.URL)
 
-        assert "Auth0 error redirect" not in caplog.text
+        assert "Login error redirect" not in caplog.text

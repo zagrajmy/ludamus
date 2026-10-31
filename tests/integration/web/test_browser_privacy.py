@@ -10,7 +10,7 @@ from django.urls import reverse
 from ludamus.inits.browser_privacy import BrowserPrivacyMiddleware
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import User
-from tests.integration.utils import NonEmptyStringMatcher, assert_response
+from tests.integration.utils import assert_response
 
 
 @pytest.mark.parametrize("age_band", ("unknown", "13_15", "16_plus"))
@@ -63,22 +63,18 @@ def test_cookie_uses_response_time_state_not_the_authenticated_user_cache(
 def test_cookie_uses_explicit_shared_session_domain(client, settings):
     settings.SESSION_COOKIE_DOMAIN = ".example.test"
 
-    response = client.get(reverse("web:crowd:auth0:logout"))
+    response = client.get(reverse("web:crowd:auth:logout"))
 
-    assert_response(
-        response, HTTPStatus.FOUND, url=NonEmptyStringMatcher(contains="/v2/logout?")
-    )
+    assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
     assert client.cookies["ludamus.privacy"]["domain"] == ".example.test"
 
 
 def test_signed_out_response_revokes_existing_cookie(client):
     client.cookies["ludamus.privacy"] = "old-revision"
 
-    response = client.get(reverse("web:crowd:auth0:logout"))
+    response = client.get(reverse("web:crowd:auth:logout"))
 
-    assert_response(
-        response, HTTPStatus.FOUND, url=NonEmptyStringMatcher(contains="/v2/logout?")
-    )
+    assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
     assert client.cookies["ludamus.privacy"].value == "off"
 
 

@@ -2217,6 +2217,30 @@ msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication request: missing state parameter"
+msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication session expired. Please try again."
+msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Invalid authentication state"
+msgstr "Nieprawidłowy stan uwierzytelnienia"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Authentication failed"
+msgstr "Uwierzytelnienie nie powiodło się"
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "This account is inactive. Contact support for help."
+msgstr "To konto jest nieaktywne. Skontaktuj się z pomocą techniczną."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
+msgid "Please complete your profile."
+msgstr "Proszę uzupełnić profil."
+
+#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Profile claimed — it is now your own account."
 msgstr "Profil przejęty — to teraz Twoje własne konto."
 
@@ -2237,40 +2261,12 @@ msgstr ""
 "inny w swoim profilu."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "This account is inactive. Contact support for help."
-msgstr "To konto jest nieaktywne. Skontaktuj się z pomocą techniczną."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Please complete your profile."
-msgstr "Proszę uzupełnić profil."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication request: missing state parameter"
-msgstr "Nieprawidłowe żądanie uwierzytelnienia: brak parametru stanu"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication session expired. Please try again."
-msgstr "Sesja uwierzytelnienia wygasła. Spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid authentication state"
-msgstr "Nieprawidłowy stan uwierzytelnienia"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Authentication failed"
-msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Your sign-in timed out. Sign in again."
 msgstr "Logowanie wygasło. Zaloguj się ponownie."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "This age confirmation has expired. Choose your age range again."
 msgstr "Potwierdzenie wieku wygasło. Wybierz ponownie swój przedział wiekowy."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "Invalid redirect URL."
-msgstr "Nieprawidłowy adres URL przekierowania."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid domain for redirect."
@@ -13516,9 +13512,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Markdown supported."
 #~ msgstr "Obsługuje Markdown."
 
-#~ msgid "Session details saved. Next step coming soon."
-#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
-
 #~ msgid "0 = no age restriction"
 #~ msgstr "0 = brak ograniczenia wiekowego"
 
@@ -13531,82 +13524,21 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Select the tracks your session belongs to."
 #~ msgstr "Wybierz bloki programowe dla tego punktu programu."
 
-#~ msgid "Player looking for a GM"
-#~ msgstr "Gracz szuka MG"
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
-#~ msgid "Player looking for a group"
-#~ msgstr "Gracz szuka grupy"
-
-#~ msgid "Group looking for players"
-#~ msgstr "Grupa szuka graczy"
-
-#~ msgctxt "listing role"
-#~ msgid "GM"
-#~ msgstr "MG"
-
-#~ msgctxt "listing role"
-#~ msgid "Player"
-#~ msgstr "Gracz"
-
-#~ msgctxt "listing role"
-#~ msgid "Group"
-#~ msgstr "Grupa"
-
-#~ msgctxt "listing seeking"
-#~ msgid "Group"
-#~ msgstr "Grupy"
-
-#~ msgid "I am"
-#~ msgstr "Jestem"
-
-#~ msgid "Pick one of the options offered for who you are."
-#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
-
-#~ msgid "Who is looking for whom"
-#~ msgstr "Kto kogo szuka"
-
-#~ msgid "Online or offline"
-#~ msgstr "Online czy na miejscu"
-
-#~ msgid "A player"
-#~ msgstr "Gracz"
-
-#~ msgid "A group"
-#~ msgstr "Grupa"
-
-#~ msgid "Pick who you are looking for again."
-#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
-
-#~ msgid ""
-#~ "No account was created. A parent or guardian can sign up and add you as a "
-#~ "companion to sign you up for sessions."
-#~ msgstr ""
-#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
-#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
-
-#~ msgid "Choose one of the two answers."
-#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
-
-#~ msgid "Cookies help us see what to fix."
-#~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
-
-#~ msgid "How old are you?"
-#~ msgstr "Ile masz lat?"
-
-#, python-format
-#~ msgid "I'm %(min_age)s or older"
-#~ msgstr "Mam %(min_age)s lat lub więcej"
-
-#, python-format
-#~ msgid "I'm under %(min_age)s"
-#~ msgstr "Mam mniej niż %(min_age)s lat"
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
 #, python-format
 #~ msgid "Include %(name)s"
 #~ msgstr "Uwzględnij: %(name)s"
+
+#~ msgid "Cookies help us see what to fix."
+#~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
 
 #, python-format
 #~ msgid ""
@@ -13664,8 +13596,12 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
 #~ "programu do zakładek, a poczeka tu na Ciebie."
 
-#~ msgid "LIVE"
-#~ msgstr "W TRAKCIE"
+#~ msgid ""
+#~ "A link is shown once, right after it's created. Lost one? Withdraw it and "
+#~ "create another."
+#~ msgstr ""
+#~ "Link widać tylko raz, zaraz po utworzeniu. Zgubił się? Wycofaj "
+#~ "zaproszenie i utwórz nowe."
 
 #~ msgid "Publication Time"
 #~ msgstr "Czas publikacji"
@@ -13758,49 +13694,26 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Available columns"
 #~ msgstr "Dostępne kolumny"
 
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
-
-#, python-format
-#~ msgid ""
-#~ "Radek has been running tabletop RPGs for more than twenty years. He "
-#~ "writes his own games, like the narrative RPG <a "
-#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
-#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
-#~ "and sings RPG songs on YouTube as Radek MG."
-#~ msgstr ""
-#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
-#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
-#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
-#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
-
-#
-#~ msgid ""
-#~ "Piotrek cares about the small details of how software feels to use, which "
-#~ "is most of the reason Zagrajmy's interface looks the way it does."
-#~ msgstr ""
-#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
-#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
-
-#, python-format
-#~ msgid ""
-#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
-#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
-#~ "sacrifice."
-#~ msgstr ""
-#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
-#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
-#~ "poświęceniu."
-
 #~ msgid "Not Yet Available"
 #~ msgstr "Jeszcze Niedostępne"
 
-#~ msgid ""
-#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
-#~ "you here."
-#~ msgstr ""
-#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-#~ "Ciebie."
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
+
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
+
+#~ msgid "Subject"
+#~ msgstr "Temat"
+
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
+
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #, python-format
 #~ msgid ""
@@ -13823,15 +13736,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "                Czy na pewno chcesz usunąć połączenie \"%(name)s\"?\n"
 #~ "            "
 
-#~ msgid "Select which personal data fields hosts must provide."
-#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
-
-#~ msgid "No personal data fields defined for this event."
-#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Configure host data fields"
-#~ msgstr "Skonfiguruj pola danych twórcy"
-
 #~ msgid "Filterable Session Fields"
 #~ msgstr "Pola filtrowania punktów programu"
 
@@ -13841,121 +13745,22 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
 #~ "publicznej liście punktów programu."
 
-#~ msgid "Program item confirmed"
-#~ msgstr "Punkt programu potwierdzony"
-
-#~ msgid "Program item not confirmed"
-#~ msgstr "Punkt programu niepotwierdzony"
-
-#~ msgid "Confirm program item"
-#~ msgstr "Potwierdź punkt programu"
-
+#
 #~ msgid ""
-#~ "Host data fields collect contact and personal information from session "
-#~ "hosts when they submit proposals. Examples: email address, phone number, "
-#~ "Discord username. This data is shared across all categories for the event "
-#~ "- each host fills it once."
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
 #~ msgstr ""
-#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
-#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
-#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
-
-#~ msgid "confirmed program items in this track"
-#~ msgstr "potwierdzonych punktów programu w tym bloku"
-
-#~ msgid "confirmed program items"
-#~ msgstr "potwierdzonych punktów programu"
-
-#~ msgid ""
-#~ "This program item is confirmed. Moving it will clear the confirmation."
-#~ msgstr ""
-#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
-
-#~ msgid "Staging inbox"
-#~ msgstr "Skrzynka staging"
-
-#~ msgid "Received"
-#~ msgstr "Otrzymano"
-
-#~ msgid "Subject"
-#~ msgstr "Temat"
-
-#~ msgid "No emails captured yet."
-#~ msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Bookmarks"
-#~ msgstr "Zakładki"
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
-#~ msgid "Attach venue"
-#~ msgstr "Dołącz lokalizację"
-
-#~ msgid ""
-#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
-#~ "from loose proposals to a printout on the room door. Pick an act."
-#~ msgstr ""
-#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
-#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
-
 #~ msgid "Poland"
 #~ msgstr "Polska"
 
-#~ msgid "Time slot must be within event dates."
-#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
-
-#~ msgid "Place the session inside one of the event's time slots."
-#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
-
-#~ msgid ""
-#~ "Friends who enroll together wait together and move up together, and "
-#~ "nobody skips past them. RSVP tools that count seats one by one split such "
-#~ "a group up as soon as a single seat frees up."
-#~ msgstr ""
-#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
-#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
-#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
-
-#~ msgid ""
-#~ "You work directly with the people who build Zagrajmy: no account managers "
-#~ "and no ticket queue between you and the code."
-#~ msgstr ""
-#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
-#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
-
-#~ msgid ""
-#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
-#~ "and sings RPG songs on his YouTube channel."
-#~ msgstr ""
-#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
-#~ "erpegowe piosenki na swoim kanale na YouTubie."
-
-#~ msgid ""
-#~ "Two developers build and run Zagrajmy, with contributions from the open-"
-#~ "source community on GitHub."
-#~ msgstr ""
-#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
-#~ "source na GitHubie."
-
-#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
-#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
-
-#~ msgid ""
-#~ "Writes software with care for the details of human–computer interaction. "
-#~ "Has built Zagrajmy since November 2025, mostly its interface."
-#~ msgstr ""
-#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
-#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
-#~ "interfejs."
-
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
+#~ msgid "This event is not in this sphere."
+#~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."
@@ -14183,8 +13988,26 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"
 
+#~ msgid "Select which personal data fields hosts must provide."
+#~ msgstr "Wybierz, które pola danych osobowych muszą podać twórcy."
+
+#~ msgid "No personal data fields defined for this event."
+#~ msgstr "Nie zdefiniowano pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Configure host data fields"
+#~ msgstr "Skonfiguruj pola danych twórcy"
+
 #~ msgid "Link preview card"
 #~ msgstr "Karta podglądu linku"
+
+#~ msgid "Time slot must be within event dates."
+#~ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#~ msgid "Place the session inside one of the event's time slots."
+#~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
+
+#~ msgid "total"
+#~ msgstr "łącznie"
 
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
@@ -14233,12 +14056,22 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
+#~ msgid "Session list"
+#~ msgstr "Lista punktów programu"
+
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
+
+#~ msgid "Player"
+#~ msgid_plural "Players"
+#~ msgstr[0] "Gracz"
+#~ msgstr[1] "Graczy"
+#~ msgstr[2] "Graczy"
+#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -14788,6 +14621,10 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
 
 #, python-format
+#~ msgid "Remove %(name)s from your party?"
+#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
+
+#, python-format
 #~ msgid "Party of %(leader_name)s"
 #~ msgstr "Drużyna %(leader_name)s"
 
@@ -14974,28 +14811,50 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Add a public track to preview how its background works with every icon."
 #~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
 
-#~ msgid "This event is not in this sphere."
-#~ msgstr "To wydarzenie nie należy do tej sfery."
-
-#, python-format
 #~ msgid ""
-#~ "The token expires after %(token_max_age_days)s days and works only while "
-#~ "you stay a manager of this sphere. Anyone holding it can act with your "
-#~ "permissions — keep it secret."
+#~ "Friends who enroll together wait together and move up together, and "
+#~ "nobody skips past them. RSVP tools that count seats one by one split such "
+#~ "a group up as soon as a single seat frees up."
 #~ msgstr ""
-#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
-#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
-#~ "uprawnieniami — trzymaj go w tajemnicy."
+#~ "Znajomi zapisani razem razem czekają i razem awansują, a nikt ich nie "
+#~ "wyprzedza. Narzędzia do zapisów, które liczą miejsca pojedynczo, "
+#~ "rozdzielają taką grupę, gdy tylko zwolni się jedno miejsce."
 
-#, python-format
 #~ msgid ""
-#~ "Generate a personal token to connect an MCP client (such as Claude Code "
-#~ "or Executor) to this sphere's organizer API. The token is valid for "
-#~ "%(token_max_age_days)s days."
+#~ "You work directly with the people who build Zagrajmy: no account managers "
+#~ "and no ticket queue between you and the code."
 #~ msgstr ""
-#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
-#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
-#~ "%(token_max_age_days)s dni."
+#~ "Pracujesz bezpośrednio z ludźmi, którzy tworzą Zagrajmy: bez opiekunów "
+#~ "klienta i bez kolejki zgłoszeń między Tobą a kodem."
+
+#~ msgid ""
+#~ "Radek writes code, songs, and games. He designs his own roleplaying games "
+#~ "and sings RPG songs on his YouTube channel."
+#~ msgstr ""
+#~ "Radek pisze kod, piosenki i gry. Projektuje własne gry fabularne i śpiewa "
+#~ "erpegowe piosenki na swoim kanale na YouTubie."
+
+#~ msgid ""
+#~ "Two developers build and run Zagrajmy, with contributions from the open-"
+#~ "source community on GitHub."
+#~ msgstr ""
+#~ "Zagrajmy tworzą i prowadzą dwie osoby, przy wsparciu społeczności open "
+#~ "source na GitHubie."
+
+#~ msgid "Writes code, songs, and games. Owner and administrator of Zagrajmy."
+#~ msgstr "Pisze kod, piosenki i gry. Właściciel i administrator Zagrajmy."
+
+#~ msgid ""
+#~ "Writes software with care for the details of human–computer interaction. "
+#~ "Has built Zagrajmy since November 2025, mostly its interface."
+#~ msgstr ""
+#~ "Pisze oprogramowanie z dbałością o detale interakcji człowieka z "
+#~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
+#~ "interfejs."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
 
 #~ msgid ""
 #~ "Everything the app sends from this server lands here. None of it reaches "
@@ -15013,6 +14872,44 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgstr[1] "Linki w tym e-mailu"
 #~ msgstr[2] "Linki w tym e-mailu"
 #~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
+
+#~ msgid "Program item confirmed"
+#~ msgstr "Punkt programu potwierdzony"
+
+#~ msgid "Program item not confirmed"
+#~ msgstr "Punkt programu niepotwierdzony"
+
+#~ msgid "Confirm program item"
+#~ msgstr "Potwierdź punkt programu"
+
+#~ msgid ""
+#~ "Host data fields collect contact and personal information from session "
+#~ "hosts when they submit proposals. Examples: email address, phone number, "
+#~ "Discord username. This data is shared across all categories for the event "
+#~ "- each host fills it once."
+#~ msgstr ""
+#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
+#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
+#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
+#~ "wszystkich kategorii - każdy twórca wypełnia je tylko raz."
+
+#~ msgid "confirmed program items in this track"
+#~ msgstr "potwierdzonych punktów programu w tym bloku"
+
+#~ msgid "confirmed program items"
+#~ msgstr "potwierdzonych punktów programu"
+
+#~ msgid ""
+#~ "This program item is confirmed. Moving it will clear the confirmation."
+#~ msgstr ""
+#~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
 
 #~ msgid "Copy email"
 #~ msgstr "Skopiuj e-mail"
@@ -15085,3 +14982,129 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #, python-format
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
+
+#~ msgid ""
+#~ "No account was created. A parent or guardian can sign up and add you as a "
+#~ "companion to sign you up for sessions."
+#~ msgstr ""
+#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
+#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
+
+#~ msgid "Choose one of the two answers."
+#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
+
+#~ msgid "How old are you?"
+#~ msgstr "Ile masz lat?"
+
+#, python-format
+#~ msgid "I'm %(min_age)s or older"
+#~ msgstr "Mam %(min_age)s lat lub więcej"
+
+#, python-format
+#~ msgid "I'm under %(min_age)s"
+#~ msgstr "Mam mniej niż %(min_age)s lat"
+
+#, python-format
+#~ msgid ""
+#~ "Radek has been running tabletop RPGs for more than twenty years. He "
+#~ "writes his own games, like the narrative RPG <a "
+#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
+#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
+#~ "and sings RPG songs on YouTube as Radek MG."
+#~ msgstr ""
+#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
+#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
+#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
+
+#, python-format
+#~ msgid ""
+#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
+#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+#~ "sacrifice."
+#~ msgstr ""
+#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
+#~ "poświęceniu."
+
+#~ msgid "Attach venue"
+#~ msgstr "Dołącz lokalizację"
+
+#~ msgid ""
+#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
+#~ "from loose proposals to a printout on the room door. Pick an act."
+#~ msgstr ""
+#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
+#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
+
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
+
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgid "Group looking for a GM"
+#~ msgstr "Grupa szuka MG"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
+#~ msgid "Online or offline"
+#~ msgstr "Online czy na miejscu"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."

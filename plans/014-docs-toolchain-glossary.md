@@ -67,7 +67,7 @@ pays that debt and links the glossary from the README.
   `mise check` and `mise tasks` (lines 32 and 34) resolve fine — leave
   them.
 
-- `docs/LOCAL_DEV.md` — covers the auth0-simulator and Playwright
+- `docs/LOCAL_DEV.md` — covers WorkOS staging login and Playwright
   auth state; contains zero mentions of aube, aubr, aubx, varlock, or
   hk (verified by grep). Nothing in `README.md` links
   `docs/LOCAL_DEV.md` at all.

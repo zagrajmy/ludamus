@@ -1594,7 +1594,17 @@ def _create_age_scenarios() -> None:
     for scenario in ("teen", "older", "child", "cross-sphere"):
         session = SessionStore()
         session["pending_signup"] = {
-            "userinfo": {"sub": f"e2e-age-{scenario}", "name": f"Age {scenario}"},
+            "authentication": {
+                "identity": {
+                    "provider_user_id": f"e2e-age-{scenario}",
+                    "email": "",
+                    "email_verified": False,
+                    "name": f"Age {scenario}",
+                    "avatar_url": "",
+                    "legacy_id": "",
+                },
+                "session_id": "",
+            },
             "redirect_to": (
                 "http://another.localhost:8000/" if scenario == "cross-sphere" else ""
             ),
