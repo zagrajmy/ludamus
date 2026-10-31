@@ -1,6 +1,7 @@
 ---
 title: 'E2E bootstrap times out while downloading vendor files'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1552'
 ---
 
 ## Expected Behavior

@@ -1,6 +1,7 @@
 ---
 title: 'npm and npx cannot run where ~/.npm is read-only'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1485'
 ---
 
 ## Expected Behavior

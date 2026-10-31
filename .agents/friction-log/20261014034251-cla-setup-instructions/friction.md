@@ -1,6 +1,7 @@
 ---
 title: 'CLA setup instructions suggest a recheck comment that the workflow ignores'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1521'
 ---
 
 ## Expected Behavior
