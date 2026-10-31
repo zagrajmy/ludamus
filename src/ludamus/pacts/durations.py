@@ -15,7 +15,6 @@ _LOOSE_DURATION_RE = re.compile(
     r"p?t?\s*(?:(?P<hours>\d{1,4})\s*h(?:ours?|rs?)?)?"
     r"\s*(?:(?P<minutes>\d{1,4})\s*m(?:inutes?|ins?)?)?"
 )
-_ASCII_DIGITS_RE = re.compile(r"[0-9]+")
 
 
 class InvalidDurationError(ValueError):
@@ -32,7 +31,7 @@ def parse_duration_part(raw: str, *, maximum: int) -> int:
     if not (text := (raw or "").strip()):
         return 0
     if (
-        not _ASCII_DIGITS_RE.fullmatch(text)
+        not (text.isascii() and text.isdigit())
         or len(text) > len(str(maximum))
         or int(text) > maximum
     ):
