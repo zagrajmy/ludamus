@@ -104,7 +104,9 @@ layer(DatabaseTest, { buildPerTest: true })(
           Effect.flip
         );
 
-        expect(failure).toEqual(new PanelAccessDenied({ reason: "no_panel_access" }));
+        expect(failure).toEqual(
+          new PanelAccessDenied({ reason: "no_panel_access" })
+        );
       })
     );
 
@@ -157,8 +159,15 @@ layer(DatabaseTest, { buildPerTest: true })(
           }).pipe(asRootManager, Effect.flip);
 
           expect(failure).toEqual(
-        new FormInvalid({ errors: [formError("", "Choose spaces from this event and managers from this sphere.")] })
-      );
+            new FormInvalid({
+              errors: [
+                formError(
+                  "",
+                  "Choose spaces from this event and managers from this sphere."
+                ),
+              ],
+            })
+          );
           expect(yield* countRows("track")).toBe(before);
         })
     );
@@ -200,8 +209,15 @@ layer(DatabaseTest, { buildPerTest: true })(
           }).pipe(asRootManager, Effect.flip);
 
           expect(failure).toEqual(
-        new FormInvalid({ errors: [formError("name", "A track with this name already exists in this event. Pick another name.")] })
-      );
+            new FormInvalid({
+              errors: [
+                formError(
+                  "name",
+                  "A track with this name already exists in this event. Pick another name."
+                ),
+              ],
+            })
+          );
         })
     );
 
@@ -272,10 +288,10 @@ layer(DatabaseTest, { buildPerTest: true })(
           }).pipe(asRootManager, Effect.flip);
 
           expect(
-        Predicate.isTagged(failure, "FormInvalid")
-          ? failure.errors.map((entry) => entry.field)
-          : []
-      ).toEqual(["accreditation_type"]);
+            Predicate.isTagged(failure, "FormInvalid")
+              ? failure.errors.map((entry) => entry.field)
+              : []
+          ).toEqual(["accreditation_type"]);
           expect(
             yield* scalar(
               "SELECT accreditation_type AS value FROM facilitator WHERE id = 82"

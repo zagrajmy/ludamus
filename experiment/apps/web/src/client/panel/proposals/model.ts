@@ -19,6 +19,7 @@ export const ProposalFormModel = Schema.Struct({
   errors: Schema.Array(FormError),
   facilitatorSearch: Schema.String,
   isSaving: Schema.Boolean,
+  sessionFieldsVersion: Schema.Int,
 });
 
 export type ProposalFormModel = typeof ProposalFormModel.Type;
@@ -32,6 +33,7 @@ export const initProposalForm = (
   errors: [],
   facilitatorSearch: "",
   isSaving: false,
+  sessionFieldsVersion: 0,
 });
 
 export const proposalsQuery = (

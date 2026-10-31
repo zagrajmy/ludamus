@@ -240,6 +240,41 @@ export const isoDuration = (hours: number, minutes: number) => {
   return `PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}`;
 };
 
+export const CUSTOM_DURATION = "custom";
+
+const pickedDuration = (options: {
+  readonly category: Readonly<{ durations: readonly string[] }> | undefined;
+  readonly errors: FormError[];
+  readonly picked: string;
+  readonly steppers: string;
+}) => {
+  const offered = options.category?.durations ?? [];
+
+  if (offered.length === 0 || options.picked === CUSTOM_DURATION) {
+    if (offered.length > 0 && options.steppers === "") {
+      options.errors.push(
+        formError("duration", "Enter how long the session lasts.")
+      );
+    }
+
+    return options.steppers;
+  }
+
+  if (options.picked !== "" && !offered.includes(options.picked)) {
+    options.errors.push(
+      formError(
+        "duration",
+        "Select a valid choice. %(value)s is not one of the available choices.",
+        {
+          value: options.picked,
+        }
+      )
+    );
+  }
+
+  return options.picked;
+};
+
 const cleanProposal = Effect.fn("Panel.cleanProposal")(
   function* cleanProposal(options: {
     readonly eventId: EventId;
@@ -308,6 +343,13 @@ const cleanProposal = Effect.fn("Panel.cleanProposal")(
       raw: form.durationMinutes,
     });
 
+    const duration = pickedDuration({
+      category,
+      errors,
+      picked: form.duration.trim(),
+      steppers: isoDuration(hours, minutes),
+    });
+
     if (form.proposalId === null && form.facilitatorIds.length === 0) {
       errors.push(formError("", "Please select at least one facilitator."));
     }
@@ -320,7 +362,7 @@ const cleanProposal = Effect.fn("Panel.cleanProposal")(
       categoryId: ProposalCategoryId.make(category.id),
       contactEmail,
       description: form.description.trim(),
-      duration: isoDuration(hours, minutes),
+      duration,
       facilitatorName,
       minAge,
       participantsLimit,

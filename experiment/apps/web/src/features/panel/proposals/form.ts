@@ -3,6 +3,7 @@ import { Option } from "effect";
 import type { PanelCurrentEvent } from "../../../client/panel/chrome.js";
 import { errorsFor } from "../../../client/panel/failure.js";
 import { PanelMessage } from "../../../client/panel/message.js";
+import { durationLabel } from "../../../client/panel/proposals/duration.js";
 import { ProposalFormMessage } from "../../../client/panel/proposals/message.js";
 import type { ProposalFormModel } from "../../../client/panel/proposals/model.js";
 import { button, linkButton } from "../../../ui/button.js";
@@ -10,6 +11,7 @@ import { cx } from "../../../ui/cx.js";
 import {
   field,
   formErrors,
+  selectInput,
   label,
   textInput,
   textareaInput,
@@ -52,6 +54,7 @@ const textField = (
   );
 
   const id = `id_${options.name}`;
+
   const described: Described = Option.match(
     Option.fromNullishOr(options.help),
     {
@@ -433,6 +436,110 @@ const facilitatorCard = (
   );
 };
 
+const durationControl = (
+  model: ProposalFormModel,
+  translator: Translator,
+  h: PanelH
+) => {
+  const { t } = translator;
+  const offered =
+    model.categories.find(
+      (category) => String(category.id) === model.values.categoryId
+    )?.durations ?? [];
+  const hasPicker = offered.length > 0;
+  const steppers = (
+    labelText: string,
+    name: string,
+    valueKey: "durationHours" | "durationMinutes"
+  ) =>
+    textField(
+      {
+        label: labelText,
+        model,
+        name,
+        translator,
+        type: "number",
+        value: model.values[valueKey],
+        valueKey,
+      },
+      h
+    );
+
+  return h.div(
+    [h.Class("group")],
+    [
+      hasPicker
+        ? field(
+            {
+              control: selectInput(
+                {
+                  attributes: [
+                    h.OnChange((value) =>
+                      toForm(
+                        ProposalFormMessage.ChangedText({
+                          name: "duration",
+                          value,
+                        })
+                      )
+                    ),
+                  ],
+                  errors: errorsFor(model.errors, "duration", translator),
+                  id: "id_duration",
+                  name: "duration",
+                  options: [
+                    { label: "---", value: "" },
+                    ...offered.map((duration) => ({
+                      label: durationLabel(duration),
+                      value: duration,
+                    })),
+                    { label: t("Custom"), value: "custom" },
+                  ],
+                  selected: model.values.duration,
+                },
+                h
+              ),
+              described: {
+                errors: errorsFor(model.errors, "duration", translator),
+                id: "id_duration",
+              },
+              label: t("Duration"),
+              translator,
+            },
+            h
+          )
+        : h.empty,
+      h.fieldset(
+        [
+          h.Class(
+            hasPicker
+              ? "hidden group-has-[option:last-child:checked]:block"
+              : ""
+          ),
+        ],
+        [
+          h.legend(
+            [
+              h.Class(
+                hasPicker
+                  ? "sr-only"
+                  : "block text-sm font-medium text-foreground-secondary mb-1"
+              ),
+            ],
+            [hasPicker ? t("Custom duration") : t("Duration")]
+          ),
+          h.div(
+            [h.Class("grid grid-cols-2 gap-4")],
+            [
+              steppers(t("Hours"), "duration_hours", "durationHours"),
+              steppers(t("Minutes"), "duration_minutes", "durationMinutes"),
+            ]
+          ),
+        ]
+      ),
+    ]
+  );
+};
+
 export const proposalFormView = (
   options: Readonly<{
     event: PanelCurrentEvent;
@@ -514,12 +621,7 @@ export const proposalFormView = (
                           ]
                         : []),
                       h.OnChange((value) =>
-                        toForm(
-                          ProposalFormMessage.ChangedText({
-                            name: "categoryId",
-                            value,
-                          })
-                        )
+                        toForm(ProposalFormMessage.ChangedCategory({ value }))
                       ),
                     ],
                     [
@@ -639,7 +741,9 @@ export const proposalFormView = (
 
   const session = h.div(
     [
-      h.Key(`proposal-session-fields-${model.values.categoryId}`),
+      h.Key(
+        `proposal-session-fields-${model.values.categoryId}-${model.sessionFieldsVersion}`
+      ),
       h.Class("card"),
       h.Id("proposal-session-fields"),
     ],
@@ -653,17 +757,7 @@ export const proposalFormView = (
             t("Participants Limit"),
             { help: t("Empty or 0 = no enrollment"), type: "number" }
           ),
-          h.div(
-            [h.Class("grid grid-cols-2 gap-4")],
-            [
-              text("duration_hours", "durationHours", t("Hours"), {
-                type: "number",
-              }),
-              text("duration_minutes", "durationMinutes", t("Minutes"), {
-                type: "number",
-              }),
-            ]
-          ),
+          durationControl(model, translator, h),
         ]
       ),
     ]

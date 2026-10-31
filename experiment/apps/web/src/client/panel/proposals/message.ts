@@ -31,6 +31,7 @@ export type ChosenFile = typeof ChosenFile.Type;
 
 export const ProposalFormMessage = defineMessageUnion({
   ChangedFacilitatorSearch: { value: Schema.String },
+  ChangedCategory: { value: Schema.String },
   ChangedText: { name: Schema.String, value: Schema.String },
   ChosenCover: { cover: ChosenFile },
   ClearedCover: {},

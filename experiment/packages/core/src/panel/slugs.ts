@@ -24,13 +24,18 @@ const words = (ascii: string) =>
     .replaceAll(/[-\s]+/gu, "-");
 
 export const djangoSlugify = (value: string) =>
-  words(
-    value.normalize("NFKD").replaceAll(/[^\p{ASCII}]/gu, "")
-  ).replaceAll(/^[-_]+|[-_]+$/gu, "");
+  words(value.normalize("NFKD").replaceAll(/[^\p{ASCII}]/gu, "")).replaceAll(
+    /^[-_]+|[-_]+$/gu,
+    ""
+  );
 
 export const transliteratedSlugify = (value: string, maxLength = 50) =>
   words(
-    value.replaceAll(/[ÆÐŁØÞßæðłøþ]/gu, (char) => TRANSLITERATIONS.get(char) ?? char)
+    value
+      .replaceAll(
+        /[ÆÐŁØÞßæðłøþ]/gu,
+        (char) => TRANSLITERATIONS.get(char) ?? char
+      )
       .normalize("NFKD")
       .replaceAll(/[^\p{ASCII}]/gu, "")
   )

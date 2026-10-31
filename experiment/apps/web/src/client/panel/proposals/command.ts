@@ -51,6 +51,7 @@ const ProposalPayload = {
   ),
   coverImageClear: Schema.Boolean,
   description: Schema.String,
+  duration: Schema.String,
   durationHours: Schema.String,
   durationMinutes: Schema.String,
   eventSlug: Schema.String,

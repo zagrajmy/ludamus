@@ -117,6 +117,7 @@ export const ProposalForm = Schema.Struct({
   ),
   coverImageClear: Schema.Boolean,
   description: Schema.String,
+  duration: Schema.String,
   durationHours: Schema.String,
   durationMinutes: Schema.String,
   facilitatorIds: Schema.Array(Schema.Int),

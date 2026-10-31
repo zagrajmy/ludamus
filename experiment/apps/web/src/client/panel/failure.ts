@@ -77,7 +77,9 @@ export const catchPanelFailure = <A, B, E extends Tagged, R>(
         onSuccess: (value: A): A | B => value,
       })
     ),
-    Effect.catchDefect(() => Effect.sync(() => onFailure(PanelFailure.Broken())))
+    Effect.catchDefect(() =>
+      Effect.sync(() => onFailure(PanelFailure.Broken()))
+    )
   );
 
 export const BROKEN_SAVE =

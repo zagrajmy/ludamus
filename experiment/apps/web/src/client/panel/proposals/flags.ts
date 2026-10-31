@@ -112,6 +112,7 @@ export const ProposalFormValues = Schema.Struct({
   categoryId: Schema.String,
   contactEmail: Schema.String,
   description: Schema.String,
+  duration: Schema.String,
   durationHours: Schema.String,
   durationMinutes: Schema.String,
   facilitatorIds: Schema.Array(Schema.Int),
@@ -127,7 +128,13 @@ export type ProposalFormValues = typeof ProposalFormValues.Type;
 
 export const ProposalFormFlags = Schema.Struct({
   cancelUrl: Schema.String,
-  categories: Schema.Array(NamedId),
+  categories: Schema.Array(
+    Schema.Struct({
+      durations: Schema.Array(Schema.String),
+      id: Schema.Int,
+      name: Schema.String,
+    })
+  ),
   coverName: Schema.String,
   coverUrl: Schema.String,
   eventSlug: Schema.String,

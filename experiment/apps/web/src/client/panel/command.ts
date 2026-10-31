@@ -30,15 +30,20 @@ export const NavigateWithFlash = Command.define("NavigateWithFlash", {
 });
 
 export const ReadStoredCategories = Command.define("ReadStoredCategories", {
-  execute: safely(
-    () =>
-      panelCategories.filter(
-        (category) => window.localStorage.getItem(categoryKey(category)) === "1"
-      ),
-    []
-  ).pipe(
-    Effect.map((collapsed) =>
-      PanelMessage.LoadedStoredCategories({ collapsed })
+  execute: watchForLeaving.pipe(
+    Effect.andThen(
+      safely(
+        () =>
+          panelCategories.filter(
+            (category) =>
+              window.localStorage.getItem(categoryKey(category)) === "1"
+          ),
+        []
+      ).pipe(
+        Effect.map((collapsed) =>
+          PanelMessage.LoadedStoredCategories({ collapsed })
+        )
+      )
     )
   ),
   messages: [PanelMessage.LoadedStoredCategories],

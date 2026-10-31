@@ -84,8 +84,12 @@ const scopedSelection = Effect.fn("Panel.scopedTrackSelection")(
     }
 
     return {
-      managerIds: sortedUnique(options.form.managerIds).map((id) => UserId.make(id)),
-      spaceIds: sortedUnique(options.form.spaceIds).map((id) => SpaceId.make(id)),
+      managerIds: sortedUnique(options.form.managerIds).map((id) =>
+        UserId.make(id)
+      ),
+      spaceIds: sortedUnique(options.form.spaceIds).map((id) =>
+        SpaceId.make(id)
+      ),
     };
   }
 );

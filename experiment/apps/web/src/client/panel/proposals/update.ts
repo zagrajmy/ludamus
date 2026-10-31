@@ -126,6 +126,12 @@ export const updateProposalForm = (
     ChangedFacilitatorSearch: ({ value }) => ({
       model: modifyFields(model, { facilitatorSearch: () => value }),
     }),
+    ChangedCategory: ({ value }) => ({
+      model: modifyFields(model, {
+        sessionFieldsVersion: (version) => version + 1,
+        values: (values) => modifyFields(values, { categoryId: () => value }),
+      }),
+    }),
     ChangedText: ({ name, value }) => ({
       model: { ...model, values: { ...model.values, [name]: value } },
     }),

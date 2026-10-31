@@ -24,6 +24,11 @@ import { readProposalInEvent } from "@zagrajmy/core/panel/proposals";
 import { formatDate } from "@zagrajmy/i18n";
 import { DateTime, Effect, Option, Predicate, Schema } from "effect";
 
+import {
+  durationLabel,
+  durationParts,
+  pickedDuration,
+} from "../../../client/panel/proposals/duration.js";
 import type {
   ProposalColumn,
   ProposalDetailFlags,
@@ -117,6 +122,7 @@ const listFilters = (
   }>
 ) => {
   let filters: SessionListFilters = {};
+
   const answered = options.fieldValues.flatMap((field) =>
     field.value === ""
       ? []
@@ -317,29 +323,6 @@ export const loadProposals = Effect.fn("PanelPages.loadProposals")(
   }
 );
 
-export const durationParts = (iso: string) => {
-  const match = /^P(?:T)?(?:(?<hours>\d+)H)?(?:(?<minutes>\d+)M)?$/u.exec(iso);
-
-  return {
-    hours: Number(match?.groups?.hours ?? 0),
-    minutes: Number(match?.groups?.minutes ?? 0),
-  };
-};
-
-export const durationLabel = (iso: string) => {
-  const { hours, minutes } = durationParts(iso);
-
-  if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}min`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return minutes > 0 ? `${minutes}min` : "";
-};
-
 const fieldText = (value: FieldValue, context: RequestContext) => {
   if (Predicate.isBoolean(value)) {
     return value ? context.translator.t("Yes") : context.translator.t("No");
@@ -485,6 +468,9 @@ export const loadProposalForm = Effect.fn("PanelPages.loadProposalForm")(
 
     const base = {
       categories: categories.map((category) => ({
+        durations: category.durations.filter(
+          (duration) => durationLabel(duration) !== ""
+        ),
         id: category.id,
         name: category.name,
       })),
@@ -506,9 +492,11 @@ export const loadProposalForm = Effect.fn("PanelPages.loadProposalForm")(
         proposalId: Option.none(),
         savedTitle: "",
         values: {
-          categoryId: "",
+          categoryId:
+            categories[0] === undefined ? "" : String(categories[0].id),
           contactEmail: "",
           description: "",
+          duration: "",
           durationHours: "",
           durationMinutes: "",
           facilitatorIds: [],
@@ -559,6 +547,11 @@ export const loadProposalForm = Effect.fn("PanelPages.loadProposalForm")(
           session.categoryId === null ? "" : String(session.categoryId),
         contactEmail: session.contactEmail,
         description: session.description,
+        duration: pickedDuration(
+          session.duration,
+          categories.find((category) => category.id === session.categoryId)
+            ?.durations ?? []
+        ),
         durationHours: hours === 0 ? "" : String(hours),
         durationMinutes: minutes === 0 ? "" : String(minutes),
         facilitatorIds: assigned.map((facilitator) => facilitator.id),
