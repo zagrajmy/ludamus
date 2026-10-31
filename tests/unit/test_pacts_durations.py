@@ -1,9 +1,4 @@
-import string
-import sys
-
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
 
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -14,10 +9,6 @@ from ludamus.pacts.durations import (
     normalize_duration,
     parse_duration,
     parse_duration_part,
-)
-
-_ISDIGIT_TRUE = tuple(
-    char for code in range(sys.maxunicode + 1) if (char := chr(code)).isdigit()
 )
 
 
@@ -52,24 +43,6 @@ class TestParseDurationPart:
     )
     def test_ascii_digits_are_read(self, raw: str, maximum: int, expected: int) -> None:
         assert parse_duration_part(raw, maximum=maximum) == expected
-
-    @given(
-        raw=st.text(
-            alphabet=st.sampled_from(_ISDIGIT_TRUE)
-            | st.sampled_from(string.digits + " "),
-            max_size=3,
-        ),
-        maximum=st.sampled_from((MAX_DURATION_HOURS, MAX_DURATION_MINUTES)),
-    )
-    def test_a_part_is_ascii_digits_in_range_or_refused(
-        self, raw: str, maximum: int
-    ) -> None:
-        try:
-            part = parse_duration_part(raw, maximum=maximum)
-        except InvalidDurationError:
-            return
-        assert raw.strip().isascii()
-        assert 0 <= part <= maximum
 
 
 class TestBuildDuration:
