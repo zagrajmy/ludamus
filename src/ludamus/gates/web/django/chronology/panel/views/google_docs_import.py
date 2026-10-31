@@ -8,6 +8,7 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from urllib.parse import urlencode
@@ -702,7 +703,11 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import", slug=slug)
         raw_index = (self.request.POST.get("index") or "").strip()
         question = self.request.POST.get(f"question_{raw_index}") if raw_index else None
-        if not raw_index.isdigit() or not question:
+        if (
+            not (raw_index.isascii() and raw_index.isdigit())
+            or len(raw_index) > len(str(sys.maxsize))
+            or not question
+        ):
             messages.error(self.request, _("Invalid row submission."))
             return redirect("panel:import-review", slug=slug, pk=active.pk)
         index = int(raw_index)

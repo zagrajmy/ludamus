@@ -2,6 +2,7 @@ import pytest
 
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
     InvalidDurationError,
     build_duration,
     format_duration,
@@ -25,6 +26,23 @@ class TestParseDurationPart:
     def test_overlong_digit_string_is_rejected(self) -> None:
         with pytest.raises(InvalidDurationError):
             parse_duration_part("1" * 20, maximum=MAX_DURATION_HOURS)
+
+    # `str.isdigit` is true for all of these; `int` also reads the Arabic-Indic.
+    @pytest.mark.parametrize("raw", ("²", "1²", "³", "\u0661", "\u0661\u0662"))
+    def test_a_digit_outside_ascii_is_refused(self, raw: str) -> None:
+        with pytest.raises(InvalidDurationError):
+            parse_duration_part(raw, maximum=MAX_DURATION_HOURS)
+
+    @pytest.mark.parametrize(
+        ("raw", "maximum", "expected"),
+        (
+            (" 23 ", MAX_DURATION_HOURS, MAX_DURATION_HOURS),
+            ("07", MAX_DURATION_MINUTES, 7),
+            ("", MAX_DURATION_MINUTES, 0),
+        ),
+    )
+    def test_ascii_digits_are_read(self, raw: str, maximum: int, expected: int) -> None:
+        assert parse_duration_part(raw, maximum=maximum) == expected
 
 
 class TestBuildDuration:
