@@ -205,7 +205,7 @@ connections. Do not change product code unless the user asks.
   so other paths to the same bug may exist.
 - The allowance model has one owner, two companions and two requests, and
   covers the enroll gate. Promotion applies the same rule
-  (`owner_slots_remaining` less the waiters with `holds_event_seat`) but is
+  (`owner_slots_remaining` less the waiters without `holds_event_seat`) but is
   not modelled; `test_promotion_allowance_properties.py` checks on the real
   database that it admits exactly whom the gate admits.
 - Left out: parties and the whole-party rule; guests as separate people;

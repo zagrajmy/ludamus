@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from itertools import chain
 from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
@@ -26,8 +27,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
-from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     AnonymousEnrollmentRepositoryProtocol,
@@ -52,7 +52,7 @@ from ludamus.pacts.legacy import (
 )
 
 if TYPE_CHECKING:
-
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
         EnrollmentWindowData,
         GuestSeatData,
@@ -154,7 +154,6 @@ class ParticipationPromotionRepository:
             if category is not None
             else _DEFAULT_OFFER_WINDOW
         )
-        event_dto = EventDTO.model_validate(event)
 
         waiting: list[WaitingParticipantDTO] = []
         slots_by_owner: dict[int, int] = {}
@@ -168,14 +167,35 @@ class ParticipationPromotionRepository:
         sponsors = sponsors_by_member(p.user for p in participations)
         waiter_ids = [p.user_id for p in participations]
         conflicted = Session.objects.conflicted_user_ids(session, waiter_ids)
-        seated = EnrollmentParticipationRepository.occupying_user_ids(
-            user_ids=waiter_ids, event_id=event.pk
-        )
         recipients = {
             p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
         }
         user_allowed, domain_allowed = self._config_allowances(
             event, {r.email or "" for r in recipients.values()}
+        )
+        allowed_by_owner = {
+            owner.pk: allowed
+            for owner in recipients.values()
+            if (
+                allowed := self._allowed_slots(
+                    owner=owner,
+                    user_allowed=user_allowed,
+                    domain_allowed=domain_allowed,
+                )
+            )
+            is not None
+        }
+        households = {
+            owner.pk: self._household_ids(owner)
+            for owner in recipients.values()
+            if owner.pk in allowed_by_owner
+        }
+        # One occupancy snapshot serves both reads: which waiters already hold
+        # a seat, and how many of each owner's household do. Two reads could
+        # straddle a concurrent commit and disagree.
+        seated = EnrollmentParticipationRepository.occupying_user_ids(
+            user_ids=sorted({*waiter_ids, *chain.from_iterable(households.values())}),
+            event_id=event.pk,
         )
         for participation in participations:
             user = participation.user
@@ -183,10 +203,9 @@ class ParticipationPromotionRepository:
             recipient = recipients[user.pk]
             if recipient.pk not in slots_by_owner:
                 slots_by_owner[recipient.pk] = self._slots_remaining(
-                    owner=recipient,
-                    event_dto=event_dto,
-                    user_allowed=user_allowed,
-                    domain_allowed=domain_allowed,
+                    allowed=allowed_by_owner.get(recipient.pk),
+                    household=households.get(recipient.pk, []),
+                    seated=seated,
                 )
             waiting.append(
                 WaitingParticipantDTO(
@@ -245,42 +264,41 @@ class ParticipationPromotionRepository:
         return user_allowed, domain_allowed
 
     @staticmethod
-    def _slots_remaining(
-        *,
-        owner: User,
-        event_dto: EventDTO,
-        user_allowed: dict[str, int],
-        domain_allowed: dict[str, int],
-    ) -> int:
+    def _allowed_slots(
+        *, owner: User, user_allowed: dict[str, int], domain_allowed: dict[str, int]
+    ) -> int | None:
+        # None: no allowance applies to this owner, so promotion never charges them.
         if not owner.email:
-            return UNLIMITED_SLOTS
+            return None
         domain = owner.email.split("@")[1] if "@" in owner.email else ""
         has_config = owner.email in user_allowed or (
             bool(domain) and domain in domain_allowed
         )
         if not has_config:
-            return UNLIMITED_SLOTS
+            return None
         allowed = user_allowed.get(owner.email, 0)
         if domain:
             allowed += domain_allowed.get(domain, 0)
+        return allowed
+
+    @staticmethod
+    def _household_ids(owner: User) -> list[int]:
         # The owner's seat allowance covers themselves plus every login-less
         # companion they sponsor (members of parties they lead).
-        companions = active_companions(owner.slug)
-        members = [
-            UserDTO.model_validate(owner),
-            *(UserDTO.model_validate(c) for c in companions),
-        ]
-        # Used slots = distinct owner/companion users holding a seat; the same
+        return [owner.pk, *active_companions(owner.slug).values_list("pk", flat=True)]
+
+    @staticmethod
+    def _slots_remaining(
+        *, allowed: int | None, household: list[int], seated: set[int]
+    ) -> int:
+        if allowed is None:
+            return UNLIMITED_SLOTS
+        # Used slots = distinct household users holding a seat; the same
         # accounting `mills.enrollment.get_used_slots` applies at the gates.
-        used = len(
-            EnrollmentParticipationRepository.occupying_user_ids(
-                user_ids=[member.pk for member in members], event_id=event_dto.pk
-            )
-        )
         # NOTE: unclamped. A household seated past its passes (a race, or passes
         # withdrawn) must read as overdrawn, or a waiter already counted in
         # `used` would pass where `can_enroll_users` refuses them.
-        return allowed - used
+        return allowed - len(set(household) & seated)
 
     @staticmethod
     def confirm(participation_ids: list[int]) -> None:
