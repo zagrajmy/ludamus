@@ -173,9 +173,10 @@ class ParticipationPromotionRepository:
         user_allowed, domain_allowed = self._config_allowances(
             event, {r.email or "" for r in recipients.values()}
         )
+        owners = {owner.pk: owner for owner in recipients.values()}
         allowed_by_owner = {
             owner.pk: allowed
-            for owner in recipients.values()
+            for owner in owners.values()
             if (
                 allowed := self._allowed_slots(
                     owner=owner,
@@ -186,9 +187,8 @@ class ParticipationPromotionRepository:
             is not None
         }
         households = {
-            owner.pk: self._household_ids(owner)
-            for owner in recipients.values()
-            if owner.pk in allowed_by_owner
+            owner_pk: self._household_ids(owners[owner_pk])
+            for owner_pk in allowed_by_owner
         }
         # One occupancy snapshot serves both reads: which waiters already hold
         # a seat, and how many of each owner's household do. Two reads could
