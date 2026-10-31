@@ -104,6 +104,7 @@ class FakeRepo:
 
     def mark_claimed(self, ids, *, claimed_at):
         self.log.claimed.append((ids, claimed_at))
+        return True
 
     def drop(self, ids):
         self.log.dropped.append(ids)
@@ -372,6 +373,26 @@ class TestClaimOffer:
             success=False, reason="expired", session_id=_SESSION_ID, event_slug="con"
         )
         assert not repo.log.claimed
+
+    def test_time_conflict_rejects_claim(self):
+        offer = self._offer()
+        repo = FakeRepo(offer=offer)
+
+        def reject_claim(ids, *, claimed_at):
+            repo.log.claimed.append((ids, claimed_at))
+            return False
+
+        repo.mark_claimed = reject_claim
+        service = WaitlistPromotionService(
+            FakeTransaction(), repo, FakeNotifier(), FakeScheduler()
+        )
+
+        result = service.claim_offer(token="tok-xyz")
+
+        assert result == ClaimResult(
+            success=False, reason="conflict", session_id=_SESSION_ID, event_slug="con"
+        )
+        assert repo.log.claimed == [([1, 2], _NOW)]
 
 
 class TestClaimMemberOffer:
