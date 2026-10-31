@@ -36,6 +36,16 @@ enrollment invariants) stay in the repo root's `CLAUDE.md`, `PRODUCT.md` and
 - Strings people read go through `@zagrajmy/i18n`; English msgids match
   `django.po`.
 
+## Bugs found in the Django app
+
+Porting is an audit. When work here shows the Django app is wrong (a rule
+the port cannot reproduce without reproducing a defect, a differential case
+that exposes an unhandled input, a query that disagrees with the model), it is
+not fixed here. Record it in `docs/ratstack-conformance.md` under "Django
+bugs" with the evidence, and the coordinator spins out a small fix PR against
+`main` (test first, torment-nexus review, merge on green). Agents report;
+they do not open those PRs.
+
 ## Architecture
 
 - Dependency direction: `apps/server` and `apps/web/src/server` →

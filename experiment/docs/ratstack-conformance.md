@@ -43,3 +43,16 @@ Observed while porting; not changed here.
 | Errors are part of the interface; keep boundary words honest | `links/db/django/models.py` `conflicted_user_ids` (line 1245) | The query matches another session whose start or end falls inside this one, so a confirmed seat in a session that wholly contains this one (starts before, ends after) is not a conflict, while `AgendaItem.overlaps_with` says it is. The comment above the query claims it never misses a genuine conflict. Found by the TypeScript port's property tests; confirmed by reading the query, not yet reproduced against Django. |
 | Failures keep their meaning: a decode failure is a typed refusal, not a 500 | `pacts/durations.py` duration parsing on import review | `str.isdigit()` accepts superscript digits such as `²`, then `int()` raises a plain `ValueError` the review view does not catch. Found while porting; not reproduced in the browser. |
 | Bound every read | Several list views page in Python after an unbounded query (checked: proposals and facilitators panel lists) | Worth confirming per view before acting; noted from reading the repositories, not measured. |
+
+## Django bugs found here → offshoot PRs
+
+Every defect in the Django app that this work uncovers gets its own small PR
+against `main`, test first, reviewed with torment-nexus and merged on green.
+
+| Bug | Found by | Offshoot PR |
+| --- | --- | --- |
+| `conflicted_user_ids` misses a session that wholly contains the candidate | enrollment port property tests | in progress (branch `fix/enrollment-conflict-containment-and-duration-digits`) |
+| Duration parser accepts `isdigit()` characters `int()` rejects, so `²` becomes a 500 on import review | differential export of `pacts/durations.py` | same PR |
+| Promotion charges a pass for a waiter already seated in the event (documented open finding, reproduced by the port as an expected failure) | VERIFICATION.md open finding; `enrollment/` port | queued |
+| Offered/held seat passes the conflict check; two enrolls double-book; allowance race (documented open findings, each needs a locking design, not a local fix) | VERIFICATION.md; `enrollment/README.md` names the locks | not spun out: needs a design decision on row locking (see enrollment README) |
+
