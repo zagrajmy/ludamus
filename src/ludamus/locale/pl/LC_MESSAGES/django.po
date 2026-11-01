@@ -3486,6 +3486,10 @@ msgid "Set how long a held seat waits for confirmation."
 msgstr "Ustaw, jak długo zajęte miejsce czeka na potwierdzenie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Add at least one option, or allow custom values."
+msgstr "Dodaj co najmniej jedną opcję albo zezwól na własne wartości."
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
