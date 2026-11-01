@@ -35,14 +35,6 @@ households = st.fixed_dictionaries(
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "finding: _slots_remaining charges a slot for a waiter who already "
-        "holds a seat in the event, so promotion skips someone the gate admits"
-    ),
-)
 @pytest.mark.usefixtures("enrollment_config")
 @settings(max_examples=40, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(data=households)
