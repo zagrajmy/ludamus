@@ -77,6 +77,19 @@ class TestStillCatchesWhatT038Caught:
 
         assert "Endblock name should match opening block name" in output
 
+    def test_an_unclosed_block_whose_string_holds_an_opener(self, tmp_path):
+        output = _lint(tmp_path, '{% with a="{%" %}\n    <p>hi</p>\n')
+
+        assert "Block tag has no matching end tag" in output
+
+    def test_an_unclosed_tag_does_not_swallow_the_block_after_it(self, tmp_path):
+        output = _lint(
+            tmp_path,
+            "{% if x\n{% tessera_table %}\n    <p>hi</p>\n{% end_tessera_table %}\n",
+        )
+
+        assert "End tag has no matching block tag" not in output
+
 
 @pytest.mark.parametrize("editor", (False, True), ids=("mise-cli", "vscode"))
 def test_supported_callers_load_the_rule(editor):
