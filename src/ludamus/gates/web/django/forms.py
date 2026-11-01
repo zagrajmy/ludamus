@@ -162,7 +162,10 @@ class EventSettingsForm(forms.Form):
         },
     )
     slug = forms.SlugField(
-        max_length=50, error_messages={"required": _("Event slug is required.")}
+        label=_("Slug"),
+        max_length=50,
+        help_text=_("URL identifier for this event. Must be unique."),
+        error_messages={"required": _("Event slug is required.")},
     )
     description = forms.CharField(
         label=_("Description"),
@@ -189,11 +192,13 @@ class EventSettingsForm(forms.Form):
     cover_image = cover_image_field(crop="top-and-bottom")
     logo = logo_field()
     start_time = forms.DateTimeField(
+        label=_("Start time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("Start time is required.")},
     )
     end_time = forms.DateTimeField(
+        label=_("End time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
