@@ -397,6 +397,7 @@ class SessionData(TypedDict, total=False):
 class SessionUpdateData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
+    contact_language: str
     cover_image: UploadedFileProtocol | str
     description: str
     facilitator_name: str

@@ -134,5 +134,5 @@ class ProposeSessionServiceProtocol(Protocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
-        language: str = "",
+        language: str,
     ) -> ProposeSessionResult: ...

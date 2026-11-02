@@ -341,6 +341,8 @@ class TestAcceptanceNotification:
                 f"Acceptance of session {session.pk} not mailed to its proposer",
             )
         ]
+        session.refresh_from_db()
+        assert session.acceptance_mailed_at is None
 
     def test_a_contact_that_never_used_the_propose_form_is_not_mailed(
         self, panel_client, event, django_capture_on_commit_callbacks

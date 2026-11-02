@@ -181,6 +181,7 @@ class TestUpdate:
                 "facilitator_name": "D",
                 "description": "About",
                 "contact_email": "d@example.com",
+                "contact_language": "",
                 "participants_limit": 4,
                 "min_age": 12,
                 "duration": "PT2H",

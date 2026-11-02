@@ -83,6 +83,7 @@ def _announce_acceptance(
         _announce_to_contact(
             notifier=notifier, session=session, event=event, placed=placed
         )
+        return
     for recipient_id in sorted(recipient_ids):
         notifier.notify_proposal_accepted(
             ProposalAcceptedNotification(
@@ -590,6 +591,20 @@ def _answers_worth_storing(
     ]
 
 
+def _drop_stale_contact_language(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> SessionUpdateData:
+    # NOTE: the language vouches for the address the propose form was sent
+    # from; a replaced address never asked to be mailed.
+    if update.get("contact_email", old_session.contact_email) == (
+        old_session.contact_email
+    ):
+        return update
+    cleared = update.copy()
+    cleared["contact_language"] = ""
+    return cleared
+
+
 class SessionContentEditService:
     # Shared by the facilitator self-edit and organizer panel edit so both
     # paths write the same ContentChangeLog; owns the transactional boundary.
@@ -623,7 +638,9 @@ class SessionContentEditService:
         with self._transaction.atomic():
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
-            self._sessions.update(session_id, data.update)
+            self._sessions.update(
+                session_id, _drop_stale_contact_language(old_session, data.update)
+            )
             self._resize(
                 session_id=session_id, old_session=old_session, update=data.update
             )

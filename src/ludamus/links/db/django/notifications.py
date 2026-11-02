@@ -730,8 +730,6 @@ class DjangoUserNotifier:
     def notify_anonymous_proposal_accepted(
         notification: AnonymousProposalAcceptedNotification,
     ) -> None:
-        # The stamp is the once-per-session gate: only one acceptance ever
-        # flips it, so accepting again, or after a rejection, mails no one.
         if not Session.objects.filter(
             pk=notification.session_id, acceptance_mailed_at__isnull=True
         ).update(acceptance_mailed_at=datetime.now(UTC)):
@@ -761,6 +759,9 @@ class DjangoUserNotifier:
                 logger.warning(
                     "Acceptance of session %s not mailed to its proposer",
                     notification.session_id,
+                )
+                Session.objects.filter(pk=notification.session_id).update(
+                    acceptance_mailed_at=None
                 )
 
         transaction.on_commit(_send_email)

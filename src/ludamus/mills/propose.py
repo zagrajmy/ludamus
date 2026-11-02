@@ -194,7 +194,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
-        language: str = "",
+        language: str,
     ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
