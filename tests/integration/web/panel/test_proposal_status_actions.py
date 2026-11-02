@@ -253,6 +253,19 @@ class TestAcceptanceNotification:
             [[co_host.email], [proposer.email]]
         )
 
+    def test_a_title_with_line_breaks_still_makes_a_one_line_subject(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        proposer = UserFactory(username="proposer")
+        session = make_proposal(event, presenter=proposer, title="Dungeon\r\nNight")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [message.subject for message in mail.outbox] == [
+            "Accepted: Dungeon Night"
+        ]
+
     def test_accepting_again_after_a_rejection_tells_no_one_twice(
         self, panel_client, event
     ):
@@ -275,6 +288,58 @@ class TestAcceptanceNotification:
         session.refresh_from_db()
         assert session.status == "accepted"
         assert not Notification.objects.exists()
+
+    @pytest.mark.parametrize("organizer_language", ("pl", "en"))
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_each_recipient_reads_it_in_their_own_language(
+        self,
+        panel_client,
+        event,
+        organizer_language,
+        django_capture_on_commit_callbacks,
+    ):
+        english = UserFactory(username="english", language="en")
+        polish = UserFactory(username="polish", language="pl")
+        session = make_proposal(event, presenter=english, title="Dungeon Night")
+        session.facilitators.add(make_facilitator(event, user=polish))
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(
+                _url(event, proposal_id=session.pk, action=ACCEPT),
+                headers={"accept-language": organizer_language},
+            )
+
+        assert dict(
+            Notification.objects.values_list("recipient__username", "body")
+        ) == {
+            "english": (
+                f"Your proposal for {event.name} was accepted. It will appear on "
+                "the agenda once the organizers give it a time and place."
+            ),
+            "polish": (
+                f"Twoje zgłoszenie na {event.name} zostało zaakceptowane. Pojawi "
+                "się w programie, gdy organizatorzy nadadzą mu termin i miejsce."
+            ),
+        }
+        assert {message.to[0]: message.subject for message in mail.outbox} == {
+            english.email: "Accepted: Dungeon Night",
+            polish.email: "Zaakceptowano: Dungeon Night",
+        }
+
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_a_recipient_never_seen_signed_in_reads_the_site_language(
+        self, panel_client, event, settings
+    ):
+        proposer = UserFactory(username="proposer", language="")
+        session = make_proposal(event, presenter=proposer, title="Dungeon Night")
+        settings.LANGUAGE_CODE = "pl"
+
+        panel_client.post(
+            _url(event, proposal_id=session.pk, action=ACCEPT),
+            headers={"accept-language": "en"},
+        )
+
+        assert Notification.objects.get().title == "Zaakceptowano: Dungeon Night"
 
     def test_other_status_changes_notify_no_one(self, panel_client, event):
         session = make_proposal(event, presenter=UserFactory(username="proposer"))

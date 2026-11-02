@@ -143,6 +143,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=[(band.value, band.name) for band in AgeBand],
         default=AgeBand.UNKNOWN.value,
     )
+    language = models.CharField(max_length=16, blank=True, default="")
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
     user_type = models.CharField(
@@ -1627,8 +1628,6 @@ class Notification(models.Model):
     kind = models.CharField(
         max_length=32, choices=[(item.value, item.name) for item in NotificationKind]
     )
-    # Localised, ready-to-render copy plus structured refs (session/event ids,
-    # claim url, deadline). Rendered by the recipient's request, not at send.
     title = models.CharField(max_length=NOTIFICATION_TITLE_MAX_LENGTH)
     body = models.TextField(blank=True, default="")
     url = models.CharField(max_length=512, blank=True, default="")
