@@ -937,6 +937,18 @@ class TestShownParty:
 
         assert not listings.rows
 
+    def test_update_refuses_switching_to_a_party_the_author_does_not_lead(self):
+        listings = FakeListings()
+        listings.parties[100] = (STRANGER_PK, "")
+        listing = _open_listing(listings)
+
+        with pytest.raises(NotFoundError):
+            _service(listings).update(
+                **_ids(listing), data=_WRITE | {"party_id": 100}, tag_ids=[]
+            )
+
+        assert listings.rows[listing.pk] == listing
+
     def test_detail_names_the_members_of_the_shown_party(self):
         listings = FakeListings()
         listings.parties[100] = (AUTHOR_PK, "")
