@@ -296,6 +296,19 @@
             </div>
         </dialog>
     {% endif %}
+    {% if listings %}
+        <section class="border-t border-border py-6">
+            <h5 class="font-semibold">{% translate "From the board" %}</h5>
+            <ul class="mt-2 flex flex-col gap-1 text-sm">
+                {% for listing in listings %}
+                    <li>
+                        <a href="{% url 'web:board:detail' pk=listing.pk %}"
+                           class="break-words text-foreground-secondary hover:underline">{{ listing.title }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
     {# Shared session history #}
     <section class="border-t border-border pt-6">
         <h5 class="font-semibold">{% translate "Sessions together" %}</h5>

@@ -224,3 +224,83 @@ test.describe("Board responses", () => {
     await page.getByRole("button", { name: "Close listing" }).click();
   });
 });
+
+test.describe("Board parties", () => {
+  test("the author adds a responder to a new party and they swap contacts", async ({
+    page,
+    browser,
+  }) => {
+    const title = `Wiedźmin campaign ${Date.now()}`;
+    await page.goto("/board/create/");
+    await page.getByLabel("Players").check();
+    await page.getByLabel("Title").fill(title);
+    await page.getByLabel("What we'll do").fill("A long monster hunt");
+    await page.getByLabel("When, in your words").fill("Every Tuesday");
+    await page.getByRole("button", { name: "Publish listing" }).click();
+    await expect(page.getByText("Listing published.")).toBeVisible();
+    const listingUrl = page.url();
+
+    const player = await browser.newContext({
+      storageState: path.join(e2eDir, ".auth-state-party-invitee.json"),
+    });
+    const playerPage = await player.newPage();
+    await playerPage.goto(listingUrl);
+    const email = playerPage.getByLabel("Account email");
+    if (await email.isVisible()) await email.check();
+    await playerPage.getByRole("button", { name: "I'm interested" }).click();
+
+    await page.goto(listingUrl);
+    await page.getByRole("link", { name: "Responses (1)" }).click();
+    const row = page.getByRole("listitem").filter({ hasText: INVITEE });
+    const partyPicker = row.getByLabel("Party");
+    if (await partyPicker.isVisible()) await partyPicker.selectOption({ label: "A new party" });
+    await row.getByRole("button", { name: /^Add to (a new )?party$/ }).click();
+    await expect(page.getByText("Invitation sent. They join once they accept it.")).toBeVisible();
+    await page.getByRole("tab", { name: "Invited (1)" }).click();
+    await expect(page.getByRole("main")).toContainText(`Invited to ${title}.`);
+    await attachArtifacts(test.info(), {
+      name: "listing-invited",
+      region: page.getByRole("main"),
+      facts: { title, responder: INVITEE, tab: "invited" },
+    });
+
+    await playerPage.goto(listingUrl);
+    await expect(playerPage.getByText(/Accept the invitation to swap contacts/)).toBeVisible();
+    await playerPage.getByRole("link", { name: "See the invitation" }).click();
+    await playerPage
+      .getByRole("listitem")
+      .filter({ hasText: title })
+      .getByRole("button", { name: "Join party" })
+      .click();
+    await playerPage.goto(listingUrl);
+    await expect(playerPage.getByText("You're in the author's party.")).toBeVisible();
+    await expect(playerPage.getByText(/Author's (Discord|email): \S+/)).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "listing-joined-member",
+      region: playerPage.getByRole("main"),
+      facts: { title, status: "joined" },
+    });
+    await player.close();
+
+    await page.goto(`${listingUrl}responses/?tab=joined`);
+    const joined = page.getByRole("listitem").filter({ hasText: INVITEE });
+    await expect(joined).toContainText(/(Discord|Email): \S+/);
+    await expect(page.getByRole("tab", { name: "In your party (1)" })).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "listing-joined-author",
+      region: page.getByRole("main"),
+      facts: { title, responder: INVITEE, tab: "joined" },
+    });
+
+    await page.goto(listingUrl);
+    await page.getByRole("button", { name: "Close listing" }).click();
+    await expect(page.getByText("Party formed")).toBeVisible();
+
+    await page.goto("/crowd/profile/parties/");
+    await page.getByRole("link", { name: title }).first().click();
+    await expect(page.getByRole("link", { name: title })).toBeVisible();
+    await page.getByRole("button", { name: "Delete party" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();
+    await expect(page.getByText("Party deleted.")).toBeVisible();
+  });
+});

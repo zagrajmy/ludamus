@@ -71,6 +71,14 @@
                         {{ listing.author_name }}
                     </dd>
                 </div>
+                {% if party_members %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "Already in the party" %}</dt>
+                        <dd class="text-foreground-primary">
+                            {{ party_members|join:", " }}
+                        </dd>
+                    </div>
+                {% endif %}
                 {% if is_author %}
                     <div>
                         <dt class="text-foreground-muted">{% translate "Contact for your party" %}</dt>

@@ -18,6 +18,7 @@ from ludamus.gates.web.django.board.forms import (
     BoardFilterForm,
     ListingDeclineForm,
     ListingForm,
+    ListingInviteForm,
     ListingResponseForm,
 )
 from ludamus.gates.web.django.pagination import windowed_pagination_context
@@ -28,7 +29,7 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingContactMissingError,
     ListingCreateDict,
-    ListingResponseStatus,
+    ListingResponseTab,
     ListingSeeking,
     ListingStatusError,
     ListingWriteDict,
@@ -167,6 +168,8 @@ def _render_detail(
                 else None
             ),
             "waiting_count": detail.waiting_count,
+            "author_contact": detail.author_contact,
+            "party_members": detail.party_members,
         },
     )
 
@@ -179,26 +182,23 @@ class ListingDetailPageView(_BoardGate):
         return _render_detail(request, _read_detail(request, pk))
 
 
-_RESPONSE_TABS = {
-    ListingResponseStatus.WAITING.value: ListingResponseStatus.WAITING,
-    ListingResponseStatus.DECLINED.value: ListingResponseStatus.DECLINED,
-}
-
-
 class ListingResponsesPageView(_BoardGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     @staticmethod
     def get(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        status = _RESPONSE_TABS.get(
-            request.GET.get("tab", ""), ListingResponseStatus.WAITING
+        asked = request.GET.get("tab", "")
+        tab = (
+            ListingResponseTab(asked)
+            if asked in ListingResponseTab
+            else ListingResponseTab.WAITING
         )
         try:
             found = request.services.listings.responses(
                 pk=pk,
                 sphere_id=request.context.current_sphere_id,
                 author_id=request.context.current_user_id,
-                status=status,
+                tab=tab,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -209,8 +209,9 @@ class ListingResponsesPageView(_BoardGate, LoginRequiredMixin, View):
                 "listing": found.listing,
                 "responses": found.responses,
                 "counts": found.counts,
-                "active_tab": status.value,
+                "active_tab": tab.value,
                 "decline_form": ListingDeclineForm(),
+                "invite_form": ListingInviteForm(parties=found.parties),
             },
         )
 
@@ -275,6 +276,37 @@ class ListingResponseDeclineActionView(_BoardGate, LoginRequiredMixin, View):
         return redirect("web:board:responses", pk=pk)
 
 
+class ListingResponseInviteActionView(_BoardGate, LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(
+        request: AuthenticatedRootRequest, pk: int, response_pk: int
+    ) -> HttpResponse:
+        listings = request.services.listings
+        author_id = request.context.current_user_id
+        form = ListingInviteForm(request.POST, parties=listings.led_parties(author_id))
+        if not form.is_valid():
+            raise Http404
+        try:
+            listings.add_to_party(
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                author_id=author_id,
+                response_id=response_pk,
+                party_id=form.cleaned_data["party"],
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        except ListingStatusError:
+            messages.error(request, _STALE)
+        else:
+            messages.success(
+                request, _("Invitation sent. They join once they accept it.")
+            )
+        return redirect("web:board:responses", pk=pk)
+
+
 class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
@@ -293,6 +325,9 @@ class _ListingFormPageView(_BoardGate, LoginRequiredMixin, View):
             contact_channels=self.request.services.listings.contact_channels(
                 self.request.context.current_user_id
             ),
+            parties=self.request.services.listings.led_parties(
+                self.request.context.current_user_id
+            ),
         )
 
 
@@ -309,6 +344,7 @@ def _write_data(form: ListingForm) -> ListingWriteDict:
         starts_at=data["starts_at"],
         when_text=data["when_text"],
         contact=ListingContact(data["contact"]),
+        party_id=data.get("party"),
     )
     if (header := resolve_uploaded_file_field(data.get("header_image"))) is not None:
         write["header_image"] = header
@@ -342,6 +378,8 @@ class ListingCreatePageView(_ListingFormPageView):
                 tag_ids=form.cleaned_data["tags"],
                 publish_at=_now() if publish else None,
             )
+        except NotFoundError as exc:
+            raise Http404 from exc
         except ListingContactMissingError as exc:
             form.add_error("contact", _CONTACT_MISSING[exc.contact])
             return self._render(request, form)
@@ -386,6 +424,7 @@ class ListingEditPageView(_ListingFormPageView):
                 "place": listing.place,
                 "seats": listing.seats,
                 "contact": listing.contact,
+                "party": listing.party_id,
                 "header_image": stored_file(
                     listing.header_image_url, listing.header_image_original_name
                 ),
@@ -406,6 +445,8 @@ class ListingEditPageView(_ListingFormPageView):
                 data=_write_data(form),
                 tag_ids=form.cleaned_data["tags"],
             )
+        except NotFoundError as exc:
+            raise Http404 from exc
         except ListingContactMissingError as exc:
             form.add_error("contact", _CONTACT_MISSING[exc.contact])
             return self._render(request, form, listing)

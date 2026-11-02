@@ -31,6 +31,8 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": None,
+                "author_contact": "",
+                "party_members": [],
             },
             template_name="board/detail.html",
         )
@@ -55,6 +57,8 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": 0,
+                "author_contact": "",
+                "party_members": [],
             },
             template_name="board/detail.html",
         )
@@ -113,6 +117,8 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": 0,
+                "author_contact": "",
+                "party_members": [],
             },
             template_name="board/detail.html",
         )

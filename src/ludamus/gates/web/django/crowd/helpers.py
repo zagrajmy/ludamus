@@ -121,5 +121,6 @@ def build_party_detail_context(
             else ""
         ),
         "history": history,
+        "listings": request.services.listings.party_listings(pk),
         "profile_active_tab": "parties",
     }
