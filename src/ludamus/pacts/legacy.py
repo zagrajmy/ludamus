@@ -203,7 +203,7 @@ class SessionDTO(BaseModel):
 
     category_id: int | None
     contact_email: str
-    contact_language: str = ""
+    contact_language: str
     creation_time: datetime
     description: str
     duration: str = ""

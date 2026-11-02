@@ -742,6 +742,8 @@ class DjangoUserNotifier:
             return
         with translation.override(notification.language):
             title, body, url = _acceptance_copy(notification)
+        # NOTE: unproven, unlike `_deliverable_email`: the proposer gave this
+        # address for status updates, and only an organizer can trigger this.
         message = EmailMessage(
             subject=_subject(title),
             body=f"{body}\n\n{url}",
@@ -749,12 +751,17 @@ class DjangoUserNotifier:
         )
 
         def _send_email() -> None:
-            message.send(fail_silently=True)
-            logger.info(
-                "Acceptance of session %s mailed to its proposer in %s",
-                notification.session_id,
-                notification.language,
-            )
+            if message.send(fail_silently=True):
+                logger.info(
+                    "Acceptance of session %s mailed to its proposer in %s",
+                    notification.session_id,
+                    notification.language,
+                )
+            else:
+                logger.warning(
+                    "Acceptance of session %s not mailed to its proposer",
+                    notification.session_id,
+                )
 
         transaction.on_commit(_send_email)
 

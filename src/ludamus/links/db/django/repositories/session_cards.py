@@ -65,6 +65,7 @@ class _SessionRow(BaseModel):
     pk: int
     category_id: int | None
     contact_email: str
+    contact_language: str
     creation_time: datetime
     description: str
     duration: str
@@ -121,6 +122,7 @@ def _session_dto(row: _SessionRow) -> SessionDTO:
     return SessionDTO(
         category_id=row.category_id,
         contact_email=row.contact_email,
+        contact_language=row.contact_language,
         creation_time=row.creation_time,
         description=row.description,
         duration=row.duration,

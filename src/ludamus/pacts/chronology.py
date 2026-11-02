@@ -302,8 +302,6 @@ class ProposalAcceptedNotification(ProposalAcceptance):
 
 
 class AnonymousProposalAcceptedNotification(ProposalAcceptance):
-    # A proposal sent without an account: the address and the language it
-    # was sent in are all there is to reach its author by.
     contact_email: str
     language: str
 

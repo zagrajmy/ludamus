@@ -75,11 +75,14 @@ def _announce_acceptance(
 ) -> None:
     # Everyone who runs the session hears about it: the account that proposed
     # it and any facilitator profile linked to an account. A proposal sent
-    # without an account is answered at the address it was sent from, in the
-    # language it was sent in.
+    # without an account is answered at the address it was sent from.
     facilitators = sessions.read_facilitators(session.pk)
     candidate_ids = (session.presenter_id, *(f.user_id for f in facilitators))
     recipient_ids = {user_id for user_id in candidate_ids if user_id is not None}
+    if not recipient_ids:
+        _announce_to_contact(
+            notifier=notifier, session=session, event=event, placed=placed
+        )
     for recipient_id in sorted(recipient_ids):
         notifier.notify_proposal_accepted(
             ProposalAcceptedNotification(
@@ -91,8 +94,15 @@ def _announce_acceptance(
                 placed=placed,
             )
         )
-    if recipient_ids:
-        return
+
+
+def _announce_to_contact(
+    *,
+    notifier: ProposalAcceptedNotifierProtocol,
+    session: SessionDTO,
+    event: EventDTO,
+    placed: bool,
+) -> None:
     # NOTE: only the propose form records a language, and only its copy
     # promises an answer at the address given; an imported or hand-entered
     # contact never asked to be mailed.

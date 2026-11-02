@@ -9,6 +9,7 @@ from urllib.parse import quote
 import pytest
 from django.contrib import messages
 from django.core import mail
+from django.core.mail.backends.base import BaseEmailBackend
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification
@@ -25,6 +26,11 @@ from tests.integration.web.panel.helpers import (
     make_proposal,
     make_scheduled_proposal,
 )
+
+
+class RefusingBackend(BaseEmailBackend):
+    def send_messages(self, email_messages):
+        return 0
 
 
 @dataclass(frozen=True)
@@ -313,6 +319,28 @@ class TestAcceptanceNotification:
             )
         ]
         assert not Notification.objects.exists()
+
+    def test_a_refused_mail_is_logged_as_not_sent(
+        self, panel_client, event, settings, caplog, django_capture_on_commit_callbacks
+    ):
+        settings.EMAIL_BACKEND = f"{__name__}.RefusingBackend"
+        session = make_proposal(
+            event, contact_email="guest@example.com", contact_language="en"
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [
+            (record.levelname, record.getMessage())
+            for record in caplog.records
+            if record.name == "ludamus.links.db.django.notifications"
+        ] == [
+            (
+                "WARNING",
+                f"Acceptance of session {session.pk} not mailed to its proposer",
+            )
+        ]
 
     def test_a_contact_that_never_used_the_propose_form_is_not_mailed(
         self, panel_client, event, django_capture_on_commit_callbacks
