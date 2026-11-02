@@ -288,8 +288,7 @@ class ProposalStatusServiceProtocol(Protocol):
     def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
-class ProposalAcceptedNotification(BaseModel):
-    recipient_user_id: int
+class ProposalAcceptance(BaseModel):
     session_id: int
     session_title: str
     event_name: str
@@ -298,9 +297,23 @@ class ProposalAcceptedNotification(BaseModel):
     placed: bool
 
 
+class ProposalAcceptedNotification(ProposalAcceptance):
+    recipient_user_id: int
+
+
+class AnonymousProposalAcceptedNotification(ProposalAcceptance):
+    # A proposal sent without an account: the address and the language it
+    # was sent in are all there is to reach its author by.
+    contact_email: str
+    language: str
+
+
 class ProposalAcceptedNotifierProtocol(Protocol):
     def notify_proposal_accepted(
         self, notification: ProposalAcceptedNotification
+    ) -> None: ...
+    def notify_anonymous_proposal_accepted(
+        self, notification: AnonymousProposalAcceptedNotification
     ) -> None: ...
 
 

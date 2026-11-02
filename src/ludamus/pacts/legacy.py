@@ -203,6 +203,7 @@ class SessionDTO(BaseModel):
 
     category_id: int | None
     contact_email: str
+    contact_language: str = ""
     creation_time: datetime
     description: str
     duration: str = ""
@@ -377,6 +378,7 @@ class TimeSlotDTO(BaseModel):
 class SessionData(TypedDict, total=False):
     category_id: int | None
     contact_email: str
+    contact_language: str
     cover_image: UploadedFileProtocol
     description: str
     duration: str

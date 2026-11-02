@@ -194,6 +194,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
+        language: str = "",
     ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
@@ -241,6 +242,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),
+                contact_language=language,
                 status=SessionStatus.PENDING,
             )
             if cover_image:

@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
+    AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
@@ -74,12 +75,11 @@ def _announce_acceptance(
 ) -> None:
     # Everyone who runs the session hears about it: the account that proposed
     # it and any facilitator profile linked to an account. A proposal sent
-    # without an account has no one to tell.
+    # without an account is answered at the address it was sent from, in the
+    # language it was sent in.
     facilitators = sessions.read_facilitators(session.pk)
     candidate_ids = (session.presenter_id, *(f.user_id for f in facilitators))
     recipient_ids = {user_id for user_id in candidate_ids if user_id is not None}
-    if not recipient_ids:
-        logger.info("Accepted session %s has no account to notify", session.pk)
     for recipient_id in sorted(recipient_ids):
         notifier.notify_proposal_accepted(
             ProposalAcceptedNotification(
@@ -91,6 +91,25 @@ def _announce_acceptance(
                 placed=placed,
             )
         )
+    if recipient_ids:
+        return
+    # NOTE: only the propose form records a language, and only its copy
+    # promises an answer at the address given; an imported or hand-entered
+    # contact never asked to be mailed.
+    if not (session.contact_email and session.contact_language):
+        logger.info("Accepted session %s has no one to notify", session.pk)
+        return
+    notifier.notify_anonymous_proposal_accepted(
+        AnonymousProposalAcceptedNotification(
+            contact_email=session.contact_email,
+            language=session.contact_language,
+            session_id=session.pk,
+            session_title=session.title,
+            event_name=event.name,
+            event_slug=event.slug,
+            placed=placed,
+        )
+    )
 
 
 class SessionConfirmationService:

@@ -108,6 +108,7 @@ def _expected_session(**overrides):
         participants_limit=0,
         min_age=0,
         contact_email="",
+        contact_language="",
         status=SessionStatus.PENDING,
     )
     data.update(overrides)
@@ -215,6 +216,7 @@ class TestSubmit:
             cover_image=cover_image,
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.sessions.create.assert_called_once_with(
@@ -224,6 +226,7 @@ class TestSubmit:
                 participants_limit=12,
                 min_age=18,
                 contact_email="host@example.com",
+                contact_language="pl",
                 cover_image=cover_image,
             ),
             time_slot_ids=[4, 5],
