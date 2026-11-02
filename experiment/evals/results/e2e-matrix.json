@@ -1,5 +1,627 @@
 {
   "runs": {
+    "baseline": {
+      "baseUrl": "http://localhost:8000",
+      "durationMs": 664841.71,
+      "exitCode": 1,
+      "files": {
+        "about.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "anonymous-proposal.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "combobox-state.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "confirmations.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 10,
+          "skipped": 0
+        },
+        "consent-banner.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 14,
+          "skipped": 0
+        },
+        "content-pages.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "cover-images.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 10,
+          "skipped": 0
+        },
+        "csp-violations.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "design.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 20,
+          "skipped": 0
+        },
+        "dynamic-fields.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "event-description.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "event-details.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 15,
+          "skipped": 0
+        },
+        "event-details.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "event-filters.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 50,
+          "skipped": 0
+        },
+        "event-hero.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 11,
+          "skipped": 0
+        },
+        "event-location-crumbs.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "event-maps.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "event-multiselect.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 13,
+          "skipped": 0
+        },
+        "event-multiselect.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "event-propose-entry.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "event-schedule-folding.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 11,
+          "skipped": 0
+        },
+        "event-schedule-rail.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "event-schedule-views.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 34,
+          "skipped": 0
+        },
+        "event-schedule-views.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "event-slot-headers.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "event-time.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "facilitator-guild.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "facilitator-merge-target.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "facilitator-merge.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "feed-cards.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "footer-license.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "guild-roster.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "guilds.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "konwencik-export.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 11,
+          "skipped": 0
+        },
+        "landing-print-transition.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 8,
+          "skipped": 0
+        },
+        "landing.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 16,
+          "skipped": 0
+        },
+        "link-preview.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "markdown-sanitising.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "mcp-oauth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "mcp-token.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "modal-transition-abort.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "nav-progress.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "page-title.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "panel-crud.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 11,
+          "skipped": 0
+        },
+        "panel-discounts.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "panel-event-create.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "panel-export.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "panel-programme-space-order.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "panel-space-tree.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "panel-tracks.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "panel.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 57,
+          "skipped": 0
+        },
+        "print-flow.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 8,
+          "skipped": 0
+        },
+        "print-page.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "proposal-accept.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "proposal-cards.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "proposal-delete-restore.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "proposal-duration.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "proposal-form-layout.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "proposal-status-badge.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "proposal-status-filter.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "seat-label.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "session-tags-cloud.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "session-tags-cloud.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "sound.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "sphere-logo.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "theme-color.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "timetable-conflict-count.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "timetable-problems.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "timetable.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 34,
+          "skipped": 1
+        },
+        "uncategorized-proposal.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "unlisted-events.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "viewport-shell.webkit.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "worst-case.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "write-in-fields.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 8,
+          "skipped": 0
+        },
+        "avatar-fallback.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "board.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "csp-violations.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "dashboard.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 8,
+          "skipped": 0
+        },
+        "discord-proposal.auth.spec.ts": {
+          "failed": 1,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "enroll-states.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "enrollment-banner.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "markdown-editor.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "modal-surfaces.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "notice-board.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "notifications.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "party-companion.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "party-refusals.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "privacy-revocation.auth.spec.ts": {
+          "failed": 3,
+          "flaky": 0,
+          "passed": 0,
+          "skipped": 0
+        },
+        "profile-edit.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "profile-verification.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "profile.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        },
+        "promotion.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "propose-reuse.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "replay-masking.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "resign-after-close.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 4,
+          "skipped": 0
+        },
+        "session-bookmark-signed-out.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 1,
+          "skipped": 0
+        },
+        "signup-age.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 6,
+          "skipped": 0
+        },
+        "sphere-invitations.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 3,
+          "skipped": 0
+        },
+        "staging-inbox.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 5,
+          "skipped": 0
+        },
+        "subscriptions.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 2,
+          "skipped": 0
+        },
+        "waiting-list.auth.spec.ts": {
+          "failed": 0,
+          "flaky": 0,
+          "passed": 7,
+          "skipped": 0
+        }
+      },
+      "filter": [
+        "--workers=2"
+      ],
+      "finishedAt": "2026-10-31T21:27:42.230Z",
+      "projects": [
+        "chromium",
+        "chromium-auth"
+      ],
+      "reportFile": "evals/results/e2e/2026-10-31T21-16-34Z-matrix-baseline/report.json"
+    },
     "new": {
       "baseUrl": "http://localhost:8000",
       "durationMs": 25751.210000000003,
