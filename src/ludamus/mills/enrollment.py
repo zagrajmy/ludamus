@@ -44,7 +44,7 @@ from ludamus.specs.enrollment import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from ludamus.pacts import (
         EnrollmentConfigRepositoryProtocol,
@@ -300,28 +300,33 @@ class WaitlistPromotionService:
         # Confirm a whole offered party from its single-use claim token. The
         # status + token guard makes claim and expiry race-safe: whichever runs
         # first flips the party out of OFFERED and the other becomes a no-op.
-        with self._transaction.atomic():
-            offer = self._participations.read_offer_by_token(token)
-            result = self._claim(offer)
-        self._roll_on_released(offer, result)
-        return result
+        return self._claim_through(
+            lambda: self._participations.read_offer_by_token(token)
+        )
 
     def claim_member_offer(self, *, user_id: int, session_id: int) -> ClaimResult:
         # The signed-in route to the same claim: the offer is looked up among
         # this member's own seats, so a session id alone never reaches anyone
         # else's.
-        with self._transaction.atomic():
-            offer = self._participations.read_offer_for_member(
+        result = self._claim_through(
+            lambda: self._participations.read_offer_for_member(
                 user_id=user_id, session_id=session_id
             )
-            result = self._claim(offer)
-        self._roll_on_released(offer, result)
+        )
         logger.info(
             "Dashboard offer claim by member %s on session %s: %s",
             user_id,
             session_id,
             "claimed" if result.success else result.reason,
         )
+        return result
+
+    def _claim_through(self, read: Callable[[], OfferDTO | None]) -> ClaimResult:
+        with self._transaction.atomic():
+            offer = read()
+            result = self._claim(offer)
+        if offer is not None and result.reason == "conflict":
+            self.fill_freed_seats(session_id=offer.session_id)
         return result
 
     def _claim(self, offer: OfferDTO | None) -> ClaimResult:
@@ -362,10 +367,6 @@ class WaitlistPromotionService:
         return ClaimResult(
             success=True, session_id=offer.session_id, event_slug=offer.event_slug
         )
-
-    def _roll_on_released(self, offer: OfferDTO | None, result: ClaimResult) -> None:
-        if offer is not None and result.reason == "conflict":
-            self.fill_freed_seats(session_id=offer.session_id)
 
     def decline_offer(self, *, token: str) -> ClaimResult:
         # Token-authorised way out: a member turning down a held seat or a

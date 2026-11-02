@@ -1314,8 +1314,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         guest_seats_needed = max(guests_delta, 0)
         guest_seats_freed = max(-guests_delta, 0)
         self._lock_seat_holders(
-            session,
-            enrollment_requests,
+            session_id=session.id,
+            enrollment_requests=enrollment_requests,
             frees_seats=bool(guest_seats_freed)
             or any(
                 req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
@@ -1396,9 +1396,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     def _lock_seat_holders(
         self,
-        session: Session,
-        enrollment_requests: list[EnrollmentRequest],
         *,
+        session_id: int,
+        enrollment_requests: list[EnrollmentRequest],
         frees_seats: bool,
     ) -> None:
         # The viewer always: they host the guests and own the passes the batch
@@ -1409,7 +1409,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 self.request.context.current_user_id,
                 *(req.user.pk for req in enrollment_requests),
             ],
-            waiters_of=session.id if frees_seats else None,
+            waiters_of=session_id if frees_seats else None,
         )
 
     @staticmethod

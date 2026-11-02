@@ -190,7 +190,9 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def lock_owned_companions(*, manager_pk: int) -> list[CompanionDTO]:
-        companions = companions_of(manager_pk).select_for_update()
+        # In pk order, as every statement that locks User rows takes them
+        # (docs/agents/architecture.md, seat lock order).
+        companions = companions_of(manager_pk).select_for_update().order_by("pk")
         return [CompanionDTO.model_validate(companion) for companion in companions]
 
     @staticmethod
