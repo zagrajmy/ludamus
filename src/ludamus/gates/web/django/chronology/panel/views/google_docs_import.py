@@ -8,7 +8,6 @@ this section is where the (hardcoded) Google Docs import is configured
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 from urllib.parse import urlencode
@@ -69,6 +68,9 @@ TIME_SLOTS_TARGET = "session.time_slots"
 ENTITY_TARGETS = ("track", "category")
 FieldType = Literal["text", "select", "checkbox"]
 LOCAL_DT_FORMAT = "%Y-%m-%dT%H:%M"
+# NOTE: `int` refuses a string over 4300 digits (CPython's int_max_str_digits);
+# no form has a row index anywhere near this long.
+_MAX_ROW_INDEX_DIGITS = 9
 
 
 class Window(TypedDict):
@@ -705,7 +707,7 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
         question = self.request.POST.get(f"question_{raw_index}") if raw_index else None
         if (
             not (raw_index.isascii() and raw_index.isdigit())
-            or len(raw_index) > len(str(sys.maxsize))
+            or len(raw_index) > _MAX_ROW_INDEX_DIGITS
             or not question
         ):
             messages.error(self.request, _("Invalid row submission."))
