@@ -10,7 +10,7 @@ from ludamus.adapters.web.django.middlewares import (
 )
 from ludamus.inits import DependencyInjector, RepositoryInjectionMiddleware
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
-from ludamus.links.db.django.models import NotificationSubscription, Sphere
+from ludamus.links.db.django.models import NotificationSubscription, Sphere, User
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts import RedirectError, RequestContext
 
@@ -299,3 +299,29 @@ class TestSphereVisitSubscriptionMiddleware:
         subscription = NotificationSubscription.objects.get()
         assert subscription.user_id == active_user.pk
         assert subscription.muted is True
+
+
+class TestUserLanguageMiddleware:
+    URL = reverse("web:crowd:profile")
+
+    def test_remembers_the_language_a_user_browses_in(
+        self, authenticated_client, active_user
+    ):
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+        active_user.refresh_from_db()
+        assert active_user.language == "pl"
+
+        authenticated_client.get(self.URL, headers={"accept-language": "en"})
+        active_user.refresh_from_db()
+        assert active_user.language == "en"
+
+    def test_same_language_again_skips_the_write(
+        self, authenticated_client, active_user
+    ):
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+        User.objects.filter(pk=active_user.pk).update(language="")
+
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+
+        active_user.refresh_from_db()
+        assert not active_user.language

@@ -1,13 +1,18 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
+from shutil import copyfile
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
+from django.core.management import call_command
+from django.test import override_settings
 from django.urls import get_resolver
 from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
@@ -112,6 +117,30 @@ def english_language(settings):
     # written against one language. Lives here, not in the root conftest: it is
     # a `settings` mutation, which tests/unit may not take.
     settings.LANGUAGE_CODE = "en"
+
+
+@pytest.fixture(scope="session", name="_compiled_polish_catalog")
+def compiled_polish_catalog_fixture(tmp_path_factory):
+    # NOTE: the .mo is a build artifact, absent from a fresh checkout and CI.
+    root = tmp_path_factory.mktemp("locale")
+    messages = root / "pl" / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    copyfile(
+        Path(django_settings.LOCALE_PATHS[0]) / "pl" / "LC_MESSAGES" / "django.po",
+        messages / "django.po",
+    )
+    # NOTE: compilemessages also compiles every `locale` dir under the working
+    # directory, .venv's included; the "*" pattern keeps it to LOCALE_PATHS.
+    with override_settings(LOCALE_PATHS=[root]):
+        call_command(
+            "compilemessages", locale=["pl"], ignore_patterns=["*"], verbosity=0
+        )
+    return root
+
+
+@pytest.fixture
+def polish_catalog(settings, _compiled_polish_catalog):
+    settings.LOCALE_PATHS = [_compiled_polish_catalog]
 
 
 def sponsor_user(*, leader, member):

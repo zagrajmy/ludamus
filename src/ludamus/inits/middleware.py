@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from django.conf import settings
+from django.utils.translation import get_language
 
 from ludamus.inits.dbos_scheduler import launch_scheduler
 from ludamus.inits.services import Services
+from ludamus.pacts.crowd import UserData
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,11 +21,19 @@ if TYPE_CHECKING:
     class SessionRequestProtocol(RootRequestProtocol, Protocol):
         session: SessionProtocol
 
+    class LanguageSessionProtocol(Protocol):
+        def get(self, key: str) -> str | None: ...
+        def __setitem__(self, key: str, value: str) -> None: ...
+
+    class LanguageRequestProtocol(RootRequestProtocol, Protocol):
+        session: LanguageSessionProtocol
+
 
 Response = TypeVar("Response")
 
 
 SUBSCRIBED_SPHERES_SESSION_KEY = "subscribed_sphere_ids"
+REMEMBERED_LANGUAGE_SESSION_KEY = "remembered_language"
 
 
 class SphereVisitSubscriptionMiddleware[Response]:
@@ -59,6 +69,36 @@ def _subscribe_visit(request: SessionRequestProtocol) -> None:
             user_id=user_id, sphere_id=sphere_id
         )
         request.session[SUBSCRIBED_SPHERES_SESSION_KEY] = [*seen, sphere_id]
+
+
+class UserLanguageMiddleware[Response]:
+    """Remember the language a signed-in user browses in.
+
+    Notifications to them are written in it, whoever raises them. Ordered
+    after LocaleMiddleware, which picked the language, and after
+    RequestContextMiddleware. The session flag keeps the warm path
+    query-free: the account is written once per session and language.
+    """
+
+    def __init__(
+        self, get_response: Callable[[LanguageRequestProtocol], Response]
+    ) -> None:
+        self.get_response: Callable[[LanguageRequestProtocol], Response] = get_response
+
+    def __call__(self, request: LanguageRequestProtocol) -> Response:
+        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
+            _remember_language(request)
+
+        return self.get_response(request)
+
+
+def _remember_language(request: LanguageRequestProtocol) -> None:
+    if (user_slug := request.context.current_user_slug) is None:
+        return
+    language = get_language()
+    if request.session.get(REMEMBERED_LANGUAGE_SESSION_KEY) != language:
+        request.services.profile.update(user_slug, UserData(language=language))
+        request.session[REMEMBERED_LANGUAGE_SESSION_KEY] = language
 
 
 class ServiceInjectionMiddleware[Response]:

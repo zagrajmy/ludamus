@@ -2,20 +2,23 @@
 
 Implements `UserNotifierProtocol` behind which the promotion mill sits, so the
 mill never touches Django mail/ORM directly. Composes localised (PL/EN) copy at
-send time and links each notification to the relevant page.
+send time, in the recipient's language, and links each notification to the
+relevant page.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from functools import wraps
+from typing import TYPE_CHECKING, Protocol
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
+from django.utils import translation
 from django.utils.formats import date_format
 from django.utils.text import Truncator
 from django.utils.timezone import localtime
@@ -41,6 +44,8 @@ from ludamus.pacts.notifications import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ludamus.pacts.chronology import ProposalAcceptedNotification
     from ludamus.pacts.crowd import (
         EmailChangeCompletedNotification,
@@ -78,6 +83,35 @@ def _deliverable_email(recipient_id: int) -> str:
         .first()
         or ""
     )
+
+
+class _Addressed(Protocol):
+    @property
+    def recipient_user_id(self) -> int: ...
+
+
+def _recipient_language(recipient_id: int) -> str:
+    return (
+        User.objects.filter(pk=recipient_id).values_list("language", flat=True).first()
+        or settings.LANGUAGE_CODE
+    )
+
+
+def _in_recipient_language[N: _Addressed](
+    notify: Callable[[N], None],
+) -> Callable[[N], None]:
+    """Compose the bell row and the mail in the recipient's language.
+
+    Whoever triggers a notification (an organizer, a party leader, a
+    scheduled job) browses in their own; the reader may not share it.
+    """
+
+    @wraps(notify)
+    def notify_in_recipient_language(notification: N) -> None:
+        with translation.override(_recipient_language(notification.recipient_user_id)):
+            notify(notification)
+
+    return notify_in_recipient_language
 
 
 def _session_enrollment_url(event_slug: str, session_id: int) -> str:
@@ -126,6 +160,46 @@ def _ring(
         ),
         payload={"listing_id": notification.listing_id},
     )
+
+
+def _deliver(notification: Notification) -> None:
+    _deliver_to(
+        notification=notification, email=_deliverable_email(notification.recipient_id)
+    )
+
+
+def _deliver_to(*, notification: Notification, email: str) -> None:
+    """Deliver to an explicit address, trusting the caller's choice of it.
+
+    `_deliver` is the default path and passes the recipient's proven
+    address. Only the three email-lifecycle notifiers bypass it: they
+    target the address being proven, or the pre-change one the row no
+    longer holds.
+    """
+    # Persist the row inside the surrounding transaction so a rolled-back
+    # promotion drops its notification too (the row is consistent with the
+    # seat change it announces). Only the email is deferred to after-commit,
+    # best-effort: SMTP can't be un-sent, so it must wait for the real commit
+    # and must not roll back a confirmed seat if it fails.
+    notification.save()
+    if not email:
+        # No address, or none anyone proved — the bell row above still
+        # lands, so an unproven address costs a mail, not a notification.
+        logger.info(
+            "No deliverable address for notification kind=%s recipient=%s",
+            notification.kind,
+            notification.recipient_id,
+        )
+        return
+
+    body = f"{notification.body}\n\n{notification.url}"
+
+    def _send_email() -> None:
+        EmailMessage(subject=notification.title, body=body, to=[email]).send(
+            fail_silently=True
+        )
+
+    transaction.on_commit(_send_email)
 
 
 class _SphereSubscriptionMail:
@@ -203,13 +277,15 @@ class _SphereSubscriptionMail:
 
 
 class DjangoUserNotifier:
-    def notify_promoted(self, notification: PromotionNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_promoted(notification: PromotionNotification) -> None:
         url = _session_enrollment_url(notification.event_slug, notification.session_id)
         title = _("You're in: a spot opened in %(session)s") % {
             "session": notification.session_title
         }
         body = _("A confirmed spot opened up and you have been enrolled automatically.")
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.WAITLIST_PROMOTED.value,
@@ -220,7 +296,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_offered(self, notification: OfferNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_offered(notification: OfferNotification) -> None:
         url = absolute_url(
             reverse(
                 "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
@@ -238,7 +316,7 @@ class DjangoUserNotifier:
             "A spot opened up — claim it before %(deadline)s using the link "
             "below, or it will go to the next person on the waiting list."
         ) % {"deadline": deadline}
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.WAITLIST_OFFER.value,
@@ -253,7 +331,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_offer_expired(self, notification: PromotionNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_offer_expired(notification: PromotionNotification) -> None:
         # Flow-neutral: an expired row may be a waitlist offer or a seat a
         # leader held — nothing on it records which, so the copy fits both.
         title = _("Your offer for %(session)s expired") % {
@@ -263,7 +343,7 @@ class DjangoUserNotifier:
             "The seat was not claimed in time and has been released. You can "
             "sign up again if you are still interested."
         )
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.OFFER_EXPIRED.value,
@@ -276,7 +356,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_party_invited(self, notification: PartyInviteNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_party_invited(notification: PartyInviteNotification) -> None:
         party = notification.party_name or _("their party")
         title = _("%(member)s invited you to %(party)s") % {
             "member": notification.actor_name,
@@ -287,7 +369,7 @@ class DjangoUserNotifier:
             "waiting lists as one group. You decide about every enrollment "
             "unless you say otherwise."
         )
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PARTY_INVITE.value,
@@ -300,7 +382,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_party_enrolled(self, notification: PartyEnrolledNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_party_enrolled(notification: PartyEnrolledNotification) -> None:
         url = _session_enrollment_url(notification.event_slug, notification.session_id)
         title = _("%(leader)s enrolled you in %(session)s") % {
             "leader": notification.actor_name,
@@ -310,7 +394,7 @@ class DjangoUserNotifier:
             "You have a confirmed spot. If it does not fit your plans, you "
             "can cancel on the session page."
         )
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PARTY_ENROLLED.value,
@@ -321,7 +405,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_seat_held(self, notification: HeldSeatNotification) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_seat_held(notification: HeldSeatNotification) -> None:
         url = absolute_url(
             reverse(
                 "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
@@ -339,7 +425,7 @@ class DjangoUserNotifier:
             "The seat is yours once you claim it — do so before %(deadline)s "
             "or it will be released."
         ) % {"deadline": deadline}
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PARTY_SEAT_HELD.value,
@@ -354,9 +440,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_email_verification(
-        self, notification: EmailVerificationNotification
-    ) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_email_verification(notification: EmailVerificationNotification) -> None:
         url = absolute_url(
             reverse("web:crowd:email-link", kwargs={"token": notification.token}),
             domain=settings.ROOT_DOMAIN,
@@ -370,7 +456,7 @@ class DjangoUserNotifier:
             _EMAIL_LINK_HOURS,
         ) % {"hours": _EMAIL_LINK_HOURS}
         # The address being proven: nobody has proven it yet, by definition.
-        self._deliver_to(
+        _deliver_to(
             notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_VERIFICATION.value,
@@ -382,8 +468,10 @@ class DjangoUserNotifier:
             email=notification.recipient_email,
         )
 
+    @staticmethod
+    @_in_recipient_language
     def notify_email_change_requested(
-        self, notification: EmailChangeRequestedNotification
+        notification: EmailChangeRequestedNotification,
     ) -> None:
         url = absolute_url(
             reverse(
@@ -403,7 +491,7 @@ class DjangoUserNotifier:
         ) % {"new_address": notification.new_address, "hours": _EMAIL_LINK_HOURS}
         # The pre-change address, so the cancel link reaches the account's
         # current owner rather than whoever asked for the change.
-        self._deliver_to(
+        _deliver_to(
             notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_REQUESTED.value,
@@ -415,8 +503,10 @@ class DjangoUserNotifier:
             email=notification.recipient_email,
         )
 
+    @staticmethod
+    @_in_recipient_language
     def notify_email_change_completed(
-        self, notification: EmailChangeCompletedNotification
+        notification: EmailChangeCompletedNotification,
     ) -> None:
         title = _("Your email address was changed")
         body = _(
@@ -424,7 +514,7 @@ class DjangoUserNotifier:
             "notifications use the new address from now on."
         ) % {"new_address": notification.new_address}
         # The pre-change address; the row already holds the new one.
-        self._deliver_to(
+        _deliver_to(
             notification=Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_COMPLETED.value,
@@ -438,9 +528,9 @@ class DjangoUserNotifier:
             email=notification.recipient_email,
         )
 
-    def notify_printables_ready(
-        self, notification: PrintablesReadyNotification
-    ) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_printables_ready(notification: PrintablesReadyNotification) -> None:
         url = absolute_url(
             reverse(
                 "web:chronology:event-print", kwargs={"slug": notification.event_slug}
@@ -454,7 +544,7 @@ class DjangoUserNotifier:
             "%(event)s starts in two days. Print the timetable and door cards "
             "for your event using the link below before it begins."
         ) % {"event": notification.event_name}
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PRINTABLES_READY.value,
@@ -466,6 +556,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
+    @_in_recipient_language
     def notify_listing_interested(notification: ListingInterestedNotification) -> None:
         title = _("%(name)s is interested in %(listing)s") % {
             "name": notification.responder_name,
@@ -480,6 +571,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
+    @_in_recipient_language
     def notify_listing_declined(notification: ListingDeclinedNotification) -> None:
         title = _("Not this time: %(listing)s") % {
             "listing": notification.listing_title
@@ -493,6 +585,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
+    @_in_recipient_language
     def notify_listing_not_chosen(notification: ListingNotification) -> None:
         title = _("%(listing)s has closed") % {"listing": notification.listing_title}
         _ring(
@@ -503,6 +596,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
+    @_in_recipient_language
     def notify_listing_changed(notification: ListingNotification) -> None:
         title = _("%(listing)s has changed") % {"listing": notification.listing_title}
         _ring(
@@ -513,6 +607,7 @@ class DjangoUserNotifier:
         )
 
     @staticmethod
+    @_in_recipient_language
     def notify_sphere_event_published(
         notification: SphereEventPublishedNotification,
     ) -> None:
@@ -544,9 +639,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_proposal_accepted(
-        self, notification: ProposalAcceptedNotification
-    ) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_proposal_accepted(notification: ProposalAcceptedNotification) -> None:
         # Once per session and person: accepting again, or after a rejection
         # nobody was told about, is no news to them.
         if Notification.objects.filter(
@@ -574,7 +669,7 @@ class DjangoUserNotifier:
                 "Your proposal for %(event)s was accepted. It will appear on the "
                 "agenda once the organizers give it a time and place."
             ) % {"event": notification.event_name}
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PROPOSAL_ACCEPTED.value,
@@ -587,9 +682,9 @@ class DjangoUserNotifier:
             )
         )
 
-    def notify_shadowbanned_signup(
-        self, notification: ShadowbanSignupNotification
-    ) -> None:
+    @staticmethod
+    @_in_recipient_language
+    def notify_shadowbanned_signup(notification: ShadowbanSignupNotification) -> None:
         title = (
             _("A shadowbanned player joined %(session)s with you") % {
                 "session": notification.session_title
@@ -620,7 +715,7 @@ class DjangoUserNotifier:
             )
         parts.append(_("They have not been notified. Review the event if you need to."))
         body = " ".join(parts)
-        self._deliver(
+        _deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.SHADOWBANNED_SIGNUP.value,
@@ -635,47 +730,6 @@ class DjangoUserNotifier:
                 payload={"event_slug": notification.event_slug},
             )
         )
-
-    @staticmethod
-    def _deliver(notification: Notification) -> None:
-        DjangoUserNotifier._deliver_to(
-            notification=notification,
-            email=_deliverable_email(notification.recipient_id),
-        )
-
-    @staticmethod
-    def _deliver_to(*, notification: Notification, email: str) -> None:
-        """Deliver to an explicit address, trusting the caller's choice of it.
-
-        `_deliver` is the default path and passes the recipient's proven
-        address. Only the three email-lifecycle notifiers bypass it: they
-        target the address being proven, or the pre-change one the row no
-        longer holds.
-        """
-        # Persist the row inside the surrounding transaction so a rolled-back
-        # promotion drops its notification too (the row is consistent with the
-        # seat change it announces). Only the email is deferred to after-commit,
-        # best-effort: SMTP can't be un-sent, so it must wait for the real commit
-        # and must not roll back a confirmed seat if it fails.
-        notification.save()
-        if not email:
-            # No address, or none anyone proved — the bell row above still
-            # lands, so an unproven address costs a mail, not a notification.
-            logger.info(
-                "No deliverable address for notification kind=%s recipient=%s",
-                notification.kind,
-                notification.recipient_id,
-            )
-            return
-
-        body = f"{notification.body}\n\n{notification.url}"
-
-        def _send_email() -> None:
-            EmailMessage(subject=notification.title, body=body, to=[email]).send(
-                fail_silently=True
-            )
-
-        transaction.on_commit(_send_email)
 
 
 class NotificationReadRepository:

@@ -1245,18 +1245,32 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
         max_participants_limit=8,
         durations=["PT2H"],
     )
+    # The accepted proposal's author browses in Polish, so the spec can tell
+    # the bell speaks the reader's language, not the accepting organizer's.
+    polish_proposer = User.objects.create_user(
+        username="e2e-polish-proposer",
+        email="e2e-polish-proposer@test.local",
+        password="e2e-polish-proposer-123",
+        name="Zofia Zgłaszająca",
+        slug="e2e-polish-proposer",
+    )
+    _write_storage_state(
+        polish_proposer,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-polish-proposer.json",
+    )
     # Two proposals, so the spec that reads the page and the spec that accepts
     # one never contend for the same pending row — including on a retry, which
     # re-runs a serial block from the top.
-    for title, slug in (
-        ("Solo Showcase", "solo-showcase"),
-        ("Solo Encore", "solo-encore"),
+    for title, slug, presenter in (
+        ("Solo Showcase", "solo-showcase", User.objects.get(username="e2e-tester")),
+        ("Solo Encore", "solo-encore", polish_proposer),
     ):
         Session.objects.create(
             event=event,
-            presenter=User.objects.get(username="e2e-tester"),
-            facilitator_name="E2E Tester",
-            contact_email="e2e@test.local",
+            presenter=presenter,
+            facilitator_name=presenter.name,
+            contact_email=presenter.email,
             category=category,
             title=title,
             slug=slug,
