@@ -3,6 +3,7 @@ import {
   CurrentSphere,
   EnrollmentConfigStore,
   ParticipationStore,
+  SessionStore,
   SphereId,
   UserDirectory,
   UserId,
@@ -334,7 +335,18 @@ const sessionView = (options: {
                 status: seat.status,
               }))
           ),
+    overflowSlots: card.preferredTimeSlots
+      .slice(1)
+      .map(
+        (slot) =>
+          `${format({ at: slot.startTime, locale, pattern: "l, j E, G:i" })}–${format({ at: slot.endTime, locale, pattern: "G:i" })}`
+      ),
     seatsLabel,
+    slotLabel: Option.match(Option.fromNullishOr(card.preferredTimeSlots[0]), {
+      onNone: () => "",
+      onSome: (slot) =>
+        `${format({ at: slot.startTime, locale, pattern: "D, G:i" })}–${format({ at: slot.endTime, locale, pattern: "G:i" })}`,
+    }),
     spaceId: card.location.spaceId === 0 ? "" : String(card.location.spaceId),
     spaceName: card.location.spaceName,
     spaceOrder,
@@ -780,6 +792,26 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
       DateTime.isLessThanOrEqualTo(event.proposalStartTime, now) &&
       DateTime.isLessThanOrEqualTo(now, event.proposalEndTime);
 
+    const pendingCards =
+      context.hasPanelAccess && isProposalActive
+        ? yield* (yield* SessionStore).listProposalCards({ eventId: event.id, now, presenterId: null })
+        : [];
+
+    const pendingProposals = pendingCards
+      .filter((card) => card.session.status === "pending")
+      .map((card) =>
+        sessionView({
+          bookmarks: bookmarkCounts,
+          card,
+          enrollable: () => false,
+          inactiveWhenOngoing: false,
+          locale,
+          now,
+          translator,
+          viewer,
+        })
+      );
+
     const startIso = DateTime.formatIso(event.startTime);
     const endIso = DateTime.formatIso(event.endTime);
 
@@ -920,6 +952,9 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
       loginUrl: "/crowd/auth0/do/login",
       now: context.now.epochMillis,
       ownProposals: [],
+      pendingProposals,
+      pendingWizard:
+        Option.exists(context.viewer, (found) => found.isSuperuser === 1 && found.sphereRole === null),
       query: context.url.search,
       sessions,
       signedIn: Option.isSome(context.viewer),
