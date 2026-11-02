@@ -148,6 +148,7 @@ def _wp(pid, *, sponsor_id=None, order=0):
         creation_time=_NOW + timedelta(minutes=order),
         has_conflict=False,
         owner_slots_remaining=UNLIMITED_SLOTS,
+        holds_event_seat=False,
         recipient_user_id=sponsor_id if sponsor_id is not None else pid,
     )
 

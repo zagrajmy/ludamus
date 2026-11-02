@@ -213,7 +213,10 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         except NotFoundError:
             return redirect("panel:session-fields", slug=slug)
 
-        form = SessionFieldForm(self.request.POST)
+        # The edit page renders no type control; the options check needs one.
+        data = self.request.POST.copy()
+        data["field_type"] = field.field_type
+        form = SessionFieldForm(data)
         if not form.is_valid():
             context["active_nav"] = "cfp"
             context["field"] = field
