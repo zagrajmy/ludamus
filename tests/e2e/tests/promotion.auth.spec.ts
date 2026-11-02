@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { mailHeaders } from "./helpers/mail";
 
 // Multi-user waiting-list promotion (issue scenario 1): the superuser (A) holds
 // the only confirmed seat and a dedicated waiter (B) is waitlisted. When A
@@ -54,10 +55,13 @@ test("organizer cancel promotes the waitlisted player, who is emailed and notifi
   await expect
     .poll(
       () =>
-        readMailSince(mailBefore).filter(
-          (mail) =>
-            mail.includes(`To: ${scenario.waiter_email}`) && mail.includes(scenario.session_title),
-        ).length,
+        readMailSince(mailBefore)
+          .map(mailHeaders)
+          .filter(
+            (headers) =>
+              headers.to === scenario.waiter_email &&
+              headers.subject?.includes(scenario.session_title),
+          ).length,
       { timeout: 10_000 },
     )
     .toBeGreaterThan(0);

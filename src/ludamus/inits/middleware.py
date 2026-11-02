@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from django.conf import settings
@@ -21,19 +22,23 @@ if TYPE_CHECKING:
     class SessionRequestProtocol(RootRequestProtocol, Protocol):
         session: SessionProtocol
 
-    class LanguageSessionProtocol(Protocol):
-        def get(self, key: str) -> str | None: ...
-        def __setitem__(self, key: str, value: str) -> None: ...
+    class LanguageUserProtocol(Protocol):
+        """The slice of `request.user` this middleware reads."""
+
+        is_authenticated: bool
+        language: str
+        slug: str
 
     class LanguageRequestProtocol(RootRequestProtocol, Protocol):
-        session: LanguageSessionProtocol
+        user: LanguageUserProtocol
 
 
 Response = TypeVar("Response")
 
+logger = logging.getLogger(__name__)
+
 
 SUBSCRIBED_SPHERES_SESSION_KEY = "subscribed_sphere_ids"
-REMEMBERED_LANGUAGE_SESSION_KEY = "remembered_language"
 
 
 class SphereVisitSubscriptionMiddleware[Response]:
@@ -75,9 +80,9 @@ class UserLanguageMiddleware[Response]:
     """Remember the language a signed-in user browses in.
 
     Notifications to them are written in it, whoever raises them. Ordered
-    after LocaleMiddleware, which picked the language, and after
-    RequestContextMiddleware. The session flag keeps the warm path
-    query-free: the account is written once per session and language.
+    after LocaleMiddleware, which picked the language, and after the
+    authentication and service middlewares. Compared against the user row
+    the request already loaded, so it writes only when the language changes.
     """
 
     def __init__(
@@ -93,12 +98,11 @@ class UserLanguageMiddleware[Response]:
 
 
 def _remember_language(request: LanguageRequestProtocol) -> None:
-    if (user_slug := request.context.current_user_slug) is None:
+    user = request.user
+    if not user.is_authenticated or user.language == (language := get_language()):
         return
-    language = get_language()
-    if request.session.get(REMEMBERED_LANGUAGE_SESSION_KEY) != language:
-        request.services.profile.update(user_slug, UserData(language=language))
-        request.session[REMEMBERED_LANGUAGE_SESSION_KEY] = language
+    logger.debug("User %s now browses in %s", user.slug, language)
+    request.services.profile.update(user.slug, UserData(language=language))
 
 
 class ServiceInjectionMiddleware[Response]:

@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.http import HttpResponseRedirect
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.web.django.middlewares import (
@@ -10,7 +11,7 @@ from ludamus.adapters.web.django.middlewares import (
 )
 from ludamus.inits import DependencyInjector, RepositoryInjectionMiddleware
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
-from ludamus.links.db.django.models import NotificationSubscription, Sphere, User
+from ludamus.links.db.django.models import NotificationSubscription, Sphere
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts import RedirectError, RequestContext
 
@@ -315,13 +316,13 @@ class TestUserLanguageMiddleware:
         active_user.refresh_from_db()
         assert active_user.language == "en"
 
-    def test_same_language_again_skips_the_write(
-        self, authenticated_client, active_user
-    ):
-        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
-        User.objects.filter(pk=active_user.pk).update(language="")
+    def test_follows_the_user_back_to_a_device_seen_before(self, active_user):
+        phone, laptop = Client(), Client()
+        for device in (phone, laptop):
+            device.force_login(active_user)
 
-        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+        for device, language in ((phone, "pl"), (laptop, "en"), (phone, "pl")):
+            device.get(self.URL, headers={"accept-language": language})
 
         active_user.refresh_from_db()
-        assert not active_user.language
+        assert active_user.language == "pl"
