@@ -1332,6 +1332,8 @@ class Session(SoftDeleteModel):
     )
     facilitator_name = models.CharField(max_length=255)
     contact_email = models.EmailField(default="", blank=True)
+    contact_language = models.CharField(max_length=16, blank=True, default="")
+    acceptance_mailed_at = models.DateTimeField(null=True, blank=True)
     category = models.ForeignKey(
         "ProposalCategory",
         on_delete=models.CASCADE,

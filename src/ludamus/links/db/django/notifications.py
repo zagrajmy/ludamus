@@ -47,7 +47,11 @@ from ludamus.pacts.notifications import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from ludamus.pacts.chronology import ProposalAcceptedNotification
+    from ludamus.pacts.chronology import (
+        AnonymousProposalAcceptedNotification,
+        ProposalAcceptance,
+        ProposalAcceptedNotification,
+    )
     from ludamus.pacts.crowd import (
         EmailChangeCompletedNotification,
         EmailChangeRequestedNotification,
@@ -133,6 +137,27 @@ def _session_host(session_id: int) -> str:
         )
         return str(settings.ROOT_DOMAIN)
     return domain
+
+
+def _acceptance_copy(acceptance: ProposalAcceptance) -> tuple[str, str, str]:
+    url = absolute_url(
+        reverse("web:chronology:event", kwargs={"slug": acceptance.event_slug}),
+        domain=_session_host(acceptance.session_id),
+    )
+    if acceptance.placed:
+        url = f"{url}?session={acceptance.session_id}"
+        body = _(
+            "Your proposal for %(event)s was accepted and added to the agenda."
+        ) % {"event": acceptance.event_name}
+    else:
+        body = _(
+            "Your proposal for %(event)s was accepted. It will appear on the "
+            "agenda once the organizers give it a time and place."
+        ) % {"event": acceptance.event_name}
+    title = Truncator(
+        _("Accepted: %(session)s") % {"session": acceptance.session_title}
+    ).chars(NOTIFICATION_TITLE_MAX_LENGTH)
+    return title, body, url
 
 
 def _ring(
@@ -688,37 +713,58 @@ class DjangoUserNotifier:
                     notification.recipient_user_id,
                 )
                 return
-            url = absolute_url(
-                reverse(
-                    "web:chronology:event", kwargs={"slug": notification.event_slug}
-                ),
-                domain=_session_host(notification.session_id),
-            )
-            if notification.placed:
-                url = f"{url}?session={notification.session_id}"
-                body = _(
-                    "Your proposal for %(event)s was accepted and added to the agenda."
-                ) % {"event": notification.event_name}
-            else:
-                body = _(
-                    "Your proposal for %(event)s was accepted. It will appear on the "
-                    "agenda once the organizers give it a time and place."
-                ) % {"event": notification.event_name}
+            title, body, url = _acceptance_copy(notification)
             _deliver(
                 Notification(
                     recipient_id=notification.recipient_user_id,
                     kind=NotificationKind.PROPOSAL_ACCEPTED.value,
-                    title=Truncator(
-                        _("Accepted: %(session)s") % {
-                            "session": notification.session_title
-                        }
-                    ).chars(NOTIFICATION_TITLE_MAX_LENGTH),
+                    title=title,
                     body=body,
                     url=url,
                     payload={"session_id": notification.session_id},
                 ),
                 recipient,
             )
+
+    @staticmethod
+    def notify_anonymous_proposal_accepted(
+        notification: AnonymousProposalAcceptedNotification,
+    ) -> None:
+        if not Session.objects.filter(
+            pk=notification.session_id, acceptance_mailed_at__isnull=True
+        ).update(acceptance_mailed_at=datetime.now(UTC)):
+            logger.info(
+                "Acceptance of session %s already mailed to its proposer",
+                notification.session_id,
+            )
+            return
+        with translation.override(notification.language):
+            title, body, url = _acceptance_copy(notification)
+        # NOTE: unproven, unlike `_deliverable_email`: the proposer gave this
+        # address for status updates, and only an organizer can trigger this.
+        message = EmailMessage(
+            subject=_subject(title),
+            body=f"{body}\n\n{url}",
+            to=[notification.contact_email],
+        )
+
+        def _send_email() -> None:
+            if message.send(fail_silently=True):
+                logger.info(
+                    "Acceptance of session %s mailed to its proposer in %s",
+                    notification.session_id,
+                    notification.language,
+                )
+            else:
+                logger.warning(
+                    "Acceptance of session %s not mailed to its proposer",
+                    notification.session_id,
+                )
+                Session.objects.filter(pk=notification.session_id).update(
+                    acceptance_mailed_at=None
+                )
+
+        transaction.on_commit(_send_email)
 
     @staticmethod
     def notify_shadowbanned_signup(notification: ShadowbanSignupNotification) -> None:

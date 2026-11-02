@@ -9,6 +9,7 @@ from urllib.parse import quote
 import pytest
 from django.contrib import messages
 from django.core import mail
+from django.core.mail.backends.base import BaseEmailBackend
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification
@@ -25,6 +26,11 @@ from tests.integration.web.panel.helpers import (
     make_proposal,
     make_scheduled_proposal,
 )
+
+
+class RefusingBackend(BaseEmailBackend):
+    def send_messages(self, email_messages):
+        return 0
 
 
 @dataclass(frozen=True)
@@ -277,16 +283,78 @@ class TestAcceptanceNotification:
 
         assert Notification.objects.filter(recipient=proposer).count() == 1
 
-    def test_a_proposal_sent_without_an_account_notifies_no_one(
-        self, panel_client, event
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_a_proposal_sent_without_an_account_is_mailed_once_in_its_language(
+        self, panel_client, event, django_capture_on_commit_callbacks
     ):
-        session = make_proposal(event, contact_email="guest@example.com")
+        session = make_proposal(
+            event,
+            title="Dungeon Night",
+            contact_email="guest@example.com",
+            contact_language="pl",
+        )
         session.facilitators.add(make_facilitator(event))
 
-        panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+        for action in (ACCEPT, REJECT, ACCEPT):
+            with django_capture_on_commit_callbacks(execute=True):
+                panel_client.post(
+                    _url(event, proposal_id=session.pk, action=action),
+                    headers={"accept-language": "en"},
+                )
+
+        event_url = "https://testserver" + reverse(
+            "web:chronology:event", kwargs={"slug": event.slug}
+        )
+        assert [
+            (message.to, message.subject, message.body) for message in mail.outbox
+        ] == [
+            (
+                ["guest@example.com"],
+                "Zaakceptowano: Dungeon Night",
+                (
+                    f"Twoje zgłoszenie na {event.name} zostało zaakceptowane. Pojawi "
+                    "się w programie, gdy organizatorzy nadadzą mu termin i miejsce."
+                    f"\n\n{event_url}"
+                ),
+            )
+        ]
+        assert not Notification.objects.exists()
+
+    def test_a_refused_mail_is_logged_as_not_sent(
+        self, panel_client, event, settings, caplog, django_capture_on_commit_callbacks
+    ):
+        settings.EMAIL_BACKEND = f"{__name__}.RefusingBackend"
+        session = make_proposal(
+            event, contact_email="guest@example.com", contact_language="en"
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [
+            (record.levelname, record.getMessage())
+            for record in caplog.records
+            if record.name == "ludamus.links.db.django.notifications"
+        ] == [
+            (
+                "WARNING",
+                f"Acceptance of session {session.pk} not mailed to its proposer",
+            )
+        ]
+        session.refresh_from_db()
+        assert session.acceptance_mailed_at is None
+
+    def test_a_contact_that_never_used_the_propose_form_is_not_mailed(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        session = make_proposal(event, contact_email="imported@example.com")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
 
         session.refresh_from_db()
         assert session.status == "accepted"
+        assert not mail.outbox
         assert not Notification.objects.exists()
 
     @pytest.mark.parametrize("organizer_language", ("pl", "en"))

@@ -3297,6 +3297,19 @@ class TestAnonymousProposalSubmission:
         )
         assert hpd.value == "+48 555"
 
+    def test_anonymous_submission_remembers_the_language_it_was_sent_in(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+        self._set_wizard_full(client, event, proposal_category)
+
+        client.post(self._url(event.slug, "submit"), headers={"accept-language": "pl"})
+
+        assert Session.objects.values_list(
+            "contact_email", "contact_language"
+        ).get() == ("anon@example.com", "pl")
+
     def test_anonymous_single_category_shows_login_nudge(
         self, client, event, faker, time_zone, proposal_category
     ):

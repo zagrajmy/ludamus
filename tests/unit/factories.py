@@ -70,6 +70,7 @@ def session_dto(**overrides) -> SessionDTO:
     defaults = {
         "category_id": None,
         "contact_email": "",
+        "contact_language": "",
         "creation_time": DEFAULT_START,
         "description": "",
         "facilitator_name": "",
