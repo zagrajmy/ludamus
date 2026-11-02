@@ -19,6 +19,7 @@ from ludamus.pacts.listing import (
     ListingDetailDTO,
     ListingInterestedNotification,
     ListingNotification,
+    ListingPartyInviteNotification,
     ListingResponsesDTO,
     ListingResponseStatus,
     ListingResponseTab,
@@ -26,7 +27,6 @@ from ludamus.pacts.listing import (
     ListingStatus,
     ListingStatusError,
 )
-from ludamus.pacts.party import PartyInviteNotification
 from ludamus.specs.listing import LISTING_OPEN_FOR
 
 if TYPE_CHECKING:
@@ -446,11 +446,13 @@ class ListingService(ListingServiceProtocol):
             if self._parties.get_or_create_membership(
                 party_pk=party_id, user_pk=response.user_id
             ):
-                self._notifier.notify_party_invited(
-                    PartyInviteNotification(
+                self._notifier.notify_listing_party_invited(
+                    ListingPartyInviteNotification(
                         recipient_user_id=response.user_id,
+                        listing_id=pk,
+                        listing_title=listing.title,
                         party_name=party_name,
-                        actor_name=listing.author_name,
+                        author_name=listing.author_name,
                     )
                 )
         logger.info(

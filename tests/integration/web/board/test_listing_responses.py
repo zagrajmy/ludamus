@@ -466,8 +466,20 @@ class TestListingResponseInviteActionView:
             ListingResponseStatus.INVITED,
             party.pk,
         )
-        assert _bell(responder) == [
-            (NotificationKind.PARTY_INVITE, "Test User invited you to Mörk Borg")
+        assert list(
+            Notification.objects.filter(recipient=responder).values_list(
+                "kind", "title", "body"
+            )
+        ) == [
+            (
+                NotificationKind.PARTY_INVITE,
+                "Test User invited you to Mörk Borg",
+                (
+                    "You showed interest in Mörk Borg. Accept the invitation to "
+                    "join the party, and you and the author see each other's "
+                    "contact."
+                ),
+            )
         ]
 
     def test_adds_them_to_a_party_the_author_leads(

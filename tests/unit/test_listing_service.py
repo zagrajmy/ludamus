@@ -18,6 +18,7 @@ from ludamus.pacts.listing import (
     ListingInterestedNotification,
     ListingNotification,
     ListingPartyChoiceDTO,
+    ListingPartyInviteNotification,
     ListingResponseDTO,
     ListingResponsesDTO,
     ListingResponseStatus,
@@ -26,7 +27,6 @@ from ludamus.pacts.listing import (
     ListingStatus,
     ListingStatusError,
 )
-from ludamus.pacts.party import PartyInviteNotification
 from ludamus.pacts.tags import TagDTO
 from tests.unit.factories import FakeTransaction, user_dto
 
@@ -321,7 +321,7 @@ class FakeParties:
 
 class FakeNotifier:
     def __init__(self):
-        self.sent: list[tuple[str, ListingNotification | PartyInviteNotification]] = []
+        self.sent: list[tuple[str, ListingNotification]] = []
 
     def notify_listing_interested(self, notification):
         self.sent.append(("interested", notification))
@@ -335,7 +335,7 @@ class FakeNotifier:
     def notify_listing_changed(self, notification):
         self.sent.append(("changed", notification))
 
-    def notify_party_invited(self, notification):
+    def notify_listing_party_invited(self, notification):
         self.sent.append(("party_invited", notification))
 
 
@@ -843,10 +843,12 @@ class TestAddToParty:
             [
                 (
                     "party_invited",
-                    PartyInviteNotification(
+                    ListingPartyInviteNotification(
                         recipient_user_id=STRANGER_PK,
+                        listing_id=listing.pk,
+                        listing_title="Zew Cthulhu",
                         party_name="Zew Cthulhu",
-                        actor_name="",
+                        author_name="",
                     ),
                 )
             ],

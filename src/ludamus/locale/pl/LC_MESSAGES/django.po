@@ -4633,15 +4633,6 @@ msgstr ""
 "zainteresowany, możesz zapisać się ponownie."
 
 #: src/ludamus/links/db/django/notifications.py
-msgid "their party"
-msgstr "swojej drużyny"
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "%(member)s invited you to %(party)s"
-msgstr "%(member)s zaprasza Cię do %(party)s"
-
-#: src/ludamus/links/db/django/notifications.py
 msgid ""
 "Join the party to enroll in events together — you move up waiting lists as "
 "one group. You decide about every enrollment unless you say otherwise."
@@ -4649,6 +4640,24 @@ msgstr ""
 "Dołącz do drużyny, aby zapisywać się na wydarzenia wspólnie — na listach "
 "oczekujących awansujecie jako jedna grupa. O każdym zapisie decydujesz Ty, "
 "chyba że postanowisz inaczej."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"You showed interest in %(listing)s. Accept the invitation to join the party, "
+"and you and the author see each other's contact."
+msgstr ""
+"Chodzi o ogłoszenie %(listing)s. Przyjmij zaproszenie do drużyny, a Ty i "
+"autor zobaczycie swoje kontakty."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(member)s invited you to %(party)s"
+msgstr "%(member)s zaprasza Cię do %(party)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "their party"
+msgstr "swojej drużyny"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format

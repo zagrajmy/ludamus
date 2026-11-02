@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.party import PartyInviteNotification
 
 LISTING_TITLE_MAX_LENGTH = 255
 LISTING_TEXT_MAX_LENGTH = 255
@@ -169,6 +168,11 @@ class ListingInterestedNotification(ListingNotification):
     message: str
 
 
+class ListingPartyInviteNotification(ListingNotification):
+    party_name: str
+    author_name: str
+
+
 class ListingDetailDTO(BaseModel):
     listing: ListingDTO
     is_author: bool
@@ -275,7 +279,9 @@ class ListingNotifierProtocol(Protocol):
     ) -> None: ...
     def notify_listing_not_chosen(self, notification: ListingNotification) -> None: ...
     def notify_listing_changed(self, notification: ListingNotification) -> None: ...
-    def notify_party_invited(self, notification: PartyInviteNotification) -> None: ...
+    def notify_listing_party_invited(
+        self, notification: ListingPartyInviteNotification
+    ) -> None: ...
 
 
 class ListingServiceProtocol(Protocol):

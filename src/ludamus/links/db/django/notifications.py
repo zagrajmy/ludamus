@@ -53,6 +53,7 @@ if TYPE_CHECKING:
         ListingDeclinedNotification,
         ListingInterestedNotification,
         ListingNotification,
+        ListingPartyInviteNotification,
     )
     from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
@@ -277,19 +278,41 @@ class DjangoUserNotifier:
         )
 
     def notify_party_invited(self, notification: PartyInviteNotification) -> None:
-        party = notification.party_name or _("their party")
-        title = _("%(member)s invited you to %(party)s") % {
-            "member": notification.actor_name,
-            "party": party,
-        }
-        body = _(
-            "Join the party to enroll in events together — you move up "
-            "waiting lists as one group. You decide about every enrollment "
-            "unless you say otherwise."
+        self._invite_to_party(
+            recipient_id=notification.recipient_user_id,
+            actor_name=notification.actor_name,
+            party_name=notification.party_name,
+            body=_(
+                "Join the party to enroll in events together — you move up "
+                "waiting lists as one group. You decide about every enrollment "
+                "unless you say otherwise."
+            ),
         )
+
+    def notify_listing_party_invited(
+        self, notification: ListingPartyInviteNotification
+    ) -> None:
+        self._invite_to_party(
+            recipient_id=notification.recipient_user_id,
+            actor_name=notification.author_name,
+            party_name=notification.party_name,
+            body=_(
+                "You showed interest in %(listing)s. Accept the invitation to "
+                "join the party, and you and the author see each other's contact."
+            )
+            % {"listing": notification.listing_title},
+        )
+
+    def _invite_to_party(
+        self, *, recipient_id: int, actor_name: str, party_name: str, body: str
+    ) -> None:
+        title = _("%(member)s invited you to %(party)s") % {
+            "member": actor_name,
+            "party": party_name or _("their party"),
+        }
         self._deliver(
             Notification(
-                recipient_id=notification.recipient_user_id,
+                recipient_id=recipient_id,
                 kind=NotificationKind.PARTY_INVITE.value,
                 title=title,
                 body=body,
