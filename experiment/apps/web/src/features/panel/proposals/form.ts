@@ -442,11 +442,14 @@ const durationControl = (
   h: PanelH
 ) => {
   const { t } = translator;
+
   const offered =
     model.categories.find(
       (category) => String(category.id) === model.values.categoryId
     )?.durations ?? [];
+
   const hasPicker = offered.length > 0;
+
   const steppers = (
     labelText: string,
     name: string,

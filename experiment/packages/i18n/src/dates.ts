@@ -201,7 +201,7 @@ const WARSAW_STANDARD_OFFSET_MINUTES = 60;
 const DAY_ROLLOVER_HOURS = 6;
 
 const DATE_TIME =
-  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d+))?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/i;
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})[Tt ](?<hour>\d{2}):(?<minute>\d{2})(?::(?<second>\d{2})(?:[.,](?<fraction>\d+))?)?\s*(?<designator>[Zz]|[+-]\d{2}(?::?\d{2})?)?$/u;
 
 const pad = (value: number, width = 2) => String(value).padStart(width, "0");
 
@@ -246,8 +246,8 @@ const parseDateTime = (value: string): Option.Option<LocalDateTime> => {
     return Option.none();
   }
 
-  const [, year, month, day, hour, minute, second, fraction, designator] =
-    match;
+  const { year, month, day, hour, minute, second, fraction, designator } =
+    match.groups ?? {};
 
   const microsecond = Number((fraction ?? "").padEnd(6, "0").slice(0, 6));
 
@@ -358,6 +358,66 @@ const isAmbiguousWallClock = (local: LocalDateTime) => {
 
 const ZONE_SPECIFIERS = "eIOTZ";
 
+interface SpecifierContext {
+  readonly local: LocalDateTime;
+  readonly names: LocaleNames;
+  readonly month: number;
+  readonly meridiem: string;
+  readonly hourAndMinute: string;
+}
+
+const SPECIFIERS = {
+  A: ({ local, names }) => local.hour > 11 ? names.afterNoonUpper : names.beforeNoonUpper,
+  D: ({ local, names }) => names.weekdaysAbbreviated[local.weekDay],
+  E: ({ month, names }) => names.monthsGenitive[month],
+  F: ({ month, names }) => names.months[month],
+  G: ({ local }) => String(local.hour),
+  H: ({ local }) => pad(local.hour),
+  I: ({ local }) => local.offsetMinutes === WARSAW_STANDARD_OFFSET_MINUTES ? "0" : "1",
+  L: ({ local }) => isLeapYear(local.year) ? "True" : "False",
+  M: ({ month, names }) => names.monthsAbbreviated[month],
+  N: ({ month, names }) => names.monthsAssociatedPress[month],
+  O: ({ local }) => isoOffset(local, ""),
+  P: ({ hourAndMinute, local, meridiem, names }) => {
+      if (local.minute === 0 && local.hour === 0) {
+        return names.midnight;
+      }
+
+      if (local.minute === 0 && local.hour === 12) {
+        return names.noon;
+      }
+
+      return `${hourAndMinute} ${meridiem}`;
+  },
+  S: ({ local }) => englishOrdinal(local.day),
+  T: ({ local }) => zoneAbbreviation(local),
+  U: ({ local }) => String(Math.floor(local.epochMillis / 1000)),
+  Y: ({ local }) => pad(local.year, 4),
+  Z: ({ local }) => String(local.offsetMinutes * 60),
+  a: ({ meridiem }) => meridiem,
+  b: ({ month, names }) => names.monthsAbbreviated[month]?.toLowerCase(),
+  c: ({ local }) => isoFormat(local),
+  d: ({ local }) => pad(local.day),
+  e: ({ local }) => zoneAbbreviation(local),
+  f: ({ hourAndMinute }) => hourAndMinute,
+  g: ({ local }) => String(twelveHour(local)),
+  h: ({ local }) => pad(twelveHour(local)),
+  i: ({ local }) => pad(local.minute),
+  j: ({ local }) => String(local.day),
+  l: ({ local, names }) => names.weekdays[local.weekDay],
+  m: ({ local }) => pad(local.month),
+  n: ({ local }) => String(local.month),
+  s: ({ local }) => pad(local.second),
+  t: ({ local }) => pad(daysInMonth(local)),
+  u: ({ local }) => pad(local.microsecond, 6),
+  w: ({ local }) => String(local.weekDay),
+  y: ({ local }) => pad(local.year % 100),
+  z: ({ local }) => String(dayOfYear(local)),
+} satisfies Readonly<Record<string, (context: SpecifierContext) => string | undefined>>;
+
+const isSpecifier = (character: string): character is keyof typeof SPECIFIERS =>
+  Object.hasOwn(SPECIFIERS, character);
+
 const formatSpecifier = (
   local: LocalDateTime,
   names: LocaleNames,
@@ -375,160 +435,11 @@ const formatSpecifier = (
     return "";
   }
 
-  switch (specifier) {
-    case "a": {
-      return meridiem;
-    }
-
-    case "A": {
-      return local.hour > 11 ? names.afterNoonUpper : names.beforeNoonUpper;
-    }
-
-    case "b": {
-      return names.monthsAbbreviated[month]?.toLowerCase();
-    }
-
-    case "c": {
-      return isoFormat(local);
-    }
-
-    case "d": {
-      return pad(local.day);
-    }
-
-    case "D": {
-      return names.weekdaysAbbreviated[local.weekDay];
-    }
-
-    case "e":
-    case "T": {
-      return zoneAbbreviation(local);
-    }
-
-    case "E": {
-      return names.monthsGenitive[month];
-    }
-
-    case "f": {
-      return hourAndMinute;
-    }
-
-    case "F": {
-      return names.months[month];
-    }
-
-    case "g": {
-      return String(twelveHour(local));
-    }
-
-    case "G": {
-      return String(local.hour);
-    }
-
-    case "h": {
-      return pad(twelveHour(local));
-    }
-
-    case "H": {
-      return pad(local.hour);
-    }
-
-    case "i": {
-      return pad(local.minute);
-    }
-
-    case "I": {
-      return local.offsetMinutes === WARSAW_STANDARD_OFFSET_MINUTES ? "0" : "1";
-    }
-
-    case "j": {
-      return String(local.day);
-    }
-
-    case "l": {
-      return names.weekdays[local.weekDay];
-    }
-
-    case "L": {
-      return isLeapYear(local.year) ? "True" : "False";
-    }
-
-    case "m": {
-      return pad(local.month);
-    }
-
-    case "M": {
-      return names.monthsAbbreviated[month];
-    }
-
-    case "n": {
-      return String(local.month);
-    }
-
-    case "N": {
-      return names.monthsAssociatedPress[month];
-    }
-
-    case "O": {
-      return isoOffset(local, "");
-    }
-
-    case "P": {
-      if (local.minute === 0 && local.hour === 0) {
-        return names.midnight;
-      }
-
-      if (local.minute === 0 && local.hour === 12) {
-        return names.noon;
-      }
-
-      return `${hourAndMinute} ${meridiem}`;
-    }
-
-    case "s": {
-      return pad(local.second);
-    }
-
-    case "S": {
-      return englishOrdinal(local.day);
-    }
-
-    case "t": {
-      return pad(daysInMonth(local));
-    }
-
-    case "u": {
-      return pad(local.microsecond, 6);
-    }
-
-    case "U": {
-      return String(Math.floor(local.epochMillis / 1000));
-    }
-
-    case "w": {
-      return String(local.weekDay);
-    }
-
-    case "y": {
-      return pad(local.year % 100);
-    }
-
-    case "Y": {
-      return pad(local.year, 4);
-    }
-
-    case "z": {
-      return String(dayOfYear(local));
-    }
-
-    case "Z": {
-      return String(local.offsetMinutes * 60);
-    }
-
-    default: {
-      return undefined;
-    }
+  if (!isSpecifier(specifier)) {
+    return undefined;
   }
+
+  return SPECIFIERS[specifier]({ hourAndMinute, local, meridiem, month, names });
 };
 
 const render = (locale: Locale, local: LocalDateTime, format: string) => {
@@ -559,7 +470,7 @@ const render = (locale: Locale, local: LocalDateTime, format: string) => {
 const abbreviatedMonthFormat = (locale: Locale, withYear: boolean) =>
   (
     NAMED_FORMATS[locale][withYear ? "DATE_FORMAT" : "MONTH_DAY_FORMAT"] ?? ""
-  ).replaceAll(/[FNE]/g, (token) => (token === "E" ? "b" : "M"));
+  ).replaceAll(/[FNE]/gu, (token) => (token === "E" ? "b" : "M"));
 
 const isSameDay = (left: LocalDateTime, right: LocalDateTime) =>
   left.year === right.year &&
@@ -647,7 +558,10 @@ export const DateLeaf = Schema.Struct({
 
 export type DateLeaf = typeof DateLeaf.Type;
 
-const SHORTEST_BAND_LENGTH = [..."paź"].length;
+const codePointLength = (text: string): number =>
+  text.match(/./gsu)?.length ?? 0;
+
+const SHORTEST_BAND_LENGTH = codePointLength("paź");
 
 const SUNDAY = 0;
 
@@ -671,11 +585,16 @@ const leafOf = (
   const sameMonth = start.year === last.year && start.month === last.month;
   const monthBand = render(locale, start, "b");
 
+  const sameMonthBand =
+    start.year === now.year ? monthBand : `${monthBand} ${start.year}`;
+
   const band = sameMonth
-    ? start.year === now.year
-      ? monthBand
-      : `${monthBand} ${start.year}`
+    ? sameMonthBand
     : `${monthBand}–${render(locale, last, "b")}`;
+
+  const weekdayLabel = isRange
+    ? `${render(locale, start, "D")}–${render(locale, last, "D")}`
+    : render(locale, start, "D");
 
   const isOngoing =
     isRange &&
@@ -690,7 +609,7 @@ const leafOf = (
 
   return {
     band,
-    bandIsLong: [...band].length > SHORTEST_BAND_LENGTH,
+    bandIsLong: codePointLength(band) > SHORTEST_BAND_LENGTH,
     datetime: isoFormat(start),
     day: isRange ? `${start.day}–${last.day}` : String(start.day),
     hour: isOngoing ? t("ongoing") : render(locale, start, "H:i"),
@@ -699,11 +618,7 @@ const leafOf = (
     isSunday: !isRange && start.weekDay === SUNDAY,
     isToday,
     label,
-    weekday: isToday
-      ? t("today")
-      : isRange
-        ? `${render(locale, start, "D")}–${render(locale, last, "D")}`
-        : render(locale, start, "D"),
+    weekday: isToday ? t("today") : weekdayLabel,
   };
 };
 

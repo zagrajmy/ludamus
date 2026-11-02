@@ -8,7 +8,7 @@ import type {
 } from "@zagrajmy/core/enrollment/api";
 import { HouseholdSeat, RosterPerson } from "@zagrajmy/core/enrollment/api";
 import { EnrollmentWrite } from "@zagrajmy/core/enrollment/enroll";
-import { EnrollmentStore } from "@zagrajmy/core/enrollment/ports";
+import { EnrollmentStore } from "@zagrajmy/core/enrollment/ports/enrollment-store";
 import { EnrollmentWindowRules } from "@zagrajmy/core/enrollment/schemas";
 import { DateTime, Effect, Layer, Match, Option, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";

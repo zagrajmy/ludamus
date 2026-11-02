@@ -133,4 +133,4 @@ export const pyStrip = (text: string): string => {
 };
 
 export const pySlice = (text: string, length: number): string =>
-  [...text].slice(0, length).join("");
+  String.fromCodePoint(...codePoints(text).slice(0, length));

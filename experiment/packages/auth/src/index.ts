@@ -1,9 +1,10 @@
+export { CurrentUser } from "./current-user.js";
+
 export {
-  CurrentUser,
   SessionResolver,
   SessionResolverLive,
   cookieValue,
-} from "./current-user.js";
+} from "./session-resolver.js";
 
 export {
   InvalidSession,

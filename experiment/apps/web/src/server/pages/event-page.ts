@@ -794,7 +794,11 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
 
     const pendingCards =
       context.hasPanelAccess && isProposalActive
-        ? yield* (yield* SessionStore).listProposalCards({ eventId: event.id, now, presenterId: null })
+        ? yield* (yield* SessionStore).listProposalCards({
+            eventId: event.id,
+            now,
+            presenterId: null,
+          })
         : [];
 
     const pendingProposals = pendingCards
@@ -953,8 +957,10 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
       now: context.now.epochMillis,
       ownProposals: [],
       pendingProposals,
-      pendingWizard:
-        Option.exists(context.viewer, (found) => found.isSuperuser === 1 && found.sphereRole === null),
+      pendingWizard: Option.exists(
+        context.viewer,
+        (found) => found.isSuperuser === 1 && found.sphereRole === null
+      ),
       query: context.url.search,
       sessions,
       signedIn: Option.isSome(context.viewer),

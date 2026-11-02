@@ -1,13 +1,11 @@
 import { DateTime, Effect, Option, Predicate } from "effect";
 
 import type { EnrollmentStoreError } from "./errors.js";
-import {
-  ClaimTokens,
-  EnrollmentNotifier,
-  EnrollmentTransaction,
-  OfferExpiryScheduler,
-  PromotionStore,
-} from "./ports.js";
+import { ClaimTokens } from "./ports/claim-tokens.js";
+import { EnrollmentNotifier } from "./ports/enrollment-notifier.js";
+import { EnrollmentTransaction } from "./ports/enrollment-transaction.js";
+import { OfferExpiryScheduler } from "./ports/offer-expiry-scheduler.js";
+import { PromotionStore } from "./ports/promotion-store.js";
 import {
   decideClaimRechecked,
   decideDecline,

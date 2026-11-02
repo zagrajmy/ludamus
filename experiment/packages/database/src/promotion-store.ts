@@ -1,5 +1,5 @@
 import { PromotionMode } from "@zagrajmy/core";
-import { PromotionStore } from "@zagrajmy/core/enrollment/ports";
+import { PromotionStore } from "@zagrajmy/core/enrollment/ports/promotion-store";
 import { PromotionWrite } from "@zagrajmy/core/enrollment/promotion";
 import {
   distinctRecipients,

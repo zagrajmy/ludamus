@@ -30,7 +30,7 @@ const asInteger = (value: string | number) => {
 
 export const interpolate = (message: string, vars: MessageVars = {}) =>
   message.replaceAll(
-    /\{\{\s*(\w+)\s*\}\}|\{(\w+)\}|%\((\w+)\)([sdi])|%%/g,
+    /\{\{\s*(?<double>\w+)\s*\}\}|\{(?<single>\w+)\}|%\((?<python>\w+)\)(?<conversion>[sdi])|%%/gu,
     (token, double, single, python, conversion) => {
       if (token === "%%") {
         return "%";

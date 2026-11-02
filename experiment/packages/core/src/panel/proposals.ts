@@ -1,7 +1,9 @@
 import { implement } from "@zagrajmy/capability/implement";
 import { Effect, Option } from "effect";
 
+import { AppConfig } from "../app-config.js";
 import {
+  acceptProposalContract,
   changeProposalStatusContract,
   deleteProposalContract,
   restoreProposalContract,
@@ -11,23 +13,30 @@ import {
   FacilitatorId,
   ProposalCategoryId,
   SessionId,
+  SpaceId,
   TimeSlotId,
   TrackId,
 } from "../ids.js";
-import type { EventId } from "../ids.js";
+import type { EventId, UserId } from "../ids.js";
 import { AgendaItemStore } from "../ports/agenda-item-store.js";
 import { ChangeLogStore } from "../ports/change-log-store.js";
+import { CurrentSphere } from "../ports/current-sphere.js";
 import { FacilitatorStore } from "../ports/facilitator-store.js";
+import { MediaStore } from "../ports/media-store.js";
+import { PanelStore } from "../ports/panel-store.js";
 import { ProposalCategoryStore } from "../ports/proposal-category-store.js";
 import { SessionStore } from "../ports/session-store.js";
 import { NotFound } from "../ports/store-error.js";
+import { TimeSlotStore } from "../ports/time-slot-store.js";
 import { TrackStore } from "../ports/track-store.js";
 import { StoreTransaction } from "../ports/transaction.js";
 import type { SessionStatus } from "../session.js";
 import { requirePanelEvent } from "./access.js";
 import { FormInvalid, ProposalScheduled, formError } from "./schemas.js";
-import type { FormError, ProposalForm } from "./schemas.js";
+import type { FormError, ProposalAcceptance, ProposalForm } from "./schemas.js";
 import { transliteratedSlugify, uniqueSlug } from "./slugs.js";
+import { IMAGE_SUFFIXES, ImageCheck, checkImageDataUrl } from "./uploads.js";
+import type { ImageKind } from "./uploads.js";
 
 const SESSION_SLUG_MAX_LENGTH = 50;
 
@@ -56,6 +65,51 @@ export const readProposalInEvent = Effect.fn("Panel.readProposalInEvent")(
     }
 
     return session;
+  }
+);
+
+const TITLE_MAX_LENGTH = 255;
+
+const truncated = (text: string) =>
+  text.length > TITLE_MAX_LENGTH
+    ? `${text.slice(0, TITLE_MAX_LENGTH - 1)}…`
+    : text;
+
+const announceAcceptance = Effect.fn("Panel.announceAcceptance")(
+  function* announceAcceptance(options: {
+    readonly event: Readonly<{ name: string; slug: string }>;
+    readonly placed: boolean;
+    readonly session: Readonly<{
+      id: SessionId;
+      presenterId: UserId | null;
+      title: string;
+    }>;
+  }) {
+    const { event, placed, session } = options;
+    const sphere = yield* CurrentSphere;
+    const config = yield* AppConfig;
+
+    const facilitators =
+      (yield* (yield* SessionStore).facilitatorsBySession([session.id])).get(
+        session.id
+      ) ?? [];
+
+    const recipientIds = [
+      session.presenterId,
+      ...facilitators.map((facilitator) => facilitator.userId),
+    ].filter((id): id is UserId => id !== null);
+
+    const page = `${config.publicOrigin.protocol}//${sphere.domain}/event/${event.slug}/`;
+
+    yield* (yield* PanelStore).announceAcceptance({
+      body: placed
+        ? `Your proposal for ${event.name} was accepted and added to the agenda.`
+        : `Your proposal for ${event.name} was accepted. It will appear on the agenda once the organizers give it a time and place.`,
+      recipientIds,
+      sessionId: session.id,
+      title: truncated(`Accepted: ${session.title}`),
+      url: placed ? `${page}?session=${session.id}` : page,
+    });
   }
 );
 
@@ -91,6 +145,10 @@ export const changeProposalStatusHandler = Effect.fn(
         eventId: event.id,
         id: session.id,
       });
+
+      yield* change.status === "accepted" && session.status !== "accepted"
+        ? announceAcceptance({ event, placed: Option.isSome(placed), session })
+        : Effect.void;
     })
   );
 
@@ -402,6 +460,33 @@ const scopedIds = Effect.fn("Panel.scopedProposalIds")(
   }
 );
 
+const ORIGINAL_NAME_MAX_LENGTH = 255;
+
+const checkedCover = (form: ProposalForm) => {
+  if (form.coverImage === null) {
+    return Effect.succeed(
+      Option.none<
+        Readonly<{ bytes: Uint8Array; kind: ImageKind; name: string }>
+      >()
+    );
+  }
+
+  const { name } = form.coverImage;
+  const check = checkImageDataUrl(form.coverImage.dataUrl);
+
+  return ImageCheck.$is("Refused")(check)
+    ? Effect.fail(
+        new FormInvalid({ errors: [formError("cover_image", check.msgid)] })
+      )
+    : Effect.succeed(
+        Option.some({
+          bytes: check.bytes,
+          kind: check.kind,
+          name: name.slice(0, ORIGINAL_NAME_MAX_LENGTH),
+        })
+      );
+};
+
 export const saveProposalHandler = Effect.fn("Panel.saveProposal")(
   function* saveProposalHandler(form: ProposalForm) {
     const { event } = yield* requirePanelEvent({
@@ -411,6 +496,33 @@ export const saveProposalHandler = Effect.fn("Panel.saveProposal")(
 
     const sessions = yield* SessionStore;
     const transaction = yield* StoreTransaction;
+    const cover = yield* checkedCover(form);
+
+    const storeCover = (id: SessionId) =>
+      Effect.gen(function* writeCover() {
+        if (Option.isSome(cover)) {
+          const path = yield* (yield* MediaStore).save({
+            bytes: cover.value.bytes,
+            folder: "sessions",
+            suffix: IMAGE_SUFFIXES[cover.value.kind],
+          });
+
+          yield* sessions.update({
+            changes: {
+              coverImage: path,
+              coverImageOriginalName: cover.value.name,
+            },
+            eventId: event.id,
+            id,
+          });
+        } else if (form.coverImageClear) {
+          yield* sessions.update({
+            changes: { coverImage: "", coverImageOriginalName: "" },
+            eventId: event.id,
+            id,
+          });
+        }
+      });
 
     return yield* transaction.atomic(
       Effect.gen(function* saveScopedProposal() {
@@ -445,6 +557,7 @@ export const saveProposalHandler = Effect.fn("Panel.saveProposal")(
             sessionId: session.id,
             trackIds: ids.trackIds,
           });
+          yield* storeCover(session.id);
 
           return { id: session.id };
         }
@@ -474,10 +587,100 @@ export const saveProposalHandler = Effect.fn("Panel.saveProposal")(
           trackIds: ids.trackIds,
         });
 
+        yield* storeCover(id);
+
         return { id };
       })
     );
   }
+);
+
+export const SPACE_TIME_TAKEN =
+  "There is already a session scheduled at this space and time.";
+
+export const acceptProposalHandler = Effect.fn("Panel.acceptProposal")(
+  function* acceptProposalHandler(acceptance: ProposalAcceptance) {
+    const { event } = yield* requirePanelEvent({
+      mode: "write",
+      slug: acceptance.eventSlug,
+    });
+
+    const sessions = yield* SessionStore;
+    const agenda = yield* AgendaItemStore;
+    const transaction = yield* StoreTransaction;
+
+    yield* transaction.atomic(
+      Effect.gen(function* acceptScopedProposal() {
+        const session = yield* readProposalInEvent({
+          eventId: event.id,
+          proposalId: acceptance.proposalId,
+        });
+
+        yield* session.status === "pending"
+          ? Effect.void
+          : Effect.fail(
+              new FormInvalid({
+                errors: [
+                  formError("", "This proposal has already been accepted."),
+                ],
+              })
+            );
+
+        const spaces = yield* sessions.readSpaceOptions(session.id);
+
+        yield* spaces.some((space) => space.id === acceptance.spaceId)
+          ? Effect.void
+          : Effect.fail(
+              new NotFound({ entity: "Space", key: String(acceptance.spaceId) })
+            );
+
+        const slot = yield* (yield* TimeSlotStore).readInEvent({
+          eventId: event.id,
+          id: TimeSlotId.make(acceptance.timeSlotId),
+        });
+
+        const spaceId = SpaceId.make(acceptance.spaceId);
+
+        const clashes = yield* agenda.listOverlappingInSpace({
+          endTime: slot.endTime,
+          excludeSessionId: session.id,
+          spaceId,
+          startTime: slot.startTime,
+        });
+
+        yield* clashes.length === 0
+          ? Effect.void
+          : Effect.fail(
+              new FormInvalid({ errors: [formError("", SPACE_TIME_TAKEN)] })
+            );
+
+        yield* sessions.update({
+          changes: {
+            facilitatorName: session.facilitatorName,
+            scheduleConfirmed: event.autoConfirmSessions,
+            status: "accepted",
+          },
+          eventId: event.id,
+          id: session.id,
+        });
+        yield* agenda.create({
+          endTime: slot.endTime,
+          sessionConfirmed: event.autoConfirmSessions,
+          sessionId: session.id,
+          spaceId,
+          startTime: slot.startTime,
+        });
+        yield* announceAcceptance({ event, placed: true, session });
+      })
+    );
+
+    return {};
+  }
+);
+
+export const acceptProposal = implement(
+  acceptProposalContract,
+  acceptProposalHandler
 );
 
 export const changeProposalStatus = implement(

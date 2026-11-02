@@ -10,7 +10,7 @@ const SESSION_DATA =
 
 describe("django session signing", () => {
   it.effect("decodes a compressed, signed session written by Django", () =>
-    Effect.gen(function* () {
+    Effect.gen(function* decodesDjangoSession() {
       const payload = yield* decodeSessionData(SESSION_DATA, SECRET);
 
       expect(payload._auth_user_id).toBe("5");
@@ -21,7 +21,7 @@ describe("django session signing", () => {
   );
 
   it.effect("rejects a session signed with another secret", () =>
-    Effect.gen(function* () {
+    Effect.gen(function* rejectsForeignSecret() {
       const exit = yield* Effect.exit(decodeSessionData(SESSION_DATA, "other"));
 
       expect(Exit.isFailure(exit)).toBe(true);
@@ -29,7 +29,7 @@ describe("django session signing", () => {
   );
 
   it.effect("rejects a tampered payload", () =>
-    Effect.gen(function* () {
+    Effect.gen(function* rejectsTamperedPayload() {
       const tampered = `.eJy${SESSION_DATA.slice(4)}`;
       const exit = yield* Effect.exit(decodeSessionData(tampered, SECRET));
 

@@ -1,22 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Result, Schema } from "effect";
+import { Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  EnrollRequestChoice,
-  actorAvailableSlots,
-  canEnroll,
-  desiredStateRequests,
-  policyEffectiveParticipantsLimit,
-  policyForActor,
-  processEnrollments,
-} from "../src/enrollment/index.js";
-import type {
-  EnrollSessionState,
-  EnrollmentBatch,
-  EnrollmentRequest,
-  HouseholdMember,
-} from "../src/enrollment/index.js";
+import { EnrollRequestChoice, EnrollmentWrite, actorAvailableSlots, desiredStateRequests, processEnrollments } from "../src/enrollment/enroll.js";
+import { canEnroll, policyEffectiveParticipantsLimit, policyForActor } from "../src/enrollment/windows.js";
+import type { EnrollSessionState, EnrollmentBatch, EnrollmentRequest, HouseholdMember } from "../src/enrollment/enroll.js";
 import {
   OCCUPYING_PARTICIPATION_STATUSES,
   ParticipationStatus,
@@ -126,6 +114,9 @@ const toBatch = (draft: BatchDraft): Batch => {
 
 const batches = { batch: Arbitrary.map(Arbitrary.schema(BatchDraft), toBatch) };
 
+const occupies = (status: string | undefined): boolean =>
+  status === "confirmed" || status === "offered";
+
 const occupiedAfter = (
   session: EnrollSessionState,
   batch: EnrollmentBatch
@@ -134,42 +125,28 @@ const occupiedAfter = (
     session.participations.map((row) => [row.userId, row.status])
   );
 
-  const occupies = (status: string | undefined): boolean =>
-    status === "confirmed" || status === "offered";
-
   let occupied = session.enrolledCount;
 
   for (const write of batch.writes) {
-    switch (write._tag) {
-      case "Delete": {
-        occupied -= occupies(rows.get(write.userId)) ? 1 : 0;
-        rows.delete(write.userId);
-        break;
-      }
+    occupied += EnrollmentWrite.match(write, {
+      AddGuests: ({ count }) => count,
+      Delete: ({ userId }) => {
+        const delta = occupies(rows.get(userId)) ? -1 : 0;
+        rows.delete(userId);
 
-      case "Save": {
-        occupied +=
-          (occupies(write.status) ? 1 : 0) -
-          (occupies(rows.get(write.userId)) ? 1 : 0);
-        rows.set(write.userId, write.status);
-        break;
-      }
+        return delta;
+      },
+      HoldSeat: () => 1,
+      RemoveGuest: () => -1,
+      Save: ({ status, userId }) => {
+        const delta =
+          (occupies(status) ? 1 : 0) - (occupies(rows.get(userId)) ? 1 : 0);
 
-      case "AddGuests": {
-        occupied += write.count;
-        break;
-      }
+        rows.set(userId, status);
 
-      case "RemoveGuest": {
-        occupied -= 1;
-        break;
-      }
-
-      case "HoldSeat": {
-        occupied += 1;
-        break;
-      }
-    }
+        return delta;
+      },
+    });
   }
 
   return occupied;
@@ -177,8 +154,8 @@ const occupiedAfter = (
 
 const seatedUserIds = (batch: EnrollmentBatch): readonly number[] =>
   batch.writes.flatMap((write) =>
-    (write._tag === "Save" && write.status === "confirmed") ||
-    write._tag === "HoldSeat"
+    (Predicate.isTagged(write, "Save") && write.status === "confirmed") ||
+    Predicate.isTagged(write, "HoldSeat")
       ? [write.userId]
       : []
   );
@@ -245,7 +222,7 @@ describe("processEnrollments", () => {
       }
 
       const fresh = outcome.success.writes.flatMap((write) =>
-        write._tag === "Save" && write.status === "confirmed"
+        Predicate.isTagged(write, "Save") && write.status === "confirmed"
           ? [write.userId]
           : []
       );
@@ -269,9 +246,7 @@ describe("processEnrollments", () => {
       const named = new Set(batch.requests.map((req) => req.userId));
 
       const touched = outcome.success.writes.flatMap((write) =>
-        write._tag === "Delete" ||
-        write._tag === "Save" ||
-        write._tag === "HoldSeat"
+        EnrollmentWrite.isAnyOf(["Delete", "Save", "HoldSeat"])(write)
           ? [write.userId]
           : []
       );

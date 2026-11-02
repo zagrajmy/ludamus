@@ -2,23 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  FieldRequirement,
-  MAX_DURATION_HOURS,
-  MAX_DURATION_MINUTES,
-  OrganizerField,
-  buildDuration,
-  controlRequired,
-  durationFromParts,
-  formatDuration,
-  normalizeDuration,
-  offersCustomInput,
-  parseDuration,
-  resolveFieldControls,
-  stepperParts,
-  uniqueSlug,
-  validateFieldAnswers,
-} from "../src/proposal/index.js";
+import { MAX_DURATION_HOURS, MAX_DURATION_MINUTES, buildDuration, durationFromParts, formatDuration, normalizeDuration, parseDuration, stepperParts } from "../src/proposal/durations.js";
+import { FieldRequirement, OrganizerField, controlRequired, offersCustomInput, resolveFieldControls, validateFieldAnswers } from "../src/proposal/fields.js";
+import { codePoints } from "../src/proposal/python-text.js";
+import { uniqueSlug } from "../src/proposal/slugs.js";
 import { between } from "./support/arbitraries.js";
 
 const hours = Arbitrary.schema(between(0, 200));
@@ -164,12 +151,15 @@ describe("unique slugs", () => {
         nextSuffix: () => "AbC_",
       });
 
-      const base = [...(input.base === "" ? input.fallback : input.base)]
-        .slice(0, 45)
-        .join("");
+      const base = String.fromCodePoint(
+        ...codePoints(input.base === "" ? input.fallback : input.base).slice(
+          0,
+          45
+        )
+      );
 
       expect(slug.startsWith(base)).toBe(true);
-      expect([...slug].length).toBeLessThanOrEqual(50);
+      expect(codePoints(slug).length).toBeLessThanOrEqual(50);
     }
   );
 

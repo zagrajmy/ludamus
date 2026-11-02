@@ -1,4 +1,4 @@
-import { SphereId, UserId } from "@zagrajmy/core";
+import { SessionId, SphereId, UserId } from "@zagrajmy/core";
 import { EventId } from "@zagrajmy/core/ids";
 import type { PanelStats } from "@zagrajmy/core/panel/schemas";
 import {
@@ -7,10 +7,18 @@ import {
   SphereManager,
 } from "@zagrajmy/core/panel/schemas";
 import { PanelStore } from "@zagrajmy/core/ports/panel-store";
-import { Effect, Layer, Option, Schema } from "effect";
+import { DateTime, Effect, Layer, Option, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
-import { decodeFirst, decodeInput, decodeRows, SqlDateTime } from "./rows.js";
+import {
+  decodeFirst,
+  decodeInput,
+  decodeRows,
+  pythonJson,
+  SqlDateTime,
+  storeFailure,
+  toSqlDateTime,
+} from "./rows.js";
 import { ROW_BUDGET } from "./sql-fragments.js";
 
 const SPHERE_MANAGER_BUDGET = 500;
@@ -23,6 +31,14 @@ const ScheduledRow = Schema.Struct({
   ...ScheduledSession.fields,
   endTime: SqlDateTime,
   startTime: SqlDateTime,
+});
+
+const AnnouncementInput = Schema.Struct({
+  body: Schema.String,
+  recipientIds: Schema.Array(UserId),
+  sessionId: SessionId,
+  title: Schema.String.check(Schema.isMaxLength(255)),
+  url: Schema.String,
 });
 
 const StatsRow = Schema.Struct({
@@ -122,7 +138,41 @@ export const makePanelStore = Effect.gen(function* makePanelStore() {
     }
   );
 
+  const announceAcceptance = Effect.fn("PanelStore.announceAcceptance")(
+    function* announceAcceptance(options: {
+      readonly body: string;
+      readonly recipientIds: readonly UserId[];
+      readonly sessionId: SessionId;
+      readonly title: string;
+      readonly url: string;
+    }) {
+      const input = yield* decodeInput(
+        "PanelStore.announceAcceptance",
+        AnnouncementInput
+      )(options);
+
+      const now = toSqlDateTime(yield* DateTime.now);
+      const payload = pythonJson({ session_id: input.sessionId });
+
+      yield* Effect.forEach(
+        [...new Set(input.recipientIds)],
+        (recipientId) =>
+          sql`
+            INSERT INTO notification (kind, title, body, url, payload, creation_time, read_at, recipient_id)
+            SELECT 'proposal_accepted', ${input.title}, ${input.body}, ${input.url}, ${payload}, ${now}, NULL, ${recipientId}
+            WHERE NOT EXISTS (
+              SELECT 1 FROM notification
+              WHERE recipient_id = ${recipientId} AND kind = 'proposal_accepted'
+                AND json_extract(payload, '$.session_id') = ${input.sessionId}
+            )
+          `,
+        { discard: true }
+      ).pipe(storeFailure("PanelStore.announceAcceptance"));
+    }
+  );
+
   return PanelStore.of({
+    announceAcceptance,
     eventStats,
     roleOf,
     scheduledSessions,

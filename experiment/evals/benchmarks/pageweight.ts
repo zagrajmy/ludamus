@@ -1,16 +1,23 @@
 import { createRequire } from "node:module";
+import path from "node:path";
+
+import { Schema } from "effect";
+import type * as Playwright from "playwright";
 
 import type { StoredCookie } from "./auth.ts";
 
 const require = createRequire(import.meta.url);
 
-type PlaywrightModule = typeof import("playwright");
+const e2ePlaywright = path.resolve(
+  import.meta.dirname,
+  "../../../tests/e2e/node_modules/@playwright/test"
+);
 
-const loadPlaywright = (): PlaywrightModule => {
+const loadPlaywright = (): typeof Playwright => {
   try {
     return require("playwright");
   } catch {
-    return require("/home/user/ludamus/tests/e2e/node_modules/@playwright/test");
+    return require(e2ePlaywright);
   }
 };
 
@@ -42,6 +49,26 @@ const vitalsScript = `
   }).observe({ type: "layout-shift", buffered: true });
 `;
 
+const declineConsentScript = `window.localStorage.setItem("prologue.consent", "declined");`;
+
+const timingScript = `(() => {
+  const navigation = performance.getEntriesByType("navigation")[0];
+  const vitals = window.__vitals;
+  return {
+    cls: vitals.cls,
+    domContentLoaded: navigation.domContentLoadedEventEnd,
+    lcp: vitals.lcp,
+    load: navigation.loadEventEnd,
+  };
+})()`;
+
+const BrowserTiming = Schema.Struct({
+  cls: Schema.Number,
+  domContentLoaded: Schema.Number,
+  lcp: Schema.NullOr(Schema.Number),
+  load: Schema.Number,
+});
+
 export const measurePageWeight = async (
   url: string,
   cookies: readonly StoredCookie[],
@@ -64,9 +91,7 @@ export const measurePageWeight = async (
   }
 
   await context.addInitScript(vitalsScript);
-  await context.addInitScript(() => {
-    window.localStorage.setItem("prologue.consent", "declined");
-  });
+  await context.addInitScript(declineConsentScript);
 
   const page = await context.newPage();
   const byType: ResourceBytes = {};
@@ -99,21 +124,9 @@ export const measurePageWeight = async (
   const response = await page.goto(url, { waitUntil: "load" });
   await page.waitForTimeout(1500);
 
-  const timing = await page.evaluate(() => {
-    const navigation = performance.getEntriesByType(
-      "navigation"
-    )[0] as PerformanceNavigationTiming;
-    const vitals = (
-      window as unknown as { __vitals: { lcp: number | null; cls: number } }
-    ).__vitals;
-
-    return {
-      cls: vitals.cls,
-      domContentLoaded: navigation.domContentLoadedEventEnd,
-      lcp: vitals.lcp,
-      load: navigation.loadEventEnd,
-    };
-  });
+  const timing = Schema.decodeUnknownSync(BrowserTiming)(
+    await page.evaluate(timingScript)
+  );
 
   await browser.close();
 

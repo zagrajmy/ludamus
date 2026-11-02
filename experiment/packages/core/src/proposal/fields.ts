@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Match, Predicate, Schema } from "effect";
 
 import { pyLength, pyStrip } from "./python-text.js";
 
@@ -244,12 +244,9 @@ const cleanControl = (
 ): CleanOutcome => {
   const values = data[control.key];
 
-  switch (control.kind) {
-    case "text": {
-      return cleanText(control, lastValue(values));
-    }
-
-    case "choice": {
+  return Match.value(control.kind).pipe(
+    Match.when("text", () => cleanText(control, lastValue(values))),
+    Match.when("choice", (): CleanOutcome => {
       const value = lastValue(values) ?? "";
 
       if (value === "") {
@@ -261,9 +258,8 @@ const cleanControl = (
       return isChoice(control, value)
         ? { ok: true, value }
         : { codes: ["invalid_choice"], ok: false };
-    }
-
-    case "multipleChoice": {
+    }),
+    Match.when("multipleChoice", (): CleanOutcome => {
       const chosen = values ?? [];
 
       if (chosen.length === 0) {
@@ -275,9 +271,8 @@ const cleanControl = (
       return [...new Set(chosen)].every((value) => isChoice(control, value))
         ? { ok: true, value: chosen }
         : { codes: ["invalid_choice"], ok: false };
-    }
-
-    case "boolean": {
+    }),
+    Match.when("boolean", (): CleanOutcome => {
       const raw = lastValue(values);
 
       if (values === undefined || raw === null) {
@@ -290,18 +285,19 @@ const cleanControl = (
         ok: true,
         value: lowered === "false" ? false : lowered === "true" || raw !== "",
       };
-    }
-  }
+    }),
+    Match.exhaustive
+  );
 };
 
 export const isTruthyAnswer = (
   value: FieldAnswer | null | undefined
 ): boolean => {
-  if (typeof value === "string") {
+  if (Predicate.isString(value)) {
     return value !== "";
   }
 
-  if (typeof value === "boolean") {
+  if (Predicate.isBoolean(value)) {
     return value;
   }
 
@@ -347,7 +343,7 @@ export const validateFieldAnswers = (options: {
 };
 
 export const isEmptyAnswer = (value: FieldAnswer | null): boolean => {
-  if (typeof value === "string") {
+  if (Predicate.isString(value)) {
     return pyStrip(value) === "";
   }
 
@@ -365,7 +361,7 @@ export const mergeCustom = (options: {
 }): FieldAnswer => {
   const { chosen, custom } = options;
 
-  if (typeof chosen === "boolean") {
+  if (Predicate.isBoolean(chosen)) {
     return chosen;
   }
 
@@ -391,11 +387,11 @@ export const splitStored = (options: {
 }): readonly [string | readonly string[], string] => {
   const { stored, known, isMultiple } = options;
 
-  if (stored === null || typeof stored === "boolean") {
+  if (stored === null || Predicate.isBoolean(stored)) {
     return [isMultiple ? [] : "", ""];
   }
 
-  const values = typeof stored === "string" ? [stored] : stored;
+  const values = Predicate.isString(stored) ? [stored] : stored;
   const chosen = values.filter((value) => known.includes(value));
 
   const custom = values
@@ -415,14 +411,14 @@ const PRINTABLE_EXCLUDED =
 const pyEscape = (char: string): string => {
   const point = char.codePointAt(0) ?? 0;
 
-  const named: Readonly<Record<string, string>> = {
-    "\t": "\\t",
-    "\n": "\\n",
-    "\r": "\\r",
-    "\\": "\\\\",
-  };
+  const named = new Map([
+    ["\t", "\\t"],
+    ["\n", "\\n"],
+    ["\r", "\\r"],
+    ["\\", "\\\\"],
+  ]);
 
-  const known = named[char];
+  const known = named.get(char);
 
   if (known !== undefined) {
     return known;
@@ -454,11 +450,11 @@ const pyRepr = (text: string): string => {
 };
 
 export const pyStr = (value: FieldAnswer): string => {
-  if (typeof value === "string") {
+  if (Predicate.isString(value)) {
     return value;
   }
 
-  if (typeof value === "boolean") {
+  if (Predicate.isBoolean(value)) {
     return value ? "True" : "False";
   }
 
@@ -505,7 +501,7 @@ export const unfoldCustomAnswers = (options: {
     if (
       field.fieldType !== "select" ||
       value === undefined ||
-      typeof value === "boolean"
+      Predicate.isBoolean(value)
     ) {
       continue;
     }

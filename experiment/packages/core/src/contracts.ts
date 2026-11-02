@@ -1,7 +1,6 @@
 import { defineContract } from "@zagrajmy/capability/contract";
 import { Schema } from "effect";
 
-import { EventPage, ReadEventPageInput, ReadEventSessionInput } from "./event-page/event-page.js";
 import {
   BookmarkInput,
   BookmarkToggled,
@@ -19,6 +18,11 @@ import {
   SubmittedEnrollments,
 } from "./enrollment/api.js";
 import { EnrollmentStoreError } from "./enrollment/errors.js";
+import {
+  EventPage,
+  ReadEventPageInput,
+  ReadEventSessionInput,
+} from "./event-page/event-page.js";
 import { EventSummary } from "./event.js";
 import {
   Done,
@@ -28,6 +32,7 @@ import {
   FacilitatorRef,
   FormInvalid,
   PanelAccessDenied,
+  ProposalAcceptance,
   ProposalForm,
   ProposalRef,
   ProposalScheduled,
@@ -201,7 +206,12 @@ export { Track, TrackListItem, TrackSessionCounts } from "./track.js";
 
 export { AgeBand, User, UserSummary, UserType } from "./user.js";
 
-const PanelRefusals = [NotFound, PanelAccessDenied, StoreError, InvalidStoreInput] as const;
+const PanelRefusals = [
+  NotFound,
+  PanelAccessDenied,
+  StoreError,
+  InvalidStoreInput,
+] as const;
 
 const panelFailure = Schema.Union([...PanelRefusals]);
 
@@ -218,7 +228,8 @@ export const createTrackContract = defineContract("createTrack", {
 
 export const updateTrackContract = defineContract("updateTrack", {
   annotations: { idempotent: true, readOnly: false },
-  description: "Rename a track of a managed event and reassign its spaces and managers",
+  description:
+    "Rename a track of a managed event and reassign its spaces and managers",
   failure: panelFormFailure,
   input: TrackEditForm,
   output: SavedSlug,
@@ -266,18 +277,22 @@ export const restoreFacilitatorContract = defineContract("restoreFacilitator", {
   output: Done,
 });
 
-export const changeProposalStatusContract = defineContract("changeProposalStatus", {
-  annotations: { idempotent: true, readOnly: false },
-  description:
-    "Move a proposal of a managed event to pending, accepted, on hold or rejected; a scheduled one can only stay accepted",
-  failure: Schema.Union([...PanelRefusals, ProposalScheduled]),
-  input: ProposalStatusChange,
-  output: Done,
-});
+export const changeProposalStatusContract = defineContract(
+  "changeProposalStatus",
+  {
+    annotations: { idempotent: true, readOnly: false },
+    description:
+      "Move a proposal of a managed event to pending, accepted, on hold or rejected; a scheduled one can only stay accepted",
+    failure: Schema.Union([...PanelRefusals, ProposalScheduled]),
+    input: ProposalStatusChange,
+    output: Done,
+  }
+);
 
 export const deleteProposalContract = defineContract("deleteProposal", {
   annotations: { destructive: true, readOnly: false },
-  description: "Soft-delete a proposal of a managed event into the proposal bin",
+  description:
+    "Soft-delete a proposal of a managed event into the proposal bin",
   failure: panelFailure,
   input: ProposalRef,
   output: Done,
@@ -300,6 +315,15 @@ export const saveProposalContract = defineContract("saveProposal", {
   output: SavedProposal,
 });
 
+export const acceptProposalContract = defineContract("acceptProposal", {
+  annotations: { readOnly: false },
+  description:
+    "Accept a pending proposal of a managed event and place it on the agenda in one of the event's bookable spaces at one of its time slots; refuses a space and time already taken",
+  failure: panelFormFailure,
+  input: ProposalAcceptance,
+  output: Done,
+});
+
 export const panelContracts = [
   createTrackContract,
   updateTrackContract,
@@ -312,6 +336,7 @@ export const panelContracts = [
   deleteProposalContract,
   restoreProposalContract,
   saveProposalContract,
+  acceptProposalContract,
 ] as const;
 
 const EnrollmentFailures = [
@@ -323,17 +348,14 @@ const EnrollmentFailures = [
   InvalidStoreInput,
 ] as const;
 
-export const readEnrollmentFormContract = defineContract(
-  "readEnrollmentForm",
-  {
-    annotations: { idempotent: true, readOnly: true },
-    description:
-      "Who the signed-in viewer can seat in one session of the current sphere: themselves, their companions and party members, with each person's state",
-    failure: Schema.Union([...EnrollmentFailures]),
-    input: ReadEnrollmentFormInput,
-    output: EnrollmentForm,
-  }
-);
+export const readEnrollmentFormContract = defineContract("readEnrollmentForm", {
+  annotations: { idempotent: true, readOnly: true },
+  description:
+    "Who the signed-in viewer can seat in one session of the current sphere: themselves, their companions and party members, with each person's state",
+  failure: Schema.Union([...EnrollmentFailures]),
+  input: ReadEnrollmentFormInput,
+  output: EnrollmentForm,
+});
 
 export const readEnrollFooterContract = defineContract("readEnrollFooter", {
   annotations: { idempotent: true, readOnly: true },
@@ -355,8 +377,7 @@ export const submitEnrollmentsContract = defineContract("submitEnrollments", {
 
 export const readOfferContract = defineContract("readOffer", {
   annotations: { anonymousSafe: true, idempotent: true, readOnly: true },
-  description:
-    "A seat offered or held for someone, read by its claim token",
+  description: "A seat offered or held for someone, read by its claim token",
   failure: Schema.Union([...EnrollmentFailures]),
   input: OfferTokenInput,
   output: OfferView,
@@ -429,7 +450,11 @@ export const checkProposalStepContract = defineContract("checkProposalStep", {
   annotations: { idempotent: true, readOnly: true },
   description:
     "Validate one step of the proposal wizard (category, personal details, time slots or session details) as the submit will, returning the cleaned answers or the field errors",
-  failure: Schema.Union([...ProposeRefusals, CategoryRequired, ProposalInvalid]),
+  failure: Schema.Union([
+    ...ProposeRefusals,
+    CategoryRequired,
+    ProposalInvalid,
+  ]),
   input: CheckProposalStepInput,
   output: AcceptedStep,
 });

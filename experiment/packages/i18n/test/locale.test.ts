@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import {
   CurrentLocale,
@@ -58,18 +58,20 @@ describe("negotiateLocale", () => {
 });
 
 describe("CurrentLocale", () => {
-  it("hands request code a translator for the provided locale", () => {
-    const greeting = Effect.gen(function* greet() {
-      const { t } = yield* CurrentTranslator;
+  it.effect("hands request code a translator for the provided locale", () =>
+    Effect.gen(function* translatesPerLocale() {
+      const greeting = Effect.gen(function* greet() {
+        const { t } = yield* CurrentTranslator;
 
-      return t("Enrollment Open");
-    });
+        return t("Enrollment Open");
+      });
 
-    expect(
-      Effect.runSync(greeting.pipe(Effect.provideService(CurrentLocale, "pl")))
-    ).toBe("Zapisy otwarte");
-    expect(
-      Effect.runSync(greeting.pipe(Effect.provideService(CurrentLocale, "en")))
-    ).toBe("Enrollment Open");
-  });
+      expect(
+        yield* greeting.pipe(Effect.provideService(CurrentLocale, "pl"))
+      ).toBe("Zapisy otwarte");
+      expect(
+        yield* greeting.pipe(Effect.provideService(CurrentLocale, "en"))
+      ).toBe("Enrollment Open");
+    })
+  );
 });

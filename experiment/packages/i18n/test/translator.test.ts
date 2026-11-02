@@ -93,26 +93,27 @@ describe("tc", () => {
   });
 });
 
+const seatsLabel = (locale: typeof polish, count: number) =>
+  locale.n("%(counter)s seat", "%(counter)s seats", count, {
+    counter: count,
+  });
+
 describe("n", () => {
-  const seats = (locale: typeof polish, count: number) =>
-    locale.n("%(counter)s seat", "%(counter)s seats", count, {
-      counter: count,
-    });
 
   it("picks the Polish plural form by the catalog's rule", () => {
-    expect(seats(polish, 1)).toBe("1 miejsce");
-    expect(seats(polish, 2)).toBe("2 miejsca");
-    expect(seats(polish, 5)).toBe("5 miejsc");
-    expect(seats(polish, 12)).toBe("12 miejsc");
-    expect(seats(polish, 22)).toBe("22 miejsca");
-    expect(seats(polish, 25)).toBe("25 miejsc");
-    expect(seats(polish, 0)).toBe("0 miejsc");
+    expect(seatsLabel(polish, 1)).toBe("1 miejsce");
+    expect(seatsLabel(polish, 2)).toBe("2 miejsca");
+    expect(seatsLabel(polish, 5)).toBe("5 miejsc");
+    expect(seatsLabel(polish, 12)).toBe("12 miejsc");
+    expect(seatsLabel(polish, 22)).toBe("22 miejsca");
+    expect(seatsLabel(polish, 25)).toBe("25 miejsc");
+    expect(seatsLabel(polish, 0)).toBe("0 miejsc");
   });
 
   it("uses one/other in English", () => {
-    expect(seats(english, 1)).toBe("1 seat");
-    expect(seats(english, 2)).toBe("2 seats");
-    expect(seats(english, 0)).toBe("0 seats");
+    expect(seatsLabel(english, 1)).toBe("1 seat");
+    expect(seatsLabel(english, 2)).toBe("2 seats");
+    expect(seatsLabel(english, 0)).toBe("0 seats");
   });
 
   it("joins msgids the .po file splits across lines", () => {

@@ -1,21 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Duration, Effect, Result, Schema } from "effect";
+import { Duration, Effect, Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  UNLIMITED_SLOTS,
-  canEnrollUsers,
-  conflictedUserIds,
-  ownerSlotsRemaining,
-  processEnrollments,
-  selectPromotableParties,
-} from "../src/enrollment/index.js";
-import type {
-  EnrollSessionState,
-  EnrollmentRequest,
-  PromotionState,
-} from "../src/enrollment/index.js";
-import { durationFromParts } from "../src/proposal/index.js";
+import { conflictedUserIds } from "../src/enrollment/conflicts.js";
+import { EnrollmentWrite, processEnrollments } from "../src/enrollment/enroll.js";
+import { canEnrollUsers, ownerSlotsRemaining, selectPromotableParties } from "../src/enrollment/rules.js";
+import { UNLIMITED_SLOTS } from "../src/enrollment/schemas.js";
+import type { EnrollSessionState, EnrollmentRequest } from "../src/enrollment/enroll.js";
+import type { PromotionState } from "../src/enrollment/schemas.js";
+import { durationFromParts } from "../src/proposal/durations.js";
 import { at, between } from "./support/arbitraries.js";
 
 const OPEN_WINDOW = {
@@ -51,6 +44,23 @@ const waitingOwner = (slots: number): PromotionState => ({
   ],
 });
 
+const emptySessionSnapshot = (sessionId: number): EnrollSessionState => ({
+  conflictedUserIds: conflictedUserIds({
+    seats: [],
+    sessionId,
+    span: { endTime: at(120), startTime: at(0) },
+    userIds: [7],
+  }),
+  eligibleWindows: [OPEN_WINDOW],
+  enrolledCount: 0,
+  guestParticipationIds: [],
+  participantsLimit: 4,
+  participations: [],
+  presenterId: null,
+  shadowbannedUserIds: [],
+  viewerIsConfigured: true,
+});
+
 const Household = Schema.Struct({
   allowed: between(1, 3),
   companions: between(0, 2),
@@ -64,9 +74,9 @@ const promotionAgreesWithGate = (household: typeof Household.Type): boolean => {
     (_, index) => index + 1
   );
 
-  const occupying = [...new Set(household.seated)]
-    .filter((index) => index < members.length)
-    .map((index) => index + 1);
+  const occupying = [...new Set(household.seated)].flatMap((index) =>
+    index < members.length ? [index + 1] : []
+  );
 
   const waiter = Math.min(household.waiter, members.length - 1) + 1;
 
@@ -142,23 +152,6 @@ describe("documented findings (VERIFICATION.md), reproduced by the port", () => 
   });
 
   it.fails("finding: two enrolls decided on one snapshot double-book a person (finding_two_requests.bend)", () => {
-    const snapshot = (sessionId: number): EnrollSessionState => ({
-      conflictedUserIds: conflictedUserIds({
-        seats: [],
-        sessionId,
-        span: { endTime: at(120), startTime: at(0) },
-        userIds: [7],
-      }),
-      eligibleWindows: [OPEN_WINDOW],
-      enrolledCount: 0,
-      guestParticipationIds: [],
-      participantsLimit: 4,
-      participations: [],
-      presenterId: null,
-      shadowbannedUserIds: [],
-      viewerIsConfigured: true,
-    });
-
     const enroll: readonly EnrollmentRequest[] = [
       {
         choice: "enroll",
@@ -174,13 +167,13 @@ describe("documented findings (VERIFICATION.md), reproduced by the port", () => 
         guestsTarget: null,
         partyId: null,
         requests: enroll,
-        session: snapshot(sessionId),
+        session: emptySessionSnapshot(sessionId),
       });
 
       return (
         Result.isSuccess(outcome) &&
         outcome.success.writes.some(
-          (w) => w._tag === "Save" && w.status === "confirmed"
+          (w) => Predicate.isTagged(w, "Save") && w.status === "confirmed"
         )
       );
     });
@@ -267,7 +260,7 @@ describe("new findings from the port (not yet in VERIFICATION.md)", () => {
     });
 
     expect(Result.isSuccess(outcome) && outcome.success.writes).toEqual([
-      { _tag: "HoldSeat", partyId: 7, userId: 2 },
+      EnrollmentWrite.cases.HoldSeat.make({ partyId: 7, userId: 2 }),
     ]);
   });
 });

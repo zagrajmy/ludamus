@@ -46,6 +46,8 @@ Writes that touch several tables run in `sql.withTransaction`. A capability that
 | `session_bookmark` | `BookmarkStore` | `bookmark-store.ts` | `bookmarks.BookmarkRepository.*` |
 | `facilitator_change_log`, `schedule_change_log` | `ChangeLogStore` | `change-log-store.ts` | `FacilitatorChangeLogRepository.create/list_by_event`, `ScheduleChangeLogRepository.create/list_by_event/list_by_session` |
 | `announcement` | `AnnouncementStore` | `announcement-store.ts` | published announcements of a sphere |
+| `sphere_managers`, panel counts, `notification` (acceptance) | `PanelStore` | `panel-store.ts` | `SphereRepository.manager_role/list_managers`, `EventRepository.get_stats_data`, scheduled sessions of an event, `DjangoUserNotifier.notify_proposal_accepted` |
+| files under `MEDIA_ROOT` | `MediaStore` | `media-store.ts` (not in `StoresLive`; needs `FileSystem`) | `unique_upload_to` |
 | `encounter`, `encounter_rsvp` | `EncounterStore` | `encounter-store.ts` | public encounters of a sphere |
 | `django_session`, `user`, `sphere`+`django_site` | `DjangoSessionStore`, `UserStore`, `SphereStore` (database-local) | existing | auth bridge |
 | feed, landing and shell reads | `FeedStore`, `LandingStore`, `ShellStore` | `feed-store.ts`, `landing-store.ts`, `shell-store.ts` | written by the page agent; composed in `apps/web/src/server/runtime.ts`, not in `StoresLive` |

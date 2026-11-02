@@ -1,7 +1,7 @@
 import { Context } from "effect";
 import type { Effect, Option } from "effect";
 
-import type { EventId, UserId } from "../ids.js";
+import type { EventId, SessionId, UserId } from "../ids.js";
 import type {
   PanelRole,
   PanelStats,
@@ -18,6 +18,13 @@ export class PanelStore extends Context.Service<
       readonly sphereId: SphereId;
       readonly userId: UserId;
     }) => Effect.Effect<Option.Option<PanelRole>, StoreFailure>;
+    readonly announceAcceptance: (options: {
+      readonly body: string;
+      readonly recipientIds: readonly UserId[];
+      readonly sessionId: SessionId;
+      readonly title: string;
+      readonly url: string;
+    }) => Effect.Effect<void, StoreFailure>;
     readonly eventStats: (
       eventId: EventId
     ) => Effect.Effect<PanelStats, StoreFailure>;

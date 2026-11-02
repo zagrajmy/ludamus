@@ -339,17 +339,48 @@ const presenterRow = (session: SessionView, context: PageContext, h: H) =>
         ]
       );
 
+const proposalSlot = (session: SessionView, context: PageContext, h: H) =>
+  session.slotLabel === ""
+    ? h.span([h.Class("shrink-0")], [context.translator.t("Any time")])
+    : h.span(
+        [h.Class("flex min-w-0 items-center gap-1.5")],
+        [
+          h.span([h.Class("truncate tabular-nums")], [session.slotLabel]),
+          session.overflowSlots.length === 0
+            ? h.empty
+            : h.span(
+                [h.Class("shrink-0 text-foreground-muted")],
+                [
+                  context.translator.n(
+                    "+%(counter)s more",
+                    "+%(counter)s more",
+                    session.overflowSlots.length,
+                    { counter: session.overflowSlots.length }
+                  ),
+                  h.span(
+                    [h.Class("sr-only"), h.DataAttribute("overflow-slots", "")],
+                    [session.overflowSlots.join(", ")]
+                  ),
+                ]
+              ),
+        ]
+      );
+
 export const sessionCard = (
   options: Readonly<{
     context: PageContext;
     isHidden: boolean;
     model: EventPageModel;
+    review?: Readonly<{ href: string; label: string }>;
     session: SessionView;
   }>,
   h: H
 ): Html => {
   const { context, model, session } = options;
-  const label = openDetailsLabel(session, context);
+  const { review } = options;
+  const label =
+    review === undefined ? openDetailsLabel(session, context) : review.label;
+  const isProposal = session.availability === "proposal";
 
   return h.article(
     [
@@ -372,10 +403,16 @@ export const sessionCard = (
         [
           h.a(
             [
-              h.Href(`?session=${session.id}`),
+              h.Href(
+                review === undefined ? `?session=${session.id}` : review.href
+              ),
               h.Class("session-link absolute inset-0 z-10 rounded-2xl"),
-              h.AriaHasPopup("dialog"),
-              h.AriaControls(`session-${session.id}`),
+              ...(review === undefined
+                ? [
+                    h.AriaHasPopup("dialog"),
+                    h.AriaControls(`session-${session.id}`),
+                  ]
+                : []),
               h.AriaLabel(label),
             ],
             [h.span([h.Class("sr-only")], [label])]
@@ -445,10 +482,12 @@ export const sessionCard = (
                             },
                             h
                           ),
-                      locationCrumbs(
-                        { eventSlug: model.hero.slug, session },
-                        h
-                      ),
+                      isProposal
+                        ? proposalSlot(session, context, h)
+                        : locationCrumbs(
+                            { eventSlug: model.hero.slug, session },
+                            h
+                          ),
                       session.durationLabel === ""
                         ? h.empty
                         : icon(

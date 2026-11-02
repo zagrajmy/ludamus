@@ -5,6 +5,7 @@ import { PageModel } from "../client/model.js";
 import type { Model } from "../client/model.js";
 import { translator } from "../ui/i18n.js";
 import { aboutTitle, aboutView } from "./about/view.js";
+import { proposalAcceptTitle, proposalAcceptView } from "./accept/view.js";
 import { contentPageTitle, contentPageView } from "./content-page/view.js";
 import { enrollPageTitle, enrollPageView } from "./enroll-page/view.js";
 import { eventPageTitle, eventPageView } from "./event-page/view.js";
@@ -111,6 +112,18 @@ const renderPage = (
       content: notPortedView(notPorted, context, h),
       layout: "contained",
       title: notPortedTitle(notPorted),
+    }),
+    ProposalAccept: ({ model: accept }) => ({
+      content: h.submodel({
+        model: accept,
+        slotId: "proposal-accept",
+        toParentMessage: (message) =>
+          Message.GotProposalAcceptMessage({ message }),
+        view: proposalAcceptView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: proposalAcceptTitle(accept, context.translator),
     }),
     Panel: ({ model: panel }) => ({
       content: h.submodel({

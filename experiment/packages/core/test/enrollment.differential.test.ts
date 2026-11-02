@@ -1,55 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 
-import {
-  EnrollmentRequest,
-  EnrollmentWindowPolicy,
-  EnrollmentWindowRules,
-  ExistingParticipation,
-  HouseholdMember,
-  Offer,
-  PromotionState,
-  activeWindows,
-  allowanceWindows,
-  canEnroll,
-  canEnrollNow,
-  canSeat,
-  decideClaim,
-  decideDecline,
-  decideExpiry,
-  decideMembershipLookup,
-  desiredStateRequests,
-  distinctRecipients,
-  eligibleWindows,
-  isValidWindowPeriod,
-  membershipOutcome,
-  planFillFreedSeats,
-  policyAvailableSlots,
-  policyEffectiveParticipantsLimit,
-  policyForActor,
-  policyForAnonymous,
-  policyForGuest,
-  policyIsFull,
-  policyMaxWaitlistSessions,
-  policyPercentageSlots,
-  processEnrollments,
-  promotionEffects,
-  requiresSlotAllowance,
-  restrictsEveryone,
-  seatingWindow,
-  selectPromotableParties,
-  sessionEffectiveParticipantsLimit,
-  sessionIsFull,
-  sessionSeatsLeft,
-  viewerAccess,
-} from "../src/enrollment/index.js";
-import type {
-  EnrollmentPolicy,
-  EnrollmentWrite,
-  PromotionEffects,
-  PromotionWrite,
-  UserEnrollmentConfig,
-} from "../src/enrollment/index.js";
+import { EnrollmentRequest, EnrollmentWindowPolicy, EnrollmentWrite, ExistingParticipation, HouseholdMember, desiredStateRequests, processEnrollments } from "../src/enrollment/enroll.js";
+import { ExpiryDecision, decideClaim, decideDecline, decideExpiry, decideMembershipLookup, membershipOutcome, planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
+import { distinctRecipients, isValidWindowPeriod, selectPromotableParties } from "../src/enrollment/rules.js";
+import { EnrollmentWindowRules, Offer, PromotionState } from "../src/enrollment/schemas.js";
+import { activeWindows, allowanceWindows, canEnroll, canEnrollNow, canSeat, eligibleWindows, policyAvailableSlots, policyEffectiveParticipantsLimit, policyForActor, policyForAnonymous, policyForGuest, policyIsFull, policyMaxWaitlistSessions, policyPercentageSlots, requiresSlotAllowance, restrictsEveryone, seatingWindow, sessionEffectiveParticipantsLimit, sessionIsFull, sessionSeatsLeft, viewerAccess } from "../src/enrollment/windows.js";
+
+import type { PromotionEffects, PromotionWrite } from "../src/enrollment/promotion.js";
+import type { UserEnrollmentConfig } from "../src/enrollment/schemas.js";
+import type { EnrollmentPolicy } from "../src/enrollment/windows.js";
 import desiredStateCases from "./fixtures/differential/desired_state_requests.json" with { type: "json" };
 import distinctRecipientsCases from "./fixtures/differential/distinct_recipients.json" with { type: "json" };
 import policyCases from "./fixtures/differential/enrollment_policy.json" with { type: "json" };
@@ -67,7 +27,7 @@ import type { Json } from "./support/differential.js";
 const Instant = Schema.DateTimeUtcFromString;
 
 const promotionWriteJson = (write: PromotionWrite): Json =>
-  write._tag === "Confirm"
+  Predicate.isTagged(write, "Confirm")
     ? { op: "confirm", participationIds: write.participationIds }
     : {
         claimToken: write.claimToken,
@@ -112,40 +72,28 @@ const policyJson = (
     maxWaitlistSessions: policyMaxWaitlistSessions(policy),
     percentageSlots: policyPercentageSlots(policy),
     requiresSlotAllowance: requiresSlotAllowance(policy),
-    seatingWindowId: seating._tag === "Some" ? seating.value.pk : null,
+    seatingWindowId: Option.isSome(seating) ? seating.value.pk : null,
     windowIds: policy.windows.map((window) => window.pk),
   };
 };
 
-const enrollmentWriteJson = (write: EnrollmentWrite): Json => {
-  switch (write._tag) {
-    case "Delete": {
-      return { op: "delete", userId: write.userId };
-    }
-
-    case "Save": {
-      return {
-        created: write.created,
-        op: "save",
-        partyId: write.partyId,
-        status: write.status,
-        userId: write.userId,
-      };
-    }
-
-    case "AddGuests": {
-      return { count: write.count, op: "addGuests", partyId: write.partyId };
-    }
-
-    case "RemoveGuest": {
-      return { op: "removeGuest", participationId: write.participationId };
-    }
-
-    case "HoldSeat": {
-      return { op: "holdSeat", partyId: write.partyId, userId: write.userId };
-    }
-  }
-};
+const enrollmentWriteJson = (write: EnrollmentWrite): Json =>
+  EnrollmentWrite.match<Json>(write, {
+    AddGuests: ({ count, partyId }) => ({ count, op: "addGuests", partyId }),
+    Delete: ({ userId }) => ({ op: "delete", userId }),
+    HoldSeat: ({ partyId, userId }) => ({ op: "holdSeat", partyId, userId }),
+    RemoveGuest: ({ participationId }) => ({
+      op: "removeGuest",
+      participationId,
+    }),
+    Save: ({ created, partyId, status, userId }) => ({
+      created,
+      op: "save",
+      partyId,
+      status,
+      userId,
+    }),
+  });
 
 const SeatingInput = Schema.Struct({
   enrolledCount: Schema.Int,
@@ -261,7 +209,7 @@ describe("differential: WaitlistPromotionService", () => {
           plan: planFillFreedSeats({ now, state: null }),
         });
 
-        return expiry._tag === "StillOpen"
+        return ExpiryDecision.guards.StillOpen(expiry)
           ? { notifications: [], offered: [], promoted: [], writes: [] }
           : {
               notifications: expiry.notifications.map((n) => ({
@@ -316,7 +264,7 @@ describe("differential: WaitlistPromotionService", () => {
             write === null
               ? []
               : [
-                  write._tag === "UpdateUserConfig"
+                  Predicate.isTagged(write, "UpdateUserConfig")
                     ? {
                         allowedSlots: write.allowedSlots,
                         lastCheck: iso(write.lastCheck),
@@ -470,7 +418,7 @@ describe("differential: SessionEnrollPageView decisions", () => {
           session: { ...session, eligibleWindows: windows },
         });
 
-        if (outcome._tag === "Failure") {
+        if (Result.isFailure(outcome)) {
           return {
             kind: "capacityExceeded",
             overflow: {

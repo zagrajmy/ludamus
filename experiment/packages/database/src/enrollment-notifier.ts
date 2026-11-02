@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { EnrollmentNotifier } from "@zagrajmy/core/enrollment/ports";
+import { EnrollmentNotifier } from "@zagrajmy/core/enrollment/ports/enrollment-notifier";
 import type {
   HeldSeatNotification,
   OfferNotification,

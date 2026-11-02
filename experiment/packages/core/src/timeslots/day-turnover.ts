@@ -68,11 +68,7 @@ export const dateOf = (options: {
 
 const civilParts = (
   day: CivilDate
-): {
-  readonly year: number;
-  readonly month: number;
-  readonly day: number;
-} => {
+) => {
   const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
 
   return { day: date, month, year };

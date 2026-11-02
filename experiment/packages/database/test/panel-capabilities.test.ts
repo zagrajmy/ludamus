@@ -1,11 +1,20 @@
 import { expect, layer } from "@effect/vitest";
-import { CurrentSphere, CurrentViewer, SphereId, UserId } from "@zagrajmy/core";
+import {
+  CurrentSphere,
+  CurrentViewer,
+  SphereId,
+  UserId,
+  configLayer,
+} from "@zagrajmy/core";
 import type { Viewer } from "@zagrajmy/core";
 import {
   deleteFacilitatorHandler,
   updateFacilitatorHandler,
 } from "@zagrajmy/core/panel/facilitators";
-import { changeProposalStatusHandler } from "@zagrajmy/core/panel/proposals";
+import {
+  acceptProposalHandler,
+  changeProposalStatusHandler,
+} from "@zagrajmy/core/panel/proposals";
 import {
   FormInvalid,
   PanelAccessDenied,
@@ -45,7 +54,10 @@ const asViewer =
   <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(
       Effect.provideService(CurrentSphere, options.sphere),
-      Effect.provideService(CurrentViewer, options.viewer)
+      Effect.provideService(CurrentViewer, options.viewer),
+      Effect.provide(
+        configLayer({ DATABASE_PATH: "unused.sqlite3", SECRET_KEY: "unused" })
+      )
     );
 
 const asRootManager = asViewer({ sphere: root, viewer: Option.some(manager) });
@@ -297,6 +309,76 @@ layer(DatabaseTest, { buildPerTest: true })(
               "SELECT accreditation_type AS value FROM facilitator WHERE id = 82"
             )
           ).toBe(before);
+        })
+    );
+
+    it.effect("accepting into a space of another event places nothing", () =>
+      Effect.gen(function* foreignSpace() {
+        const failure = yield* acceptProposalHandler({
+          eventSlug: "accept-lab",
+          proposalId: 27,
+          spaceId: 1,
+          timeSlotId: 5,
+        }).pipe(asRootManager, Effect.flip);
+
+        expect(failure._tag).toBe("NotFound");
+        expect(
+          yield* scalar(
+            "SELECT COUNT(*) AS value FROM agenda_item WHERE session_id = 27"
+          )
+        ).toBe(0);
+        expect(
+          yield* scalar("SELECT status AS value FROM session WHERE id = 27")
+        ).toBe("pending");
+      })
+    );
+
+    it.effect(
+      "acceptance books the slot once, tells the proposer, and refuses the same room and time twice",
+      () =>
+        Effect.gen(function* acceptTwice() {
+          yield* acceptProposalHandler({
+            eventSlug: "accept-lab",
+            proposalId: 27,
+            spaceId: 46,
+            timeSlotId: 5,
+          }).pipe(asRootManager);
+
+          const clash = yield* acceptProposalHandler({
+            eventSlug: "accept-lab",
+            proposalId: 28,
+            spaceId: 46,
+            timeSlotId: 5,
+          }).pipe(asRootManager, Effect.flip);
+
+          expect(
+            yield* scalar("SELECT status AS value FROM session WHERE id = 27")
+          ).toBe("accepted");
+          expect(
+            yield* scalar(
+              "SELECT COUNT(*) AS value FROM agenda_item WHERE session_id = 27"
+            )
+          ).toBe(1);
+          expect(
+            yield* scalar(
+              "SELECT title AS value FROM notification WHERE kind = 'proposal_accepted' AND recipient_id = 1 AND json_extract(payload, '$.session_id') = 27"
+            )
+          ).toBe("Accepted: Solo Showcase");
+          expect(clash).toEqual(
+            new FormInvalid({
+              errors: [
+                formError(
+                  "",
+                  "There is already a session scheduled at this space and time."
+                ),
+              ],
+            })
+          );
+          expect(
+            yield* scalar(
+              "SELECT COUNT(*) AS value FROM agenda_item WHERE session_id = 28"
+            )
+          ).toBe(0);
         })
     );
   }

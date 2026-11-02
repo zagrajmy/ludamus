@@ -1,6 +1,7 @@
 import { Command } from "foldkit";
 import type { Runtime, Update } from "foldkit";
 
+import { initProposalAccept } from "./accept/model.js";
 import { initEnrollPage } from "./enroll-page/model.js";
 import type { EventPageMessage } from "./event-page/message.js";
 import { initEventPage } from "./event-page/model.js";
@@ -9,14 +10,14 @@ import { initEventsFeed } from "./events-feed/model.js";
 import { ReadLocationHash, WaitForChoreography } from "./landing/command.js";
 import type { LandingMessage } from "./landing/message.js";
 import { initLanding } from "./landing/model.js";
+import { Message } from "./message.js";
+import { PageFlags, PageModel } from "./model.js";
+import type { Flags, Model } from "./model.js";
+import { initOfferPage } from "./offer-page/model.js";
 import { ReadStoredCategories } from "./panel/command.js";
 import type { PanelMessage } from "./panel/message.js";
 import { initPanel } from "./panel/model.js";
 import { initPropose } from "./propose/model.js";
-import { Message } from "./message.js";
-import { initOfferPage } from "./offer-page/model.js";
-import { PageFlags, PageModel } from "./model.js";
-import type { Flags, Model } from "./model.js";
 import { ReadStoredConsent, ReadStoredTheme } from "./shell/command.js";
 import type { ShellMessage } from "./shell/message.js";
 import { initShell } from "./shell/model.js";
@@ -84,6 +85,9 @@ const initPage = (flags: PageFlags): PageInit =>
         ),
       ],
       page: PageModel.Panel({ model: initPanel(panel) }),
+    }),
+    ProposalAccept: ({ flags: accept }) => ({
+      page: PageModel.ProposalAccept({ model: initProposalAccept(accept) }),
     }),
     Propose: ({ flags: propose }) => ({
       page: PageModel.Propose({ model: initPropose(propose) }),

@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { readEnrollFooterContract } from "../contracts.js";
 import type { SessionFooter } from "./api.js";
 import { loadSession } from "./context.js";
-import { EnrollmentStore } from "./ports.js";
+import { EnrollmentStore } from "./ports/enrollment-store.js";
 import { shadowbannedSeats, viewerFooter } from "./viewer-footer.js";
 
 export const READ_FOOTER_LIMIT = 50;

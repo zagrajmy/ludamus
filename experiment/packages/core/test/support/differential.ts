@@ -1,4 +1,4 @@
-import { DateTime, Schema } from "effect";
+import { DateTime, Predicate, Schema } from "effect";
 
 export type Json =
   | string
@@ -24,7 +24,7 @@ const isJsonList = (value: Json): value is readonly Json[] =>
   Array.isArray(value);
 
 const canonical = (value: Json): Json => {
-  if (value === null || typeof value !== "object") {
+  if (!Predicate.isObjectOrArray(value)) {
     return value;
   }
 

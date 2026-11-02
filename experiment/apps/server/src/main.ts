@@ -9,6 +9,7 @@ import {
 import { SessionResolverLive } from "@zagrajmy/auth";
 import { AppConfig, mailDirectory } from "@zagrajmy/core";
 import { DatabaseLive, fileMailOutbox } from "@zagrajmy/database";
+import { MediaStoreLive } from "@zagrajmy/database/media-store";
 import { Effect, FileSystem, Layer, Logger, Option, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 
@@ -54,6 +55,7 @@ const MailOutboxLive = Layer.unwrap(
 const ServicesLive = RequestContext.layer.pipe(
   Layer.provideMerge(MailOutboxLive),
   Layer.provideMerge(SessionResolverLive),
+  Layer.provideMerge(MediaStoreLive),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(DatabaseFileLive),
   Layer.provideMerge(AppConfig.layer),
@@ -65,10 +67,13 @@ const ServerLive = Layer.unwrap(
     const config = yield* AppConfig;
     const gate = gateMcp(config.mcpToken);
 
-    return HttpRouter.serve(Layer.mergeAll(surfaces, healthRoutes, mediaRoutes, webRoutes), {
-      disableLogger: true,
-      middleware: (app) => logRequests(gate(app)),
-    }).pipe(
+    return HttpRouter.serve(
+      Layer.mergeAll(surfaces, healthRoutes, mediaRoutes, webRoutes),
+      {
+        disableLogger: true,
+        middleware: (app) => logRequests(gate(app)),
+      }
+    ).pipe(
       Layer.provide(NodeHttpServer.layer(createServer, { port: config.port }))
     );
   })

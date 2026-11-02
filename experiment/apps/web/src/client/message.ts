@@ -3,6 +3,7 @@ import { defineMessageUnion } from "foldkit/message";
 import { UrlRequest } from "foldkit/navigation";
 import { Url } from "foldkit/url";
 
+import { ProposalAcceptMessage } from "./accept/message.js";
 import { EnrollPageMessage } from "./enroll-page/message.js";
 import { EventPageMessage } from "./event-page/message.js";
 import { EventsFeedMessage } from "./events-feed/message.js";
@@ -21,6 +22,7 @@ export const Message = defineMessageUnion({
   GotLandingMessage: { message: LandingMessage },
   GotOfferPageMessage: { message: OfferPageMessage },
   GotPanelMessage: { message: PanelMessage },
+  GotProposalAcceptMessage: { message: ProposalAcceptMessage },
   GotProposeMessage: { message: ProposeMessage },
   GotShellMessage: { message: ShellMessage },
   LeftPage: { href: Schema.String },

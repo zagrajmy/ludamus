@@ -50,7 +50,7 @@ const tokenize = (
   source: string
 ): Result.Result<readonly Token[], PluralFormsError> => {
   const tokens: Token[] = [];
-  const pattern = /\s*(\d+|n|==|!=|<=|>=|&&|\|\||[<>!%*/+\-?:()])/y;
+  const pattern = /\s*(?<token>\d+|n|==|!=|<=|>=|&&|\|\||[<>!%*/+\-?:()])/uy;
   let position = 0;
 
   while (source.slice(position).trim() !== "") {
@@ -70,7 +70,7 @@ const tokenize = (
       );
     }
 
-    const text = match[1] ?? "";
+    const text = match.groups?.token ?? "";
     tokens.push({ offset: pattern.lastIndex - text.length, text });
     position = pattern.lastIndex;
   }
@@ -96,118 +96,120 @@ const parseExpression = (
     });
   };
 
-  const primary = (): Result.Result<Evaluate, PluralFormsError> => {
-    const text = peek();
+  const grammar = {
+    binary: (level: number): Result.Result<Evaluate, PluralFormsError> => {
+      const operators = BINARY[level];
 
-    if (text === "n") {
-      index += 1;
-
-      return Result.succeed((n) => n);
-    }
-
-    if (text !== undefined && /^\d+$/.test(text)) {
-      index += 1;
-      const value = Number(text);
-
-      return Result.succeed(() => value);
-    }
-
-    if (text === "!") {
-      index += 1;
-
-      return Result.map(
-        primary(),
-        (operand) => (n) => Number(operand(n) === 0)
-      );
-    }
-
-    if (text === "-") {
-      index += 1;
-
-      return Result.map(primary(), (operand) => (n) => -operand(n));
-    }
-
-    if (text === "(") {
-      index += 1;
-      const inner = ternary();
-
-      if (Result.isFailure(inner) || peek() !== ")") {
-        return Result.isFailure(inner) ? inner : Result.fail(unexpected());
+      if (operators === undefined) {
+        return grammar.primary();
       }
 
-      index += 1;
+      let left = grammar.binary(level + 1);
 
-      return inner;
-    }
+      while (Result.isSuccess(left)) {
+        const text = peek();
 
-    return Result.fail(unexpected());
-  };
+        if (text === undefined || !Object.hasOwn(operators, text)) {
+          break;
+        }
 
-  const binary = (level: number): Result.Result<Evaluate, PluralFormsError> => {
-    const operators = BINARY[level];
+        const apply = operators[text];
+        index += 1;
+        const right = grammar.binary(level + 1);
 
-    if (operators === undefined) {
-      return primary();
-    }
+        if (apply === undefined || Result.isFailure(right)) {
+          return Result.isFailure(right) ? right : Result.fail(unexpected());
+        }
 
-    let left = binary(level + 1);
+        const before = left.success;
+        const after = right.success;
+        left = Result.succeed((n: number) => apply(before(n), after(n)));
+      }
 
-    while (Result.isSuccess(left)) {
+      return left;
+    },
+
+    primary: (): Result.Result<Evaluate, PluralFormsError> => {
       const text = peek();
 
-      if (text === undefined || !Object.hasOwn(operators, text)) {
-        break;
+      if (text === "n") {
+        index += 1;
+
+        return Result.succeed((n) => n);
       }
 
-      const apply = operators[text];
-      index += 1;
-      const right = binary(level + 1);
+      if (text !== undefined && /^\d+$/u.test(text)) {
+        index += 1;
+        const value = Number(text);
 
-      if (apply === undefined || Result.isFailure(right)) {
-        return Result.isFailure(right) ? right : Result.fail(unexpected());
+        return Result.succeed(() => value);
       }
 
-      const before = left.success;
-      const after = right.success;
-      left = Result.succeed((n: number) => apply(before(n), after(n)));
-    }
+      if (text === "!") {
+        index += 1;
 
-    return left;
-  };
+        return Result.map(
+          grammar.primary(),
+          (operand) => (n) => Number(operand(n) === 0)
+        );
+      }
 
-  const ternary = (): Result.Result<Evaluate, PluralFormsError> => {
-    const condition = binary(0);
+      if (text === "-") {
+        index += 1;
 
-    if (Result.isFailure(condition) || peek() !== "?") {
-      return condition;
-    }
+        return Result.map(grammar.primary(), (operand) => (n) => -operand(n));
+      }
 
-    index += 1;
-    const whenTrue = ternary();
+      if (text === "(") {
+        index += 1;
+        const inner = grammar.ternary();
 
-    if (Result.isFailure(whenTrue)) {
-      return whenTrue;
-    }
+        if (Result.isFailure(inner) || peek() !== ")") {
+          return Result.isFailure(inner) ? inner : Result.fail(unexpected());
+        }
 
-    if (peek() !== ":") {
+        index += 1;
+
+        return inner;
+      }
+
       return Result.fail(unexpected());
-    }
+    },
 
-    index += 1;
-    const whenFalse = ternary();
+    ternary: (): Result.Result<Evaluate, PluralFormsError> => {
+      const condition = grammar.binary(0);
 
-    if (Result.isFailure(whenFalse)) {
-      return whenFalse;
-    }
+      if (Result.isFailure(condition) || peek() !== "?") {
+        return condition;
+      }
 
-    const test = condition.success;
-    const yes = whenTrue.success;
-    const no = whenFalse.success;
+      index += 1;
+      const whenTrue = grammar.ternary();
 
-    return Result.succeed((n: number) => (test(n) === 0 ? no(n) : yes(n)));
+      if (Result.isFailure(whenTrue)) {
+        return whenTrue;
+      }
+
+      if (peek() !== ":") {
+        return Result.fail(unexpected());
+      }
+
+      index += 1;
+      const whenFalse = grammar.ternary();
+
+      if (Result.isFailure(whenFalse)) {
+        return whenFalse;
+      }
+
+      const test = condition.success;
+      const yes = whenTrue.success;
+      const no = whenFalse.success;
+
+      return Result.succeed((n: number) => (test(n) === 0 ? no(n) : yes(n)));
+    },
   };
 
-  const whole = ternary();
+  const whole = grammar.ternary();
 
   if (Result.isSuccess(whole) && index < tokens.length) {
     return Result.fail(unexpected());
@@ -216,16 +218,16 @@ const parseExpression = (
   return whole;
 };
 
-const settingOf = (header: string, name: string) => {
-  for (const part of header.split(";")) {
-    const separator = part.indexOf("=");
+const namesSetting = (part: string, name: string): boolean => {
+  const separator = part.indexOf("=");
 
-    if (separator > 0 && part.slice(0, separator).trim() === name) {
-      return part.slice(separator + 1).trim();
-    }
-  }
+  return separator > 0 && part.slice(0, separator).trim() === name;
+};
 
-  return;
+const settingOf = (header: string, name: string): string | undefined => {
+  const part = header.split(";").find((each) => namesSetting(each, name));
+
+  return part?.slice(part.indexOf("=") + 1).trim();
 };
 
 export const compilePluralForms = (
@@ -234,7 +236,7 @@ export const compilePluralForms = (
   const nplurals = settingOf(header, "nplurals");
   const expression = settingOf(header, "plural");
 
-  if (nplurals === undefined || !/^\d+$/.test(nplurals)) {
+  if (nplurals === undefined || !/^\d+$/u.test(nplurals)) {
     return Result.fail(
       new PluralFormsError({ reason: `missing nplurals in \`${header}\`` })
     );

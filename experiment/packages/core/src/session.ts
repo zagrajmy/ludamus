@@ -132,6 +132,8 @@ export type NewSession = typeof NewSession.Type;
 export const SessionChanges = Schema.Struct({
   categoryId: Schema.optionalKey(Schema.NullOr(ProposalCategoryId)),
   contactEmail: Schema.optionalKey(Schema.String),
+  coverImage: Schema.optionalKey(Schema.String),
+  coverImageOriginalName: Schema.optionalKey(Schema.String),
   description: Schema.optionalKey(Schema.String),
   duration: Schema.optionalKey(Schema.String),
   facilitatorName: Schema.optionalKey(Schema.String),

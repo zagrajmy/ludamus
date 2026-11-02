@@ -846,6 +846,14 @@ export const makeSessionStore = Effect.gen(function* makeSessionStore() {
       columns.contact_email = changes.contactEmail;
     }
 
+    if (changes.coverImage !== undefined) {
+      columns.cover_image = changes.coverImage;
+    }
+
+    if (changes.coverImageOriginalName !== undefined) {
+      columns.cover_image_original_name = changes.coverImageOriginalName;
+    }
+
     if (changes.description !== undefined) {
       columns.description = changes.description;
     }

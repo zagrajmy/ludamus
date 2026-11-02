@@ -2,6 +2,8 @@ import { Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { AboutFlags } from "./about/flags.js";
+import { ProposalAcceptFlags } from "./accept/flags.js";
+import { ProposalAcceptModel } from "./accept/model.js";
 import { ContentPageFlags } from "./content-page/flags.js";
 import { EnrollPageFlags } from "./enroll-page/flags.js";
 import { EnrollPageModel } from "./enroll-page/model.js";
@@ -32,6 +34,7 @@ export const PageFlags = defineTaggedUnion({
   NotPorted: { flags: NotPortedFlags },
   OfferPage: { flags: OfferPageFlags },
   Panel: { flags: PanelFlags },
+  ProposalAccept: { flags: ProposalAcceptFlags },
   Propose: { flags: ProposeFlags },
 });
 
@@ -52,6 +55,7 @@ export const PageModel = defineTaggedUnion({
   NotPorted: { model: NotPortedFlags },
   OfferPage: { model: OfferPageModel },
   Panel: { model: PanelModel },
+  ProposalAccept: { model: ProposalAcceptModel },
   Propose: { model: ProposeModel },
 });
 

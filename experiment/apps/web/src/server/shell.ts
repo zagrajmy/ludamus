@@ -72,13 +72,15 @@ export const loadShellFlags = Effect.fn("Shell.load")(function* loadShellFlags(
   const notifications = Option.isNone(context.viewer)
     ? Option.none()
     : Option.some(
-        yield* (yield* NotificationStore).navbar(context.viewer.value.id).pipe(
-          Effect.catch((error) =>
-            Effect.logWarning("navbar notifications unavailable", error).pipe(
-              Effect.as({ items: [], unreadCount: 0 })
+        yield* (yield* NotificationStore)
+          .navbar(context.viewer.value.id)
+          .pipe(
+            Effect.catch((error) =>
+              Effect.logWarning("navbar notifications unavailable", error).pipe(
+                Effect.as({ items: [], unreadCount: 0 })
+              )
             )
           )
-        )
       );
 
   const flags: ShellFlags = {

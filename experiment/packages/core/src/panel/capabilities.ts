@@ -5,6 +5,7 @@ import {
   updateFacilitator,
 } from "./facilitators.js";
 import {
+  acceptProposal,
   changeProposalStatus,
   deleteProposal,
   restoreProposal,
@@ -24,4 +25,5 @@ export const panelCapabilities = [
   deleteProposal,
   restoreProposal,
   saveProposal,
+  acceptProposal,
 ] as const;

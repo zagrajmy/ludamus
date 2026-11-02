@@ -20,7 +20,7 @@ import type {
   SessionContext,
 } from "./api.js";
 import { overlapsWith } from "./conflicts.js";
-import { EnrollmentStore } from "./ports.js";
+import { EnrollmentStore } from "./ports/enrollment-store.js";
 import type { FormPolicy, RosterFacts } from "./roster.js";
 import type {
   EnrollmentWindowRules,

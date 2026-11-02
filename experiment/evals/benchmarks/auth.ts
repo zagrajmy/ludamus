@@ -1,13 +1,26 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
 
-const e2eDirectory = resolve(import.meta.dirname, "../../../tests/e2e");
+import { Schema } from "effect";
 
-export type StoredCookie = Readonly<{
-  name: string;
-  value: string;
-  domain: string;
-}>;
+const e2eDirectory = path.resolve(import.meta.dirname, "../../../tests/e2e");
+
+const StoredCookieSchema = Schema.Struct({
+  domain: Schema.String,
+  name: Schema.String,
+  value: Schema.String,
+});
+
+export type StoredCookie = typeof StoredCookieSchema.Type;
+
+const AuthState = Schema.fromJsonString(
+  Schema.Struct({ cookies: Schema.Array(StoredCookieSchema) })
+);
+
+const readAuthState = (authState: string) =>
+  Schema.decodeUnknownSync(AuthState)(
+    readFileSync(path.resolve(e2eDirectory, authState), "utf-8")
+  );
 
 export const cookieHeaderFor = (
   authState: string | undefined
@@ -16,11 +29,9 @@ export const cookieHeaderFor = (
     return undefined;
   }
 
-  const state: { cookies: readonly StoredCookie[] } = JSON.parse(
-    readFileSync(resolve(e2eDirectory, authState), "utf-8")
+  const cookie = readAuthState(authState).cookies.find(
+    (entry) => entry.name === "sessionid"
   );
-
-  const cookie = state.cookies.find((entry) => entry.name === "sessionid");
 
   return cookie === undefined ? undefined : `${cookie.name}=${cookie.value}`;
 };
@@ -32,9 +43,5 @@ export const storedCookies = (
     return [];
   }
 
-  const state: { cookies: readonly StoredCookie[] } = JSON.parse(
-    readFileSync(resolve(e2eDirectory, authState), "utf-8")
-  );
-
-  return state.cookies;
+  return readAuthState(authState).cookies;
 };

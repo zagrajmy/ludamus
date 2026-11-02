@@ -4,6 +4,9 @@ import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
 import { toString as urlToString } from "foldkit/url";
 
+import type { ProposalAcceptMessage } from "./accept/message.js";
+import type { ProposalAcceptModel } from "./accept/model.js";
+import { updateProposalAccept } from "./accept/update.js";
 import { LoadPage } from "./command.js";
 import type { EnrollPageMessage } from "./enroll-page/message.js";
 import type { EnrollPageModel } from "./enroll-page/model.js";
@@ -17,18 +20,18 @@ import { updateEventsFeed } from "./events-feed/update.js";
 import { LandingMessage } from "./landing/message.js";
 import type { LandingModel } from "./landing/model.js";
 import { updateLanding } from "./landing/update.js";
+import { Message } from "./message.js";
+import { PageModel } from "./model.js";
+import type { Model } from "./model.js";
+import type { OfferPageMessage } from "./offer-page/message.js";
+import type { OfferPageModel } from "./offer-page/model.js";
+import { updateOfferPage } from "./offer-page/update.js";
 import type { PanelMessage } from "./panel/message.js";
 import type { PanelModel } from "./panel/model.js";
 import { updatePanel } from "./panel/update.js";
 import type { ProposeMessage } from "./propose/message.js";
 import type { ProposeModel } from "./propose/model.js";
 import { updatePropose } from "./propose/update.js";
-import { Message } from "./message.js";
-import type { OfferPageMessage } from "./offer-page/message.js";
-import type { OfferPageModel } from "./offer-page/model.js";
-import { updateOfferPage } from "./offer-page/update.js";
-import { PageModel } from "./model.js";
-import type { Model } from "./model.js";
 import type { ShellMessage } from "./shell/message.js";
 import type { ShellModel } from "./shell/model.js";
 import { updateShell } from "./shell/update.js";
@@ -37,8 +40,11 @@ type Return = Update.Return<Model, Message>;
 
 const foldEnrollPage = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "EnrollPage" ? Option.some(model.page.model) : Option.none(),
-  toParentMessage: (message: EnrollPageMessage) => Message.GotEnrollPageMessage({ message }),
+    model.page._tag === "EnrollPage"
+      ? Option.some(model.page.model)
+      : Option.none(),
+  toParentMessage: (message: EnrollPageMessage) =>
+    Message.GotEnrollPageMessage({ message }),
   update: updateEnrollPage,
   write: (model: Model, enroll: EnrollPageModel): Model => ({
     ...model,
@@ -48,8 +54,11 @@ const foldEnrollPage = Update.foldChild({
 
 const foldOfferPage = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "OfferPage" ? Option.some(model.page.model) : Option.none(),
-  toParentMessage: (message: OfferPageMessage) => Message.GotOfferPageMessage({ message }),
+    model.page._tag === "OfferPage"
+      ? Option.some(model.page.model)
+      : Option.none(),
+  toParentMessage: (message: OfferPageMessage) =>
+    Message.GotOfferPageMessage({ message }),
   update: updateOfferPage,
   write: (model: Model, offer: OfferPageModel): Model => ({
     ...model,
@@ -150,6 +159,20 @@ const foldPropose = Update.foldChild({
   }),
 });
 
+const foldProposalAccept = Update.foldChild({
+  read: (model: Model) =>
+    model.page._tag === "ProposalAccept"
+      ? Option.some(model.page.model)
+      : Option.none(),
+  toParentMessage: (message: ProposalAcceptMessage) =>
+    Message.GotProposalAcceptMessage({ message }),
+  update: updateProposalAccept,
+  write: (model: Model, accept: ProposalAcceptModel): Model => ({
+    ...model,
+    page: PageModel.ProposalAccept({ model: accept }),
+  }),
+});
+
 export const update = (model: Model, message: Message): Return =>
   Message.match<Return>(message, {
     ChangedUrl: ({ url }) =>
@@ -159,11 +182,11 @@ export const update = (model: Model, message: Message): Return =>
             EventPageMessage.ChangedUrl({ search: searchOf(url) })
           )
         : foldLanding(
-        model,
-        LandingMessage.GotLocationHash({
-          hash: Option.getOrElse(url.hash, () => ""),
-        })
-      ),
+            model,
+            LandingMessage.GotLocationHash({
+              hash: Option.getOrElse(url.hash, () => ""),
+            })
+          ),
     ClickedLink: ({ request }) =>
       UrlRequest.match<Return>(request, {
         External: ({ href }) => ({ commands: [LoadPage({ href })], model }),
@@ -193,6 +216,8 @@ export const update = (model: Model, message: Message): Return =>
       foldLanding(model, landingMessage),
     GotPanelMessage: ({ message: panelMessage }) =>
       foldPanel(model, panelMessage),
+    GotProposalAcceptMessage: ({ message: acceptMessage }) =>
+      foldProposalAccept(model, acceptMessage),
     GotProposeMessage: ({ message: proposeMessage }) =>
       foldPropose(model, proposeMessage),
     GotShellMessage: ({ message: shellMessage }) =>

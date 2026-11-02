@@ -11,7 +11,8 @@ export const CurrentTranslator = CurrentLocale.useSync(translator);
 
 const HEADER_MAX_LENGTH = 500;
 
-const LANGUAGE_CODE = /^[a-z]{1,8}(?:-[a-z0-9]{1,8})*(?:@[a-z0-9]{1,20})?$/i;
+const LANGUAGE_CODE =
+  /^[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*(?:@[A-Za-z0-9]{1,20})?$/u;
 
 const isLocale = Schema.is(Locale);
 
@@ -22,7 +23,7 @@ interface LanguageRange {
 
 const parseRanges = (header: string): readonly LanguageRange[] => {
   const pattern =
-    /([A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*|\*)(?:\s*;\s*q=(0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?))?(?:\s*,\s*|$)/y;
+    /(?<tag>[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*|\*)(?:\s*;\s*q=(?<quality>0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?))?(?:\s*,\s*|$)/uy;
 
   const lowered = header.toLowerCase();
   const ranges: LanguageRange[] = [];
@@ -36,8 +37,9 @@ const parseRanges = (header: string): readonly LanguageRange[] => {
     }
 
     ranges.push({
-      quality: match[2] === undefined ? 1 : Number(match[2]),
-      tag: match[1] ?? "",
+      quality:
+        match.groups?.quality === undefined ? 1 : Number(match.groups.quality),
+      tag: match.groups?.tag ?? "",
     });
   }
 

@@ -1,7 +1,7 @@
 import type { EnrollmentNotice, MessageItem } from "./api.js";
 import { SKIP_REASON_MSGIDS } from "./enroll.js";
 import type { EnrollmentBatch } from "./enroll.js";
-import type { NotEnoughSpotsError } from "./errors.js";
+import type { NotEnoughSpotsError } from "./not-enough-spots-error.js";
 
 const NAME_ONLY = "%(name)s";
 

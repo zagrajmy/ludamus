@@ -87,12 +87,13 @@ describe("parsePo", () => {
   });
 });
 
+const selectForm = (header: string, count: number) =>
+  Result.match(compilePluralForms(header), {
+    onFailure: (error) => error.message,
+    onSuccess: (rule) => rule.select(count),
+  });
+
 describe("compilePluralForms", () => {
-  const select = (header: string, count: number) =>
-    Result.match(compilePluralForms(header), {
-      onFailure: (error) => error.message,
-      onSuccess: (rule) => rule.select(count),
-    });
 
   const django =
     "nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && (n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);";
@@ -100,7 +101,7 @@ describe("compilePluralForms", () => {
   it("evaluates the catalog's Polish rule like gettext", () => {
     expect(
       [1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 102, 112, 0].map((n) =>
-        select(django, n)
+        selectForm(django, n)
       )
     ).toEqual([0, 1, 1, 2, 2, 2, 2, 2, 1, 2, 1, 2, 2]);
   });
@@ -113,15 +114,15 @@ describe("compilePluralForms", () => {
 
   it("evaluates the English rule", () => {
     expect(
-      [0, 1, 2].map((n) => select("nplurals=2; plural=(n != 1);", n))
+      [0, 1, 2].map((n) => selectForm("nplurals=2; plural=(n != 1);", n))
     ).toEqual([1, 0, 1]);
   });
 
   it("refuses an expression it cannot read", () => {
-    expect(select("nplurals=2; plural=(n !! 1);", 1)).toBe(
+    expect(selectForm("nplurals=2; plural=(n !! 1);", 1)).toBe(
       "Plural-Forms: unexpected `!` at offset 3 in `(n !! 1)`"
     );
-    expect(select("plural=n;", 1)).toBe(
+    expect(selectForm("plural=n;", 1)).toBe(
       "Plural-Forms: missing nplurals in `plural=n;`"
     );
   });

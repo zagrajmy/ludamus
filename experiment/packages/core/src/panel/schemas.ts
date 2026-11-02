@@ -99,14 +99,11 @@ export const ProposalStatusChange = Schema.Struct({
 
 export const ProposalAcceptance = Schema.Struct({
   ...ProposalRef.fields,
-  spaceId: Schema.NullOr(Schema.Int),
-  timeSlotId: Schema.NullOr(Schema.Int),
+  spaceId: Schema.Int,
+  timeSlotId: Schema.Int,
 });
 
-export const AcceptedProposal = Schema.Struct({
-  scheduled: Schema.Boolean,
-  status: SessionStatus,
-});
+export type ProposalAcceptance = typeof ProposalAcceptance.Type;
 
 export const ProposalForm = Schema.Struct({
   ...EventSlugInput,

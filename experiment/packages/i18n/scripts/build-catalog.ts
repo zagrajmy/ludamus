@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { Result } from "effect";
+import { Order, Result } from "effect";
 
 import { compilePluralForms } from "../src/plural-rule.ts";
 import { parsePo } from "../src/po.ts";
@@ -16,7 +16,7 @@ const GENERATED = new URL("../src/catalog.generated.json", import.meta.url);
 const sortedByKey = <Value>(record: Readonly<Record<string, Value>>) =>
   Object.fromEntries(
     Object.entries(record).toSorted(([left], [right]) =>
-      left < right ? -1 : left > right ? 1 : 0
+      Order.String(left, right)
     )
   );
 

@@ -25,12 +25,10 @@ import {
 } from "./enroll.js";
 import type { EnrollmentRequest, ExplicitChoice } from "./enroll.js";
 import { batchNotices, overflowNotice } from "./notices.js";
-import {
-  EnrollmentNotifier,
-  EnrollmentStore,
-  EnrollmentTransaction,
-  OfferExpiryScheduler,
-} from "./ports.js";
+import { EnrollmentNotifier } from "./ports/enrollment-notifier.js";
+import { EnrollmentStore } from "./ports/enrollment-store.js";
+import { EnrollmentTransaction } from "./ports/enrollment-transaction.js";
+import { OfferExpiryScheduler } from "./ports/offer-expiry-scheduler.js";
 import { fillFreedSeats, holdSeat } from "./promotion-service.js";
 import { MAX_GUESTS } from "./read-enrollment-form-capability.js";
 import {

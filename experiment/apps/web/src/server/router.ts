@@ -8,11 +8,15 @@ import { loadAbout } from "./pages/about.js";
 import { loadContentPage } from "./pages/content-page.js";
 import { ENROLL_PAGE_PATH, loadEnrollPage } from "./pages/enroll-page.js";
 import { loadEventPage } from "./pages/event-page.js";
-import { OFFER_PAGE_PATH, loadOfferPage } from "./pages/offer-page.js";
 import { loadEventsFeed } from "./pages/events-feed.js";
 import { loadLanding } from "./pages/landing.js";
-import { loadPropose, proposeSlugOf } from "./pages/propose.js";
+import { OFFER_PAGE_PATH, loadOfferPage } from "./pages/offer-page.js";
 import { isPanelPath, routePanel } from "./pages/panel/router.js";
+import {
+  ACCEPT_PAGE_PATH,
+  routeProposalAccept,
+} from "./pages/proposal-accept.js";
+import { loadPropose, proposeSlugOf } from "./pages/propose.js";
 import { rootOrigin } from "./request-context.js";
 import type { RequestContext } from "./request-context.js";
 import { Routed } from "./routed.js";
@@ -42,6 +46,15 @@ export const route = Effect.fn("Router.route")(function* route(
 ) {
   const { pathname, search } = context.url;
 
+  const acceptPath = ACCEPT_PAGE_PATH.exec(pathname);
+
+  if (acceptPath !== null) {
+    return yield* routeProposalAccept(context, {
+      eventSlug: decodeURIComponent(acceptPath.groups?.["eventSlug"] ?? ""),
+      sessionId: Number(acceptPath.groups?.["sessionId"]),
+    });
+  }
+
   const enrollPath = ENROLL_PAGE_PATH.exec(pathname);
 
   if (enrollPath !== null) {
@@ -52,10 +65,16 @@ export const route = Effect.fn("Router.route")(function* route(
 
     return enroll._tag === "Page"
       ? page(PageFlags.EnrollPage({ flags: enroll.flags }))
-      : Routed.Redirect({ flashes: enroll.flashes, location: enroll.location, status: 302 });
+      : Routed.Redirect({
+          flashes: enroll.flashes,
+          location: enroll.location,
+          status: 302,
+        });
   }
 
-  const notificationPath = /^\/notifications\/(?<id>\d+)\/do\/open$/u.exec(pathname);
+  const notificationPath = /^\/notifications\/(?<id>\d+)\/do\/open$/u.exec(
+    pathname
+  );
 
   if (notificationPath !== null && Option.isSome(context.viewer)) {
     const store = yield* NotificationStore;
@@ -78,11 +97,18 @@ export const route = Effect.fn("Router.route")(function* route(
   const offerPath = OFFER_PAGE_PATH.exec(pathname);
 
   if (offerPath !== null) {
-    const offer = yield* loadOfferPage(context, decodeURIComponent(offerPath.groups?.["token"] ?? ""));
+    const offer = yield* loadOfferPage(
+      context,
+      decodeURIComponent(offerPath.groups?.["token"] ?? "")
+    );
 
     return offer._tag === "Page"
       ? page(PageFlags.OfferPage({ flags: offer.flags }))
-      : Routed.Redirect({ flashes: offer.flashes, location: offer.location, status: 302 });
+      : Routed.Redirect({
+          flashes: offer.flashes,
+          location: offer.location,
+          status: 302,
+        });
   }
 
   const proposeSlug = proposeSlugOf(pathname);
@@ -102,7 +128,10 @@ export const route = Effect.fn("Router.route")(function* route(
   const eventSlug = /^\/event\/([^/]+)\/$/u.exec(pathname)?.[1];
 
   if (eventSlug !== undefined) {
-    const eventPage = yield* loadEventPage(context, decodeURIComponent(eventSlug));
+    const eventPage = yield* loadEventPage(
+      context,
+      decodeURIComponent(eventSlug)
+    );
 
     return eventPage._tag === "Some"
       ? page(PageFlags.EventPage({ flags: eventPage.value }))

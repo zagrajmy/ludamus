@@ -1,8 +1,11 @@
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { parseArgs } from "node:util";
+
+import { Duration, Effect, Schedule } from "effect";
 
 const { values } = parseArgs({
   options: {
@@ -13,17 +16,17 @@ const { values } = parseArgs({
   },
 });
 
-const repoRoot = resolve(import.meta.dirname, "../../..");
+const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
-const experiment = resolve(repoRoot, "experiment");
+const experiment = path.resolve(repoRoot, "experiment");
 
-const resultsDirectory = resolve(experiment, "evals/results");
+const resultsDirectory = path.resolve(experiment, "evals/results");
 
-const scratch = resolve(resultsDirectory, "raw");
+const scratch = path.resolve(resultsDirectory, "raw");
 
-const seed = resolve(repoRoot, "dev.e2e.sqlite3");
+const seed = path.resolve(repoRoot, "dev.e2e.sqlite3");
 
-const venv = resolve(repoRoot, ".venv/bin");
+const venv = path.resolve(repoRoot, ".venv/bin");
 
 mkdirSync(scratch, { recursive: true });
 
@@ -31,11 +34,11 @@ if (!existsSync(seed)) {
   throw new Error(`${seed} is missing: run \`mise run test:e2e:prep\` first`);
 }
 
-const e2eEnv = (): Record<string, string> => {
+const e2eEnv = () => {
   const env: Record<string, string> = {};
 
   for (const rawLine of readFileSync(
-    resolve(repoRoot, ".env.e2e"),
+    path.resolve(repoRoot, ".env.e2e"),
     "utf-8"
   ).split("\n")) {
     const line = rawLine.trim();
@@ -54,7 +57,7 @@ const e2eEnv = (): Record<string, string> => {
 };
 
 const retargetDatabase = (port: number): string => {
-  const file = resolve(scratch, `bench-${port}.sqlite3`);
+  const file = path.resolve(scratch, `bench-${port}.sqlite3`);
   copyFileSync(seed, file);
   const database = new DatabaseSync(file);
   database.exec(
@@ -65,31 +68,40 @@ const retargetDatabase = (port: number): string => {
   return file;
 };
 
-const waitForServer = async (url: string, timeoutMs: number) => {
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url.replace("localhost", "127.0.0.1"), {
+const probeServer = (url: string) =>
+  Effect.tryPromise(
+    async () =>
+      await fetch(url.replace("localhost", "127.0.0.1"), {
         redirect: "manual",
-      });
+      })
+  ).pipe(
+    Effect.filterOrFail(
+      (response) => response.status < 500,
+      (response) => new Error(`${url} answered ${response.status}`)
+    )
+  );
 
-      if (response.status < 500) {
-        return;
-      }
-    } catch {
-      await new Promise((done) => setTimeout(done, 250));
-    }
-  }
-
-  throw new Error(`${url} did not come up within ${timeoutMs} ms`);
+const waitForServer = async (url: string, timeoutMs: number) => {
+  await Effect.runPromise(
+    probeServer(url).pipe(
+      Effect.retry(Schedule.spaced(Duration.millis(250))),
+      Effect.timeoutOrElse({
+        duration: Duration.millis(timeoutMs),
+        orElse: () =>
+          Effect.fail(
+            new Error(`${url} did not come up within ${timeoutMs} ms`)
+          ),
+      }),
+      Effect.asVoid
+    )
+  );
 };
 
-const measure = async (label: string, port: number) => {
+const measure = (label: string, port: number) => {
   const run = spawnSync(
     "node",
     [
-      resolve(experiment, "evals/benchmarks/run.ts"),
+      path.resolve(experiment, "evals/benchmarks/run.ts"),
       "--label",
       label,
       "--url",
@@ -110,12 +122,14 @@ const measure = async (label: string, port: number) => {
 
 const stop = async (child: ReturnType<typeof spawn>) => {
   child.kill("SIGTERM");
-  await new Promise((done) => {
-    child.once("exit", done);
-    setTimeout(() => {
-      child.kill("SIGKILL");
-    }, 5000);
-  });
+
+  const exited = once(child, "exit");
+
+  setTimeout(() => {
+    child.kill("SIGKILL");
+  }, 5000);
+
+  await exited;
 };
 
 const benchOld = async () => {
@@ -128,7 +142,7 @@ const benchOld = async () => {
     DB_NAME: database,
     DJANGO_SETTINGS_MODULE: "django_bench_settings",
     PATH: `${venv}:${process.env.PATH ?? ""}`,
-    PYTHONPATH: `${resolve(repoRoot, "src")}:${resolve(experiment, "evals/benchmarks")}`,
+    PYTHONPATH: `${path.resolve(repoRoot, "src")}:${path.resolve(experiment, "evals/benchmarks")}`,
     ROOT_DOMAIN: `localhost:${port}`,
   };
 
@@ -152,7 +166,7 @@ const benchOld = async () => {
 
   try {
     await waitForServer(`http://localhost:${port}/healthz/`, 60_000);
-    await measure("old", port);
+    measure("old", port);
   } finally {
     await stop(server);
   }
@@ -172,7 +186,7 @@ const benchNew = async () => {
 
   const server = spawn(
     "node",
-    [resolve(experiment, "apps/server/dist/main.js")],
+    [path.resolve(experiment, "apps/server/dist/main.js")],
     {
       cwd: experiment,
       env,
@@ -182,7 +196,7 @@ const benchNew = async () => {
 
   try {
     await waitForServer(`http://localhost:${port}/healthz/`, 60_000);
-    await measure("new", port);
+    measure("new", port);
   } finally {
     await stop(server);
   }
@@ -198,7 +212,7 @@ if (values.only !== "old") {
 
 const report = spawnSync(
   "node",
-  [resolve(experiment, "evals/benchmarks/report.ts")],
+  [path.resolve(experiment, "evals/benchmarks/report.ts")],
   {
     cwd: experiment,
     stdio: "inherit",

@@ -46,7 +46,7 @@ export const transliteratedSlugify = (value: string, maxLength = 50) =>
 export const urlsafeToken = Effect.fn("Panel.urlsafeToken")(
   function* urlsafeToken() {
     const picks = yield* Effect.forEach([0, 1, 2, 3], () =>
-      Random.nextIntBetween(0, URLSAFE.length)
+      Random.nextIntBetween(0, URLSAFE.length - 1)
     );
 
     return picks.map((index) => URLSAFE.charAt(index)).join("");

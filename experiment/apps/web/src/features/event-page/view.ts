@@ -9,6 +9,7 @@ import { icon } from "../../ui/icon.js";
 import {
   arrowLeftMini,
   checkCircleMini,
+  inboxMini,
   plusMini,
   plusOutline,
 } from "../../ui/icons.js";
@@ -24,6 +25,7 @@ import {
   viewTabs,
   visibleSessions,
 } from "./schedule.js";
+import { sessionCard } from "./session-card.js";
 
 type H = HtmlBuilder<EventPageMessage>;
 
@@ -238,6 +240,93 @@ const scheduleRegion = (model: EventPageModel, context: PageContext, h: H) => {
   );
 };
 
+const pendingProposals = (
+  model: EventPageModel,
+  context: PageContext,
+  h: H
+) => {
+  const { t } = context.translator;
+  const wizard = t(
+    "Superuser magic: you see this without being an organizer of this event."
+  );
+
+  return model.pendingProposals.length === 0
+    ? h.empty
+    : h.div(
+        [
+          h.Class("mt-12 time-slot-section print:hidden"),
+          h.DataAttribute("time-slot", "pending-proposals"),
+        ],
+        [
+          h.div(
+            [h.Class("flex items-center gap-4 mb-4")],
+            [
+              h.h2(
+                [
+                  h.Class(
+                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400"
+                  ),
+                ],
+                [
+                  icon(inboxMini, { class: "w-4 h-4" }, h),
+                  t("Proposals to review"),
+                  model.pendingWizard
+                    ? h.span(
+                        [
+                          h.Title(wizard),
+                          h.Class("cursor-help"),
+                          h.AriaHidden(true),
+                        ],
+                        ["🧙"]
+                      )
+                    : h.empty,
+                ]
+              ),
+              model.pendingWizard
+                ? h.span([h.Class("sr-only")], [wizard])
+                : h.empty,
+              h.div([h.Class("h-px grow bg-border")], []),
+              h.span(
+                [h.Class("text-xs text-foreground-muted")],
+                [
+                  context.translator.n(
+                    "%(counter)s waiting",
+                    "%(counter)s waiting",
+                    model.pendingProposals.length,
+                    { counter: model.pendingProposals.length }
+                  ),
+                ]
+              ),
+            ]
+          ),
+          h.div(
+            [
+              h.Class(
+                "session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4"
+              ),
+            ],
+            model.pendingProposals.map((session) =>
+              sessionCard(
+                {
+                  context,
+                  isHidden: false,
+                  model,
+                  review: {
+                    href: `/event/${model.hero.slug}/session/${session.id}/accept/`,
+                    label: t("Review proposal %(title)s", {
+                      title: session.title,
+                    }),
+                  },
+                  session,
+                },
+                h
+              )
+            )
+          ),
+        ]
+      );
+};
+
 export const eventPageView = defineView<
   EventPageModel,
   EventPageMessage,
@@ -256,6 +345,7 @@ export const eventPageView = defineView<
       ...enrollmentNotices(model, h),
       enrolledBanner(model, context, h),
       scheduleRegion(model, context, h),
+      pendingProposals(model, context, h),
       proposeCta(model, context, h),
       sessionModal({ context, model, session: openSession }, h),
       model.hero.isUnlisted

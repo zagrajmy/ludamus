@@ -33,8 +33,4 @@ export const SphereStoreLive = Layer.effect(
   })
 );
 
-export const SphereRow = Sphere;
-
-export type SphereRow = typeof Sphere.Type;
-
 export const SphereRowSchema = Schema.Struct(Sphere.fields);

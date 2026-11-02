@@ -2,17 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { Option, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  PROPOSAL_SLUG_MAX_LENGTH,
-  STEP_ORDER,
-  codePoints,
-  parseClientIp,
-  proposalSlugify,
-  slugCandidates,
-  stepAfter,
-  stepAtOrBefore,
-  wizardSteps,
-} from "../src/proposal/index.js";
+import { parseClientIp } from "../src/proposal/client-ip.js";
+import { codePoints } from "../src/proposal/python-text.js";
+import { PROPOSAL_SLUG_MAX_LENGTH, proposalSlugify, slugCandidates } from "../src/proposal/slugify.js";
+import { STEP_ORDER, stepAfter, stepAtOrBefore, wizardSteps } from "../src/proposal/wizard.js";
 import { between } from "./support/arbitraries.js";
 
 const wizardInputs = {

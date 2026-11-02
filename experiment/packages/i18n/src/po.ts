@@ -35,9 +35,9 @@ type Field =
 const CONTEXT_SEPARATOR = "\u0004";
 
 const KEYWORD_LINE =
-  /^(msgctxt|msgid_plural|msgid|msgstr)(?:\[(\d+)\])?\s+(".*)$/;
+  /^(?<keyword>msgctxt|msgid_plural|msgid|msgstr)(?:\[(?<index>\d+)\])?\s+(?<quoted>".*)$/u;
 
-const STRING_LINE = /^".*$/;
+const STRING_LINE = /^".*$/u;
 
 const ESCAPE_LETTERS = '\\"abfnrtv';
 
@@ -94,30 +94,33 @@ const emptyEntry = (): Entry => ({
   translations: [],
 });
 
+const ENTRY_TEXT_KEY = {
+  msgctxt: "context",
+  msgid: "id",
+  msgid_plural: "idPlural",
+} as const;
+
 const appendTo = (entry: Entry, field: Field, text: string) => {
-  switch (field.kind) {
-    case "msgctxt": {
-      entry.context = (entry.context ?? "") + text;
-      break;
-    }
+  if (field.kind === "msgstr") {
+    entry.translations[field.index] =
+      (entry.translations[field.index] ?? "") + text;
 
-    case "msgid": {
-      entry.id = (entry.id ?? "") + text;
-      break;
-    }
-
-    case "msgid_plural": {
-      entry.idPlural = (entry.idPlural ?? "") + text;
-      break;
-    }
-
-    case "msgstr": {
-      entry.translations[field.index] =
-        (entry.translations[field.index] ?? "") + text;
-      break;
-    }
+    return;
   }
+
+  const key = ENTRY_TEXT_KEY[field.kind];
+  entry[key] = (entry[key] ?? "") + text;
 };
+
+const opensEntry = (field: Field): boolean =>
+  field.kind === "msgid" || field.kind === "msgctxt";
+
+const isFuzzyFlagLine = (line: string): boolean =>
+  line.startsWith("#,") &&
+  line
+    .slice(2)
+    .split(",")
+    .some((flag) => flag.trim() === "fuzzy");
 
 const fieldOf = (keyword: string, index: string | undefined): Field => {
   if (keyword === "msgstr") {
@@ -148,96 +151,7 @@ const pluralFormsOf = (header: string) => {
   return "";
 };
 
-export const parsePo = (
-  text: string
-): Result.Result<PoCatalog, PoSyntaxError> => {
-  const entries: Entry[] = [];
-  let entry = emptyEntry();
-  let field: Field | undefined;
-  const lines = text.split(/\r?\n/);
-
-  const finish = () => {
-    if (entry.id !== undefined) {
-      entries.push(entry);
-    }
-
-    entry = emptyEntry();
-    field = undefined;
-  };
-
-  for (const [offset, raw] of lines.entries()) {
-    const line = raw.trim();
-
-    const fail = (reason: string) =>
-      Result.fail(new PoSyntaxError({ line: offset + 1, reason }));
-
-    if (line === "") {
-      if (entry.id !== undefined) {
-        finish();
-      }
-
-      continue;
-    }
-
-    if (line.startsWith("#")) {
-      if (entry.id !== undefined || line.startsWith("#~")) {
-        finish();
-      }
-
-      if (
-        line.startsWith("#,") &&
-        line
-          .slice(2)
-          .split(",")
-          .some((flag) => flag.trim() === "fuzzy")
-      ) {
-        entry.fuzzy = true;
-      }
-
-      continue;
-    }
-
-    const keyword = KEYWORD_LINE.exec(line);
-
-    if (keyword !== null) {
-      const next = fieldOf(keyword[1] ?? "", keyword[2]);
-      const startsEntry = next.kind === "msgid" || next.kind === "msgctxt";
-
-      if (startsEntry && entry.id !== undefined) {
-        finish();
-      }
-
-      const value = unquote(keyword[3] ?? "");
-
-      if (Result.isFailure(value)) {
-        return fail(value.failure);
-      }
-
-      field = next;
-      appendTo(entry, field, value.success);
-      continue;
-    }
-
-    if (STRING_LINE.test(line)) {
-      if (field === undefined) {
-        return fail(`string outside an entry: \`${line}\``);
-      }
-
-      const value = unquote(line);
-
-      if (Result.isFailure(value)) {
-        return fail(value.failure);
-      }
-
-      appendTo(entry, field, value.success);
-      continue;
-    }
-
-    return fail(`expected a keyword or a quoted string, got \`${line}\``);
-  }
-
-  finish();
-
+const catalogOf = (entries: readonly Entry[]): PoCatalog => {
   const messages: Record<string, string> = {};
   const plurals: Record<string, readonly string[]> = {};
   let pluralForms = "";
@@ -269,5 +183,94 @@ export const parsePo = (
     }
   }
 
-  return Result.succeed({ messages, pluralForms, plurals });
+  return { messages, pluralForms, plurals };
+};
+
+export const parsePo = (
+  text: string
+): Result.Result<PoCatalog, PoSyntaxError> => {
+  const entries: Entry[] = [];
+  let entry = emptyEntry();
+  let field: Field | undefined;
+  const lines = text.split(/\r?\n/u);
+
+  const finish = () => {
+    if (entry.id !== undefined) {
+      entries.push(entry);
+    }
+
+    entry = emptyEntry();
+    field = undefined;
+  };
+
+  for (const [offset, raw] of lines.entries()) {
+    const line = raw.trim();
+
+    const fail = (reason: string) =>
+      Result.fail(new PoSyntaxError({ line: offset + 1, reason }));
+
+    if (line === "") {
+      if (entry.id !== undefined) {
+        finish();
+      }
+
+      continue;
+    }
+
+    if (line.startsWith("#")) {
+      if (entry.id !== undefined || line.startsWith("#~")) {
+        finish();
+      }
+
+      if (isFuzzyFlagLine(line)) {
+        entry.fuzzy = true;
+      }
+
+      continue;
+    }
+
+    const keyword = KEYWORD_LINE.exec(line);
+
+    if (keyword !== null) {
+      const next = fieldOf(
+        keyword.groups?.keyword ?? "",
+        keyword.groups?.index
+      );
+
+      if (opensEntry(next) && entry.id !== undefined) {
+        finish();
+      }
+
+      const value = unquote(keyword.groups?.quoted ?? "");
+
+      if (Result.isFailure(value)) {
+        return fail(value.failure);
+      }
+
+      field = next;
+      appendTo(entry, field, value.success);
+      continue;
+    }
+
+    if (STRING_LINE.test(line)) {
+      if (field === undefined) {
+        return fail(`string outside an entry: \`${line}\``);
+      }
+
+      const value = unquote(line);
+
+      if (Result.isFailure(value)) {
+        return fail(value.failure);
+      }
+
+      appendTo(entry, field, value.success);
+      continue;
+    }
+
+    return fail(`expected a keyword or a quoted string, got \`${line}\``);
+  }
+
+  finish();
+
+  return Result.succeed(catalogOf(entries));
 };

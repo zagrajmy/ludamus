@@ -1,24 +1,18 @@
 import { describe, expect, it } from "@effect/vitest";
-import { DateTime, Duration, Result, Schema } from "effect";
+import { DateTime, Duration, Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  UNLIMITED_SLOTS,
-  decideClaim,
-  decideDecline,
-  decideExpiry,
-  planFillFreedSeats,
-  processEnrollments,
-  promotionEffects,
-} from "../src/enrollment/index.js";
-import type {
-  EnrollmentWrite,
-  Offer,
-  PromotionWrite,
-} from "../src/enrollment/index.js";
+import { processEnrollments } from "../src/enrollment/enroll.js";
+import { decideClaim, decideDecline, decideExpiry, planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
+import { UNLIMITED_SLOTS } from "../src/enrollment/schemas.js";
+import type { EnrollmentWrite } from "../src/enrollment/enroll.js";
+import type { PromotionWrite } from "../src/enrollment/promotion.js";
+import type { Offer } from "../src/enrollment/schemas.js";
 import type { ParticipationStatus } from "../src/participation.js";
 import type { PromotionMode } from "../src/proposal-category.js";
 import { BASE, between } from "./support/arbitraries.js";
+import { Model } from "./support/waiting-list-model.js";
+import type { View } from "./support/waiting-list-model.js";
 
 const CLAIM_WINDOW = Duration.minutes(60);
 
@@ -60,12 +54,6 @@ interface Row {
   status: ParticipationStatus;
   expiresAt: DateTime.Utc | null;
   token: string | null;
-}
-
-interface View {
-  readonly seated: readonly number[];
-  readonly offered: readonly number[];
-  readonly queue: readonly number[];
 }
 
 class Store {
@@ -134,25 +122,39 @@ class Store {
       return;
     }
 
-    outcome.success.writes.forEach((write) => {
+    for (const write of outcome.success.writes) {
       this.applyEnrollment(write);
-    });
+    }
 
     if (outcome.success.freedSeat) {
       this.fill();
     }
   }
 
+  private takeId(): number {
+    const id = this.nextId;
+    this.nextId += 1;
+
+    return id;
+  }
+
+  private takeToken(): number {
+    const token = this.nextToken;
+    this.nextToken += 1;
+
+    return token;
+  }
+
   private applyEnrollment(write: EnrollmentWrite): void {
-    if (write._tag === "Delete") {
+    if (Predicate.isTagged(write, "Delete")) {
       this.rows = this.rows.filter((row) => row.userId !== write.userId);
-    } else if (write._tag === "Save") {
+    } else if (Predicate.isTagged(write, "Save")) {
       const existing = this.row(write.userId);
 
       if (existing === undefined) {
         this.rows.push({
           expiresAt: null,
-          participationId: this.nextId++,
+          participationId: this.takeId(),
           status: write.status,
           token: null,
           userId: write.userId,
@@ -167,7 +169,7 @@ class Store {
     const waiting = this.rows.filter((row) => row.status === "waiting");
 
     const effects = promotionEffects({
-      claimToken: () => `token-${this.nextToken++}`,
+      claimToken: () => `token-${this.takeToken()}`,
       plan: planFillFreedSeats({
         now: this.now,
         state: {
@@ -196,16 +198,16 @@ class Store {
       }),
     });
 
-    effects.writes.forEach((write) => {
+    for (const write of effects.writes) {
       this.applyPromotion(write);
-    });
+    }
   }
 
   private applyPromotion(write: PromotionWrite): void {
     for (const row of this.rows.filter((r) =>
       write.participationIds.includes(r.participationId)
     )) {
-      if (write._tag === "Confirm") {
+      if (Predicate.isTagged(write, "Confirm")) {
         row.status = "confirmed";
       } else {
         row.status = "offered";
@@ -275,7 +277,7 @@ class Store {
     for (const row of lapsed) {
       const expiry = decideExpiry({ now: this.now, offer: this.offerOf(row) });
 
-      if (expiry._tag === "Lapsed") {
+      if (Predicate.isTagged(expiry, "Lapsed")) {
         this.drop(expiry.drop);
         this.fill();
       }
@@ -283,129 +285,81 @@ class Store {
   }
 }
 
-class Model {
-  seated: number[] = [];
-  offered: number[] = [];
-  queue: number[] = [];
-
-  private readonly limit: number;
-  private readonly mode: PromotionMode;
-
-  constructor(limit: number, mode: PromotionMode) {
-    this.limit = limit;
-    this.mode = mode;
-  }
-
-  has(user: number): boolean {
-    return [...this.seated, ...this.offered, ...this.queue].includes(user);
-  }
-
-  full(): boolean {
-    return this.seated.length + this.offered.length >= this.limit;
-  }
-
-  refill(): void {
-    while (!this.full() && this.queue.length > 0) {
-      const [next, ...rest] = this.queue;
-      this.queue = rest;
-
-      if (next !== undefined) {
-        (this.mode === "auto" ? this.seated : this.offered).push(next);
-      }
-    }
-  }
-
-  view(): View {
-    return {
-      offered: this.offered.toSorted((a, b) => a - b),
-      queue: this.queue,
-      seated: this.seated.toSorted((a, b) => a - b),
-    };
-  }
+interface Turn {
+  readonly store: Store;
+  readonly model: Model;
+  readonly user: number;
+  readonly row: Row | undefined;
 }
+
+const STEPS: Readonly<Record<Command["kind"], (turn: Turn) => void>> = {
+  cancel: ({ model, store, user }) => {
+    if (!model.has(user)) {
+      return;
+    }
+
+    const freed = !model.queue.includes(user);
+    store.submit(user, "cancel");
+    model.seated = model.seated.filter((u) => u !== user);
+    model.offered = model.offered.filter((u) => u !== user);
+    model.queue = model.queue.filter((u) => u !== user);
+
+    if (freed) {
+      model.refill();
+    }
+  },
+  claim: ({ model, row, store, user }) => {
+    if (row === undefined || !model.offered.includes(user)) {
+      return;
+    }
+
+    store.claim(row);
+    model.offered = model.offered.filter((u) => u !== user);
+    model.seated.push(user);
+  },
+  decline: ({ model, row, store, user }) => {
+    if (row === undefined || !model.offered.includes(user)) {
+      return;
+    }
+
+    store.decline(row);
+    model.offered = model.offered.filter((u) => u !== user);
+    model.refill();
+  },
+  enroll: ({ model, store, user }) => {
+    if (model.has(user)) {
+      return;
+    }
+
+    store.submit(user, "enroll");
+
+    if (!model.full()) {
+      model.seated.push(user);
+    }
+  },
+  lapse: ({ model, store }) => {
+    store.lapse();
+    const lapsed = model.offered.length;
+    model.offered = [];
+
+    for (let index = 0; index < lapsed; index += 1) {
+      model.refill();
+    }
+  },
+  waitlist: ({ model, store, user }) => {
+    if (model.has(user) || !model.full()) {
+      return;
+    }
+
+    store.submit(user, "waitlist");
+    model.queue.push(user);
+  },
+};
 
 const step = (store: Store, model: Model, command: Command): void => {
   const { user } = command;
-  const row = store.row(user);
 
-  switch (command.kind) {
-    case "enroll": {
-      if (model.has(user)) {
-        return;
-      }
-
-      store.submit(user, "enroll");
-
-      if (!model.full()) {
-        model.seated.push(user);
-      }
-
-      return;
-    }
-
-    case "waitlist": {
-      if (model.has(user) || !model.full()) {
-        return;
-      }
-
-      store.submit(user, "waitlist");
-      model.queue.push(user);
-
-      return;
-    }
-
-    case "cancel": {
-      if (!model.has(user)) {
-        return;
-      }
-
-      const freed = !model.queue.includes(user);
-      store.submit(user, "cancel");
-      model.seated = model.seated.filter((u) => u !== user);
-      model.offered = model.offered.filter((u) => u !== user);
-      model.queue = model.queue.filter((u) => u !== user);
-
-      if (freed) {
-        model.refill();
-      }
-
-      return;
-    }
-
-    case "claim": {
-      if (row === undefined || !model.offered.includes(user)) {
-        return;
-      }
-
-      store.claim(row);
-      model.offered = model.offered.filter((u) => u !== user);
-      model.seated.push(user);
-
-      return;
-    }
-
-    case "decline": {
-      if (row === undefined || !model.offered.includes(user)) {
-        return;
-      }
-
-      store.decline(row);
-      model.offered = model.offered.filter((u) => u !== user);
-      model.refill();
-
-      return;
-    }
-
-    case "lapse": {
-      store.lapse();
-      const lapsed = model.offered.length;
-      model.offered = [];
-
-      for (let index = 0; index < lapsed; index += 1) {
-        model.refill();
-      }
-    }
-  }
+  STEPS[command.kind]({ model, row: store.row(user), store, user });
 };
 
 describe("seat lifecycle: enroll, wait, offer, claim, decline, lapse, cancel", () => {

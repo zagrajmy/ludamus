@@ -54,14 +54,17 @@ const outranks = (
 
 export const seatingWindow = <W extends EnrollmentWindowLike>(
   policy: EnrollmentPolicy<W>
-): Option.Option<W> =>
-  policy.windows.reduce<Option.Option<W>>(
-    (best, window) =>
-      Option.isSome(best) && !outranks(window, best.value)
-        ? best
-        : Option.some(window),
-    Option.none()
-  );
+): Option.Option<W> => {
+  let best = Option.none<W>();
+
+  for (const window of policy.windows) {
+    if (Option.isNone(best) || outranks(window, best.value)) {
+      best = Option.some(window);
+    }
+  }
+
+  return best;
+};
 
 export const policyPercentageSlots = (
   policy: EnrollmentPolicy<EnrollmentWindowLike>
@@ -74,10 +77,7 @@ export const policyPercentageSlots = (
 export const policyMaxWaitlistSessions = (
   policy: EnrollmentPolicy<EnrollmentWindowLike>
 ): number =>
-  policy.windows.reduce(
-    (most, window) => Math.max(most, window.maxWaitlistSessions),
-    0
-  );
+  Math.max(0, ...policy.windows.map((window) => window.maxWaitlistSessions));
 
 export const requiresSlotAllowance = (
   policy: EnrollmentPolicy<EnrollmentWindowLike>
@@ -152,20 +152,18 @@ export const viewerAccess = (options: {
     ),
   ].toSorted((a, b) => a - b);
 
-  const upcoming = usable
-    .map((window) => window.startTime)
-    .filter((start) => DateTime.isGreaterThan(start, now));
+  let opensAt: DateTime.Utc | null = null;
 
-  return {
-    openWindowIds,
-    opensAt: upcoming.reduce<DateTime.Utc | null>(
-      (soonest, start) =>
-        soonest === null || DateTime.isLessThan(start, soonest)
-          ? start
-          : soonest,
-      null
-    ),
-  };
+  for (const { startTime } of usable) {
+    if (
+      DateTime.isGreaterThan(startTime, now) &&
+      (opensAt === null || DateTime.isLessThan(startTime, opensAt))
+    ) {
+      opensAt = startTime;
+    }
+  }
+
+  return { openWindowIds, opensAt };
 };
 
 export const canEnrollNow = (access: EnrollmentAccess): boolean =>
@@ -234,6 +232,15 @@ export const eligibleWindows = <W extends SchedulableWindow>(options: {
     })
   );
 
+const endsLater = (
+  window: DatedEnrollmentWindow,
+  best: DatedEnrollmentWindow
+): boolean => {
+  const order = DateTime.Order(window.endTime, best.endTime);
+
+  return order > 0 || (order === 0 && window.pk > best.pk);
+};
+
 export const allowanceWindows = <W extends DatedEnrollmentWindow>(options: {
   readonly windows: readonly W[];
   readonly now: DateTime.DateTime;
@@ -244,19 +251,16 @@ export const allowanceWindows = <W extends DatedEnrollmentWindow>(options: {
     return active;
   }
 
-  const latest = options.windows
-    .filter((window) =>
-      DateTime.isLessThanOrEqualTo(window.endTime, options.now)
-    )
-    .reduce<W | null>((best, window) => {
-      if (best === null) {
-        return window;
-      }
+  let latest: W | null = null;
 
-      const order = DateTime.Order(window.endTime, best.endTime);
-
-      return order > 0 || (order === 0 && window.pk > best.pk) ? window : best;
-    }, null);
+  for (const window of options.windows) {
+    if (
+      DateTime.isLessThanOrEqualTo(window.endTime, options.now) &&
+      (latest === null || endsLater(window, latest))
+    ) {
+      latest = window;
+    }
+  }
 
   return latest === null ? [] : [latest];
 };
@@ -269,9 +273,9 @@ export const sessionEffectiveParticipantsLimit = (options: {
     return 0;
   }
 
-  const percentage = options.eligibleWindows.reduce(
-    (most, window) => Math.max(most, window.percentageSlots),
-    0
+  const percentage = Math.max(
+    0,
+    ...options.eligibleWindows.map((window) => window.percentageSlots)
   );
 
   if (percentage === 0) {

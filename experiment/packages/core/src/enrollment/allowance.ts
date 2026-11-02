@@ -2,7 +2,7 @@ import { DateTime, Effect, Option, Predicate } from "effect";
 
 import { EnrollmentConfigId } from "../ids.js";
 import { EnrollmentConfigStore } from "../ports/enrollment-config-store.js";
-import { TicketApi } from "./ports.js";
+import { TicketApi } from "./ports/ticket-api.js";
 import { decideMembershipLookup, membershipOutcome } from "./promotion.js";
 import { allowedSlots } from "./rules.js";
 import type {

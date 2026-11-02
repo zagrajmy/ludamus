@@ -1,34 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Result, Schema } from "effect";
+import { Predicate, Result, Schema } from "effect";
 
-import {
-  FieldAnswer,
-  FieldRequirement,
-  MAX_DURATION_HOURS,
-  MAX_DURATION_MINUTES,
-  OrganizerField,
-  answeredValue,
-  buildDuration,
-  carriedAnswers,
-  durationChoices,
-  durationFromParts,
-  foldCustomAnswers,
-  formatDuration,
-  mergeCustom,
-  normalizeDuration,
-  parseDuration,
-  parseDurationPart,
-  resolveFieldControls,
-  splitStored,
-  stepperParts,
-  unfoldCustomAnswers,
-  uniqueSlug,
-  validateFieldAnswers,
-} from "../src/proposal/index.js";
-import type {
-  DurationDigitError,
-  InvalidDurationError,
-} from "../src/proposal/index.js";
+import { MAX_DURATION_HOURS, MAX_DURATION_MINUTES, buildDuration, durationChoices, durationFromParts, formatDuration, normalizeDuration, parseDuration, parseDurationPart, stepperParts } from "../src/proposal/durations.js";
+import { FieldAnswer, FieldRequirement, OrganizerField, answeredValue, foldCustomAnswers, mergeCustom, resolveFieldControls, splitStored, unfoldCustomAnswers, validateFieldAnswers } from "../src/proposal/fields.js";
+import { carriedAnswers } from "../src/proposal/rules.js";
+import { uniqueSlug } from "../src/proposal/slugs.js";
+import type { DurationDigitError } from "../src/proposal/duration-digit-error.js";
+import type { InvalidDurationError } from "../src/proposal/invalid-duration-error.js";
 import carriedCases from "./fixtures/differential/carried_answers.json" with { type: "json" };
 import durationCases from "./fixtures/differential/durations.json" with { type: "json" };
 import answerCases from "./fixtures/differential/field_answers.json" with { type: "json" };
@@ -47,7 +25,7 @@ const outcomeJson = <A extends Json>(
 
   return {
     error:
-      outcome.failure._tag === "InvalidDurationError"
+      Predicate.isTagged(outcome.failure, "InvalidDurationError")
         ? "InvalidDurationError"
         : "ValueError",
   };

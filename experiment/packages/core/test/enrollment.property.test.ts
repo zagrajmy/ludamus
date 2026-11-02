@@ -1,24 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
-import { DateTime, Schema } from "effect";
+import { DateTime, Predicate, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import {
-  canEnroll,
-  planFillFreedSeats,
-  policyAvailableSlots,
-  policyEffectiveParticipantsLimit,
-  policyForActor,
-  policyForGuest,
-  policyIsFull,
-  promotionEffects,
-  promotionGroupKey,
-  selectPromotableParties,
-  viewerAccess,
-} from "../src/enrollment/index.js";
-import type {
-  PromotionState,
-  WaitingParticipant,
-} from "../src/enrollment/index.js";
+import { planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
+import { promotionGroupKey, selectPromotableParties } from "../src/enrollment/rules.js";
+import { canEnroll, policyAvailableSlots, policyEffectiveParticipantsLimit, policyForActor, policyForGuest, policyIsFull, viewerAccess } from "../src/enrollment/windows.js";
+import type { PromotionState, WaitingParticipant } from "../src/enrollment/schemas.js";
 import {
   BASE,
   EPOCH,
@@ -52,14 +39,14 @@ const eligibleParties = (
 ): readonly (readonly WaitingParticipant[])[] => {
   const keys = [...new Set(state.waiting.map(promotionGroupKey))];
 
-  return keys
-    .map((key) =>
-      state.waiting.filter(
-        (member) =>
-          promotionGroupKey(member) === key && !ineligible(state, member)
-      )
-    )
-    .filter((party) => party.length > 0);
+  return keys.flatMap((key) => {
+    const party = state.waiting.filter(
+      (member) =>
+        promotionGroupKey(member) === key && !ineligible(state, member)
+    );
+
+    return party.length > 0 ? [party] : [];
+  });
 };
 
 const ids = (party: readonly WaitingParticipant[]): string =>
@@ -271,7 +258,7 @@ describe("planFillFreedSeats", () => {
         state,
       });
 
-      if (plan._tag === "OfferParties") {
+      if (Predicate.isTagged(plan, "OfferParties")) {
         expect(
           DateTime.isLessThanOrEqualTo(plan.offerExpiresAt, state.startTime)
         ).toBe(true);

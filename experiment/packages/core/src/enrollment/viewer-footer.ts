@@ -4,7 +4,7 @@ import { windowsHoldingPasses } from "./allowance.js";
 import type { SessionContext } from "./api.js";
 import { enrollFooter } from "./footer.js";
 import type { EnrollFooter } from "./footer.js";
-import { EnrollmentStore } from "./ports.js";
+import { EnrollmentStore } from "./ports/enrollment-store.js";
 import { accessSeats, viewerAccess } from "./windows.js";
 
 export const shadowbannedSeats = (

@@ -4,7 +4,7 @@ import { DateTime, Effect } from "effect";
 import { expireOffersContract } from "../contracts.js";
 import { CurrentSphere } from "../ports/current-sphere.js";
 import type { ExpiredOffers } from "./api.js";
-import { PromotionStore } from "./ports.js";
+import { PromotionStore } from "./ports/promotion-store.js";
 import { expireOffer } from "./promotion-service.js";
 
 export const expireOffers = implement(expireOffersContract, () =>

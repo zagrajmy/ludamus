@@ -1,6 +1,6 @@
 import { Option, Result, Schema } from "effect";
 
-import { NotEnoughSpotsError } from "./errors.js";
+import { NotEnoughSpotsError } from "./not-enough-spots-error.js";
 import {
   OCCUPYING_PARTICIPATION_STATUSES,
   ParticipationStatus,
@@ -249,7 +249,7 @@ const cancel = (options: {
   }
 
   ledger.rows.delete(req.userId);
-  ledger.writes.push({ _tag: "Delete", userId: req.userId });
+  ledger.writes.push(EnrollmentWrite.cases.Delete.make({ userId: req.userId }));
   ledger.cancelledUsers.push(req.name);
 };
 
@@ -303,13 +303,14 @@ const join = (options: {
 
   const status = STATUS_BY_CHOICE[req.choice];
   ledger.rows.set(req.userId, status);
-  ledger.writes.push({
-    _tag: "Save",
-    created: isFreshSignup,
-    partyId: options.partyId,
-    status,
-    userId: req.userId,
-  });
+  ledger.writes.push(
+    EnrollmentWrite.cases.Save.make({
+      created: isFreshSignup,
+      partyId: options.partyId,
+      status,
+      userId: req.userId,
+    })
+  );
 
   if (req.isPartyMember && isFreshSignup) {
     ledger.enrolledMemberUserIds.push(req.userId);
@@ -391,11 +392,12 @@ export const processEnrollments = (options: {
 
   if (guestSeatsNeeded > 0 || guestSeatsFreed > 0) {
     if (guestSeatsNeeded > 0) {
-      ledger.writes.push({
-        _tag: "AddGuests",
-        count: guestSeatsNeeded,
-        partyId,
-      });
+      ledger.writes.push(
+        EnrollmentWrite.cases.AddGuests.make({
+          count: guestSeatsNeeded,
+          partyId,
+        })
+      );
     }
 
     const doomed =
@@ -404,7 +406,9 @@ export const processEnrollments = (options: {
         : [];
 
     for (const participationId of doomed) {
-      ledger.writes.push({ _tag: "RemoveGuest", participationId });
+      ledger.writes.push(
+        EnrollmentWrite.cases.RemoveGuest.make({ participationId })
+      );
     }
 
     if (guestSeatsFreed > 0) {
@@ -416,7 +420,9 @@ export const processEnrollments = (options: {
   }
 
   for (const held of ledger.heldSeats) {
-    ledger.writes.push({ _tag: "HoldSeat", partyId, userId: held.userId });
+    ledger.writes.push(
+      EnrollmentWrite.cases.HoldSeat.make({ partyId, userId: held.userId })
+    );
   }
 
   return Result.succeed({

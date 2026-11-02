@@ -1,4 +1,7 @@
-import { Result, Schema } from "effect";
+import { Result } from "effect";
+
+import { DurationDigitError } from "./duration-digit-error.js";
+import { InvalidDurationError } from "./invalid-duration-error.js";
 
 import {
   PY_DECIMAL_CLASS,
@@ -29,24 +32,6 @@ const LOOSE_DURATION = new RegExp(
     `${SPACE}*(?:(?<minutes>${DIGIT}{1,4})${SPACE}*m(?:inutes?|ins?)?)?$`,
   "u"
 );
-
-export class InvalidDurationError extends Schema.TaggedError<
-  InvalidDurationError,
-  { readonly brand: unique symbol }
->()("InvalidDurationError", { raw: Schema.String }) {
-  override get message(): string {
-    return "Enter a length as whole hours (0-23) and minutes (0-59).";
-  }
-}
-
-export class DurationDigitError extends Schema.TaggedError<
-  DurationDigitError,
-  { readonly brand: unique symbol }
->()("DurationDigitError", { raw: Schema.String }) {
-  override get message(): string {
-    return `"${this.raw}" is made of digits that are not decimal numbers`;
-  }
-}
 
 const groupValue = (
   match: RegExpMatchArray,

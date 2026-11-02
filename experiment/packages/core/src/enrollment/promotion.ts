@@ -1,5 +1,5 @@
 import type { Duration } from "effect";
-import { DateTime, Schema } from "effect";
+import { DateTime, Match, Schema } from "effect";
 
 import {
   distinctRecipients,
@@ -96,17 +96,17 @@ export const planFillFreedSeats = (options: {
   const { state, now } = options;
 
   if (state === null) {
-    return { _tag: "NoPromotion", reason: "gone" };
+    return PromotionPlan.cases.NoPromotion.make({ reason: "gone" });
   }
 
   if (DateTime.isGreaterThanOrEqualTo(now, state.startTime)) {
-    return { _tag: "NoPromotion", reason: "started" };
+    return PromotionPlan.cases.NoPromotion.make({ reason: "started" });
   }
 
   const parties = selectPromotableParties(state).map(plannedParty);
 
   if (parties.length === 0) {
-    return { _tag: "NoPromotion", reason: "nobody_fits" };
+    return PromotionPlan.cases.NoPromotion.make({ reason: "nobody_fits" });
   }
 
   const session = {
@@ -121,16 +121,15 @@ export const planFillFreedSeats = (options: {
     state.promotionMode === "auto" ||
     DateTime.isGreaterThan(expiresAt, state.startTime)
   ) {
-    return { _tag: "ConfirmParties", parties, session };
+    return PromotionPlan.cases.ConfirmParties.make({ parties, session });
   }
 
-  return {
-    _tag: "OfferParties",
+  return PromotionPlan.cases.OfferParties.make({
     offerExpiresAt: expiresAt,
     offeredAt: now,
     parties,
     session,
-  };
+  });
 };
 
 const notification = (
@@ -141,41 +140,34 @@ const notification = (
 export const promotionEffects = (options: {
   readonly plan: PromotionPlan;
   readonly claimToken: (partyIndex: number) => string;
-}): PromotionEffects => {
-  const { plan } = options;
-
-  switch (plan._tag) {
-    case "NoPromotion": {
-      return {
-        expiries: [],
-        offers: [],
-        promotions: [],
-        result: { offered: [], promoted: [] },
-        writes: [],
-      };
-    }
-
-    case "ConfirmParties": {
-      return {
-        expiries: [],
-        offers: [],
-        promotions: plan.parties.flatMap((party) =>
-          party.recipients.map((recipient) =>
-            notification(plan.session, recipient)
-          )
-        ),
-        result: {
-          offered: [],
-          promoted: plan.parties.flatMap((party) => party.participationIds),
-        },
-        writes: plan.parties.map((party) => ({
-          _tag: "Confirm",
+}): PromotionEffects =>
+  PromotionPlan.match<PromotionEffects>(options.plan, {
+    ConfirmParties: (plan) => ({
+      expiries: [],
+      offers: [],
+      promotions: plan.parties.flatMap((party) =>
+        party.recipients.map((recipient) =>
+          notification(plan.session, recipient)
+        )
+      ),
+      result: {
+        offered: [],
+        promoted: plan.parties.flatMap((party) => party.participationIds),
+      },
+      writes: plan.parties.map((party) =>
+        PromotionWrite.cases.Confirm.make({
           participationIds: party.participationIds,
-        })),
-      };
-    }
-
-    case "OfferParties": {
+        })
+      ),
+    }),
+    NoPromotion: () => ({
+      expiries: [],
+      offers: [],
+      promotions: [],
+      result: { offered: [], promoted: [] },
+      writes: [],
+    }),
+    OfferParties: (plan) => {
       const offered = plan.parties.map((party, index) => ({
         claimToken: options.claimToken(index),
         party,
@@ -200,17 +192,17 @@ export const promotionEffects = (options: {
           offered: plan.parties.flatMap((party) => party.participationIds),
           promoted: [],
         },
-        writes: offered.map(({ claimToken, party }) => ({
-          _tag: "Offer",
-          claimToken,
-          offerExpiresAt: plan.offerExpiresAt,
-          offeredAt: plan.offeredAt,
-          participationIds: party.participationIds,
-        })),
+        writes: offered.map(({ claimToken, party }) =>
+          PromotionWrite.cases.Offer.make({
+            claimToken,
+            offerExpiresAt: plan.offerExpiresAt,
+            offeredAt: plan.offeredAt,
+            participationIds: party.participationIds,
+          })
+        ),
       };
-    }
-  }
-};
+    },
+  });
 
 export const ClaimDecision = Schema.Struct({
   markClaimed: Schema.NullOr(
@@ -320,7 +312,7 @@ export const decideExpiry = (options: {
     offer === null ||
     DateTime.isLessThanOrEqualTo(now, offer.offerExpiresAt)
   ) {
-    return { _tag: "StillOpen" };
+    return ExpiryDecision.cases.StillOpen.make({});
   }
 
   const session = {
@@ -329,14 +321,13 @@ export const decideExpiry = (options: {
     sessionTitle: offer.sessionTitle,
   };
 
-  return {
-    _tag: "Lapsed",
+  return ExpiryDecision.cases.Lapsed.make({
     drop: offer.participantIds,
     notifications: offer.recipients.map((recipient) =>
       notification(session, recipient)
     ),
     refillSessionId: offer.sessionId,
-  };
+  });
 };
 
 export const SeatHoldPlan = Schema.Struct({
@@ -441,48 +432,43 @@ export const membershipOutcome = (options: {
   readonly membershipCount: number | null;
   readonly now: DateTime.Utc;
 }): MembershipOutcome => {
-  const { lookup, existing, membershipCount, now } = options;
+  const { existing, membershipCount, now } = options;
 
-  switch (lookup) {
-    case "useExisting": {
-      return { allowedSlots: existing?.allowedSlots ?? null, write: null };
-    }
-
-    case "skip": {
-      return { allowedSlots: null, write: null };
-    }
-
-    case "refresh": {
+  return Match.value(options.lookup).pipe(
+    Match.when("useExisting", () => ({
+      allowedSlots: existing?.allowedSlots ?? null,
+      write: null,
+    })),
+    Match.when("skip", () => ({ allowedSlots: null, write: null })),
+    Match.when("refresh", (): MembershipOutcome => {
       if (membershipCount === null) {
         return { allowedSlots: existing?.allowedSlots ?? null, write: null };
       }
 
       return {
         allowedSlots: membershipCount === 0 ? null : membershipCount,
-        write: {
-          _tag: "UpdateUserConfig",
+        write: MembershipWrite.cases.UpdateUserConfig.make({
           allowedSlots: membershipCount,
           lastCheck: now,
-        },
+        }),
       };
-    }
-
-    case "create": {
+    }),
+    Match.when("create", (): MembershipOutcome => {
       if (membershipCount === null) {
         return { allowedSlots: null, write: null };
       }
 
       return {
         allowedSlots: membershipCount,
-        write: {
-          _tag: "CreateUserConfig",
+        write: MembershipWrite.cases.CreateUserConfig.make({
           allowedSlots: membershipCount,
           fetchedFromApi: true,
           lastCheck: now,
-        },
+        }),
       };
-    }
-  }
+    }),
+    Match.exhaustive
+  );
 };
 
 export const RecheckedClaim = Schema.Struct({

@@ -2,7 +2,7 @@ import { Effect, Option } from "effect";
 
 import { CurrentSphere } from "../ports/current-sphere.js";
 import type { OfferResolution } from "./api.js";
-import { PromotionStore } from "./ports.js";
+import { PromotionStore } from "./ports/promotion-store.js";
 import type { ClaimResult } from "./schemas.js";
 
 export const offerQuery = (token: string) =>

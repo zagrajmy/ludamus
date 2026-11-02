@@ -1,11 +1,11 @@
 import { enrollmentCapabilities } from "./enrollment/capabilities.js";
-import { panelCapabilities } from "./panel/capabilities.js";
-import { proposeCapabilities } from "./propose/capabilities.js";
 import {
   readEventPage,
   readEventSession,
 } from "./event-page/read-event-page.js";
 import { listEvents } from "./list-events.js";
+import { panelCapabilities } from "./panel/capabilities.js";
+import { proposeCapabilities } from "./propose/capabilities.js";
 
 export {
   AppConfig,
@@ -280,3 +280,5 @@ export { checkProposalStep } from "./propose/check-proposal-step.js";
 export { readProposalForm } from "./propose/read-proposal-form.js";
 
 export { submitProposal } from "./propose/submit-proposal.js";
+
+export { MediaStore } from "./ports/media-store.js";

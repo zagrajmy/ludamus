@@ -1,13 +1,9 @@
-import {
-  MembershipApiError,
-  EnrollmentStoreError,
-} from "@zagrajmy/core/enrollment/errors";
-import {
-  ClaimTokens,
-  EnrollmentTransaction,
-  OfferExpiryScheduler,
-  TicketApi,
-} from "@zagrajmy/core/enrollment/ports";
+import { MembershipApiError } from "@zagrajmy/core/enrollment/membership-api-error";
+import { EnrollmentStoreError } from "@zagrajmy/core/enrollment/errors";
+import { ClaimTokens } from "@zagrajmy/core/enrollment/ports/claim-tokens";
+import { EnrollmentTransaction } from "@zagrajmy/core/enrollment/ports/enrollment-transaction";
+import { OfferExpiryScheduler } from "@zagrajmy/core/enrollment/ports/offer-expiry-scheduler";
+import { TicketApi } from "@zagrajmy/core/enrollment/ports/ticket-api";
 import { DateTime, Effect, Layer } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 import { isSqlError } from "effect/sql/SqlError";
