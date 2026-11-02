@@ -56,8 +56,8 @@ against `main`, test first, reviewed with torment-nexus and merged on green.
 
 | Bug | Found by | Offshoot PR |
 | --- | --- | --- |
-| `conflicted_user_ids` misses a session that wholly contains the candidate | enrollment port property tests | in progress (branch `fix/enrollment-conflict-containment-and-duration-digits`) |
-| Duration parser accepts `isdigit()` characters `int()` rejects, so `²` becomes a 500 on import review | differential export of `pacts/durations.py` | same PR |
+| `conflicted_user_ids` misses a session that wholly contains the candidate | enrollment port property tests | merged: #1647 (also fixed `AgendaItem.overlaps_with`, which missed the containing case, and bounded the import row index) |
+| Duration parser accepts `isdigit()` characters `int()` rejects, so `²` becomes a 500 on import review | differential export of `pacts/durations.py` | merged: #1647 |
 | Promotion charges a pass for a waiter already seated in the event (documented open finding, reproduced by the port as an expected failure) | VERIFICATION.md open finding; `enrollment/` port | merged: #1644 |
 | Offered/held seat passes the conflict check; two enrolls double-book; allowance race (documented open findings) | VERIFICATION.md; `enrollment/README.md` | in progress: plan 021 (`plans/021-enrollment-row-locking.md`), branch `fix/enrollment-row-locking` |
 | `audit-deps` red on `main`: pyasn1 0.6.4 and follow-redirects 1.16.1 advisories | CI of the fix PRs | merged: #1645 |
