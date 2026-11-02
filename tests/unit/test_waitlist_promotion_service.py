@@ -46,6 +46,7 @@ class FakeRepo:
         self._conflicted = set(conflicted)
         self.log = SimpleNamespace(
             seat_holders_locked=[],
+            peeked=[],
             confirmed=[],
             offered=[],
             created=[],
@@ -95,6 +96,10 @@ class FakeRepo:
 
     def read_offer_by_token(self, token):
         self.log.tokens_read.append(token)
+        return self._offer
+
+    def peek_offer_by_token(self, token):
+        self.log.peeked.append(token)
         return self._offer
 
     def read_offer_for_member(self, *, user_id, session_id):
@@ -386,7 +391,7 @@ class TestClaimOffer:
         )
         assert not repo.log.claimed
 
-    def test_an_overlapping_seat_releases_that_member_and_refills(self, caplog):
+    def test_one_overlapping_member_releases_the_whole_offer_and_refills(self, caplog):
         service, repo, _, _ = _build(
             offer=self._offer(), conflicted={12}, states=[None]
         )
@@ -400,12 +405,14 @@ class TestClaimOffer:
         # Both members and the session's waiters are locked before the check:
         # the refill below asks for no row the claim does not already hold.
         assert repo.log.seat_holders_locked == [([11, 12], _SESSION_ID)]
-        assert repo.log.dropped == [[2]]
+        # A party moves as one: the member without a clash is not left
+        # holding a half-claimed offer.
+        assert repo.log.dropped == [[1, 2]]
         assert not repo.log.claimed
         assert repo.log.locked == [_SESSION_ID]
         assert caplog.messages[0] == (
-            f"Claim on session {_SESSION_ID} released the seats of [12]: they "
-            "overlap seats already held"
+            f"Claim on session {_SESSION_ID} released the offer of [11, 12]: "
+            "[12] overlap seats already held"
         )
 
 
@@ -687,7 +694,9 @@ class TestPeekOffer:
         service, repo, _, _ = _build(offer=offer)
 
         assert service.peek_offer(token="tok-xyz") == offer
-        assert repo.log.tokens_read == ["tok-xyz"]
+        assert repo.log.peeked == ["tok-xyz"]
+        # A page view reads; it takes none of the locks a claim does.
+        assert not repo.log.tokens_read
 
     def test_unknown_token_is_none(self):
         service, _, _, _ = _build()

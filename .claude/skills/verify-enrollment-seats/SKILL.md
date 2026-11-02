@@ -25,8 +25,8 @@ proofs. It covers three properties that tests rarely reach:
 
 Both rest on one lock order, taken by every transaction that decides a seat
 before it reads what it decides on: the `Session` row, then
-`lock_seat_holders` (`links/db/django/enrollment.py`), one `SELECT … FOR
-UPDATE OF` on `User` ordered by pk over the people whose seats it decides,
+`lock_seat_holders` (`links/db/django/enrollment.py`), one `SELECT … FOR NO
+KEY UPDATE OF` on `User` ordered by pk over the people whose seats it decides,
 their pass owners, and the session's waiters when it may refill the session
 in the same transaction. `docs/agents/architecture.md` (event noun) says why
 it cannot deadlock.
@@ -83,8 +83,8 @@ taking the lock order above (plan 021):
 2. **A held or offered seat got past the conflict check** (`Hold A, Commit
    A, Enroll B, Commit B, Claim A`): `conflicted_user_ids` counted only
    CONFIRMED rows. It now counts `OCCUPYING_PARTICIPATION_STATUSES`, and
-   `_claim` rechecks under the locks; a clash drops the clashing members'
-   offer (`reason="conflict"`) and the seat rolls on.
+   `_claim` rechecks under the locks; a clash releases the whole offer
+   (`reason="conflict"`), as a decline does, and the seats roll on.
 3. **Two requests at once seated more people than the owner holds passes**:
    the form's `can_enroll_users` ran before any lock. The enroll view now
    asks again under the owner's lock (`AllowanceCheck.passes`) and refuses

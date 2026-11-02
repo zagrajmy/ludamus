@@ -74,29 +74,34 @@ _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
 logger = logging.getLogger(__name__)
 
 
-def lock_seat_holders(
-    *, user_ids: Iterable[int], waiters_of: int | None = None
-) -> None:
-    # One statement, ordered by pk, so two transactions that share people take
-    # them in the same order. Subqueries, not joins: Postgres refuses FOR UPDATE
-    # on the nullable side of an outer join.
-    people = Q(pk__in=list(user_ids))
-    if waiters_of is not None:
-        people |= Q(
-            pk__in=SessionParticipation.objects.filter(
-                session_id=waiters_of, status=SessionParticipationStatus.WAITING
-            ).values("user_id")
+class SeatHolderLocks:
+    @staticmethod
+    def lock_seat_holders(
+        *, user_ids: Iterable[int], waiters_of: int | None = None
+    ) -> None:
+        # One statement, ordered by pk, so two transactions that share people
+        # take them in the same order. FOR NO KEY UPDATE: it serialises seat
+        # decisions with each other but not with the FOR KEY SHARE a foreign
+        # key to the user takes, so rows written for these people elsewhere
+        # in the same request never wait on it. Subqueries, not joins:
+        # Postgres refuses to lock the nullable side of an outer join.
+        people = Q(pk__in=list(user_ids))
+        if waiters_of is not None:
+            people |= Q(
+                pk__in=SessionParticipation.objects.filter(
+                    session_id=waiters_of, status=SessionParticipationStatus.WAITING
+                ).values("user_id")
+            )
+        owners = User.objects.filter(people, user_type=UserType.CONNECTED).values(
+            "manager_id"
         )
-    owners = User.objects.filter(people, user_type=UserType.CONNECTED).values(
-        "manager_id"
-    )
-    locked = list(
-        User.objects.select_for_update(of=("self",))
-        .filter(people | Q(pk__in=owners))
-        .order_by("pk")
-        .values_list("pk", flat=True)
-    )
-    logger.debug("Locked seat holders %s", locked)
+        locked = list(
+            User.objects.select_for_update(of=("self",), no_key=True)
+            .filter(people | Q(pk__in=owners))
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        logger.debug("Locked seat holders %s", locked)
 
 
 class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
@@ -132,9 +137,9 @@ class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
         return deleted > 0
 
 
-class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):
-    lock_seat_holders = staticmethod(lock_seat_holders)
-
+class EnrollmentParticipationRepository(
+    SeatHolderLocks, EnrollmentParticipationRepositoryProtocol
+):
     @staticmethod
     def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]:
         return set(
@@ -158,9 +163,7 @@ class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtoco
         )
 
 
-class ParticipationPromotionRepository:
-    lock_seat_holders = staticmethod(lock_seat_holders)
-
+class ParticipationPromotionRepository(SeatHolderLocks):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         try:
             # Lock only the Session row (`of="self"`): the select_related chain
@@ -206,7 +209,7 @@ class ParticipationPromotionRepository:
         waiter_ids = [p.user_id for p in participations]
         # The WAITING set is fixed by the Session lock; lock its people and
         # their owners before reading their seats anywhere else in the event.
-        lock_seat_holders(user_ids=waiter_ids)
+        self.lock_seat_holders(user_ids=waiter_ids)
         conflicted = Session.objects.conflicted_user_ids(session, waiter_ids)
         recipients = {
             p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
@@ -388,6 +391,18 @@ class ParticipationPromotionRepository:
             else _DEFAULT_OFFER_WINDOW
         )
 
+    def peek_offer_by_token(self, token: str) -> OfferDTO | None:
+        # The claim page's GET: a read, so it takes no lock and never holds
+        # the session's seat lock for a render.
+        party = list(
+            SessionParticipation.objects.filter(
+                claim_token=token, status=SessionParticipationStatus.OFFERED
+            )
+            .select_related("user")
+            .order_by("creation_time")
+        )
+        return self._build_offer(party) if party else None
+
     def read_offer_by_token(self, token: str) -> OfferDTO | None:
         identity = (
             SessionParticipation.objects.filter(
@@ -529,9 +544,9 @@ def _enrollment_window_snapshots(
     ]
 
 
-class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
-    lock_seat_holders = staticmethod(lock_seat_holders)
-
+class AnonymousEnrollmentRepository(
+    SeatHolderLocks, AnonymousEnrollmentRepositoryProtocol
+):
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO:
         try:

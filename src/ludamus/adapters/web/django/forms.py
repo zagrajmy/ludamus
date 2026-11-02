@@ -46,19 +46,19 @@ class AllowanceCheck:
         )
 
     def refusal(self, enrollment: EnrollmentServiceProtocol) -> str:
-        used_slots = enrollment.get_used_slots(users=self.users, event=self.event)
-        available_slots = enrollment.get_vc_available_slots(
-            users=self.users, event=self.event, virtual_config=self.virtual_config
-        )
-        return (
-            f"{self.users_to_enroll[0].full_name}: Cannot enroll more users. You "
-            f"have already enrolled {used_slots} out of "
-            f"{self.virtual_config.allowed_slots} "
-            "unique people "
-            "(each person can enroll in multiple sessions). "
-            f"Only {available_slots} slots remaining for "
-            "new people."
-        )
+        return _(
+            "%(name)s: Cannot enroll more users. You have already enrolled "
+            "%(used)s out of %(allowed)s unique people (each person can enroll "
+            "in multiple sessions). Only %(available)s slots remaining for new "
+            "people."
+        ) % {
+            "name": self.users_to_enroll[0].full_name,
+            "used": enrollment.get_used_slots(users=self.users, event=self.event),
+            "allowed": self.virtual_config.allowed_slots,
+            "available": enrollment.get_vc_available_slots(
+                users=self.users, event=self.event, virtual_config=self.virtual_config
+            ),
+        }
 
 
 class EnrollmentForm(forms.Form):

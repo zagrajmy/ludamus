@@ -249,6 +249,9 @@ class ParticipationPromotionRepositoryProtocol(SeatHolderLockProtocol, Protocol)
 
     def read_offer_claim_window(self, session_id: int) -> timedelta: ...
 
+    # The offer for the claim page to show; takes no lock.
+    def peek_offer_by_token(self, token: str) -> OfferDTO | None: ...
+
     # The three offer reads lock the offer's Session row, then its party's
     # still-OFFERED rows, for the caller's transaction.
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...

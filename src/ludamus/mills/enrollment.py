@@ -294,7 +294,7 @@ class WaitlistPromotionService:
         )
 
     def peek_offer(self, *, token: str) -> OfferDTO | None:
-        return self._participations.read_offer_by_token(token)
+        return self._participations.peek_offer_by_token(token)
 
     def claim_offer(self, *, token: str) -> ClaimResult:
         # Confirm a whole offered party from its single-use claim token. The
@@ -336,26 +336,20 @@ class WaitlistPromotionService:
             )
         # The offer was checked when it was made, but a timetable move can put
         # a seat its people already hold on top of it since. Recheck under the
-        # same locks every seat decision takes, and release the clashing seats.
+        # same locks every seat decision takes. A party moves as one, as it
+        # was promoted and as it declines: one clash releases the whole offer.
         self._participations.lock_seat_holders(
             user_ids=offer.user_ids, waiters_of=offer.session_id
         )
         if conflicted := self._participations.conflicted_user_ids(
             session_id=offer.session_id, user_ids=offer.user_ids
         ):
-            self._participations.drop(
-                [
-                    participation_id
-                    for participation_id, user_id in zip(
-                        offer.participant_ids, offer.user_ids, strict=True
-                    )
-                    if user_id in conflicted
-                ]
-            )
+            self._participations.drop(offer.participant_ids)
             logger.info(
-                "Claim on session %s released the seats of %s: they overlap seats "
+                "Claim on session %s released the offer of %s: %s overlap seats "
                 "already held",
                 offer.session_id,
+                offer.user_ids,
                 sorted(conflicted),
             )
             return ClaimResult(
