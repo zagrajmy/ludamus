@@ -6,7 +6,6 @@ from datetime import timedelta
 import pytest
 from django.conf import settings
 
-from ludamus.inits.middleware import REMEMBERED_LANGUAGE_SESSION_KEY
 from ludamus.links.db.django.models import AgendaItem, Connection, Facilitator, Track
 from ludamus.links.encryption import FernetEncryptor
 from tests.integration.conftest import (
@@ -24,13 +23,13 @@ SCALE_SCHEDULED = 60
 SCALE_UNSCHEDULED = 30
 
 
-@pytest.fixture(name="_remembered_language")
-def remembered_language_fixture(authenticated_client):
-    # The language middleware writes the account once per session; flagging
-    # it keeps that write out of requests whose query count is measured.
-    session = authenticated_client.session
-    session[REMEMBERED_LANGUAGE_SESSION_KEY] = settings.LANGUAGE_CODE
-    session.save()
+@pytest.fixture(name="_settled_language")
+def settled_language_fixture(active_user):
+    # The language middleware writes the account only when its language
+    # changes; matching the active one keeps that write out of measured
+    # requests.
+    active_user.language = settings.LANGUAGE_CODE
+    active_user.save(update_fields=["language"])
 
 
 @pytest.fixture(name="panel_client")

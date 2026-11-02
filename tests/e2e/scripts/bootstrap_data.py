@@ -2105,6 +2105,9 @@ def main() -> None:
     )
 
     _seed_feed_cards_sphere(tester)
+    # Seeded accounts have browsed in English, the language the suite reads,
+    # so a notification raised before their first request still reads in it.
+    User.objects.update(language="en")
 
 
 def _seed_feed_cards_sphere(tester: User) -> None:

@@ -253,6 +253,19 @@ class TestAcceptanceNotification:
             [[co_host.email], [proposer.email]]
         )
 
+    def test_a_title_with_line_breaks_still_makes_a_one_line_subject(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        proposer = UserFactory(username="proposer")
+        session = make_proposal(event, presenter=proposer, title="Dungeon\r\nNight")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [message.subject for message in mail.outbox] == [
+            "Accepted: Dungeon Night"
+        ]
+
     def test_accepting_again_after_a_rejection_tells_no_one_twice(
         self, panel_client, event
     ):
