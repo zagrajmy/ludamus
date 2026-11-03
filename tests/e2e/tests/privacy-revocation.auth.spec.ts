@@ -90,9 +90,7 @@ test.describe("Privacy revision across sphere origins", () => {
     await changeAge(root, "16 or older");
     await page.goto(SPHERE_URL);
     expect(sdkRequests).toEqual([]);
-    expect(await page.evaluate(() => typeof window.cookieStore)).toBe(
-      cookieStore ? "object" : "undefined",
-    );
+    expect(await page.evaluate(() => typeof window.cookieStore)).toBe("undefined");
     const originalRevision = await context
       .cookies()
       .then((cookies) => cookies.find((cookie) => cookie.name === "ludamus.privacy")?.value);
