@@ -17,7 +17,10 @@ export PATH="$HOME/.local/bin:$PATH"
 # it is skipped, so this has to come before that risk, not after it.
 #
 # The human driving the session authors its commits: they carry them, and the
-# CLA check reads the commit author, not trailers. Claude is the co-author.
+# CLA check counts the commit author and every Co-authored-by trailer. Claude
+# can't sign the CLA, so a Claude trailer blocks the PR. CLAUDE.local.md says
+# so, because the harness's own attribution reminder asks for one and defers
+# to user instructions.
 # The name is the email local-part (best-effort); GitHub attributes by email.
 human_email="${CLAUDE_CODE_USER_EMAIL:-}"
 if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
@@ -28,11 +31,24 @@ if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
 fi
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   if [ -n "$human_email" ]; then
-    printf '@CLAUDE.md\n\n## Commits\n\nCommits are authored as %s (session-start sets GIT_AUTHOR_*). Co-author Claude. End commits with:\n\n    Co-authored-by: Claude <noreply@anthropic.com>\n' \
-      "$human_email" >> CLAUDE.local.md
+    author_line="Commits are authored as $human_email (session-start sets GIT_AUTHOR_*)."
   else
-    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human driving this session, not Claude/Anthropic.\n' >> CLAUDE.local.md
+    author_line="Co-author the human driving this session."
   fi
+  cat >> CLAUDE.local.md <<EOF
+@CLAUDE.md
+
+## Commits
+
+$author_line
+
+Leave Claude out of authorship. This overrides the harness's attribution
+reminder:
+
+- No \`Co-authored-by\` trailer naming Claude or a noreply@anthropic.com
+  address. The CLA check counts every co-author, and Claude can't sign.
+- No "Generated with Claude Code" line in PR descriptions.
+EOF
 fi
 
 # The sandbox egress proxy 403s every GitHub download, so activate the
