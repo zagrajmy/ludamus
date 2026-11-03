@@ -90,7 +90,9 @@ test.describe("Privacy revision across sphere origins", () => {
     await changeAge(root, "16 or older");
     await page.goto(SPHERE_URL);
     expect(sdkRequests).toEqual([]);
-    expect(await page.evaluate(() => typeof window.cookieStore)).toBe("undefined");
+    expect(await page.evaluate(() => typeof window.cookieStore)).toBe(
+      cookieStore ? "object" : "undefined",
+    );
     const originalRevision = await context
       .cookies()
       .then((cookies) => cookies.find((cookie) => cookie.name === "ludamus.privacy")?.value);
@@ -268,74 +270,78 @@ test.describe("Privacy revocation while the SDK is loading", () => {
   });
 });
 
-test.describe("Cookie cleanup without Cookie Store", () => {
-  test.use({
-    baseURL: "http://ludamus.localhost:8001",
-    storageState: state("legacy"),
-    consentSeed: null,
-  });
+for (const cookieStore of [false, true]) {
+  test.describe(`Cookie cleanup ${cookieStore ? "with" : "without"} Cookie Store`, () => {
+    test.use({
+      baseURL: "http://ludamus.localhost:8001",
+      storageState: state("legacy"),
+      consentSeed: null,
+    });
 
-  test("purges host and parent analytics cookies without fetching the SDK", async ({
-    page,
-    context,
-  }, testInfo) => {
-    const sdkRequests: string[] = [];
-    page.on("request", (request) => {
-      if (isSdk(request.url())) sdkRequests.push(request.url());
-    });
-    await context.addCookies([
-      {
-        name: "ph_host_posthog",
-        value: "old-host-identity",
-        domain: "another.ludamus.localhost",
-        path: "/",
-      },
-      {
-        name: "ph_parent_posthog",
-        value: "old-parent-identity",
-        domain: ".ludamus.localhost",
-        path: "/",
-      },
-      { name: "__ph_opt_in_out_old", value: "1", domain: ".ludamus.localhost", path: "/" },
-      { name: "unrelated", value: "keep-me", domain: ".ludamus.localhost", path: "/" },
-    ]);
-    await page.addInitScript(() => {
-      Reflect.deleteProperty(window, "cookieStore");
-      localStorage.setItem("prologue.consent", "accepted");
-      localStorage.setItem("ph_old_posthog", "old-local-identity");
-    });
-    await page.goto(`${SPHERE_URL}crowd/profile/privacy/`);
-    await expect(page.getByText(/Your age range is 13–15/u)).toBeVisible();
-    expect(await page.evaluate(() => typeof window.cookieStore)).toBe("undefined");
-    await expect
-      .poll(() =>
-        context
-          .cookies()
-          .then((cookies) =>
-            cookies.filter(
-              (cookie) =>
-                cookie.name.startsWith("ph_") || cookie.name.startsWith("__ph_opt_in_out_"),
+    test("purges host and parent analytics cookies without fetching the SDK", async ({
+      page,
+      context,
+    }, testInfo) => {
+      const sdkRequests: string[] = [];
+      page.on("request", (request) => {
+        if (isSdk(request.url())) sdkRequests.push(request.url());
+      });
+      await context.addCookies([
+        {
+          name: "ph_host_posthog",
+          value: "old-host-identity",
+          domain: "another.ludamus.localhost",
+          path: "/",
+        },
+        {
+          name: "ph_parent_posthog",
+          value: "old-parent-identity",
+          domain: ".ludamus.localhost",
+          path: "/",
+        },
+        { name: "__ph_opt_in_out_old", value: "1", domain: ".ludamus.localhost", path: "/" },
+        { name: "unrelated", value: "keep-me", domain: ".ludamus.localhost", path: "/" },
+      ]);
+      await page.addInitScript((keepCookieStore) => {
+        if (!keepCookieStore) Reflect.deleteProperty(window, "cookieStore");
+        localStorage.setItem("prologue.consent", "accepted");
+        localStorage.setItem("ph_old_posthog", "old-local-identity");
+      }, cookieStore);
+      await page.goto(`${SPHERE_URL}crowd/profile/privacy/`);
+      await expect(page.getByText(/Your age range is 13–15/u)).toBeVisible();
+      expect(await page.evaluate(() => typeof window.cookieStore)).toBe(
+        cookieStore ? "object" : "undefined",
+      );
+      await expect
+        .poll(() =>
+          context
+            .cookies()
+            .then((cookies) =>
+              cookies.filter(
+                (cookie) =>
+                  cookie.name.startsWith("ph_") || cookie.name.startsWith("__ph_opt_in_out_"),
+              ),
             ),
+        )
+        .toEqual([]);
+      expect(
+        await page.evaluate(() =>
+          Object.keys(localStorage).filter(
+            (key) => key === "prologue.consent" || key.startsWith("ph_"),
           ),
-      )
-      .toEqual([]);
-    expect(
-      await page.evaluate(() =>
-        Object.keys(localStorage).filter(
-          (key) => key === "prologue.consent" || key.startsWith("ph_"),
         ),
-      ),
-    ).toEqual([]);
-    expect(
-      await context
-        .cookies()
-        .then((cookies) => cookies.find((cookie) => cookie.name === "unrelated")?.value),
-    ).toBe("keep-me");
-    expect(sdkRequests).toEqual([]);
-    await attachArtifacts(testInfo, {
-      name: "legacy-cookie-cleanup",
-      region: page.getByRole("main"),
-      facts: { sdkRequests, unrelatedCookie: "keep-me", cookieStoreAvailable: false },
+      ).toEqual([]);
+      expect(
+        await context
+          .cookies()
+          .then((cookies) => cookies.find((cookie) => cookie.name === "unrelated")?.value),
+      ).toBe("keep-me");
+      expect(sdkRequests).toEqual([]);
+      await attachArtifacts(testInfo, {
+        name: cookieStore ? "cookie-store-cleanup" : "legacy-cookie-cleanup",
+        region: page.getByRole("main"),
+        facts: { sdkRequests, unrelatedCookie: "keep-me", cookieStoreAvailable: cookieStore },
+      });
     });
   });
-});
+}
