@@ -53,8 +53,9 @@ class DjangoEncounterInviteMailer:
             return
         share_code = deliverable[0].encounter.share_code
         reason = deliverable[0].reason
-        # NOTE: rendered now, in the acting user's language and time zone —
-        # users store neither, so an owner's edit reaches guests in theirs.
+        # NOTE: rendered now, in the acting user's language and time zone; a
+        # guest may be an address with no account, so an owner's edit reaches
+        # guests in the owner's language, not each guest's.
         messages = [_message(invite) for invite in deliverable]
 
         def _send() -> None:

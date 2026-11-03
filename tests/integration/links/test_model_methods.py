@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -36,6 +36,23 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
+
+_MIDNIGHT = datetime(2026, 6, 1, tzinfo=UTC)
+# Each other window against a 10:00-12:00 one; intervals are half-open.
+_WINDOWS = (
+    pytest.param(9, 13, True, id="contains"),
+    pytest.param(10.5, 11.5, True, id="inside"),
+    pytest.param(9, 11, True, id="ends-inside"),
+    pytest.param(11, 13, True, id="starts-inside"),
+    pytest.param(10, 12, True, id="same-window"),
+    pytest.param(8, 10, False, id="ends-as-it-starts"),
+    pytest.param(12, 14, False, id="starts-as-it-ends"),
+)
+
+
+def _at(hour: float) -> datetime:
+    return _MIDNIGHT + timedelta(hours=hour)
 
 
 class TestSphere:
@@ -196,6 +213,60 @@ class TestAgendaItem:
             )
             == f"{title} by {name} (True)"
         )
+
+    @pytest.mark.parametrize(("start_hour", "end_hour", "overlaps"), _WINDOWS)
+    def test_overlaps_with_agrees_from_either_side(
+        self, *, start_hour: float, end_hour: float, overlaps: bool
+    ):
+        item = AgendaItem(start_time=_at(10), end_time=_at(12))
+        other = AgendaItem(start_time=_at(start_hour), end_time=_at(end_hour))
+
+        assert (item.overlaps_with(other), other.overlaps_with(item)) == (
+            overlaps,
+            overlaps,
+        )
+
+
+class TestSessionManagerConflictedUserIds:
+    @staticmethod
+    def _scheduled(event, *, start_hour: float, end_hour: float) -> Session:
+        return AgendaItemFactory(
+            session=SessionFactory(event=event, category=None),
+            start_time=_at(start_hour),
+            end_time=_at(end_hour),
+        ).session
+
+    @pytest.mark.parametrize(("start_hour", "end_hour", "conflicts"), _WINDOWS)
+    def test_a_confirmed_seat_conflicts_exactly_when_the_windows_overlap(
+        self, event, *, start_hour: float, end_hour: float, conflicts: bool
+    ):
+        candidate = self._scheduled(event, start_hour=10, end_hour=12)
+        other = self._scheduled(event, start_hour=start_hour, end_hour=end_hour)
+        user = UserFactory()
+        SessionParticipation.objects.create(
+            session=other, user=user, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        result = Session.objects.conflicted_user_ids(candidate, [user.pk])
+
+        assert result == ({user.pk} if conflicts else set())
+
+    def test_only_confirmed_seats_of_the_asked_users_conflict(self, event):
+        candidate = self._scheduled(event, start_hour=10, end_hour=12)
+        containing = self._scheduled(event, start_hour=9, end_hour=13)
+        seated, waiting, unasked = UserFactory(), UserFactory(), UserFactory()
+        for user, status in (
+            (seated, SessionParticipationStatus.CONFIRMED),
+            (waiting, SessionParticipationStatus.WAITING),
+            (unasked, SessionParticipationStatus.CONFIRMED),
+        ):
+            SessionParticipation.objects.create(
+                session=containing, user=user, status=status
+            )
+
+        result = Session.objects.conflicted_user_ids(candidate, [seated.pk, waiting.pk])
+
+        assert result == {seated.pk}
 
 
 class TestProposalCategory:
