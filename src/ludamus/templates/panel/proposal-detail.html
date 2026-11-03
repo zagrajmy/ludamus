@@ -78,12 +78,8 @@
                     </div>
                 </div>
                 {% if proposal.cover_image_url %}
-                    <div class="card mb-6 overflow-hidden">
-                        <img src="{{ proposal.cover_image_url }}"
-                             alt="{{ proposal.title }}"
-                             width="960"
-                             height="540"
-                             class="aspect-video w-full object-cover">
+                    <div class="card mb-6 p-1">
+                        {% include "components/cover-image.html" with url=proposal.cover_image_url alt=proposal.title only %}
                     </div>
                 {% endif %}
                 {% if proposal.description %}

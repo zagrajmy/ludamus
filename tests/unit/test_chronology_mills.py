@@ -29,6 +29,7 @@ from ludamus.pacts.chronology import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
+    PlacementAvailabilityDTO,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
     ProposalAcceptedNotification,
@@ -1370,6 +1371,9 @@ class TestContentEditWithFakes:
 
 class TestProposalAcceptanceWithFakes:
     _SLOT = TimeSlotDTO(pk=2, start_time=_NOW, end_time=_NOW + timedelta(hours=1))
+    _LATER_SLOT = TimeSlotDTO(
+        pk=3, start_time=_NOW + timedelta(hours=2), end_time=_NOW + timedelta(hours=3)
+    )
 
     @classmethod
     def _sessions(cls):
@@ -1415,7 +1419,12 @@ class TestProposalAcceptanceWithFakes:
             preferred_time_slot_ids=[2],
             field_values=sessions.form["field_values"],
             can_accept=True,
-            taken_space_ids_by_slot={self._SLOT.pk: []},
+            placements=PlacementAvailabilityDTO(
+                taken_space_ids_by_slot={self._SLOT.pk: []},
+                taken_space_ids=[],
+                full_time_slot_ids=[],
+                has_free_placement=True,
+            ),
         )
 
     @pytest.mark.parametrize(
@@ -1458,7 +1467,8 @@ class TestProposalAcceptanceWithFakes:
             session_id=_SESSION_PK, user_slug="manager", sphere_id=3
         )
         assert context is not None
-        assert (space_pk in context.taken_space_ids_by_slot[self._SLOT.pk]) is taken
+        taken_then = context.placements.taken_space_ids_by_slot[self._SLOT.pk]
+        assert (space_pk in taken_then) is taken
         refusal = (
             pytest.raises(SpaceTimeConflictError) if taken else contextlib.nullcontext()
         )
@@ -1470,6 +1480,53 @@ class TestProposalAcceptanceWithFakes:
                 user_slug="manager",
                 sphere_id=3,
             )
+
+    @pytest.mark.parametrize(
+        ("slots", "booked_hall_in", "expected"),
+        (
+            pytest.param(
+                [_SLOT],
+                [_SLOT],
+                ([_HALL.pk], [_SLOT.pk], False),
+                id="the-only-space-booked-in-the-only-slot",
+            ),
+            pytest.param(
+                [_SLOT, _LATER_SLOT],
+                [_SLOT],
+                ([], [_SLOT.pk], True),
+                id="booked-in-one-slot-free-in-the-other",
+            ),
+            pytest.param([], [], ([], [], False), id="no-slots-takes-no-space"),
+        ),
+    )
+    def test_placements_name_what_neither_choice_can_offer(
+        self, slots, booked_hall_in, expected
+    ):
+        sessions = self._sessions()
+        sessions.related["time_slots"] = {slot.pk: slot for slot in slots}
+        booked = [
+            AgendaItemDTO(
+                pk=index,
+                space_id=_HALL.pk,
+                session_id=90 + index,
+                start_time=slot.start_time,
+                end_time=slot.end_time,
+                schedule_confirmed=True,
+            )
+            for index, slot in enumerate(booked_hall_in, start=1)
+        ]
+
+        context = self._service(sessions, _FakeAgendaItems(*booked)).get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+
+        assert context is not None
+        placements = context.placements
+        assert (
+            placements.taken_space_ids,
+            placements.full_time_slot_ids,
+            placements.has_free_placement,
+        ) == expected
 
     def test_accept_session_places_the_session_in_the_chosen_slot(self):
         sessions = self._sessions()

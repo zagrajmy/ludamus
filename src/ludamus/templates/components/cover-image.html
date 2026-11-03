@@ -1,0 +1,15 @@
+{% comment %}
+A cover shown whole, at the 16:9 its upload's help text asks for: what the
+uploader framed, where cover-strip.html is the crop a card shows.
+
+Variables:
+  url          the image to show
+  alt          its text alternative; empty where a title beside it names it
+  extra_class  layout classes from the caller (spacing)
+{% endcomment %}
+<img src="{{ url }}"
+     alt="{{ alt|default:"" }}"
+     width="960"
+     height="540"
+     data-session-cover
+     class="aspect-video w-full rounded-xl object-cover {{ extra_class|default:"" }}">

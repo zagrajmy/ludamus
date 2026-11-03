@@ -26,7 +26,7 @@ from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
-from .forms import create_proposal_acceptance_form, taken_placements
+from .forms import create_proposal_acceptance_form
 
 if TYPE_CHECKING:
 
@@ -238,7 +238,7 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
         return "spaces"
     if not context.time_slots:
         return "time_slots"
-    if taken_placements(context)[1] == {slot.pk for slot in context.time_slots}:
+    if not context.placements.has_free_placement:
         return "full"
     return None
 
@@ -327,6 +327,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),
-                "taken_space_ids_by_slot": context.taken_space_ids_by_slot,
+                "taken_space_ids_by_slot": context.placements.taken_space_ids_by_slot,
             },
         )

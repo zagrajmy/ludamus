@@ -20,14 +20,9 @@
         {# Details card. Reads like the session modal on purpose: the same #}
         {# proposal should not look like two different things depending on #}
         {# whether it is being reviewed or already scheduled. #}
-        <div class="card overflow-hidden">
+        <div class="card">
             {% if session.cover_image_url %}
-                <img src="{{ session.cover_image_url }}"
-                     alt=""
-                     width="960"
-                     height="540"
-                     data-session-cover
-                     class="aspect-video w-full object-cover">
+                <div class="p-1">{% include "components/cover-image.html" with url=session.cover_image_url only %}</div>
             {% endif %}
             <div class="card-body">
                 <h2 class="text-xl font-semibold text-foreground mb-4">{{ session.title }}</h2>

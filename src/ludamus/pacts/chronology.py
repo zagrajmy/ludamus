@@ -323,6 +323,20 @@ class ProposalAcceptDeniedError(Exception):
     """Only sphere managers and superusers may accept proposals."""
 
 
+class PlacementAvailabilityDTO(BaseModel):
+    """Where a proposal can still go: the placements accepting will not refuse.
+
+    ``taken_space_ids_by_slot`` maps a time slot to the spaces another session
+    holds then. The rest is what neither choice can offer whatever the other
+    holds: a space taken in every slot, a slot with every space taken.
+    """
+
+    taken_space_ids_by_slot: dict[int, list[int]]
+    taken_space_ids: list[int]
+    full_time_slot_ids: list[int]
+    has_free_placement: bool
+
+
 class ProposalAcceptContextDTO(BaseModel):
     session: SessionDTO
     event: EventDTO
@@ -332,9 +346,7 @@ class ProposalAcceptContextDTO(BaseModel):
     preferred_time_slot_ids: list[int]
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
-    # Time slot pk -> pks of the spaces another session already holds then:
-    # the placements accepting into would raise SpaceTimeConflictError.
-    taken_space_ids_by_slot: dict[int, list[int]]
+    placements: PlacementAvailabilityDTO
 
 
 class ProposalAcceptanceServiceProtocol(Protocol):

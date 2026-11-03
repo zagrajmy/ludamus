@@ -28,6 +28,7 @@ from ludamus.pacts.chronology import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
+    PlacementAvailabilityDTO,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
     ProposalAcceptedNotification,
@@ -277,21 +278,32 @@ class ProposalStatusService:
                 )
 
 
-def _taken_space_ids_by_slot(
-    *, time_slots: Sequence[TimeSlotDTO], placed: Sequence[AgendaItemDTO]
-) -> dict[int, list[int]]:
+def _placement_availability(
+    *,
+    space_ids: set[int],
+    time_slots: Sequence[TimeSlotDTO],
+    placed: Sequence[AgendaItemDTO],
+) -> PlacementAvailabilityDTO:
     # The overlap test list_overlapping_in_space runs at accept time, so a
     # placement offered as free is one accepting will not refuse.
-    return {
-        slot.pk: sorted(
-            {
-                item.space_id
-                for item in placed
-                if item.start_time < slot.end_time and item.end_time > slot.start_time
-            }
-        )
+    taken_by_slot = {
+        slot.pk: {
+            item.space_id
+            for item in placed
+            if item.start_time < slot.end_time and item.end_time > slot.start_time
+        }
         for slot in time_slots
     }
+    full = [pk for pk, taken in taken_by_slot.items() if space_ids <= taken]
+    taken_everywhere = (
+        space_ids.intersection(*taken_by_slot.values()) if taken_by_slot else set()
+    )
+    return PlacementAvailabilityDTO(
+        taken_space_ids_by_slot={pk: sorted(t) for pk, t in taken_by_slot.items()},
+        taken_space_ids=sorted(taken_everywhere),
+        full_time_slot_ids=full,
+        has_free_placement=len(full) < len(time_slots),
+    )
 
 
 class ProposalAcceptanceService:
@@ -322,14 +334,16 @@ class ProposalAcceptanceService:
             )
         except NotFoundError:
             return None
+        space_options = self._sessions.read_space_options(session.pk)
         time_slots = self._sessions.read_time_slots(session.pk)
         return ProposalAcceptContextDTO(
             session=session,
             event=event,
             presenter=self._sessions.read_presenter(session.pk),
-            space_options=self._sessions.read_space_options(session.pk),
+            space_options=space_options,
             time_slots=time_slots,
-            taken_space_ids_by_slot=_taken_space_ids_by_slot(
+            placements=_placement_availability(
+                space_ids={option.pk for option in space_options},
                 time_slots=time_slots,
                 placed=[
                     item

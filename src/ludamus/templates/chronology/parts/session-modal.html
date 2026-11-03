@@ -63,12 +63,7 @@
                 {# shows the same cover cropped to its strip. #}
                 {% session_cover_image data.session as cover_image_url %}
                 {% if cover_image_url %}
-                    <img src="{{ cover_image_url }}"
-                         alt=""
-                         width="960"
-                         height="540"
-                         data-session-cover
-                         class="mb-4 aspect-video w-full rounded-xl object-cover">
+                    {% include "components/cover-image.html" with url=cover_image_url extra_class="mb-4" only %}
                 {% endif %}
                 {% include "chronology/parts/_session_info_view.html" %}
                 <!-- Enrollment Status for Authenticated Users -->

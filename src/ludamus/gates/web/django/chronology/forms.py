@@ -24,7 +24,8 @@ type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
 class TakenOptionsSelect(forms.Select):
     # `taken` is read by the tessera select renderer: those options render
     # disabled and marked taken, and a field left with one free option stops
-    # asking, as one with a single option does.
+    # asking, as one with a single option does. With both selects open,
+    # accept-placement.ts disables the spaces taken in the slot picked.
     def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
         super().__init__()
         self.taken = taken
@@ -66,21 +67,6 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
     return value
 
 
-def taken_placements(context: ProposalAcceptContextDTO) -> tuple[set[int], set[int]]:
-    # What neither select can offer whatever the other holds: a space taken in
-    # every slot, a slot with every space taken. With one slot that is exactly
-    # the spaces taken then; with both open, accept-placement.ts disables the
-    # spaces taken in the slot picked.
-    space_ids = {option.pk for option in context.space_options}
-    taken_by_slot = {
-        slot.pk: {*context.taken_space_ids_by_slot.get(slot.pk, [])}
-        for slot in context.time_slots
-    }
-    taken_spaces = set.intersection(space_ids, *taken_by_slot.values())
-    taken_slots = {pk for pk, taken in taken_by_slot.items() if space_ids <= taken}
-    return taken_spaces, taken_slots
-
-
 def create_proposal_acceptance_form(
     context: ProposalAcceptContextDTO,
 ) -> type[forms.Form]:
@@ -97,18 +83,22 @@ def create_proposal_acceptance_form(
 
     allowed_space_ids = {option.pk for option in context.space_options}
     allowed_time_slot_ids = {slot.pk for slot in time_slots}
-    taken_spaces, taken_slots = taken_placements(context)
+    placements = context.placements
 
     space_field = forms.ChoiceField(
         choices=choices,
         label=_("Space"),
-        widget=TakenOptionsSelect(taken=frozenset(str(pk) for pk in taken_spaces)),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.taken_space_ids)
+        ),
         help_text=_("Select the space where this session will take place"),
         required=True,
     )
     time_slot_field = forms.ChoiceField(
         choices=slot_choices(time_slots, context.preferred_time_slot_ids),
-        widget=TakenOptionsSelect(taken=frozenset(str(pk) for pk in taken_slots)),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.full_time_slot_ids)
+        ),
         label=_("Time slot"),
         help_text=_("Pick the start time for this session."),
         required=True,
