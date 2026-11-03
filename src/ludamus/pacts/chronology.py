@@ -332,6 +332,9 @@ class ProposalAcceptContextDTO(BaseModel):
     preferred_time_slot_ids: list[int]
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
+    # Time slot pk -> pks of the spaces another session already holds then:
+    # the placements accepting into would raise SpaceTimeConflictError.
+    taken_space_ids_by_slot: dict[int, list[int]]
 
 
 class ProposalAcceptanceServiceProtocol(Protocol):

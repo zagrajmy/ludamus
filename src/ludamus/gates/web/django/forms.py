@@ -62,6 +62,15 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 )
 
 
+class TakenOptionsSelect(forms.Select):
+    # `taken` is read by the tessera select renderer: those options render
+    # disabled and marked taken, and a field left with one free option stops
+    # asking, as one with a single option does.
+    def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
+        super().__init__()
+        self.taken = taken
+
+
 class DropzoneFileInput(forms.ClearableFileInput):
     # `fit` and `crop` are read by the tessera dropzone renderer, never written
     # to the input: they say how the preview frames the file, which is the

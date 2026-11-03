@@ -45,7 +45,10 @@ _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.pacts import (
+        AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         ContentChangeLogData,
         ContentChangeLogDTO,
@@ -274,6 +277,24 @@ class ProposalStatusService:
                 )
 
 
+def _taken_space_ids_by_slot(
+    *, time_slots: Sequence[TimeSlotDTO], placed: Sequence[AgendaItemDTO]
+) -> dict[int, list[int]]:
+    # The overlap test list_overlapping_in_space runs at accept time, so a
+    # placement offered as free is one accepting will not refuse.
+    return {
+        slot.pk: sorted(
+            {
+                item.space_id
+                for item in placed
+                if item.start_time < slot.end_time
+                and item.end_time > slot.start_time
+            }
+        )
+        for slot in time_slots
+    }
+
+
 class ProposalAcceptanceService:
     def __init__(
         self,
@@ -302,12 +323,21 @@ class ProposalAcceptanceService:
             )
         except NotFoundError:
             return None
+        time_slots = self._sessions.read_time_slots(session.pk)
         return ProposalAcceptContextDTO(
             session=session,
             event=event,
             presenter=self._sessions.read_presenter(session.pk),
             space_options=self._sessions.read_space_options(session.pk),
-            time_slots=self._sessions.read_time_slots(session.pk),
+            time_slots=time_slots,
+            taken_space_ids_by_slot=_taken_space_ids_by_slot(
+                time_slots=time_slots,
+                placed=[
+                    item
+                    for item in self._agenda_items.list_by_event(event.pk)
+                    if item.session_id != session.pk
+                ],
+            ),
             preferred_time_slot_ids=self._sessions.read_preferred_time_slot_ids(
                 session.pk
             ),

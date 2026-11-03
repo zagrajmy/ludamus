@@ -1,3 +1,4 @@
+import contextlib
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
@@ -792,6 +793,9 @@ class _FakeAgendaItems:
             (item for item in self.rows.values() if item.session_id == session_pk), None
         )
 
+    def list_by_event(self, _event_pk):
+        return list(self.rows.values())
+
     def update(self, pk, data):
         self.updates.setdefault(pk, {}).update(data)
 
@@ -1411,7 +1415,61 @@ class TestProposalAcceptanceWithFakes:
             preferred_time_slot_ids=[2],
             field_values=sessions.form["field_values"],
             can_accept=True,
+            taken_space_ids_by_slot={self._SLOT.pk: []},
         )
+
+    @pytest.mark.parametrize(
+        ("space_pk", "taken"),
+        (
+            pytest.param(7, True, id="overlapping-another-session"),
+            pytest.param(8, False, id="ending-as-the-slot-starts"),
+            pytest.param(9, False, id="the-session-own-placement"),
+        ),
+    )
+    def test_the_context_marks_taken_exactly_what_accepting_refuses(
+        self, space_pk, taken
+    ):
+        def placed(pk, space_id, session_id, start):
+            return AgendaItemDTO(
+                pk=pk,
+                space_id=space_id,
+                session_id=session_id,
+                start_time=start,
+                end_time=start + timedelta(hours=1),
+                schedule_confirmed=True,
+            )
+
+        sessions = self._sessions()
+        sessions.form["space_options"] = [
+            _HALL,
+            SpaceOptionDTO(pk=8, name="Attic", group=""),
+            SpaceOptionDTO(pk=9, name="Cellar", group=""),
+        ]
+        service = self._service(
+            sessions,
+            _FakeAgendaItems(
+                placed(1, 7, 90, _NOW + timedelta(minutes=30)),
+                placed(2, 8, 91, _NOW - timedelta(hours=1)),
+                placed(3, 9, _SESSION_PK, _NOW),
+            ),
+        )
+
+        context = service.get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+        assert context is not None
+        assert (space_pk in context.taken_space_ids_by_slot[self._SLOT.pk]) is taken
+        refusal = (
+            pytest.raises(SpaceTimeConflictError) if taken else contextlib.nullcontext()
+        )
+        with refusal:
+            service.accept_session(
+                session_id=_SESSION_PK,
+                space_id=space_pk,
+                time_slot_id=self._SLOT.pk,
+                user_slug="manager",
+                sphere_id=3,
+            )
 
     def test_accept_session_places_the_session_in_the_chosen_slot(self):
         sessions = self._sessions()
