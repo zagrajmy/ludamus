@@ -3,8 +3,17 @@ import type { Locator, Page } from "@playwright/test";
 import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
+import { installCspViolationCollector } from "./helpers/csp";
+import { assertDropzoneBlobPreview, labeledDropzone } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 import { visualDiff } from "./helpers/visual-diff";
+
+const PNG_BYTES = Buffer.from(
+  "89504e470d0a1a0a0000000d4948445200000001000000010802000000" +
+    "907753de0000000c49444154789c63606060000000040001f6173855" +
+    "0000000049454e44ae426082",
+  "hex",
+);
 
 const pastEventUrl = "/chronology/event/mothership-nights-1/";
 const proposeUrl = "/event/mothership-nights-2/session/propose/";
@@ -104,6 +113,35 @@ test.describe("Proposing from an earlier session", () => {
     await expect(wizard.getByText("Mothership 1e")).toBeVisible();
     await page.getByRole("button", { name: "Submit Proposal" }).click();
     await expect(page.getByText(title).first()).toBeVisible();
+  });
+
+  test("previews a picked cover at the shape the help text asks for", async ({ page }) => {
+    await installCspViolationCollector(page);
+    await page.goto(proposeUrl);
+    const dropzone = labeledDropzone(page, "Cover image");
+    await page.getByLabel("Cover image", { exact: true }).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+    await assertDropzoneBlobPreview(page, dropzone);
+    const guide = dropzone.locator("[data-dropzone-safe-zone]");
+    await expect(guide).toBeVisible();
+
+    const ratios: Record<number, number> = {};
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 1400 });
+      const previewBox = (await dropzone.locator("[data-dropzone-preview]").boundingBox())!;
+      const guideBox = (await guide.boundingBox())!;
+      ratios[width] = previewBox.width / previewBox.height;
+      expect(ratios[width]).toBeCloseTo(16 / 9, 1);
+      expect(guideBox.height / previewBox.height).toBeCloseTo(0.28, 2);
+    }
+    await attachArtifacts(test.info(), {
+      name: "propose-cover-preview",
+      region: dropzone,
+      facts: { ratios },
+    });
   });
 
   test("still offers earlier sessions after the step comes back with errors", async ({ page }) => {
