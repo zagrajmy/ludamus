@@ -21,9 +21,15 @@ shellcheck = "pipx:shellcheck-py"
 actionlint = "go:github.com/rhysd/actionlint/cmd/actionlint"
 hadolint = "pipx:hadolint-py"
 
-# dockerfmt can't be aliased (its mise.toml key is already a full backend
-# spec), so it keeps the one duplicated pin in this file. Bump it together with
-# mise.toml's — nothing checks that they agree, and they had already drifted
-# (sandboxes ran 0.5.2 against laptops' 0.5.4).
+# Two pins are duplicated here; the session hook warns when either drifts from
+# mise.toml (sandboxes once ran dockerfmt 0.5.2 against laptops' 0.5.4).
+#
+# dockerfmt can't be aliased: its mise.toml key is already a full backend spec.
+#
+# hk is re-pinned without mise.toml's `workflow` option. That option belongs to
+# the GitHub-release backend; once [tool_alias] routes hk to cargo, mise
+# (2026.10.25 on) rejects it, and since `mise run` installs missing tools first,
+# every task in the session aborted on it.
 [tools]
 "go:github.com/reteps/dockerfmt" = "v0.5.4"
+hk = "2.7.0"

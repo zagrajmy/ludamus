@@ -116,6 +116,19 @@ if ! command -v msguniq > /dev/null 2>&1; then
     || echo "WARN: apt-get install gettext failed; mise run messages will not extract strings"
 fi
 
+# Chromium maps *.localhost to loopback on its own; Node and Python ask
+# /etc/hosts, which images ship with plain `localhost` only. Playwright's
+# webServer probe for the :8001 privacy server follows its redirect to
+# ludamus.localhost, gets ENOTFOUND, and times out the whole e2e run after
+# 180s. List only names something outside the browser resolves.
+for host in ludamus.localhost another.ludamus.localhost; do
+  if ! awk -v h="$host" '{ for (i = 2; i <= NF; i++) if ($i == h) found = 1 } END { exit !found }' \
+    /etc/hosts; then
+    echo "127.0.0.1 $host" >> /etc/hosts \
+      || echo "WARN: could not map $host in /etc/hosts; the :8001 e2e server will time out"
+  fi
+done
+
 # Installs are best-effort: a blocked dependency (e.g. a registry trust gate)
 # must not abort the whole hook. Warn and continue so the rest of the session
 # setup still runs.
@@ -143,6 +156,36 @@ if [ -n "$purged" ]; then
   echo "Re-provisioning aliased tools with missing shims:$purged"
   mise install \
     || echo "WARN: 'mise install' retry failed; broken tools:$purged"
+fi
+
+pin() {
+  mise ls --json "$1" 2> /dev/null \
+    | sed -n '/"requested_version"/{s/.*"v\{0,1\}\([^"]*\)",\{0,1\}$/\1/p;q;}' || true
+}
+while read -r laptop_key sandbox_key; do
+  laptop=$(MISE_ENV='' pin "$laptop_key")
+  sandbox=$(pin "$sandbox_key")
+  if [ "$laptop" != "$sandbox" ]; then
+    echo "WARN: mise.sandbox.toml pins $sandbox_key at '$sandbox', mise.toml pins $laptop_key at '$laptop'; bump them together"
+  fi
+done << 'EOF'
+hk hk
+github:reteps/dockerfmt go:github.com/reteps/dockerfmt
+EOF
+
+# `mise run` installs every missing tool before any task, so one tool that
+# cannot install aborts every task, this hook's own below included. Disable
+# what is still missing for the session: its own tasks fail with "not found",
+# the rest run. The variable replaces disable_tools rather than extending it,
+# so carry the configured list over.
+missing=$(mise ls --missing 2> /dev/null | awk '{ print $1 }' | paste -sd, - || true)
+if [ -n "$missing" ]; then
+  configured=$(mise settings get disable_tools 2> /dev/null | tr -d '[]" ' || true)
+  export MISE_DISABLE_TOOLS="${configured:+$configured,}$missing"
+  echo "WARN: still not installed, disabled for this session: $missing"
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    echo "export MISE_DISABLE_TOOLS=$MISE_DISABLE_TOOLS" >> "$CLAUDE_ENV_FILE"
+  fi
 fi
 
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"

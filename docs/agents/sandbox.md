@@ -35,6 +35,23 @@ without a shim after `mise install` gets its install purged and reinstalled
 through the alias. Pre-baked layouts that happen to satisfy the alias (hk)
 are kept as is.
 
+An alias swaps the backend but keeps mise.toml's options, and an option the
+new backend doesn't know is a hard error from mise 2026.10.25 on. hk's
+`workflow = "release.yml"` is one, so `mise.sandbox.toml` re-pins hk without
+it. Because `mise run` installs every missing tool before any task, one tool
+that fails to install used to abort every task in the session. The hook now
+adds whatever is still missing after its installs to `MISE_DISABLE_TOOLS` for
+the session (merged with the configured `disable_tools`, which the variable
+would otherwise replace) and warns; that tool's own tasks fail with "not
+found" and everything else runs. It also warns when the two pins duplicated
+in `mise.sandbox.toml` (hk, dockerfmt) drift from `mise.toml`.
+
+Chromium resolves `*.localhost` to loopback by itself, but Node and Python
+read `/etc/hosts`, which images ship with plain `localhost`. The hook maps
+`ludamus.localhost` and `another.ludamus.localhost` there, or Playwright's
+readiness probe for the :8001 privacy server follows its redirect to an
+unresolvable name and times out the e2e run.
+
 PyPI wrapper packages add one more failure mode, handled in `mise.toml`
 rather than here: they append a packaging revision to the upstream version
 (shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0), and mise passes an exact
