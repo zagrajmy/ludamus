@@ -37,11 +37,11 @@ class SeatsField(forms.IntegerField):
     """Seats, taken as typed: "3-6" reads as its upper bound, 6.
 
     The empty field shows the category's range, so a range is what people
-    type back. A number input would drop it as unparseable, and an empty
+    type back. A number input would drop it as unparsable, and an empty
     optional limit means the session takes no sign-up.
     """
 
-    def to_python(self, value: object) -> int | None:
+    def to_python(self, value: str | int | None) -> int | None:
         if isinstance(value, str) and (seat_range := _SEAT_RANGE.fullmatch(value)):
             value = max(int(bound) for bound in seat_range.groups())
         return super().to_python(value)

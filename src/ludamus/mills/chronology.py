@@ -287,8 +287,7 @@ def _taken_space_ids_by_slot(
             {
                 item.space_id
                 for item in placed
-                if item.start_time < slot.end_time
-                and item.end_time > slot.start_time
+                if item.start_time < slot.end_time and item.end_time > slot.start_time
             }
         )
         for slot in time_slots

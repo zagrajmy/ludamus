@@ -9,8 +9,6 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import TakenOptionsSelect
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -21,6 +19,15 @@ if TYPE_CHECKING:
 # label already translated, flat or inside an optgroup.
 type Choice = tuple[int | str, str]
 type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
+
+
+class TakenOptionsSelect(forms.Select):
+    # `taken` is read by the tessera select renderer: those options render
+    # disabled and marked taken, and a field left with one free option stops
+    # asking, as one with a single option does.
+    def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
+        super().__init__()
+        self.taken = taken
 
 
 def slot_label(slot: TimeSlotDTO) -> str:
@@ -95,13 +102,13 @@ def create_proposal_acceptance_form(
     space_field = forms.ChoiceField(
         choices=choices,
         label=_("Space"),
-        widget=TakenOptionsSelect(taken=frozenset(map(str, taken_spaces))),
+        widget=TakenOptionsSelect(taken=frozenset(str(pk) for pk in taken_spaces)),
         help_text=_("Select the space where this session will take place"),
         required=True,
     )
     time_slot_field = forms.ChoiceField(
         choices=slot_choices(time_slots, context.preferred_time_slot_ids),
-        widget=TakenOptionsSelect(taken=frozenset(map(str, taken_slots))),
+        widget=TakenOptionsSelect(taken=frozenset(str(pk) for pk in taken_slots)),
         label=_("Time slot"),
         help_text=_("Pick the start time for this session."),
         required=True,

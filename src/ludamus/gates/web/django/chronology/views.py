@@ -120,9 +120,7 @@ class SessionEditView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         return self._render(
-            ctx=ctx,
-            form=self._initial_form(ctx),
-            fields_form=self._fields_form(ctx),
+            ctx=ctx, form=self._initial_form(ctx), fields_form=self._fields_form(ctx)
         )
 
     def post(
