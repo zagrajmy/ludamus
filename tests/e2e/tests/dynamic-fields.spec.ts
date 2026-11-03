@@ -20,10 +20,12 @@ test.describe("Organizer-defined fields", () => {
     await expect(group.locator('input[type="radio"]')).toHaveCount(0);
   });
 
-  // A label opens with a capital, so its icon centres on the capitals, not on
-  // the lowercase x-height. The baseline is read off a zero-height probe set
-  // beside the icon; the cap height off the font the icon inherits.
-  test("centres a field's icon on its label's capitals", async ({ page }) => {
+  // A label opens with a capital but runs mostly lowercase, so its icon sits a
+  // pixel below the capitals' middle: centred on the capitals it reads high,
+  // and on the x-height middle (where `align-middle` put it) it reads low. The baseline is
+  // read off a zero-height probe set beside the icon; the cap height off the
+  // font the icon inherits.
+  test("sets a field's icon a pixel below its label's cap middle", async ({ page }) => {
     const legend = page.getByRole("group", { name: /^Tone/ }).locator("legend");
     const { iconCentre, capCentre } = await legend.evaluate(async (node) => {
       await document.fonts.ready;
@@ -41,7 +43,7 @@ test.describe("Organizer-defined fields", () => {
       return { iconCentre: box.top + box.height / 2, capCentre: baseline - capHeight / 2 };
     });
 
-    expect(Math.abs(iconCentre - capCentre)).toBeLessThan(0.5);
+    expect(iconCentre - capCentre).toBeCloseTo(1, 0);
   });
 
   test("caps a text field's length and leaves its write-in requirement to the server", async ({
