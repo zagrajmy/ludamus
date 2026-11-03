@@ -76,6 +76,11 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: isCI ? "retain-on-failure" : "on-first-retry",
+    // NOTE: Playwright launches Chromium with --no-sandbox unless told
+    // otherwise. Sandboxed dev containers deny unprivileged user namespaces
+    // ("Chromium sandboxing failed!"), so they keep it off — gated on the
+    // same egress-proxy signal as Firefox's MOZ_DISABLE_CONTENT_SANDBOX below.
+    launchOptions: { chromiumSandbox: !proxyServer },
     ...(proxyServer
       ? {
           proxy: {
