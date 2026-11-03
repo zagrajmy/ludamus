@@ -20,6 +20,30 @@ test.describe("Organizer-defined fields", () => {
     await expect(group.locator('input[type="radio"]')).toHaveCount(0);
   });
 
+  // A label opens with a capital, so its icon centres on the capitals, not on
+  // the lowercase x-height. The baseline is read off a zero-height probe set
+  // beside the icon; the cap height off the font the icon inherits.
+  test("centres a field's icon on its label's capitals", async ({ page }) => {
+    const legend = page.getByRole("group", { name: /^Tone/ }).locator("legend");
+    const { iconCentre, capCentre } = await legend.evaluate(async (node) => {
+      await document.fonts.ready;
+      const icon = node.querySelector("svg");
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (!icon || !ctx) throw new Error("legend has no icon to measure");
+      const probe = document.createElement("span");
+      probe.style.cssText = "display:inline-block;width:0;height:0";
+      icon.after(probe);
+      const baseline = probe.getBoundingClientRect().bottom;
+      probe.remove();
+      ctx.font = getComputedStyle(icon).font;
+      const capHeight = ctx.measureText("H").actualBoundingBoxAscent;
+      const box = icon.getBoundingClientRect();
+      return { iconCentre: box.top + box.height / 2, capCentre: baseline - capHeight / 2 };
+    });
+
+    expect(Math.abs(iconCentre - capCentre)).toBeLessThan(0.5);
+  });
+
   test("caps a text field's length and leaves its write-in requirement to the server", async ({
     page,
   }) => {
