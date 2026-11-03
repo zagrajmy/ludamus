@@ -185,9 +185,11 @@ def tessera_inplace(field: BoundField, *, fit: bool = False, unit: str = "") -> 
     )
     control = _render_field_input(field, inplace_class=look)
     if unit:
+        # NOTE: the control's -mx-1.5 overhangs this wrapper, so right-0 is
+        # already inside the control's right padding, in the 1ch kept free.
         control = format_html(
             '<span class="relative inline-flex">{}<span aria-hidden="true"'
-            ' class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2">'
+            ' class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2">'
             "{}</span></span>",
             control,
             unit,

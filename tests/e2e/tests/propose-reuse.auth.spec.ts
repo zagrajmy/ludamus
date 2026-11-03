@@ -144,6 +144,44 @@ test.describe("Proposing from an earlier session", () => {
     });
   });
 
+  test("keeps the age's + clear of whatever is typed", async ({ page }) => {
+    await page.goto(proposeUrl);
+    const age = page.locator("#propose-details-form").getByLabel("Minimum age");
+    const gap: Record<string, number> = {};
+    for (const value of ["0", "16", "1411", "99999999", "-5", "1e5"]) {
+      await age.fill(value);
+      await age.blur();
+      // Where the centered value ends, measured in the input's own font,
+      // against where the unit drawn beside it starts.
+      gap[value] = await age.evaluate((input: HTMLInputElement) => {
+        const style = getComputedStyle(input);
+        const probe = document.createElement("span");
+        probe.style.font = style.font;
+        probe.style.letterSpacing = style.letterSpacing;
+        probe.style.whiteSpace = "pre";
+        probe.style.position = "absolute";
+        probe.textContent = input.value;
+        document.body.append(probe);
+        const drawn = probe.getBoundingClientRect().width;
+        probe.remove();
+        const box = input.getBoundingClientRect();
+        const left = box.left + parseFloat(style.paddingLeft);
+        const room = box.right - parseFloat(style.paddingRight) - left;
+        const textEnd = left + (room + drawn) / 2;
+        const unit = input.nextElementSibling!.getBoundingClientRect();
+        return unit.left - textEnd;
+      });
+    }
+    await attachArtifacts(test.info(), {
+      name: "propose-min-age-unit",
+      region: age.locator("xpath=../.."),
+      facts: { gap },
+    });
+    for (const [value, px] of Object.entries(gap)) {
+      expect(px, `gap before + for ${value}`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   test("still offers earlier sessions after the step comes back with errors", async ({ page }) => {
     await page.goto(proposeUrl);
     const form = page.locator("#propose-details-form");
