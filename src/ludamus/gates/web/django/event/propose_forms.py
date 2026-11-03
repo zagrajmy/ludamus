@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 from django import forms
@@ -26,6 +27,24 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+
+
+# Hyphen, en dash, em dash, minus: whichever the keyboard gave.
+_SEAT_RANGE = re.compile(r"\s*(\d+)\s*[-\u2013\u2014\u2212]\s*(\d+)\s*")
+
+
+class SeatsField(forms.IntegerField):
+    """Seats, taken as typed: "3-6" reads as its upper bound, 6.
+
+    The empty field shows the category's range, so a range is what people
+    type back. A number input would drop it as unparseable, and an empty
+    optional limit means the session takes no sign-up.
+    """
+
+    def to_python(self, value: object) -> int | None:
+        if isinstance(value, str) and (seat_range := _SEAT_RANGE.fullmatch(value)):
+            value = max(int(bound) for bound in seat_range.groups())
+        return super().to_python(value)
 
 
 def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:
@@ -74,8 +93,8 @@ def build_session_details_form(
         seats_placeholder = f"{min_limit}+"
     else:
         seats_placeholder = _("no sign-up")
-    participants_kwargs["widget"] = forms.NumberInput(
-        attrs={"placeholder": seats_placeholder}
+    participants_kwargs["widget"] = forms.TextInput(
+        attrs={"placeholder": seats_placeholder, "inputmode": "numeric"}
     )
 
     fields: dict[str, forms.Field] = {
@@ -97,7 +116,7 @@ def build_session_details_form(
                 },
             ),
         ),
-        "participants_limit": forms.IntegerField(**participants_kwargs),
+        "participants_limit": SeatsField(**participants_kwargs),
         "min_age": forms.IntegerField(
             label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),

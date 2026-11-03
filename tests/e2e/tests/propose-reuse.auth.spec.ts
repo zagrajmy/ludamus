@@ -115,6 +115,26 @@ test.describe("Proposing from an earlier session", () => {
     await expect(page.getByText(title).first()).toBeVisible();
   });
 
+  test("still offers earlier sessions after the step comes back with errors", async ({ page }) => {
+    await page.goto(proposeUrl);
+    const form = page.locator("#propose-details-form");
+    // Past the browser's own checks, so the server answers with the step again.
+    await form.evaluate((el: HTMLFormElement) => {
+      el.noValidate = true;
+    });
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await expect(form.getByRole("textbox", { name: "Title" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    await page.getByRole("button", { name: "Copy from an earlier session" }).click();
+    await page.getByRole("button", { name: title }).click();
+    await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue(title);
+  });
+});
+
+test.describe("The session step", () => {
   test("previews a picked cover at the shape the help text asks for", async ({ page }) => {
     await installCspViolationCollector(page);
     await page.goto(proposeUrl);
@@ -182,21 +202,24 @@ test.describe("Proposing from an earlier session", () => {
     }
   });
 
-  test("still offers earlier sessions after the step comes back with errors", async ({ page }) => {
+  test("reads a typed seat range as its upper bound", async ({ page }) => {
     await page.goto(proposeUrl);
-    const form = page.locator("#propose-details-form");
-    // Past the browser's own checks, so the server answers with the step again.
-    await form.evaluate((el: HTMLFormElement) => {
-      el.noValidate = true;
-    });
-    await page.getByRole("button", { name: /Continue/ }).click();
-    await expect(form.getByRole("textbox", { name: "Title" })).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    );
-
     await page.getByRole("button", { name: "Copy from an earlier session" }).click();
     await page.getByRole("button", { name: title }).click();
-    await expect(form.getByRole("textbox", { name: "Title" })).toHaveValue(title);
+    const seats = page.locator("#propose-details-form").getByLabel("Seats");
+    await seats.fill("3 – 6");
+    await page.getByRole("button", { name: /Continue/ }).click();
+
+    const wizard = page.locator('[id="wizard-content"]');
+    await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
+    const limit = wizard
+      .locator("dt", { hasText: /^Max participants$/ })
+      .locator("xpath=following-sibling::dd[1]");
+    await expect(limit).toHaveText("6");
+    await attachArtifacts(test.info(), {
+      name: "propose-seat-range",
+      region: wizard,
+      facts: { typed: "3 – 6", stored: "6" },
+    });
   });
 });

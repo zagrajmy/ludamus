@@ -90,7 +90,9 @@ def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape:
         return "textarea"
     if isinstance(widget, Select):
         return "select"
-    if isinstance(widget, NumberInput):
+    # A numeric text input takes what a number input rejects (a range, say)
+    # and still reads as a number.
+    if isinstance(widget, NumberInput) or widget.attrs.get("inputmode") == "numeric":
         return "number"
     return "fit" if fit else "text"
 
