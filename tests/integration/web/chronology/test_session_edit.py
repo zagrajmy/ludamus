@@ -1,3 +1,4 @@
+import json
 from http import HTTPStatus
 from unittest.mock import ANY, patch
 
@@ -77,7 +78,6 @@ class TestSessionEditViewGet:
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -101,7 +101,6 @@ class TestSessionEditViewGet:
                 "form": FormInitialMatcher(duration_hours=1, duration_minutes=30),
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -174,7 +173,6 @@ class TestSessionEditViewGet:
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -186,7 +184,7 @@ class TestSessionEditViewPost:
         data.update(overrides)
         return data
 
-    def test_htmx_post_saves_and_returns_saved_fragment(
+    def test_htmx_post_saves_and_signals_the_page(
         self, authenticated_client, event, owned_session
     ):
         url = _url(event, owned_session)
@@ -197,14 +195,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -224,14 +217,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -250,14 +238,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -273,14 +256,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -389,7 +367,6 @@ class TestSessionEditViewPost:
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
         owned_session.refresh_from_db()
@@ -428,7 +405,6 @@ class TestSessionEditViewPost:
                 ),
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -620,7 +596,6 @@ class TestSessionEditViewPost:
                     }
                 ],
                 "post_url": url,
-                "saved": False,
             },
         )
 

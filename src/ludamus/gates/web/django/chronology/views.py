@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
@@ -120,7 +122,6 @@ class SessionEditView(LoginRequiredMixin, View):
             ctx=ctx,
             form=self._initial_form(ctx),
             fields_form=self._fields_form(ctx),
-            saved=False,
         )
 
     def post(
@@ -138,9 +139,7 @@ class SessionEditView(LoginRequiredMixin, View):
         fields_form = self._fields_form(ctx, self.request.POST if submitted else None)
         fields_valid = fields_form.is_valid() if submitted else True
         if not form.is_valid() or not fields_valid:
-            return self._render(
-                ctx=ctx, form=form, fields_form=fields_form, saved=False
-            )
+            return self._render(ctx=ctx, form=form, fields_form=fields_form)
 
         field_values = (
             _collect_session_field_values(session_id, ctx, fields_form)
@@ -160,12 +159,11 @@ class SessionEditView(LoginRequiredMixin, View):
         if not self.request.headers.get("HX-Request"):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
-        ctx = self._context(event_slug, session_id)
-        return self._render(
-            ctx=ctx,
-            form=self._initial_form(ctx),
-            fields_form=self._fields_form(ctx),
-            saved=True,
+        # Nothing to swap: session-edit.ts closes the dialog and refreshes the
+        # session's card from the page, which is where the edit shows.
+        return HttpResponse(
+            status=HTTPStatus.NO_CONTENT,
+            headers={"HX-Trigger": json.dumps({"session-saved": {"id": session_id}})},
         )
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
@@ -185,7 +183,6 @@ class SessionEditView(LoginRequiredMixin, View):
         ctx: SessionSelfEditContext,
         form: SessionEditForm,
         fields_form: forms.Form,
-        saved: bool,
     ) -> HttpResponse:
         post_url = reverse(
             "web:chronology:session-edit",
@@ -203,7 +200,6 @@ class SessionEditView(LoginRequiredMixin, View):
                     form=fields_form,
                 ),
                 "post_url": post_url,
-                "saved": saved,
             },
         )
 

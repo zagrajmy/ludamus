@@ -50,33 +50,46 @@ const rollbackSessionEdit = (e: Event): void => {
 document.body.addEventListener("htmx:responseError", rollbackSessionEdit);
 document.body.addEventListener("htmx:sendError", rollbackSessionEdit);
 
-// After the form loads: focus the title; reset the "Saved" button as soon as
-// the facilitator edits again so the confirmation stays honest.
+// After the form loads: focus the title.
 document.body.addEventListener("htmx:afterSwap", (e) => {
   const root = e.target;
   if (!(root instanceof Element)) return;
-  const forms =
+  const form =
     root instanceof HTMLFormElement && root.matches('form[id$="-edit-form"]')
-      ? [root]
-      : [...root.querySelectorAll<HTMLFormElement>('form[id$="-edit-form"]')];
-  for (const form of forms) {
-    const save = form.querySelector<HTMLElement>("[data-edit-save]");
-    if (Object.hasOwn(form.dataset, "justSaved")) {
-      form.addEventListener(
-        "input",
-        () => {
-          if (!save) return;
-          save.classList.remove("bg-success", "text-white");
-          save.classList.add("btn-primary");
-          save.textContent = save.dataset.saveLabel ?? "";
-          delete form.dataset.justSaved;
-        },
-        { once: true },
-      );
-    } else {
-      form.querySelector<HTMLElement>('[name="title"]')?.focus();
-    }
-  }
+      ? root
+      : root.querySelector<HTMLFormElement>('form[id$="-edit-form"]');
+  form?.querySelector<HTMLElement>('[name="title"]')?.focus();
+});
+
+// Swap the session's card for the page's fresh one, so the board shows the
+// edit the moment the dialog is gone. Through htmx, so the new card is wired
+// like any swapped-in card (modal.ts binds its link on htmx:afterSwap).
+const refreshSessionCard = (sessionId: string): void => {
+  const selector = `[data-session-card="${sessionId}"]`;
+  if (!document.querySelector(selector)) return;
+  htmx.ajax("GET", globalThis.location.href, {
+    select: selector,
+    swap: "outerHTML",
+    target: selector,
+  });
+};
+
+// A save answers with the session-saved event and no content: close the
+// dialog and drop it, so the next open fetches it fresh, then refresh the
+// session's cards.
+document.body.addEventListener("session-saved", (e) => {
+  const sessionId = String((e as CustomEvent<{ id?: number }>).detail?.id ?? "");
+  const dialog = document.getElementById(`session-${sessionId}`);
+  if (!(dialog instanceof HTMLDialogElement)) return;
+  dialog.addEventListener(
+    "close",
+    () => {
+      dialog.remove();
+      refreshSessionCard(sessionId);
+    },
+    { once: true },
+  );
+  dialog.querySelector<HTMLElement>("[data-modal-close]")?.click();
 });
 
 // Restore the read view if a session dialog is closed while editing, so
