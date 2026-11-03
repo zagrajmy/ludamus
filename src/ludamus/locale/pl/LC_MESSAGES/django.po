@@ -2200,6 +2200,10 @@ msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
 
 #: src/ludamus/gates/web/django/chronology/views.py
+msgid "Your changes are saved."
+msgstr "Zmiany zapisane."
+
+#: src/ludamus/gates/web/django/chronology/views.py
 msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
@@ -5981,6 +5985,11 @@ msgstr[2] "%(counter)s czeka"
 msgstr[3] "%(counter)s czeka"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
+#, python-format
+msgid "Edit proposal %(title)s"
+msgstr "Edytuj zgłoszenie %(title)s"
+
+#: src/ludamus/templates/chronology/_proposal_section.html
 #: src/ludamus/templates/design.html
 #, python-format
 msgid "Review proposal %(title)s"
@@ -6884,6 +6893,10 @@ msgstr "Program"
 #: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
+
+#: src/ludamus/templates/chronology/session-edit-page.html
+msgid "Edit proposal"
+msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/components/_checkbox-tree-node.html
 msgid "all"
@@ -14879,10 +14892,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #~ msgid "Show the full schedule"
 #~ msgstr "Pokaż pełny harmonogram"
-
-#, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
 
 #, python-format
 #~ msgid ""

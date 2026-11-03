@@ -75,11 +75,12 @@ def _collect_session_field_values(
 
 
 class SessionEditView(LoginRequiredMixin, View):
-    """Facilitator self-service editing of their own session, inline in the modal.
+    """Facilitator self-service editing of their own session.
 
-    Both GET (edit form) and POST (save) return the form fragment swapped into
-    the open session dialog via HTMX. A non-HTMX POST falls back to a full-page
-    redirect to the event so the feature degrades gracefully.
+    Over HTMX it is the form swapped into the open session dialog, and a save
+    answers with the session-saved trigger. As a plain page it is where a
+    pending proposal's author edits it (their card links here; an unscheduled
+    proposal has no dialog), and a save goes back to the event.
     """
 
     request: SessionEditRequest
@@ -156,9 +157,9 @@ class SessionEditView(LoginRequiredMixin, View):
         except SessionEditNotAllowedError as exc:
             raise Http404 from exc
 
-        if not self.request.headers.get("HX-Request"):
-            event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
-            return redirect(f"{event_url}?session={session_id}")
+        if self._is_page():
+            messages.success(self.request, _("Your changes are saved."))
+            return redirect("web:chronology:event", slug=event_slug)
         # Nothing to swap: session-edit.ts closes the dialog and refreshes the
         # session's card from the page, which is where the edit shows.
         return HttpResponse(
@@ -177,6 +178,9 @@ class SessionEditView(LoginRequiredMixin, View):
             raise Http404
         return ctx
 
+    def _is_page(self) -> bool:
+        return not self.request.headers.get("HX-Request")
+
     def _render(
         self,
         *,
@@ -188,10 +192,17 @@ class SessionEditView(LoginRequiredMixin, View):
             "web:chronology:session-edit",
             kwargs={"event_slug": ctx.event.slug, "session_id": ctx.session.pk},
         )
+        page = self._is_page()
         return TemplateResponse(
             self.request,
-            "chronology/parts/session-edit-form.html",
+            (
+                "chronology/session-edit-page.html"
+                if page
+                else "chronology/parts/session-edit-form.html"
+            ),
             {
+                "page": page,
+                "event": ctx.event,
                 "session": ctx.session,
                 "form": form,
                 "field_descriptors": field_descriptors(

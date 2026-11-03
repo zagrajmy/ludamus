@@ -5,10 +5,7 @@
       method="post"
       action="{{ post_url }}"
       enctype="multipart/form-data"
-      hx-post="{{ post_url }}"
-      hx-encoding="multipart/form-data"
-      hx-target="this"
-      hx-swap="outerHTML">
+      {% if not page %}hx-post="{{ post_url }}" hx-encoding="multipart/form-data" hx-target="this" hx-swap="outerHTML"{% endif %}>
     {% csrf_token %}
     <div class="flex-auto min-h-0 overflow-y-auto px-6 py-5">
         <div class="space-y-5">
@@ -90,9 +87,14 @@
         </div>
     </div>
     <div class="modal-footer-lg px-6 pt-4 flex items-center justify-end gap-2 border-t border-border shrink-0">
-        <button type="button"
-                class="btn btn-secondary text-sm"
-                data-edit-cancel="{{ session.pk }}">{% translate "Cancel" %}</button>
+        {% if page %}
+            <a href="{% url 'web:chronology:event' slug=event.slug %}"
+               class="btn btn-secondary text-sm">{% translate "Cancel" %}</a>
+        {% else %}
+            <button type="button"
+                    class="btn btn-secondary text-sm"
+                    data-edit-cancel="{{ session.pk }}">{% translate "Cancel" %}</button>
+        {% endif %}
         <button type="submit" class="btn btn-primary text-sm">{% translate "Save changes" %}</button>
     </div>
 </form>

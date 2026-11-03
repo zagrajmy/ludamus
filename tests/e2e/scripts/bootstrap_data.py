@@ -535,6 +535,33 @@ def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> Non
     )
     session.presenter = superuser
     session.save(update_fields=["presenter"])
+    # A proposal its author still waits on: no panel access, so the event page
+    # shows it under their own pending proposals, which open the edit page.
+    author = User.objects.create_user(
+        username="e2e-proposal-author",
+        email="e2e-proposal-author@test.local",
+        password="e2e-proposal-author-123",
+        name="Pending Author",
+        slug="e2e-proposal-author",
+    )
+    _write_storage_state(
+        author,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-proposal-author.json",
+    )
+    Session.objects.create(
+        event=event,
+        presenter=author,
+        facilitator_name=author.name,
+        contact_email=author.email,
+        title="Still Waiting Table",
+        slug="still-waiting-table",
+        description="A proposal nobody has accepted yet.",
+        duration="PT2H",
+        participants_limit=4,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
 
 
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
