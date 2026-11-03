@@ -33,6 +33,15 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 // outbound internet access.
 const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
 
+// NOTE: The same containers deny unprivileged user namespaces, so no browser
+// sandbox can start there: Chromium aborts ("Chromium sandboxing failed!"),
+// and every Firefox content process dies ("Sandbox: writing
+// /proc/self/uid_map: EACCES", then SIGSEGV) so newPage() hangs until
+// whichever spec runs first times out. The kernel sysctls still report userns
+// as allowed, so there is nothing to feature-detect; the egress proxy is the
+// signal. Real CI (no HTTPS_PROXY) keeps both sandboxes on.
+const canSandboxBrowsers = !proxyServer;
+
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
@@ -76,11 +85,8 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: isCI ? "retain-on-failure" : "on-first-retry",
-    // NOTE: Playwright launches Chromium with --no-sandbox unless told
-    // otherwise. Sandboxed dev containers deny unprivileged user namespaces
-    // ("Chromium sandboxing failed!"), so they keep it off — gated on the
-    // same egress-proxy signal as Firefox's MOZ_DISABLE_CONTENT_SANDBOX below.
-    launchOptions: { chromiumSandbox: !proxyServer },
+    // NOTE: Playwright passes --no-sandbox to Chromium unless told otherwise.
+    launchOptions: { chromiumSandbox: canSandboxBrowsers },
     ...(proxyServer
       ? {
           proxy: {
@@ -137,18 +143,9 @@ export default defineConfig({
       ],
       use: {
         ...devices["Desktop Firefox"],
-        // In sandboxed dev containers the runtime denies unprivileged user
-        // namespaces, so every Firefox content process dies on startup
-        // ("Sandbox: writing /proc/self/uid_map: EACCES", then SIGSEGV) and
-        // newPage() hangs until the test times out — whichever spec happens
-        // to run first is the one that "fails". The kernel sysctls still
-        // report userns as allowed, so there is nothing to feature-detect;
-        // gate on the sandbox's egress proxy — the same `proxyServer`
-        // signal `use.proxy` reads above. Real CI (no HTTPS_PROXY) keeps
-        // Firefox's content sandbox on.
-        ...(proxyServer
-          ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
-          : {}),
+        ...(canSandboxBrowsers
+          ? {}
+          : { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }),
       },
     },
     ...(skipWebkit
