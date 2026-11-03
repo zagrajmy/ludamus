@@ -504,6 +504,9 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    # Whether a scheduled session needs a space: conventions place every one
+    # in a room, a meetup may only need the time. Events may override it.
+    require_session_space = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -726,6 +729,7 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    require_session_space = models.BooleanField(null=True, blank=True, default=None)
     use_session_cover_placeholders = models.BooleanField(default=False)
     # Label for the enrolled-people count on the public event page: off →
     # "Players" (gaming events), on → "Participants" (general events).
@@ -1464,8 +1468,13 @@ class Session(SoftDeleteModel):
 
 
 class AgendaItem(models.Model):
+    # None where the event does not require a space (require_session_space).
     space = models.ForeignKey(
-        Space, on_delete=models.CASCADE, related_name="agenda_items"
+        Space,
+        on_delete=models.CASCADE,
+        related_name="agenda_items",
+        null=True,
+        blank=True,
     )
     session = models.OneToOneField(
         Session, on_delete=models.CASCADE, related_name="agenda_item"

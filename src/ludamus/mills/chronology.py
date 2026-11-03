@@ -39,7 +39,7 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.submissions import is_empty_answer
-from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.chronology import resolve_event_toggle
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -873,7 +873,7 @@ class SessionSelfEditService:
         except NotFoundError:
             raise SessionEditNotAllowedError from None
         sphere = self._spheres.read(event.sphere_id)
-        if not resolve_facilitator_session_edit(
+        if not resolve_event_toggle(
             event_override=event.allow_facilitator_session_edit,
             sphere_default=sphere.allow_facilitator_session_edit,
         ):
