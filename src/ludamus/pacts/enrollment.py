@@ -48,8 +48,12 @@ class WaitingParticipantDTO(BaseModel):
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
     # Remaining distinct-user membership slots for this participant's slot
-    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    # owner in the event; UNLIMITED_SLOTS when no limit applies. Negative when
+    # the household already holds more seats than passes.
     owner_slots_remaining: int
+    # Already holds a seat elsewhere in the event, so the owner's allowance
+    # counts them and promoting them spends no further slot.
+    holds_event_seat: bool
     # Who is told about the seat — the sponsoring leader for a login-less
     # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
@@ -74,6 +78,7 @@ class PromotionStateDTO(BaseModel):
     session_id: int
     session_title: str
     event_slug: str
+    start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
     presenter_id: int | None

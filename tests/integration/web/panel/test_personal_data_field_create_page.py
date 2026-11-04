@@ -329,3 +329,45 @@ class TestPersonalDataFieldCreatePageView:
             },
         )
         assert not PersonalDataField.objects.filter(event=event).exists()
+
+    def test_post_rejects_select_without_options(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data={
+                "name": "Diet",
+                "question": "Your diet?",
+                "field_type": "select",
+                "options": " \n ",
+                "is_required": True,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-field-create.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "form": FormErrorsMatcher(
+                    options=["Add at least one option, or allow custom values."]
+                ),
+            },
+        )
+        assert not PersonalDataField.objects.filter(event=event).exists()
+
+    def test_post_accepts_select_without_options_when_custom_allowed(
+        self, panel_client, event
+    ):
+        panel_client.post(
+            self.get_url(event),
+            data={
+                "name": "Diet",
+                "question": "Your diet?",
+                "field_type": "select",
+                "allow_custom": True,
+            },
+        )
+
+        field = PersonalDataField.objects.get(event=event)
+        assert field.allow_custom is True
+        assert not field.options.exists()
