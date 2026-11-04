@@ -224,7 +224,7 @@ class SeatHolderLockProtocol(Protocol):
         """
 
 
-class ParticipationPromotionRepositoryProtocol(SeatHolderLockProtocol, Protocol):
+class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         """Lock the session row and its waiters, then read what promotion needs.
 
@@ -252,8 +252,9 @@ class ParticipationPromotionRepositoryProtocol(SeatHolderLockProtocol, Protocol)
     # The offer for the claim page to show; takes no lock.
     def peek_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
-    # The three offer reads lock the offer's Session row, then its party's
-    # still-OFFERED rows, for the caller's transaction.
+    # The three offer reads take the seat locks for the caller's transaction:
+    # the offer's Session row, the User rows of its party and of the session's
+    # waiters, then the party's still-OFFERED rows.
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...

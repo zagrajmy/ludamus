@@ -107,7 +107,7 @@ Each op names the code it stands for in its comment.
 | `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` (Session row, the WAITING read, then `lock_seat_holders` on the waiters) → `select_promotable_parties` |
 | `Commit` | the writes and COMMIT of any check |
 | `seats.Free`, `schedule.Cancel` / `Drop` | `_handle_cancellation`, anonymous `cancel`, `decline_offer` / `expire_offer` → `drop` |
-| `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row) → `_claim` → `lock_seat_holders`, `conflicted_user_ids`, then `drop` or `mark_claimed` |
+| `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row, `lock_seat_holders` on the party and the waiters, the OFFERED rows) → `_claim` → `conflicted_user_ids`, then `drop` or `mark_claimed` |
 | `seats.fits` | `Session.seats_left` |
 | `schedule.has_conflict` | `SessionManager.conflicted_user_ids` |
 | `held`, `lock_a` / `lock_b` | `select_for_update` on the `Session` row |

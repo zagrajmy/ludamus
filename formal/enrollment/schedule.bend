@@ -49,12 +49,14 @@ type Op is Data:
   Join{side: Side}
   # _handle_cancellation, anonymous cancel; the same over-approximation.
   Cancel{side: Side}
-  # claim_offer / claim_member_offer -> _claim: the Session row lock (inside
-  # the offer read), lock_seat_holders, then conflicted_user_ids. A clash drops
-  # the offer; otherwise mark_claimed. Write and commit run under both locks,
-  # so nothing of P's moves in between: one step.
+  # claim_offer / claim_member_offer -> _claim: the Session row lock and
+  # lock_seat_holders (both inside the offer read), then conflicted_user_ids.
+  # A clash drops the offer; otherwise mark_claimed. Write and commit run under
+  # both locks, so nothing of P's moves in between: one step.
   Claim{side: Side}
-  # decline_offer / expire_offer -> drop, under the Session row lock.
+  # decline_offer / expire_offer -> drop, under the Session row lock (the
+  # offer read takes P's lock too; asking only for the session's lets more
+  # runs through, never fewer).
   Drop{side: Side}
 
 def start() -> Person:

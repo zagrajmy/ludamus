@@ -194,6 +194,10 @@ class ParticipationPromotionRepository(SeatHolderLocks):
             else _DEFAULT_OFFER_WINDOW
         )
 
+        # Lock the waiters and their owners before reading who waits: the
+        # subquery resolves them inside the lock statement, so the rows read
+        # next are exactly the people held.
+        self.lock_seat_holders(user_ids=(), waiters_of=session.pk)
         waiting: list[WaitingParticipantDTO] = []
         slots_by_owner: dict[int, int] = {}
         participations = list(
@@ -205,9 +209,6 @@ class ParticipationPromotionRepository(SeatHolderLocks):
         )
         sponsors = sponsors_by_member(p.user for p in participations)
         waiter_ids = [p.user_id for p in participations]
-        # The WAITING set is fixed by the Session lock; lock its people and
-        # their owners before reading their seats anywhere else in the event.
-        self.lock_seat_holders(user_ids=waiter_ids)
         conflicted = Session.objects.conflicted_user_ids(session, waiter_ids)
         recipients = {
             p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
@@ -445,13 +446,22 @@ class ParticipationPromotionRepository(SeatHolderLocks):
         return self._read_locked_party(session_id, token)
 
     def _read_locked_party(self, session_id: int, token: str) -> OfferDTO | None:
-        # The Session row first, as every seat writer takes it; then the
-        # party's still-OFFERED rows, so claim and expiry serialise and the
-        # loser re-reads an empty set and no-ops.
+        # The seat lock order: the Session row, then the User rows of the
+        # party and of the waiters a release would refill, then the party's
+        # still-OFFERED rows, so claim and expiry serialise and the loser
+        # re-reads an empty set and no-ops.
         list(
             Session.objects.select_for_update(of=("self",))
             .filter(id=session_id)
             .values_list("pk", flat=True)
+        )
+        self.lock_seat_holders(
+            user_ids=SessionParticipation.objects.filter(
+                session_id=session_id,
+                claim_token=token,
+                status=SessionParticipationStatus.OFFERED,
+            ).values_list("user_id", flat=True),
+            waiters_of=session_id,
         )
         party = list(
             SessionParticipation.objects.select_for_update(of=("self",))

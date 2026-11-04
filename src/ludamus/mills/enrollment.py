@@ -341,11 +341,8 @@ class WaitlistPromotionService:
             )
         # The offer was checked when it was made, but a timetable move can put
         # a seat its people already hold on top of it since. Recheck under the
-        # same locks every seat decision takes. A party moves as one, as it
-        # was promoted and as it declines: one clash releases the whole offer.
-        self._participations.lock_seat_holders(
-            user_ids=offer.user_ids, waiters_of=offer.session_id
-        )
+        # seat locks the offer read took. A party moves as one, as it was
+        # promoted and as it declines: one clash releases the whole offer.
         if conflicted := self._participations.conflicted_user_ids(
             session_id=offer.session_id, user_ids=offer.user_ids
         ):

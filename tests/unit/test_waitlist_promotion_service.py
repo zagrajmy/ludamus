@@ -45,7 +45,6 @@ class FakeRepo:
         # Users holding a seat that overlaps the offer's session.
         self._conflicted = set(conflicted)
         self.log = SimpleNamespace(
-            seat_holders_locked=[],
             peeked=[],
             confirmed=[],
             offered=[],
@@ -115,9 +114,6 @@ class FakeRepo:
 
     def drop(self, ids):
         self.log.dropped.append(ids)
-
-    def lock_seat_holders(self, *, user_ids, waiters_of=None):
-        self.log.seat_holders_locked.append((list(user_ids), waiters_of))
 
     def conflicted_user_ids(self, *, session_id, user_ids):
         assert session_id == _SESSION_ID
@@ -402,9 +398,6 @@ class TestClaimOffer:
         assert result == ClaimResult(
             success=False, reason="conflict", session_id=_SESSION_ID, event_slug="con"
         )
-        # Both members and the session's waiters are locked before the check:
-        # the refill below asks for no row the claim does not already hold.
-        assert repo.log.seat_holders_locked == [([11, 12], _SESSION_ID)]
         # A party moves as one: the member without a clash is not left
         # holding a half-claimed offer.
         assert repo.log.dropped == [[1, 2]]
