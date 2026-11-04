@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 from django import forms
@@ -29,10 +29,8 @@ if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
 
-# Hyphen, en dash, em dash, minus: whichever the keyboard gave. Matched
-# against the stripped value, with no repeat at either end to overlap the
-# digits, so a long run of spaces costs one pass, not a square.
-_SEAT_RANGE = re.compile(r"(\d+)\s*[-\u2013\u2014\u2212]\s*(\d+)")
+# Hyphen, en dash, em dash, minus: whichever the keyboard gave.
+_RANGE_DASHES = str.maketrans(dict.fromkeys("\u2013\u2014\u2212", "-"))
 # The same shape for the browser to check before submitting, as a number
 # input's min did: a count or a range, so "-1" is caught at once. Written for
 # the v flag browsers compile patterns with, where a class's hyphen is escaped.
@@ -48,10 +46,15 @@ class SeatsField(forms.IntegerField):
     """
 
     def to_python(self, value: str | int | None) -> int | None:
-        if isinstance(value, str) and (
-            seat_range := _SEAT_RANGE.fullmatch(value.strip())
-        ):
-            value = max(int(bound) for bound in seat_range.groups())
+        # Split by hand rather than by regex: one pass over whatever was typed.
+        if isinstance(value, str):
+            low, dash, high = value.translate(_RANGE_DASHES).partition("-")
+            bounds = (low.strip(), high.strip())
+            if dash and all(bound.isdecimal() for bound in bounds):
+                # A bound past int()'s digit limit is left for IntegerField to
+                # refuse as "Enter a whole number." rather than raise here.
+                with suppress(ValueError):
+                    value = str(max(int(bound) for bound in bounds))
         return super().to_python(value)
 
 

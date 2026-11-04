@@ -6202,9 +6202,9 @@ msgid ""
 "Every space is taken at every time this session can go. Add a space, or move "
 "a session in the timetable, then come back to accept this proposal."
 msgstr ""
-"Każda przestrzeń jest zajęta w każdym terminie, w którym ten punkt może się "
-"odbyć. Dodaj przestrzeń albo przesuń jakiś punkt w harmonogramie, a potem "
-"wróć tu zaakceptować to zgłoszenie."
+"Każda przestrzeń jest zajęta w każdym terminie, w którym ten punkt programu "
+"może się odbyć. Dodaj przestrzeń albo przesuń jakiś punkt programu w "
+"harmonogramie, a potem wróć tu zaakceptować to zgłoszenie."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/components/select.html
