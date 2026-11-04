@@ -7,6 +7,11 @@
       "name": "carried_answers"
     },
     {
+      "cases": 383,
+      "mismatches": 0,
+      "name": "client_ip"
+    },
+    {
       "cases": 289,
       "mismatches": 0,
       "name": "day_turnover"
@@ -15,6 +20,11 @@
       "cases": 272,
       "mismatches": 0,
       "name": "desired_state_requests"
+    },
+    {
+      "cases": 325,
+      "mismatches": 0,
+      "name": "details_form"
     },
     {
       "cases": 300,
@@ -67,9 +77,19 @@
       "name": "offer_resolution"
     },
     {
+      "cases": 398,
+      "mismatches": 0,
+      "name": "personal_form"
+    },
+    {
       "cases": 389,
       "mismatches": 0,
       "name": "process_enrollments"
+    },
+    {
+      "cases": 397,
+      "mismatches": 0,
+      "name": "proposal_slug"
     },
     {
       "cases": 354,
@@ -97,7 +117,7 @@
       "name": "window_eligibility"
     }
   ],
-  "generated": "2026-10-30T20:13:44.480Z",
-  "passedTests": 19,
-  "totalCases": 5547
+  "generated": "2026-11-04T18:12:15.657Z",
+  "passedTests": 23,
+  "totalCases": 7050
 }
