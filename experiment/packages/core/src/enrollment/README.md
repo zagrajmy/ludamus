@@ -1,15 +1,8 @@
 # Enrollment, proposal and timeslot rules (TypeScript port)
 
-Pure, IO-free ports of the Django app's enrollment decisions, proposal rules
-and slot grouping. Every function is data in, data out: no clock, no store, no
-randomness (tokens, suffixes and `now` are arguments). Persistence is left to
-the ports in `ports.ts`; the enrollment capability composes them.
+Pure, IO-free ports of the Django app's enrollment decisions, proposal rules and slot grouping. Every function is data in, data out: no clock, no store, no randomness (tokens, suffixes and `now` are arguments). Persistence is left to the ports in `ports.ts`; the enrollment capability composes them.
 
-Each rule is held to the Python by replaying Hypothesis-generated cases
-(`test/*.differential.test.ts`, fixtures in `test/fixtures/differential/`),
-stated as properties (`test/*.property.test.ts`), and the seat lifecycle is
-model-tested over generated command sequences
-(`test/seat-lifecycle.model.test.ts`).
+Each rule is held to the Python by replaying Hypothesis-generated cases (`test/*.differential.test.ts`, fixtures in `test/fixtures/differential/`), stated as properties (`test/*.property.test.ts`), and the seat lifecycle is model-tested over generated command sequences (`test/seat-lifecycle.model.test.ts`).
 
 ## Exports and the Python they mirror
 
@@ -62,46 +55,20 @@ model-tested over generated command sequences
 | `PROGRAMME_DAY_STARTS_AT_HOUR`, `MIDNIGHT`, `PROGRAMME_DAYS`, `dateOf`, `opening`, `turnoverWindows`, `localize` | `mills/timeslots.DayTurnover`, `pacts/chronology.PROGRAMME_DAY_STARTS_AT_HOUR` |
 | `slotWindows`, `slotWindowsByLocalDate` | `slot_windows`, `slot_windows_by_local_date` |
 
-A `LocalDateTime` keeps both the wall clock and the instant, because a Python
-`datetime.combine(day, time(h), tzinfo=tz)` can name a wall time that does not
-exist (DST gap) while its timestamp resolves with `fold=0`; Effect's
-`disambiguation: "compatible"` is the same resolution.
+A `LocalDateTime` keeps both the wall clock and the instant, because a Python `datetime.combine(day, time(h), tzinfo=tz)` can name a wall time that does not exist (DST gap) while its timestamp resolves with `fold=0`; Effect's `disambiguation: "compatible"` is the same resolution.
 
 ## Invariants held
 
 Properties (`it.prop` over Effect `Arbitrary`), stated as rules:
 
-- Promotion never seats more people than `availableSeats`; seats only waiting
-  rows, each once; never seats the presenter, a conflicted or a shadowbanned
-  waiter; never splits a party (all eligible members of a group move
-  together); keeps parties in the order the party first joined the queue;
-  never spends more of an owner's allowance than they hold; passes over a
-  party ahead only when one of its owners has no slots left (no leapfrogging);
-  promotes the head of the line whenever it fits; one more seat only extends
-  the promoted line.
-- A started session promotes nobody; an offer never outlives the session
-  start; each recipient of a moved party is told once.
-- Windows: a pass never lowers the seats on offer, never hides a window or
-  delays the next one; never more seats than the room; an open window offers
-  at least one seat; full exactly when no seat is left.
-- An enroll batch never seats past `max(seats taken before, the room the
-  session's windows offer)` (the Bend `capacity` law at batch grain); never
-  seats the presenter or a player they shadowbanned; never confirms someone
-  with a time conflict; writes only rows of people the request names; answers
-  every request exactly once. Desired-state routing never asks for more seats
-  than the viewer may fill, moves each active person at most once, cancels
-  only people who are in.
-- Durations round-trip; field write-ins are checked as pairs; slugs fit the
-  column; slot windows tile the interval, one per programme day.
-- Model test: enroll / waitlist / cancel / claim / decline / lapse sequences
-  (AUTO and OFFER_CLAIM) through `processEnrollments`, `planFillFreedSeats`,
-  `promotionEffects` and the offer decisions move seats exactly as a FIFO
-  waiting-list model does, and occupancy never exceeds the limit.
+- Promotion never seats more people than `availableSeats`; seats only waiting rows, each once; never seats the presenter, a conflicted or a shadowbanned waiter; never splits a party (all eligible members of a group move together); keeps parties in the order the party first joined the queue; never spends more of an owner's allowance than they hold; passes over a party ahead only when one of its owners has no slots left (no leapfrogging); promotes the head of the line whenever it fits; one more seat only extends the promoted line.
+- A started session promotes nobody; an offer never outlives the session start; each recipient of a moved party is told once.
+- Windows: a pass never lowers the seats on offer, never hides a window or delays the next one; never more seats than the room; an open window offers at least one seat; full exactly when no seat is left.
+- An enroll batch never seats past `max(seats taken before, the room the session's windows offer)` (the Bend `capacity` law at batch grain); never seats the presenter or a player they shadowbanned; never confirms someone with a time conflict; writes only rows of people the request names; answers every request exactly once. Desired-state routing never asks for more seats than the viewer may fill, moves each active person at most once, cancels only people who are in.
+- Durations round-trip; field write-ins are checked as pairs; slugs fit the column; slot windows tile the interval, one per programme day.
+- Model test: enroll / waitlist / cancel / claim / decline / lapse sequences (AUTO and OFFER_CLAIM) through `processEnrollments`, `planFillFreedSeats`, `promotionEffects` and the offer decisions move seats exactly as a FIFO waiting-list model does, and occupancy never exceeds the limit.
 
-The first FIFO property was stated as "parties ordered by their first
-eligible member" and failed: Python orders parties by the party's earliest
-member even when that member is ineligible. The property now states the
-Python rule.
+The first FIFO property was stated as "parties ordered by their first eligible member" and failed: Python orders parties by the party's earliest member even when that member is ineligible. The property now states the Python rule.
 
 ## Findings (behaviour kept identical to Python)
 
@@ -116,12 +83,9 @@ Python rule.
 | **New:** `conflicted_user_ids` misses a confirmed seat in a session that wholly contains this one (its range test checks only whether the other session's start or end falls inside this one) | read off the ORM query; worth an integration test on the Django side |
 | **New:** `parse_duration_part("²")` passes `isdigit()` and then raises a bare `ValueError` from `int()`, which the import review view (`except InvalidDurationError`) does not catch | differential fixture `durations.json` |
 
-Also pinned (passing): a needs-accept member posting `waitlist` is held a
-seat with no capacity check. Only the form (`_build_held_seat_choices`, which
-never offers waitlist) prevents it, so the TS enroll form must keep that rule.
+Also pinned (passing): a needs-accept member posting `waitlist` is held a seat with no capacity check. Only the form (`_build_held_seat_choices`, which never offers waitlist) prevents it, so the TS enroll form must keep that rule.
 
-Integers parse as JS numbers; digit runs past 2^53 would diverge from Python's
-big ints (the fixtures cap runs at 12 digits).
+Integers parse as JS numbers; digit runs past 2^53 would diverge from Python's big ints (the fixtures cap runs at 12 digits).
 
 ## Ports the enrollment capability needs (`ports.ts`)
 
@@ -139,33 +103,9 @@ big ints (the fixtures cap runs at 12 digits).
 | `MembershipStore`, `TicketApi` | User/domain allowance rows and the ticketing API; `TicketApi` fails with `MembershipApiError`, which `membershipOutcome` treats as "no answer". |
 | `EnrollmentNotifier`, `OfferExpiryScheduler`, `ClaimTokens` | Notifications, the per-offer expiry timer, and 48-byte URL-safe claim tokens. |
 
-Locking follows plan 021 (`plans/021-enrollment-row-locking.md`). Every
-seat-deciding transaction takes, in this order: (1) the session row
-(`lockSessionRow`), (2) the user rows of everyone whose seat it decides plus
-each person's slot owner (the sponsoring manager of a companion), in one
-statement ordered by id (`lockSeatHolders`, or `lockOfferHolders` for a party
-named by its offered rows), and only then reads the state it checks
-(conflicts, allowance, capacity) and writes. `submitEnrollments` reruns the
-allowance check under those locks; `PromotionStore.lockAndReadState` takes the
-session row, reads the waiters, locks them and their owners, then computes
-conflicts and slots; claim, decline and expiry lock the session of the offer
-first and re-read the party under it. On Postgres the two lock calls are
-`SELECT … FOR UPDATE` (`of=("self",)`); on SQLite they are plain reads,
-because `@effect/sql-sqlite-node` opens every write transaction with
-`BEGIN IMMEDIATE` (verified in its `SqliteClient.ts`: `beginTransaction:
-"BEGIN IMMEDIATE"` for writable clients, one connection behind a
-`Semaphore(1)`, five-second busy timeout), so writers are already serialised.
+Locking follows plan 021 (`plans/021-enrollment-row-locking.md`). Every seat-deciding transaction takes, in this order: (1) the session row (`lockSessionRow`), (2) the user rows of everyone whose seat it decides plus each person's slot owner (the sponsoring manager of a companion), in one statement ordered by id (`lockSeatHolders`, or `lockOfferHolders` for a party named by its offered rows), and only then reads the state it checks (conflicts, allowance, capacity) and writes. `submitEnrollments` reruns the allowance check under those locks; `PromotionStore.lockAndReadState` takes the session row, reads the waiters, locks them and their owners, then computes conflicts and slots; claim, decline and expiry lock the session of the offer first and re-read the party under it. On Postgres the two lock calls are `SELECT … FOR UPDATE` (`of=("self",)`); on SQLite they are plain reads, because `@effect/sql-sqlite-node` opens every write transaction with `BEGIN IMMEDIATE` (verified in its `SqliteClient.ts`: `beginTransaction: "BEGIN IMMEDIATE"` for writable clients, one connection behind a `Semaphore(1)`, five-second busy timeout), so writers are already serialised.
 
-Plan 021 also changed two rules, ahead of the same change in the Python:
-`conflictedUserIds` counts OCCUPYING rows (confirmed and offered), and the
-overlap predicate is `other.start < end && other.end > start` (`overlapsWith`
-too). The two findings this fixed (offered seat, wholly containing session)
-are now plain regression tests in `test/findings.test.ts`; the store SQL in
-`packages/database` uses the same predicate. A claim rechecks conflicts per
-member (`decideClaimRechecked`): a conflicting member's row is dropped, the
-claim answers `reason: "conflict"`, and the freed seat is refilled after
-commit. The two race findings stay `it.fails` at the pure level; they are
-fixed by the lock order, which only Postgres exercises.
+Plan 021 also changed two rules, ahead of the same change in the Python: `conflictedUserIds` counts OCCUPYING rows (confirmed and offered), and the overlap predicate is `other.start < end && other.end > start` (`overlapsWith` too). The two findings this fixed (offered seat, wholly containing session) are now plain regression tests in `test/findings.test.ts`; the store SQL in `packages/database` uses the same predicate. A claim rechecks conflicts per member (`decideClaimRechecked`): a conflicting member's row is dropped, the claim answers `reason: "conflict"`, and the freed seat is refilled after commit. The two race findings stay `it.fails` at the pure level; they are fixed by the lock order, which only Postgres exercises.
 
 ## Capabilities (`*-capability.ts`, registered as `enrollmentCapabilities`)
 
@@ -179,64 +119,41 @@ fixed by the lock order, which only Postgres exercises.
 | `expireOffers` | mutation, idempotent, anonymousSafe | anyone (MCP has no user); only lapsed offers of the current sphere | same |
 | `toggleBookmark` | mutation | signed-in viewer | `BookmarkStore`, `StoreTransaction` |
 
-A session id from another sphere is `NotFound` before any write
-(`EnrollmentStore.readSessionContext` filters on `event.sphere_id`). Each
-handler loads the state, calls the pure decision (`processEnrollments`,
-`desiredStateRequests`, `planFillFreedSeats`, `decideClaimRechecked`, …),
-applies its writes inside `EnrollmentTransaction.atomic`, then runs the
-post-commit effects (expiry scheduling, refill after a cancel, party-member
-notifications). Ports implemented in `packages/database`:
-`enrollment-store.ts`, `promotion-store.ts`, `enrollment-services.ts`
-(transaction, claim tokens, the expiry scheduler that logs the deadline the
-row already stores, and the "no ticketing integration" `TicketApi`, which
-fails every lookup with `MembershipApiError` exactly like Python's
-`_NoTicketApi`), `enrollment-notifier.ts` (writes Django's `notification`
-rows with the same kinds, titles, bodies, absolute URLs and Python-JSON
-payloads, in Polish, the default locale; mail goes to the `MailOutbox`
-reference, which logs by default and writes Django file-backend messages
-when `EMAIL_FILE_PATH` or `EMAIL_URL=filemail:///…` is set). The real HTTP
-ticketing client is out of scope. `MembershipStore` was dropped from the
-ports: `EnrollmentConfigStore` already holds those rows.
-`EnrollmentWindowStore` (panel window CRUD) is not implemented here.
+A session id from another sphere is `NotFound` before any write (`EnrollmentStore.readSessionContext` filters on `event.sphere_id`). Each handler loads the state, calls the pure decision (`processEnrollments`, `desiredStateRequests`, `planFillFreedSeats`, `decideClaimRechecked`, …), applies its writes inside `EnrollmentTransaction.atomic`, then runs the post-commit effects (expiry scheduling, refill after a cancel, party-member notifications). Ports implemented in `packages/database`: `enrollment-store.ts`, `promotion-store.ts`, `enrollment-services.ts` (transaction, claim tokens, the expiry scheduler that logs the deadline the row already stores, and the "no ticketing integration" `TicketApi`, which fails every lookup with `MembershipApiError` exactly like Python's `_NoTicketApi`), `enrollment-notifier.ts` (writes Django's `notification` rows with the same kinds, titles, bodies, absolute URLs and Python-JSON payloads, in Polish, the default locale; mail goes to the `MailOutbox` reference, which logs by default and writes Django file-backend messages when `EMAIL_FILE_PATH` or `EMAIL_URL=filemail:///…` is set). The real HTTP ticketing client is out of scope. `MembershipStore` was dropped from the ports: `EnrollmentConfigStore` already holds those rows. `EnrollmentWindowStore` (panel window CRUD) is not implemented here.
 
 ## Differential fixtures
 
-`experiment/evals/differential/export_cases.py` (repo venv, `.env.e2e`,
-`PYTHONPATH=src`, Hypothesis seed `20261030`) drives the real Python: pure
-functions directly, the promotion service and the enroll view through their
-real methods with in-memory fakes for the ORM, the clock and tokens. Rerunning
-it reproduces the JSON byte for byte.
+`experiment/evals/differential/export_cases.py` (repo venv, `.env.e2e`, `PYTHONPATH=src`, Hypothesis seed `20261030`) drives the real Python: pure functions directly, the promotion service and the enroll view through their real methods with in-memory fakes for the ORM, the clock and tokens. Rerunning it reproduces the JSON byte for byte.
 
-| Fixture | Cases |
-| --- | --- |
-| `select_promotable_parties` | 354 |
-| `fill_freed_seats` | 364 |
-| `offer_resolution` | 150 |
-| `distinct_recipients` | 300 |
-| `is_valid_window_period` | 300 |
-| `enrollment_policy` | 286 |
-| `viewer_access` | 277 |
-| `window_eligibility` | 293 |
-| `membership_lookup` | 157 |
-| `process_enrollments` | 389 |
-| `desired_state_requests` | 272 |
-| `durations` | 489 |
-| `field_requirements` | 300 |
-| `field_validation` | 398 |
-| `field_answers` | 289 |
-| `carried_answers` | 55 |
-| `unique_slug` | 286 |
-| `proposal_slug` | 397 |
-| `client_ip` | 383 |
-| `details_form` | 325 |
-| `personal_form` | 398 |
-| `day_turnover` | 289 |
-| `slot_windows_by_local_date` | 299 |
+| Fixture                      | Cases |
+| ---------------------------- | ----- |
+| `select_promotable_parties`  | 354   |
+| `fill_freed_seats`           | 364   |
+| `offer_resolution`           | 150   |
+| `distinct_recipients`        | 300   |
+| `is_valid_window_period`     | 300   |
+| `enrollment_policy`          | 286   |
+| `viewer_access`              | 277   |
+| `window_eligibility`         | 293   |
+| `membership_lookup`          | 157   |
+| `process_enrollments`        | 389   |
+| `desired_state_requests`     | 272   |
+| `durations`                  | 489   |
+| `field_requirements`         | 300   |
+| `field_validation`           | 398   |
+| `field_answers`              | 289   |
+| `carried_answers`            | 55    |
+| `unique_slug`                | 286   |
+| `proposal_slug`              | 397   |
+| `client_ip`                  | 383   |
+| `details_form`               | 325   |
+| `personal_form`              | 398   |
+| `day_turnover`               | 289   |
+| `slot_windows_by_local_date` | 299   |
 
 ## Planted bugs
 
-Each bug was planted in the port and the suite run once; every one turned at
-least one test red (tests listed are the ones that failed).
+Each bug was planted in the port and the suite run once; every one turned at least one test red (tests listed are the ones that failed).
 
 | Planted bug | Caught by |
 | --- | --- |

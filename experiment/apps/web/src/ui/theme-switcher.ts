@@ -9,10 +9,10 @@ export type ThemeChoice = typeof ThemeChoice.Type;
 
 export const themeStorageKey = "theme";
 
-export const themeColors: Readonly<{ dark: string; light: string }> = {
+export const themeColors = {
   dark: "#171717",
   light: "#fdfcfb",
-};
+} as const;
 
 const positions: Readonly<Record<ThemeChoice, number>> = {
   dark: 2,
@@ -62,17 +62,14 @@ export const themeSwitcher = <Message>(
         [h.Class("sr-only")],
         [options.translator.t("Select a display theme:")]
       ),
-      h.span(
-        [
-          h.Class(
-            "theme-indicator absolute w-8 h-8 rounded-md transition-transform duration-200 ease-out bg-bg-secondary shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
-          ),
-          h.Style({
-            transform: `translateX(${positions[options.current] * 34}px)`,
-          }),
-        ],
-        []
-      ),
+      h.span([
+        h.Class(
+          "theme-indicator absolute w-8 h-8 rounded-md transition-transform duration-200 ease-out bg-bg-secondary shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+        ),
+        h.Style({
+          transform: `translateX(${positions[options.current] * 34}px)`,
+        }),
+      ]),
       ...ThemeChoice.literals.map((theme) =>
         h.span(
           [h.Key(theme), h.Class("relative h-full z-10")],

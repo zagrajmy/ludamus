@@ -28,11 +28,14 @@ export const enrollmentActionsFor = (options: {
   readonly slug: string;
   readonly takesEnrollment: boolean;
   readonly canEnrollNow: boolean;
-}): EnrollmentActions =>
-  options.signedIn
-    ? EnrollmentActions.Loading({ sessionId: options.sessionId })
-    : options.takesEnrollment && options.canEnrollNow
-      ? EnrollmentActions.SignInToEnroll({
-          href: `${options.loginUrl}?next=/event/${options.slug}/%3Fsession%3D${options.sessionId}`,
-        })
-      : EnrollmentActions.NotAvailable();
+}): EnrollmentActions => {
+  if (options.signedIn) {
+    return EnrollmentActions.Loading({ sessionId: options.sessionId });
+  }
+
+  return options.takesEnrollment && options.canEnrollNow
+    ? EnrollmentActions.SignInToEnroll({
+        href: `${options.loginUrl}?next=/event/${options.slug}/%3Fsession%3D${options.sessionId}`,
+      })
+    : EnrollmentActions.NotAvailable();
+};

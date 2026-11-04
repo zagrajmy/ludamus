@@ -2,7 +2,6 @@ import { Result } from "effect";
 
 import { DurationDigitError } from "./duration-digit-error.js";
 import { InvalidDurationError } from "./invalid-duration-error.js";
-
 import {
   PY_DECIMAL_CLASS,
   PY_SPACE_CLASS,

@@ -1,5 +1,5 @@
 import { readFileSync, statSync, globSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
 
 export type CodeArea = Readonly<{
   label: string;
@@ -7,17 +7,15 @@ export type CodeArea = Readonly<{
   new: readonly string[];
 }>;
 
-const repoRoot = resolve(import.meta.dirname, "../../..");
+const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
-const countLines = (
-  patterns: readonly string[]
-): { files: number; lines: number } => {
+const countLines = (patterns: readonly string[]) => {
   let files = 0;
   let lines = 0;
 
   for (const pattern of patterns) {
-    for (const path of globSync(pattern, { cwd: repoRoot })) {
-      const absolute = resolve(repoRoot, path);
+    for (const match of globSync(pattern, { cwd: repoRoot })) {
+      const absolute = path.resolve(repoRoot, match);
 
       if (!statSync(absolute).isFile()) {
         continue;

@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 
+import { Schema } from "effect";
+
 export type LighthouseScores = Readonly<{
   performance: number | null;
   accessibility: number | null;
@@ -7,6 +9,17 @@ export type LighthouseScores = Readonly<{
   seo: number | null;
   error?: string;
 }>;
+
+const LighthouseReport = Schema.fromJsonString(
+  Schema.Struct({
+    categories: Schema.optional(
+      Schema.Record(
+        Schema.String,
+        Schema.Struct({ score: Schema.optional(Schema.NullOr(Schema.Number)) })
+      )
+    ),
+  })
+);
 
 export const runLighthouse = (
   url: string,
@@ -51,12 +64,14 @@ export const runLighthouse = (
   }
 
   try {
-    const report = JSON.parse(result.stdout);
+    const report = Schema.decodeUnknownSync(LighthouseReport)(result.stdout);
 
     const score = (key: string): number | null => {
       const value = report.categories?.[key]?.score;
 
-      return typeof value === "number" ? Math.round(value * 100) : null;
+      return value === undefined || value === null
+        ? null
+        : Math.round(value * 100);
     };
 
     return {

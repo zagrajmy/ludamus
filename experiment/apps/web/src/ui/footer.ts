@@ -1,6 +1,7 @@
 import type { HtmlBuilder } from "foldkit/html";
 
 import type { Translator } from "./i18n.js";
+import { PRIVACY_POLICY_PATH, TERMS_OF_SERVICE_PATH } from "./paths.js";
 import { linkedText } from "./rich-text.js";
 import { themeSwitcher } from "./theme-switcher.js";
 import type { ThemeChoice } from "./theme-switcher.js";
@@ -97,11 +98,11 @@ export const footer = <Message>(
                     [translator.t("Contact")]
                   ),
                   h.a(
-                    [h.Href("/privacy-policy/")],
+                    [h.Href(PRIVACY_POLICY_PATH)],
                     [translator.t("Privacy Policy")]
                   ),
                   h.a(
-                    [h.Href("/terms-of-service/")],
+                    [h.Href(TERMS_OF_SERVICE_PATH)],
                     [translator.t("Terms of Service")]
                   ),
                 ]

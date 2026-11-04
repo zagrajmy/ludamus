@@ -1,4 +1,4 @@
-import type { Html, HtmlBuilder } from "foldkit/html";
+import type { HtmlBuilder } from "foldkit/html";
 
 import type { AboutFlags } from "../../client/about/flags.js";
 import type { Child } from "../../ui/html.js";

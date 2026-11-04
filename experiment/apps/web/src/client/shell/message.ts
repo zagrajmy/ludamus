@@ -11,9 +11,9 @@ export const ShellMessage = defineMessageUnion({
   ChangedTheme: { theme: ThemeChoice },
   ChoseConsent: { choice: ConsentChoice },
   DismissedFlash: { id: Schema.String },
-  GotStoredConsent: { isAnswered: Schema.Boolean },
-  GotStoredTheme: { theme: ThemeChoice },
   StoredConsent: {},
+  SucceededReadStoredConsent: { isAnswered: Schema.Boolean },
+  SucceededReadStoredTheme: { theme: ThemeChoice },
   ToggledAccountMenu: { isOpen: Schema.Boolean },
   ToggledNotificationsMenu: { isOpen: Schema.Boolean },
 });

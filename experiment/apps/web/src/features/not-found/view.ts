@@ -7,6 +7,7 @@ import {
   questionMarkCircleOutline,
   wrenchScrewdriverOutline,
 } from "../../ui/icons.js";
+import { HOME_PATH } from "../../ui/paths.js";
 import { statusHero } from "../../ui/status.js";
 import type { PageContext } from "../page-context.js";
 import type { PageTitle } from "../shell/title.js";
@@ -18,7 +19,7 @@ export const notFoundTitle = (context: PageContext): PageTitle => ({
 
 const homeButton = <Message>(context: PageContext, h: HtmlBuilder<Message>) =>
   h.a(
-    [h.Href("/"), h.Class("btn btn-primary")],
+    [h.Href(HOME_PATH), h.Class("btn btn-primary")],
     [
       icon(homeOutline, { class: "w-5 h-5" }, h),
       context.translator.t("Go to Home"),

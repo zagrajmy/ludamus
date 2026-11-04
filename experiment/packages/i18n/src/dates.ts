@@ -367,27 +367,29 @@ interface SpecifierContext {
 }
 
 const SPECIFIERS = {
-  A: ({ local, names }) => local.hour > 11 ? names.afterNoonUpper : names.beforeNoonUpper,
+  A: ({ local, names }) =>
+    local.hour > 11 ? names.afterNoonUpper : names.beforeNoonUpper,
   D: ({ local, names }) => names.weekdaysAbbreviated[local.weekDay],
   E: ({ month, names }) => names.monthsGenitive[month],
   F: ({ month, names }) => names.months[month],
   G: ({ local }) => String(local.hour),
   H: ({ local }) => pad(local.hour),
-  I: ({ local }) => local.offsetMinutes === WARSAW_STANDARD_OFFSET_MINUTES ? "0" : "1",
-  L: ({ local }) => isLeapYear(local.year) ? "True" : "False",
+  I: ({ local }) =>
+    local.offsetMinutes === WARSAW_STANDARD_OFFSET_MINUTES ? "0" : "1",
+  L: ({ local }) => (isLeapYear(local.year) ? "True" : "False"),
   M: ({ month, names }) => names.monthsAbbreviated[month],
   N: ({ month, names }) => names.monthsAssociatedPress[month],
   O: ({ local }) => isoOffset(local, ""),
   P: ({ hourAndMinute, local, meridiem, names }) => {
-      if (local.minute === 0 && local.hour === 0) {
-        return names.midnight;
-      }
+    if (local.minute === 0 && local.hour === 0) {
+      return names.midnight;
+    }
 
-      if (local.minute === 0 && local.hour === 12) {
-        return names.noon;
-      }
+    if (local.minute === 0 && local.hour === 12) {
+      return names.noon;
+    }
 
-      return `${hourAndMinute} ${meridiem}`;
+    return `${hourAndMinute} ${meridiem}`;
   },
   S: ({ local }) => englishOrdinal(local.day),
   T: ({ local }) => zoneAbbreviation(local),
@@ -413,7 +415,9 @@ const SPECIFIERS = {
   w: ({ local }) => String(local.weekDay),
   y: ({ local }) => pad(local.year % 100),
   z: ({ local }) => String(dayOfYear(local)),
-} satisfies Readonly<Record<string, (context: SpecifierContext) => string | undefined>>;
+} satisfies Readonly<
+  Record<string, (context: SpecifierContext) => string | undefined>
+>;
 
 const isSpecifier = (character: string): character is keyof typeof SPECIFIERS =>
   Object.hasOwn(SPECIFIERS, character);
@@ -439,7 +443,13 @@ const formatSpecifier = (
     return undefined;
   }
 
-  return SPECIFIERS[specifier]({ hourAndMinute, local, meridiem, month, names });
+  return SPECIFIERS[specifier]({
+    hourAndMinute,
+    local,
+    meridiem,
+    month,
+    names,
+  });
 };
 
 const render = (locale: Locale, local: LocalDateTime, format: string) => {

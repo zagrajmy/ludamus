@@ -30,16 +30,16 @@ export const updateShell = (model: ShellModel, message: ShellMessage): Return =>
         flashes: (flashes) => flashes.filter((flash) => flash.id !== id),
       }),
     }),
-    GotStoredConsent: ({ isAnswered }) => ({
+    StoredConsent: () => ({ model }),
+    SucceededReadStoredConsent: ({ isAnswered }) => ({
       model: modifyFields(model, { isConsentAnswered: () => isAnswered }),
     }),
-    GotStoredTheme: ({ theme }) => ({
+    SucceededReadStoredTheme: ({ theme }) => ({
       model: modifyFields(model, {
         isThemeRead: () => true,
         theme: () => theme,
       }),
     }),
-    StoredConsent: () => ({ model }),
     ToggledAccountMenu: ({ isOpen }) => ({
       model: modifyFields(model, { isAccountMenuOpen: () => isOpen }),
     }),

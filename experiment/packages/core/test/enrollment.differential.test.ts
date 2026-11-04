@@ -1,14 +1,63 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Option, Predicate, Result, Schema } from "effect";
 
-import { EnrollmentRequest, EnrollmentWindowPolicy, EnrollmentWrite, ExistingParticipation, HouseholdMember, desiredStateRequests, processEnrollments } from "../src/enrollment/enroll.js";
-import { ExpiryDecision, decideClaim, decideDecline, decideExpiry, decideMembershipLookup, membershipOutcome, planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
-import { distinctRecipients, isValidWindowPeriod, selectPromotableParties } from "../src/enrollment/rules.js";
-import { EnrollmentWindowRules, Offer, PromotionState } from "../src/enrollment/schemas.js";
-import { activeWindows, allowanceWindows, canEnroll, canEnrollNow, canSeat, eligibleWindows, policyAvailableSlots, policyEffectiveParticipantsLimit, policyForActor, policyForAnonymous, policyForGuest, policyIsFull, policyMaxWaitlistSessions, policyPercentageSlots, requiresSlotAllowance, restrictsEveryone, seatingWindow, sessionEffectiveParticipantsLimit, sessionIsFull, sessionSeatsLeft, viewerAccess } from "../src/enrollment/windows.js";
-
-import type { PromotionEffects, PromotionWrite } from "../src/enrollment/promotion.js";
+import {
+  EnrollmentRequest,
+  EnrollmentWindowPolicy,
+  EnrollmentWrite,
+  ExistingParticipation,
+  HouseholdMember,
+  desiredStateRequests,
+  processEnrollments,
+} from "../src/enrollment/enroll.js";
+import {
+  ExpiryDecision,
+  decideClaim,
+  decideDecline,
+  decideExpiry,
+  decideMembershipLookup,
+  membershipOutcome,
+  planFillFreedSeats,
+  promotionEffects,
+} from "../src/enrollment/promotion.js";
+import type {
+  PromotionEffects,
+  PromotionWrite,
+} from "../src/enrollment/promotion.js";
+import {
+  distinctRecipients,
+  isValidWindowPeriod,
+  selectPromotableParties,
+} from "../src/enrollment/rules.js";
+import {
+  EnrollmentWindowRules,
+  Offer,
+  PromotionState,
+} from "../src/enrollment/schemas.js";
 import type { UserEnrollmentConfig } from "../src/enrollment/schemas.js";
+import {
+  activeWindows,
+  allowanceWindows,
+  canEnroll,
+  canEnrollNow,
+  canSeat,
+  eligibleWindows,
+  policyAvailableSlots,
+  policyEffectiveParticipantsLimit,
+  policyForActor,
+  policyForAnonymous,
+  policyForGuest,
+  policyIsFull,
+  policyMaxWaitlistSessions,
+  policyPercentageSlots,
+  requiresSlotAllowance,
+  restrictsEveryone,
+  seatingWindow,
+  sessionEffectiveParticipantsLimit,
+  sessionIsFull,
+  sessionSeatsLeft,
+  viewerAccess,
+} from "../src/enrollment/windows.js";
 import type { EnrollmentPolicy } from "../src/enrollment/windows.js";
 import desiredStateCases from "./fixtures/differential/desired_state_requests.json" with { type: "json" };
 import distinctRecipientsCases from "./fixtures/differential/distinct_recipients.json" with { type: "json" };

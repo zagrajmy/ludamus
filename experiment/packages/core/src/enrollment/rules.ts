@@ -80,8 +80,9 @@ const membershipSlotAction = (
   eligible: readonly WaitingParticipant[],
   slotsByOwner: ReadonlyMap<number, number>
 ): MembershipSlotAction => {
-  const shortfall = [...countByRecipient(eligible)].flatMap(([owner, needed]) =>
-    needed > (slotsByOwner.get(owner) ?? 0) ? [owner] : []
+  const shortfall = [...countByRecipient(eligible)].flatMap(
+    ([owner, needed]) =>
+      needed > (slotsByOwner.get(owner) ?? 0) ? [owner] : []
   );
 
   if (shortfall.length === 0) {

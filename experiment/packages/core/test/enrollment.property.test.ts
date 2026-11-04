@@ -2,10 +2,27 @@ import { describe, expect, it } from "@effect/vitest";
 import { DateTime, Predicate, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
-import { promotionGroupKey, selectPromotableParties } from "../src/enrollment/rules.js";
-import { canEnroll, policyAvailableSlots, policyEffectiveParticipantsLimit, policyForActor, policyForGuest, policyIsFull, viewerAccess } from "../src/enrollment/windows.js";
-import type { PromotionState, WaitingParticipant } from "../src/enrollment/schemas.js";
+import {
+  planFillFreedSeats,
+  promotionEffects,
+} from "../src/enrollment/promotion.js";
+import {
+  promotionGroupKey,
+  selectPromotableParties,
+} from "../src/enrollment/rules.js";
+import type {
+  PromotionState,
+  WaitingParticipant,
+} from "../src/enrollment/schemas.js";
+import {
+  canEnroll,
+  policyAvailableSlots,
+  policyEffectiveParticipantsLimit,
+  policyForActor,
+  policyForGuest,
+  policyIsFull,
+  viewerAccess,
+} from "../src/enrollment/windows.js";
 import {
   BASE,
   EPOCH,

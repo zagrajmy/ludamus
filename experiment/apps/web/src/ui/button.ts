@@ -1,4 +1,4 @@
-import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
+import type { Attribute, HtmlBuilder } from "foldkit/html";
 
 import { cx } from "./cx.js";
 import type { Child } from "./html.js";

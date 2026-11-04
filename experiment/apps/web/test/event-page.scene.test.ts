@@ -32,11 +32,13 @@ describe("event page", () => {
       config,
       given(eventPage()),
       expect(role("heading", { level: 1, name: "Spring Meet" })).toExist(),
-      expect(role("link", { name: "Open details for Strategy Lab" })).toHaveAttr(
-        "href",
-        "?session=1"
-      ),
-      expect(selector('[data-session-id="2"]')).toHaveAttr("data-takes-enrollment", "false")
+      expect(
+        role("link", { name: "Open details for Strategy Lab" })
+      ).toHaveAttr("href", "?session=1"),
+      expect(selector('[data-session-id="2"]')).toHaveAttr(
+        "data-takes-enrollment",
+        "false"
+      )
     );
   });
 

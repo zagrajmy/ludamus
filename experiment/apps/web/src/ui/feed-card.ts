@@ -19,6 +19,7 @@ import {
   squares2x2Outline,
   usersOutline,
 } from "./icons.js";
+import { eventPath } from "./paths.js";
 
 export const FeedEventCard = Schema.Struct({
   coverUrl: Schema.String,
@@ -67,6 +68,12 @@ export type FeedItem = typeof FeedItem.Type;
 
 export type FeedTagTone = "quiet" | "secondary" | "state";
 
+const FEED_TAG_TONE_CLASS = {
+  quiet: "text-foreground-muted",
+  secondary: "text-foreground-secondary",
+  state: "text-coral-700 dark:text-coral-300",
+} satisfies Readonly<Record<FeedTagTone, string>>;
+
 export const feedTag = <Message>(
   options: Readonly<{
     icon?: IconData;
@@ -82,11 +89,7 @@ export const feedTag = <Message>(
         cx(
           "inline-flex min-h-3.5 items-center gap-[5px] whitespace-nowrap text-[13px] font-medium",
           options.truncate === true ? "min-w-0 shrink" : "shrink-0",
-          options.tone === "state"
-            ? "text-coral-700 dark:text-coral-300"
-            : options.tone === "quiet"
-              ? "text-foreground-muted"
-              : "text-foreground-secondary"
+          FEED_TAG_TONE_CLASS[options.tone ?? "secondary"]
         )
       ),
     ],
@@ -121,6 +124,33 @@ const tagRow = <Message>(tags: readonly Html[], h: HtmlBuilder<Message>) =>
 const footerRow =
   "border-t border-neutral-200/50 pt-3 text-sm text-foreground-secondary dark:border-neutral-700/50";
 
+const hiddenEventTag = <Message>(
+  options: Readonly<{ card: FeedEventCard; translator: Translator }>,
+  h: HtmlBuilder<Message>
+) => {
+  const { card, translator } = options;
+
+  if (card.isLinkOnly) {
+    return feedTag(
+      { icon: linkOutline, label: translator.t("Link only"), tone: "quiet" },
+      h
+    );
+  }
+
+  if (card.isUnpublished) {
+    return feedTag(
+      {
+        icon: eyeSlashOutline,
+        label: translator.t("Unpublished"),
+        tone: "quiet",
+      },
+      h
+    );
+  }
+
+  return h.empty;
+};
+
 export const eventCard = <Message>(
   options: Readonly<{
     card: FeedEventCard;
@@ -131,32 +161,12 @@ export const eventCard = <Message>(
 ) => {
   const { card, translator } = options;
 
-  const hiddenTag = options.showHidden
-    ? card.isLinkOnly
-      ? feedTag(
-          {
-            icon: linkOutline,
-            label: translator.t("Link only"),
-            tone: "quiet",
-          },
-          h
-        )
-      : card.isUnpublished
-        ? feedTag(
-            {
-              icon: eyeSlashOutline,
-              label: translator.t("Unpublished"),
-              tone: "quiet",
-            },
-            h
-          )
-        : h.empty
-    : h.empty;
+  const hiddenTag = options.showHidden ? hiddenEventTag(options, h) : h.empty;
 
   return h.a(
     [
       h.Key(`event-${card.slug}`),
-      h.Href(`/event/${card.slug}/`),
+      h.Href(eventPath(card.slug)),
       h.Class(
         cx(
           cardFrame,

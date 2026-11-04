@@ -34,10 +34,7 @@ rat-stack's [AGENTS.md](https://ratstack.sh/AGENTS.md) is the law this experimen
 | Strings shown to people go through `t` | `apps/web/src/features/app.ts` ("Log in", "Events", "Not found") | Use `@zagrajmy/i18n` once it lands. |
 | Parse values at the boundary with Schema; no `as` | `evals/benchmarks/pageweight.ts`, `auth.ts`, `report.ts` use `JSON.parse` and `as` | Decode with Schema; benchmark scripts are covered by the root `tsconfig.json` and lint. |
 
-| Config is a supplied, validated dependency (`AppConfig`)             | `apps/web/src/server/request-context.ts` reads `Config.Int("SITE_ID")` directly                               | Move `SITE_ID` into `AppConfig` and take it from there.                                                            |
-| Name the system of record; no duplicate stores for one fact           | `packages/database/src/{feed,shell,landing}-store.ts` overlap `EventStore.listForFeed`, `EncounterStore`, `AnnouncementStore` | Consolidate the feed, shell and landing loaders onto the noun stores; delete the three page-shaped stores.         |
-| The fence: `eslint(no-redeclare)` rejects a schema and its type sharing a name | 166 sites across core, database, web use `export const X = Schema…; export type X = typeof X.Type`          | Owner decision: rename schemas the way rat-stack does (`XSchema` + `type X`) or scope the rule off for TS files. Renaming conforms; the rule has no declaration-merge option. |
-| Remaining targeted lint rules after the mechanical pass               | ~250 findings: `no-unsafe-*` (41/29/27), `prefer-named-capture-group` (29), `require-unicode-regexp` (18), Foldkit route-string and submodel-payload rules, `no-manual-tag-comparison` | Fix per area in the wave-2 lint pass; keep the counts in this row current.                                          |
+| Config is a supplied, validated dependency (`AppConfig`) | `apps/web/src/server/request-context.ts` reads `Config.Int("SITE_ID")` directly | Move `SITE_ID` into `AppConfig` and take it from there. | | Name the system of record; no duplicate stores for one fact | `packages/database/src/{feed,shell,landing}-store.ts` overlap `EventStore.listForFeed`, `EncounterStore`, `AnnouncementStore` | Consolidate the feed, shell and landing loaders onto the noun stores; delete the three page-shaped stores. | | The fence: `eslint(no-redeclare)` rejects a schema and its type sharing a name | 166 sites across core, database, web use `export const X = Schema…; export type X = typeof X.Type` | Owner decision: rename schemas the way rat-stack does (`XSchema` + `type X`) or scope the rule off for TS files. Renaming conforms; the rule has no declaration-merge option. | | Remaining targeted lint rules after the mechanical pass | ~250 findings: `no-unsafe-*` (41/29/27), `prefer-named-capture-group` (29), `require-unicode-regexp` (18), Foldkit route-string and submodel-payload rules, `no-manual-tag-comparison` | Fix per area in the wave-2 lint pass; keep the counts in this row current. |
 
 ## Rules the Django app breaks (would apply to any product)
 
@@ -55,8 +52,7 @@ Observed while porting; not changed here.
 
 ## Django bugs found here → offshoot PRs
 
-Every defect in the Django app that this work uncovers gets its own small PR
-against `main`, test first, reviewed with torment-nexus and merged on green.
+Every defect in the Django app that this work uncovers gets its own small PR against `main`, test first, reviewed with torment-nexus and merged on green.
 
 | Bug | Found by | Offshoot PR |
 | --- | --- | --- |
@@ -65,4 +61,3 @@ against `main`, test first, reviewed with torment-nexus and merged on green.
 | Promotion charges a pass for a waiter already seated in the event (documented open finding, reproduced by the port as an expected failure) | VERIFICATION.md open finding; `enrollment/` port | merged: #1644 |
 | Offered/held seat passes the conflict check; two enrolls double-book; allowance race (documented open findings) | VERIFICATION.md; `enrollment/README.md` | in progress: plan 021 (`plans/021-enrollment-row-locking.md`), branch `fix/enrollment-row-locking` |
 | `audit-deps` red on `main`: pyasn1 0.6.4 and follow-redirects 1.16.1 advisories | CI of the fix PRs | merged: #1645 |
-

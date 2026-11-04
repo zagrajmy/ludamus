@@ -8,20 +8,17 @@ export const coverTint = <Message>(
   options: Readonly<{ extraClass?: string; url: string }>,
   h: HtmlBuilder<Message>
 ) =>
-  h.div(
-    [
-      h.Class(
-        cx(
-          "mx-1 mt-1 rounded-xl bg-cover bg-center [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]",
-          options.extraClass
-        )
-      ),
-      h.Style({
-        "background-image": `linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('${options.url.replaceAll("'", "%27")}')`,
-      }),
-    ],
-    []
-  );
+  h.div([
+    h.Class(
+      cx(
+        "mx-1 mt-1 rounded-xl bg-cover bg-center [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]",
+        options.extraClass
+      )
+    ),
+    h.Style({
+      "background-image": `linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('${options.url.replaceAll("'", "%27")}')`,
+    }),
+  ]);
 
 export const coverStrip = <Message>(
   options: Readonly<{ extraClass?: string; url: string }>,

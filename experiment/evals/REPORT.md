@@ -17,7 +17,6 @@ _No differential summary yet (`differential.json` missing)._
 Non-blank lines. The whole-application row compares a complete product with a slice and is there for scale only; the per-page rows compare like with like.
 
 | Area | old files | old lines | new files | new lines | ratio |
-| --- | ---: | ---: | ---: | ---: | ---: |
+| --- | --: | --: | --: | --: | --: |
 | whole application (all source, templates, client; tests excluded) | 1034 | 104987 | 46 | 3277 | 0.03× |
 | events feed page | 7 | 311 | 0 | 0 | 0.00× |
-

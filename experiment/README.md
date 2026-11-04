@@ -1,7 +1,6 @@
 # experiment/ — Zagrajmy on rat-stack + Foldkit
 
-A rewrite experiment. The plan, decisions, layer map and conventions are in
-[PLAN.md](PLAN.md); the measurements in [evals/REPORT.md](evals/REPORT.md).
+A rewrite experiment. The plan, decisions, layer map and conventions are in [PLAN.md](PLAN.md); the measurements in [evals/REPORT.md](evals/REPORT.md).
 
 ```text
 apps/
@@ -17,5 +16,4 @@ packages/
 evals/        benchmark harness and results
 ```
 
-Run it: see "Running" in PLAN.md. Everything is driven from the repo root's
-`mise run experiment:*` tasks.
+Run it: see "Running" in PLAN.md. Everything is driven from the repo root's `mise run experiment:*` tasks.

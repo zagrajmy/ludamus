@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import type { Translator } from "../../ui/i18n.js";
@@ -75,7 +75,7 @@ export const STATUS_VALUES = [
   "my-bookmarked",
 ] as const;
 
-const NON_DECOMPOSING: Readonly<Record<string, string>> = {
+const NON_DECOMPOSING = {
   ß: "ss",
   æ: "ae",
   ø: "o",
@@ -86,10 +86,15 @@ const NON_DECOMPOSING: Readonly<Record<string, string>> = {
   œ: "oe",
 };
 
+const isNonDecomposing = (char: string): char is keyof typeof NON_DECOMPOSING =>
+  Object.hasOwn(NON_DECOMPOSING, char);
+
 export const normalizeText = (value: string) =>
   value
     .toLowerCase()
-    .replaceAll(/[łøđħıœæß]/gu, (char) => NON_DECOMPOSING[char] ?? char)
+    .replaceAll(/[łøđħıœæß]/gu, (char) =>
+      isNonDecomposing(char) ? NON_DECOMPOSING[char] : char
+    )
     .normalize("NFD")
     .replaceAll(/[̀-ͯ]/gu, "");
 
@@ -105,28 +110,24 @@ export const parseAge = (raw: string) => {
     : Option.none<number>();
 };
 
+const decodeJsonList = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Array(Schema.Unknown))
+);
+
 const parseList = (raw: string | null): readonly string[] => {
   if (raw === null || raw === "") {
     return [];
   }
 
-  const decoded = Option.getOrUndefined(
-    Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown))(raw)
-  );
+  const decoded = decodeJsonList(raw);
 
-  if (decoded === undefined) {
-    return [raw];
-  }
-
-  if (!Array.isArray(decoded)) {
+  if (Option.isNone(decoded)) {
     return [raw];
   }
 
   return [
     ...new Set(
-      decoded.flatMap((value: unknown) =>
-        typeof value === "string" && value !== "" ? [value] : []
-      )
+      decoded.value.filter(Predicate.isString).filter((value) => value !== "")
     ),
   ];
 };
@@ -381,18 +382,18 @@ export type FilterChip = typeof FilterChip.Type;
 export type LabelledChip = Readonly<{ chip: FilterChip; label: string }>;
 
 export const statusLabel = (value: string, translator: Translator) => {
-  const labels: Readonly<Record<string, string>> = {
-    available: translator.t("Available spots"),
-    ended: translator.t("Ended"),
-    full: translator.t("Full"),
-    "in-progress": translator.t("In progress"),
-    "my-bookmarked": translator.t("Bookmarked"),
-    "my-enrolled": translator.t("I am enrolled"),
-    "my-waiting": translator.t("I am waiting"),
-    unavailable: translator.t("Enrollment unavailable"),
-  };
+  const labels = new Map([
+    ["available", translator.t("Available spots")],
+    ["ended", translator.t("Ended")],
+    ["full", translator.t("Full")],
+    ["in-progress", translator.t("In progress")],
+    ["my-bookmarked", translator.t("Bookmarked")],
+    ["my-enrolled", translator.t("I am enrolled")],
+    ["my-waiting", translator.t("I am waiting")],
+    ["unavailable", translator.t("Enrollment unavailable")],
+  ]);
 
-  return labels[value] ?? value;
+  return labels.get(value) ?? value;
 };
 
 export const comboboxValues = (filters: FilterState, id: ComboboxId) =>

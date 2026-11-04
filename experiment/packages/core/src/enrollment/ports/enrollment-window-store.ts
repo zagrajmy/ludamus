@@ -1,5 +1,6 @@
 import { Context } from "effect";
 import type { Effect, Option } from "effect";
+
 import type { EnrollmentStoreError } from "../errors.js";
 import type { EnrollmentWindow, EnrollmentWindowData } from "../schemas.js";
 

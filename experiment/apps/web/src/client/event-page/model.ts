@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { EnrollmentActions, enrollmentActionsFor } from "./enrollment-slot.js";
@@ -32,7 +32,6 @@ export type LoadedRoster = typeof LoadedRoster.Type;
 export const EventPageModel = Schema.Struct({
   ...EventPageFlags.fields,
   combobox: Schema.Option(OpenCombobox),
-  shownSession: Schema.Option(Schema.Int),
   enrollment: EnrollmentActions,
   filters: FilterState,
   foldedDays: Schema.Array(Schema.String),
@@ -41,6 +40,7 @@ export const EventPageModel = Schema.Struct({
   isPanelOpen: Schema.Boolean,
   openSession: Schema.Option(Schema.Int),
   rosters: Schema.Array(LoadedRoster),
+  shownSession: Schema.Option(Schema.Int),
 });
 
 export type EventPageModel = typeof EventPageModel.Type;
@@ -63,7 +63,7 @@ export const viewParam = (options: {
     : "list";
 
 export const showsBookmarked = (flags: EventPageFlags) =>
-  flags.signedIn && flags.layout._tag === "Compact";
+  flags.signedIn && Predicate.isTagged(flags.layout, "Compact");
 
 const scheduledIds = (flags: EventPageFlags) =>
   new Set(flags.sessions.map((session) => session.id));
@@ -72,8 +72,8 @@ export const openableSession = (flags: EventPageFlags, search: string) =>
   Option.filter(sessionParam(search), (id) => scheduledIds(flags).has(id));
 
 export const finishedDays = (flags: EventPageFlags) => {
-  if (flags.layout._tag === "Cards") {
-    const days = flags.layout.days;
+  if (Predicate.isTagged(flags.layout, "Cards")) {
+    const { days } = flags.layout;
 
     if (days.length < 2) {
       return [];
@@ -99,7 +99,7 @@ export const finishedDays = (flags: EventPageFlags) => {
       : days.filter((day) => !open.includes(day)).map((day) => day.day.date);
   }
 
-  const days = flags.layout.days;
+  const { days } = flags.layout;
 
   if (days.length < 2 || days.every((day) => day.endsAt <= flags.now)) {
     return [];
@@ -135,7 +135,6 @@ export const initEventPage = (flags: EventPageFlags): EventPageModel => {
           ),
         }),
     }),
-    shownSession: openSession,
     filters: parseFilters({
       choices: flags.choices,
       search: flags.query,
@@ -147,5 +146,6 @@ export const initEventPage = (flags: EventPageFlags): EventPageModel => {
     isPanelOpen: false,
     openSession,
     rosters: [],
+    shownSession: openSession,
   };
 };

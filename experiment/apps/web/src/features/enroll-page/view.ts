@@ -366,7 +366,9 @@ const personRow = (
             {
               attributes: [
                 h.AriaLabelledBy(`${includeId} ${nameId}`),
-                h.OnClick(EnrollPageMessage.ToggledPerson({ userId: row.userId })),
+                h.OnClick(
+                  EnrollPageMessage.ToggledPerson({ userId: row.userId })
+                ),
               ],
               checked,
               disabled: row.disabled,

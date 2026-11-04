@@ -1,3 +1,4 @@
+// oxlint-disable-next-line unicorn/prefer-export-from -- this module also uses Dialog, and `export * as Dialog from` trips oxc/no-barrel-file on the whole package
 import * as Dialog from "@foldkit/ui/dialog";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
@@ -28,7 +29,7 @@ const frame = <Message>(
     content: (render: Dialog.RenderInfo) => readonly Child[];
     hasDescription?: boolean;
     model: Dialog.Model;
-    panelClass?: string;
+    panelClass?: string | undefined;
     role?: "alertdialog" | "dialog";
     toParentMessage: (message: Dialog.Message) => Message;
   }>,
@@ -46,13 +47,10 @@ const frame = <Message>(
           [...render.dialog, h.Role(options.role ?? "dialog")],
           render.isVisible
             ? [
-                h.div(
-                  [
-                    ...render.backdrop,
-                    h.Class("fixed inset-0 bg-black/40 backdrop-blur-[4px]"),
-                  ],
-                  []
-                ),
+                h.div([
+                  ...render.backdrop,
+                  h.Class("fixed inset-0 bg-black/40 backdrop-blur-[4px]"),
+                ]),
                 h.div(
                   [
                     h.Class(
@@ -133,9 +131,7 @@ export const modal = <Message>(
             ),
       ],
       model: options.model,
-      ...(options.panelClass === undefined
-        ? {}
-        : { panelClass: options.panelClass }),
+      panelClass: options.panelClass,
       toParentMessage: options.toParentMessage,
     },
     h

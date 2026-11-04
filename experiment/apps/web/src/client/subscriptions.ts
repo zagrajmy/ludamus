@@ -1,6 +1,7 @@
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Predicate, Schema, Stream } from "effect";
 import { Subscription } from "foldkit";
 
+import type { EventPageMessage } from "./event-page/message.js";
 import {
   clockTicks,
   escapePresses,
@@ -9,7 +10,6 @@ import {
   outsideFilterClicks,
   scrollerWidthSync,
 } from "./event-page/subscriptions.js";
-import type { EventPageMessage } from "./event-page/message.js";
 import { Message } from "./message.js";
 import type { Model } from "./model.js";
 import { colorSchemeChanges } from "./shell/subscriptions.js";
@@ -17,18 +17,24 @@ import { colorSchemeChanges } from "./shell/subscriptions.js";
 const toEventPage = (message: EventPageMessage) =>
   Message.GotEventPageMessage({ message });
 
-const whileOnEventPage = (stream: Stream.Stream<EventPageMessage>) =>
-  (({ isEventPage }: { readonly isEventPage: boolean }) =>
+const whileOnEventPage =
+  (stream: Stream.Stream<EventPageMessage>) =>
+  ({ isEventPage }: { readonly isEventPage: boolean }) =>
     Stream.when(
       stream.pipe(Stream.map(toEventPage)),
       Effect.sync(() => isEventPage)
-    ));
+    );
 
 const eventPageDependencies = (model: Model) => ({
-  isEventPage: model.page._tag === "EventPage",
+  isEventPage: Predicate.isTagged(model.page, "EventPage"),
 });
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
+  colorScheme: Subscription.persistentEntry(
+    colorSchemeChanges.pipe(
+      Stream.map((message) => Message.GotShellMessage({ message }))
+    )
+  ),
   eventPageClock: entry(
     { isEventPage: Schema.Boolean },
     {
@@ -60,7 +66,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
         ),
       modelToDependencies: (model: Model) => ({
         isPanelOpen:
-          model.page._tag === "EventPage" &&
+          Predicate.isTagged(model.page, "EventPage") &&
           model.page.model.isPanelOpen &&
           !model.page.model.isNarrow,
       }),
@@ -79,10 +85,5 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
       dependenciesToStream: whileOnEventPage(narrowViewportChanges),
       modelToDependencies: eventPageDependencies,
     }
-  ),
-  colorScheme: Subscription.persistentEntry(
-    colorSchemeChanges.pipe(
-      Stream.map((message) => Message.GotShellMessage({ message }))
-    )
   ),
 }));

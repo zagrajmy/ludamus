@@ -596,7 +596,7 @@ export const updateEventPage = (
       commands: [FocusElement({ selector })],
       model,
     }),
-    GotBootClock: ({ now }) => ({
+    SucceededReadBootClock: ({ now }) => ({
       model: {
         ...model,
         foldedDays: finishedDays({ ...model, now }),

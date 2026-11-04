@@ -1,5 +1,5 @@
-import { MembershipApiError } from "@zagrajmy/core/enrollment/membership-api-error";
 import { EnrollmentStoreError } from "@zagrajmy/core/enrollment/errors";
+import { MembershipApiError } from "@zagrajmy/core/enrollment/membership-api-error";
 import { ClaimTokens } from "@zagrajmy/core/enrollment/ports/claim-tokens";
 import { EnrollmentTransaction } from "@zagrajmy/core/enrollment/ports/enrollment-transaction";
 import { OfferExpiryScheduler } from "@zagrajmy/core/enrollment/ports/offer-expiry-scheduler";

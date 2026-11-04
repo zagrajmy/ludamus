@@ -1,5 +1,6 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
+
 import type { EnrollmentStoreError } from "../errors.js";
 
 export class EnrollmentTransaction extends Context.Service<

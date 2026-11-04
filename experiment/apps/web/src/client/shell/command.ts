@@ -19,8 +19,12 @@ const readStorage = (key: string) =>
 const writeStorage = (key: string, value: Option.Option<string>) =>
   Effect.try(() => {
     Option.match(value, {
-      onNone: () => window.localStorage.removeItem(key),
-      onSome: (stored) => window.localStorage.setItem(key, stored),
+      onNone: () => {
+        window.localStorage.removeItem(key);
+      },
+      onSome: (stored) => {
+        window.localStorage.setItem(key, stored);
+      },
     });
   }).pipe(Effect.ignore);
 
@@ -29,23 +33,24 @@ const decodeTheme = Schema.decodeUnknownOption(ThemeChoice);
 export const ReadStoredTheme = Command.define("ReadStoredTheme", {
   execute: readStorage(themeStorageKey).pipe(
     Effect.map((stored) =>
-      ShellMessage.GotStoredTheme({
-        theme: Option.getOrElse(
-          Option.flatMap(stored, decodeTheme),
-          (): ThemeChoice => "system"
+      ShellMessage.SucceededReadStoredTheme({
+        theme: stored.pipe(
+          Option.flatMap(decodeTheme),
+          Option.getOrElse((): ThemeChoice => "system")
         ),
       })
     )
   ),
-  messages: [ShellMessage.GotStoredTheme],
+  messages: [ShellMessage.SucceededReadStoredTheme],
 });
 
-const resolveTheme = (theme: ThemeChoice) =>
-  theme === "system"
-    ? window.matchMedia(darkSchemeQuery).matches
-      ? "dark"
-      : "light"
-    : theme;
+const resolveTheme = (theme: ThemeChoice) => {
+  if (theme !== "system") {
+    return theme;
+  }
+
+  return window.matchMedia(darkSchemeQuery).matches ? "dark" : "light";
+};
 
 const paintTheme = (theme: ThemeChoice) =>
   Effect.sync(() => {
@@ -65,7 +70,7 @@ const paintTheme = (theme: ThemeChoice) =>
         "content",
         resolved === "dark" ? themeColors.dark : themeColors.light
       );
-    window.getComputedStyle(pause).opacity;
+    window.getComputedStyle(pause).getPropertyValue("opacity");
     pause.remove();
   });
 
@@ -90,10 +95,12 @@ export const ApplyTheme = Command.define("ApplyTheme", {
 export const ReadStoredConsent = Command.define("ReadStoredConsent", {
   execute: readStorage(consentStorageKey).pipe(
     Effect.map((stored) =>
-      ShellMessage.GotStoredConsent({ isAnswered: Option.isSome(stored) })
+      ShellMessage.SucceededReadStoredConsent({
+        isAnswered: Option.isSome(stored),
+      })
     )
   ),
-  messages: [ShellMessage.GotStoredConsent],
+  messages: [ShellMessage.SucceededReadStoredConsent],
 });
 
 export const StoreConsent = Command.define("StoreConsent", {

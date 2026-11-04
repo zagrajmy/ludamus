@@ -2,9 +2,24 @@ import { describe, expect, it } from "@effect/vitest";
 import { Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { EnrollRequestChoice, EnrollmentWrite, actorAvailableSlots, desiredStateRequests, processEnrollments } from "../src/enrollment/enroll.js";
-import { canEnroll, policyEffectiveParticipantsLimit, policyForActor } from "../src/enrollment/windows.js";
-import type { EnrollSessionState, EnrollmentBatch, EnrollmentRequest, HouseholdMember } from "../src/enrollment/enroll.js";
+import {
+  EnrollRequestChoice,
+  EnrollmentWrite,
+  actorAvailableSlots,
+  desiredStateRequests,
+  processEnrollments,
+} from "../src/enrollment/enroll.js";
+import type {
+  EnrollSessionState,
+  EnrollmentBatch,
+  EnrollmentRequest,
+  HouseholdMember,
+} from "../src/enrollment/enroll.js";
+import {
+  canEnroll,
+  policyEffectiveParticipantsLimit,
+  policyForActor,
+} from "../src/enrollment/windows.js";
 import {
   OCCUPYING_PARTICIPATION_STATUSES,
   ParticipationStatus,

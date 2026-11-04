@@ -99,7 +99,6 @@ const seatsLabel = (locale: typeof polish, count: number) =>
   });
 
 describe("n", () => {
-
   it("picks the Polish plural form by the catalog's rule", () => {
     expect(seatsLabel(polish, 1)).toBe("1 miejsce");
     expect(seatsLabel(polish, 2)).toBe("2 miejsca");

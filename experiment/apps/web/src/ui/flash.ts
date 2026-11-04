@@ -31,6 +31,14 @@ export type Flash = typeof Flash.Type;
 const isSticky = (level: FlashLevel) =>
   level === "error" || level === "warning";
 
+const levelIcon = (level: FlashLevel) => {
+  if (isSticky(level)) {
+    return exclamationTriangleOutline;
+  }
+
+  return level === "success" ? checkCircleOutline : informationCircleOutline;
+};
+
 const tone: Readonly<Record<FlashLevel, string>> = {
   error: "alert-danger",
   info: "alert-info",
@@ -75,11 +83,7 @@ export const flashMessages = <Message>(
             ],
             [
               icon(
-                isSticky(flash.level)
-                  ? exclamationTriangleOutline
-                  : flash.level === "success"
-                    ? checkCircleOutline
-                    : informationCircleOutline,
+                levelIcon(flash.level),
                 { class: "w-5 h-5 mr-3 shrink-0" },
                 h
               ),

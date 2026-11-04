@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Match, Option } from "effect";
 
 import { comboboxLabel, normalizeText } from "./filters.js";
 import type { ComboboxId, FilterState } from "./filters.js";
@@ -13,12 +13,12 @@ export const comboboxOptions = (
     return choices.spaces;
   }
 
-  const values =
-    id === "host"
-      ? choices.hosts
-      : id === "track"
-        ? choices.tracks
-        : choices.categories;
+  const values = Match.value(id).pipe(
+    Match.when("host", () => choices.hosts),
+    Match.when("track", () => choices.tracks),
+    Match.when("category", () => choices.categories),
+    Match.exhaustive
+  );
 
   return values.map((value) => ({ label: value, value }));
 };
@@ -53,7 +53,7 @@ export const selectedLabel = (options: {
 export const openFor = (
   combobox: Option.Option<OpenCombobox>,
   id: ComboboxId
-) => Option.filter(combobox, (open) => open.id === id);
+) => combobox.pipe(Option.filter((open) => open.id === id));
 
 export const comboboxInputId = (id: ComboboxId) =>
   id === "track" || id === "category"

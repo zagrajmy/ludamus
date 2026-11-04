@@ -1,10 +1,10 @@
 import { Option, Result, Schema } from "effect";
 
-import { NotEnoughSpotsError } from "./not-enough-spots-error.js";
 import {
   OCCUPYING_PARTICIPATION_STATUSES,
   ParticipationStatus,
 } from "../participation.js";
+import { NotEnoughSpotsError } from "./not-enough-spots-error.js";
 import type { EnrollmentWindowLike } from "./schemas.js";
 import { canEnroll, policyAvailableSlots, policyForActor } from "./windows.js";
 

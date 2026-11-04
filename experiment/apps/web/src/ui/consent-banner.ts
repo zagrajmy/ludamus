@@ -2,6 +2,7 @@ import type { HtmlBuilder } from "foldkit/html";
 
 import { button } from "./button.js";
 import type { Translator } from "./i18n.js";
+import { PRIVACY_POLICY_PATH } from "./paths.js";
 
 export const consentStorageKey = "prologue.consent";
 
@@ -61,7 +62,7 @@ export const consentBanner = <Message>(
                       ),
                       " ",
                       h.a(
-                        [h.Href("/privacy-policy/")],
+                        [h.Href(PRIVACY_POLICY_PATH)],
                         [translator.t("Privacy Policy")]
                       ),
                     ]

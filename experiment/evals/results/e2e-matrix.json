@@ -612,14 +612,9 @@
           "skipped": 0
         }
       },
-      "filter": [
-        "--workers=2"
-      ],
+      "filter": ["--workers=2"],
       "finishedAt": "2026-10-31T21:27:42.230Z",
-      "projects": [
-        "chromium",
-        "chromium-auth"
-      ],
+      "projects": ["chromium", "chromium-auth"],
       "reportFile": "evals/results/e2e/2026-10-31T21-16-34Z-matrix-baseline/report.json"
     },
     "new": {
@@ -666,10 +661,7 @@
         "theme-color.spec.ts"
       ],
       "finishedAt": "2026-10-30T19:57:47.972Z",
-      "projects": [
-        "chromium",
-        "chromium-auth"
-      ],
+      "projects": ["chromium", "chromium-auth"],
       "reportFile": "evals/results/e2e/2026-10-30T19-57-21Z-matrix-new/report.json"
     }
   }

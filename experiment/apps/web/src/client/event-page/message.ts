@@ -29,7 +29,6 @@ export const EventPageMessage = defineMessageUnion({
   CompletedUrlUpdate: {},
   FailedReadRoster: { sessionId: Schema.Int },
   FocusedGuard: { selector: Schema.String },
-  GotBootClock: { now: Schema.Number },
   GotEnrollmentMessage: { message: EnrollmentSlotMessage },
   HoveredOption: { id: ComboboxId, index: Schema.Int },
   PickedOption: {
@@ -43,6 +42,7 @@ export const EventPageMessage = defineMessageUnion({
     shiftKey: Schema.Boolean,
   },
   PressedEscape: {},
+  SucceededReadBootClock: { now: Schema.Number },
   SucceededReadRoster: {
     entries: Schema.Array(RosterEntry),
     sessionId: Schema.Int,

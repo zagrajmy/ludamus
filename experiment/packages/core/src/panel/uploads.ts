@@ -20,7 +20,9 @@ export const IMAGE_SUFFIXES: Readonly<Record<ImageKind, string>> = {
 const startsWith = (bytes: Uint8Array, prefix: readonly number[], offset = 0) =>
   prefix.every((byte, index) => bytes[offset + index] === byte);
 
-const ascii = (text: string): readonly number[] => [...new TextEncoder().encode(text)];
+const ascii = (text: string): readonly number[] => [
+  ...new TextEncoder().encode(text),
+];
 
 export const imageKindOf = (bytes: Uint8Array): ImageKind | null => {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {

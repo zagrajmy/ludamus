@@ -2,7 +2,11 @@ import { DateTime, Duration, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { UNLIMITED_SLOTS } from "../../src/enrollment/schemas.js";
-import type { EnrollmentWindowRules, PromotionState, WaitingParticipant } from "../../src/enrollment/schemas.js";
+import type {
+  EnrollmentWindowRules,
+  PromotionState,
+  WaitingParticipant,
+} from "../../src/enrollment/schemas.js";
 
 export const BASE = DateTime.makeUnsafe("2026-06-04T12:00:00Z");
 

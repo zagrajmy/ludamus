@@ -45,7 +45,7 @@ export const label = <Message>(
   options: Readonly<{
     asLegend?: boolean;
     forId?: string;
-    required?: boolean;
+    required?: boolean | undefined;
     text: Child;
     translator: Translator;
   }>,
@@ -166,7 +166,7 @@ export type SelectOptions<Message> = Described &
     disabled?: boolean;
     groups?: readonly Readonly<{
       label: string;
-      options: ReadonlyArray<SelectOption>;
+      options: readonly SelectOption[];
     }>[];
     name: string;
     options?: readonly SelectOption[];
@@ -221,9 +221,9 @@ export const field = <Message>(
   const fieldLabel = label(
     {
       forId: options.described.id,
+      required: options.required,
       text: options.label,
       translator: options.translator,
-      ...(options.required === undefined ? {} : { required: options.required }),
     },
     h
   );

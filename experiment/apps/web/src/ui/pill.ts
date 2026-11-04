@@ -7,7 +7,7 @@ import type { IconData } from "./icon.js";
 
 export const pill = <Message>(
   options: Readonly<{
-    icon?: IconData;
+    icon?: IconData | undefined;
     maxWidth?: string;
     size?: "md" | "sm";
     title?: string;
@@ -68,7 +68,7 @@ export const pillList = <Message>(
           [
             pill(
               {
-                ...(options.icon === undefined ? {} : { icon: options.icon }),
+                icon: options.icon,
                 size: "sm",
                 value,
               },

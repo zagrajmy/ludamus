@@ -2,8 +2,24 @@ import { describe, expect, it } from "@effect/vitest";
 import { Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
-import { MAX_DURATION_HOURS, MAX_DURATION_MINUTES, buildDuration, durationFromParts, formatDuration, normalizeDuration, parseDuration, stepperParts } from "../src/proposal/durations.js";
-import { FieldRequirement, OrganizerField, controlRequired, offersCustomInput, resolveFieldControls, validateFieldAnswers } from "../src/proposal/fields.js";
+import {
+  MAX_DURATION_HOURS,
+  MAX_DURATION_MINUTES,
+  buildDuration,
+  durationFromParts,
+  formatDuration,
+  normalizeDuration,
+  parseDuration,
+  stepperParts,
+} from "../src/proposal/durations.js";
+import {
+  FieldRequirement,
+  OrganizerField,
+  controlRequired,
+  offersCustomInput,
+  resolveFieldControls,
+  validateFieldAnswers,
+} from "../src/proposal/fields.js";
 import { codePoints } from "../src/proposal/python-text.js";
 import { uniqueSlug } from "../src/proposal/slugs.js";
 import { between } from "./support/arbitraries.js";

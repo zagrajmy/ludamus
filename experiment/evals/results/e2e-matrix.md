@@ -108,5 +108,5 @@ Counts are passed / failed / skipped tests per spec file, chromium and chromium-
 | waiting-list.auth.spec.ts | Enrollment | not run | 7 / 0 / 0 |
 | worst-case.spec.ts | Event page | not run | 6 / 0 / 0 |
 | write-in-fields.spec.ts | Proposal wizard | not run | 8 / 0 / 0 |
-| **slice total** (52 files) | | 10 / 4 / 0 | 356 / 1 / 0 |
-| **suite total** (101 files) | | 10 / 4 / 0 | 605 / 4 / 1 |
+| **slice total** (52 files) |  | 10 / 4 / 0 | 356 / 1 / 0 |
+| **suite total** (101 files) |  | 10 / 4 / 0 | 605 / 4 / 1 |

@@ -3,10 +3,16 @@ import { DateTime, Duration, Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { processEnrollments } from "../src/enrollment/enroll.js";
-import { decideClaim, decideDecline, decideExpiry, planFillFreedSeats, promotionEffects } from "../src/enrollment/promotion.js";
-import { UNLIMITED_SLOTS } from "../src/enrollment/schemas.js";
 import type { EnrollmentWrite } from "../src/enrollment/enroll.js";
+import {
+  decideClaim,
+  decideDecline,
+  decideExpiry,
+  planFillFreedSeats,
+  promotionEffects,
+} from "../src/enrollment/promotion.js";
 import type { PromotionWrite } from "../src/enrollment/promotion.js";
+import { UNLIMITED_SLOTS } from "../src/enrollment/schemas.js";
 import type { Offer } from "../src/enrollment/schemas.js";
 import type { ParticipationStatus } from "../src/participation.js";
 import type { PromotionMode } from "../src/proposal-category.js";

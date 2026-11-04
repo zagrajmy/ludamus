@@ -34,7 +34,7 @@ export const menuSurface = <Message>(
   );
 
 export type DisclosureMenuOptions<Message> = Readonly<{
-  hover?: boolean;
+  hover?: boolean | undefined;
   id: string;
   isOpen: boolean;
   onToggle: (isOpen: boolean) => Message;
@@ -118,7 +118,7 @@ export const actionDropdown = <Message>(
 ) =>
   disclosureMenu(
     {
-      ...(options.hover === undefined ? {} : { hover: options.hover }),
+      hover: options.hover,
       id: options.id,
       isOpen: options.isOpen,
       onToggle: options.onToggle,

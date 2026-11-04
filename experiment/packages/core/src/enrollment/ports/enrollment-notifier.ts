@@ -1,7 +1,13 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
+
 import type { EnrollmentStoreError } from "../errors.js";
-import type { HeldSeatNotification, OfferNotification, PartyEnrolledNotification, PromotionNotification } from "../schemas.js";
+import type {
+  HeldSeatNotification,
+  OfferNotification,
+  PartyEnrolledNotification,
+  PromotionNotification,
+} from "../schemas.js";
 
 export class EnrollmentNotifier extends Context.Service<
   EnrollmentNotifier,

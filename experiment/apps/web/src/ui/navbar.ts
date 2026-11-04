@@ -87,15 +87,12 @@ const accountMenu = <Message>(
         h.div(
           [],
           [
-            h.span(
-              [
-                h.AriaHidden(true),
-                h.Class(
-                  "absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"
-                ),
-              ],
-              []
-            ),
+            h.span([
+              h.AriaHidden(true),
+              h.Class(
+                "absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"
+              ),
+            ]),
             menuSurface(
               {
                 children: [
@@ -322,7 +319,8 @@ export const navbar = <Message>(
                             : [
                                 notificationsMenu(
                                   {
-                                    isOpen: options.isNotificationsOpen ?? false,
+                                    isOpen:
+                                      options.isNotificationsOpen ?? false,
                                     notifications: options.notifications.value,
                                     onToggle: options.onToggleNotifications,
                                     translator,

@@ -1,5 +1,6 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
+
 import type { MembershipApiError } from "../membership-api-error.js";
 
 export class TicketApi extends Context.Service<

@@ -52,7 +52,10 @@ export const mailDirectory = (config: AppSettings): Option.Option<string> =>
       Option.filter((url) => url.startsWith(FILEMAIL)),
       Option.map((url) => {
         const relative = url.slice(FILEMAIL.length).split("?")[0] ?? "";
-        const root = config.databasePath.slice(0, config.databasePath.lastIndexOf("/") + 1);
+        const root = config.databasePath.slice(
+          0,
+          config.databasePath.lastIndexOf("/") + 1
+        );
 
         return relative.startsWith("/") ? relative : `${root}${relative}`;
       })

@@ -15,7 +15,7 @@ export const percentile = (
 };
 
 export const summarize = (samples: readonly number[]) => {
-  const sorted = [...samples].sort((a, b) => a - b);
+  const sorted = samples.toSorted((a, b) => a - b);
   const total = sorted.reduce((sum, value) => sum + value, 0);
 
   return {

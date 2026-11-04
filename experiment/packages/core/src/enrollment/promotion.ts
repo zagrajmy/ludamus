@@ -494,7 +494,11 @@ export const decideClaimRechecked = (options: {
           options.conflictedParticipationIds.includes(id)
         );
 
-  if (decision.markClaimed === null || offer === null || conflicted.length === 0) {
+  if (
+    decision.markClaimed === null ||
+    offer === null ||
+    conflicted.length === 0
+  ) {
     return { ...decision, drop: [], refillSessionId: null };
   }
 

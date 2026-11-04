@@ -13,8 +13,11 @@ export const AvatarPerson = Schema.Struct({
 
 export type AvatarPerson = typeof AvatarPerson.Type;
 
+const codePoints = (text: string): readonly string[] =>
+  text.match(/./gsu) ?? [];
+
 const palette = (name: string) => {
-  const { length } = [...name];
+  const { length } = codePoints(name);
 
   if (length % 4 === 0) {
     return { background: "bg-coral-400", text: "text-neutral-900" };
@@ -94,7 +97,7 @@ export const avatar = <Message>(
                   h.Class(cx("text-xs font-semibold", colors.text)),
                   h.DataAttribute("ph-mask", ""),
                 ],
-                [[...name].slice(0, 2).join("").toUpperCase()]
+                [codePoints(name).slice(0, 2).join("").toUpperCase()]
               ),
             ]
           ),
@@ -109,6 +112,7 @@ export const avatar = <Message>(
                 h.Class("absolute inset-0 h-full w-full object-cover"),
                 h.Loading("lazy"),
                 h.DataAttribute("avatar-image", ""),
+                // oxlint-disable-next-line foldkit/no-raw-dom-event-attributes -- the server-rendered img must hide itself when it fails before hydration, and the fallback holds no app state
                 h.Attribute("onerror", "this.hidden=true"),
               ]),
           }),

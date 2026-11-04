@@ -20,7 +20,6 @@ const englishTime = (value: string) =>
 
 describe("event page header", () => {
   it("prints each endpoint as short_date plus |time:'G:i', the Fri Sep 4, 16:00 the spec matches", () => {
-
     expect(headerEndpoint(FRIDAY_AFTERNOON)).toBe("Fri Sep 4, 16:00");
     expect(headerEndpoint("2026-09-05 18:00:00")).toBe("Sat Sep 5, 20:00");
   });
@@ -82,7 +81,6 @@ describe("formatDate", () => {
   });
 
   it("prints Django's English TIME_FORMAT with noon and midnight", () => {
-
     expect(englishTime("2026-01-04 11:00:00")).toBe("noon");
     expect(englishTime("2026-01-03 23:00:00")).toBe("midnight");
     expect(englishTime("2026-01-04 12:05:00")).toBe("1:05 p.m.");
@@ -260,7 +258,9 @@ describe("dateLeaf", () => {
     });
 
     expect(
-      lateNight.pipe(Option.map((leaf) => [leaf.day, leaf.weekday, leaf.isRange]))
+      lateNight.pipe(
+        Option.map((leaf) => [leaf.day, leaf.weekday, leaf.isRange])
+      )
     ).toEqual(Option.some(["3", "Tue", false]));
   });
 
@@ -279,14 +279,14 @@ describe("dateLeaf", () => {
     });
 
     expect(
-      running.pipe(Option.map((leaf) => [
-        leaf.hour,
-        leaf.isOngoing,
-        leaf.bandIsLong,
-      ]))
+      running.pipe(
+        Option.map((leaf) => [leaf.hour, leaf.isOngoing, leaf.bandIsLong])
+      )
     ).toEqual(Option.some(["trwa", true, true]));
     expect(
-      tonight.pipe(Option.map((leaf) => [leaf.weekday, leaf.isToday, leaf.band]))
+      tonight.pipe(
+        Option.map((leaf) => [leaf.weekday, leaf.isToday, leaf.band])
+      )
     ).toEqual(Option.some(["today", true, "oct"]));
   });
 

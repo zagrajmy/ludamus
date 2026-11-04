@@ -3,10 +3,20 @@ import { Duration, Effect, Predicate, Result, Schema } from "effect";
 import * as Arbitrary from "effect/Arbitrary";
 
 import { conflictedUserIds } from "../src/enrollment/conflicts.js";
-import { EnrollmentWrite, processEnrollments } from "../src/enrollment/enroll.js";
-import { canEnrollUsers, ownerSlotsRemaining, selectPromotableParties } from "../src/enrollment/rules.js";
+import {
+  EnrollmentWrite,
+  processEnrollments,
+} from "../src/enrollment/enroll.js";
+import type {
+  EnrollSessionState,
+  EnrollmentRequest,
+} from "../src/enrollment/enroll.js";
+import {
+  canEnrollUsers,
+  ownerSlotsRemaining,
+  selectPromotableParties,
+} from "../src/enrollment/rules.js";
 import { UNLIMITED_SLOTS } from "../src/enrollment/schemas.js";
-import type { EnrollSessionState, EnrollmentRequest } from "../src/enrollment/enroll.js";
 import type { PromotionState } from "../src/enrollment/schemas.js";
 import { durationFromParts } from "../src/proposal/durations.js";
 import { at, between } from "./support/arbitraries.js";

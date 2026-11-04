@@ -88,7 +88,7 @@ const prefersReducedMotion = () =>
 const canMorph = (surface: HTMLElement | null): surface is HTMLElement =>
   surface !== null &&
   surface.dataset.noMorph === undefined &&
-  typeof document.startViewTransition === "function" &&
+  "startViewTransition" in document &&
   !prefersReducedMotion();
 
 const setSubMorph = (root: HTMLElement, active: boolean) => {
@@ -123,16 +123,10 @@ const runTransition = (options: {
   Effect.promise(async () => {
     document.documentElement.classList.add(PAGE_LIVE);
     const transition = document.startViewTransition(options.swap);
-    transition.ready.catch(() => null);
 
-    try {
-      await transition.finished;
-    } catch {
-      return;
-    } finally {
-      options.settle();
-      document.documentElement.classList.remove(PAGE_LIVE);
-    }
+    await Promise.allSettled([transition.ready, transition.finished]);
+    options.settle();
+    document.documentElement.classList.remove(PAGE_LIVE);
   });
 
 const presentDialog = Dom.showDialog(SESSION_DIALOG_SELECTOR, {
@@ -247,9 +241,9 @@ export const CloseSessionDialog = Command.define("CloseSessionDialog", {
 
 export const ReadClock = Command.define("ReadClock", {
   execute: Effect.sync(() =>
-    EventPageMessage.GotBootClock({ now: Date.now() })
+    EventPageMessage.SucceededReadBootClock({ now: Date.now() })
   ),
-  messages: [EventPageMessage.GotBootClock],
+  messages: [EventPageMessage.SucceededReadBootClock],
 });
 
 export const ScrollToElement = Command.define("ScrollToElement", {

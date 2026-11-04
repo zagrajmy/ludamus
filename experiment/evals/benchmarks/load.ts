@@ -1,5 +1,9 @@
 import { Agent, request } from "node:http";
+import type { OutgoingHttpHeaders } from "node:http";
 import { performance } from "node:perf_hooks";
+
+import { Effect } from "effect";
+import { constVoid } from "effect/Function";
 
 import { summarize } from "./stats.ts";
 import type { Summary } from "./stats.ts";
@@ -37,8 +41,27 @@ const loopbackFor = (hostname: string) =>
     ? "127.0.0.1"
     : hostname;
 
-const once = async (agent: Agent, url: URL, cookie: string | undefined) =>
-  new Promise<Sample>((resolvePromise, rejectPromise) => {
+const requestHeaders = (url: URL, cookie: string | undefined) => {
+  const headers: OutgoingHttpHeaders = {
+    accept: "text/html,application/xhtml+xml",
+    "accept-language": "en-US,en;q=0.9",
+    host: url.host,
+  };
+
+  if (cookie !== undefined) {
+    headers.cookie = cookie;
+  }
+
+  return headers;
+};
+
+const sample = (target: {
+  readonly agent: Agent;
+  readonly url: URL;
+  readonly cookie: string | undefined;
+}) =>
+  Effect.callback<Sample, Error>((resume) => {
+    const { agent, url, cookie } = target;
     const started = performance.now();
     let firstByte = started;
     let bytes = 0;
@@ -46,12 +69,7 @@ const once = async (agent: Agent, url: URL, cookie: string | undefined) =>
     const outgoing = request(
       {
         agent,
-        headers: {
-          accept: "text/html,application/xhtml+xml",
-          "accept-language": "en-US,en;q=0.9",
-          host: url.host,
-          ...(cookie === undefined ? {} : { cookie }),
-        },
+        headers: requestHeaders(url, cookie),
         host: loopbackFor(url.hostname),
         method: "GET",
         path: `${url.pathname}${url.search}`,
@@ -63,18 +81,24 @@ const once = async (agent: Agent, url: URL, cookie: string | undefined) =>
           bytes += chunk.length;
         });
         incoming.on("end", () => {
-          resolvePromise({
-            bytes,
-            status: incoming.statusCode ?? 0,
-            totalMs: performance.now() - started,
-            ttfbMs: firstByte - started,
-          });
+          resume(
+            Effect.succeed({
+              bytes,
+              status: incoming.statusCode ?? 0,
+              totalMs: performance.now() - started,
+              ttfbMs: firstByte - started,
+            })
+          );
         });
-        incoming.on("error", rejectPromise);
+        incoming.on("error", (failure) => {
+          resume(Effect.fail(failure));
+        });
       }
     );
 
-    outgoing.on("error", rejectPromise);
+    outgoing.on("error", (failure) => {
+      resume(Effect.fail(failure));
+    });
     outgoing.end();
   });
 
@@ -84,9 +108,15 @@ export const measureLoad = async (
   const url = new URL(options.url);
   const agent = new Agent({ keepAlive: true, maxSockets: options.connections });
 
-  for (let index = 0; index < options.warmupRequests; index += 1) {
-    await once(agent, url, options.cookie);
-  }
+  const target = { agent, cookie: options.cookie, url };
+
+  await Effect.runPromise(
+    Effect.forEach(
+      Array.from({ length: options.warmupRequests }),
+      () => sample(target),
+      { discard: true }
+    )
+  );
 
   const ttfb: number[] = [];
   const total: number[] = [];
@@ -95,23 +125,34 @@ export const measureLoad = async (
   let errors = 0;
   const deadline = performance.now() + options.durationMs;
 
-  const worker = async () => {
-    while (performance.now() < deadline) {
-      try {
-        const sample = await once(agent, url, options.cookie);
-        ttfb.push(sample.ttfbMs);
-        total.push(sample.totalMs);
-        bytes += sample.bytes;
-        statuses[String(sample.status)] =
-          (statuses[String(sample.status)] ?? 0) + 1;
-      } catch {
-        errors += 1;
-      }
-    }
+  const record = (taken: Sample) => {
+    ttfb.push(taken.ttfbMs);
+    total.push(taken.totalMs);
+    bytes += taken.bytes;
+    statuses[String(taken.status)] = (statuses[String(taken.status)] ?? 0) + 1;
   };
 
+  const worker = Effect.whileLoop({
+    body: () =>
+      sample(target).pipe(
+        Effect.match({
+          onFailure: () => {
+            errors += 1;
+          },
+          onSuccess: record,
+        })
+      ),
+    step: constVoid,
+    while: () => performance.now() < deadline,
+  });
+
   const started = performance.now();
-  await Promise.all(Array.from({ length: options.connections }, worker));
+  await Effect.runPromise(
+    Effect.all(
+      Array.from({ length: options.connections }, () => worker),
+      { concurrency: "unbounded", discard: true }
+    )
+  );
   const elapsedMs = performance.now() - started;
   agent.destroy();
 

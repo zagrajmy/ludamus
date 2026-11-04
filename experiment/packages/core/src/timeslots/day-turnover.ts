@@ -66,9 +66,7 @@ export const dateOf = (options: {
     DateTime.subtract(options.local.wall, { hours: options.turnover.hour })
   );
 
-const civilParts = (
-  day: CivilDate
-) => {
+const civilParts = (day: CivilDate) => {
   const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
 
   return { day: date, month, year };

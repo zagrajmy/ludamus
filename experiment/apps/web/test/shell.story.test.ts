@@ -27,7 +27,7 @@ describe("theme", () => {
     story(
       updateShell,
       given(shell),
-      message(ShellMessage.GotStoredTheme({ theme: "system" })),
+      message(ShellMessage.SucceededReadStoredTheme({ theme: "system" })),
       message(ShellMessage.ChangedSystemColorScheme()),
       Command.expectExact(ApplyTheme),
       Command.resolve(
@@ -41,7 +41,7 @@ describe("theme", () => {
     story(
       updateShell,
       given(shell),
-      message(ShellMessage.GotStoredTheme({ theme: "dark" })),
+      message(ShellMessage.SucceededReadStoredTheme({ theme: "dark" })),
       message(ShellMessage.ChangedSystemColorScheme()),
       Command.expectNone()
     );

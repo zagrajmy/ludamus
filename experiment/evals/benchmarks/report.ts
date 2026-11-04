@@ -1,72 +1,115 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
+
+import { Schema } from "effect";
 
 import { measureCode } from "./code-metrics.ts";
 import { sliceAreas } from "./slice-files.ts";
 
-interface Bench {
-  label: string;
-  origin: string;
-  started: string;
-  pages: ReadonlyArray<{
-    label: string;
-    path: string;
-    load: {
-      requestsPerSecond: number;
-      errors: number;
-      requests: number;
-      statuses: Record<string, number>;
-      ttfbMs: { p50: number; p95: number };
-      totalMs: { p50: number; p95: number };
-      bytesPerResponse: number;
-    };
-    weight: {
-      status: number;
-      requests: number;
-      transferBytes: number;
-      htmlBytes: number;
-      jsBytes: number;
-      cssBytes: number;
-      domContentLoadedMs: number;
-      loadMs: number;
-      largestContentfulPaintMs: number | null;
-      cumulativeLayoutShift: number | null;
-      consoleErrors: number;
-    };
-    lighthouse: {
-      performance: number | null;
-      accessibility: number | null;
-      bestPractices: number | null;
-      seo: number | null;
-    } | null;
-  }>;
-}
+const Counts = Schema.Struct({
+  failed: Schema.Number,
+  passed: Schema.Number,
+  skipped: Schema.Number,
+});
 
-interface MatrixRow {
-  file: string;
-  inSlice: boolean;
-  old?: { passed: number; failed: number; skipped: number };
-  new?: { passed: number; failed: number; skipped: number };
-}
+const Timings = Schema.Struct({ p50: Schema.Number, p95: Schema.Number });
 
-const resultsDirectory = resolve(import.meta.dirname, "../results");
+const BenchPageResult = Schema.Struct({
+  label: Schema.String,
+  lighthouse: Schema.NullOr(
+    Schema.Struct({
+      accessibility: Schema.NullOr(Schema.Number),
+      bestPractices: Schema.NullOr(Schema.Number),
+      performance: Schema.NullOr(Schema.Number),
+      seo: Schema.NullOr(Schema.Number),
+    })
+  ),
+  load: Schema.Struct({
+    bytesPerResponse: Schema.Number,
+    errors: Schema.Number,
+    requests: Schema.Number,
+    requestsPerSecond: Schema.Number,
+    statuses: Schema.Record(Schema.String, Schema.Number),
+    totalMs: Timings,
+    ttfbMs: Timings,
+  }),
+  path: Schema.String,
+  weight: Schema.Struct({
+    consoleErrors: Schema.Number,
+    cssBytes: Schema.Number,
+    cumulativeLayoutShift: Schema.NullOr(Schema.Number),
+    domContentLoadedMs: Schema.Number,
+    htmlBytes: Schema.Number,
+    jsBytes: Schema.Number,
+    largestContentfulPaintMs: Schema.NullOr(Schema.Number),
+    loadMs: Schema.Number,
+    requests: Schema.Number,
+    status: Schema.Number,
+    transferBytes: Schema.Number,
+  }),
+});
 
-const reportPath = resolve(import.meta.dirname, "../REPORT.md");
+const BenchSchema = Schema.Struct({
+  label: Schema.String,
+  origin: Schema.String,
+  pages: Schema.Array(BenchPageResult),
+  started: Schema.String,
+});
 
-const readJson = <T>(file: string): T | null =>
-  existsSync(file) ? (JSON.parse(readFileSync(file, "utf-8")) as T) : null;
+const MatrixRowSchema = Schema.Struct({
+  file: Schema.String,
+  inSlice: Schema.Boolean,
+  new: Schema.optional(Counts),
+  old: Schema.optional(Counts),
+});
 
-const old = readJson<Bench>(resolve(resultsDirectory, "bench-old.json"));
+type MatrixRow = typeof MatrixRowSchema.Type;
 
-const fresh = readJson<Bench>(resolve(resultsDirectory, "bench-new.json"));
+const MatrixSchema = Schema.Struct({
+  generated: Schema.String,
+  rows: Schema.Array(MatrixRowSchema),
+});
 
-const matrix = readJson<{ rows: readonly MatrixRow[]; generated: string }>(
-  resolve(resultsDirectory, "e2e-matrix.json")
+const DifferentialSchema = Schema.Struct({
+  functions: Schema.Array(
+    Schema.Struct({
+      cases: Schema.Number,
+      mismatches: Schema.Number,
+      name: Schema.String,
+    })
+  ),
+});
+
+const resultsDirectory = path.resolve(import.meta.dirname, "../results");
+
+const reportPath = path.resolve(import.meta.dirname, "../REPORT.md");
+
+const readResult = <A>(name: string, decode: (text: string) => A) => {
+  const file = path.resolve(resultsDirectory, name);
+
+  return existsSync(file) ? decode(readFileSync(file, "utf-8")) : null;
+};
+
+const decodeBench = Schema.decodeUnknownSync(
+  Schema.fromJsonString(BenchSchema)
 );
 
-const differential = readJson<{
-  functions: readonly { name: string; cases: number; mismatches: number }[];
-}>(resolve(resultsDirectory, "differential.json"));
+const old = readResult("bench-old.json", decodeBench);
+
+const fresh = readResult("bench-new.json", decodeBench);
+
+const matrix = readResult(
+  "e2e-matrix.json",
+  Schema.decodeUnknownSync(Schema.fromJsonString(MatrixSchema))
+);
+
+const differential = readResult(
+  "differential.json",
+  Schema.decodeUnknownSync(Schema.fromJsonString(DifferentialSchema))
+);
+
+const show = (value: number | null | undefined) =>
+  value === null || value === undefined ? "n/a" : String(value);
 
 const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} kB`;
 
@@ -157,8 +200,6 @@ if (old !== null && fresh !== null) {
       const before = old.pages.find(
         (candidate) => candidate.path === page.path
       );
-      const show = (value: number | null | undefined) =>
-        value === null || value === undefined ? "n/a" : String(value);
 
       push(
         `| ${page.label} | ${show(before?.lighthouse?.performance)}/${show(page.lighthouse?.performance)} | ${show(before?.lighthouse?.accessibility)}/${show(page.lighthouse?.accessibility)} | ${show(before?.lighthouse?.bestPractices)}/${show(page.lighthouse?.bestPractices)} | ${show(before?.lighthouse?.seo)}/${show(page.lighthouse?.seo)} |`
@@ -182,21 +223,21 @@ if (matrix === null) {
 } else {
   const inSlice = matrix.rows.filter((row) => row.inSlice);
 
-  const sum = (rows: readonly MatrixRow[], side: "old" | "new") =>
-    rows.reduce(
-      (acc, row) => {
-        const counts = row[side];
+  const sum = (rows: readonly MatrixRow[], side: "old" | "new") => {
+    const total = { failed: 0, passed: 0, skipped: 0 };
 
-        return counts === undefined
-          ? acc
-          : {
-              failed: acc.failed + counts.failed,
-              passed: acc.passed + counts.passed,
-              skipped: acc.skipped + counts.skipped,
-            };
-      },
-      { failed: 0, passed: 0, skipped: 0 }
-    );
+    for (const row of rows) {
+      const counts = row[side];
+
+      if (counts !== undefined) {
+        total.failed += counts.failed;
+        total.passed += counts.passed;
+        total.skipped += counts.skipped;
+      }
+    }
+
+    return total;
+  };
 
   const oldSlice = sum(inSlice, "old");
   const newSlice = sum(inSlice, "new");

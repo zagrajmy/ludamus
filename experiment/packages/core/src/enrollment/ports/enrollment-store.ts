@@ -1,6 +1,12 @@
 import { Context } from "effect";
 import type { DateTime, Effect, Option } from "effect";
-import type { HouseholdSeat, LockedSession, RosterPerson, SessionContext } from "../api.js";
+
+import type {
+  HouseholdSeat,
+  LockedSession,
+  RosterPerson,
+  SessionContext,
+} from "../api.js";
 import type { EnrollmentWrite } from "../enroll.js";
 import type { EnrollmentStoreError } from "../errors.js";
 

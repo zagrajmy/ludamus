@@ -3,9 +3,16 @@ import { Option, Result, Schema } from "effect";
 
 import { parseClientIp } from "../src/proposal/client-ip.js";
 import { FieldRequirement } from "../src/proposal/fields.js";
-import { PROPOSAL_SLUG_ATTEMPTS, proposalSlugify, slugCandidates } from "../src/proposal/slugify.js";
-import { validateDetailsStep, validatePersonalStep } from "../src/proposal/wizard.js";
 import type { FieldError, FormErrors } from "../src/proposal/form-fields.js";
+import {
+  PROPOSAL_SLUG_ATTEMPTS,
+  proposalSlugify,
+  slugCandidates,
+} from "../src/proposal/slugify.js";
+import {
+  validateDetailsStep,
+  validatePersonalStep,
+} from "../src/proposal/wizard.js";
 import ipCases from "./fixtures/differential/client_ip.json" with { type: "json" };
 import detailsCases from "./fixtures/differential/details_form.json" with { type: "json" };
 import personalCases from "./fixtures/differential/personal_form.json" with { type: "json" };

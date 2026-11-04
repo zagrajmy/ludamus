@@ -1,12 +1,34 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Predicate, Result, Schema } from "effect";
 
-import { MAX_DURATION_HOURS, MAX_DURATION_MINUTES, buildDuration, durationChoices, durationFromParts, formatDuration, normalizeDuration, parseDuration, parseDurationPart, stepperParts } from "../src/proposal/durations.js";
-import { FieldAnswer, FieldRequirement, OrganizerField, answeredValue, foldCustomAnswers, mergeCustom, resolveFieldControls, splitStored, unfoldCustomAnswers, validateFieldAnswers } from "../src/proposal/fields.js";
+import type { DurationDigitError } from "../src/proposal/duration-digit-error.js";
+import {
+  MAX_DURATION_HOURS,
+  MAX_DURATION_MINUTES,
+  buildDuration,
+  durationChoices,
+  durationFromParts,
+  formatDuration,
+  normalizeDuration,
+  parseDuration,
+  parseDurationPart,
+  stepperParts,
+} from "../src/proposal/durations.js";
+import {
+  FieldAnswer,
+  FieldRequirement,
+  OrganizerField,
+  answeredValue,
+  foldCustomAnswers,
+  mergeCustom,
+  resolveFieldControls,
+  splitStored,
+  unfoldCustomAnswers,
+  validateFieldAnswers,
+} from "../src/proposal/fields.js";
+import type { InvalidDurationError } from "../src/proposal/invalid-duration-error.js";
 import { carriedAnswers } from "../src/proposal/rules.js";
 import { uniqueSlug } from "../src/proposal/slugs.js";
-import type { DurationDigitError } from "../src/proposal/duration-digit-error.js";
-import type { InvalidDurationError } from "../src/proposal/invalid-duration-error.js";
 import carriedCases from "./fixtures/differential/carried_answers.json" with { type: "json" };
 import durationCases from "./fixtures/differential/durations.json" with { type: "json" };
 import answerCases from "./fixtures/differential/field_answers.json" with { type: "json" };
@@ -24,10 +46,9 @@ const outcomeJson = <A extends Json>(
   }
 
   return {
-    error:
-      Predicate.isTagged(outcome.failure, "InvalidDurationError")
-        ? "InvalidDurationError"
-        : "ValueError",
+    error: Predicate.isTagged(outcome.failure, "InvalidDurationError")
+      ? "InvalidDurationError"
+      : "ValueError",
   };
 };
 

@@ -7,6 +7,7 @@ import type {
 import type { Translator } from "../../ui/i18n.js";
 import { icon } from "../../ui/icon.js";
 import { arrowLeftOutline } from "../../ui/icons.js";
+import { HOME_PATH } from "../../ui/paths.js";
 import type { PageContext } from "../page-context.js";
 import type { PageTitle } from "../shell/title.js";
 
@@ -37,20 +38,17 @@ export const contentPageView = <Message>(
       h.div(
         [h.Class("card")],
         [
-          h.div(
-            [
-              h.Class("card-body prose max-w-none text-foreground"),
-              h.InnerHTML(flags.documentHtml),
-            ],
-            []
-          ),
+          h.div([
+            h.Class("card-body prose max-w-none text-foreground"),
+            h.InnerHTML(flags.documentHtml),
+          ]),
         ]
       ),
       h.div(
         [h.Class("mt-6 text-center")],
         [
           h.a(
-            [h.Href("/"), h.Class("btn btn-secondary")],
+            [h.Href(HOME_PATH), h.Class("btn btn-secondary")],
             [
               icon(arrowLeftOutline, { class: "w-4 h-4" }, h),
               context.translator.t("Back to Home"),
