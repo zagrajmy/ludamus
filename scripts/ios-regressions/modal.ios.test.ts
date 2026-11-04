@@ -1,6 +1,7 @@
 import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { mkdirSync } from "node:fs";
 
 import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
 import { fetchReadyPage } from "./page";
@@ -12,6 +13,11 @@ const targetTitle = collapse(env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Ne
 const targetTriggerLabel = collapse(env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`);
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const preOpenScrollSteps = 8;
+// NOTE: collected by mobile.yml's artifact upload. The open morph's timing
+// and geometry are WebKit's own, so this recording is the one place a person
+// can step through what an iPhone actually draws.
+const shotsDir = `${env.RUNNER_TEMP ?? "/tmp"}/ios-shots`;
+const recordingPath = `${shotsDir}/modal-open-close.mp4`;
 
 const {
   client,
@@ -130,6 +136,50 @@ const forcePreOpenScroll = async (): Promise<void> => {
 const waitForLabel = (label: string, timeoutMs: number): Promise<SnapshotNode | null> =>
   pollUntil(() => findNodeByLabel(label), { timeoutMs });
 
+const waitForLabelGone = async (label: string, timeoutMs: number): Promise<boolean> =>
+  (await pollUntil(async () => ((await snapshotLabels()).includes(label) ? null : true), {
+    timeoutMs,
+  })) ?? false;
+
+// A recording is evidence for a person, not an assertion, so one that cannot
+// start or stop is reported and the run goes on.
+let recording = false;
+const record = async (action: "start" | "stop"): Promise<void> => {
+  if (action === "stop" && !recording) return;
+  try {
+    if (action === "start") mkdirSync(shotsDir, { recursive: true });
+    await client.recording.record({
+      ...deviceOptions,
+      action,
+      ...(action === "start" ? { fps: 60, path: recordingPath } : {}),
+    });
+    recording = action === "start";
+    if (action === "stop") console.log(`Recording saved: ${recordingPath}`);
+  } catch (error) {
+    console.warn(`Could not ${action} the screen recording:`, error);
+  }
+};
+
+// Safari's own toolbar buttons, so the traversal is the one a reader makes,
+// not a history call the page could special-case. When the toolbar is
+// collapsed they are not in the tree; the edge swipes are the same gestures.
+const pressSafari = async (direction: "Back" | "Forward"): Promise<void> => {
+  const button = await findNodeByLabel(direction);
+  if (button) {
+    await clickNodeCenter(button);
+    return;
+  }
+  console.warn(`Safari's ${direction} button is not in the tree; swiping from the edge.`);
+  const { height, width } = viewportOf(await takeSnapshot());
+  const y = height / 2;
+  await client.interactions.swipe({
+    ...deviceOptions,
+    durationMs: 300,
+    from: { x: direction === "Back" ? 2 : width - 2, y },
+    to: { x: direction === "Back" ? width * 0.6 : width * 0.4, y },
+  });
+};
+
 const eventUrl = resolveEventUrl("/event/autumn-open/");
 const modalUrl = new URL(eventUrl);
 for (const [key, value] of new URLSearchParams(targetQueryParam)) {
@@ -137,6 +187,8 @@ for (const [key, value] of new URLSearchParams(targetQueryParam)) {
 }
 
 const openViaScrolledPage = env.OPEN_VIA_SCROLLED_PAGE !== "0";
+// See IOS_SPEC_BUDGET in mobile.yml, which this is part of.
+const HISTORY_TEST_TIMEOUT_MS = 120_000;
 
 let contentIssue: string | null = null;
 let closeIssue: string | null = null;
@@ -169,6 +221,7 @@ beforeAll(async () => {
     console.log(`Activating modal trigger: ${describeNode(trigger)}`);
     preOpenTriggerLabel = labelOf(trigger) || null;
     preOpenTriggerY = trigger.rect?.y ?? null;
+    await record("start");
     await clickNodeReference(trigger);
     if (!(await waitForLabel("Close", 5000))) {
       console.warn("The trigger reference did not open the modal; tapping its center.");
@@ -209,6 +262,7 @@ beforeAll(async () => {
   if ((await snapshotLabels()).includes("Close")) {
     closeIssue = "The modal X / Close button did not close the modal.";
   }
+  await record("stop");
 
   if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
     await wait(600);
@@ -243,3 +297,39 @@ test("the Close button dismisses the session modal", () => {
 test("closing the modal preserves the page scroll position", () => {
   expect(scrollIssue).toBeNull();
 });
+
+// Closing a modal opened from the page steps back over its history entry, so
+// Forward is where the modal went and Back closes it. The bug this guards left
+// a copy of the page in that entry: Back seemed to do nothing, and Forward
+// had nothing to reopen.
+test(
+  "Back and Forward step through the session modal",
+  async () => {
+    expect(closeIssue).toBeNull();
+    const issues: string[] = [];
+
+    await pressSafari("Forward");
+    if (!(await waitForLabel("Close", 15000))) {
+      issues.push("Forward after closing the modal did not reopen it.");
+    }
+
+    await pressSafari("Back");
+    if (!(await waitForLabelGone("Close", 10000))) {
+      issues.push("Back from the open modal did not close it.");
+    }
+
+    await pressSafari("Forward");
+    const reopened = await waitForLabel("Close", 15000);
+    if (reopened) {
+      await clickNodeCenter(reopened);
+      if (!(await waitForLabelGone("Close", 10000))) {
+        issues.push("The Close button did not close a modal reopened by Forward.");
+      }
+    } else {
+      issues.push("Forward after Back did not reopen the modal.");
+    }
+
+    expect(issues).toEqual([]);
+  },
+  HISTORY_TEST_TIMEOUT_MS,
+);
