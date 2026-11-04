@@ -11,8 +11,6 @@ import {
   xMarkMini,
 } from "./icons.js";
 
-export { Dialog };
-
 export type ModalOptions<Message> = Readonly<{
   body: readonly Child[];
   footer?: readonly Child[];

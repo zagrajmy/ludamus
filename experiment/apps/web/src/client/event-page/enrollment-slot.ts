@@ -21,6 +21,8 @@ export const EnrollmentSlotMessage = defineMessageUnion({
 
 export type EnrollmentSlotMessage = typeof EnrollmentSlotMessage.Type;
 
+export { EnrollmentSlotMessage as Message };
+
 export const enrollmentActionsFor = (options: {
   readonly loginUrl: string;
   readonly sessionId: number;

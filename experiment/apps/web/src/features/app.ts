@@ -59,17 +59,6 @@ const renderPage = (
       layout: "contained",
       title: enrollPageTitle(enroll, context.translator),
     }),
-    OfferPage: ({ model: offer }) => ({
-      content: h.submodel({
-        model: offer,
-        slotId: "offer-page",
-        toParentMessage: (message) => Message.GotOfferPageMessage({ message }),
-        view: offerPageView,
-        viewInputs: { shell: model.shell },
-      }),
-      layout: "contained",
-      title: offerPageTitle(offer, context.translator),
-    }),
     EventPage: ({ model: eventPage }) => ({
       content: h.submodel({
         model: eventPage,
@@ -113,17 +102,16 @@ const renderPage = (
       layout: "contained",
       title: notPortedTitle(notPorted),
     }),
-    ProposalAccept: ({ model: accept }) => ({
+    OfferPage: ({ model: offer }) => ({
       content: h.submodel({
-        model: accept,
-        slotId: "proposal-accept",
-        toParentMessage: (message) =>
-          Message.GotProposalAcceptMessage({ message }),
-        view: proposalAcceptView,
+        model: offer,
+        slotId: "offer-page",
+        toParentMessage: (message) => Message.GotOfferPageMessage({ message }),
+        view: offerPageView,
         viewInputs: { shell: model.shell },
       }),
       layout: "contained",
-      title: proposalAcceptTitle(accept, context.translator),
+      title: offerPageTitle(offer, context.translator),
     }),
     Panel: ({ model: panel }) => ({
       content: h.submodel({
@@ -135,6 +123,18 @@ const renderPage = (
       }),
       layout: "panel",
       title: panelTitle(panel, context),
+    }),
+    ProposalAccept: ({ model: accept }) => ({
+      content: h.submodel({
+        model: accept,
+        slotId: "proposal-accept",
+        toParentMessage: (message) =>
+          Message.GotProposalAcceptMessage({ message }),
+        view: proposalAcceptView,
+        viewInputs: { shell: model.shell },
+      }),
+      layout: "contained",
+      title: proposalAcceptTitle(accept, context.translator),
     }),
     Propose: ({ model: propose }) => ({
       content: h.submodel({

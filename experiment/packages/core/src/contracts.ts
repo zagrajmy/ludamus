@@ -494,12 +494,14 @@ export {
   EnrollmentWindowData,
   Offer,
 } from "./enrollment/schemas.js";
+
 export {
   EnrollRequestChoice,
   EnrollmentBatch,
   EnrollmentRequest,
   SkipReason,
 } from "./enrollment/enroll.js";
+
 export {
   FieldAnswer,
   FieldControl,
@@ -509,6 +511,7 @@ export {
   OrganizerField,
   OrganizerFieldOption,
 } from "./proposal/fields.js";
+
 export {
   CivilDate,
   DayOfWindows,
@@ -573,10 +576,19 @@ export {
   SubmittedProposal,
   TimeSlotsAccepted,
 } from "./propose/schemas.js";
+
 export { AnonymousProposalsDisabled } from "./propose/anonymous-proposals-disabled.js";
+
 export { CategoryRequired } from "./propose/category-required.js";
+
 export { ProposalInvalid } from "./propose/proposal-invalid.js";
+
 export { ProposalsClosed } from "./propose/proposals-closed.js";
+
 export { SubmissionThrottled } from "./propose/submission-throttled.js";
+
 export { FieldError, FormErrors } from "./proposal/form-fields.js";
+
 export { ProposeStep } from "./proposal/wizard.js";
+
+export { NavbarNotifications } from "./notification.js";

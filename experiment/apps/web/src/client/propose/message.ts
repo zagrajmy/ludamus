@@ -62,3 +62,5 @@ export const ProposeMessage = defineMessageUnion({
 });
 
 export type ProposeMessage = typeof ProposeMessage.Type;
+
+export { ProposeMessage as Message };

@@ -1,3 +1,4 @@
+import type * as Dialog from "@foldkit/ui/dialog";
 import { Option } from "effect";
 import { defineView } from "foldkit/submodel";
 
@@ -5,7 +6,6 @@ import { PanelMessage } from "../../client/panel/message.js";
 import { PanelPageModel } from "../../client/panel/model.js";
 import type { PanelModel } from "../../client/panel/model.js";
 import type { Translator } from "../../ui/i18n.js";
-import type { Dialog } from "../../ui/modal.js";
 import { confirmDialog } from "../../ui/modal.js";
 import { pageContextOf } from "../page-context.js";
 import type { PageContext, PageInputs } from "../page-context.js";

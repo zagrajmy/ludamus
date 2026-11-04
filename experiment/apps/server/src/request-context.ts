@@ -31,6 +31,17 @@ export const isSameOrigin = (headers: Headers) => {
   return Option.exists(originHost(origin), (host) => host === headers.host);
 };
 
+const viewerOf = (row: { id: number; isSuperuser: number }) => ({
+  id: UserId.make(row.id),
+  isSuperuser: row.isSuperuser === 1,
+});
+
+const clientIp = (headers: Headers) =>
+  Option.flatMap(
+    Option.fromNullishOr(headers["cf-connecting-ip"]),
+    parseClientIp
+  );
+
 const make = Effect.gen(function* makeRequestContext() {
   const spheres = yield* SphereStore;
   const sessions = yield* SessionResolver;
@@ -62,33 +73,18 @@ const make = Effect.gen(function* makeRequestContext() {
   ) {
     const found = yield* user(headers);
 
-    return Option.map(found, (row) => ({
-      id: UserId.make(row.id),
-      isSuperuser: row.isSuperuser === 1,
-    }));
+    return found.pipe(Option.map(viewerOf));
   });
-
-  const clientIp = (headers: Headers) =>
-    Option.flatMap(
-      Option.fromNullishOr(headers["cf-connecting-ip"]),
-      parseClientIp
-    );
 
   const services = Effect.fn("RequestContext.services")(function* services(
     headers: Headers
   ) {
     const current = yield* sphere(headers.host);
-    const viewer = yield* user(headers);
+    const found = yield* user(headers);
 
     return Context.make(CurrentSphere, current).pipe(
-      Context.add(CurrentUser, viewer),
-      Context.add(
-        CurrentViewer,
-        Option.map(viewer, (user) => ({
-          id: UserId.make(user.id),
-          isSuperuser: user.isSuperuser === 1,
-        }))
-      ),
+      Context.add(CurrentUser, found),
+      Context.add(CurrentViewer, found.pipe(Option.map(viewerOf))),
       Context.add(
         CurrentLocale,
         negotiateLocale(headers["accept-language"] ?? null)

@@ -1,7 +1,7 @@
+import * as Dialog from "@foldkit/ui/dialog";
 import { Option, Schema } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
-import { Dialog } from "../../ui/modal.js";
 import { PendingConfirm } from "./action.js";
 import { CfpFlags } from "./cfp/flags.js";
 import { PanelChromeModel, initPanelChrome } from "./chrome.js";

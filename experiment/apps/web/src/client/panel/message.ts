@@ -1,7 +1,7 @@
+import * as Dialog from "@foldkit/ui/dialog";
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
-import { Dialog } from "../../ui/modal.js";
 import { ConfirmPrompt, PanelAction } from "./action.js";
 import { PanelCategory } from "./chrome.js";
 import {
@@ -44,3 +44,5 @@ export const PanelMessage = defineMessageUnion({
 });
 
 export type PanelMessage = typeof PanelMessage.Type;
+
+export { PanelMessage as Message };

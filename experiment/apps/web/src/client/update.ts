@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Predicate } from "effect";
 import { Update } from "foldkit";
 import { UrlRequest } from "foldkit/navigation";
 import { modifyFields } from "foldkit/struct";
@@ -40,7 +40,7 @@ type Return = Update.Return<Model, Message>;
 
 const foldEnrollPage = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "EnrollPage"
+    Predicate.isTagged("EnrollPage")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: EnrollPageMessage) =>
@@ -54,7 +54,7 @@ const foldEnrollPage = Update.foldChild({
 
 const foldOfferPage = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "OfferPage"
+    Predicate.isTagged("OfferPage")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: OfferPageMessage) =>
@@ -77,7 +77,7 @@ const foldShell = Update.foldChild({
 
 const foldEventsFeed = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "EventsFeed"
+    Predicate.isTagged("EventsFeed")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: EventsFeedMessage) =>
@@ -91,7 +91,7 @@ const foldEventsFeed = Update.foldChild({
 
 const foldEventPage = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "EventPage"
+    Predicate.isTagged("EventPage")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: EventPageMessage) =>
@@ -116,12 +116,12 @@ const hashOf = (url: { readonly hash: Option.Option<string> }) => {
 };
 
 const isOnEventPage = (model: Model, pathname: string) =>
-  model.page._tag === "EventPage" &&
+  Predicate.isTagged("EventPage")(model.page) &&
   pathname === `/event/${model.page.model.hero.slug}/`;
 
 const foldLanding = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "Landing"
+    Predicate.isTagged("Landing")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: LandingMessage) =>
@@ -135,7 +135,9 @@ const foldLanding = Update.foldChild({
 
 const foldPanel = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "Panel" ? Option.some(model.page.model) : Option.none(),
+    Predicate.isTagged("Panel")(model.page)
+      ? Option.some(model.page.model)
+      : Option.none(),
   toParentMessage: (message: PanelMessage) =>
     Message.GotPanelMessage({ message }),
   update: updatePanel,
@@ -147,7 +149,7 @@ const foldPanel = Update.foldChild({
 
 const foldPropose = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "Propose"
+    Predicate.isTagged("Propose")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: ProposeMessage) =>
@@ -161,7 +163,7 @@ const foldPropose = Update.foldChild({
 
 const foldProposalAccept = Update.foldChild({
   read: (model: Model) =>
-    model.page._tag === "ProposalAccept"
+    Predicate.isTagged("ProposalAccept")(model.page)
       ? Option.some(model.page.model)
       : Option.none(),
   toParentMessage: (message: ProposalAcceptMessage) =>
@@ -176,14 +178,14 @@ const foldProposalAccept = Update.foldChild({
 export const update = (model: Model, message: Message): Return =>
   Message.match<Return>(message, {
     ChangedUrl: ({ url }) =>
-      model.page._tag === "EventPage"
+      Predicate.isTagged("EventPage")(model.page)
         ? foldEventPage(
             model,
             EventPageMessage.ChangedUrl({ search: searchOf(url) })
           )
         : foldLanding(
             model,
-            LandingMessage.GotLocationHash({
+            LandingMessage.ReadLocationHash({
               hash: Option.getOrElse(url.hash, () => ""),
             })
           ),
@@ -206,14 +208,14 @@ export const update = (model: Model, message: Message): Return =>
       }),
     GotEnrollPageMessage: ({ message: enrollMessage }) =>
       foldEnrollPage(model, enrollMessage),
-    GotOfferPageMessage: ({ message: offerMessage }) =>
-      foldOfferPage(model, offerMessage),
     GotEventPageMessage: ({ message: eventPageMessage }) =>
       foldEventPage(model, eventPageMessage),
     GotEventsFeedMessage: ({ message: feedMessage }) =>
       foldEventsFeed(model, feedMessage),
     GotLandingMessage: ({ message: landingMessage }) =>
       foldLanding(model, landingMessage),
+    GotOfferPageMessage: ({ message: offerMessage }) =>
+      foldOfferPage(model, offerMessage),
     GotPanelMessage: ({ message: panelMessage }) =>
       foldPanel(model, panelMessage),
     GotProposalAcceptMessage: ({ message: acceptMessage }) =>

@@ -7,11 +7,11 @@ import { Audience, playersHash } from "./model.js";
 
 export const ReadLocationHash = Command.define("ReadLocationHash", {
   execute: Effect.sync(() =>
-    LandingMessage.GotLocationHash({
+    LandingMessage.ReadLocationHash({
       hash: window.location.hash.replace(/^#/u, ""),
     })
   ),
-  messages: [LandingMessage.GotLocationHash],
+  messages: [LandingMessage.ReadLocationHash],
 });
 
 export const ReplaceAudienceHash = Command.define("ReplaceAudienceHash", {

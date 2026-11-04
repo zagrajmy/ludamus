@@ -19,3 +19,5 @@ export const ShellMessage = defineMessageUnion({
 });
 
 export type ShellMessage = typeof ShellMessage.Type;
+
+export { ShellMessage as Message };

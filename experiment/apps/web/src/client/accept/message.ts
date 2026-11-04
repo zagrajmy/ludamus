@@ -13,3 +13,5 @@ export const ProposalAcceptMessage = defineMessageUnion({
 });
 
 export type ProposalAcceptMessage = typeof ProposalAcceptMessage.Type;
+
+export { ProposalAcceptMessage as Message };

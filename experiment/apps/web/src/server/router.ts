@@ -1,5 +1,5 @@
 import { NotificationStore } from "@zagrajmy/core/ports/notification-store";
-import { Effect, Option } from "effect";
+import { Effect, Option, Predicate } from "effect";
 
 import { contentSlugs } from "../client/content-page/flags.js";
 import type { ContentSlug } from "../client/content-page/flags.js";
@@ -26,7 +26,7 @@ export { Routed } from "./routed.js";
 const isContentSlug = (slug: string): slug is ContentSlug =>
   contentSlugs.some((known) => known === slug);
 
-const legacyContentPath = /^\/page\/\/?([a-z-]+)\/$/u;
+const legacyContentPath = /^\/page\/\/?(?<slug>[a-z-]+)\/$/u;
 
 const staticPaths = new Set([
   "/",
@@ -50,8 +50,8 @@ export const route = Effect.fn("Router.route")(function* route(
 
   if (acceptPath !== null) {
     return yield* routeProposalAccept(context, {
-      eventSlug: decodeURIComponent(acceptPath.groups?.["eventSlug"] ?? ""),
-      sessionId: Number(acceptPath.groups?.["sessionId"]),
+      eventSlug: decodeURIComponent(acceptPath.groups?.eventSlug ?? ""),
+      sessionId: Number(acceptPath.groups?.sessionId),
     });
   }
 
@@ -59,11 +59,11 @@ export const route = Effect.fn("Router.route")(function* route(
 
   if (enrollPath !== null) {
     const enroll = yield* loadEnrollPage(context, {
-      eventSlug: decodeURIComponent(enrollPath.groups?.["eventSlug"] ?? ""),
-      sessionId: Number(enrollPath.groups?.["sessionId"]),
+      eventSlug: decodeURIComponent(enrollPath.groups?.eventSlug ?? ""),
+      sessionId: Number(enrollPath.groups?.sessionId),
     });
 
-    return enroll._tag === "Page"
+    return Predicate.isTagged("Page")(enroll)
       ? page(PageFlags.EnrollPage({ flags: enroll.flags }))
       : Routed.Redirect({
           flashes: enroll.flashes,
@@ -80,7 +80,7 @@ export const route = Effect.fn("Router.route")(function* route(
     const store = yield* NotificationStore;
 
     const found = yield* store.readForRecipient({
-      id: Number(notificationPath.groups?.["id"]),
+      id: Number(notificationPath.groups?.id),
       userId: context.viewer.value.id,
     });
 
@@ -99,10 +99,10 @@ export const route = Effect.fn("Router.route")(function* route(
   if (offerPath !== null) {
     const offer = yield* loadOfferPage(
       context,
-      decodeURIComponent(offerPath.groups?.["token"] ?? "")
+      decodeURIComponent(offerPath.groups?.token ?? "")
     );
 
-    return offer._tag === "Page"
+    return Predicate.isTagged("Page")(offer)
       ? page(PageFlags.OfferPage({ flags: offer.flags }))
       : Routed.Redirect({
           flashes: offer.flashes,
@@ -113,10 +113,10 @@ export const route = Effect.fn("Router.route")(function* route(
 
   const proposeSlug = proposeSlugOf(pathname);
 
-  if (proposeSlug._tag === "Some") {
+  if (Predicate.isTagged("Some")(proposeSlug)) {
     const propose = yield* loadPropose(context, proposeSlug.value);
 
-    return propose._tag === "Flags"
+    return Predicate.isTagged("Flags")(propose)
       ? page(PageFlags.Propose({ flags: propose.flags }))
       : Routed.Redirect({
           flashes: propose.flashes,
@@ -125,7 +125,7 @@ export const route = Effect.fn("Router.route")(function* route(
         });
   }
 
-  const eventSlug = /^\/event\/([^/]+)\/$/u.exec(pathname)?.[1];
+  const eventSlug = /^\/event\/(?<slug>[^/]+)\/$/u.exec(pathname)?.groups?.slug;
 
   if (eventSlug !== undefined) {
     const eventPage = yield* loadEventPage(
@@ -133,7 +133,7 @@ export const route = Effect.fn("Router.route")(function* route(
       decodeURIComponent(eventSlug)
     );
 
-    return eventPage._tag === "Some"
+    return Predicate.isTagged("Some")(eventPage)
       ? page(PageFlags.EventPage({ flags: eventPage.value }))
       : notFound(context);
   }
@@ -156,7 +156,7 @@ export const route = Effect.fn("Router.route")(function* route(
       );
     }
 
-    if (context.viewer._tag === "Some") {
+    if (Predicate.isTagged("Some")(context.viewer)) {
       return page(
         PageFlags.NotPorted({
           flags: {
@@ -190,7 +190,7 @@ export const route = Effect.fn("Router.route")(function* route(
     return page(PageFlags.ContentPage({ flags: yield* loadContentPage(slug) }));
   }
 
-  const legacy = legacyContentPath.exec(pathname)?.[1];
+  const legacy = legacyContentPath.exec(pathname)?.groups?.slug;
 
   if (legacy !== undefined && isContentSlug(legacy)) {
     return Routed.Redirect({ location: `/${legacy}/`, status: 301 });

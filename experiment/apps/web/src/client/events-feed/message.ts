@@ -9,3 +9,5 @@ export const EventsFeedMessage = defineMessageUnion({
 });
 
 export type EventsFeedMessage = typeof EventsFeedMessage.Type;
+
+export { EventsFeedMessage as Message };

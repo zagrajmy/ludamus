@@ -1,10 +1,10 @@
+import * as Dialog from "@foldkit/ui/dialog";
 import { Option, Predicate } from "effect";
 import { Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
 import { translator } from "../../ui/i18n.js";
-import { Dialog } from "../../ui/modal.js";
 import {
   NavigateWithFlash,
   RunAction,

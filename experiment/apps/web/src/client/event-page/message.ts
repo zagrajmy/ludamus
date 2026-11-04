@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
-import { EnrollmentSlotMessage } from "./enrollment-slot.js";
+import * as EnrollmentSlot from "./enrollment-slot.js";
 import { ComboboxId, FilterChip, FlagId, SelectId } from "./filters.js";
 import { RosterEntry, ScheduleView } from "./flags.js";
 
@@ -29,7 +29,7 @@ export const EventPageMessage = defineMessageUnion({
   CompletedUrlUpdate: {},
   FailedReadRoster: { sessionId: Schema.Int },
   FocusedGuard: { selector: Schema.String },
-  GotEnrollmentMessage: { message: EnrollmentSlotMessage },
+  GotEnrollmentMessage: { message: EnrollmentSlot.Message },
   HoveredOption: { id: ComboboxId, index: Schema.Int },
   PickedOption: {
     id: ComboboxId,
@@ -55,3 +55,5 @@ export const EventPageMessage = defineMessageUnion({
 });
 
 export type EventPageMessage = typeof EventPageMessage.Type;
+
+export { EventPageMessage as Message };

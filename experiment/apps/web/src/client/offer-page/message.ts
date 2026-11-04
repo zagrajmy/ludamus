@@ -8,3 +8,5 @@ export const OfferPageMessage = defineMessageUnion({
 });
 
 export type OfferPageMessage = typeof OfferPageMessage.Type;
+
+export { OfferPageMessage as Message };

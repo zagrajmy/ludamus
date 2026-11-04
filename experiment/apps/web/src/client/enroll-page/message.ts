@@ -9,3 +9,5 @@ export const EnrollPageMessage = defineMessageUnion({
 });
 
 export type EnrollPageMessage = typeof EnrollPageMessage.Type;
+
+export { EnrollPageMessage as Message };

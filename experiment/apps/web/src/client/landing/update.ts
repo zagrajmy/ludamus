@@ -20,7 +20,7 @@ export const updateLanding = (
     CompletedChoreography: () => ({
       model: modifyFields(model, { isChoreographyDone: () => true }),
     }),
-    GotLocationHash: ({ hash }) =>
+    ReadLocationHash: ({ hash }) =>
       hash === "" || audienceForHash(hash) === "players"
         ? {
             model: modifyFields(model, {

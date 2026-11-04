@@ -43,9 +43,6 @@ const initPage = (flags: PageFlags): PageInit =>
     EnrollPage: ({ flags: enroll }) => ({
       page: PageModel.EnrollPage({ model: initEnrollPage(enroll) }),
     }),
-    OfferPage: ({ flags: offer }) => ({
-      page: PageModel.OfferPage({ model: initOfferPage(offer) }),
-    }),
     EventPage: ({ flags: eventPage }) => {
       const model = initEventPage(eventPage);
 
@@ -77,6 +74,9 @@ const initPage = (flags: PageFlags): PageInit =>
     }),
     NotPorted: ({ flags: notPorted }) => ({
       page: PageModel.NotPorted({ model: notPorted }),
+    }),
+    OfferPage: ({ flags: offer }) => ({
+      page: PageModel.OfferPage({ model: initOfferPage(offer) }),
     }),
     Panel: ({ flags: panel }) => ({
       commands: [

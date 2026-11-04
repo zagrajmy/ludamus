@@ -1,4 +1,4 @@
-import { NavbarNotifications } from "@zagrajmy/core/notification";
+import { NavbarNotifications } from "@zagrajmy/core/contracts";
 import { Schema } from "effect";
 
 import { Flash } from "../../ui/flash.js";

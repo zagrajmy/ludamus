@@ -6,8 +6,10 @@ import { Audience } from "./model.js";
 export const LandingMessage = defineMessageUnion({
   ChangedAudience: { audience: Audience },
   CompletedChoreography: {},
-  GotLocationHash: { hash: Schema.String },
+  ReadLocationHash: { hash: Schema.String },
   ReplacedAudienceHash: {},
 });
 
 export type LandingMessage = typeof LandingMessage.Type;
+
+export { LandingMessage as Message };

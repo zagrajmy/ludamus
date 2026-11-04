@@ -61,16 +61,16 @@ describe("landing audience", () => {
       updateLanding,
       given(landing),
       message(
-        LandingMessage.GotLocationHash({ hash: "g-conventions-heading" })
+        LandingMessage.ReadLocationHash({ hash: "g-conventions-heading" })
       ),
       model((current) => {
         expect(current.audience).toBe("players");
       }),
-      message(LandingMessage.GotLocationHash({ hash: "pricing" })),
+      message(LandingMessage.ReadLocationHash({ hash: "pricing" })),
       model((current) => {
         expect(current.audience).toBe("players");
       }),
-      message(LandingMessage.GotLocationHash({ hash: "" })),
+      message(LandingMessage.ReadLocationHash({ hash: "" })),
       model((current) => {
         expect(current.audience).toBe("organizers");
       })
