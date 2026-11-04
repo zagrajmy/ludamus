@@ -1,10 +1,76 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { Schema } from "effect";
-import type * as Playwright from "playwright";
+import { Predicate, Schema } from "effect";
 
 import type { StoredCookie } from "./auth.ts";
+
+type SerializedValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly SerializedValue[]
+  | { readonly [key: string]: SerializedValue };
+
+interface RequestSizes {
+  readonly responseBodySize: number;
+  readonly responseHeadersSize: number;
+}
+
+interface BrowserRequest {
+  readonly resourceType: () => string;
+  readonly sizes: () => Promise<RequestSizes>;
+}
+
+interface BrowserResponse {
+  readonly request: () => BrowserRequest;
+  readonly status: () => number;
+}
+
+interface ConsoleMessage {
+  readonly type: () => string;
+}
+
+interface BrowserPage {
+  readonly evaluate: (expression: string) => Promise<SerializedValue>;
+  readonly goto: (
+    url: string,
+    options: { readonly waitUntil: "load" }
+  ) => Promise<BrowserResponse | null>;
+  readonly on: {
+    (event: "console", listener: (message: ConsoleMessage) => void): void;
+    (
+      event: "response",
+      listener: (response: BrowserResponse) => Promise<void>
+    ): void;
+  };
+  readonly waitForTimeout: (milliseconds: number) => Promise<void>;
+}
+
+interface SessionCookie {
+  readonly domain: string;
+  readonly name: string;
+  readonly path: string;
+  readonly value: string;
+}
+
+interface BrowserContext {
+  readonly addCookies: (cookies: readonly SessionCookie[]) => Promise<void>;
+  readonly addInitScript: (script: string) => Promise<void>;
+  readonly newPage: () => Promise<BrowserPage>;
+}
+
+interface Browser {
+  readonly close: () => Promise<void>;
+  readonly newContext: (options: {
+    readonly locale: string;
+  }) => Promise<BrowserContext>;
+}
+
+interface PlaywrightLibrary {
+  readonly chromium: { readonly launch: () => Promise<Browser> };
+}
 
 const require = createRequire(import.meta.url);
 
@@ -13,12 +79,25 @@ const e2ePlaywright = path.resolve(
   "../../../tests/e2e/node_modules/@playwright/test"
 );
 
-const loadPlaywright = (): typeof Playwright => {
+const isPlaywrightLibrary = (loaded: unknown): loaded is PlaywrightLibrary =>
+  Predicate.hasProperty(loaded, "chromium") &&
+  Predicate.hasProperty(loaded.chromium, "launch") &&
+  Predicate.isFunction(loaded.chromium.launch);
+
+const loadPlaywright = (): PlaywrightLibrary => {
+  let loaded: unknown;
+
   try {
-    return require("playwright");
+    loaded = require("playwright");
   } catch {
-    return require(e2ePlaywright);
+    loaded = require(e2ePlaywright);
   }
+
+  if (!isPlaywrightLibrary(loaded)) {
+    throw new Error("playwright loaded without chromium.launch");
+  }
+
+  return loaded;
 };
 
 export type ResourceBytes = Record<string, { count: number; bytes: number }>;
