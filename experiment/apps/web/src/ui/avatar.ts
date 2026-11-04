@@ -112,7 +112,6 @@ export const avatar = <Message>(
                 h.Class("absolute inset-0 h-full w-full object-cover"),
                 h.Loading("lazy"),
                 h.DataAttribute("avatar-image", ""),
-                // oxlint-disable-next-line foldkit/no-raw-dom-event-attributes -- the server-rendered img must hide itself when it fails before hydration, and the fallback holds no app state
                 h.Attribute("onerror", "this.hidden=true"),
               ]),
           }),

@@ -1,4 +1,3 @@
-// oxlint-disable-next-line unicorn/prefer-export-from -- this module also uses Dialog, and `export * as Dialog from` trips oxc/no-barrel-file on the whole package
 import * as Dialog from "@foldkit/ui/dialog";
 import type { Html, HtmlBuilder } from "foldkit/html";
 

@@ -45,8 +45,8 @@ const group = (
   options: Readonly<{
     children: readonly Html[];
     extraClass?: string;
-    hidden?: boolean;
-    id?: string;
+    hidden?: boolean | undefined;
+    id?: string | undefined;
   }>,
   h: H
 ) =>
@@ -158,7 +158,7 @@ const combobox = (
   const listboxId = `${baseId}-listbox`;
   const open = openFor(model.combobox, id);
   const isOpen = Option.isSome(open);
-  const query = Option.flatMap(open, (state) => state.query);
+  const query = open.pipe(Option.flatMap((state) => state.query));
   const shown = shownOptions({ choices: model.choices, id, query });
 
   const active = Option.match(open, {
@@ -373,18 +373,18 @@ const comboGroup = (
         combobox(options, h),
       ],
       extraClass: "grow",
-      ...(options.groupId === undefined ? {} : { id: options.groupId }),
-      ...(options.hidden === undefined ? {} : { hidden: options.hidden }),
+      hidden: options.hidden,
+      id: options.groupId,
     },
     h
   );
 
+const selectChange = (id: SelectId) => (value: string) =>
+  EventPageMessage.ChangedSelect({ id, value });
+
 const panelBody = (model: EventPageModel, context: PageContext, h: H) => {
   const { translator } = context;
   const { choices, filters } = model;
-
-  const selectChange = (id: SelectId) => (value: string) =>
-    EventPageMessage.ChangedSelect({ id, value });
 
   return h.div(
     [

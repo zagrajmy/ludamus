@@ -378,8 +378,10 @@ export const sessionCard = (
 ): Html => {
   const { context, model, session } = options;
   const { review } = options;
+
   const label =
     review === undefined ? openDetailsLabel(session, context) : review.label;
+
   const isProposal = session.availability === "proposal";
 
   return h.article(

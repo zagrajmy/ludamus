@@ -246,6 +246,7 @@ const pendingProposals = (
   h: H
 ) => {
   const { t } = context.translator;
+
   const wizard = t(
     "Superuser magic: you see this without being an organizer of this event."
   );

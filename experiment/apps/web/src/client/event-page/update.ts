@@ -1,5 +1,4 @@
-import { Option } from "effect";
-import { Command } from "foldkit";
+import { Option, Predicate } from "effect";
 import type { Update } from "foldkit";
 
 import { comboboxInputId, shownOptions } from "./combobox.js";
@@ -93,11 +92,13 @@ const commitOption = (options: {
 }): Return => {
   const { id, model, value } = options;
   const filters = { ...model.filters, [id]: toggled(model.filters[id], value) };
+
   const all = shownOptions({
     choices: model.choices,
     id,
     query: Option.none(),
   });
+
   const active = all.findIndex((choice) => choice.value === value);
 
   return withFilters(
@@ -137,12 +138,15 @@ const closePanel = (model: EventPageModel): Return => ({
   model: { ...closeCombobox(model), isPanelOpen: false },
 });
 
+const firstActive = (count: number, delta: number) =>
+  delta > 0 ? 0 : count - 1;
+
 const moveActive = (
   model: EventPageModel,
   id: ComboboxId,
   delta: number
 ): Return => {
-  const open = Option.filter(model.combobox, (combobox) => combobox.id === id);
+  const open = model.combobox.pipe(Option.filter((combobox) => combobox.id === id));
 
   if (Option.isNone(open)) {
     const shown = shownOptions({
@@ -177,9 +181,7 @@ const moveActive = (
 
   const next =
     current === -1
-      ? delta > 0
-        ? 0
-        : shown.length - 1
+      ? firstActive(shown.length, delta)
       : (current + delta + shown.length) % shown.length;
 
   return {
@@ -190,13 +192,16 @@ const moveActive = (
   };
 };
 
+const soleOption = <Choice>(shown: readonly Choice[]) =>
+  shown.length === 1 ? shown[0] : undefined;
+
 const pressedKey = (options: {
   readonly id: ComboboxId;
   readonly key: string;
   readonly model: EventPageModel;
 }): Return => {
   const { id, key, model } = options;
-  const open = Option.filter(model.combobox, (combobox) => combobox.id === id);
+  const open = model.combobox.pipe(Option.filter((combobox) => combobox.id === id));
 
   if (key === "ArrowDown") {
     return moveActive(model, id, 1);
@@ -222,11 +227,10 @@ const pressedKey = (options: {
       id,
       query: open.value.query,
     });
+
     const row =
       open.value.active === -1
-        ? shown.length === 1
-          ? shown[0]
-          : undefined
+        ? soleOption(shown)
         : shown[open.value.active];
 
     return row === undefined
@@ -241,6 +245,7 @@ const rosterCommands = (model: EventPageModel, sessionId: number): Commands => {
   const session = model.sessions.find(
     (candidate) => candidate.id === sessionId
   );
+
   const loaded = model.rosters.some((roster) => roster.sessionId === sessionId);
 
   return session === undefined || Option.isSome(session.roster) || loaded
@@ -292,11 +297,12 @@ const closeSessionDialog = (model: EventPageModel): Return =>
   });
 
 const unfoldFor = (model: EventPageModel, hash: string): EventPageModel => {
-  if (!hash.startsWith("#slot-") || model.layout._tag !== "Compact") {
+  if (!hash.startsWith("#slot-") || !Predicate.isTagged(model.layout, "Compact")) {
     return model;
   }
 
   const key = hash.slice("#slot-".length);
+
   const day = model.layout.days.find((candidate) =>
     candidate.hours.some((hour) => hour.slotKey === key)
   );
@@ -307,6 +313,22 @@ const unfoldFor = (model: EventPageModel, hash: string): EventPageModel => {
         ...model,
         foldedDays: model.foldedDays.filter((date) => date !== day.day.date),
       };
+};
+
+const paramKeys = (name: string): readonly string[] => {
+  if (name.startsWith("tag-")) {
+    return ["tags"];
+  }
+
+  if (name === "hide-ended") {
+    return ["hideEnded"];
+  }
+
+  if (name === "age-min") {
+    return ["ageMin"];
+  }
+
+  return [name];
 };
 
 const sameSearch = (model: EventPageModel, search: string): Return => {
@@ -368,24 +390,8 @@ const sameSearch = (model: EventPageModel, search: string): Return => {
   return afterFilters;
 };
 
-const paramKeys = (name: string): readonly string[] => {
-  if (name.startsWith("tag-")) {
-    return ["tags"];
-  }
-
-  if (name === "hide-ended") {
-    return ["hideEnded"];
-  }
-
-  if (name === "age-min") {
-    return ["ageMin"];
-  }
-
-  return [name];
-};
-
 const switchedView = (model: EventPageModel, view: EventPageModel["view"]) =>
-  model.layout._tag === "Compact" && model.view !== view
+  Predicate.isTagged(model.layout, "Compact") && model.view !== view
     ? {
         commands: [
           PushQuery({
@@ -405,6 +411,7 @@ const clickedSamePageLink = (
 ): Return => {
   const params = new URLSearchParams(link.search);
   const names = [...params.keys()];
+
   const handled = names.every(
     (name) => isFilterParam(name) || name === "session" || name === "view"
   );
@@ -450,11 +457,12 @@ const changedUrl = (model: EventPageModel, search: string): Return => {
     : { ...model, filters };
 
   const view = viewParam({
-    isCompact: model.layout._tag === "Compact",
+    isCompact: Predicate.isTagged(model.layout, "Compact"),
     search,
   });
 
   const viewed = { ...filtered, view };
+
   const wanted = Option.filter(sessionParam(search), (id) =>
     model.sessions.some((session) => session.id === id)
   );
@@ -498,7 +506,7 @@ export const updateEventPage = (
 ): Return =>
   EventPageMessage.match<Return>(message, {
     BlurredCombobox: ({ id }) =>
-      Option.exists(model.combobox, (open) => open.id === id)
+      model.combobox.pipe(Option.exists((open) => open.id === id))
         ? { model: closeCombobox(model) }
         : { model },
     ChangedAge: ({ value }) =>
@@ -531,7 +539,7 @@ export const updateEventPage = (
       ),
     ClickedCloseFilters: () => closePanel(model),
     ClickedCombobox: ({ id }) =>
-      Option.exists(model.combobox, (open) => open.id === id)
+      model.combobox.pipe(Option.exists((open) => open.id === id))
         ? { model }
         : {
             commands: [
@@ -541,7 +549,7 @@ export const updateEventPage = (
           },
     ClickedComboboxToggle: ({ id }) => ({
       commands: [FocusElement({ selector: `#${comboboxInputId(id)}` })],
-      model: Option.exists(model.combobox, (open) => open.id === id)
+      model: model.combobox.pipe(Option.exists((open) => open.id === id))
         ? closeCombobox(model)
         : openCombobox(model, id),
     }),
@@ -596,23 +604,15 @@ export const updateEventPage = (
       commands: [FocusElement({ selector })],
       model,
     }),
-    SucceededReadBootClock: ({ now }) => ({
-      model: {
-        ...model,
-        foldedDays: finishedDays({ ...model, now }),
-        now,
-      },
-    }),
     GotEnrollmentMessage: ({ message: enrollmentMessage }) =>
       updateEnrollmentFooter(model, enrollmentMessage),
     HoveredOption: ({ id, index }) => ({
       model: {
         ...model,
-        combobox: Option.map(model.combobox, (open) =>
+        combobox: model.combobox.pipe(Option.map((open) =>
           open.id === id && open.active !== index
             ? { ...open, active: index }
-            : open
-        ),
+            : open)),
       },
     }),
     PickedOption: ({ id, pointerType, value }) => {
@@ -647,6 +647,13 @@ export const updateEventPage = (
         ? closePanel(model)
         : { model };
     },
+    SucceededReadBootClock: ({ now }) => ({
+      model: {
+        ...model,
+        foldedDays: finishedDays({ ...model, now }),
+        now,
+      },
+    }),
     SucceededReadRoster: ({ entries, sessionId }) => ({
       model: {
         ...model,
@@ -670,7 +677,8 @@ export const updateEventPage = (
         combobox: Option.some({ active: -1, id, query: Option.some(value) }),
       },
     }),
-  });
+  
+});
 
 export const isSessionOpen = (model: EventPageModel, id: number) =>
   Option.contains(model.openSession, id);

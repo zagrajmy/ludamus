@@ -25,12 +25,12 @@ import type { PageContext } from "../page-context.js";
 
 type H = HtmlBuilder<EventPageMessage>;
 
-const pillIcons: Readonly<Record<string, IconData>> = {
-  "check-circle": checkCircleMini,
-  clock: clockMini,
-  "light-bulb": lightBulbMini,
-  "user-plus": userPlusMini,
-};
+const pillIcons = new Map([
+  ["check-circle", checkCircleMini],
+  ["clock", clockMini],
+  ["light-bulb", lightBulbMini],
+  ["user-plus", userPlusMini],
+]);
 
 const statusPill = (pill: StatusPill, h: H) =>
   h.div(
@@ -46,7 +46,7 @@ const statusPill = (pill: StatusPill, h: H) =>
     [
       pill.icon === "live"
         ? h.span([h.Class("w-2 h-2 bg-teal-500 rounded-full live-dot")], [])
-        : icon(pillIcons[pill.icon] ?? clockMini, { class: "w-4 h-4" }, h),
+        : icon(pillIcons.get(pill.icon) ?? clockMini, { class: "w-4 h-4" }, h),
       pill.label,
     ]
   );

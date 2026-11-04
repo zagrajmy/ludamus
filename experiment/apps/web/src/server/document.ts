@@ -50,11 +50,14 @@ export const shellHead = (options: {
   const description = escapeAttribute(descriptionOf(flags, i18n));
   const { origin } = new URL(flags.shell.requestUrl);
   const image = escapeAttribute(`${origin}/static/og-image.jpg`);
+
   const previewTitle =
     flags.page._tag === "EventPage" && flags.page.flags.linkPreview.title !== ""
       ? flags.page.flags.linkPreview.title
       : title;
+
   const escapedTitle = escapeAttribute(previewTitle);
+
   const robots =
     flags.page._tag === "EventPage" && flags.page.flags.hero.isUnlisted
       ? ['<meta name="robots" content="noindex">']
