@@ -183,11 +183,10 @@
    viewport, so the bar slid in sideways. It is paired instead: see the anchor in
    _session_card.html.
 
-   Level 2, and no WebKit support yet — Safari drops the declaration and keeps the
-   flat behaviour for the tabs. That degrades well because the cost is
-   proportional to how far the sheet travels sideways, and on a phone it barely
-   does: the dialog is near full-width, so the card grows ~11% in width against
-   ~108% in height. */
+   Level 2, and no WebKit support yet — Safari drops the declaration, and the bar
+   falls back to the flat group `rideWithSheet` (modal.ts) offsets along the
+   sheet's path, the same as the venue and the description label. That one
+   travels with the sheet but is not cropped by it. */
 [data-morph="tabs"] {
   view-transition-group: nearest;
 }

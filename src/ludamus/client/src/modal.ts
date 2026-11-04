@@ -188,6 +188,7 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
 
 const morphTransition = (steps: {
   before: () => void;
+  ready?: () => void;
   settle: () => void;
   swap: () => void;
 }): Promise<void> => {
@@ -197,7 +198,73 @@ const morphTransition = (steps: {
     steps.settle();
     return Promise.resolve();
   }
+  const { ready } = steps;
+  if (ready) void transition.ready.then(ready, () => null);
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
+};
+
+const durationMs = (value: string): number =>
+  value.trim().endsWith("ms") ? Number.parseFloat(value) : Number.parseFloat(value) * 1000;
+
+const morphNames = (root: HTMLElement): Set<string> =>
+  new Set(
+    [...root.querySelectorAll<HTMLElement>("[data-morph]")].map((el) => el.dataset.morph ?? ""),
+  );
+
+/**
+ * A group the sheet brings with no counterpart on the card (venue, description
+ * label, tab bar) is new-only, and the UA pins a new-only group to its final
+ * slot for the whole morph while the sheet's own snapshot is still travelling
+ * there. So each one landed ahead of the row it belongs to: the venue sat
+ * still while the duration and seats beside it slid up under it, ~10px for a
+ * card at the bottom of a phone screen. Send each along the path its spot in
+ * the sheet's snapshot takes instead. That snapshot is the sheet scaled to the
+ * card's width and pinned at the card's top-left, so the spot starts at
+ * card origin + offset in sheet × (card width / sheet width), and from there
+ * it moves on the sheet's own duration and easing.
+ *
+ * Translate only: the scale is under 7% on a phone and these groups are still
+ * transparent through the first half of the morph, where it differs.
+ */
+const rideWithSheet = ({
+  card,
+  cardBox,
+  dialog,
+}: {
+  card: HTMLElement;
+  cardBox: DOMRect;
+  dialog: HTMLDialogElement;
+}): void => {
+  const sheetBox = dialog.getBoundingClientRect();
+  if (sheetBox.width === 0) return;
+  const scale = cardBox.width / sheetBox.width;
+  const rootStyle = getComputedStyle(document.documentElement);
+  const timing = {
+    duration: durationMs(rootStyle.getPropertyValue("--vt-morph-duration")),
+    easing: rootStyle.getPropertyValue("--vt-morph-ease").trim() || "ease",
+  };
+  const onCard = morphNames(card);
+  for (const el of dialog.querySelectorAll<HTMLElement>("[data-morph]")) {
+    const name = el.dataset.morph;
+    if (!name || onCard.has(name)) continue;
+    // NOTE: a group nested in the sheet's (Chromium's view-transition-group)
+    // already moves with it; offsetting it as well would move it twice.
+    const nesting = getComputedStyle(el).getPropertyValue("view-transition-group");
+    if (nesting && nesting !== "normal") continue;
+    const box = el.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    const dx = cardBox.left + (box.left - sheetBox.left) * scale - box.left;
+    const dy = cardBox.top + (box.top - sheetBox.top) * scale - box.top;
+    try {
+      document.documentElement.animate(
+        { translate: [`${dx}px ${dy}px`, "0px 0px"] },
+        { ...timing, pseudoElement: `::view-transition-group(morph-${name})` },
+      );
+    } catch (error) {
+      // An engine that cannot target the pseudo-element keeps the pinned group.
+      console.error(error);
+    }
+  }
 };
 
 // The plain exit: the dialog's own snapshot animates out (modal.css). Whether
@@ -258,14 +325,19 @@ const openModal = async (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       openingModals.add(id);
+      const cardBox = card.getBoundingClientRect();
       morphPromise = morphTransition({
         before: () => {
           setMorph(card, true);
+        },
+        ready: () => {
+          if (dialog.open) rideWithSheet({ card, cardBox, dialog });
         },
         settle: () => {
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
+          dialog.style.transition = "";
         },
         swap: () => {
           setMorph(card, false);
@@ -287,6 +359,11 @@ const openModal = async (
           }
           suppressSessionCard(id);
           card.style.transition = "none";
+          // The morph is this dialog's entrance. Its own spring (modal.css)
+          // would run underneath it, and every group's end keyframe tracks
+          // the live dialog, so the morph's target would overshoot and
+          // settle with it.
+          dialog.style.transition = "none";
           presentDialog(dialog);
           setMorph(dialog, true);
         },

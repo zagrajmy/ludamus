@@ -209,6 +209,81 @@ test.describe("Event detail page", () => {
     expect(groups.host).toBe("normal");
   });
 
+  // The venue has no counterpart on the card, so the UA pins its group to the
+  // final slot while the rest of its row is still arriving inside the sheet's
+  // snapshot: it landed first and the duration beside it slid up under it, ~10px
+  // for a card at the bottom of a phone screen. Freeze the morph halfway and
+  // check the venue is where its spot in the sheet's snapshot is.
+  test("the venue arrives with its row, not ahead of it", async ({ page }) => {
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.addStyleTag({ content: ":root { --vt-morph-duration: 5s; }" });
+    const link = page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" });
+    // The further the card travels, the further ahead a pinned venue lands.
+    await link.evaluate((element) => {
+      element.closest(".session")?.scrollIntoView({ block: "end" });
+    });
+    await link.press("Enter");
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some(
+          (a) =>
+            (a.effect as KeyframeEffect | null)?.pseudoElement ===
+            "::view-transition-group(session-morph)",
+        ),
+    );
+
+    const offset = await page.evaluate(async () => {
+      for (const animation of document.getAnimations()) {
+        const pseudo = (animation.effect as KeyframeEffect | null)?.pseudoElement;
+        if (!pseudo?.startsWith("::view-transition")) continue;
+        animation.pause();
+        animation.currentTime = 2500;
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const dialog = document.querySelector<HTMLElement>("dialog[open]");
+      const venue = dialog?.querySelector<HTMLElement>('[data-morph="venue"]');
+      if (!dialog || !venue) return null;
+      const sheetBox = dialog.getBoundingClientRect();
+      const venueBox = venue.getBoundingClientRect();
+      const groupOf = (name: string) =>
+        getComputedStyle(document.documentElement, `::view-transition-group(${name})`);
+      const position = (style: CSSStyleDeclaration) => {
+        const matrix = new DOMMatrix(style.transform);
+        const [x = "0", y = "0"] = style.translate === "none" ? [] : style.translate.split(" ");
+        return {
+          scale: matrix.a,
+          x: matrix.e + Number.parseFloat(x),
+          y: matrix.f + Number.parseFloat(y),
+        };
+      };
+      const sheet = groupOf("session-morph");
+      const sheetAt = position(sheet);
+      // The sheet's snapshot is drawn at the group's width, top-left anchored.
+      const shrink = (Number.parseFloat(sheet.width) / sheetBox.width) * sheetAt.scale;
+      const spot = {
+        x: sheetAt.x + (venueBox.left - sheetBox.left) * shrink,
+        y: sheetAt.y + (venueBox.top - sheetBox.top) * shrink,
+      };
+      const venueAt = position(groupOf("morph-venue"));
+      return {
+        sheetStillMoving: Math.abs(sheetAt.y - sheetBox.top),
+        x: venueAt.x - spot.x,
+        y: venueAt.y - spot.y,
+      };
+    });
+
+    expect(offset).not.toBeNull();
+    // Guards the measurement itself: halfway, the sheet has not landed yet.
+    expect(offset?.sheetStillMoving).toBeGreaterThan(5);
+    expect(Math.abs(offset?.x ?? Infinity)).toBeLessThan(1);
+    expect(Math.abs(offset?.y ?? Infinity)).toBeLessThan(1);
+  });
+
   // Without the card-side anchor the footer is a new-only group, so it starts at
   // its own slot inside the container — for a card in the last column, the far
   // right of the viewport — and slides across. The anchor gives the group an old
