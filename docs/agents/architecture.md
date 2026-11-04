@@ -281,8 +281,9 @@ transaction never waits for a `Session` row while holding `User` rows, and
 asks for `User` rows in one ordered statement, so the order cannot
 deadlock. Every other statement that locks more than one `User` row takes
 them in pk order too (`lock_owned_companions`), or a party edit could take
-two companions in the opposite order to an enroll seating both. The lock is `FOR NO KEY UPDATE`, which conflicts with itself and
-with an `UPDATE` of the row but not with the `FOR KEY SHARE` a foreign key
+two companions in the opposite order to an enroll seating both. The lock
+is `FOR NO KEY UPDATE`, which conflicts with itself and with an `UPDATE` of
+the row but not with the `FOR KEY SHARE` a foreign key
 to the user takes: rows written for anyone (a notification, a panel log row,
 a participation) never wait on it and hold nothing it waits for. An
 `UPDATE` of a `User` row inside a seat transaction does wait on it, so it
