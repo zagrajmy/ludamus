@@ -102,9 +102,12 @@ const ownsEntry = (id: string): boolean => {
   );
 };
 
-// Set from the history.back() a close issues until its popstate lands, so a
-// second close in between (a touchend and its click) does not step back twice.
-let steppingBack = false;
+// The modal whose close issued a history.back(), until its popstate lands.
+// A second close in between (a touchend and its click) must not step back
+// twice, and that popstate must leave the dialog to close itself: it lands
+// whenever the traversal does, which can be before the close morph has
+// captured the open dialog, and closing it then leaves nothing to animate.
+let steppingBackFrom: string | null = null;
 
 const getLinkableByModalId = (id: string): { paramName: string; paramValue: string } | null => {
   const link = document.querySelector(`a[href][aria-controls="${id}"]`);
@@ -368,7 +371,7 @@ const openModal = async (
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
-          dialog.style.transition = "";
+          dialog.style.transitionProperty = "";
         },
         swap: () => {
           setMorph(card, false);
@@ -390,11 +393,14 @@ const openModal = async (
           }
           suppressSessionCard(id);
           card.style.transition = "none";
-          // The morph is this dialog's entrance. Its own spring (modal.css)
-          // would run underneath it, and every group's end keyframe tracks
-          // the live dialog, so the morph's target would overshoot and
-          // settle with it.
-          dialog.style.transition = "none";
+          // The morph is this dialog's entrance, so its own spring (modal.css)
+          // must not move it: every group's end keyframe tracks the live
+          // dialog, and the morph's target would overshoot and settle with
+          // it. Its fade stays. The sheet's snapshot is the dialog at the
+          // card's width, as tall as the dialog is, so it hangs past the
+          // card's bottom edge, and the fade is what keeps that overhang
+          // from reading over the next card in the first frames.
+          dialog.style.transitionProperty = "opacity";
           presentDialog(dialog);
           setMorph(dialog, true);
         },
@@ -450,14 +456,14 @@ const closeModal = (
     }
   }
 
-  if (updateUrl && !steppingBack) {
+  if (updateUrl && steppingBackFrom === null) {
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
     const current = new URLSearchParams(globalThis.location.search).get(linkable.paramName);
     if (current !== linkable.paramValue) return;
     if (ownsEntry(id)) {
-      steppingBack = true;
+      steppingBackFrom = id;
       globalThis.history.back();
       return;
     }
@@ -580,12 +586,13 @@ const isLazyModal = (id: string): boolean => {
   return source !== null && lazyModalContainer(source) !== null;
 };
 
-const syncModalsFromUrl = (): void => {
+const syncModalsFromUrl = ({ closing = null }: { closing?: string | null } = {}): void => {
   if (openingModals.size > 0) return;
 
   const searchParams = new URLSearchParams(globalThis.location.search);
 
   for (const dialog of document.querySelectorAll("dialog.modal[open]")) {
+    if (dialog.id === closing) continue;
     closeModal(dialog.id, { animate: false, updateUrl: false });
   }
 
@@ -735,8 +742,9 @@ document.addEventListener("click", (event) => {
 });
 
 globalThis.addEventListener("popstate", () => {
-  steppingBack = false;
-  syncModalsFromUrl();
+  const closing = steppingBackFrom;
+  steppingBackFrom = null;
+  syncModalsFromUrl({ closing });
 });
 
 syncModalsFromUrl();

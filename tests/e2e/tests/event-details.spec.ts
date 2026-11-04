@@ -241,6 +241,97 @@ test.describe("Event detail page", () => {
     await expect.poll(() => page.url()).not.toContain("/event/autumn-open/");
   });
 
+  // The Back a close issues lands whenever the traversal does. If its popstate
+  // closed the dialog before the close morph captured it, the modal vanished
+  // with nothing to animate. Hold the morph back until popstate has fired, the
+  // order a slow device can produce, and check the dialog was still there.
+  test("closing a session modal morphs even when popstate lands first", async ({
+    page,
+    viewport,
+  }) => {
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+    test.skip((viewport?.width ?? 0) < 768, "Phones close without a morph");
+
+    const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab" });
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
+    await expect(dialog).toBeVisible();
+    await settleViewTransitions(page);
+
+    await page.evaluate(() => {
+      const record = globalThis as unknown as { closeCapturedDialog?: boolean };
+      const start = document.startViewTransition.bind(document);
+      document.startViewTransition = ((callback: () => void) => {
+        const started = new Promise<ViewTransition>((resolve) => {
+          globalThis.addEventListener(
+            "popstate",
+            () => {
+              const transition = start(callback);
+              void transition.ready.then(() => {
+                record.closeCapturedDialog = document
+                  .getAnimations()
+                  .some(
+                    (a) =>
+                      (a.effect as KeyframeEffect | null)?.pseudoElement ===
+                      "::view-transition-old(session-morph)",
+                  );
+              });
+              resolve(transition);
+            },
+            { once: true },
+          );
+        });
+        return {
+          finished: started.then((t) => t.finished),
+          ready: started.then((t) => t.ready),
+          skipTransition: () => null,
+          updateCallbackDone: started.then((t) => t.updateCallbackDone),
+        };
+      }) as unknown as typeof document.startViewTransition;
+    });
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (globalThis as unknown as { closeCapturedDialog?: boolean }).closeCapturedDialog,
+        ),
+      )
+      .toBe(true);
+  });
+
+  // The morph is the dialog's entrance, so the dialog's own spring must not move
+  // it under the morph; its fade has to stay, because the sheet's snapshot hangs
+  // past the card's bottom edge and would read over the next card at full opacity.
+  test("the morph holds the dialog still but keeps its fade", async ({ page }) => {
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
+    const firstFrame = await page.evaluate(
+      () =>
+        new Promise<{ opacity: number; still: boolean }>((resolve) => {
+          const look = () => {
+            const dialog = document.querySelector<HTMLElement>("dialog[open]");
+            if (!dialog) {
+              requestAnimationFrame(look);
+              return;
+            }
+            const style = getComputedStyle(dialog);
+            resolve({
+              opacity: Number(style.opacity),
+              still: style.transform === "none" || new DOMMatrix(style.transform).isIdentity,
+            });
+          };
+          look();
+        }),
+    );
+
+    expect(firstFrame.still).toBe(true);
+    expect(firstFrame.opacity).toBeLessThan(1);
+  });
+
   // The venue has no counterpart on the card, so the UA pins its group to the
   // final slot while the rest of its row is still arriving inside the sheet's
   // snapshot: it landed first and the duration beside it slid up under it, ~10px
