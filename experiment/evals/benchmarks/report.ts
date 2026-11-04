@@ -3,6 +3,9 @@ import path from "node:path";
 
 import { Schema } from "effect";
 
+import { FileCounts, emptyCounts, totalOf } from "../harness/report.ts";
+import type { Tally } from "../harness/report.ts";
+import { sliceAreaOf } from "../harness/slice.ts";
 import { measureCode } from "./code-metrics.ts";
 import { sliceAreas } from "./slice-files.ts";
 
@@ -56,18 +59,18 @@ const BenchSchema = Schema.Struct({
   started: Schema.String,
 });
 
-const MatrixRowSchema = Schema.Struct({
-  file: Schema.String,
-  inSlice: Schema.Boolean,
-  new: Schema.optional(Counts),
-  old: Schema.optional(Counts),
+const MatrixRunSchema = Schema.Struct({
+  files: Schema.Record(Schema.String, FileCounts),
+  finishedAt: Schema.String,
 });
 
-type MatrixRow = typeof MatrixRowSchema.Type;
+type MatrixRun = typeof MatrixRunSchema.Type;
 
 const MatrixSchema = Schema.Struct({
-  generated: Schema.String,
-  rows: Schema.Array(MatrixRowSchema),
+  runs: Schema.Struct({
+    baseline: Schema.optional(MatrixRunSchema),
+    new: Schema.optional(MatrixRunSchema),
+  }),
 });
 
 const DifferentialSchema = Schema.Struct({
@@ -221,40 +224,35 @@ push();
 if (matrix === null) {
   push("_No e2e matrix yet (`e2e-matrix.json` missing)._");
 } else {
-  const inSlice = matrix.rows.filter((row) => row.inSlice);
+  const files = [
+    ...new Set([
+      ...Object.keys(matrix.runs.baseline?.files ?? {}),
+      ...Object.keys(matrix.runs.new?.files ?? {}),
+    ]),
+  ].toSorted();
 
-  const sum = (rows: readonly MatrixRow[], side: "old" | "new") => {
-    const total = { failed: 0, passed: 0, skipped: 0 };
+  const inSlice = files.filter((file) => sliceAreaOf(file) !== undefined);
 
-    for (const row of rows) {
-      const counts = row[side];
+  const sum = (run: MatrixRun | undefined, names: readonly string[]) =>
+    totalOf(names.map((name) => run?.files[name] ?? emptyCounts));
 
-      if (counts !== undefined) {
-        total.failed += counts.failed;
-        total.passed += counts.passed;
-        total.skipped += counts.skipped;
-      }
-    }
+  const tally = (counts: Tally) =>
+    `${counts.passed}/${counts.failed}/${counts.skipped}`;
 
-    return total;
-  };
-
-  const oldSlice = sum(inSlice, "old");
-  const newSlice = sum(inSlice, "new");
-  const oldAll = sum(matrix.rows, "old");
-  const newAll = sum(matrix.rows, "new");
+  const finished = (run: MatrixRun | undefined) =>
+    run === undefined ? "not run" : run.finishedAt;
 
   push(
-    `Generated ${matrix.generated}. In-slice spec files: ${inSlice.length} of ${matrix.rows.length}.`
+    `Baseline (Django) run finished ${finished(matrix.runs.baseline)}; new-server run finished ${finished(matrix.runs.new)}. In-slice spec files: ${inSlice.length} of ${files.length}.`
   );
   push();
   push("| Scope | old passed/failed/skipped | new passed/failed/skipped |");
   push("| --- | --- | --- |");
   push(
-    `| In slice | ${oldSlice.passed}/${oldSlice.failed}/${oldSlice.skipped} | ${newSlice.passed}/${newSlice.failed}/${newSlice.skipped} |`
+    `| In slice | ${tally(sum(matrix.runs.baseline, inSlice))} | ${tally(sum(matrix.runs.new, inSlice))} |`
   );
   push(
-    `| Whole suite | ${oldAll.passed}/${oldAll.failed}/${oldAll.skipped} | ${newAll.passed}/${newAll.failed}/${newAll.skipped} |`
+    `| Whole suite | ${tally(sum(matrix.runs.baseline, files))} | ${tally(sum(matrix.runs.new, files))} |`
   );
   push();
   push("Per file: see `evals/results/e2e-matrix.md`.");
