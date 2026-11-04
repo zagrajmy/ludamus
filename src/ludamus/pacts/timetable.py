@@ -10,6 +10,7 @@ class PlacementRejection(StrEnum):
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
     BEFORE_PUBLICATION = "before_publication"
+    SPACE_REQUIRED = "space_required"
 
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
         SessionRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
+        SphereRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
@@ -54,6 +56,7 @@ class TimetableRepos:
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+    spheres: SphereRepositoryProtocol
 
 
 class TimetableServiceProtocol(Protocol):

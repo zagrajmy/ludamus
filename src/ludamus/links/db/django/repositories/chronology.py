@@ -54,7 +54,7 @@ from ludamus.pacts.chronology import (
     SessionSeatDTO,
 )
 from ludamus.pacts.ids import EventId, HasPk
-from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.legacy import NO_LOCATION, AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
@@ -163,7 +163,11 @@ def location_from_chain(chain: Sequence[SpaceNode]) -> LocationData:
     )
 
 
-def location_data(space: Space) -> LocationData:
+def location_data(space: Space | None) -> LocationData:
+    # A session scheduled without a space (require_session_space off) has a
+    # time and no place to describe.
+    if space is None:
+        return NO_LOCATION
     return location_from_chain((*reversed(tuple(space.iter_ancestors())), space))
 
 

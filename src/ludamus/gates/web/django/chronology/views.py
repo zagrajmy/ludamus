@@ -234,7 +234,7 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     # What the event still lacks before any proposal can be placed, or None when
     # nothing does. The page renders either way: a reviewer who lands here with
     # the venue unfinished gets the reason and the panel link, not a bounce.
-    if not context.space_options:
+    if context.space_required and not context.space_options:
         return "spaces"
     if not context.time_slots:
         return "time_slots"
@@ -264,7 +264,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         try:
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
-                space_id=form.cleaned_data["space"],
+                space_id=form.cleaned_data.get("space"),
                 time_slot_id=form.cleaned_data["time_slot"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,

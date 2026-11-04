@@ -830,8 +830,12 @@ class _FakeUsers:
 
 
 class _FakeSpheres:
-    def __init__(self, *, managers=()):
+    def __init__(self, *, managers=(), require_session_space=True):
         self.managers = set(managers)
+        self.require_session_space = require_session_space
+
+    def read(self, _sphere_id):
+        return SimpleNamespace(require_session_space=self.require_session_space)
 
     def manager_role(self, sphere_id, user_slug):
         return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
@@ -1419,6 +1423,7 @@ class TestProposalAcceptanceWithFakes:
             preferred_time_slot_ids=[2],
             field_values=sessions.form["field_values"],
             can_accept=True,
+            space_required=True,
             placements=PlacementAvailabilityDTO(
                 taken_space_ids_by_slot={self._SLOT.pk: []},
                 taken_space_ids=[],
@@ -1527,6 +1532,45 @@ class TestProposalAcceptanceWithFakes:
             placements.full_time_slot_ids,
             placements.has_free_placement,
         ) == expected
+
+    def test_accepting_without_a_space_is_refused_where_one_is_required(self):
+        agenda_items = _FakeAgendaItems()
+
+        with pytest.raises(NotFoundError):
+            self._service(self._sessions(), agenda_items).accept_session(
+                session_id=_SESSION_PK,
+                space_id=None,
+                time_slot_id=2,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+        assert agenda_items.created == []
+
+    def test_accepting_without_a_space_places_it_where_none_is_required(self):
+        agenda_items = _FakeAgendaItems()
+        service = ProposalAcceptanceService(
+            transaction=FakeTransaction(),
+            sessions=self._sessions(),
+            agenda_items=agenda_items,
+            active_users=_FakeUsers(_user_dto(slug="manager")),
+            spheres=_FakeSpheres(
+                managers=[(3, "manager")], require_session_space=False
+            ),
+            notifier=_RecordingNotifier(),
+        )
+
+        service.accept_session(
+            session_id=_SESSION_PK,
+            space_id=None,
+            time_slot_id=2,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        # No room to clash over, so nothing asks whether one is taken.
+        assert agenda_items.overlap_queries == []
+        assert [item["space_id"] for item in agenda_items.created] == [None]
 
     def test_accept_session_places_the_session_in_the_chosen_slot(self):
         sessions = self._sessions()

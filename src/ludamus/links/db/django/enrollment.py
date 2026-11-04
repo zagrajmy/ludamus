@@ -534,7 +534,11 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             min_age=session.min_age,
             enrolled_count=session.enrolled_count,
             waiting_count=session.waiting_count,
-            space_name=session.agenda_item.space.name if has_agenda_item else None,
+            space_name=(
+                session.agenda_item.space.name
+                if has_agenda_item and session.agenda_item.space is not None
+                else None
+            ),
             start_time=session.agenda_item.start_time if has_agenda_item else None,
             end_time=session.agenda_item.end_time if has_agenda_item else None,
         )

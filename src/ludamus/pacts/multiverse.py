@@ -177,6 +177,7 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: EncountersPolicy
@@ -195,6 +196,7 @@ class SpherePanelServiceProtocol(Protocol):
         allow_facilitator_session_edit: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
+        require_session_space: bool | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...

@@ -78,7 +78,11 @@ def create_proposal_acceptance_form(
         grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
             (option.pk, option.name)
         )
-    choices: ChoiceList = [("", gettext("Select a space..."))]
+    # Where a space is optional, leaving it blank is the answer "no space".
+    blank = (
+        gettext("Select a space...") if context.space_required else gettext("No space")
+    )
+    choices: ChoiceList = [("", blank)]
     choices.extend(grouped.items())
 
     allowed_space_ids = {option.pk for option in context.space_options}
@@ -92,7 +96,7 @@ def create_proposal_acceptance_form(
             taken=frozenset(str(pk) for pk in placements.taken_space_ids)
         ),
         help_text=_("Select the space where this session will take place"),
-        required=True,
+        required=context.space_required,
     )
     time_slot_field = forms.ChoiceField(
         choices=slot_choices(time_slots, context.preferred_time_slot_ids),
@@ -104,7 +108,9 @@ def create_proposal_acceptance_form(
         required=True,
     )
 
-    def clean_space(self: forms.Form) -> int:
+    def clean_space(self: forms.Form) -> int | None:
+        if not self.cleaned_data["space"] and not context.space_required:
+            return None
         return _validated_choice_id(
             self.cleaned_data["space"],
             allowed=allowed_space_ids,
@@ -118,13 +124,19 @@ def create_proposal_acceptance_form(
             error=gettext("Invalid time slot selection."),
         )
 
+    # With no space required and none to choose from, the only answer is
+    # "no space", and a field offering one option asks nothing.
+    space_fields = (
+        {"space": space_field, "clean_space": clean_space}
+        if context.space_options or context.space_required
+        else {}
+    )
     return type(
         "ProposalAcceptanceForm",
         (forms.Form,),
         {
-            "space": space_field,
+            **space_fields,
             "time_slot": time_slot_field,
-            "clean_space": clean_space,
             "clean_time_slot": clean_time_slot,
         },
     )

@@ -164,3 +164,29 @@ test.describe("Accepting into a partly booked slot", () => {
     });
   });
 });
+
+test.describe("Accepting into a meetup that needs no room", () => {
+  test.use({ storageState: managerState });
+
+  test("it asks only for the time and puts the session on the programme", async ({ page }) => {
+    await page.goto("/event/roomless-meetup/");
+    await page.getByRole("link", { name: "Review proposal Roomless Talk" }).click();
+    const decision = page.getByRole("heading", { name: "Schedule it" }).locator("..");
+
+    // No space to choose, and none required: the card names only the time.
+    await expect(decision.getByRole("combobox")).toHaveCount(0);
+    await expect(decision.getByText("Time slot", { exact: true })).toBeVisible();
+    await decision.getByRole("button", { name: "Accept and add to agenda" }).click();
+    await expect(page).toHaveURL(/\/event\/roomless-meetup\/$/);
+
+    const card = page.locator("[data-session-card]").filter({ hasText: "Roomless Talk" });
+    await expect(card).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "roomless-meetup-card",
+      region: card,
+      facts: { session: "Roomless Talk", space: null },
+    });
+    await page.getByRole("link", { name: "Open details for Roomless Talk" }).click();
+    await expect(page.getByRole("dialog", { name: "Roomless Talk" })).toBeVisible();
+  });
+});

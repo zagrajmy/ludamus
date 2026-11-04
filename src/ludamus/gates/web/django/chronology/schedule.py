@@ -7,6 +7,7 @@ from itertools import groupby, pairwise
 from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from ludamus.mills.timeslots import PROGRAMME_DAYS, Window
 
@@ -406,6 +407,9 @@ def build_card_days(hour_data: dict[datetime, list[SessionData]]) -> list[CardDa
 
 
 class _RoomKey(NamedTuple):
+    # Sessions placed without a space (space_id 0) share one lane, after the
+    # rooms: field order is sort order.
+    spaceless: bool
     programme_order: int
     sort_path: tuple[tuple[int, str, int], ...]
     space_id: int
@@ -416,6 +420,7 @@ class _RoomKey(NamedTuple):
 
 def _room_key(data: SessionData) -> _RoomKey:
     return _RoomKey(
+        spaceless=not data.loc["space_id"],
         programme_order=data.loc["programme_order"],
         sort_path=data.loc["sort_path"],
         space_id=data.loc["space_id"],
@@ -432,7 +437,7 @@ def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
         group_key = str(key.parent_id) if key.parent_id else ""
         lanes.append(
             RoomLane(
-                name=key.name,
+                name=gettext("No space") if key.spaceless else key.name,
                 group=key.parent_name,
                 group_key=group_key,
                 starts_group=group_key != previous_group,

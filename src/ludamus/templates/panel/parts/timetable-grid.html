@@ -1,6 +1,6 @@
 {% load i18n %}
 {% load tessera %}
-{% if not grid.spaces %}
+{% if not grid.columns_per_day %}
     <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
         <p class="text-sm mt-2">{% translate "Add rooms or select a different track." %}</p>
@@ -71,10 +71,10 @@
          role="region"
          aria-label="{% translate 'Schedule' %}"
          data-timetable-days
-         style="--day-strip-tracks: {% for day in grid.days %}var(--timetable-time-column) repeat({{ grid.spaces|length }}, minmax(var(--timetable-column-min), 1fr)) {% endfor %};
+         style="--day-strip-tracks: {% for day in grid.days %}var(--timetable-time-column) repeat({{ grid.columns_per_day }}, minmax(var(--timetable-column-min), 1fr)) {% endfor %};
                 --day-count: {{ grid.days|length }};
                 --total-columns: {{ grid.total_columns }};
-                --day-span: {{ grid.spaces|length|add:1 }}">
+                --day-span: {{ grid.columns_per_day|add:1 }}">
         <div class="timetable-day-strip timetable-day-strip-header sticky top-0 z-20 border-b border-neutral-700">
             {% for day in grid.days %}
                 <div class="timetable-day-header">
@@ -96,7 +96,13 @@
                     {% endfor %}
                     {% for col in day.columns %}
                         <div class="timetable-room-cell flex flex-col justify-center border-l border-neutral-700 bg-neutral-800 px-3 py-2 text-center">
-                            <div class="text-sm font-medium text-white wrap-anywhere">{{ col.space.name }}</div>
+                            <div class="text-sm font-medium text-white wrap-anywhere">
+                                {% if col.space %}
+                                    {{ col.space.name }}
+                                {% else %}
+                                    {% translate "No space" %}
+                                {% endif %}
+                            </div>
                             {% if col.space.capacity %}
                                 <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
                             {% endif %}

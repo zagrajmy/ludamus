@@ -53,6 +53,7 @@ from ludamus.pacts.timetable import (
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
 )
+from ludamus.specs.chronology import resolve_event_toggle
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -318,6 +319,13 @@ class TimetableService(TimetableServiceProtocol):
             else all_items
         )
         states = _card_states(conflicts, violations)
+        # Sessions placed without a space get a column of their own, while the
+        # event lets them be placed so or still holds any. A room filter asks
+        # for rooms, so it leaves the column out.
+        spaceless_column = not filters.space_pks and (
+            not self._requires_space(self._repos.events.read(event_pk))
+            or any(item.space_id is None for item in all_items)
+        )
         # Every rendered date is a `windows_by_date` key, so it carries at least
         # one window; with no dates there is no span and nothing to render.
         # pragma: no mutate start
@@ -335,9 +343,13 @@ class TimetableService(TimetableServiceProtocol):
                 spaces=spaces,
                 all_items=shown_items,
                 states=states,
+                spaceless_column=spaceless_column,
             )
             for date_to_render in dates_to_render
         ]
+        columns_per_day = len(spaces) + spaceless_column
+        if spaceless_column:
+            groups.append(SpaceGroupDTO(parent_pk=None, parent_name="", span=1))
 
         return TimetableGridDTO(
             spaces=spaces,
@@ -353,7 +365,8 @@ class TimetableService(TimetableServiceProtocol):
             # Every day renders the same page of spaces -- `groups` already
             # relies on that -- so the calendar's flat track list is just the
             # page repeated once per day.
-            total_columns=len(spaces) * len(days),
+            columns_per_day=columns_per_day,
+            total_columns=columns_per_day * len(days),
             available_dates=available_dates,
             date_selection=date_selection,
             conflicts=conflicts,
@@ -368,22 +381,28 @@ class TimetableService(TimetableServiceProtocol):
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
         states: dict[int, SessionPositionState],
+        spaceless_column: bool,
     ) -> TimetableDayGridDTO:
         grid_start, grid_end = day_range
 
-        space_pk_set = {space.pk for space in spaces}
-        space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        shown_space_pks: set[int | None] = {space.pk for space in spaces}
+        if spaceless_column:
+            shown_space_pks.add(None)
+        space_items: dict[int | None, list[AgendaItemDTO]] = defaultdict(list)
         for item in all_items:
             if (
-                item.space_id in space_pk_set
+                item.space_id in shown_space_pks
                 and item.start_time < grid_end
                 and item.end_time > grid_start
             ):
                 space_items[item.space_id].append(item)
 
+        column_spaces: list[SpaceDTO | None] = [*spaces]
+        if spaceless_column:
+            column_spaces.append(None)
         columns: list[SpaceColumnDTO] = []
-        for space in spaces:
-            items_for_space = space_items.get(space.pk, [])
+        for space in column_spaces:
+            items_for_space = space_items.get(space.pk if space else None, [])
             items_for_space.sort(key=lambda item: item.start_time)
             columns.append(
                 SpaceColumnDTO(
@@ -452,6 +471,14 @@ class TimetableService(TimetableServiceProtocol):
                 )
             groups[-1].span += 1
         return groups
+
+    def _requires_space(self, event: EventDTO) -> bool:
+        return resolve_event_toggle(
+            event_override=event.require_session_space,
+            sphere_default=self._repos.spheres.read(
+                event.sphere_id
+            ).require_session_space,
+        )
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         leaf_pks = {
@@ -548,9 +575,16 @@ class TimetableService(TimetableServiceProtocol):
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
             )
             self._repos.sessions.lock(session_pk)
-            self._require_space_in_event(placement.space_pk, event_pk)
             event = self._repos.sessions.read_event(session_pk)
-            self._repos.spaces.lock(placement.space_pk)
+            if placement.space_pk is None:
+                if self._requires_space(event):
+                    raise PlacementRejectedError(
+                        PlacementRejection.SPACE_REQUIRED,
+                        "This event places every session in a space.",
+                    )
+            else:
+                self._require_space_in_event(placement.space_pk, event_pk)
+                self._repos.spaces.lock(placement.space_pk)
             existing = self._repos.agenda_items.read_by_session(session_pk)
             if existing is not None and (
                 existing.space_id == placement.space_pk
@@ -643,12 +677,15 @@ class TimetableService(TimetableServiceProtocol):
                     log.session_id, {"schedule_confirmed": False}
                 )
             elif log.action == ScheduleChangeAction.UNASSIGN:
-                if (
-                    log.old_space_id is None
-                    or log.old_start_time is None
-                    or log.old_end_time is None
-                ):
+                if log.old_start_time is None or log.old_end_time is None:
                     msg = "Cannot revert UNASSIGN: missing original placement data"
+                    raise ValueError(msg)
+                # No space is the original placement only where the event
+                # allows one; where it requires a space, it was deleted.
+                if log.old_space_id is None and self._requires_space(
+                    self._repos.sessions.read_event(log.session_id)
+                ):
+                    msg = "Cannot revert UNASSIGN: its space no longer exists"
                     raise ValueError(msg)
                 # Undo restores a placement that was legitimate when it was
                 # made, so the time-slot windows are not re-checked here: a
@@ -820,7 +857,10 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         items_by_space: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
         items_by_facilitator: defaultdict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
-            items_by_space[item.space_id].append(item)
+            # Sessions without a space share no room, so they cannot clash
+            # over one; their facilitators still can.
+            if item.space_id is not None:
+                items_by_space[item.space_id].append(item)
             for facilitator in facilitators_by_session.get(item.session_id, []):
                 items_by_facilitator[facilitator.pk].append(item)
         return _EventConflictContext(
@@ -839,7 +879,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
-            *self._capacity_conflicts(item, context.spaces.get(item.space_id)),
+            *self._capacity_conflicts(
+                item, context.spaces.get(item.space_id) if item.space_id else None
+            ),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator
             ),
@@ -858,7 +900,9 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
                 session_title=other.session_title,
                 session_pk=other.session_id,
             )
-            for other in items_by_space[item.space_id]
+            for other in (
+                items_by_space[item.space_id] if item.space_id is not None else []
+            )
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
 

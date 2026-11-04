@@ -32,7 +32,8 @@
                     <div class="card mb-6">
                         <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <p class="text-sm text-foreground">
-                                {% blocktranslate trimmed with space=agenda_item.space_name start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
+                                {% translate "No space" as no_space %}
+                                {% blocktranslate trimmed with space=agenda_item.space_name|default:no_space start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
                                     Scheduled in {{ space }}, {{ start }} – {{ end }}
                                 {% endblocktranslate %}
                             </p>

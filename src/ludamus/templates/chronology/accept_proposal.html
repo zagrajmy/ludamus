@@ -105,7 +105,9 @@
                         {% endif %}
                     </p>
                 {% else %}
-                    {% tessera_sole_choice form.space as sole_space %}
+                    {% if form.fields.space %}
+                        {% tessera_sole_choice form.space as sole_space %}
+                    {% endif %}
                     {% tessera_sole_choice form.time_slot as sole_slot %}
                     {# The submit lives in the shared actions block below, tied back #}
                     {# by form=, so the "or / Back to event" tail is written once. #}
@@ -134,7 +136,9 @@
                                 {% endif %}
                             </dl>
                         {% endif %}
-                        {% tessera_field form.space %}
+                        {% if form.fields.space %}
+                            {% tessera_field form.space %}
+                        {% endif %}
                         {% tessera_field form.time_slot %}
                     </form>
                 {% endif %}

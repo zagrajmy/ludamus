@@ -694,6 +694,7 @@ class Services:
             time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

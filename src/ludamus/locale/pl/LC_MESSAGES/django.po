@@ -1103,6 +1103,16 @@ msgid "Select a space..."
 msgstr "Wybierz przestrzeń..."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/chronology/schedule.py
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "No space"
+msgstr "Bez przestrzeni"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Space"
@@ -2123,6 +2133,10 @@ msgstr "Przedział czasowy został usunięty."
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid "Only accepted sessions can be placed on the schedule."
 msgstr "W harmonogramie można umieszczać tylko zaakceptowane punkty programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
+msgid "This event places every session in a space. Drop it in a room."
+msgstr "To wydarzenie umieszcza każdy punkt programu w przestrzeni. Upuść go w sali."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid ""
@@ -3364,6 +3378,16 @@ msgstr "Użyj domyślnego ustawienia sfery"
 msgid "Facilitators editing their own sessions"
 msgstr "Edycja własnych punktów programu przez twórców programu"
 
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "A space for every scheduled session"
+msgstr "Przestrzeń dla każdego zaplanowanego punktu programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Optional suits a meetup that only needs a time: sessions can be placed "
+"without a room."
+msgstr "Opcjonalna pasuje do spotkania, któremu wystarczy godzina: punkty programu można zaplanować bez sali."
+
 #: src/ludamus/gates/web/django/forms.py
 msgid "Automatically confirm program items once scheduled"
 msgstr "Automatycznie potwierdzaj punkty programu po zaplanowaniu"
@@ -3406,6 +3430,16 @@ msgstr "Pozwól twórcom programu edytować własne punkty programu"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Require a space for every scheduled session"
+msgstr "Wymagaj przestrzeni dla każdego zaplanowanego punktu programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Default for the whole sphere; events can override it. Turn off for meetups "
+"that only need a time."
+msgstr "Domyślne ustawienie całej sfery; wydarzenia mogą je zmienić. Wyłącz dla spotkań, którym wystarczy godzina."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Place event cover buttons at the bottom right"

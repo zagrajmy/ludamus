@@ -394,6 +394,18 @@ def _session_list(service, **kwargs):
 
 
 class TestBuildSessionList:
+    def test_a_session_without_a_space_lists_after_the_rooms_at_its_time(self):
+        spaces = [_space(1, "Alfa", 1)]
+        items = [
+            _item(1, None, 9, 10, title="Roomless", confirmed=True),
+            _item(2, 1, 9, 10, title="In Alfa", confirmed=True, space_name="Alfa"),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        document = _session_list(service)
+
+        assert [s.title for s in document.pages[0].sessions] == ["In Alfa", "Roomless"]
+
     def test_whole_event_in_time_then_programme_room_order(self):
         spaces = [_space(1, "Alfa", 1), _space(2, "Bravo", 0)]
         spaces[0].programme_order = 0

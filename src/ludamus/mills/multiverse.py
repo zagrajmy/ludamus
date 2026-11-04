@@ -192,6 +192,7 @@ class SpherePanelService:
         allow_facilitator_session_edit: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
+        require_session_space: bool | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
@@ -219,6 +220,8 @@ class SpherePanelService:
             "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
+        if require_session_space is not None:
+            data["require_session_space"] = require_session_space
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
@@ -246,6 +249,8 @@ class SpherePanelService:
             data["allow_facilitator_session_edit"] = changes[
                 "allow_facilitator_session_edit"
             ]
+        if "require_session_space" in changes:
+            data["require_session_space"] = changes["require_session_space"]
         if "event_cover_buttons_at_bottom" in changes:
             data["event_cover_buttons_at_bottom"] = changes[
                 "event_cover_buttons_at_bottom"

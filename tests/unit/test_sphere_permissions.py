@@ -181,6 +181,13 @@ class TestSpherePanelServiceUpdateSettings:
             )
         ]
 
+    def test_a_named_space_requirement_is_saved(self):
+        spheres = FakeSpheres()
+
+        self._update(_service(spheres=spheres), require_session_space=False)
+
+        assert spheres.updates[0][1]["require_session_space"] is False
+
     def test_empty_logo_removes_it(self):
         spheres = FakeSpheres()
 
@@ -245,6 +252,7 @@ class TestSpherePanelServicePatchSettings:
             SPHERE_PK,
             changes={
                 "allow_facilitator_session_edit": False,
+                "require_session_space": False,
                 "event_cover_buttons_at_bottom": True,
                 "visibility": SphereVisibility.PRIVATE,
             },
@@ -256,6 +264,7 @@ class TestSpherePanelServicePatchSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
+                    "require_session_space": False,
                     "event_cover_buttons_at_bottom": True,
                     "visibility": SphereVisibility.PRIVATE,
                 },

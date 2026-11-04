@@ -100,6 +100,13 @@ class _UpdateEventInput(BaseModel):
             "follows the sphere setting; omit to keep"
         ),
     )
+    require_session_space: bool | None = Field(
+        default=None,
+        description=(
+            "Whether every scheduled session here needs a space; null follows "
+            "the sphere setting; omit to keep"
+        ),
+    )
     auto_confirm_sessions: bool | None = Field(
         default=None,
         description=(
@@ -219,6 +226,8 @@ def _event_settings_cleared(body: _UpdateEventInput) -> EventUpdateData:
         data["proposal_end_time"] = body.proposal_end_time
     if "allow_facilitator_session_edit" in sent:
         data["allow_facilitator_session_edit"] = body.allow_facilitator_session_edit
+    if "require_session_space" in sent:
+        data["require_session_space"] = body.require_session_space
     return data
 
 

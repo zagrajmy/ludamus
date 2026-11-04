@@ -212,7 +212,12 @@ function dropVerdict(
   placement: Placement,
 ): DropVerdict | null {
   const range: [number, number] = [start, start + placement.duration];
-  if (blocksOverlap(col, ".timetable-session", range, placement.sessionPk)) return "occupied";
+  // The "No space" column (blank data-space-pk) is no room, so sessions in it
+  // share nothing and stacking them is no clash.
+  const isRoom = col.dataset.spacePk !== "";
+  if (isRoom && blocksOverlap(col, ".timetable-session", range, placement.sessionPk)) {
+    return "occupied";
+  }
   if (roomTooSmall(col, placement)) return "tooSmall";
   if (
     range[1] > Number(cal.dataset.totalMinutes) ||

@@ -88,9 +88,13 @@ def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
 
 def _session_list_order(
     item: AgendaItemDTO, space_order: dict[int, tuple[int, str, int]]
-) -> tuple[datetime, tuple[int, str, int]]:
+) -> tuple[datetime, bool, tuple[int, str, int]]:
+    # At one time, sessions placed without a space follow those in rooms; a
+    # room this run does not know sorts after the ones it does.
+    if item.space_id is None:
+        return (item.start_time, True, (0, "", 0))
     fallback = (len(space_order), item.space_name, item.space_id)
-    return (item.start_time, space_order.get(item.space_id, fallback))
+    return (item.start_time, False, space_order.get(item.space_id, fallback))
 
 
 def _chunks[T](values: list[T], size: int) -> list[list[T]]:
@@ -121,7 +125,10 @@ def _timetable_pages(
     # mills/timeslots.py), so they play no part here. Instants are keyed as
     # timestamps: on the night the clocks go back two datetimes an hour apart
     # compare equal.
-    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
+    # Keyed so a session without a space finds no column and is left off.
+    col: dict[int | None, int] = {
+        space.pk: index + 1 for index, space in enumerate(spaces)
+    }
     if not (items := [item for item in items if item.space_id in col]):
         return []
     instants = {
@@ -394,8 +401,10 @@ class PrintMaterialsService:
         return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
-    def _group_by_space(items: list[AgendaItemDTO]) -> dict[int, list[AgendaItemDTO]]:
-        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+    def _group_by_space(
+        items: list[AgendaItemDTO],
+    ) -> dict[int | None, list[AgendaItemDTO]]:
+        items_by_space: dict[int | None, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
             items_by_space[item.space_id].append(item)
         for grouped in items_by_space.values():

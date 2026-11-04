@@ -1316,6 +1316,45 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_meetup_without_rooms_event(sphere: Sphere) -> None:
+    # A meetup that only needs a time: no spaces at all, so accepting asks
+    # nothing about a room and the session lands in the "No space" lane.
+    event = _create_event(
+        sphere,
+        name="Roomless Meetup",
+        slug="roomless-meetup",
+        description="A meetup that only needs a time.",
+        start_offset=timedelta(days=20),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    event.require_session_space = False
+    event.save(update_fields=["require_session_space"])
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=1),
+        end_time=event.start_time + timedelta(hours=3),
+    )
+    presenter = User.objects.get(username="e2e-tester")
+    Session.objects.create(
+        event=event,
+        presenter=presenter,
+        facilitator_name=presenter.name,
+        contact_email=presenter.email,
+        category=ProposalCategory.objects.create(
+            event=event, name="Talk", slug="talk", durations=["PT2H"]
+        ),
+        title="Roomless Talk",
+        slug="roomless-talk",
+        description="Needs a time, not a room.",
+        duration="PT2H",
+        participants_limit=0,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+
+
 def _create_accept_crowded_event(sphere: Sphere, *, slots: int) -> None:
     # Three rooms, one of them holding a session through the first slot: the
     # accept page shows it taken then, never as a conflict to discover on
@@ -2057,6 +2096,7 @@ def main() -> None:
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_meetup_without_rooms_event(sphere)
     _create_accept_crowded_event(sphere, slots=1)
     _create_accept_crowded_event(sphere, slots=2)
     _create_single_slot_event(sphere)
