@@ -851,6 +851,7 @@ msgstr "Na przykład: kampania Mörk Borg albo malowanie figurek do D&D."
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -1403,14 +1404,47 @@ msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "Allow"
 msgstr "Pozwól"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "Disallow"
 msgstr "Nie pozwól"
+
+# Login Required Page
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/templates/components/dynamic-field-label.html
+#: src/ludamus/templates/components/label.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "required"
+msgstr "wymagane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/templates/panel/session-fields.html
+msgid "optional"
+msgstr "opcjonalne"
+
+# Login Required Page
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/settings_forms.py
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Required"
+msgstr "Wymagane"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/settings_forms.py
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Optional"
+msgstr "Opcjonalne"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "An event with this slug already exists."
@@ -2136,7 +2170,8 @@ msgstr "W harmonogramie można umieszczać tylko zaakceptowane punkty programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid "This event places every session in a space. Drop it in a room."
-msgstr "To wydarzenie umieszcza każdy punkt programu w przestrzeni. Upuść go w sali."
+msgstr ""
+"To wydarzenie umieszcza każdy punkt programu w przestrzeni. Upuść go w sali."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/timetable.py
 msgid ""
@@ -2757,17 +2792,17 @@ msgid "Name"
 msgstr "Nazwa"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "Event name is too long (max 255 characters)."
 msgstr "Nazwa wydarzenia jest za długa (max 255 znaków)."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "Event name is required."
 msgstr "Nazwa wydarzenia jest wymagana."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2779,14 +2814,14 @@ msgid "Part of the event's address. Leave empty to derive it from the name."
 msgstr "Część adresu wydarzenia. Zostaw puste, żeby utworzyć go z nazwy."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "Start time"
 msgstr "Czas rozpoczęcia"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
-#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
 msgid "End time"
 msgstr "Czas zakończenia"
 
@@ -3314,174 +3349,6 @@ msgstr ""
 "SVG."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "URL identifier for this event. Must be unique."
-msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Event slug is required."
-msgstr "Slug wydarzenia jest wymagany."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Aim for about 230 characters."
-msgstr "Celuj w około 230 znaków."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Address"
-msgstr "Adres"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Venue address, two lines at most. Shown with a map link."
-msgstr ""
-"Adres miejsca wydarzenia, najwyżej dwie linie. Pokazywany z linkiem do mapy."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "An address can have at most two lines."
-msgstr "Adres może mieć najwyżej dwie linie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Start time is required."
-msgstr "Czas rozpoczęcia jest wymagany."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "End time is required."
-msgstr "Czas zakończenia jest wymagany."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Public: listed and announced to followers from its publication time"
-msgstr ""
-"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Link only: anyone with the link can open it now; never listed or announced"
-msgstr ""
-"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-"się na listach ani w powiadomieniach"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Who can see the event"
-msgstr "Kto widzi wydarzenie"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Publication time"
-msgstr "Czas publikacji"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"For a public event: when it appears in event lists and followers are "
-"notified. Leave empty to keep it hidden."
-msgstr ""
-"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Use sphere default"
-msgstr "Użyj domyślnego ustawienia sfery"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Facilitators editing their own sessions"
-msgstr "Edycja własnych punktów programu przez twórców programu"
-
-#: src/ludamus/gates/web/django/settings_forms.py
-msgid "A space for every scheduled session"
-msgstr "Przestrzeń dla każdego zaplanowanego punktu programu"
-
-#: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Optional suits a meetup that only needs a time: sessions can be placed "
-"without a room."
-msgstr "Opcjonalna pasuje do spotkania, któremu wystarczy godzina: punkty programu można zaplanować bez sali."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Automatically confirm program items once scheduled"
-msgstr "Automatycznie potwierdzaj punkty programu po zaplanowaniu"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"When on, a program item is confirmed the moment it is placed on the "
-"schedule. Turn off to confirm items manually."
-msgstr ""
-"Gdy włączone, punkt programu jest potwierdzany w chwili umieszczenia go w "
-"harmonogramie. Wyłącz, aby potwierdzać punkty ręcznie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Use placeholder images for sessions without a cover image"
-msgstr "Używaj obrazów zastępczych dla punktów programu bez okładki"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"When off, sessions without uploaded images are shown as text-only cards."
-msgstr ""
-"Gdy wyłączone, punkty programu bez przesłanych obrazów są pokazywane jako "
-"karty z samym tekstem."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Label the attendee count \"Participants\" instead of \"Players\""
-msgstr "Oznacz licznik uczestników jako „Uczestnicy” zamiast „Gracze”"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Turn on for non-gaming events so the public page counts participants rather "
-"than players."
-msgstr ""
-"Włącz dla wydarzeń niegrowych, aby strona publiczna liczyła uczestników "
-"zamiast graczy."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Allow facilitators to edit their own sessions"
-msgstr "Pozwól twórcom programu edytować własne punkty programu"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Default for the whole sphere. Events can override this setting."
-msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
-
-#: src/ludamus/gates/web/django/settings_forms.py
-msgid "Require a space for every scheduled session"
-msgstr "Wymagaj przestrzeni dla każdego zaplanowanego punktu programu"
-
-#: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Default for the whole sphere; events can override it. Turn off for meetups "
-"that only need a time."
-msgstr "Domyślne ustawienie całej sfery; wydarzenia mogą je zmienić. Wyłącz dla spotkań, którym wystarczy godzina."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Place event cover buttons at the bottom right"
-msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Shows print and venue map buttons in a horizontal row at the bottom right of "
-"event covers."
-msgstr ""
-"Wyświetla przyciski drukowania i map obiektu w poziomym rzędzie w prawym "
-"dolnym rogu okładek wydarzeń."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Nobody (encounters are off here)"
-msgstr "Nikt (spotkania są tu wyłączone)"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Sphere managers only"
-msgstr "Tylko menedżerowie sfery"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Everyone"
-msgstr "Wszyscy"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Who may organize encounters"
-msgstr "Kto może organizować spotkania"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Encounters are small meetups organized by hand. Public ones are listed for "
-"everyone on the events page."
-msgstr ""
-"Spotkania to małe wydarzenia organizowane ręcznie. Publiczne widnieją na "
-"stronie wydarzeń dla wszystkich."
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Proposal Description"
 msgstr "Opis zgłoszenia"
 
@@ -3610,8 +3477,18 @@ msgid "End date is required."
 msgstr "Data końcowa jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Start time is required."
+msgstr "Czas rozpoczęcia jest wymagany."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enter a valid time."
 msgstr "Podaj prawidłowy czas."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "End time is required."
+msgstr "Czas zakończenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Space name is too long (max 255 characters)."
@@ -4095,6 +3972,170 @@ msgstr "Regulamin"
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "URL identifier for this event. Must be unique."
+msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Event slug is required."
+msgstr "Slug wydarzenia jest wymagany."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Aim for about 230 characters."
+msgstr "Celuj w około 230 znaków."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Address"
+msgstr "Adres"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Venue address, two lines at most. Shown with a map link."
+msgstr ""
+"Adres miejsca wydarzenia, najwyżej dwie linie. Pokazywany z linkiem do mapy."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "An address can have at most two lines."
+msgstr "Adres może mieć najwyżej dwie linie."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Public: listed and announced to followers from its publication time"
+msgstr ""
+"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Link only: anyone with the link can open it now; never listed or announced"
+msgstr ""
+"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+"się na listach ani w powiadomieniach"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Who can see the event"
+msgstr "Kto widzi wydarzenie"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Publication time"
+msgstr "Czas publikacji"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"For a public event: when it appears in event lists and followers are "
+"notified. Leave empty to keep it hidden."
+msgstr ""
+"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Use sphere default"
+msgstr "Użyj domyślnego ustawienia sfery"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Facilitators editing their own sessions"
+msgstr "Edycja własnych punktów programu przez twórców programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "A space for every scheduled session"
+msgstr "Przestrzeń dla każdego zaplanowanego punktu programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Optional suits a meetup that only needs a time: sessions can be placed "
+"without a room."
+msgstr ""
+"Opcjonalna pasuje do spotkania, któremu wystarczy godzina: punkty programu "
+"można zaplanować bez sali."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Automatically confirm program items once scheduled"
+msgstr "Automatycznie potwierdzaj punkty programu po zaplanowaniu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"When on, a program item is confirmed the moment it is placed on the "
+"schedule. Turn off to confirm items manually."
+msgstr ""
+"Gdy włączone, punkt programu jest potwierdzany w chwili umieszczenia go w "
+"harmonogramie. Wyłącz, aby potwierdzać punkty ręcznie."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Use placeholder images for sessions without a cover image"
+msgstr "Używaj obrazów zastępczych dla punktów programu bez okładki"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"When off, sessions without uploaded images are shown as text-only cards."
+msgstr ""
+"Gdy wyłączone, punkty programu bez przesłanych obrazów są pokazywane jako "
+"karty z samym tekstem."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Label the attendee count \"Participants\" instead of \"Players\""
+msgstr "Oznacz licznik uczestników jako „Uczestnicy” zamiast „Gracze”"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Turn on for non-gaming events so the public page counts participants rather "
+"than players."
+msgstr ""
+"Włącz dla wydarzeń niegrowych, aby strona publiczna liczyła uczestników "
+"zamiast graczy."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Allow facilitators to edit their own sessions"
+msgstr "Pozwól twórcom programu edytować własne punkty programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Default for the whole sphere. Events can override this setting."
+msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Require a space for every scheduled session"
+msgstr "Wymagaj przestrzeni dla każdego zaplanowanego punktu programu"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Default for the whole sphere; events can override it. Turn off for meetups "
+"that only need a time."
+msgstr ""
+"Domyślne ustawienie całej sfery; wydarzenia mogą je zmienić. Wyłącz dla "
+"spotkań, którym wystarczy godzina."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Place event cover buttons at the bottom right"
+msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Shows print and venue map buttons in a horizontal row at the bottom right of "
+"event covers."
+msgstr ""
+"Wyświetla przyciski drukowania i map obiektu w poziomym rzędzie w prawym "
+"dolnym rogu okładek wydarzeń."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Nobody (encounters are off here)"
+msgstr "Nikt (spotkania są tu wyłączone)"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Sphere managers only"
+msgstr "Tylko menedżerowie sfery"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Everyone"
+msgstr "Wszyscy"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Who may organize encounters"
+msgstr "Kto może organizować spotkania"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid ""
+"Encounters are small meetups organized by hand. Public ones are listed for "
+"everyone on the events page."
+msgstr ""
+"Spotkania to małe wydarzenia organizowane ręcznie. Publiczne widnieją na "
+"stronie wydarzeń dla wszystkich."
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
@@ -4923,6 +4964,7 @@ msgstr ""
 
 #
 #: src/ludamus/templates/about.html
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
 msgid "Scheduling"
 msgstr "Układanie harmonogramu"
 
@@ -6809,11 +6851,6 @@ msgstr "Pełny harmonogram"
 msgid "Sheet %(sheet)s of %(total)s"
 msgstr "Arkusz %(sheet)s z %(total)s"
 
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Saved"
-msgstr "Zapisano"
-
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "with others"
 msgstr "z innymi"
@@ -7050,13 +7087,6 @@ msgstr ""
 #: src/ludamus/templates/notice_board/create.html
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
-
-# Login Required Page
-#: src/ludamus/templates/components/dynamic-field-label.html
-#: src/ludamus/templates/components/label.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "required"
-msgstr "wymagane"
 
 #: src/ludamus/templates/components/dynamic-field.html
 #: src/ludamus/templates/crowd/user/parties.html
@@ -10074,6 +10104,10 @@ msgid "Save the date so you don't forget:"
 msgstr "Zapisz datę, żeby nie zapomnieć:"
 
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
+msgid "Saved"
+msgstr "Zapisano"
+
+#: src/ludamus/templates/notice_board/_rsvp_inline.html
 msgid "Cancel signup"
 msgstr "Wypisz się"
 
@@ -10746,22 +10780,6 @@ msgstr ""
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "Not included"
 msgstr "Nieuwzględnione"
-
-# Login Required Page
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Required"
-msgstr "Wymagane"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Optional"
-msgstr "Opcjonalne"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "No session fields defined for this event."
@@ -12975,10 +12993,6 @@ msgid "Usage"
 msgstr "Użycie"
 
 #: src/ludamus/templates/panel/session-fields.html
-msgid "optional"
-msgstr "opcjonalne"
-
-#: src/ludamus/templates/panel/session-fields.html
 msgid "Not used"
 msgstr "Nieużywane"
 
@@ -13008,6 +13022,13 @@ msgstr "Daty wydarzenia"
 #: src/ludamus/templates/panel/settings.html
 msgid "Facilitator permissions"
 msgstr "Uprawnienia twórców programu"
+
+#: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/panel/track-create.html
+#: src/ludamus/templates/panel/track-edit.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Spaces"
+msgstr "Przestrzenie"
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Schedule confirmation"
@@ -13389,12 +13410,6 @@ msgstr "np. RPG, Gry planszowe, LARP"
 #: src/ludamus/templates/panel/track-edit.html
 msgid "Public track"
 msgstr "Publiczny blok programowy"
-
-#: src/ludamus/templates/panel/track-create.html
-#: src/ludamus/templates/panel/track-edit.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Spaces"
-msgstr "Przestrzenie"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html

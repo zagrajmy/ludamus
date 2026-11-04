@@ -29,8 +29,10 @@ if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
 
 
-# Hyphen, en dash, em dash, minus: whichever the keyboard gave.
-_SEAT_RANGE = re.compile(r"\s*(\d+)\s*[-\u2013\u2014\u2212]\s*(\d+)\s*")
+# Hyphen, en dash, em dash, minus: whichever the keyboard gave. Matched
+# against the stripped value, with no repeat at either end to overlap the
+# digits, so a long run of spaces costs one pass, not a square.
+_SEAT_RANGE = re.compile(r"(\d+)\s*[-\u2013\u2014\u2212]\s*(\d+)")
 # The same shape for the browser to check before submitting, as a number
 # input's min did: a count or a range, so "-1" is caught at once. Written for
 # the v flag browsers compile patterns with, where a class's hyphen is escaped.
@@ -46,7 +48,9 @@ class SeatsField(forms.IntegerField):
     """
 
     def to_python(self, value: str | int | None) -> int | None:
-        if isinstance(value, str) and (seat_range := _SEAT_RANGE.fullmatch(value)):
+        if isinstance(value, str) and (
+            seat_range := _SEAT_RANGE.fullmatch(value.strip())
+        ):
             value = max(int(bound) for bound in seat_range.groups())
         return super().to_python(value)
 
