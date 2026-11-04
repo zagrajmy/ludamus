@@ -6,7 +6,6 @@ import { isFiltering } from "../../client/event-page/filters.js";
 import type { EventPageMessage } from "../../client/event-page/message.js";
 import type { EventPageModel } from "../../client/event-page/model.js";
 import { icon } from "../../ui/icon.js";
-import { HOME_PATH } from "../../ui/paths.js";
 import {
   arrowLeftMini,
   checkCircleMini,
@@ -14,6 +13,7 @@ import {
   plusMini,
   plusOutline,
 } from "../../ui/icons.js";
+import { HOME_PATH } from "../../ui/paths.js";
 import { pageContextOf } from "../page-context.js";
 import type { PageContext, PageInputs } from "../page-context.js";
 import type { PageTitle } from "../shell/title.js";
@@ -167,28 +167,27 @@ const scheduleRegion = (model: EventPageModel, context: PageContext, h: H) => {
   const isEmpty =
     isFiltering(model.filters) && visible.size === 0 && hasSessions;
 
-  const schedule =
-    Predicate.isTagged(model.layout, "Cards")
-      ? cardSchedule(
-          {
-            context,
-            days: model.layout.days,
-            model,
-            slotCount: model.layout.slotCount,
-            visible,
-          },
-          h
-        )
-      : compactSchedule(
-          {
-            context,
-            days: model.layout.days,
-            grid: model.layout.rooms,
-            model,
-            visible,
-          },
-          h
-        );
+  const schedule = Predicate.isTagged(model.layout, "Cards")
+    ? cardSchedule(
+        {
+          context,
+          days: model.layout.days,
+          model,
+          slotCount: model.layout.slotCount,
+          visible,
+        },
+        h
+      )
+    : compactSchedule(
+        {
+          context,
+          days: model.layout.days,
+          grid: model.layout.rooms,
+          model,
+          visible,
+        },
+        h
+      );
 
   return h.div(
     [h.Id("schedule-region"), h.Class("scroll-mt-24")],

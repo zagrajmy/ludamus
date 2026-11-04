@@ -274,9 +274,13 @@ const info = (
                           Option.match(answer.icon, {
                             onNone: () => h.empty,
                             onSome: (answerIcon) =>
-                              icon(answerIcon, {
-                                class: "w-4 h-4 inline mr-1",
-                              }, h),
+                              icon(
+                                answerIcon,
+                                {
+                                  class: "w-4 h-4 inline mr-1",
+                                },
+                                h
+                              ),
                           }),
                           answer.name,
                         ]

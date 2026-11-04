@@ -153,10 +153,7 @@ const parseAttributes = (source: string): readonly Attribute[] =>
   [...source.matchAll(attributePattern)].map((match) => ({
     name: (match.groups?.name ?? "").toLowerCase(),
     value:
-      match.groups?.double ??
-      match.groups?.single ??
-      match.groups?.bare ??
-      "",
+      match.groups?.double ?? match.groups?.single ?? match.groups?.bare ?? "",
   }));
 
 const keptAttributes = (tag: string, source: string) => {

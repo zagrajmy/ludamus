@@ -400,35 +400,35 @@ const bookmarkBadge = (
   return session.bookmarkCount === 0
     ? h.empty
     : h.span(
-          [h.Class(cx("bookmark-affordance print:hidden", wrapper))],
-          [
-            h.span(
-              [
-                h.Class(
-                  "relative z-20 inline-flex shrink-0 items-center self-center gap-0.75 p-1.5 text-xs text-foreground-secondary"
-                ),
-              ],
-              [
-                h.span(
-                  [h.Class("tabular-nums"), h.AriaHidden(true)],
-                  [String(session.bookmarkCount)]
-                ),
-                h.span(
-                  [h.Class("sr-only")],
-                  [
-                    context.translator.n(
-                      "Bookmarked by %(counter)s person",
-                      "Bookmarked by %(counter)s people",
-                      session.bookmarkCount,
-                      { counter: session.bookmarkCount }
-                    ),
-                  ]
-                ),
-              ]
-            ),
-          ]
-        );
-}
+        [h.Class(cx("bookmark-affordance print:hidden", wrapper))],
+        [
+          h.span(
+            [
+              h.Class(
+                "relative z-20 inline-flex shrink-0 items-center self-center gap-0.75 p-1.5 text-xs text-foreground-secondary"
+              ),
+            ],
+            [
+              h.span(
+                [h.Class("tabular-nums"), h.AriaHidden(true)],
+                [String(session.bookmarkCount)]
+              ),
+              h.span(
+                [h.Class("sr-only")],
+                [
+                  context.translator.n(
+                    "Bookmarked by %(counter)s person",
+                    "Bookmarked by %(counter)s people",
+                    session.bookmarkCount,
+                    { counter: session.bookmarkCount }
+                  ),
+                ]
+              ),
+            ]
+          ),
+        ]
+      );
+};
 
 const compactAvailability = (
   session: SessionView,

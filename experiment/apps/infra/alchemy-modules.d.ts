@@ -25,8 +25,8 @@ declare module "alchemy" {
 }
 
 declare module "@alchemy.run/cloudflare" {
-  import type { Effect, Layer } from "effect";
   import type { Secret } from "alchemy";
+  import type { Effect, Layer } from "effect";
 
   export interface CloudflareProviders {
     readonly accountId: string;
@@ -60,7 +60,9 @@ declare module "@alchemy.run/cloudflare" {
   export const Worker: (
     name: string,
     options: {
-      readonly bindings: Readonly<Record<string, HyperdriveConnection | Secret>>;
+      readonly bindings: Readonly<
+        Record<string, HyperdriveConnection | Secret>
+      >;
       readonly entrypoint: string;
     }
   ) => Effect.Effect<WorkerOutput, never, CloudflareProviders>;

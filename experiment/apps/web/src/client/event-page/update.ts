@@ -146,7 +146,9 @@ const moveActive = (
   id: ComboboxId,
   delta: number
 ): Return => {
-  const open = model.combobox.pipe(Option.filter((combobox) => combobox.id === id));
+  const open = model.combobox.pipe(
+    Option.filter((combobox) => combobox.id === id)
+  );
 
   if (Option.isNone(open)) {
     const shown = shownOptions({
@@ -201,7 +203,10 @@ const pressedKey = (options: {
   readonly model: EventPageModel;
 }): Return => {
   const { id, key, model } = options;
-  const open = model.combobox.pipe(Option.filter((combobox) => combobox.id === id));
+
+  const open = model.combobox.pipe(
+    Option.filter((combobox) => combobox.id === id)
+  );
 
   if (key === "ArrowDown") {
     return moveActive(model, id, 1);
@@ -229,9 +234,7 @@ const pressedKey = (options: {
     });
 
     const row =
-      open.value.active === -1
-        ? soleOption(shown)
-        : shown[open.value.active];
+      open.value.active === -1 ? soleOption(shown) : shown[open.value.active];
 
     return row === undefined
       ? { model: closeCombobox(model) }
@@ -297,7 +300,10 @@ const closeSessionDialog = (model: EventPageModel): Return =>
   });
 
 const unfoldFor = (model: EventPageModel, hash: string): EventPageModel => {
-  if (!hash.startsWith("#slot-") || !Predicate.isTagged(model.layout, "Compact")) {
+  if (
+    !hash.startsWith("#slot-") ||
+    !Predicate.isTagged(model.layout, "Compact")
+  ) {
     return model;
   }
 
@@ -609,10 +615,13 @@ export const updateEventPage = (
     HoveredOption: ({ id, index }) => ({
       model: {
         ...model,
-        combobox: model.combobox.pipe(Option.map((open) =>
-          open.id === id && open.active !== index
-            ? { ...open, active: index }
-            : open)),
+        combobox: model.combobox.pipe(
+          Option.map((open) =>
+            open.id === id && open.active !== index
+              ? { ...open, active: index }
+              : open
+          )
+        ),
       },
     }),
     PickedOption: ({ id, pointerType, value }) => {
@@ -677,8 +686,7 @@ export const updateEventPage = (
         combobox: Option.some({ active: -1, id, query: Option.some(value) }),
       },
     }),
-  
-});
+  });
 
 export const isSessionOpen = (model: EventPageModel, id: number) =>
   Option.contains(model.openSession, id);

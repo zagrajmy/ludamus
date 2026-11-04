@@ -70,7 +70,8 @@ export const sliceAreas: readonly CodeArea[] = [
     ],
   },
   {
-    label: "enrollment (enroll page, offers, waitlist promotion, anonymous enrollment)",
+    label:
+      "enrollment (enroll page, offers, waitlist promotion, anonymous enrollment)",
     new: [
       "experiment/apps/web/src/client/{enroll-page,offer-page}/**/*.ts",
       "experiment/apps/web/src/features/{enroll-page,offer-page}/**/*.ts",
@@ -115,7 +116,8 @@ export const sliceAreas: readonly CodeArea[] = [
     ],
   },
   {
-    label: "organiser panel core (shell, tracks, facilitators, proposals, accept)",
+    label:
+      "organiser panel core (shell, tracks, facilitators, proposals, accept)",
     new: [
       "experiment/apps/web/src/client/{panel,accept}/**/*.ts",
       "experiment/apps/web/src/features/{panel,accept}/**/*.ts",

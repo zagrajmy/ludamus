@@ -52,14 +52,16 @@ export const shellHead = (options: {
   const image = escapeAttribute(`${origin}/static/og-image.jpg`);
 
   const previewTitle =
-    Predicate.isTagged(flags.page, "EventPage") && flags.page.flags.linkPreview.title !== ""
+    Predicate.isTagged(flags.page, "EventPage") &&
+    flags.page.flags.linkPreview.title !== ""
       ? flags.page.flags.linkPreview.title
       : title;
 
   const escapedTitle = escapeAttribute(previewTitle);
 
   const robots =
-    Predicate.isTagged(flags.page, "EventPage") && flags.page.flags.hero.isUnlisted
+    Predicate.isTagged(flags.page, "EventPage") &&
+    flags.page.flags.hero.isUnlisted
       ? ['<meta name="robots" content="noindex">']
       : [];
 

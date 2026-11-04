@@ -104,10 +104,7 @@ const publicSelectAnswers = (card: SessionCard) =>
       : []
   );
 
-const spaceFilterOf = (
-  stepId: number,
-  location: SessionCard["location"]
-) => {
+const spaceFilterOf = (stepId: number, location: SessionCard["location"]) => {
   if (stepId === location.spaceId) {
     return String(stepId);
   }
@@ -566,8 +563,7 @@ const compareLocations = (
   }
 
   return (
-    left.sortPath.length - right.sortPath.length ||
-    left.spaceId - right.spaceId
+    left.sortPath.length - right.sortPath.length || left.spaceId - right.spaceId
   );
 };
 
@@ -862,13 +858,17 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
         ),
         days: distinctSorted(
           scheduledSessions.flatMap((session) =>
-            Option.toArray(session.timing.pipe(Option.map((timing) => timing.day)))
+            Option.toArray(
+              session.timing.pipe(Option.map((timing) => timing.day))
+            )
           )
         ).map((day) => ({
           label:
             scheduledSessions
               .find((session) =>
-                session.timing.pipe(Option.exists((timing) => timing.day === day))
+                session.timing.pipe(
+                  Option.exists((timing) => timing.day === day)
+                )
               )
               ?.timing.pipe(
                 Option.map((timing) => timing.dayLabel),
@@ -881,7 +881,9 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
         ).toSorted((left, right) => left.localeCompare(right)),
         hours: distinctSorted(
           scheduledSessions.flatMap((session) =>
-            Option.toArray(session.timing.pipe(Option.map((timing) => timing.hour)))
+            Option.toArray(
+              session.timing.pipe(Option.map((timing) => timing.hour))
+            )
           )
         ),
         minAges: minAges
@@ -969,7 +971,11 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
       now: context.now.epochMillis,
       ownProposals: [],
       pendingProposals,
-      pendingWizard: context.viewer.pipe(Option.exists((found) => found.isSuperuser === 1 && found.sphereRole === null)),
+      pendingWizard: context.viewer.pipe(
+        Option.exists(
+          (found) => found.isSuperuser === 1 && found.sphereRole === null
+        )
+      ),
       query: context.url.search,
       sessions,
       signedIn: Option.isSome(context.viewer),
