@@ -31,6 +31,10 @@ if TYPE_CHECKING:
 
 # Hyphen, en dash, em dash, minus: whichever the keyboard gave.
 _SEAT_RANGE = re.compile(r"\s*(\d+)\s*[-\u2013\u2014\u2212]\s*(\d+)\s*")
+# The same shape for the browser to check before submitting, as a number
+# input's min did: a count or a range, so "-1" is caught at once. Written for
+# the v flag browsers compile patterns with, where a class's hyphen is escaped.
+_SEATS_INPUT_PATTERN = "\\s*\\d+(\\s*[\\-\u2013\u2014\u2212]\\s*\\d+)?\\s*"
 
 
 class SeatsField(forms.IntegerField):
@@ -94,7 +98,12 @@ def build_session_details_form(
     else:
         seats_placeholder = _("no sign-up")
     participants_kwargs["widget"] = forms.TextInput(
-        attrs={"placeholder": seats_placeholder, "inputmode": "numeric"}
+        attrs={
+            "placeholder": seats_placeholder,
+            "inputmode": "numeric",
+            "pattern": _SEATS_INPUT_PATTERN,
+            "title": _("A number of seats, or a range like 3–6."),
+        }
     )
 
     fields: dict[str, forms.Field] = {

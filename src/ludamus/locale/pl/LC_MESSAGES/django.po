@@ -3209,6 +3209,10 @@ msgid "no sign-up"
 msgstr "bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "A number of seats, or a range like 3–6."
+msgstr "Liczba miejsc albo zakres, np. 3–6."
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
 msgid "Session title"
 msgstr "Tytuł punktu programu"
 
