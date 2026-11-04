@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.http import HttpResponseRedirect
+from django.test import Client
 from django.urls import reverse
 
 from ludamus.adapters.web.django.middlewares import (
@@ -299,3 +300,29 @@ class TestSphereVisitSubscriptionMiddleware:
         subscription = NotificationSubscription.objects.get()
         assert subscription.user_id == active_user.pk
         assert subscription.muted is True
+
+
+class TestUserLanguageMiddleware:
+    URL = reverse("web:crowd:profile")
+
+    def test_remembers_the_language_a_user_browses_in(
+        self, authenticated_client, active_user
+    ):
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+        active_user.refresh_from_db()
+        assert active_user.language == "pl"
+
+        authenticated_client.get(self.URL, headers={"accept-language": "en"})
+        active_user.refresh_from_db()
+        assert active_user.language == "en"
+
+    def test_follows_the_user_back_to_a_device_seen_before(self, active_user):
+        phone, laptop = Client(), Client()
+        for device in (phone, laptop):
+            device.force_login(active_user)
+
+        for device, language in ((phone, "pl"), (laptop, "en"), (phone, "pl")):
+            device.get(self.URL, headers={"accept-language": language})
+
+        active_user.refresh_from_db()
+        assert active_user.language == "pl"

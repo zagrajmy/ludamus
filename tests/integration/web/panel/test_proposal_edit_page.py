@@ -400,6 +400,37 @@ class TestProposalEditPageView:
         assert session.min_age == new_min_age
         assert session.duration == "PT2H30M"
 
+    @pytest.mark.parametrize(
+        ("contact_email", "contact_language"),
+        (("host@example.com", "pl"), ("other@example.com", "")),
+        ids=("kept", "replaced"),
+    )
+    def test_post_keeps_the_contact_language_only_with_its_address(
+        self, panel_client, event, contact_email, contact_language
+    ):
+        session = _make_session(event, contact_language="pl")
+
+        panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": session.title,
+                "facilitator_name": session.facilitator_name,
+                "description": session.description,
+                "contact_email": contact_email,
+                "participants_limit": session.participants_limit,
+                "min_age": 0,
+                "duration_hours": 2,
+                "duration_minutes": 0,
+            },
+        )
+
+        session.refresh_from_db()
+        assert (session.contact_email, session.contact_language) == (
+            contact_email,
+            contact_language,
+        )
+
     def test_post_carries_the_list_filters_back_to_the_detail_page(
         self, authenticated_client, active_user, sphere, event
     ):

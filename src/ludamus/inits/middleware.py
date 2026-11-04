@@ -1,9 +1,12 @@
+import logging
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from django.conf import settings
+from django.utils.translation import get_language
 
 from ludamus.inits.dbos_scheduler import launch_scheduler
 from ludamus.inits.services import Services
+from ludamus.pacts.crowd import UserData
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,8 +22,20 @@ if TYPE_CHECKING:
     class SessionRequestProtocol(RootRequestProtocol, Protocol):
         session: SessionProtocol
 
+    class LanguageUserProtocol(Protocol):
+        """The slice of `request.user` this middleware reads."""
+
+        is_authenticated: bool
+        language: str
+        slug: str
+
+    class LanguageRequestProtocol(RootRequestProtocol, Protocol):
+        user: LanguageUserProtocol
+
 
 Response = TypeVar("Response")
+
+logger = logging.getLogger(__name__)
 
 
 SUBSCRIBED_SPHERES_SESSION_KEY = "subscribed_sphere_ids"
@@ -59,6 +74,35 @@ def _subscribe_visit(request: SessionRequestProtocol) -> None:
             user_id=user_id, sphere_id=sphere_id
         )
         request.session[SUBSCRIBED_SPHERES_SESSION_KEY] = [*seen, sphere_id]
+
+
+class UserLanguageMiddleware[Response]:
+    """Remember the language a signed-in user browses in.
+
+    Notifications to them are written in it, whoever raises them. Ordered
+    after LocaleMiddleware, which picked the language, and after the
+    authentication and service middlewares. Compared against the user row
+    the request already loaded, so it writes only when the language changes.
+    """
+
+    def __init__(
+        self, get_response: Callable[[LanguageRequestProtocol], Response]
+    ) -> None:
+        self.get_response: Callable[[LanguageRequestProtocol], Response] = get_response
+
+    def __call__(self, request: LanguageRequestProtocol) -> Response:
+        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
+            _remember_language(request)
+
+        return self.get_response(request)
+
+
+def _remember_language(request: LanguageRequestProtocol) -> None:
+    user = request.user
+    if not user.is_authenticated or user.language == (language := get_language()):
+        return
+    logger.debug("User %s now browses in %s", user.slug, language)
+    request.services.profile.update(user.slug, UserData(language=language))
 
 
 class ServiceInjectionMiddleware[Response]:
