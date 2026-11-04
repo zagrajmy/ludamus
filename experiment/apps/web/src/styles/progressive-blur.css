@@ -1,0 +1,55 @@
+/* Progressive blur effect
+   Usage: <div class="progressive-blur" style="--pb-image: url('...')">
+            <div class="pb-layers">
+              <div class="pb-layer" style="--i:0"></div>
+              ...
+              <div class="pb-layer" style="--i:5"></div>
+            </div>
+          </div>
+   Customize: --pb-start (default 40%)
+*/
+@layer components {
+  .progressive-blur {
+    --pb-start: 40%;
+  }
+  .progressive-blur::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--pb-image) center/cover;
+    transform: scale(var(--pb-scale, 1));
+    transition: transform 100ms ease-out;
+    z-index: 0;
+  }
+  .pb-layers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    transform: scale(var(--pb-scale, 1));
+    transition: transform 100ms ease-out;
+  }
+  .pb-layer {
+    --band: calc(var(--pb-start) + (var(--i) - 1) * 13.33%);
+    position: absolute;
+    inset: 0;
+    background: var(--pb-image) center/cover;
+    filter: blur(calc(2px * pow(2, var(--i))));
+    mask: linear-gradient(
+      to bottom,
+      transparent calc(var(--band)),
+      black calc(var(--band) + 13.33%),
+      black calc(var(--band) + 26.67%),
+      transparent calc(var(--band) + 40%)
+    );
+    z-index: calc(var(--i) + 1);
+  }
+  /* Last two layers extend to bottom */
+  .pb-layer:nth-last-child(-n + 2) {
+    mask: linear-gradient(
+      to bottom,
+      transparent calc(var(--band)),
+      black calc(var(--band) + 13.33%),
+      black 100%
+    );
+  }
+}

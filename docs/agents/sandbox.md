@@ -60,7 +60,10 @@ libs, but the host-requirement check is caught and printed as a warning and the
 install still exits 0. The Playwright CDN itself is reachable through the proxy.
 
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
-runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing
+runs as the pre-commit hook. When the hk alias itself refuses to install
+(mise 2026.10 rejects the pin's `workflow` option on the cargo backend), every
+`mise run` aborts before the task body; `MISE_TASK_RUN_AUTO_INSTALL=false mise
+run <task>` skips the install step and runs the task. Laptops never load `mise.sandbox.toml` — nothing
 here activates without `MISE_ENV=sandbox`. If a session ever looks
 half-provisioned, re-run `mise install` (MISE_ENV is exported session-wide).
 When adding a new GitHub-release tool to `mise.toml`, add a matching alias or
