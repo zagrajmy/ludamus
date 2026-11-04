@@ -8,6 +8,7 @@ from django.urls import reverse
 from ludamus.links.db.django.models import (
     Facilitator,
     SessionBookmark,
+    SessionParticipation,
     SphereSubscription,
 )
 from ludamus.pacts.dashboard import DASHBOARD_PAST_EVENTS, DashboardDTO, DashboardRole
@@ -673,6 +674,36 @@ class TestOfferClaimAction:
         )
         offer.refresh_from_db()
         assert offer.status == SessionParticipationStatus.OFFERED
+
+    def test_a_spot_overlapping_a_seat_already_held_is_released(
+        self, authenticated_client, active_user, offer
+    ):
+        clash = _scheduled_session(
+            offer.session.event,
+            title="Kult",
+            start_time=offer.session.agenda_item.start_time,
+        )
+        SessionParticipationFactory(
+            session=clash, user=active_user, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        response = authenticated_client.post(self._claim_url(offer.session_id))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=DASHBOARD_URL,
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "This spot overlaps a session you already have a seat in, "
+                        "so it was released."
+                    ),
+                )
+            ],
+        )
+        assert not SessionParticipation.objects.filter(pk=offer.pk).exists()
 
     def test_claiming_twice_says_so_instead_of_failing_hard(
         self, authenticated_client, offer

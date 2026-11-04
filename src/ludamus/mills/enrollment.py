@@ -44,7 +44,7 @@ from ludamus.specs.enrollment import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from ludamus.pacts import (
         EnrollmentConfigRepositoryProtocol,
@@ -294,31 +294,39 @@ class WaitlistPromotionService:
         )
 
     def peek_offer(self, *, token: str) -> OfferDTO | None:
-        return self._participations.read_offer_by_token(token)
+        return self._participations.peek_offer_by_token(token)
 
     def claim_offer(self, *, token: str) -> ClaimResult:
         # Confirm a whole offered party from its single-use claim token. The
         # status + token guard makes claim and expiry race-safe: whichever runs
         # first flips the party out of OFFERED and the other becomes a no-op.
-        with self._transaction.atomic():
-            return self._claim(self._participations.read_offer_by_token(token))
+        return self._claim_through(
+            lambda: self._participations.read_offer_by_token(token)
+        )
 
     def claim_member_offer(self, *, user_id: int, session_id: int) -> ClaimResult:
         # The signed-in route to the same claim: the offer is looked up among
         # this member's own seats, so a session id alone never reaches anyone
         # else's.
-        with self._transaction.atomic():
-            result = self._claim(
-                self._participations.read_offer_for_member(
-                    user_id=user_id, session_id=session_id
-                )
+        result = self._claim_through(
+            lambda: self._participations.read_offer_for_member(
+                user_id=user_id, session_id=session_id
             )
+        )
         logger.info(
             "Dashboard offer claim by member %s on session %s: %s",
             user_id,
             session_id,
             "claimed" if result.success else result.reason,
         )
+        return result
+
+    def _claim_through(self, read: Callable[[], OfferDTO | None]) -> ClaimResult:
+        with self._transaction.atomic():
+            offer = read()
+            result = self._claim(offer)
+        if offer is not None and result.reason == "conflict":
+            self.fill_freed_seats(session_id=offer.session_id)
         return result
 
     def _claim(self, offer: OfferDTO | None) -> ClaimResult:
@@ -328,6 +336,27 @@ class WaitlistPromotionService:
             return ClaimResult(
                 success=False,
                 reason="expired",
+                session_id=offer.session_id,
+                event_slug=offer.event_slug,
+            )
+        # The offer was checked when it was made, but a timetable move can put
+        # a seat its people already hold on top of it since. Recheck under the
+        # seat locks the offer read took. A party moves as one, as it was
+        # promoted and as it declines: one clash releases the whole offer.
+        if conflicted := self._participations.conflicted_user_ids(
+            session_id=offer.session_id, user_ids=offer.user_ids
+        ):
+            self._participations.drop(offer.participant_ids)
+            logger.info(
+                "Claim on session %s released the offer of %s: %s overlap seats "
+                "already held",
+                offer.session_id,
+                offer.user_ids,
+                sorted(conflicted),
+            )
+            return ClaimResult(
+                success=False,
+                reason="conflict",
                 session_id=offer.session_id,
                 event_slug=offer.event_slug,
             )

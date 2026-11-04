@@ -233,7 +233,10 @@ class CompanionRepository(CompanionRepositoryProtocol):
 
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None:
-        companions = active_companions(manager_slug)
+        # The person's row before the cascade reaches their participation
+        # rows: the seat lock order (docs/agents/architecture.md) takes the
+        # User row first, so taking it last here could close a cycle.
+        companions = active_companions(manager_slug).select_for_update(of=("self",))
         if (user := companions.filter(slug=user_slug).first()) is None:
             raise NotFoundError
         user.delete()

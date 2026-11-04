@@ -258,6 +258,47 @@ Enrollment behaviour currently bolted onto the `Session` model
 `is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
 `enroll` mills/specs, not on the model.
 
+**Seat lock order.** Every transaction that decides a seat takes, before
+it reads what it decides on, the steps below. Most lock `User` rows
+themselves: `_process_enrollments` (enroll, waitlist, cancel, held seats,
+guests), `lock_and_read_state` for promotion, `_read_locked_party` (behind
+`_claim`, `decline_offer` and `expire_offer`, before it locks the offer's
+participation rows), and anonymous `enroll` and `cancel`. The proposal edit
+and the timetable move take only the `Session` row and leave the `User`
+rows to the refill they end with.
+
+1. the `Session` row (`select_for_update`), and no other `Session` row;
+2. `lock_seat_holders` in `links/db/django/enrollment.py`: one
+   `SELECT … FOR NO KEY UPDATE OF` on `User`, ordered by pk, covering the people
+   whose seats it decides, their pass owners (the manager of a login-less
+   companion), and, when it may refill the session in the same transaction,
+   the session's waiters and their owners;
+3. then the checks (`has_conflicts`, the pass allowance, capacity) and the
+   writes.
+
+Production runs `ATOMIC_REQUESTS`, so a refill after a cancel or a claim
+(`fill_freed_seats`) runs in the request's transaction: that is why the
+cancel, claim and anonymous-cancel paths lock the waiters up front, so the
+refill's own lock statement asks only for rows the transaction holds. A
+transaction never waits for a `Session` row while holding `User` rows, and
+asks for `User` rows in one ordered statement, so the order cannot
+deadlock. Every other statement that locks more than one `User` row takes
+them in pk order too (`lock_owned_companions`), or a party edit could take
+two companions in the opposite order to an enroll seating both. The lock
+is `FOR NO KEY UPDATE`, which conflicts with itself and with an `UPDATE` of
+the row but not with the `FOR KEY SHARE` a foreign key
+to the user takes: rows written for anyone (a notification, a panel log row,
+a participation) never wait on it and hold nothing it waits for. An
+`UPDATE` of a `User` row inside a seat transaction does wait on it, so it
+must touch only people in the statement and come after it: the anonymous
+rename runs after the locks for that reason. A seat transaction takes a
+person's `User` row before their `SessionParticipation` rows, so anything
+outside one that deletes or rewrites someone's participation rows takes
+their `User` row first: removing a companion (`CompanionRepository.delete`,
+whose cascade deletes the rows) locks the companion before the delete.
+`formal/enrollment` proves no double booking and no overspent passes under
+this order; the `verify-enrollment-seats` skill keeps the model in step.
+
 #### Pages: Events feed
 
 The sphere's front page and its only feed: announcements, then upcoming
