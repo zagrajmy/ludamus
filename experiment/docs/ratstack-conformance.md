@@ -1,6 +1,11 @@
 # rat-stack conformance log
 
-rat-stack's [AGENTS.md](https://ratstack.sh/AGENTS.md) is the law this experiment builds against. This file records where code breaks it: the experiment's own code, and the Django app it rewrites where the rule is one rat-stack would apply to any product. Each entry names the rule, the place, and whether it is a deliberate deviation (kept, with the reason) or debt (to fix). Entries leave this file only when the code changes.
+rat-stack's [AGENTS.md](https://ratstack.sh/AGENTS.md) is the law this
+experiment builds against. This file records where code breaks it: the
+experiment's own code, and the Django app it rewrites where the rule is one
+rat-stack would apply to any product. Each entry names the rule, the place, and
+whether it is a deliberate deviation (kept, with the reason) or debt (to fix).
+Entries leave this file only when the code changes.
 
 ## Deliberate deviations in the experiment
 
@@ -30,11 +35,11 @@ rat-stack's [AGENTS.md](https://ratstack.sh/AGENTS.md) is the law this experimen
 | Flash messages survive a redirect | Panel and accept pages set a `flash` cookie in the browser before a full navigation (`client/panel/navigate.ts`); the server renders and clears it | A same-origin cookie written by script carries display text only (escaped on render); move to a signed server-set cookie once capabilities can answer with response headers. |
 | Panel features not ported | Bulk actions on the facilitator list and bin render disabled; category Delete on the CFP list renders disabled; facilitator merge, columns, export, history, personal-data fields, proposal session-field editing and time-slot picking are not ported | Port with their capabilities; the routes answer 501 "not ported" meanwhile. |
 | `nodeBuiltinImport` diagnostic | `packages/auth/src/django-signing.ts` imports `node:crypto`, `node:zlib`, `node:buffer` | Keep behind a `DjangoSigning` service with a Node Layer, or a targeted `@effect-diagnostics-next-line` with reason. |
-| Browser modules import only `@zagrajmy/core/contracts` | `apps/web/src/features/events-feed.ts` imports `EventSummary` from `@zagrajmy/core` | Re-export view schemas from `contracts.ts`; import from there. |
-| Strings shown to people go through `t` | `apps/web/src/features/app.ts` ("Log in", "Events", "Not found") | Use `@zagrajmy/i18n` once it lands. |
-| Parse values at the boundary with Schema; no `as` | `evals/benchmarks/pageweight.ts`, `auth.ts`, `report.ts` use `JSON.parse` and `as` | Decode with Schema; benchmark scripts are covered by the root `tsconfig.json` and lint. |
-
-| Config is a supplied, validated dependency (`AppConfig`) | `apps/web/src/server/request-context.ts` reads `Config.Int("SITE_ID")` directly | Move `SITE_ID` into `AppConfig` and take it from there. | | Name the system of record; no duplicate stores for one fact | `packages/database/src/{feed,shell,landing}-store.ts` overlap `EventStore.listForFeed`, `EncounterStore`, `AnnouncementStore` | Consolidate the feed, shell and landing loaders onto the noun stores; delete the three page-shaped stores. | | The fence: `eslint(no-redeclare)` rejects a schema and its type sharing a name | 166 sites across core, database, web use `export const X = Schema…; export type X = typeof X.Type` | Owner decision: rename schemas the way rat-stack does (`XSchema` + `type X`) or scope the rule off for TS files. Renaming conforms; the rule has no declaration-merge option. | | Remaining targeted lint rules after the mechanical pass | ~250 findings: `no-unsafe-*` (41/29/27), `prefer-named-capture-group` (29), `require-unicode-regexp` (18), Foldkit route-string and submodel-payload rules, `no-manual-tag-comparison` | Fix per area in the wave-2 lint pass; keep the counts in this row current. |
+| Config is a supplied, validated dependency (`AppConfig`) | `apps/web/src/server/request-context.ts` reads `Config.Int("SITE_ID")` directly | Move `SITE_ID` into `AppConfig` and take it from there. |
+| Name the system of record; no duplicate stores for one fact | `packages/database/src/{feed,shell,landing}-store.ts` overlap `EventStore.listForFeed`, `EncounterStore`, `AnnouncementStore` | Consolidate the feed, shell and landing loaders onto the noun stores; delete the three page-shaped stores. |
+| The fence: `eslint(no-redeclare)` rejects a schema and its type sharing a name | 426 sites across core, database, web use `export const X = Schema…; export type X = typeof X.Type` | Owner decision: rename schemas the way rat-stack does (`XSchema` + `type X`) or scope the rule off for TS files. Renaming conforms; the rule has no declaration-merge option. |
+| Raw DOM event attributes bypass the runtime (`foldkit/no-raw-dom-event-attributes`) | `apps/web/src/ui/avatar.ts` renders `onerror` on avatar images so a broken image hides even before hydration | Owner decision: port Django's document-level error listener and sweep into the client entry (changes when a failed image hides), or keep the attribute with a reasoned directive. The one lint finding left besides `no-redeclare`. |
+| `Got*` wrappers carry `Child.Message` | Each page's `message.ts` exports its union under its own name and again as `Message` so `client/message.ts` can import the namespace | Rename the unions to `Message` and switch every page to namespace imports; the alias export is the cheap half of that rename. |
 
 ## Rules the Django app breaks (would apply to any product)
 
@@ -52,7 +57,8 @@ Observed while porting; not changed here.
 
 ## Django bugs found here → offshoot PRs
 
-Every defect in the Django app that this work uncovers gets its own small PR against `main`, test first, reviewed with torment-nexus and merged on green.
+Every defect in the Django app that this work uncovers gets its own small PR
+against `main`, test first, reviewed with torment-nexus and merged on green.
 
 | Bug | Found by | Offshoot PR |
 | --- | --- | --- |
