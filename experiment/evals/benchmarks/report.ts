@@ -9,12 +9,6 @@ import { sliceAreaOf } from "../harness/slice.ts";
 import { measureCode } from "./code-metrics.ts";
 import { sliceAreas } from "./slice-files.ts";
 
-const Counts = Schema.Struct({
-  failed: Schema.Number,
-  passed: Schema.Number,
-  skipped: Schema.Number,
-});
-
 const Timings = Schema.Struct({ p50: Schema.Number, p95: Schema.Number });
 
 const BenchPageResult = Schema.Struct({
@@ -110,6 +104,9 @@ const differential = readResult(
   "differential.json",
   Schema.decodeUnknownSync(Schema.fromJsonString(DifferentialSchema))
 );
+
+const tally = (counts: Tally) =>
+  `${counts.passed}/${counts.failed}/${counts.skipped}`;
 
 const show = (value: number | null | undefined) =>
   value === null || value === undefined ? "n/a" : String(value);
@@ -235,9 +232,6 @@ if (matrix === null) {
 
   const sum = (run: MatrixRun | undefined, names: readonly string[]) =>
     totalOf(names.map((name) => run?.files[name] ?? emptyCounts));
-
-  const tally = (counts: Tally) =>
-    `${counts.passed}/${counts.failed}/${counts.skipped}`;
 
   const finished = (run: MatrixRun | undefined) =>
     run === undefined ? "not run" : run.finishedAt;
