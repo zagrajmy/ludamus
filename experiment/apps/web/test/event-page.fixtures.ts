@@ -4,6 +4,7 @@ import type {
   EventPageFlags,
   SessionView,
 } from "../src/client/event-page/flags.js";
+import { ScheduleLayout } from "../src/client/event-page/flags.js";
 
 const startsAt = Date.parse("2031-05-02T09:00:00Z");
 
@@ -126,8 +127,7 @@ export const eventPageFlags = (
     slug: "spring-meet",
     statusPills: [],
   },
-  layout: {
-    _tag: "Cards",
+  layout: ScheduleLayout.cases.Cards.make({
     days: [
       {
         day: {
@@ -148,7 +148,7 @@ export const eventPageFlags = (
       },
     ],
     slotCount: 1,
-  },
+  }),
   linkPreview: { description: "", title: "" },
   locale: "en",
   loginUrl: "/crowd/auth0/do/login",

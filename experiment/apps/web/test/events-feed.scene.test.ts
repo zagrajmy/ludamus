@@ -60,12 +60,12 @@ describe("events feed", () => {
         })
       ),
       inside(
-        role("link", { name: /Harvest Convention/ }),
+        role("link", { name: /Harvest Convention/u }),
         expect(role("heading", { name: "Harvest Convention" })).toExist(),
         expect(text("1 session")).toExist(),
         expect(text("Nov 9, 2031, 1 p.m. – 6 p.m.")).toExist()
       ),
-      expect(role("link", { name: /Harvest Convention/ })).toHaveAttr(
+      expect(role("link", { name: /Harvest Convention/u })).toHaveAttr(
         "href",
         "/event/harvest-convention/"
       )
@@ -78,15 +78,15 @@ describe("events feed", () => {
       given(
         feedModel({ feed: { upcoming: [feedItem.encounter(encounterCard())] } })
       ),
-      expect(role("link", { name: /Late Night Tactics/ })).toHaveAttr(
+      expect(role("link", { name: /Late Night Tactics/u })).toHaveAttr(
         "href",
         "/e/FEED01/"
       ),
       inside(
-        role("link", { name: /Late Night Tactics/ }),
+        role("link", { name: /Late Night Tactics/u }),
         expect(text("4 spots left")).toExist(),
         expect(text("Hosted by Tester")).toExist(),
-        expect(text(/session/)).toBeAbsent(),
+        expect(text(/session/u)).toBeAbsent(),
         expect(text("Link only")).toBeAbsent()
       )
     );
@@ -109,7 +109,7 @@ describe("events feed", () => {
         })
       ),
       expect(text("0 attending")).toExist(),
-      expect(text(/spots? left/)).toBeAbsent()
+      expect(text(/spots? left/u)).toBeAbsent()
     );
   });
 
@@ -150,7 +150,7 @@ describe("events feed", () => {
         })
       ),
       expect(text("You organize")).toExist(),
-      click(role("button", { name: /\/e\/FEED01\// })),
+      click(role("button", { name: /\/e\/FEED01\//u })),
       Command.resolve(
         CopyShareLink,
         EventsFeedMessage.SucceededCopyShareLink({ shareCode: "FEED01" })

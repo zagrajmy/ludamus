@@ -78,7 +78,7 @@ describe("event page", () => {
       given(eventPage({ query: "?session=1" })),
       inside(
         selector("#session-dialog"),
-        expect(role("tab", { name: /Participants/ })).toExist()
+        expect(role("tab", { name: /Participants/u })).toExist()
       )
     );
   });

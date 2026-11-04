@@ -10,6 +10,7 @@ import {
   SettleComboboxFocus,
   ShowSessionDialog,
 } from "../src/client/event-page/command.js";
+import { ScheduleLayout } from "../src/client/event-page/flags.js";
 import { EventPageMessage } from "../src/client/event-page/message.js";
 import { initEventPage } from "../src/client/event-page/model.js";
 import type { EventPageModel } from "../src/client/event-page/model.js";
@@ -20,11 +21,10 @@ const page = initEventPage(eventPageFlags());
 
 const compact = initEventPage(
   eventPageFlags({
-    layout: {
-      _tag: "Compact",
+    layout: ScheduleLayout.cases.Compact.make({
       days: [],
       rooms: { columns: [], days: [], rows: [] },
-    },
+    }),
   })
 );
 
