@@ -44,7 +44,7 @@ from ludamus.specs.enrollment import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Sequence
 
     from ludamus.pacts import (
         EnrollmentConfigRepositoryProtocol,
@@ -678,11 +678,6 @@ class EnrollmentService(EnrollmentServiceProtocol):
             enrollment_config_repo=self._enrollment_configs,
             ticket_api_resolver=self._ticket_api_resolver,
         )
-
-    def lock_seat_holders(
-        self, *, user_ids: Iterable[int], waiters_of: int | None = None
-    ) -> None:
-        self._participations.lock_seat_holders(user_ids=user_ids, waiters_of=waiters_of)
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool:
         # On a restricted event a member's seat spends that member's own

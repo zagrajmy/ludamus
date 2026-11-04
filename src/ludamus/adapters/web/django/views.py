@@ -60,6 +60,7 @@ from ludamus.gates.web.django.meta import (
     session_link_preview,
 )
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
+from ludamus.links.db.django.enrollment import SeatHolderLocks
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -1403,8 +1404,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> None:
         # The viewer always: they host the guests and own the passes the batch
         # spends. A batch that frees a seat refills it in this request's
-        # transaction, so it takes the waiters now as well.
-        self.request.services.enrollment.lock_seat_holders(
+        # transaction, so it takes the waiters now as well. Called on the
+        # repository directly, beside the Session lock it pairs with.
+        SeatHolderLocks.lock_seat_holders(
             user_ids=[
                 self.request.context.current_user_id,
                 *(req.user.pk for req in enrollment_requests),

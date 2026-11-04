@@ -295,7 +295,7 @@ class GuestSeatData(BaseModel):
     enrolled_by_id: int
 
 
-class EnrollmentParticipationRepositoryProtocol(SeatHolderLockProtocol, Protocol):
+class EnrollmentParticipationRepositoryProtocol(Protocol):
     @staticmethod
     def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]: ...
 
@@ -371,10 +371,6 @@ class EnrollmentServiceProtocol(Protocol):
     ) -> VirtualEnrollmentConfig | None: ...
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
-
-    def lock_seat_holders(
-        self, *, user_ids: Iterable[int], waiters_of: int | None = None
-    ) -> None: ...
 
     def access(
         self, *, event: EventDTO, viewer_slug: str | None

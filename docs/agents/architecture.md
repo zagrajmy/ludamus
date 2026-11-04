@@ -258,11 +258,13 @@ Enrollment behaviour currently bolted onto the `Session` model
 `is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
 `enroll` mills/specs, not on the model.
 
-**Seat lock order.** Every transaction that decides a seat (enroll,
-waitlist, cancel, held seats and guests in `_process_enrollments`;
-`lock_and_read_state` for promotion; `_claim`, `decline_offer` and
-`expire_offer` through `_read_locked_party`; anonymous `enroll` and
-`cancel`) takes, before it reads what it decides on:
+**Seat lock order.** Every transaction that decides a seat takes, before
+it reads what it decides on, the steps below. Some lock `User` rows
+themselves: `_process_enrollments` (enroll, waitlist, cancel, held seats,
+guests), `lock_and_read_state` for promotion, `_claim`, and anonymous
+`enroll` and `cancel`. Others take only the `Session` row and leave the
+`User` rows to the refill they end with: `decline_offer` and `expire_offer`
+(through `_read_locked_party`), the proposal edit and the timetable move.
 
 1. the `Session` row (`select_for_update`), and no other `Session` row;
 2. `lock_seat_holders` in `links/db/django/enrollment.py`: one

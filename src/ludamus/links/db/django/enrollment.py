@@ -137,9 +137,7 @@ class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
         return deleted > 0
 
 
-class EnrollmentParticipationRepository(
-    SeatHolderLocks, EnrollmentParticipationRepositoryProtocol
-):
+class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):
     @staticmethod
     def occupying_user_ids(*, user_ids: list[int], event_id: int) -> set[int]:
         return set(
