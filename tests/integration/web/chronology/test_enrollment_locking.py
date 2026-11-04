@@ -363,18 +363,66 @@ class TestSeatDecisionsSerialisePerPerson:
             ]
         )
 
-        # The enroll may also be refused by its form, if the promotion
-        # committed before the form was built.
-        assert responses[0].status_code == HTTPStatus.FOUND
-        assert responses[1].status_code in {HTTPStatus.OK, HTTPStatus.FOUND}
+        cancel, enroll = responses
+        event_url = reverse("web:chronology:event", kwargs={"slug": event.slug})
+        assert_response(
+            cancel,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {leaver.name}")],
+            url=event_url,
+        )
         assert _status(leaver, full) is None
-        assert (_status(player, full), _status(player, overlapping)) in {
-            (SessionParticipationStatus.CONFIRMED.value, None),
-            (
-                SessionParticipationStatus.WAITING.value,
-                SessionParticipationStatus.CONFIRMED.value,
-            ),
-        }
+        if _status(player, full) == SessionParticipationStatus.WAITING.value:
+            # The enroll went first; the promotion then saw the new seat.
+            assert _status(player, overlapping) == (
+                SessionParticipationStatus.CONFIRMED.value
+            )
+            assert_response(
+                enroll,
+                HTTPStatus.FOUND,
+                messages=[(messages.SUCCESS, f"Enrolled: {player.name}")],
+                url=event_url,
+            )
+            return
+        # The promotion went first: the enroll is refused, by the recheck under
+        # the lock, or by its form when the promotion committed before it.
+        assert _status(player, full) == SessionParticipationStatus.CONFIRMED.value
+        assert _status(player, overlapping) is None
+        if enroll.status_code == HTTPStatus.FOUND:
+            assert_response(
+                enroll,
+                HTTPStatus.FOUND,
+                messages=[
+                    (
+                        messages.WARNING,
+                        (
+                            "Skipped (already enrolled or conflicts): "
+                            f"{player.name} (time conflict)"
+                        ),
+                    )
+                ],
+                url=event_url,
+            )
+        else:
+            assert_response(
+                enroll,
+                HTTPStatus.OK,
+                messages=[
+                    (
+                        messages.ERROR,
+                        (
+                            "Select a valid choice. enroll is not one of the available "
+                            "choices."
+                        ),
+                    ),
+                    (messages.WARNING, "Please review the enrollment options below."),
+                ],
+                context_data=enroll_context(
+                    session=overlapping,
+                    user_data=[participation_row(player, has_time_conflict=True)],
+                ),
+                template_name="chronology/enroll_select.html",
+            )
 
 
 @pytest.mark.postgres

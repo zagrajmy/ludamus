@@ -290,7 +290,11 @@ to the user takes: rows written for anyone (a notification, a panel log row,
 a participation) never wait on it and hold nothing it waits for. An
 `UPDATE` of a `User` row inside a seat transaction does wait on it, so it
 must touch only people in the statement and come after it: the anonymous
-rename runs after the locks for that reason.
+rename runs after the locks for that reason. A seat transaction takes a
+person's `User` row before their `SessionParticipation` rows, so anything
+outside one that deletes or rewrites someone's participation rows takes
+their `User` row first: removing a companion (`CompanionRepository.delete`,
+whose cascade deletes the rows) locks the companion before the delete.
 `formal/enrollment` proves no double booking and no overspent passes under
 this order; the `verify-enrollment-seats` skill keeps the model in step.
 
