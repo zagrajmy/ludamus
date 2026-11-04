@@ -51,9 +51,14 @@ const init = (): void => {
   applyPreference();
   bind();
 
+  // Click, not pointerdown: on a touch screen every scroll starts with a
+  // pointerdown on whatever is under the finger, usually a card's link, and
+  // only a tap that stays put becomes a click. Untrusted clicks are code
+  // closing a dialog or dismissing a flash on the reader's behalf.
   document.addEventListener(
-    "pointerdown",
-    ({ target }) => {
+    "click",
+    ({ isTrusted, target }) => {
+      if (!isTrusted) return;
       if (!(target instanceof Element) || target.closest(OWN_SOUND_SELECTOR)) return;
       if (target.closest(TAP_SELECTOR)) play("press");
     },

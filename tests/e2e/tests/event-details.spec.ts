@@ -209,6 +209,38 @@ test.describe("Event detail page", () => {
     expect(groups.host).toBe("normal");
   });
 
+  // Closing used to rewrite the modal's entry into a copy of the page: Back
+  // then seemed to do nothing, and Forward had no modal left to reopen.
+  test("a closed modal steps back over its history entry", async ({ page }) => {
+    const dialog = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
+    const sessionParam = () => new URL(page.url()).searchParams.get("session");
+    const entries = () => page.evaluate(() => history.length);
+    const startingEntries = await entries();
+
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .press("Enter");
+    await expect(dialog).toBeVisible();
+    await settleViewTransitions(page);
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(sessionParam).toBeNull();
+
+    await page.goForward();
+    await expect(dialog).toBeVisible();
+    expect(sessionParam()).not.toBeNull();
+
+    await settleViewTransitions(page);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect.poll(sessionParam).toBeNull();
+    // Open, close, reopen, close: the page plus the modal's one entry.
+    expect(await entries()).toBe(startingEntries + 1);
+
+    await page.goBack();
+    await expect.poll(() => page.url()).not.toContain("/event/autumn-open/");
+  });
+
   // The venue has no counterpart on the card, so the UA pins its group to the
   // final slot while the rest of its row is still arriving inside the sheet's
   // snapshot: it landed first and the duration beside it slid up under it, ~10px

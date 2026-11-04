@@ -67,3 +67,66 @@ test.describe("segmented switcher", () => {
     await expect(page.getByRole("radio", { name: /grid view/i })).not.toBeChecked();
   });
 });
+
+// A finger that scrolls the schedule lands on a card's link first, and every
+// scroll starting there used to sound the press cue. The cue is the thing
+// perceived, so this counts the sounds rendered; no control exposes them.
+test.describe("press sound on a touch screen", () => {
+  test.use({ hasTouch: true, viewport: { height: 844, width: 390 } });
+
+  test("a scroll that starts on a card is silent, a tap is not", async ({ browserName, page }) => {
+    test.skip(browserName !== "chromium", "Raw touch input needs the Chromium protocol");
+
+    await page.addInitScript(() => {
+      const counter = globalThis as unknown as { soundsRendered: number };
+      counter.soundsRendered = 0;
+      const { createGain } = AudioContext.prototype;
+      AudioContext.prototype.createGain = function (this: AudioContext) {
+        counter.soundsRendered += 1;
+        return createGain.call(this);
+      };
+    });
+    const rendered = () =>
+      page.evaluate(() => (globalThis as unknown as { soundsRendered: number }).soundsRendered);
+
+    await page.goto("/event/autumn-open/");
+    const title = page
+      .getByRole("article")
+      .filter({ hasText: "Cozy Storytellers Circle" })
+      .getByRole("heading", { name: "Cozy Storytellers Circle" });
+    await title.evaluate((element) => {
+      element.scrollIntoView({ block: "center" });
+    });
+    const box = await title.boundingBox();
+    if (!box) throw new Error("Card title has no box");
+    const scroller = page.locator("#app-scroll");
+    const before = await scroller.evaluate((element) => element.scrollTop);
+
+    // A finger dragged up the screen from the card's title, the way a reader
+    // scrolls past it.
+    const cdp = await page.context().newCDPSession(page);
+    const x = box.x + 10;
+    const startY = box.y + box.height / 2;
+    await cdp.send("Input.dispatchTouchEvent", {
+      touchPoints: [{ x, y: startY }],
+      type: "touchStart",
+    });
+    for (let step = 1; step <= 15; step += 1) {
+      await cdp.send("Input.dispatchTouchEvent", {
+        touchPoints: [{ x, y: startY - step * 15 }],
+        type: "touchMove",
+      });
+    }
+    await cdp.send("Input.dispatchTouchEvent", { touchPoints: [], type: "touchEnd" });
+
+    await expect
+      .poll(() => scroller.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(before);
+    // NOTE: a context the page has not resumed yet renders a beat after play().
+    await page.waitForTimeout(300);
+    expect(await rendered()).toBe(0);
+
+    await page.getByRole("button", { exact: true, name: "Filters" }).tap();
+    await expect.poll(rendered).toBeGreaterThan(0);
+  });
+});

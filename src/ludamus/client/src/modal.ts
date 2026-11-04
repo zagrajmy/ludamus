@@ -51,29 +51,60 @@ const getDialog = (id: string): HTMLDialogElement => {
   return element;
 };
 
+/** Returns whether it pushed a new history entry. */
 const updateQueryParam = (
   paramName: string,
   value: string | null,
   { replaceHistory = false } = {},
-): void => {
+): boolean => {
   const url = new URL(globalThis.location.href);
   const current = url.searchParams.get(paramName);
 
   if (value === null) {
-    if (!current) return;
+    if (!current) return false;
     url.searchParams.delete(paramName);
   } else {
     const next = String(value);
-    if (current === next) return;
+    if (current === next) return false;
     url.searchParams.set(paramName, next);
   }
 
   if (replaceHistory) {
     globalThis.history.replaceState({}, "", url);
-    return;
+    return false;
   }
   globalThis.history.pushState({}, "", url);
+  return true;
 };
+
+// An entry this document pushed to open a modal is closed by stepping back
+// over it, not by rewriting it to the bare page: a rewrite leaves a copy of
+// the page behind, so Back seems to do nothing and Forward cannot reopen the
+// modal. The token keeps a reload or a restored session from claiming an
+// entry it did not push, where Back would leave for a fresh copy of the page.
+const ENTRY_KEY = "modalEntry";
+const documentToken = Math.random().toString(36).slice(2);
+
+const claimEntry = (id: string): void => {
+  const { state } = globalThis.history as { state: unknown };
+  globalThis.history.replaceState(
+    { ...(typeof state === "object" ? state : null), [ENTRY_KEY]: `${documentToken}:${id}` },
+    "",
+  );
+};
+
+const ownsEntry = (id: string): boolean => {
+  const { state } = globalThis.history as { state: unknown };
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    (state as Record<string, unknown>)[ENTRY_KEY] === `${documentToken}:${id}`
+  );
+};
+
+// Set from the history.back() a close issues until its popstate lands, so a
+// second close in between (a touchend and its click) does not step back twice.
+let steppingBack = false;
 
 const getLinkableByModalId = (id: string): { paramName: string; paramValue: string } | null => {
   const link = document.querySelector(`a[href][aria-controls="${id}"]`);
@@ -376,10 +407,13 @@ const openModal = async (
 
   if (updateUrl) {
     const linkable = getLinkableByModalId(id);
-    if (linkable) {
+    if (
+      linkable &&
       updateQueryParam(linkable.paramName, linkable.paramValue, {
         replaceHistory,
-      });
+      })
+    ) {
+      claimEntry(id);
     }
   }
 
@@ -416,14 +450,18 @@ const closeModal = (
     }
   }
 
-  if (updateUrl) {
+  if (updateUrl && !steppingBack) {
     const linkable = getLinkableByModalId(id);
     if (!linkable) return;
 
     const current = new URLSearchParams(globalThis.location.search).get(linkable.paramName);
-    if (current === linkable.paramValue) {
-      updateQueryParam(linkable.paramName, null, { replaceHistory });
+    if (current !== linkable.paramValue) return;
+    if (ownsEntry(id)) {
+      steppingBack = true;
+      globalThis.history.back();
+      return;
     }
+    updateQueryParam(linkable.paramName, null, { replaceHistory });
   }
 };
 
@@ -636,6 +674,7 @@ if (navigation) {
         focusReset: "manual",
         async handler() {
           restoreCarriedSearchParams(carriedParams);
+          claimEntry(modalId);
           if (await ensureModalLoaded(modalId)) {
             await openModal(modalId, { updateUrl: false });
           } else {
@@ -695,7 +734,10 @@ document.addEventListener("click", (event) => {
   if (!isInside) closeModal(eventTarget.id);
 });
 
-globalThis.addEventListener("popstate", syncModalsFromUrl);
+globalThis.addEventListener("popstate", () => {
+  steppingBack = false;
+  syncModalsFromUrl();
+});
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
