@@ -41,42 +41,105 @@ const page = (flags: PageFlags, status = 200) => Routed.Page({ flags, status });
 const notFound = (context: RequestContext) =>
   page(PageFlags.NotFound({ flags: { path: context.url.pathname } }), 404);
 
-export const route = Effect.fn("Router.route")(function* route(
-  context: RequestContext
-) {
-  const { pathname, search } = context.url;
+const routeSessionPages = Effect.fn("Router.sessionPages")(
+  function* sessionPages(context: RequestContext) {
+    const { pathname } = context.url;
 
-  const acceptPath = ACCEPT_PAGE_PATH.exec(pathname);
+    const acceptPath = ACCEPT_PAGE_PATH.exec(pathname);
 
-  if (acceptPath !== null) {
-    return yield* routeProposalAccept(context, {
-      eventSlug: decodeURIComponent(acceptPath.groups?.eventSlug ?? ""),
-      sessionId: Number(acceptPath.groups?.sessionId),
-    });
+    if (acceptPath !== null) {
+      return Option.some(
+        yield* routeProposalAccept(context, {
+          eventSlug: decodeURIComponent(acceptPath.groups?.eventSlug ?? ""),
+          sessionId: Number(acceptPath.groups?.sessionId),
+        })
+      );
+    }
+
+    const enrollPath = ENROLL_PAGE_PATH.exec(pathname);
+
+    if (enrollPath !== null) {
+      const enroll = yield* loadEnrollPage(context, {
+        eventSlug: decodeURIComponent(enrollPath.groups?.eventSlug ?? ""),
+        sessionId: Number(enrollPath.groups?.sessionId),
+      });
+
+      return Option.some(
+        Predicate.isTagged("Page")(enroll)
+          ? page(PageFlags.EnrollPage({ flags: enroll.flags }))
+          : Routed.Redirect({
+              flashes: enroll.flashes,
+              location: enroll.location,
+              status: 302,
+            })
+      );
+    }
+
+    const offerPath = OFFER_PAGE_PATH.exec(pathname);
+
+    if (offerPath !== null) {
+      const offer = yield* loadOfferPage(
+        context,
+        decodeURIComponent(offerPath.groups?.token ?? "")
+      );
+
+      return Option.some(
+        Predicate.isTagged("Page")(offer)
+          ? page(PageFlags.OfferPage({ flags: offer.flags }))
+          : Routed.Redirect({
+              flashes: offer.flashes,
+              location: offer.location,
+              status: 302,
+            })
+      );
+    }
+
+    const proposeSlug = proposeSlugOf(pathname);
+
+    if (Predicate.isTagged("Some")(proposeSlug)) {
+      const propose = yield* loadPropose(context, proposeSlug.value);
+
+      return Option.some(
+        Predicate.isTagged("Flags")(propose)
+          ? page(PageFlags.Propose({ flags: propose.flags }))
+          : Routed.Redirect({
+              flashes: propose.flashes,
+              location: propose.location,
+              status: 302,
+            })
+      );
+    }
+
+    const eventSlug = /^\/event\/(?<slug>[^/]+)\/$/u.exec(pathname)?.groups
+      ?.slug;
+
+    if (eventSlug !== undefined) {
+      const eventPage = yield* loadEventPage(
+        context,
+        decodeURIComponent(eventSlug)
+      );
+
+      return Option.some(
+        Predicate.isTagged("Some")(eventPage)
+          ? page(PageFlags.EventPage({ flags: eventPage.value }))
+          : notFound(context)
+      );
+    }
+
+    return Option.none<Routed>();
   }
+);
 
-  const enrollPath = ENROLL_PAGE_PATH.exec(pathname);
+const routeNotificationOpen = Effect.fn("Router.notificationOpen")(
+  function* notificationOpen(context: RequestContext) {
+    const notificationPath = /^\/notifications\/(?<id>\d+)\/do\/open$/u.exec(
+      context.url.pathname
+    );
 
-  if (enrollPath !== null) {
-    const enroll = yield* loadEnrollPage(context, {
-      eventSlug: decodeURIComponent(enrollPath.groups?.eventSlug ?? ""),
-      sessionId: Number(enrollPath.groups?.sessionId),
-    });
+    if (notificationPath === null || Option.isNone(context.viewer)) {
+      return Option.none<Routed>();
+    }
 
-    return Predicate.isTagged("Page")(enroll)
-      ? page(PageFlags.EnrollPage({ flags: enroll.flags }))
-      : Routed.Redirect({
-          flashes: enroll.flashes,
-          location: enroll.location,
-          status: 302,
-        });
-  }
-
-  const notificationPath = /^\/notifications\/(?<id>\d+)\/do\/open$/u.exec(
-    pathname
-  );
-
-  if (notificationPath !== null && Option.isSome(context.viewer)) {
     const store = yield* NotificationStore;
 
     const found = yield* store.readForRecipient({
@@ -85,119 +148,128 @@ export const route = Effect.fn("Router.route")(function* route(
     });
 
     if (Option.isNone(found)) {
-      return notFound(context);
+      return Option.some(notFound(context));
     }
 
-    return Routed.Redirect({
-      location: found.value.url === "" ? "/notifications/" : found.value.url,
-      status: 302,
-    });
-  }
-
-  const offerPath = OFFER_PAGE_PATH.exec(pathname);
-
-  if (offerPath !== null) {
-    const offer = yield* loadOfferPage(
-      context,
-      decodeURIComponent(offerPath.groups?.token ?? "")
+    return Option.some(
+      Routed.Redirect({
+        location: found.value.url === "" ? "/notifications/" : found.value.url,
+        status: 302,
+      })
     );
-
-    return Predicate.isTagged("Page")(offer)
-      ? page(PageFlags.OfferPage({ flags: offer.flags }))
-      : Routed.Redirect({
-          flashes: offer.flashes,
-          location: offer.location,
-          status: 302,
-        });
   }
+);
 
-  const proposeSlug = proposeSlugOf(pathname);
-
-  if (Predicate.isTagged("Some")(proposeSlug)) {
-    const propose = yield* loadPropose(context, proposeSlug.value);
-
-    return Predicate.isTagged("Flags")(propose)
-      ? page(PageFlags.Propose({ flags: propose.flags }))
-      : Routed.Redirect({
-          flashes: propose.flashes,
-          location: propose.location,
-          status: 302,
-        });
-  }
-
-  const eventSlug = /^\/event\/(?<slug>[^/]+)\/$/u.exec(pathname)?.groups?.slug;
-
-  if (eventSlug !== undefined) {
-    const eventPage = yield* loadEventPage(
-      context,
-      decodeURIComponent(eventSlug)
+const routeRoot = Effect.fn("Router.root")(function* root(
+  context: RequestContext
+) {
+  if (!context.isRootSphere) {
+    return page(
+      PageFlags.EventsFeed({ flags: yield* loadEventsFeed(context) })
     );
-
-    return Predicate.isTagged("Some")(eventPage)
-      ? page(PageFlags.EventPage({ flags: eventPage.value }))
-      : notFound(context);
   }
+
+  if (Predicate.isTagged("Some")(context.viewer)) {
+    return page(
+      PageFlags.NotPorted({
+        flags: {
+          pageName: context.translator.t("Your dashboard"),
+          path: context.url.pathname,
+        },
+      }),
+      501
+    );
+  }
+
+  return page(PageFlags.Landing({ flags: yield* loadLanding(context) }));
+});
+
+const routeHome = Effect.fn("Router.home")(function* home(
+  context: RequestContext
+) {
+  const { pathname, search } = context.url;
 
   if (pathname.startsWith("/chronology/")) {
-    return Routed.Redirect({
-      location: `${pathname.slice("/chronology".length)}${search}`,
-      status: 301,
-    });
+    return Option.some(
+      Routed.Redirect({
+        location: `${pathname.slice("/chronology".length)}${search}`,
+        status: 301,
+      })
+    );
   }
 
   if (isPanelPath(pathname)) {
-    return yield* routePanel(context);
+    return Option.some(yield* routePanel(context));
   }
 
   if (pathname === "/") {
-    if (!context.isRootSphere) {
-      return page(
-        PageFlags.EventsFeed({ flags: yield* loadEventsFeed(context) })
-      );
-    }
-
-    if (Predicate.isTagged("Some")(context.viewer)) {
-      return page(
-        PageFlags.NotPorted({
-          flags: {
-            pageName: context.translator.t("Your dashboard"),
-            path: pathname,
-          },
-        }),
-        501
-      );
-    }
-
-    return page(PageFlags.Landing({ flags: yield* loadLanding(context) }));
+    return Option.some(yield* routeRoot(context));
   }
 
   if (pathname === "/events/" || pathname === "/timeline/") {
-    return Routed.Redirect({ location: `/${search}`, status: 301 });
+    return Option.some(
+      Routed.Redirect({ location: `/${search}`, status: 301 })
+    );
   }
 
   if (pathname === "/about/") {
-    return context.isRootSphere
-      ? page(PageFlags.About({ flags: yield* loadAbout(context) }))
-      : Routed.Redirect({
-          location: `${rootOrigin(context)}/about/`,
-          status: 301,
-        });
+    return Option.some(
+      context.isRootSphere
+        ? page(PageFlags.About({ flags: yield* loadAbout(context) }))
+        : Routed.Redirect({
+            location: `${rootOrigin(context)}/about/`,
+            status: 301,
+          })
+    );
   }
+
+  return Option.none<Routed>();
+});
+
+const routeContent = Effect.fn("Router.content")(function* content(
+  context: RequestContext
+) {
+  const { pathname, search } = context.url;
 
   const slug = pathname.slice(1, -1);
 
   if (isContentSlug(slug) && pathname === `/${slug}/`) {
-    return page(PageFlags.ContentPage({ flags: yield* loadContentPage(slug) }));
+    return Option.some(
+      page(PageFlags.ContentPage({ flags: yield* loadContentPage(slug) }))
+    );
   }
 
   const legacy = legacyContentPath.exec(pathname)?.groups?.slug;
 
   if (legacy !== undefined && isContentSlug(legacy)) {
-    return Routed.Redirect({ location: `/${legacy}/`, status: 301 });
+    return Option.some(
+      Routed.Redirect({ location: `/${legacy}/`, status: 301 })
+    );
   }
 
   if (!pathname.endsWith("/") && staticPaths.has(`${pathname}/`)) {
-    return Routed.Redirect({ location: `${pathname}/${search}`, status: 301 });
+    return Option.some(
+      Routed.Redirect({ location: `${pathname}/${search}`, status: 301 })
+    );
+  }
+
+  return Option.none<Routed>();
+});
+
+export const route = Effect.fn("Router.route")(function* route(
+  context: RequestContext
+) {
+  for (const area of [
+    routeSessionPages,
+    routeNotificationOpen,
+    routeHome,
+    routeContent,
+  ]) {
+    const routed = yield* area(context);
+
+    if (Option.isSome(routed)) {
+      return routed.value;
+    }
   }
 
   return notFound(context);
