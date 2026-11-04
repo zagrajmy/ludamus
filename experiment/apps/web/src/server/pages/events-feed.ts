@@ -37,7 +37,7 @@ const leafFor = (options: {
 }): DateLeaf =>
   Option.getOrElse(
     dateLeaf({
-      ...(options.end === null ? {} : { end: options.end }),
+      end: options.end ?? undefined,
       locale: options.context.translator.locale,
       now: storedTimestamp(options.context.now),
       start: options.start,

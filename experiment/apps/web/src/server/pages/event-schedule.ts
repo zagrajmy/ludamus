@@ -16,10 +16,10 @@ import type {
   LedgerHour,
   RoomColumn,
   RoomGrid,
-  RoomRow,
   RoomTile,
   ScheduleDay,
 } from "../../client/event-page/flags.js";
+import { RoomRow } from "../../client/event-page/flags.js";
 
 export const EVENT_TIME_ZONE = "Europe/Warsaw";
 
@@ -262,18 +262,20 @@ export const buildCardDays = (options: {
   const dates = [...new Set(starts.map(programmeDate))];
   const isSingleDay = dates.length === 1;
 
+  const daySlot = (start: number) => ({
+    dateLabel: isSingleDay
+      ? `${localFormat({ at: start, format: "l, j F", locale: options.locale })} –`
+      : "",
+    hour: localFormat({ at: start, format: "H:i", locale: options.locale }),
+    sessionIds: (byStart.get(start) ?? []).map((booked) => booked.id),
+    startsAt: start,
+  });
+
   return dates.map((date) => ({
     day: dayOf({ date, locale: options.locale }),
-    slots: starts
-      .filter((start) => programmeDate(start) === date)
-      .map((start) => ({
-        dateLabel: isSingleDay
-          ? `${localFormat({ at: start, format: "l, j F", locale: options.locale })} –`
-          : "",
-        hour: localFormat({ at: start, format: "H:i", locale: options.locale }),
-        sessionIds: (byStart.get(start) ?? []).map((booked) => booked.id),
-        startsAt: start,
-      })),
+    slots: starts.flatMap((start) =>
+      programmeDate(start) === date ? [daySlot(start)] : []
+    ),
   }));
 };
 
@@ -375,9 +377,9 @@ const foldLulls = (
   const ends = new Set(bookings.map((booking) => booking.end));
 
   const busyHours = new Set(
-    windows
-      .filter((window) => starts.has(window.start) || ends.has(window.end))
-      .map((window) => window.hourMark)
+    windows.flatMap((window) =>
+      starts.has(window.start) || ends.has(window.end) ? [window.hourMark] : []
+    )
   );
 
   const folded: RowWindow[] = [];
@@ -389,7 +391,7 @@ const foldLulls = (
       0
     );
 
-    const first = run[0];
+    const [first] = run;
     const last = run.at(-1);
 
     if (first !== undefined && last !== undefined) {
@@ -571,7 +573,7 @@ export const buildRoomGrid = (options: {
         : []
     );
 
-    const first = covered[0];
+    const [first] = covered;
     const last = covered.at(-1);
 
     return first === undefined || last === undefined
@@ -596,11 +598,10 @@ export const buildRoomGrid = (options: {
     const dayFor = days[window.dayIndex];
 
     if (headingDay !== undefined && dayFor !== undefined) {
-      return {
-        _tag: "DayHeading",
+      return RoomRow.cases.DayHeading.make({
         day: dayOf({ date: dayFor.date, locale: options.locale }),
         dayIndex: headingDay,
-      };
+      });
     }
 
     const slotKey = slotKeyOf(window.hourMark);
@@ -644,8 +645,7 @@ export const buildRoomGrid = (options: {
       Math.round((window.end - window.start) / 60_000)
     );
 
-    return {
-      _tag: "Time",
+    return RoomRow.cases.Time.make({
       clock: localFormat({
         at: window.start,
         format: "H:i",
@@ -676,7 +676,7 @@ export const buildRoomGrid = (options: {
       }),
       startsAt: window.start,
       tiles,
-    };
+    });
   });
 
   return {

@@ -26,8 +26,9 @@ const gravatarUrl = Effect.fn("Shell.gravatarUrl")(function* gravatarUrl(
     return Option.none<string>();
   }
 
-  const digest = yield* Effect.promise(async () =>
-    crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized))
+  const digest = yield* Effect.promise(
+    async () =>
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized))
   );
 
   return Option.some(

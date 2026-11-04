@@ -78,7 +78,7 @@ export const statusHero = <Message>(
 
 export const emptyState = <Message>(
   options: Readonly<{
-    action?: Html;
+    action?: Html | undefined;
     icon: IconData;
     lead: string;
     title: string;

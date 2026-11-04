@@ -640,7 +640,7 @@ export const dateLeaf = ({
 }: {
   readonly locale: Locale;
   readonly start: string;
-  readonly end?: string;
+  readonly end?: string | undefined;
   readonly now: string;
 }): Option.Option<DateLeaf> => {
   const parsedEnd =

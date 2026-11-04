@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Predicate } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import {
@@ -145,7 +145,7 @@ const dayHeader = (
   );
 
 export const viewTabs = (model: EventPageModel, context: PageContext, h: H) => {
-  if (model.layout._tag !== "Compact") {
+  if (!Predicate.isTagged(model.layout, "Compact")) {
     return h.empty;
   }
 
@@ -392,12 +392,14 @@ const bookmarkBadge = (
   context: PageContext,
   h: H,
   wrapper: string
-) =>
-  Option.isSome(context.shell.viewer)
-    ? bookmarkToggle({ context, session, wrapper }, h)
-    : session.bookmarkCount === 0
-      ? h.empty
-      : h.span(
+) => {
+  if (Option.isSome(context.shell.viewer)) {
+    return bookmarkToggle({ context, session, wrapper }, h);
+  }
+
+  return session.bookmarkCount === 0
+    ? h.empty
+    : h.span(
           [h.Class(cx("bookmark-affordance print:hidden", wrapper))],
           [
             h.span(
@@ -426,6 +428,7 @@ const bookmarkBadge = (
             ),
           ]
         );
+}
 
 const compactAvailability = (
   session: SessionView,
@@ -967,7 +970,7 @@ const roomsGrid = (
 
   const liveColumns = new Set(
     grid.rows.flatMap((row) =>
-      row._tag === "Time"
+      Predicate.isTagged(row, "Time")
         ? row.tiles
             .filter((tile) => visible.has(tile.sessionId))
             .map((tile) => tile.column)
@@ -977,7 +980,7 @@ const roomsGrid = (
 
   const coveredRows = new Set(
     grid.rows.flatMap((row, index) =>
-      row._tag === "Time"
+      Predicate.isTagged(row, "Time")
         ? row.tiles
             .filter((tile) => visible.has(tile.sessionId))
             .flatMap((tile) =>
@@ -1001,7 +1004,7 @@ const roomsGrid = (
   const isRowCollapsed = (index: number) => {
     const row = grid.rows[index - 1];
 
-    if (row === undefined || row._tag === "DayHeading") {
+    if (row === undefined || Predicate.isTagged(row, "DayHeading")) {
       return false;
     }
 
@@ -1017,7 +1020,7 @@ const roomsGrid = (
         return "0px";
       }
 
-      if (row._tag === "DayHeading") {
+      if (Predicate.isTagged(row, "DayHeading")) {
         return "var(--row-track)";
       }
 
@@ -1033,7 +1036,7 @@ const roomsGrid = (
     )
     .join(" ")}`;
 
-  const firstDay = grid.days[0];
+  const [firstDay] = grid.days;
 
   const gridStyle = {
     "--live-rooms": String(filtering ? liveColumns.size : columnCount),
@@ -1094,7 +1097,7 @@ const roomsGrid = (
     const collapsed = isRowCollapsed(rowNumber);
     const rowStyle = h.Style({ "grid-row": String(rowNumber) });
 
-    if (row._tag === "DayHeading") {
+    if (Predicate.isTagged(row, "DayHeading")) {
       return [
         h.div(
           [
@@ -1132,6 +1135,17 @@ const roomsGrid = (
         ),
       ];
     }
+
+    const slotAnchor = row.opensSlot
+      ? [
+          h.span([
+            h.Class("time-slot-section block h-full scroll-mt-40"),
+            h.Id(`slot-${row.slotKey}`),
+            h.DataAttribute("slot-hour", row.slotKey),
+            h.AriaHidden(true),
+          ]),
+        ]
+      : [];
 
     return [
       h.div(
@@ -1195,19 +1209,7 @@ const roomsGrid = (
                 ]
               ),
             ]
-          : row.opensSlot
-            ? [
-                h.span(
-                  [
-                    h.Class("time-slot-section block h-full scroll-mt-40"),
-                    h.Id(`slot-${row.slotKey}`),
-                    h.DataAttribute("slot-hour", row.slotKey),
-                    h.AriaHidden(true),
-                  ],
-                  []
-                ),
-              ]
-            : []
+          : slotAnchor
       ),
       ...row.tiles.flatMap((tile) => {
         const session = byId.get(tile.sessionId);

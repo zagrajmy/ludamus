@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Predicate } from "effect";
 import type { HtmlBuilder } from "foldkit/html";
 import { defineView } from "foldkit/submodel";
 
@@ -6,6 +6,7 @@ import { isFiltering } from "../../client/event-page/filters.js";
 import type { EventPageMessage } from "../../client/event-page/message.js";
 import type { EventPageModel } from "../../client/event-page/model.js";
 import { icon } from "../../ui/icon.js";
+import { HOME_PATH } from "../../ui/paths.js";
 import {
   arrowLeftMini,
   checkCircleMini,
@@ -167,7 +168,7 @@ const scheduleRegion = (model: EventPageModel, context: PageContext, h: H) => {
     isFiltering(model.filters) && visible.size === 0 && hasSessions;
 
   const schedule =
-    model.layout._tag === "Cards"
+    Predicate.isTagged(model.layout, "Cards")
       ? cardSchedule(
           {
             context,
@@ -335,8 +336,10 @@ export const eventPageView = defineView<
 >((model, inputs, h) => {
   const context = pageContextOf(inputs.shell);
 
-  const openSession = Option.flatMap(model.shownSession, (id) =>
-    Option.fromNullishOr(model.sessions.find((session) => session.id === id))
+  const openSession = model.shownSession.pipe(
+    Option.flatMap((id) =>
+      Option.fromNullishOr(model.sessions.find((session) => session.id === id))
+    )
   );
 
   return h.div(
@@ -355,7 +358,7 @@ export const eventPageView = defineView<
             [h.Class("mt-8 print:hidden")],
             [
               h.a(
-                [h.Href("/"), h.Class("btn btn-secondary")],
+                [h.Href(HOME_PATH), h.Class("btn btn-secondary")],
                 [
                   icon(arrowLeftMini, { class: "w-4 h-4" }, h),
                   ` ${context.translator.t("Back to Events")}`,

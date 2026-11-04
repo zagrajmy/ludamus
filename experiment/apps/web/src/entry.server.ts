@@ -1,4 +1,4 @@
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Predicate } from "effect";
 import * as Server from "foldkit/experimental/server";
 
 import { init } from "./client/init.js";
@@ -53,7 +53,7 @@ const renderPageEffect = Effect.fn("renderPage")(
     const context = yield* loadRequestContext(request);
     const routed = yield* route(context);
 
-    if (routed._tag === "Redirect") {
+    if (Predicate.isTagged(routed, "Redirect")) {
       const headers = new Headers({ location: routed.location });
 
       if (routed.flashes !== undefined && routed.flashes.length > 0) {
@@ -82,8 +82,8 @@ const renderPageEffect = Effect.fn("renderPage")(
       status: routed.status,
     });
   },
-  Effect.catchTag("UnknownSphere", (error) =>
-    Effect.succeed(plain(404, error.message))
+  Effect.catchTag("UnknownSphere", (unknownSphere) =>
+    Effect.succeed(plain(404, unknownSphere.message))
   )
 );
 

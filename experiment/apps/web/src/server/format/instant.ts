@@ -3,7 +3,7 @@ import { Option } from "effect";
 export type Instant = Readonly<{ epochMillis: number; microsecond: number }>;
 
 const storedPattern =
-  /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(?:Z|\+00:00)?$/u;
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})[ T](?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d{1,6}))?(?:Z|\+00:00)?$/u;
 
 export const parseStoredInstant = (stored: string): Option.Option<Instant> => {
   const match = storedPattern.exec(stored);
@@ -12,7 +12,16 @@ export const parseStoredInstant = (stored: string): Option.Option<Instant> => {
     return Option.none();
   }
 
-  const [, year, month, day, hour, minute, second, fraction = ""] = match;
+  const {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    fraction = "",
+  } = match.groups ?? {};
+
   const microsecond = Number(fraction.padEnd(6, "0"));
 
   return Option.some({

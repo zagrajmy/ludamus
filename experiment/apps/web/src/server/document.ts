@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import * as Server from "foldkit/experimental/server";
 
 import type { Flags } from "../client/model.js";
@@ -19,16 +19,16 @@ const escapeAttribute = (value: string) =>
     .replaceAll(">", "&gt;");
 
 const descriptionOf = (flags: Flags, i18n: Translator) => {
-  if (flags.page._tag === "About") {
+  if (Predicate.isTagged(flags.page, "About")) {
     return aboutDescription(i18n);
   }
 
-  if (flags.page._tag === "Landing") {
+  if (Predicate.isTagged(flags.page, "Landing")) {
     return landingDescription(i18n);
   }
 
   if (
-    flags.page._tag === "EventPage" &&
+    Predicate.isTagged(flags.page, "EventPage") &&
     flags.page.flags.linkPreview.description !== ""
   ) {
     return flags.page.flags.linkPreview.description;
@@ -52,14 +52,14 @@ export const shellHead = (options: {
   const image = escapeAttribute(`${origin}/static/og-image.jpg`);
 
   const previewTitle =
-    flags.page._tag === "EventPage" && flags.page.flags.linkPreview.title !== ""
+    Predicate.isTagged(flags.page, "EventPage") && flags.page.flags.linkPreview.title !== ""
       ? flags.page.flags.linkPreview.title
       : title;
 
   const escapedTitle = escapeAttribute(previewTitle);
 
   const robots =
-    flags.page._tag === "EventPage" && flags.page.flags.hero.isUnlisted
+    Predicate.isTagged(flags.page, "EventPage") && flags.page.flags.hero.isUnlisted
       ? ['<meta name="robots" content="noindex">']
       : [];
 

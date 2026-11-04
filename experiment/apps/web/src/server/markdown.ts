@@ -2,13 +2,13 @@ import { Marked } from "marked";
 
 const renderer = new Marked({ async: false, gfm: true });
 
-const entities: Readonly<Record<string, string>> = {
-  "&#39;": "'",
-  "&amp;": "&",
-  "&gt;": ">",
-  "&lt;": "<",
-  "&quot;": '"',
-};
+const entities = new Map([
+  ["&#39;", "'"],
+  ["&amp;", "&"],
+  ["&gt;", ">"],
+  ["&lt;", "<"],
+  ["&quot;", '"'],
+]);
 
 export const renderMarkdown = (source: string) =>
   renderer.parse(source, { async: false });
@@ -20,7 +20,7 @@ export const markdownToPlainText = (source: string) =>
         .replaceAll(/<[^>]*>/gu, "")
         .replaceAll(
           /&(?:#39|amp|gt|lt|quot);/gu,
-          (entity) => entities[entity] ?? entity
+          (entity) => entities.get(entity) ?? entity
         )
         .trim();
 
@@ -49,10 +49,10 @@ const ALLOWED_TAGS = new Set([
   "ul",
 ]);
 
-const ALLOWED_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
-  a: new Set(["href", "title"]),
-  abbr: new Set(["title"]),
-};
+const ALLOWED_ATTRIBUTES = new Map([
+  ["a", new Set(["href", "title"])],
+  ["abbr", new Set(["title"])],
+]);
 
 const DROPPED_WITH_CONTENT = new Set(["script", "style"]);
 
@@ -88,31 +88,31 @@ const SAFE_SCHEMES = new Set([
 
 const VOID_TAGS = new Set(["br", "hr"]);
 
-const namedEntities: Readonly<Record<string, string>> = {
-  amp: "&",
-  apos: "'",
-  colon: ":",
-  gt: ">",
-  lt: "<",
-  nbsp: " ",
-  newline: "\n",
-  quot: '"',
-  tab: "\t",
-};
+const namedEntities = new Map([
+  ["amp", "&"],
+  ["apos", "'"],
+  ["colon", ":"],
+  ["gt", ">"],
+  ["lt", "<"],
+  ["nbsp", " "],
+  ["newline", "\n"],
+  ["quot", '"'],
+  ["tab", "\t"],
+]);
 
 const decodeEntities = (value: string) =>
   value.replaceAll(
-    /&(#x[0-9a-f]+|#\d+|[a-z]+);?/giu,
+    /&(?<body>#x[0-9a-f]+|#\d+|[a-z]+);?/giu,
     (entity: string, body: string) => {
       if (body.startsWith("#x") || body.startsWith("#X")) {
         return String.fromCodePoint(Number.parseInt(body.slice(2), 16));
       }
 
       if (body.startsWith("#")) {
-        return String.fromCodePoint(Number.parseInt(body.slice(1), 10));
+        return String.fromCodePoint(Math.trunc(Number(body.slice(1))));
       }
 
-      return namedEntities[body.toLowerCase()] ?? entity;
+      return namedEntities.get(body.toLowerCase()) ?? entity;
     }
   );
 
@@ -126,9 +126,20 @@ const escapeAttribute = (value: string) =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 
+const LAST_CONTROL_CHARACTER = "\u001F";
+
+const withoutControlCharacters = (value: string) =>
+  Array.from(value, (character) =>
+    character <= LAST_CONTROL_CHARACTER ? "" : character
+  ).join("");
+
 const isSafeUrl = (raw: string) => {
-  const compact = decodeEntities(raw).replaceAll(/[\s\u0000-\u001F]/gu, "");
-  const scheme = /^([a-z][a-z0-9+.-]*):/iu.exec(compact)?.[1];
+  const compact = withoutControlCharacters(
+    decodeEntities(raw).replaceAll(/\s/gu, "")
+  );
+
+  const scheme = /^(?<scheme>[a-z][a-z0-9+.-]*):/iu.exec(compact)?.groups
+    ?.scheme;
 
   return scheme === undefined || SAFE_SCHEMES.has(scheme.toLowerCase());
 };
@@ -136,16 +147,20 @@ const isSafeUrl = (raw: string) => {
 type Attribute = Readonly<{ name: string; value: string }>;
 
 const attributePattern =
-  /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gu;
+  /(?<name>[^\s"'>/=]+)(?:\s*=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<bare>[^\s"'=<>`]+)))?/gu;
 
 const parseAttributes = (source: string): readonly Attribute[] =>
   [...source.matchAll(attributePattern)].map((match) => ({
-    name: (match[1] ?? "").toLowerCase(),
-    value: match[2] ?? match[3] ?? match[4] ?? "",
+    name: (match.groups?.name ?? "").toLowerCase(),
+    value:
+      match.groups?.double ??
+      match.groups?.single ??
+      match.groups?.bare ??
+      "",
   }));
 
 const keptAttributes = (tag: string, source: string) => {
-  const allowed = ALLOWED_ATTRIBUTES[tag];
+  const allowed = ALLOWED_ATTRIBUTES.get(tag);
 
   if (allowed === undefined) {
     return "";
@@ -168,7 +183,7 @@ const keptAttributes = (tag: string, source: string) => {
 };
 
 const tagPattern =
-  /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/gu;
+  /<!--[\s\S]*?(?:-->|$)|<(?<closing>\/?)(?<tag>[a-zA-Z][a-zA-Z0-9-]*)(?<attributes>(?:[^>"']|"[^"]*"|'[^']*')*)>/gu;
 
 export const sanitizeHtml = (html: string) => {
   let output = "";
@@ -176,7 +191,7 @@ export const sanitizeHtml = (html: string) => {
   let skippingUntil = "";
 
   for (const match of html.matchAll(tagPattern)) {
-    const index = match.index;
+    const { index } = match;
     const text = html.slice(cursor, index);
     cursor = index + match[0].length;
 
@@ -184,8 +199,8 @@ export const sanitizeHtml = (html: string) => {
       output += escapeText(text);
     }
 
-    const tag = (match[2] ?? "").toLowerCase();
-    const isClosing = match[1] === "/";
+    const tag = (match.groups?.tag ?? "").toLowerCase();
+    const isClosing = match.groups?.closing === "/";
 
     if (tag === "") {
       continue;
@@ -214,7 +229,7 @@ export const sanitizeHtml = (html: string) => {
     if (isClosing) {
       output += VOID_TAGS.has(tag) ? "" : `</${tag}>`;
     } else {
-      output += `<${tag}${keptAttributes(tag, match[3] ?? "")}>`;
+      output += `<${tag}${keptAttributes(tag, match.groups?.attributes ?? "")}>`;
     }
   }
 

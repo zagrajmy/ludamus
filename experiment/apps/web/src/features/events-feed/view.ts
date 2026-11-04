@@ -127,9 +127,9 @@ const programme = (
     return [
       emptyState(
         {
-          ...(model.canCreateEncounter
-            ? { action: createEncounterButton(context, h) }
-            : {}),
+          action: model.canCreateEncounter
+            ? createEncounterButton(context, h)
+            : undefined,
           icon: calendarDaysOutline,
           lead: translator.t(
             "There are no upcoming events or public encounters. Please check back later!"

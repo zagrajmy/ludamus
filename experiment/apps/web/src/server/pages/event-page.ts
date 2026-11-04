@@ -23,7 +23,7 @@ import {
 import { formatDuration } from "@zagrajmy/core/proposal/durations";
 import type { Locale } from "@zagrajmy/i18n";
 import { formatDate, shortDate } from "@zagrajmy/i18n";
-import { DateTime, Effect, Option } from "effect";
+import { DateTime, Effect, Option, Predicate } from "effect";
 
 import type {
   Availability,
@@ -51,7 +51,7 @@ const ROSTER_PREVIEW = 3;
 const iconIndex: Readonly<Record<string, IconData>> = icons;
 
 const camel = (name: string) =>
-  name.replaceAll(/-([a-z0-9])/gu, (_match, letter: string) =>
+  name.replaceAll(/-(?<letter>[a-z0-9])/gu, (_match, letter: string) =>
     letter.toUpperCase()
   );
 
@@ -81,11 +81,11 @@ const whenLabel = (options: {
   `${format({ at: options.start, locale: options.locale, pattern: "l, j E" })} · ${format({ at: options.start, locale: options.locale, pattern: "G:i" })}–${format({ at: options.end, locale: options.locale, pattern: "G:i" })}`;
 
 const answerValues = (value: SessionCard["fieldValues"][number]["value"]) => {
-  if (typeof value === "string") {
+  if (Predicate.isString(value)) {
     return value === "" ? [] : [value];
   }
 
-  if (typeof value === "boolean") {
+  if (Predicate.isBoolean(value)) {
     return [];
   }
 
@@ -104,15 +104,26 @@ const publicSelectAnswers = (card: SessionCard) =>
       : []
   );
 
+const spaceFilterOf = (
+  stepId: number,
+  location: SessionCard["location"]
+) => {
+  if (stepId === location.spaceId) {
+    return String(stepId);
+  }
+
+  return stepId === location.parentId ? `venue:${stepId}` : "";
+};
+
+const displayName = (person: {
+  readonly name: string;
+  readonly username: string;
+}) => (person.name === "" ? person.username : person.name);
+
 const crumbsOf = (card: SessionCard) =>
   card.location.sortPath.map((step) => ({
     name: step.name,
-    spaceFilter:
-      step.id === card.location.spaceId
-        ? String(step.id)
-        : step.id === card.location.parentId
-          ? `venue:${step.id}`
-          : "",
+    spaceFilter: spaceFilterOf(step.id, card.location),
   }));
 
 type Viewer = Readonly<{
@@ -212,8 +223,8 @@ const sessionView = (options: {
     takesEnrollment,
   });
 
-  const seatsLabel = isScheduled
-    ? seats.enrolledCount > 0
+  const scheduledSeatsLabel =
+    seats.enrolledCount > 0
       ? translator.n("%(counter)s free", "%(counter)s free", spotsLeft, {
           counter: spotsLeft,
         })
@@ -224,7 +235,10 @@ const sessionView = (options: {
           {
             counter: seats.effectiveParticipantsLimit,
           }
-        )
+        );
+
+  const seatsLabel = isScheduled
+    ? scheduledSeatsLabel
     : translator.n(
         "%(counter)s seat",
         "%(counter)s seats",
@@ -261,9 +275,7 @@ const sessionView = (options: {
   const presenterName =
     card.presenter === null
       ? session.facilitatorName
-      : card.presenter.name === ""
-        ? card.presenter.username
-        : card.presenter.name;
+      : displayName(card.presenter);
 
   const confirmed = card.participations.filter(
     (seat) => seat.status === "confirmed"
@@ -303,6 +315,12 @@ const sessionView = (options: {
     locationLabel: card.location.path,
     minAge: session.minAge,
     overflowPills: pillRows.flatMap((row) => row.overflow),
+    overflowSlots: card.preferredTimeSlots
+      .slice(1)
+      .map(
+        (slot) =>
+          `${format({ at: slot.startTime, locale, pattern: "l, j E, G:i" })}–${format({ at: slot.endTime, locale, pattern: "G:i" })}`
+      ),
     participants: confirmed
       .toSorted((left, right) => left.status.localeCompare(right.status))
       .slice(0, ROSTER_PREVIEW)
@@ -335,12 +353,6 @@ const sessionView = (options: {
                 status: seat.status,
               }))
           ),
-    overflowSlots: card.preferredTimeSlots
-      .slice(1)
-      .map(
-        (slot) =>
-          `${format({ at: slot.startTime, locale, pattern: "l, j E, G:i" })}–${format({ at: slot.endTime, locale, pattern: "G:i" })}`
-      ),
     seatsLabel,
     slotLabel: Option.match(Option.fromNullishOr(card.preferredTimeSlots[0]), {
       onNone: () => "",
@@ -528,6 +540,37 @@ const distinctSorted = (values: readonly string[]) =>
 const atLeastTwo = (values: readonly string[]) =>
   values.length > 1 ? values : [];
 
+const compareLocations = (
+  left: SessionCard["location"],
+  right: SessionCard["location"]
+) => {
+  const length = Math.min(left.sortPath.length, right.sortPath.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const one = left.sortPath[index];
+    const other = right.sortPath[index];
+
+    if (one !== undefined && other !== undefined) {
+      if (one.order !== other.order) {
+        return one.order - other.order;
+      }
+
+      if (one.name !== other.name) {
+        return one.name < other.name ? -1 : 1;
+      }
+
+      if (one.id !== other.id) {
+        return one.id - other.id;
+      }
+    }
+  }
+
+  return (
+    left.sortPath.length - right.sortPath.length ||
+    left.spaceId - right.spaceId
+  );
+};
+
 const spaceChoices = (options: {
   readonly allRooms: string;
   readonly sessions: readonly SessionCard[];
@@ -540,41 +583,10 @@ const spaceChoices = (options: {
     }
   }
 
-  const compare = (
-    left: SessionCard["location"],
-    right: SessionCard["location"]
-  ) => {
-    const length = Math.min(left.sortPath.length, right.sortPath.length);
-
-    for (let index = 0; index < length; index += 1) {
-      const one = left.sortPath[index];
-      const other = right.sortPath[index];
-
-      if (one !== undefined && other !== undefined) {
-        if (one.order !== other.order) {
-          return one.order - other.order;
-        }
-
-        if (one.name !== other.name) {
-          return one.name < other.name ? -1 : 1;
-        }
-
-        if (one.id !== other.id) {
-          return one.id - other.id;
-        }
-      }
-    }
-
-    return (
-      left.sortPath.length - right.sortPath.length ||
-      left.spaceId - right.spaceId
-    );
-  };
-
   let group;
   const choices: { label: string; value: string }[] = [];
 
-  for (const location of [...rooms.values()].toSorted(compare)) {
+  for (const location of [...rooms.values()].toSorted(compareLocations)) {
     if (location.parentId === 0) {
       group = undefined;
     } else if (group !== location.parentId) {
@@ -687,7 +699,7 @@ const linkPreviewOf = (options: {
   }
 
   const parts = [
-    ...Option.toArray(Option.map(session.timing, (timing) => timing.when)),
+    ...Option.toArray(session.timing.pipe(Option.map((timing) => timing.when))),
     ...(session.locationLabel === "" ? [] : [`— ${session.locationLabel}`]),
     ...(session.host === "" || session.presenter.name === ""
       ? []
@@ -850,13 +862,13 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
         ),
         days: distinctSorted(
           scheduledSessions.flatMap((session) =>
-            Option.toArray(Option.map(session.timing, (timing) => timing.day))
+            Option.toArray(session.timing.pipe(Option.map((timing) => timing.day)))
           )
         ).map((day) => ({
           label:
             scheduledSessions
               .find((session) =>
-                Option.exists(session.timing, (timing) => timing.day === day)
+                session.timing.pipe(Option.exists((timing) => timing.day === day))
               )
               ?.timing.pipe(
                 Option.map((timing) => timing.dayLabel),
@@ -869,7 +881,7 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
         ).toSorted((left, right) => left.localeCompare(right)),
         hours: distinctSorted(
           scheduledSessions.flatMap((session) =>
-            Option.toArray(Option.map(session.timing, (timing) => timing.hour))
+            Option.toArray(session.timing.pipe(Option.map((timing) => timing.hour)))
           )
         ),
         minAges: minAges
@@ -957,10 +969,7 @@ const buildFlags = Effect.fn("EventPage.buildFlags")(
       now: context.now.epochMillis,
       ownProposals: [],
       pendingProposals,
-      pendingWizard: Option.exists(
-        context.viewer,
-        (found) => found.isSuperuser === 1 && found.sphereRole === null
-      ),
+      pendingWizard: context.viewer.pipe(Option.exists((found) => found.isSuperuser === 1 && found.sphereRole === null)),
       query: context.url.search,
       sessions,
       signedIn: Option.isSome(context.viewer),

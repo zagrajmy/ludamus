@@ -63,13 +63,13 @@ export const shellView = <Message>(
             {
               isMenuOpen: shell.isAccountMenuOpen,
               isNotificationsOpen: shell.isNotificationsOpen,
-              notifications: shell.notifications,
-              onToggleNotifications: (isOpen) =>
-                toMessage(ShellMessage.ToggledNotificationsMenu({ isOpen })),
               isRootSphere: shell.isRootSphere,
               links: shell.links,
+              notifications: shell.notifications,
               onToggleMenu: (isOpen) =>
                 toMessage(ShellMessage.ToggledAccountMenu({ isOpen })),
+              onToggleNotifications: (isOpen) =>
+                toMessage(ShellMessage.ToggledNotificationsMenu({ isOpen })),
               sphereLogoUrl: shell.sphere.logoUrl,
               sphereName: shell.sphere.name,
               translator,

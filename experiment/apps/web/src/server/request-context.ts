@@ -7,6 +7,7 @@ import { negotiateLocale, translator } from "../ui/i18n.js";
 import type { Translator } from "../ui/i18n.js";
 import { instantFromMillis } from "./format/instant.js";
 import type { Instant } from "./format/instant.js";
+import { MissingRootSphere } from "./missing-root-sphere.js";
 
 export class UnknownSphere extends Schema.TaggedError<UnknownSphere>()(
   "UnknownSphere",
@@ -16,17 +17,6 @@ export class UnknownSphere extends Schema.TaggedError<UnknownSphere>()(
 ) {
   override get message(): string {
     return `No sphere is served at ${this.host}`;
-  }
-}
-
-export class MissingRootSphere extends Schema.TaggedError<MissingRootSphere>()(
-  "MissingRootSphere",
-  {
-    siteId: Schema.Int,
-  }
-) {
-  override get message(): string {
-    return `No sphere belongs to the root site ${this.siteId}`;
   }
 }
 
