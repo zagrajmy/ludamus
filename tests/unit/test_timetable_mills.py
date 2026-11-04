@@ -73,14 +73,13 @@ def _timetable_repos(uow) -> TimetableRepos:
         time_slots=uow.time_slots,
         tracks=uow.tracks,
         schedule_change_logs=uow.schedule_change_logs,
-        spheres=uow.spheres,
     )
 
 
 def _timetable_service(uow) -> TimetableService:
     transaction = MagicMock()
     transaction.atomic = uow.atomic
-    return TimetableService(transaction, _timetable_repos(uow))
+    return TimetableService(transaction, _timetable_repos(uow), spheres=uow.spheres)
 
 
 def _conflict_service(uow) -> ConflictDetectionService:
@@ -1023,7 +1022,7 @@ class TestListAllForTrack:
 
         conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
-        assert conflicts == []
+        assert not conflicts
 
     def test_space_overlap_detected_and_deduplicated(self):
         first = _make_item(pk=1, session_id=10, space_id=1, session_title="First")

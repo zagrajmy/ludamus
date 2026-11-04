@@ -63,7 +63,13 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts import (
+        EventDTO,
+        FacilitatorDTO,
+        SpaceDTO,
+        SphereRepositoryProtocol,
+        TimeSlotDTO,
+    )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.timetable import TimetableRepos
 
@@ -223,9 +229,18 @@ def _day_range(
 
 
 class TimetableService(TimetableServiceProtocol):
-    def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        repos: TimetableRepos,
+        *,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
         self._transaction = transaction
         self._repos = repos
+        # Only to read whether its events require a space; the conflict
+        # service shares TimetableRepos and needs none.
+        self._spheres = spheres
         self._walked: dict[int, list[tuple[SpaceDTO, int]]] = {}
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
@@ -475,9 +490,7 @@ class TimetableService(TimetableServiceProtocol):
     def _requires_space(self, event: EventDTO) -> bool:
         return resolve_event_toggle(
             event_override=event.require_session_space,
-            sphere_default=self._repos.spheres.read(
-                event.sphere_id
-            ).require_session_space,
+            sphere_default=self._spheres.read(event.sphere_id).require_session_space,
         )
 
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:

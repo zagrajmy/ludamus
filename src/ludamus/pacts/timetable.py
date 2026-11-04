@@ -35,7 +35,6 @@ if TYPE_CHECKING:
         SessionRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
-        SphereRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
@@ -56,7 +55,6 @@ class TimetableRepos:
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
-    spheres: SphereRepositoryProtocol
 
 
 class TimetableServiceProtocol(Protocol):

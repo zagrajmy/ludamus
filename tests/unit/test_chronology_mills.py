@@ -1545,7 +1545,7 @@ class TestProposalAcceptanceWithFakes:
                 sphere_id=3,
             )
 
-        assert agenda_items.created == []
+        assert not agenda_items.created
 
     def test_accepting_without_a_space_places_it_where_none_is_required(self):
         agenda_items = _FakeAgendaItems()
@@ -1569,7 +1569,7 @@ class TestProposalAcceptanceWithFakes:
         )
 
         # No room to clash over, so nothing asks whether one is taken.
-        assert agenda_items.overlap_queries == []
+        assert not agenda_items.overlap_queries
         assert [item["space_id"] for item in agenda_items.created] == [None]
 
     def test_accept_session_places_the_session_in_the_chosen_slot(self):

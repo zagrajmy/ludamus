@@ -694,12 +694,13 @@ class Services:
             time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
-            spheres=self._repos.spheres,
         )
 
     @cached_property
     def timetable(self) -> TimetableService:
-        return TimetableService(self._transaction, self._timetable_repos)
+        return TimetableService(
+            self._transaction, self._timetable_repos, spheres=self._repos.spheres
+        )
 
     @cached_property
     def timetable_conflicts(self) -> ConflictDetectionService:
