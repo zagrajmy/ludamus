@@ -5,6 +5,7 @@ import pytest
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
 from tests.integration.web.panel.proposal_form.helpers import (
     SAVED_TITLE,
+    form_fields_url,
     form_url,
     make_session,
 )
@@ -13,6 +14,7 @@ from tests.integration.web.panel.proposal_form.helpers import (
 @dataclass(frozen=True)
 class FormMode:
     url: str
+    fields_url: str
     session: Session | None
 
 
@@ -20,9 +22,15 @@ class FormMode:
 def form_mode_fixture(request, event):
     if request.param == "create":
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        return FormMode(url=form_url(event), session=None)
+        return FormMode(
+            url=form_url(event), fields_url=form_fields_url(event), session=None
+        )
     session = make_session(event)
-    return FormMode(url=form_url(event, session.pk), session=session)
+    return FormMode(
+        url=form_url(event, session.pk),
+        fields_url=form_fields_url(event, session.pk),
+        session=session,
+    )
 
 
 @pytest.fixture(name="valid_post")

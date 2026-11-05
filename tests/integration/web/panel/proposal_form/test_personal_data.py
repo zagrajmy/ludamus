@@ -478,32 +478,44 @@ class TestEdit:
             },
         )
 
-        assert response.context["form"].errors
-        assert response.context["facilitator_personal_data"] == [
-            PersonalDataCard(
-                facilitator=FacilitatorDTO.model_validate(facilitator),
-                descriptors=[
-                    {
-                        "field": OrganizerFieldDTO(
-                            allow_custom=False,
-                            field_type="text",
-                            help_text="",
-                            is_multiple=False,
-                            is_public=False,
-                            max_length=50,
-                            name="Allergy",
-                            options=[],
-                            order=0,
-                            pk=field.pk,
-                            question="Any allergy?",
-                            slug="allergy",
-                        ),
-                        "name_prefix": f"facilitator_{facilitator.pk}_personal",
-                        "answer": FieldAnswer(value="Peanuts"),
-                    }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "form": FormErrorsMatcher(title=["Title is required."]),
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
                 ],
-            )
-        ]
+                "assigned_facilitator_pks": {facilitator.pk},
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Allergy",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any allergy?",
+                                    slug="allergy",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(value="Peanuts"),
+                            }
+                        ],
+                    )
+                ],
+            },
+        )
         assert not PersonalDataFieldValue.objects.exists()
 
     def test_invalid_post_with_personal_data_marker_and_no_fields(

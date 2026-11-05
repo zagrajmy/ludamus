@@ -12,7 +12,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import EventDTO, TimeSlotDTO, TrackDTO
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import facilitator_list_item_dto
 from tests.integration.web.panel.proposal_form.helpers import (
     assert_created,
@@ -62,6 +62,22 @@ class TestBothModes:
         )
 
         assert not saved_session(event).time_slots.exists()
+
+    def test_post_assigns_time_slots(self, panel_client, event, form_mode, valid_post):
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+
+        panel_client.post(
+            form_mode.url,
+            data=valid_post | {"time_slots_submitted": "1", "time_slot_ids": [slot.pk]},
+        )
+
+        assert list(saved_session(event).time_slots.values_list("pk", flat=True)) == [
+            slot.pk
+        ]
 
 
 class TestCreate:
@@ -259,33 +275,6 @@ class TestCreate:
             },
             contains='name="time_slot_ids"',
         )
-
-    def test_post_creates_session_with_preferred_time_slots(self, panel_client, event):
-        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        facilitator = Facilitator.objects.create(
-            event=event, display_name="Alice", slug="alice", user=None
-        )
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-
-        panel_client.post(
-            form_url(event),
-            data={
-                "facilitators_submitted": "1",
-                "facilitator_ids": [facilitator.pk],
-                "category_id": category.pk,
-                "title": "Slotted Session",
-                "facilitator_name": "Test Host",
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
-            },
-        )
-
-        new_session = Session.objects.get(title="Slotted Session")
-        assert list(new_session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
     def test_post_invalid_keeps_selected_time_slot_checked(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -519,8 +508,17 @@ class TestEdit:
             },
         )
 
-        assert response.context["form"].errors
-        assert response.context["assigned_track_pks"] == {track.pk}
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "form": FormErrorsMatcher(title=["Title is required."]),
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "assigned_track_pks": {track.pk},
+            },
+        )
         assert not session.tracks.exists()
 
     def test_partial_post_without_tracks_marker_preserves_tracks(
@@ -544,29 +542,6 @@ class TestEdit:
         )
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
-
-    def test_post_assigns_time_slots(self, panel_client, event):
-        session = make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-
-        panel_client.post(
-            form_url(event, session.pk),
-            data={
-                "category_id": session.category_id,
-                "title": "Test Session",
-                "facilitator_name": "Test Host",
-                "participants_limit": 5,
-                "min_age": 0,
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
-            },
-        )
-
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
     def test_post_clears_time_slots_when_marker_present_and_none_selected(
         self, panel_client, event
@@ -712,12 +687,8 @@ class TestEdit:
             ],
         )
         html = response.content.decode()
-        track_row = html[html.index('name="track_ids"') :][:200]
-        assert f'value="{track.pk}"' in track_row
-        assert "checked" in track_row
-        slot_row = html[html.index('name="time_slot_ids"') :][:200]
-        assert f'value="{slot.pk}"' in slot_row
-        assert "checked" in slot_row
+        assert "checked" in checkbox_tag(html, "track_ids", track.pk)
+        assert "checked" in checkbox_tag(html, "time_slot_ids", slot.pk)
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, panel_client, event

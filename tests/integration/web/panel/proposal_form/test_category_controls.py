@@ -7,27 +7,11 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.forms import MAX_STORED_PARTICIPANTS_LIMIT
-from ludamus.links.db.django.models import (
-    Facilitator,
-    Notification,
-    ProposalCategory,
-    Session,
-    SessionField,
-    SessionFieldRequirement,
-    SessionParticipation,
-    SessionParticipationStatus,
-)
+from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
 from ludamus.pacts import ProposalCategoryDTO
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
-from ludamus.pacts.legacy import NotificationKind
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    EventFactory,
-    SpaceFactory,
-    UserFactory,
-)
-from tests.integration.utils import FormErrorsMatcher, assert_response
+from tests.integration.conftest import EventFactory
+from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_proposal_not_found,
@@ -48,7 +32,54 @@ CATEGORY_MIN_PARTICIPANTS = 4
 LIMIT_ABOVE_CATEGORY_MAX = 500
 LIMIT_BELOW_CATEGORY_MIN = 1
 DEFAULT_SESSION_PARTICIPANTS = 5
-OVER_COLUMN_WIDTH = MAX_STORED_PARTICIPANTS_LIMIT + 1
+MISSING_EVENT_FIELDS_ROUTES = (
+    pytest.param("panel:proposal-create-fields", {"slug": "nonexistent"}, id="create"),
+    pytest.param(
+        "panel:proposal-edit-fields",
+        {"slug": "nonexistent", "proposal_id": 1},
+        id="edit",
+    ),
+)
+
+
+class TestBothModes:
+    def test_get_fields_component_follows_the_requested_category(
+        self, panel_client, event, form_mode
+    ):
+        category_with_field(event, name="A", slug="a", field_slug="only-a")
+        category_b, _field = category_with_field(
+            event, name="B", slug="b", field_slug="only-b"
+        )
+
+        response = panel_client.get(
+            form_mode.fields_url, data={"category_id": category_b.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/proposal-session-fields.html",
+            # field_descriptors carry BoundFields, which don't compare usefully.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
+            context_data={
+                "field_descriptors": ANY,
+                "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
+                "orphan_values": [],
+                "fields_url": form_mode.fields_url,
+            },
+            contains='name="session_only-b"',
+            not_contains='name="session_only-a"',
+        )
+
+    @pytest.mark.parametrize(("route", "kwargs"), MISSING_EVENT_FIELDS_ROUTES)
+    def test_get_fields_component_redirects_when_event_not_found(
+        self, panel_client, route, kwargs
+    ):
+        response = panel_client.get(reverse(route, kwargs=kwargs))
+
+        assert_event_not_found(response)
 
 
 class TestCreate:
@@ -65,36 +96,6 @@ class TestCreate:
         # create handler.
         assert_response(response, HTTPStatus.METHOD_NOT_ALLOWED)
         assert not Session.objects.exists()
-
-    def test_get_fields_component_follows_the_requested_category(
-        self, panel_client, event
-    ):
-        category_with_field(event, name="A", slug="a", field_slug="only-a")
-        category_b, _field = category_with_field(
-            event, name="B", slug="b", field_slug="only-b"
-        )
-
-        response = panel_client.get(
-            form_fields_url(event), data={"category_id": category_b.pk}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/parts/proposal-session-fields.html",
-            # field_descriptors carry BoundFields, which don't compare usefully.
-            # No events, stats or active_nav: a category swap re-renders one
-            # fieldset and builds none of the page chrome.
-            context_data={
-                "field_descriptors": ANY,
-                "form": ANY,
-                "category": ProposalCategoryDTO.model_validate(category_b),
-                "orphan_values": [],
-                "fields_url": form_fields_url(event),
-            },
-            contains='name="session_only-b"',
-            not_contains='name="session_only-a"',
-        )
 
     def test_get_fields_component_follows_the_category_derived_controls(
         self, panel_client, event
@@ -128,13 +129,6 @@ class TestCreate:
             ("PT3H", "3h"),
             ("custom", "Custom"),
         ]
-
-    def test_get_fields_component_redirects_when_event_not_found(self, panel_client):
-        url = reverse("panel:proposal-create-fields", kwargs={"slug": "nonexistent"})
-
-        response = panel_client.get(url)
-
-        assert_event_not_found(response)
 
     def test_get_fields_component_renders_empty_when_event_has_no_categories(
         self, panel_client, event
@@ -425,40 +419,6 @@ class TestEdit:
         session.refresh_from_db()
         assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
 
-    def test_post_rejects_a_limit_wider_than_the_column(self, panel_client, event):
-        # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
-        # field says so itself, rather than leaving the panel to fall back on
-        # its generic "couldn't save" message.
-        session = make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
-
-        response = panel_client.post(
-            form_url(event, session.pk),
-            data={
-                "category_id": session.category_id,
-                "title": "Updated",
-                "facilitator_name": "Host",
-                "description": "d",
-                "contact_email": "",
-                "participants_limit": OVER_COLUMN_WIDTH,
-                "min_age": 0,
-                "duration_hours": 2,
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/proposal-form.html",
-            context_data={
-                **form_context(event, session),
-                "form": FormErrorsMatcher(
-                    participants_limit=["Enter a smaller number."]
-                ),
-            },
-        )
-        session.refresh_from_db()
-        assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
-
     def test_post_accepts_a_limit_below_the_category_minimum(self, panel_client, event):
         # A session already smaller than its category's floor stays editable:
         # the floor never applies on this form.
@@ -498,61 +458,6 @@ class TestEdit:
         session.refresh_from_db()
         assert session.participants_limit == LIMIT_BELOW_CATEGORY_MIN
 
-    @pytest.mark.usefixtures("enrollment_config")
-    def test_post_raising_capacity_promotes_waiter(self, panel_client, event, waiter):
-        session = make_session(event, participants_limit=1)
-        space = SpaceFactory(event=event)
-        AgendaItemFactory(session=session, space=space)
-        filler = UserFactory(username="filler", email="filler@example.com")
-        SessionParticipation.objects.create(
-            session=session, user=filler, status=SessionParticipationStatus.CONFIRMED
-        )
-        participation = SessionParticipation.objects.create(
-            session=session, user=waiter, status=SessionParticipationStatus.WAITING
-        )
-
-        raised_limit = 2
-        response = panel_client.post(
-            form_url(event, session.pk),
-            data={
-                "category_id": session.category_id,
-                "title": "Updated",
-                "facilitator_name": "Host",
-                "description": "d",
-                "contact_email": "",
-                "participants_limit": raised_limit,
-                "min_age": 0,
-                "duration_hours": 2,
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
-            url=reverse(
-                "panel:proposal-detail",
-                kwargs={"slug": event.slug, "proposal_id": session.pk},
-            ),
-        )
-        session.refresh_from_db()
-        assert session.participants_limit == raised_limit
-        participation.refresh_from_db()
-        assert participation.status == SessionParticipationStatus.CONFIRMED.value
-        assert Notification.objects.filter(
-            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
-        ).exists()
-
-    def test_get_fields_component_redirects_when_event_not_found(self, panel_client):
-        url = reverse(
-            "panel:proposal-edit-fields",
-            kwargs={"slug": "nonexistent", "proposal_id": 1},
-        )
-
-        response = panel_client.get(url)
-
-        assert_event_not_found(response)
-
     def test_get_fields_component_redirects_when_proposal_not_found(
         self, panel_client, event
     ):
@@ -569,43 +474,3 @@ class TestEdit:
         response = panel_client.get(form_fields_url(event, session.pk))
 
         assert_proposal_not_found(response, event)
-
-    def test_get_fields_component_follows_the_requested_category(
-        self, panel_client, event
-    ):
-        session = make_session(event)
-        category_b = ProposalCategory.objects.create(
-            event=event, name="Talk", slug="talk"
-        )
-        field = SessionField.objects.create(
-            event=event,
-            name="Topic",
-            question="Which topic?",
-            slug="topic",
-            field_type="text",
-            order=0,
-        )
-        SessionFieldRequirement.objects.create(
-            category=category_b, field=field, is_required=False, order=0
-        )
-
-        response = panel_client.get(
-            form_fields_url(event, session.pk), data={"category_id": category_b.pk}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/parts/proposal-session-fields.html",
-            # field_descriptors carry BoundFields, which don't compare usefully.
-            # No events, stats or active_nav: a category swap re-renders one
-            # fieldset and builds none of the page chrome.
-            context_data={
-                "field_descriptors": ANY,
-                "form": ANY,
-                "category": ProposalCategoryDTO.model_validate(category_b),
-                "orphan_values": [],
-                "fields_url": form_fields_url(event, session.pk),
-            },
-            contains='name="session_topic"',
-        )

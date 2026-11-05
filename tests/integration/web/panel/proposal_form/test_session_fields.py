@@ -6,6 +6,9 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
+    OrphanFieldValue,
+)
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -18,11 +21,13 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import FieldAnswer, OrganizerFieldDTO
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import facilitator_list_item_dto
+from tests.integration.web.panel.helpers import (
+    facilitator_list_item_dto,
+    make_session_field,
+)
 from tests.integration.web.panel.proposal_form.helpers import (
     category_with_field,
     form_context,
-    form_fields_url,
     form_url,
     make_session,
     require_field,
@@ -34,19 +39,9 @@ class TestBothModes:
     def test_post_stores_no_row_for_a_field_left_blank(
         self, panel_client, event, form_mode, valid_post
     ):
-        field = SessionField.objects.create(
+        field = make_session_field(
             event=event,
-            name="System",
-            question="Which system?",
-            slug="system",
-            field_type="text",
-            order=0,
-        )
-        SessionFieldRequirement.objects.create(
-            category_id=valid_post["category_id"],
-            field=field,
-            is_required=False,
-            order=0,
+            category=ProposalCategory.objects.get(pk=valid_post["category_id"]),
         )
 
         panel_client.post(form_mode.url, data=valid_post | {"session_system": "   "})
@@ -58,19 +53,37 @@ class TestBothModes:
 
 class TestCreate:
     def test_get_renders_only_the_resolved_categorys_fields(self, panel_client, event):
-        category_with_field(event, name="A", slug="a", field_slug="only-a")
+        _category, field = category_with_field(
+            event, name="A", slug="a", field_slug="only-a"
+        )
         category_with_field(event, name="B", slug="b", field_slug="only-b")
 
         response = panel_client.get(form_url(event))
 
         # Category A is the event's first category, so only its field renders.
-        html = response.content.decode()
-        assert 'name="session_only-a"' in html
-        assert 'name="session_only-b"' not in html
-        # The picker must be wired to swap the fields block on change.
-        assert f'hx-get="{form_fields_url(event)}"' in html
-        assert 'hx-target="#proposal-session-fields"' in html
-        assert 'id="proposal-session-fields"' in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            field_type="text",
+                            name=field.name,
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question=field.question,
+                            slug=field.slug,
+                        ),
+                        "name_prefix": "session",
+                        "answer": FieldAnswer(),
+                    }
+                ],
+            },
+        )
 
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
         self, panel_client, event
@@ -530,18 +543,40 @@ class TestEditOrphanValues:
         return session, kept, dropped
 
     def test_get_lists_orphan_value_without_an_input(self, panel_client, event):
-        session, _kept, dropped = self._orphan_setup(event)
+        session, kept, dropped = self._orphan_setup(event)
 
         response = panel_client.get(form_url(event, session.pk))
 
-        html = response.content.decode()
-        assert "Old answer" in html
-        assert f'value="{dropped.pk}"' in html
-        # Read-only: the orphan gets a remove checkbox, never an editable input.
-        assert 'name="session_legacy"' not in html
-        # The picker must be wired to swap the fields block on change.
-        assert f'hx-get="{form_fields_url(event, session.pk)}"' in html
-        assert 'hx-target="#proposal-session-fields"' in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            field_type="text",
+                            name=kept.name,
+                            options=[],
+                            order=0,
+                            pk=kept.pk,
+                            question=kept.question,
+                            slug=kept.slug,
+                        ),
+                        "name_prefix": "session",
+                        "answer": FieldAnswer(),
+                    }
+                ],
+                "orphan_values": [
+                    OrphanFieldValue(
+                        field_id=dropped.pk,
+                        name="Legacy question?",
+                        display_value="Old answer",
+                    )
+                ],
+            },
+        )
 
     def test_get_shows_option_label_for_orphan_select_value(self, panel_client, event):
         session = make_session(event)
@@ -560,7 +595,19 @@ class TestEditOrphanValues:
 
         response = panel_client.get(form_url(event, session.pk))
 
-        assert "Horror" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "orphan_values": [
+                    OrphanFieldValue(
+                        field_id=field.pk, name="Which genre?", display_value="Horror"
+                    )
+                ],
+            },
+        )
 
     def test_get_shows_yes_for_orphan_checkbox_value(self, panel_client, event):
         session = make_session(event)
@@ -576,9 +623,19 @@ class TestEditOrphanValues:
 
         response = panel_client.get(form_url(event, session.pk))
 
-        html = response.content.decode()
-        assert "Allow streaming?" in html
-        assert ">Yes</p>" in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "orphan_values": [
+                    OrphanFieldValue(
+                        field_id=field.pk, name="Allow streaming?", display_value="Yes"
+                    )
+                ],
+            },
+        )
 
     def test_get_shows_option_labels_for_orphan_multiselect_value(
         self, panel_client, event
@@ -605,7 +662,21 @@ class TestEditOrphanValues:
 
         response = panel_client.get(form_url(event, session.pk))
 
-        assert "Horror, Fantasy" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "orphan_values": [
+                    OrphanFieldValue(
+                        field_id=field.pk,
+                        name="Which genres?",
+                        display_value="Horror, Fantasy",
+                    )
+                ],
+            },
+        )
 
     def test_post_leaves_orphan_value_untouched_by_default(self, panel_client, event):
         session, _kept, dropped = self._orphan_setup(event)

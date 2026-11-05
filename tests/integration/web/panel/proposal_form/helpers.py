@@ -7,12 +7,15 @@ from django.urls import reverse
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
-    SessionField,
     SessionFieldRequirement,
 )
 from ludamus.pacts import SessionDTO
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import make_proposal, panel_context
+from tests.integration.web.panel.helpers import (
+    make_proposal,
+    make_session_field,
+    panel_context,
+)
 
 SAVED_TITLE = "Saved Session"
 
@@ -115,15 +118,11 @@ def require_field(session, field, *, is_required=False):
 
 def category_with_field(event, *, name, slug, field_slug, is_required=False):
     category = ProposalCategory.objects.create(event=event, name=name, slug=slug)
-    field = SessionField.objects.create(
+    field = make_session_field(
         event=event,
-        name=field_slug.title(),
-        question=f"Question for {field_slug}?",
+        category=category,
         slug=field_slug,
-        field_type="text",
-        order=0,
-    )
-    SessionFieldRequirement.objects.create(
-        category=category, field=field, is_required=is_required, order=0
+        name=field_slug.title(),
+        is_required=is_required,
     )
     return category, field

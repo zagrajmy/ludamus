@@ -10,11 +10,30 @@ from django.db import DataError
 from django.urls import reverse
 from django.utils.http import urlencode
 
-from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
+from ludamus.gates.web.django.forms import MAX_STORED_PARTICIPANTS_LIMIT
+from ludamus.links.db.django.models import (
+    Facilitator,
+    Notification,
+    ProposalCategory,
+    Session,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import EventDTO
-from tests.integration.conftest import PNG_BYTES, EventFactory
-from tests.integration.utils import assert_login_required, assert_response
+from ludamus.pacts.legacy import NotificationKind
+from tests.integration.conftest import (
+    PNG_BYTES,
+    AgendaItemFactory,
+    EventFactory,
+    SpaceFactory,
+    UserFactory,
+)
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -30,6 +49,8 @@ from tests.integration.web.panel.proposal_form.helpers import (
     make_session,
 )
 
+DEFAULT_SESSION_PARTICIPANTS = 5
+OVER_COLUMN_WIDTH = MAX_STORED_PARTICIPANTS_LIMIT + 1
 MISSING_EVENT_ROUTES = (
     pytest.param("panel:proposal-create", {"slug": "nonexistent"}, id="create"),
     pytest.param(
@@ -266,20 +287,6 @@ class TestEdit:
         response = panel_client.get(url)
 
         assert_proposal_not_found(response, event)
-
-    def test_get_does_not_render_legacy_requirements_needs_fields(
-        self, panel_client, event
-    ):
-        session = make_session(event)
-
-        response = panel_client.get(form_url(event, session.pk))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/proposal-form.html",
-            context_data={**form_context(event, session)},
-        )
 
     def test_post_redirects_when_proposal_not_found(self, panel_client, event):
         response = panel_client.post(form_url(event, 99999), data={})
@@ -591,3 +598,82 @@ class TestEdit:
         session.refresh_from_db()
         assert not session.cover_image
         assert not storage.exists(old_name)
+
+    def test_post_rejects_a_limit_wider_than_the_column(self, panel_client, event):
+        # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
+        # field says so itself, rather than leaving the panel to fall back on
+        # its generic "couldn't save" message.
+        session = make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
+
+        response = panel_client.post(
+            form_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "facilitator_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": OVER_COLUMN_WIDTH,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **form_context(event, session),
+                "form": FormErrorsMatcher(
+                    participants_limit=["Enter a smaller number."]
+                ),
+            },
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_raising_capacity_promotes_waiter(self, panel_client, event, waiter):
+        session = make_session(event, participants_limit=1)
+        space = SpaceFactory(event=event)
+        AgendaItemFactory(session=session, space=space)
+        filler = UserFactory(username="filler", email="filler@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=filler, status=SessionParticipationStatus.CONFIRMED
+        )
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        raised_limit = 2
+        response = panel_client.post(
+            form_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "facilitator_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": raised_limit,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == raised_limit
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+        assert Notification.objects.filter(
+            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
