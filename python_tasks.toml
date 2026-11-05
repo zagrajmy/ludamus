@@ -88,7 +88,6 @@ alias = "update"
 description = "Update all dependencies: mise tools, pip, Poetry packages"
 run = [
     "mise upgrade --bump --exclude python --minimum-release-age=7d --local",
-    "pip install -U pip",
     "poetry update",
     "deptry {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}",
     "poetry show -o",
