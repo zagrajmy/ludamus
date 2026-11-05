@@ -582,11 +582,25 @@ class TestPartyDetailListings:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.context["party_contacts"] == {
-            player.pk: ListingPartyContactDTO(
-                contact=ListingContact.EMAIL, address="ola@example.com"
-            )
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(active_user, party), _member_dto(player, party)],
+                ),
+                invite_token=party.invite_token,
+                listings=[listing_dto(listing, party_formed=True)],
+                party_contacts={
+                    player.pk: ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address="ola@example.com"
+                    )
+                },
+            ),
+            template_name=TEMPLATE,
+        )
 
     def test_a_board_member_sees_the_contact_of_the_leader(
         self, authenticated_client, active_user, sphere
@@ -606,8 +620,21 @@ class TestPartyDetailListings:
 
         response = authenticated_client.get(_url(party))
 
-        assert response.context["party_contacts"] == {
-            gm.pk: ListingPartyContactDTO(
-                contact=ListingContact.EMAIL, address="gm@example.com"
-            )
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(gm, party), _member_dto(active_user, party)],
+                ),
+                listings=[listing_dto(listing, party_formed=True)],
+                party_contacts={
+                    gm.pk: ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address="gm@example.com"
+                    )
+                },
+            ),
+            template_name=TEMPLATE,
+        )
