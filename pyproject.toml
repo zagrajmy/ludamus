@@ -41,7 +41,7 @@ lxml = "~6.1.1"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~13.0.0"
-posthog = "~7.75.6"
+posthog = "~7.80.3"
 psycopg = "~3.3.6"
 pydantic = "~2.14.0"
 requests = "~2.34.2"
@@ -56,7 +56,7 @@ black = "^26.1.0"
 cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v3.0.0" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
-diff-cover = "^10.6.0"
+diff-cover = "^11.0.0"
 django-browser-reload = "^1.21.0"
 django-coverage-plugin = "^3.2.2"
 django-debug-toolbar = "^8.0.0"
@@ -92,6 +92,9 @@ types-authlib = "^1.7.2.20260724"
 types-requests = "^2.33.0.20261006"
 vulture = "^2.16"
 yamllint = "^1.38.0"
+
+[tool.poetry.group.security.dependencies]
+pyasn1 = ">=0.6.5"
 
 # BLACK
 

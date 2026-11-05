@@ -166,6 +166,7 @@ MIDDLEWARE = [
     "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
+    "ludamus.inits.middleware.UserLanguageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]

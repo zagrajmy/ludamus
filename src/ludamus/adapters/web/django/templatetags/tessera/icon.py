@@ -43,9 +43,11 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
     """
     renderer = _VARIANT_RENDERERS[variant]
 
-    # `align-middle`: an inline SVG's baseline is its bottom edge, so an icon
-    # set in text floats above it. Inert for block and flex call sites.
-    kwargs["class"] = clsx("shrink-0 align-middle", kwargs.pop("class", None))
+    # NOTE: No `align-middle` here. Preflight already gives every svg
+    # `vertical-align: middle` in @layer base, where a caller's `align-*`
+    # overrides it; a utility here would tie with the caller's, and the one
+    # emitted later in the stylesheet would win whatever the call site said.
+    kwargs["class"] = clsx("shrink-0", kwargs.pop("class", None))
     if s := kwargs.pop("style", None):
         kwargs |= {"style": escape(s)}
 

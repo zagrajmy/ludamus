@@ -143,6 +143,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=[(band.value, band.name) for band in AgeBand],
         default=AgeBand.UNKNOWN.value,
     )
+    language = models.CharField(max_length=16, blank=True, default="")
     name = models.CharField(_("User name"), max_length=255, blank=True)
     slug = models.SlugField(unique=True, db_index=True)
     user_type = models.CharField(
@@ -1274,20 +1275,14 @@ class SessionManager(AliveManager["Session"]):
             return set()
         if (agenda_item := getattr(session, "agenda_item", None)) is None:
             return set()
-        start = agenda_item.start_time
-        end = agenda_item.end_time
-        # Superset-safe: never misses a genuine conflict; extra ids the join might
-        # return are harmless since callers only probe membership of their own user_ids.
         return set(
             self.get_queryset()
             .filter(
                 event_id=session.event_id,
                 session_participations__user_id__in=user_ids,
-                session_participations__status=SessionParticipationStatus.CONFIRMED,
-            )
-            .filter(
-                Q(agenda_item__start_time__gte=start, agenda_item__start_time__lt=end)
-                | Q(agenda_item__end_time__gt=start, agenda_item__end_time__lte=end)
+                session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES,
+                agenda_item__start_time__lt=agenda_item.end_time,
+                agenda_item__end_time__gt=agenda_item.start_time,
             )
             .exclude(id=session.id)
             .values_list("session_participations__user_id", flat=True)
@@ -1364,6 +1359,8 @@ class Session(SoftDeleteModel):
     )
     facilitator_name = models.CharField(max_length=255)
     contact_email = models.EmailField(default="", blank=True)
+    contact_language = models.CharField(max_length=16, blank=True, default="")
+    acceptance_mailed_at = models.DateTimeField(null=True, blank=True)
     category = models.ForeignKey(
         "ProposalCategory",
         on_delete=models.CASCADE,
@@ -1540,10 +1537,8 @@ class AgendaItem(models.Model):
             and other_item.end_time
             and self.start_time
             and self.end_time
-            and (
-                (other_item.start_time <= self.start_time < other_item.end_time)
-                or (other_item.start_time < self.end_time <= other_item.end_time)
-            )
+            and other_item.start_time < self.end_time
+            and self.start_time < other_item.end_time
         )
 
 
@@ -1662,8 +1657,6 @@ class Notification(models.Model):
     kind = models.CharField(
         max_length=32, choices=[(item.value, item.name) for item in NotificationKind]
     )
-    # Localised, ready-to-render copy plus structured refs (session/event ids,
-    # claim url, deadline). Rendered by the recipient's request, not at send.
     title = models.CharField(max_length=NOTIFICATION_TITLE_MAX_LENGTH)
     body = models.TextField(blank=True, default="")
     url = models.CharField(max_length=512, blank=True, default="")
