@@ -423,6 +423,17 @@ msgid "Our best people are on it."
 msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/adapters/web/django/forms.py
+#, python-format
+msgid ""
+"%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
+"of %(allowed)s unique people (each person can enroll in multiple sessions). "
+"Only %(available)s slots remaining for new people."
+msgstr ""
+"%(name)s: nie można zapisać więcej osób. Masz już zapisane %(used)s z "
+"%(allowed)s różnych osób (każda osoba może zapisać się na wiele punktów "
+"programu). Zostało %(available)s miejsc dla nowych osób."
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "No change"
 msgstr "Bez zmian"
 
@@ -1138,6 +1149,14 @@ msgstr "Ta oferta jest już niedostępna lub wygasła."
 msgid "Spot claimed — you are now confirmed for this session."
 msgstr ""
 "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
+msgid ""
+"This spot overlaps a session you already have a seat in, so it was released."
+msgstr ""
+"To miejsce nakłada się w czasie na punkt programu, w którym masz już "
+"miejsce, więc zostało zwolnione."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
 #: src/ludamus/gates/web/django/dashboard.py
@@ -3482,6 +3501,10 @@ msgid "Set how long a held seat waits for confirmation."
 msgstr "Ustaw, jak długo zajęte miejsce czeka na potwierdzenie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Add at least one option, or allow custom values."
+msgstr "Dodaj co najmniej jedną opcję albo zezwól na własne wartości."
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
@@ -4546,6 +4569,26 @@ msgstr "Usunięto"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "Your proposal for %(event)s was accepted and added to the agenda."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Your proposal for %(event)s was accepted. It will appear on the agenda once "
+"the organizers give it a time and place."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
+"gdy organizatorzy nadadzą mu termin i miejsce."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Accepted: %(session)s"
+msgstr "Zaakceptowano: %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "You get this email because you subscribe to %(sphere)s."
 msgstr "Dostajesz tę wiadomość, bo subskrybujesz %(sphere)s."
 
@@ -4761,26 +4804,6 @@ msgid ""
 msgstr ""
 "Subskrybujesz sferę %(sphere)s. Program wydarzenia %(event)s jest już "
 "dostępny — zajrzyj, co w nim będzie, i zapisz się."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "Your proposal for %(event)s was accepted and added to the agenda."
-msgstr ""
-"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid ""
-"Your proposal for %(event)s was accepted. It will appear on the agenda once "
-"the organizers give it a time and place."
-msgstr ""
-"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
-"gdy organizatorzy nadadzą mu termin i miejsce."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "Accepted: %(session)s"
-msgstr "Zaakceptowano: %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format

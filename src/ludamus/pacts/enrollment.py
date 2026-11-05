@@ -48,8 +48,12 @@ class WaitingParticipantDTO(BaseModel):
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
     # Remaining distinct-user membership slots for this participant's slot
-    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    # owner in the event; UNLIMITED_SLOTS when no limit applies. Negative when
+    # the household already holds more seats than passes.
     owner_slots_remaining: int
+    # Already holds a seat elsewhere in the event, so the owner's allowance
+    # counts them and promoting them spends no further slot.
+    holds_event_seat: bool
     # Who is told about the seat — the sponsoring leader for a login-less
     # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
@@ -101,6 +105,8 @@ class OfferDTO(BaseModel):
     event_slug: str
     # All participations sharing this offer (whole party).
     participant_ids: list[int]
+    # Whose seats they are, in participant_ids order.
+    user_ids: list[int]
     # Everyone who should hear about this offer: each real member for
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
@@ -203,9 +209,24 @@ class EnrollmentSettingsServiceProtocol(Protocol):
     def delete_window(self, event_id: int, pk: int) -> bool: ...
 
 
+class SeatHolderLockProtocol(Protocol):
+    def lock_seat_holders(
+        self, *, user_ids: Iterable[int], waiters_of: int | None = None
+    ) -> None:
+        """Lock the User rows of everyone whose seat the caller decides.
+
+        Takes the people in `user_ids`, the waiters of session `waiters_of`
+        when given, and the pass owner of each (the sponsoring manager of a
+        login-less companion), in one statement ordered by primary key. The
+        caller already holds the Session row lock and has read nothing it
+        decides on yet; a caller that may refill the session in the same
+        transaction passes `waiters_of`, so the refill asks for no new row.
+        """
+
+
 class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
-        """Lock the session row and read everything needed to promote.
+        """Lock the session row and its waiters, then read what promotion needs.
 
         Returns None when the session cannot accept promotions (gone / no
         agenda item). Counts CONFIRMED + OFFERED as occupying seats. An
@@ -228,6 +249,12 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
 
     def read_offer_claim_window(self, session_id: int) -> timedelta: ...
 
+    # The offer for the claim page to show; takes no lock.
+    def peek_offer_by_token(self, token: str) -> OfferDTO | None: ...
+
+    # The three offer reads take the seat locks for the caller's transaction:
+    # the offer's Session row, the User rows of its party and of the session's
+    # waiters, then the party's still-OFFERED rows.
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
@@ -245,6 +272,9 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
     ) -> None: ...
 
     def drop(self, participation_ids: list[int]) -> None: ...
+
+    def conflicted_user_ids(self, *, session_id: int, user_ids: list[int]) -> set[int]:
+        """Who of `user_ids` holds an occupying seat overlapping the session."""
 
 
 class UserNotifierProtocol(Protocol):
@@ -542,7 +572,7 @@ class AnonymousEnrollmentRequestDTO(BaseModel):
     code: str | None
 
 
-class AnonymousEnrollmentRepositoryProtocol(Protocol):
+class AnonymousEnrollmentRepositoryProtocol(SeatHolderLockProtocol, Protocol):
     # Raises NotFoundError when no event matches the slug.
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO: ...

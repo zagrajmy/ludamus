@@ -38,11 +38,14 @@ def _frozen(monkeypatch):
 
 
 class FakeRepo:
-    def __init__(self, states=None, offer=None, lapsed=None):
+    def __init__(self, states=None, offer=None, lapsed=None, conflicted=()):
         self._states = list(states or [])
         self._offer = offer
         self._lapsed = None if lapsed is None else list(lapsed)
+        # Users holding a seat that overlaps the offer's session.
+        self._conflicted = set(conflicted)
         self.log = SimpleNamespace(
+            peeked=[],
             confirmed=[],
             offered=[],
             created=[],
@@ -94,6 +97,10 @@ class FakeRepo:
         self.log.tokens_read.append(token)
         return self._offer
 
+    def peek_offer_by_token(self, token):
+        self.log.peeked.append(token)
+        return self._offer
+
     def read_offer_for_member(self, *, user_id, session_id):
         self.log.members_read.append((user_id, session_id))
         return self._offer if session_id == _SESSION_ID else None
@@ -107,6 +114,10 @@ class FakeRepo:
 
     def drop(self, ids):
         self.log.dropped.append(ids)
+
+    def conflicted_user_ids(self, *, session_id, user_ids):
+        assert session_id == _SESSION_ID
+        return self._conflicted & set(user_ids)
 
 
 class FakeNotifier:
@@ -148,6 +159,7 @@ def _wp(pid, *, sponsor_id=None, order=0):
         creation_time=_NOW + timedelta(minutes=order),
         has_conflict=False,
         owner_slots_remaining=UNLIMITED_SLOTS,
+        holds_event_seat=False,
         recipient_user_id=sponsor_id if sponsor_id is not None else pid,
     )
 
@@ -168,8 +180,8 @@ def _state(
     )
 
 
-def _build(states=None, offer=None, lapsed=None):
-    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed)
+def _build(states=None, offer=None, lapsed=None, conflicted=()):
+    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed, conflicted=conflicted)
     notifier = FakeNotifier()
     scheduler = FakeScheduler()
     service = WaitlistPromotionService(FakeTransaction(), repo, notifier, scheduler)
@@ -182,6 +194,7 @@ def _offer(*, expires):
         session_title="Dragons",
         event_slug="con",
         participant_ids=[1, 2],
+        user_ids=[11, 12],
         recipients=[_MANAGER_ID],
         offer_expires_at=expires,
     )
@@ -327,6 +340,7 @@ class TestClaimOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
@@ -373,6 +387,27 @@ class TestClaimOffer:
         )
         assert not repo.log.claimed
 
+    def test_one_overlapping_member_releases_the_whole_offer_and_refills(self, caplog):
+        service, repo, _, _ = _build(
+            offer=self._offer(), conflicted={12}, states=[None]
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_offer(token="tok-xyz")
+
+        assert result == ClaimResult(
+            success=False, reason="conflict", session_id=_SESSION_ID, event_slug="con"
+        )
+        # A party moves as one: the member without a clash is not left
+        # holding a half-claimed offer.
+        assert repo.log.dropped == [[1, 2]]
+        assert not repo.log.claimed
+        assert repo.log.locked == [_SESSION_ID]
+        assert caplog.messages[0] == (
+            f"Claim on session {_SESSION_ID} released the offer of [11, 12]: "
+            "[12] overlap seats already held"
+        )
+
 
 class TestClaimMemberOffer:
     def test_members_own_offer_is_claimed_and_logged(self, caplog):
@@ -395,6 +430,25 @@ class TestClaimMemberOffer:
                 f"on session {_SESSION_ID}: claimed"
             )
         ]
+
+    def test_an_overlapping_seat_is_released_and_logged(self, caplog):
+        service, repo, _, _ = _build(
+            offer=_offer(expires=_NOW + timedelta(hours=1)),
+            conflicted={11, 12},
+            states=[None],
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=_SESSION_ID
+            )
+
+        assert result.reason == "conflict"
+        assert repo.log.dropped == [[1, 2]]
+        assert caplog.messages[-1] == (
+            f"Dashboard offer claim by member {_MEMBER_ID} "
+            f"on session {_SESSION_ID}: conflict"
+        )
 
     def test_offer_of_another_member_is_not_found_and_logged(self, caplog):
         # The lookup is scoped to this member's own seats, so someone else's
@@ -463,6 +517,7 @@ class TestExpireOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
@@ -520,6 +575,7 @@ class TestExpireLapsedOffers:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW - timedelta(minutes=1),
         )
@@ -593,6 +649,7 @@ class TestDeclineOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW + timedelta(hours=1),
         )
@@ -630,7 +687,9 @@ class TestPeekOffer:
         service, repo, _, _ = _build(offer=offer)
 
         assert service.peek_offer(token="tok-xyz") == offer
-        assert repo.log.tokens_read == ["tok-xyz"]
+        assert repo.log.peeked == ["tok-xyz"]
+        # A page view reads; it takes none of the locks a claim does.
+        assert not repo.log.tokens_read
 
     def test_unknown_token_is_none(self):
         service, _, _, _ = _build()

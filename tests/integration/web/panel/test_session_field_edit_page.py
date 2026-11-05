@@ -10,7 +10,11 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
 )
 from tests.integration.conftest import ProposalCategoryFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -469,3 +473,37 @@ class TestSessionFieldEditPageView:
 
         context_field = response.context["field"]
         assert context_field.allow_custom is True
+
+    def test_post_refuses_to_empty_options_on_select_field(self, panel_client, event):
+        field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="What genre?",
+            slug="genre",
+            field_type="select",
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Fantasy", value="Fantasy", order=0
+        )
+
+        response = panel_client.post(
+            self.get_url(event, field),
+            data={"name": "Genre", "question": "What genre?", "options": ""},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/session-field-edit.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "field": response.context["field"],
+                "form": FormErrorsMatcher(
+                    options=["Add at least one option, or allow custom values."]
+                ),
+                "categories": [],
+                "required_category_pks": set(),
+                "optional_category_pks": set(),
+            },
+        )
+        assert list(field.options.values_list("label", flat=True)) == ["Fantasy"]

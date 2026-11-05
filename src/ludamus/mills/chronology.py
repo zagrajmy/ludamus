@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
+    AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
@@ -74,12 +75,15 @@ def _announce_acceptance(
 ) -> None:
     # Everyone who runs the session hears about it: the account that proposed
     # it and any facilitator profile linked to an account. A proposal sent
-    # without an account has no one to tell.
+    # without an account is answered at the address it was sent from.
     facilitators = sessions.read_facilitators(session.pk)
     candidate_ids = (session.presenter_id, *(f.user_id for f in facilitators))
     recipient_ids = {user_id for user_id in candidate_ids if user_id is not None}
     if not recipient_ids:
-        logger.info("Accepted session %s has no account to notify", session.pk)
+        _announce_to_contact(
+            notifier=notifier, session=session, event=event, placed=placed
+        )
+        return
     for recipient_id in sorted(recipient_ids):
         notifier.notify_proposal_accepted(
             ProposalAcceptedNotification(
@@ -91,6 +95,32 @@ def _announce_acceptance(
                 placed=placed,
             )
         )
+
+
+def _announce_to_contact(
+    *,
+    notifier: ProposalAcceptedNotifierProtocol,
+    session: SessionDTO,
+    event: EventDTO,
+    placed: bool,
+) -> None:
+    # NOTE: only the propose form records a language, and only its copy
+    # promises an answer at the address given; an imported or hand-entered
+    # contact never asked to be mailed.
+    if not (session.contact_email and session.contact_language):
+        logger.info("Accepted session %s has no one to notify", session.pk)
+        return
+    notifier.notify_anonymous_proposal_accepted(
+        AnonymousProposalAcceptedNotification(
+            contact_email=session.contact_email,
+            language=session.contact_language,
+            session_id=session.pk,
+            session_title=session.title,
+            event_name=event.name,
+            event_slug=event.slug,
+            placed=placed,
+        )
+    )
 
 
 class SessionConfirmationService:
@@ -561,6 +591,20 @@ def _answers_worth_storing(
     ]
 
 
+def _drop_stale_contact_language(
+    old_session: SessionDTO, update: SessionUpdateData
+) -> SessionUpdateData:
+    # NOTE: the language vouches for the address the propose form was sent
+    # from; a replaced address never asked to be mailed.
+    if update.get("contact_email", old_session.contact_email) == (
+        old_session.contact_email
+    ):
+        return update
+    cleared = update.copy()
+    cleared["contact_language"] = ""
+    return cleared
+
+
 class SessionContentEditService:
     # Shared by the facilitator self-edit and organizer panel edit so both
     # paths write the same ContentChangeLog; owns the transactional boundary.
@@ -594,7 +638,9 @@ class SessionContentEditService:
         with self._transaction.atomic():
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
-            self._sessions.update(session_id, data.update)
+            self._sessions.update(
+                session_id, _drop_stale_contact_language(old_session, data.update)
+            )
             self._resize(
                 session_id=session_id, old_session=old_session, update=data.update
             )
