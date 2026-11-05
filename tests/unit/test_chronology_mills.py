@@ -25,6 +25,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.chronology import (
+    AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
     ProposalAcceptContextDTO,
@@ -953,6 +954,9 @@ class _RecordingNotifier:
     def notify_proposal_accepted(self, notification):
         self.sent.append(notification)
 
+    def notify_anonymous_proposal_accepted(self, notification):
+        self.sent.append(notification)
+
 
 class TestProposalStatus:
     @staticmethod
@@ -989,6 +993,53 @@ class TestProposalStatus:
             )
             for recipient in (7, 8)
         ]
+
+    def test_a_proposal_sent_without_an_account_is_answered_at_its_address(self):
+        sessions = _FakeSessions(
+            _session_dto(
+                title="Dungeon Night",
+                contact_email="guest@example.com",
+                contact_language="pl",
+            )
+        )
+        sessions.related["facilitators"] = {3: _facilitator_dto(3, "Guest")}
+        sessions.related_ids["facilitators"] = [3]
+        notifier = _RecordingNotifier()
+
+        self._service(sessions, _FakeAgendaItems(), notifier).mark_accepted(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert notifier.sent == [
+            AnonymousProposalAcceptedNotification(
+                contact_email="guest@example.com",
+                language="pl",
+                session_id=_SESSION_PK,
+                session_title="Dungeon Night",
+                event_name="Con",
+                event_slug="con",
+                placed=False,
+            )
+        ]
+
+    @pytest.mark.parametrize(
+        ("contact_email", "contact_language"),
+        (("guest@example.com", ""), ("", "pl")),
+        ids=("not-sent-through-the-form", "no-address"),
+    )
+    def test_an_accountless_proposal_without_both_tells_no_one(
+        self, contact_email, contact_language
+    ):
+        sessions = _FakeSessions(
+            _session_dto(contact_email=contact_email, contact_language=contact_language)
+        )
+        notifier = _RecordingNotifier()
+
+        self._service(sessions, _FakeAgendaItems(), notifier).mark_accepted(
+            event_pk=_EVENT_PK, session_pk=_SESSION_PK
+        )
+
+        assert not notifier.sent
 
     @pytest.mark.parametrize(
         ("method", "status"),

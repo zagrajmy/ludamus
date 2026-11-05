@@ -423,6 +423,17 @@ msgid "Our best people are on it."
 msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/adapters/web/django/forms.py
+#, python-format
+msgid ""
+"%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
+"of %(allowed)s unique people (each person can enroll in multiple sessions). "
+"Only %(available)s slots remaining for new people."
+msgstr ""
+"%(name)s: nie można zapisać więcej osób. Masz już zapisane %(used)s z "
+"%(allowed)s różnych osób (każda osoba może zapisać się na wiele punktów "
+"programu). Zostało %(available)s miejsc dla nowych osób."
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "No change"
 msgstr "Bez zmian"
 
@@ -1141,6 +1152,14 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/chronology/offers.py
 #: src/ludamus/gates/web/django/dashboard.py
+msgid ""
+"This spot overlaps a session you already have a seat in, so it was released."
+msgstr ""
+"To miejsce nakłada się w czasie na punkt programu, w którym masz już "
+"miejsce, więc zostało zwolnione."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
 
@@ -1405,6 +1424,16 @@ msgstr "Nie pozwól"
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "An event with this slug already exists."
 msgstr "Wydarzenie o tym slugu już istnieje."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/event/panel/views/event_create.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Publication time must not be after start time."
+msgstr "Czas publikacji nie może być późniejszy niż czas rozpoczęcia."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Event settings saved successfully."
@@ -2739,6 +2768,7 @@ msgid "Event name is required."
 msgstr "Nazwa wydarzenia jest wymagana."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2750,11 +2780,13 @@ msgid "Part of the event's address. Leave empty to derive it from the name."
 msgstr "Część adresu wydarzenia. Zostaw puste, żeby utworzyć go z nazwy."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "Start time"
 msgstr "Czas rozpoczęcia"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 msgid "End time"
 msgstr "Czas zakończenia"
@@ -2923,11 +2955,6 @@ msgstr "Usunięto okno zapisów."
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Another event in this sphere uses this slug."
 msgstr "Inne wydarzenie w tej sferze ma już ten slug."
-
-#: src/ludamus/gates/web/django/event/panel/views/event_create.py
-#: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "End time must be after start time."
-msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_create.py
 msgid "Pick an event from this sphere."
@@ -3284,6 +3311,10 @@ msgstr ""
 "SVG."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "URL identifier for this event. Must be unique."
+msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Event slug is required."
 msgstr "Slug wydarzenia jest wymagany."
 
@@ -3472,6 +3503,10 @@ msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Set how long a held seat waits for confirmation."
 msgstr "Ustaw, jak długo zajęte miejsce czeka na potwierdzenie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Add at least one option, or allow custom values."
+msgstr "Dodaj co najmniej jedną opcję albo zezwól na własne wartości."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -4538,6 +4573,26 @@ msgstr "Usunięto"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
+msgid "Your proposal for %(event)s was accepted and added to the agenda."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"Your proposal for %(event)s was accepted. It will appear on the agenda once "
+"the organizers give it a time and place."
+msgstr ""
+"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
+"gdy organizatorzy nadadzą mu termin i miejsce."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "Accepted: %(session)s"
+msgstr "Zaakceptowano: %(session)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
 msgid "You get this email because you subscribe to %(sphere)s."
 msgstr "Dostajesz tę wiadomość, bo subskrybujesz %(sphere)s."
 
@@ -4753,26 +4808,6 @@ msgid ""
 msgstr ""
 "Subskrybujesz sferę %(sphere)s. Program wydarzenia %(event)s jest już "
 "dostępny — zajrzyj, co w nim będzie, i zapisz się."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "Your proposal for %(event)s was accepted and added to the agenda."
-msgstr ""
-"Twoje zgłoszenie na %(event)s zostało zaakceptowane i dodane do programu."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid ""
-"Your proposal for %(event)s was accepted. It will appear on the agenda once "
-"the organizers give it a time and place."
-msgstr ""
-"Twoje zgłoszenie na %(event)s zostało zaakceptowane. Pojawi się w programie, "
-"gdy organizatorzy nadadzą mu termin i miejsce."
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "Accepted: %(session)s"
-msgstr "Zaakceptowano: %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -10287,12 +10322,10 @@ msgid "End Date"
 msgstr "Data końcowa"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
-#: src/ludamus/templates/panel/settings.html
 msgid "Start Time"
 msgstr "Czas rozpoczęcia"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
-#: src/ludamus/templates/panel/settings.html
 msgid "End Time"
 msgstr "Czas zakończenia"
 
@@ -12917,14 +12950,6 @@ msgid "Event Name"
 msgstr "Nazwa wydarzenia"
 
 #: src/ludamus/templates/panel/settings.html
-msgid "URL Slug"
-msgstr "Slug URL"
-
-#: src/ludamus/templates/panel/settings.html
-msgid "URL identifier for this event. Must be unique."
-msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
-
-#: src/ludamus/templates/panel/settings.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Visibility"
 msgstr "Widoczność"
@@ -13507,6 +13532,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "URL Slug"
+#~ msgstr "Slug URL"
 
 #~ msgid "Markdown supported."
 #~ msgstr "Obsługuje Markdown."

@@ -99,6 +99,7 @@ class UserData(TypedDict, total=False):
     email_verification_sent_at: datetime | None
     pending_email: str
     is_active: bool
+    language: str
     name: str
     password: str
     slug: str

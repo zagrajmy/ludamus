@@ -6,13 +6,21 @@ confirm / offer / claim / drop mutations; membership allowance is read from
 stored enrollment configs (no live ticket-API call on the promotion path).
 `AnonymousEnrollmentRepository` covers the code-based anonymous enrollment
 reads and participation mutations.
+
+Every transaction that decides a seat locks, in this order and before it reads
+what it decides on: the `Session` row, then `lock_seat_holders` (the people
+whose seats it decides and their pass owners, in one statement). The order is
+in docs/agents/architecture.md.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from itertools import chain
 from typing import TYPE_CHECKING
+
+from django.db.models import Q
 
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
 from ludamus.links.db.django.models import (
@@ -26,8 +34,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
-from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     AnonymousEnrollmentRepositoryProtocol,
@@ -52,7 +60,9 @@ from ludamus.pacts.legacy import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
 
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
         EnrollmentWindowData,
         GuestSeatData,
@@ -60,6 +70,38 @@ if TYPE_CHECKING:
     )
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+logger = logging.getLogger(__name__)
+
+
+class SeatHolderLocks:
+    @staticmethod
+    def lock_seat_holders(
+        *, user_ids: Iterable[int], waiters_of: int | None = None
+    ) -> None:
+        # One statement, ordered by pk, so two transactions that share people
+        # take them in the same order. FOR NO KEY UPDATE: it serialises seat
+        # decisions with each other but not with the FOR KEY SHARE a foreign
+        # key to the user takes, so rows written for these people elsewhere
+        # in the same request never wait on it. Subqueries, not joins:
+        # Postgres refuses to lock the nullable side of an outer join.
+        people = Q(pk__in=list(user_ids))
+        if waiters_of is not None:
+            people |= Q(
+                pk__in=SessionParticipation.objects.filter(
+                    session_id=waiters_of, status=SessionParticipationStatus.WAITING
+                ).values("user_id")
+            )
+        owners = User.objects.filter(people, user_type=UserType.CONNECTED).values(
+            "manager_id"
+        )
+        locked = list(
+            User.objects.select_for_update(of=("self",), no_key=True)
+            .filter(people | Q(pk__in=owners))
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        logger.debug("Locked seat holders %s", locked)
 
 
 class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
@@ -119,10 +161,7 @@ class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtoco
         )
 
 
-logger = logging.getLogger(__name__)
-
-
-class ParticipationPromotionRepository:
+class ParticipationPromotionRepository(SeatHolderLocks):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         try:
             # Lock only the Session row (`of="self"`): the select_related chain
@@ -154,8 +193,11 @@ class ParticipationPromotionRepository:
             if category is not None
             else _DEFAULT_OFFER_WINDOW
         )
-        event_dto = EventDTO.model_validate(event)
 
+        # Lock the waiters and their owners before reading who waits: the
+        # subquery resolves them inside the lock statement, so the rows read
+        # next are exactly the people held.
+        self.lock_seat_holders(user_ids=(), waiters_of=session.pk)
         waiting: list[WaitingParticipantDTO] = []
         slots_by_owner: dict[int, int] = {}
         participations = list(
@@ -166,14 +208,37 @@ class ParticipationPromotionRepository:
             .order_by("creation_time")
         )
         sponsors = sponsors_by_member(p.user for p in participations)
-        conflicted = Session.objects.conflicted_user_ids(
-            session, [p.user_id for p in participations]
-        )
+        waiter_ids = [p.user_id for p in participations]
+        conflicted = Session.objects.conflicted_user_ids(session, waiter_ids)
         recipients = {
             p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
         }
         user_allowed, domain_allowed = self._config_allowances(
             event, {r.email or "" for r in recipients.values()}
+        )
+        owners = {owner.pk: owner for owner in recipients.values()}
+        allowed_by_owner = {
+            owner.pk: allowed
+            for owner in owners.values()
+            if (
+                allowed := self._allowed_slots(
+                    owner=owner,
+                    user_allowed=user_allowed,
+                    domain_allowed=domain_allowed,
+                )
+            )
+            is not None
+        }
+        households = {
+            owner_pk: self._household_ids(owners[owner_pk])
+            for owner_pk in allowed_by_owner
+        }
+        # One occupancy snapshot serves both reads: which waiters already hold
+        # a seat, and how many of each owner's household do. Two reads could
+        # straddle a concurrent commit and disagree.
+        seated = EnrollmentParticipationRepository.occupying_user_ids(
+            user_ids=sorted({*waiter_ids, *chain.from_iterable(households.values())}),
+            event_id=event.pk,
         )
         for participation in participations:
             user = participation.user
@@ -181,10 +246,9 @@ class ParticipationPromotionRepository:
             recipient = recipients[user.pk]
             if recipient.pk not in slots_by_owner:
                 slots_by_owner[recipient.pk] = self._slots_remaining(
-                    owner=recipient,
-                    event_dto=event_dto,
-                    user_allowed=user_allowed,
-                    domain_allowed=domain_allowed,
+                    allowed=allowed_by_owner.get(recipient.pk),
+                    household=households.get(recipient.pk, []),
+                    seated=seated,
                 )
             waiting.append(
                 WaitingParticipantDTO(
@@ -197,6 +261,7 @@ class ParticipationPromotionRepository:
                     creation_time=participation.creation_time,
                     has_conflict=participation.user_id in conflicted,
                     owner_slots_remaining=slots_by_owner[recipient.pk],
+                    holds_event_seat=user.pk in seated,
                     recipient_user_id=recipient.pk,
                 )
             )
@@ -211,6 +276,7 @@ class ParticipationPromotionRepository:
             session_id=session.pk,
             session_title=session.title,
             event_slug=event.slug,
+            start_time=session.agenda_item.start_time,
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
@@ -241,39 +307,41 @@ class ParticipationPromotionRepository:
         return user_allowed, domain_allowed
 
     @staticmethod
-    def _slots_remaining(
-        *,
-        owner: User,
-        event_dto: EventDTO,
-        user_allowed: dict[str, int],
-        domain_allowed: dict[str, int],
-    ) -> int:
+    def _allowed_slots(
+        *, owner: User, user_allowed: dict[str, int], domain_allowed: dict[str, int]
+    ) -> int | None:
+        # None: no allowance applies to this owner, so promotion never charges them.
         if not owner.email:
-            return UNLIMITED_SLOTS
+            return None
         domain = owner.email.split("@")[1] if "@" in owner.email else ""
         has_config = owner.email in user_allowed or (
             bool(domain) and domain in domain_allowed
         )
         if not has_config:
-            return UNLIMITED_SLOTS
+            return None
         allowed = user_allowed.get(owner.email, 0)
         if domain:
             allowed += domain_allowed.get(domain, 0)
+        return allowed
+
+    @staticmethod
+    def _household_ids(owner: User) -> list[int]:
         # The owner's seat allowance covers themselves plus every login-less
         # companion they sponsor (members of parties they lead).
-        companions = active_companions(owner.slug)
-        members = [
-            UserDTO.model_validate(owner),
-            *(UserDTO.model_validate(c) for c in companions),
-        ]
-        # Used slots = distinct owner/companion users holding a seat; the same
+        return [owner.pk, *active_companions(owner.slug).values_list("pk", flat=True)]
+
+    @staticmethod
+    def _slots_remaining(
+        *, allowed: int | None, household: list[int], seated: set[int]
+    ) -> int:
+        if allowed is None:
+            return UNLIMITED_SLOTS
+        # Used slots = distinct household users holding a seat; the same
         # accounting `mills.enrollment.get_used_slots` applies at the gates.
-        used = len(
-            EnrollmentParticipationRepository.occupying_user_ids(
-                user_ids=[member.pk for member in members], event_id=event_dto.pk
-            )
-        )
-        return max(0, allowed - used)
+        # NOTE: unclamped. A household seated past its passes (a race, or passes
+        # withdrawn) must read as overdrawn, or a waiter already counted in
+        # `used` would pass where `can_enroll_users` refuses them.
+        return allowed - len(set(household) & seated)
 
     @staticmethod
     def confirm(participation_ids: list[int]) -> None:
@@ -322,6 +390,18 @@ class ParticipationPromotionRepository:
             else _DEFAULT_OFFER_WINDOW
         )
 
+    def peek_offer_by_token(self, token: str) -> OfferDTO | None:
+        # The claim page's GET: a read, so it takes no lock and never holds
+        # the session's seat lock for a render.
+        party = list(
+            SessionParticipation.objects.filter(
+                claim_token=token, status=SessionParticipationStatus.OFFERED
+            )
+            .select_related("user")
+            .order_by("creation_time")
+        )
+        return self._build_offer(party) if party else None
+
     def read_offer_by_token(self, token: str) -> OfferDTO | None:
         identity = (
             SessionParticipation.objects.filter(
@@ -366,8 +446,23 @@ class ParticipationPromotionRepository:
         return self._read_locked_party(session_id, token)
 
     def _read_locked_party(self, session_id: int, token: str) -> OfferDTO | None:
-        # Lock the party's still-OFFERED rows for the caller's transaction so
-        # claim and expiry serialise; the loser re-reads an empty set and no-ops.
+        # The seat lock order: the Session row, then the User rows of the
+        # party and of the waiters a release would refill, then the party's
+        # still-OFFERED rows, so claim and expiry serialise and the loser
+        # re-reads an empty set and no-ops.
+        list(
+            Session.objects.select_for_update(of=("self",))
+            .filter(id=session_id)
+            .values_list("pk", flat=True)
+        )
+        self.lock_seat_holders(
+            user_ids=SessionParticipation.objects.filter(
+                session_id=session_id,
+                claim_token=token,
+                status=SessionParticipationStatus.OFFERED,
+            ).values_list("user_id", flat=True),
+            waiters_of=session_id,
+        )
         party = list(
             SessionParticipation.objects.select_for_update(of=("self",))
             .filter(
@@ -397,6 +492,7 @@ class ParticipationPromotionRepository:
             session_title=session.title,
             event_slug=event_slug,
             participant_ids=[p.pk for p in party],
+            user_ids=[p.user_id for p in party],
             recipients=recipients,
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
         )
@@ -434,6 +530,11 @@ class ParticipationPromotionRepository:
         )
 
     @staticmethod
+    def conflicted_user_ids(*, session_id: int, user_ids: list[int]) -> set[int]:
+        session = Session.objects.select_related("agenda_item").get(id=session_id)
+        return Session.objects.conflicted_user_ids(session, user_ids)
+
+    @staticmethod
     def drop(participation_ids: list[int]) -> None:
         # A lapsed offer is terminal (Eventbrite-style): drop the rows so the
         # held seats are released and the party must rejoin to be reconsidered.
@@ -451,7 +552,9 @@ def _enrollment_window_snapshots(
     ]
 
 
-class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
+class AnonymousEnrollmentRepository(
+    SeatHolderLocks, AnonymousEnrollmentRepositoryProtocol
+):
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO:
         try:
