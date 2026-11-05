@@ -25,6 +25,15 @@ SCALE_SCHEDULED = 60
 SCALE_UNSCHEDULED = 30
 
 
+@pytest.fixture(name="_settled_language")
+def settled_language_fixture(active_user):
+    # The language middleware writes the account only when its language
+    # changes; matching the active one keeps that write out of measured
+    # requests.
+    active_user.language = settings.LANGUAGE_CODE
+    active_user.save(update_fields=["language"])
+
+
 @pytest.fixture(name="panel_client")
 def panel_client_fixture(authenticated_client, active_user, sphere):
     # Panel pages are gated on managing the sphere; every non-authz test

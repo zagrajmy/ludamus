@@ -144,6 +144,7 @@ def mock_session_data() -> SessionData:
         presenter=presenter,
         session=SessionDTO(
             contact_email="alex@example.com",
+            contact_language="en",
             creation_time=creation,
             description=(
                 "A sample session for the design page. Host and tags are mock data."
@@ -277,6 +278,7 @@ def mock_session_data_ended() -> SessionData:
         presenter=data.presenter,
         session=SessionDTO(
             contact_email="alex@example.com",
+            contact_language="en",
             creation_time=creation,
             description="Ended session for design preview.",
             min_age=0,

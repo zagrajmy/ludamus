@@ -11,6 +11,7 @@ import re
 from datetime import date
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from django.contrib import messages
@@ -1159,8 +1160,11 @@ class TestEventImportRowSaveView:
             messages=[(messages.SUCCESS, "Question saved.")],
         )
 
+    # NOTE: urlencoded, because a multipart body refuses a field name as long as
+    # the last index before the view runs.
+    @pytest.mark.parametrize("index", ("abc", "²", "9" * 4301))
     def test_post_with_invalid_index_redirects_with_error(
-        self, panel_client, event, connection_with_secret
+        self, panel_client, event, connection_with_secret, index
     ):
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
@@ -1169,7 +1173,14 @@ class TestEventImportRowSaveView:
 
         response = panel_client.post(
             _row_save_url(event, integration),
-            data={"index": "abc", "target_0": "session.title"},
+            data=urlencode(
+                {
+                    "index": index,
+                    f"question_{index}": "Title",
+                    "target_0": "session.title",
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
         )
 
         assert_response(
@@ -3250,7 +3261,14 @@ class TestImportRowSavePostHelpers:
 
     @pytest.mark.parametrize(
         ("hours", "minutes"),
-        (("99", "30"), ("-5", "30"), ("1", "abc"), ("9" * 4301, "30")),
+        (
+            ("99", "30"),
+            ("-5", "30"),
+            ("1", "abc"),
+            ("9" * 4301, "30"),
+            ("²", "30"),
+            ("1", "\u0661\u0660"),
+        ),
     )
     def test_post_rejects_duration_the_steppers_would_not_allow(
         self, panel_client, event, connection_with_secret, hours, minutes

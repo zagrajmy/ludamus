@@ -13,7 +13,7 @@ mypyc-compiled extension modules: `djlint.rules.T038` resolves to a `.so` whose
 the module attribute from here does nothing. Delegation is not available and
 the logic has to be copied.
 
-The logic below is upstream's, re-synced to djlint 1.46.6. What changed: the
+The logic below is upstream's, re-synced to djlint 1.47.0. What changed: the
 regex marked EDITED, which is the point of the copy; keyword-only signatures,
 which this repo requires past two parameters; and `run`'s closer branch
 lifted into `_close` and two helpers, because upstream's single function is
@@ -66,7 +66,15 @@ _HANDLEBARS_RAW_BLOCK = (
     r"(?:(?!\{\{\{\{/).)*?\{\{\{\{/\s*\1\s*\}\}\}\}"
 )
 _HANDLEBARS_COMMENT = r"\{\{!--(?:(?!--\}\}).)*--\}\}|\{\{!(?:(?!\}\}).)*\}\}"
-_BLOCK_TAG = r"\{%(?:(?!%\}).)*%\}|\{\{[#^/](?:(?!\}\}).)*\}\}"
+# a second opener means the first tag never closed, as no template language
+# nests them, so a run of unclosed tags is read once. A string is stepped over
+# whole, so an opener written inside one, as in `{% with a="{%" %}`, is text; a
+# string left open is read as plain text.
+_BLOCK_TAG = (
+    r"\{%(?>\"(?:(?!%\})[^\"])*\"|'(?:(?!%\})[^'])*'|(?!%\}|\{%).)*%\}"
+    r"|\{\{[#^/](?>\"(?:(?!\}\})[^\"])*\"|'(?:(?!\}\})[^'])*'"
+    r"|(?!\}\}|\{\{).)*\}\}"
+)
 
 _TEMPLATE_TAG_PATTERN: Final = compile_pattern(
     f"{_HANDLEBARS_RAW_BLOCK}|{_HANDLEBARS_COMMENT}|{_BLOCK_TAG}", re.S

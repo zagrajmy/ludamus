@@ -14,7 +14,7 @@ CONFIG_FILE = REPO_ROOT / "pyproject.toml"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
 UPSTREAM_T038_SHA256 = (
-    "f5f50176b1151c977546b75c3cc99f763dd1975725a39df0c380a5e2b0d017b7"
+    "fe7abc48a21127d650ed1668e823ea5d2fbacd72526894ad034ed63cb508c224"
 )
 
 
@@ -76,6 +76,19 @@ class TestStillCatchesWhatT038Caught:
         output = _lint(tmp_path, "{% block a %}\n    <p>hi</p>\n{% endblock b %}\n")
 
         assert "Endblock name should match opening block name" in output
+
+    def test_an_unclosed_block_whose_string_holds_an_opener(self, tmp_path):
+        output = _lint(tmp_path, '{% with a="{%" %}\n    <p>hi</p>\n')
+
+        assert "Block tag has no matching end tag" in output
+
+    def test_an_unclosed_tag_does_not_swallow_the_block_after_it(self, tmp_path):
+        output = _lint(
+            tmp_path,
+            "{% if x\n{% tessera_table %}\n    <p>hi</p>\n{% end_tessera_table %}\n",
+        )
+
+        assert "End tag has no matching block tag" not in output
 
 
 @pytest.mark.parametrize("editor", (False, True), ids=("mise-cli", "vscode"))

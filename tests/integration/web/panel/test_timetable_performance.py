@@ -6,6 +6,7 @@
 
 from http import HTTPStatus
 
+import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -29,6 +30,7 @@ def _query_count(client, url):
     return len(ctx.captured_queries)
 
 
+@pytest.mark.usefixtures("_settled_language")
 class TestTimetableQueryBounds:
     def test_timetable_page_bounded_queries(
         self, authenticated_client, active_user, sphere, timetable_scale_data

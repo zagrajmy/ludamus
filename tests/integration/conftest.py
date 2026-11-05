@@ -1,9 +1,11 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
@@ -38,6 +40,7 @@ from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from tests.integration.catalog import compile_po
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 from tests.template_checks import MissingTemplateVariableFilter
 
@@ -113,6 +116,21 @@ def english_language(settings):
     # written against one language. Lives here, not in the root conftest: it is
     # a `settings` mutation, which tests/unit may not take.
     settings.LANGUAGE_CODE = "en"
+
+
+@pytest.fixture(scope="session", name="_compiled_polish_catalog")
+def compiled_polish_catalog_fixture(tmp_path_factory):
+    root = tmp_path_factory.mktemp("locale")
+    messages = root / "pl" / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    source = Path(django_settings.LOCALE_PATHS[0]) / "pl" / "LC_MESSAGES"
+    compile_po(po_path=source / "django.po", mo_path=messages / "django.mo")
+    return root
+
+
+@pytest.fixture
+def polish_catalog(settings, _compiled_polish_catalog):
+    settings.LOCALE_PATHS = [_compiled_polish_catalog]
 
 
 def sponsor_user(*, leader, member):

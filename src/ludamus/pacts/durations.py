@@ -37,7 +37,11 @@ def duration_minutes(iso_duration: str | None) -> int:
 def parse_duration_part(raw: str, *, maximum: int) -> int:
     if not (text := (raw or "").strip()):
         return 0
-    if not text.isdigit() or len(text) > len(str(maximum)) or int(text) > maximum:
+    if (
+        not (text.isascii() and text.isdigit())
+        or len(text) > len(str(maximum))
+        or int(text) > maximum
+    ):
         raise InvalidDurationError
     return int(text)
 

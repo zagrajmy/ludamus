@@ -109,6 +109,7 @@ def _expected_session(**overrides):
         participants_limit=0,
         min_age=0,
         contact_email="",
+        contact_language="pl",
         status=SessionStatus.PENDING,
     )
     data.update(overrides)
@@ -165,12 +166,16 @@ class TestSubmit:
     )
     def test_raises_value_error_when_title_missing(self, service, wizard_data):
         with pytest.raises(ValueError, match=r"^session_data must contain 'title'$"):
-            service.submit(_event(), wizard_data, user_id=None, user_slug=None)
+            service.submit(
+                _event(), wizard_data, user_id=None, user_slug=None, language="pl"
+            )
 
     def test_anonymous_creates_facilitator_without_user(
         self, service, submitting_repos
     ):
-        result = service.submit(_event(), _session_data(), user_id=None, user_slug=None)
+        result = service.submit(
+            _event(), _session_data(), user_id=None, user_slug=None, language="pl"
+        )
 
         assert result.session_id == EXPECTED_SESSION_ID
         assert result.title == "Test Session"
@@ -216,6 +221,7 @@ class TestSubmit:
             cover_image=cover_image,
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.sessions.create.assert_called_once_with(
@@ -234,7 +240,9 @@ class TestSubmit:
     def test_retries_slug_until_it_is_free(self, service, submitting_repos):
         submitting_repos.sessions.slug_exists.side_effect = [True, False]
 
-        service.submit(_event(), _session_data(), user_id=None, user_slug=None)
+        service.submit(
+            _event(), _session_data(), user_id=None, user_slug=None, language="pl"
+        )
 
         first, second = submitting_repos.sessions.slug_exists.call_args_list
         assert first == call(1, "test-session")
@@ -257,6 +265,7 @@ class TestSubmit:
             {"category_id": 3, "session_data": {"title": "Test Session"}},
             user_id=USER_PK,
             user_slug=USER_SLUG,
+            language="pl",
         )
 
         submitting_repos.users.read.assert_called_once_with(USER_SLUG)
@@ -282,6 +291,7 @@ class TestSubmit:
             {"category_id": 3, "session_data": {"title": "Test Session"}},
             user_id=USER_PK,
             user_slug=USER_SLUG,
+            language="pl",
         )
 
         submitting_repos.facilitators.read_by_user_and_event.assert_called_once_with(
@@ -304,6 +314,7 @@ class TestSubmit:
             {"category_id": 3, "session_data": {"title": "Test Session"}},
             user_id=user_id,
             user_slug=user_slug,
+            language="pl",
         )
 
         submitting_repos.users.read.assert_not_called()
@@ -339,6 +350,7 @@ class TestSubmit:
             },
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         assert result.session_id == EXPECTED_SESSION_ID
@@ -392,6 +404,7 @@ class TestSubmit:
             },
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.sessions.save_field_values.assert_called_once_with(
@@ -416,6 +429,7 @@ class TestSubmit:
             _session_data(track_pks=[OWN_TRACK_PK, FOREIGN_TRACK_PK]),
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.tracks.list_public_by_event.assert_called_once_with(1)
@@ -429,6 +443,7 @@ class TestSubmit:
             _session_data(track_pks=[FOREIGN_TRACK_PK]),
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.sessions.set_session_tracks.assert_not_called()
@@ -449,6 +464,7 @@ class TestSubmit:
             },
             user_id=None,
             user_slug=None,
+            language="pl",
         )
 
         submitting_repos.session_fields.read_by_slug.assert_called_once_with(
@@ -517,7 +533,9 @@ class TestCheckRateLimit:
 class TestSubmitEdgeCases:
     def test_requires_a_title(self, service, submitting_repos):
         with pytest.raises(ValueError, match="title"):
-            service.submit(_event(), {"category_id": 1, "session_data": {}})
+            service.submit(
+                _event(), {"category_id": 1, "session_data": {}}, language="pl"
+            )
 
         submitting_repos.sessions.create.assert_not_called()
 
@@ -536,6 +554,7 @@ class TestSubmitEdgeCases:
             cover_image=MagicMock(name="cover"),
             user_id=USER_PK,
             user_slug="ada",
+            language="pl",
         )
 
         submitting_repos.facilitators.create.assert_not_called()
@@ -555,6 +574,7 @@ class TestSubmitEdgeCases:
             {"category_id": 1, "session_data": {"title": "T"}},
             user_id=USER_PK,
             user_slug="ada",
+            language="pl",
         )
 
         created = submitting_repos.facilitators.create.call_args.args[0]
@@ -569,6 +589,7 @@ class TestSubmitEdgeCases:
                 "session_data": {"title": "T"},
                 "track_pks": [FOREIGN_TRACK_PK],
             },
+            language="pl",
         )
 
         submitting_repos.sessions.set_session_tracks.assert_not_called()
@@ -596,6 +617,7 @@ class TestSubmitEdgeCases:
                     "personal_ghost": "boo",
                 },
             },
+            language="pl",
         )
 
         submitting_repos.sessions.save_field_values.assert_not_called()
@@ -787,6 +809,7 @@ class TestProfileDiscordFill:
             },
             user_id=USER_PK,
             user_slug="ada",
+            language="pl",
         )
 
     @staticmethod

@@ -212,7 +212,14 @@ jobs:
             echo "::warning::Playwright system deps exited $rc (attempt $attempt/3)"
           done
           exit "$rc"
+      # Ubuntu 23.10+ restricts unprivileged user namespaces through AppArmor,
+      # which leaves Chromium "No usable sandbox!". Lift it so the specs run
+      # Chromium sandboxed, as users get it.
+      - name: Allow Chromium's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Run end-to-end tests
+        env:
+          E2E_CHROMIUM_SANDBOX: "1"
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       # The three artifacts merge into one directory in `test`, so each

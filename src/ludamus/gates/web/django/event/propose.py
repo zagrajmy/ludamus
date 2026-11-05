@@ -11,6 +11,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
+from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -882,6 +883,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
             cover_image=cover,
             user_id=request.context.current_user_id,
             user_slug=request.context.current_user_slug,
+            language=get_language(),
         )
 
         del request.session[key]
