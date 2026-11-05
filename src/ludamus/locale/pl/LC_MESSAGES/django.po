@@ -3416,59 +3416,6 @@ msgstr ""
 "zamiast graczy."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Allow facilitators to edit their own sessions"
-msgstr "Pozwól twórcom programu edytować własne punkty programu"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Default for the whole sphere. Events can override this setting."
-msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enable Parley conversations"
-msgstr "Włącz rozmowy Parley"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Show the sphere room and eligible program-item rooms to active users."
-msgstr ""
-"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Place event cover buttons at the bottom right"
-msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Shows print and venue map buttons in a horizontal row at the bottom right of "
-"event covers."
-msgstr ""
-"Wyświetla przyciski drukowania i map obiektu w poziomym rzędzie w prawym "
-"dolnym rogu okładek wydarzeń."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Nobody (encounters are off here)"
-msgstr "Nikt (spotkania są tu wyłączone)"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Sphere managers only"
-msgstr "Tylko menedżerowie sfery"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Everyone"
-msgstr "Wszyscy"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Who may organize encounters"
-msgstr "Kto może organizować spotkania"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Encounters are small meetups organized by hand. Public ones are listed for "
-"everyone on the events page."
-msgstr ""
-"Spotkania to małe wydarzenia organizowane ręcznie. Publiczne widnieją na "
-"stronie wydarzeń dla wszystkich."
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Proposal Description"
 msgstr "Opis zgłoszenia"
 
@@ -3944,6 +3891,59 @@ msgstr "Wklej sekret połączenia API."
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Secret is required when replacing."
 msgstr "Sekret jest wymagany przy zastępowaniu."
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Allow facilitators to edit their own sessions"
+msgstr "Pozwól twórcom programu edytować własne punkty programu"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Default for the whole sphere. Events can override this setting."
+msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Enable Parley conversations"
+msgstr "Włącz rozmowy Parley"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Show the sphere room and eligible program-item rooms to active users."
+msgstr ""
+"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Place event cover buttons at the bottom right"
+msgstr "Umieść przyciski okładki wydarzenia na dole po prawej"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid ""
+"Shows print and venue map buttons in a horizontal row at the bottom right of "
+"event covers."
+msgstr ""
+"Wyświetla przyciski drukowania i map obiektu w poziomym rzędzie w prawym "
+"dolnym rogu okładek wydarzeń."
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Nobody (encounters are off here)"
+msgstr "Nikt (spotkania są tu wyłączone)"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Sphere managers only"
+msgstr "Tylko menedżerowie sfery"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Everyone"
+msgstr "Wszyscy"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid "Who may organize encounters"
+msgstr "Kto może organizować spotkania"
+
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+msgid ""
+"Encounters are small meetups organized by hand. Public ones are listed for "
+"everyone on the events page."
+msgstr ""
+"Spotkania to małe wydarzenia organizowane ręcznie. Publiczne widnieją na "
+"stronie wydarzeń dla wszystkich."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
 msgid "Announcement not found."
