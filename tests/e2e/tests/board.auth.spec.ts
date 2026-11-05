@@ -200,7 +200,7 @@ test.describe("Board responses", () => {
     });
 
     await page.goto(listingUrl);
-    await page.getByRole("link", { name: "Responses (1)" }).click();
+    await page.getByRole("link", { name: "Interested (1)" }).click();
     const row = page.getByRole("listitem").filter({ hasText: "I bring snacks." });
     await expect(row).toContainText(INVITEE);
     await attachArtifacts(test.info(), {
@@ -250,7 +250,7 @@ test.describe("Board parties", () => {
     await playerPage.getByRole("button", { name: "I'm interested" }).click();
 
     await page.goto(listingUrl);
-    await page.getByRole("link", { name: "Responses (1)" }).click();
+    await page.getByRole("link", { name: "Interested (1)" }).click();
     const row = page.getByRole("listitem").filter({ hasText: INVITEE });
     const partyPicker = row.getByLabel("Party");
     if (await partyPicker.isVisible()) await partyPicker.selectOption({ label: "A new party" });
@@ -293,12 +293,22 @@ test.describe("Board parties", () => {
     });
 
     await page.goto(listingUrl);
+    await expect(page.getByRole("complementary")).toContainText(INVITEE);
+    await expect(page.getByRole("complementary")).toContainText(/(Discord|Email): \S+/);
+    await attachArtifacts(test.info(), {
+      name: "listing-author-sees-players",
+      region: page.getByRole("main"),
+      facts: { title, responder: INVITEE },
+    });
+
+    await page.goto(listingUrl);
     await page.getByRole("button", { name: "Close listing" }).click();
     await expect(page.getByText("Party formed")).toBeVisible();
 
     await page.goto("/crowd/profile/parties/");
     await page.getByRole("link", { name: title }).first().click();
     await expect(page.getByRole("link", { name: title })).toBeVisible();
+    await expect(page.getByRole("main")).toContainText(/(Discord|Email): \S+/);
     await page.getByRole("button", { name: "Delete party" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();
     await expect(page.getByText("Party deleted.")).toBeVisible();

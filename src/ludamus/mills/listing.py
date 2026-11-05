@@ -19,6 +19,7 @@ from ludamus.pacts.listing import (
     ListingDetailDTO,
     ListingInterestedNotification,
     ListingNotification,
+    ListingPartyContactDTO,
     ListingPartyInviteNotification,
     ListingResponsesDTO,
     ListingResponseStatus,
@@ -262,6 +263,16 @@ class ListingService(ListingServiceProtocol):
                 if listing.party_id is not None
                 else []
             ),
+            joined_responses=(
+                [
+                    self._with_contact(response)
+                    for response in self._responses.list_in_tab(
+                        listing_id=pk, tab=ListingResponseTab.JOINED
+                    )
+                ]
+                if is_author
+                else []
+            ),
         )
 
     def read_authored(self, *, pk: int, sphere_id: int, author_id: int) -> ListingDTO:
@@ -485,6 +496,35 @@ class ListingService(ListingServiceProtocol):
 
     def party_listings(self, party_id: int) -> list[ListingDTO]:
         return self._listings.list_for_party(party_id)
+
+    def party_contacts(
+        self, *, party_id: int, viewer_id: int
+    ) -> dict[int, ListingPartyContactDTO]:
+        contacts: dict[int, ListingPartyContactDTO] = {}
+        for listing in self._listings.list_for_party(party_id):
+            if listing.author_id == viewer_id:
+                contacts |= {
+                    response.user_id: self._party_contact(
+                        response.user_id, response.contact
+                    )
+                    for response in self._responses.list_in_tab(
+                        listing_id=listing.pk, tab=ListingResponseTab.JOINED
+                    )
+                }
+                continue
+            own = self._responses.read_own(listing_id=listing.pk, user_id=viewer_id)
+            if own is not None and own.joined:
+                contacts[listing.author_id] = self._party_contact(
+                    listing.author_id, listing.contact
+                )
+        return contacts
+
+    def _party_contact(
+        self, user_id: int, contact: ListingContact
+    ) -> ListingPartyContactDTO:
+        return ListingPartyContactDTO(
+            contact=contact, address=_address(self._users.read_by_id(user_id), contact)
+        )
 
     def _check_party(self, author_id: int, party_id: int) -> ListingPartyChoiceDTO:
         party = next(

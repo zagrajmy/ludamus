@@ -170,6 +170,7 @@ def _render_detail(
             "waiting_count": detail.waiting_count,
             "author_contact": detail.author_contact,
             "party_members": detail.party_members,
+            "joined_responses": detail.joined_responses,
         },
     )
 

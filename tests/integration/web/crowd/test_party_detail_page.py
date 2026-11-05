@@ -16,7 +16,12 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.listing import ListingContact, ListingResponseStatus, ListingStatus
+from ludamus.pacts.listing import (
+    ListingContact,
+    ListingPartyContactDTO,
+    ListingResponseStatus,
+    ListingStatus,
+)
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -58,6 +63,7 @@ def _context(party_dto, **overrides):
         "invite_token": "",
         "history": [],
         "listings": [],
+        "party_contacts": {},
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -559,3 +565,49 @@ class TestPartyDetailListings:
             ),
             template_name=TEMPLATE,
         )
+
+    def test_the_leader_sees_the_contact_of_a_board_member(
+        self, authenticated_client, active_user, sphere
+    ):
+        player = UserFactory(email="ola@example.com")
+        party = sponsor_user(leader=active_user, member=player)
+        listing = ListingFactory(sphere=sphere, author=active_user, party=party)
+        ListingResponse.objects.create(
+            listing=listing,
+            user=player,
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert response.context["party_contacts"] == {
+            player.pk: ListingPartyContactDTO(
+                contact=ListingContact.EMAIL, address="ola@example.com"
+            )
+        }
+
+    def test_a_board_member_sees_the_contact_of_the_leader(
+        self, authenticated_client, active_user, sphere
+    ):
+        gm = UserFactory(email="gm@example.com")
+        party = sponsor_user(leader=gm, member=active_user)
+        listing = ListingFactory(
+            sphere=sphere, author=gm, party=party, contact=ListingContact.EMAIL
+        )
+        ListingResponse.objects.create(
+            listing=listing,
+            user=active_user,
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert response.context["party_contacts"] == {
+            gm.pk: ListingPartyContactDTO(
+                contact=ListingContact.EMAIL, address="gm@example.com"
+            )
+        }

@@ -18,6 +18,7 @@ from ludamus.pacts.listing import (
     ListingInterestedNotification,
     ListingNotification,
     ListingPartyChoiceDTO,
+    ListingPartyContactDTO,
     ListingPartyInviteNotification,
     ListingResponseDTO,
     ListingResponsesDTO,
@@ -122,6 +123,9 @@ class FakeListings:
             for pk, (leader, name) in self.parties.items()
             if leader == leader_id
         ]
+
+    def list_for_party(self, party_id):
+        return [row for row in self.rows.values() if row.party_id == party_id]
 
     def party_member_names(self, party_id):
         return [f"member of {party_id}"]
@@ -486,6 +490,7 @@ class TestDetail:
                 open_for_days=30,
                 author_contact="",
                 party_members=[],
+                joined_responses=[],
             ),
             ListingDetailDTO(
                 listing=listing,
@@ -496,6 +501,7 @@ class TestDetail:
                 open_for_days=30,
                 author_contact="",
                 party_members=[],
+                joined_responses=[],
             ),
         )
 
@@ -970,6 +976,91 @@ class TestShownParty:
         )
 
         assert detail.author_contact == "gm#1"
+
+    def test_the_author_sees_who_joined_and_how_to_reach_them(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        joined_pk = responses.add(listing.pk)
+        responses._set(joined_pk, joined=True)
+        responses.add(listing.pk, user_id=AUTHOR_PK + 10)
+
+        detail = _service(listings, responses=responses, **DISCORD_ONLY).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK
+        )
+
+        assert [
+            (response.pk, response.contact_address)
+            for response in detail.joined_responses
+        ] == [(joined_pk, "ola#1")]
+
+    def test_a_viewer_who_is_not_the_author_sees_nobody_who_joined(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        detail = _service(listings, responses=responses, **DISCORD_ONLY).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+
+        assert detail.joined_responses == []
+
+
+class TestPartyContacts:
+    @staticmethod
+    def _tied_listing(listings):
+        listings.parties[100] = (AUTHOR_PK, "")
+        return _open_listing(listings, party_id=100)
+
+    def test_the_author_gets_each_joined_responders_contact(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=AUTHOR_PK)
+
+        assert contacts == {
+            STRANGER_PK: ListingPartyContactDTO(
+                contact=ListingContact.DISCORD, address="ola#1"
+            )
+        }
+
+    def test_a_joined_responder_gets_the_authors_contact(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=STRANGER_PK)
+
+        assert contacts == {
+            AUTHOR_PK: ListingPartyContactDTO(
+                contact=ListingContact.DISCORD, address="gm#1"
+            )
+        }
+
+    def test_a_responder_who_has_not_joined_gets_nothing(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses.add(listing.pk)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=STRANGER_PK)
+
+        assert contacts == {}
+
+    def test_a_member_who_never_responded_gets_nothing(self):
+        listings = FakeListings()
+        self._tied_listing(listings)
+
+        contacts = _service(listings, **DISCORD_ONLY).party_contacts(
+            party_id=100, viewer_id=STRANGER_PK
+        )
+
+        assert contacts == {}
 
 
 def test_update_tells_waiting_responders_the_new_title():

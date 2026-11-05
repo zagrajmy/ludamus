@@ -46,11 +46,7 @@
                         {% endif %}
                         {% if response.joined %}
                             <p class="break-words text-sm text-foreground-primary">
-                                {% if response.contact == "discord" %}
-                                    {% blocktranslate with address=response.contact_address %}Discord: {{ address }}{% endblocktranslate %}
-                                {% else %}
-                                    {% blocktranslate with address=response.contact_address %}Email: {{ address }}{% endblocktranslate %}
-                                {% endif %}
+                                {% include "board/_contact.html" with contact=response.contact address=response.contact_address only %}
                             </p>
                         {% elif response.status == "invited" %}
                             <p class="break-words text-sm text-foreground-muted">

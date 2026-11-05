@@ -5583,6 +5583,16 @@ msgstr "Marka"
 msgid "Board"
 msgstr "Ogłoszenia"
 
+#: src/ludamus/templates/board/_contact.html
+#, python-format
+msgid "Discord: %(address)s"
+msgstr "Discord: %(address)s"
+
+#: src/ludamus/templates/board/_contact.html
+#, python-format
+msgid "Email: %(address)s"
+msgstr "E-mail: %(address)s"
+
 #: src/ludamus/templates/board/_create_actions.html
 #, python-format
 msgid ""
@@ -5710,6 +5720,10 @@ msgid "Posted by"
 msgstr "Autor"
 
 #: src/ludamus/templates/board/detail.html
+msgid "In your party"
+msgstr "W drużynie"
+
+#: src/ludamus/templates/board/detail.html
 msgid "Already in the party"
 msgstr "Już w drużynie"
 
@@ -5750,9 +5764,10 @@ msgid "Edit listing"
 msgstr "Edytuj ogłoszenie"
 
 #: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/board/responses.html
 #, python-format
-msgid "Responses (%(waiting_count)s)"
-msgstr "Zgłoszenia (%(waiting_count)s)"
+msgid "Interested (%(count)s)"
+msgstr "Czekają (%(count)s)"
 
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
@@ -5815,11 +5830,6 @@ msgstr "Kontakty zobaczycie, gdy ktoś dołączy do Twojej drużyny."
 
 #: src/ludamus/templates/board/responses.html
 #, python-format
-msgid "Interested (%(count)s)"
-msgstr "Czekają (%(count)s)"
-
-#: src/ludamus/templates/board/responses.html
-#, python-format
 msgid "Invited (%(count)s)"
 msgstr "Zaproszenia (%(count)s)"
 
@@ -5832,16 +5842,6 @@ msgstr "W drużynie (%(count)s)"
 #, python-format
 msgid "Not this time (%(count)s)"
 msgstr "Nie tym razem (%(count)s)"
-
-#: src/ludamus/templates/board/responses.html
-#, python-format
-msgid "Discord: %(address)s"
-msgstr "Discord: %(address)s"
-
-#: src/ludamus/templates/board/responses.html
-#, python-format
-msgid "Email: %(address)s"
-msgstr "E-mail: %(address)s"
 
 #: src/ludamus/templates/board/responses.html
 #, python-format
@@ -13662,3 +13662,7 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#, python-format
+#~ msgid "Responses (%(waiting_count)s)"
+#~ msgstr "Zgłoszenia (%(waiting_count)s)"

@@ -322,6 +322,7 @@ class TestPartyCompanionAddActionView:
                 "invite_token": party.invite_token,
                 "history": [],
                 "listings": [],
+                "party_contacts": {},
                 "profile_active_tab": "parties",
             },
             template_name="crowd/user/party_detail.html",

@@ -182,11 +182,17 @@ class ListingDetailDTO(BaseModel):
     open_for_days: int
     author_contact: str
     party_members: list[str]
+    joined_responses: list[ListingResponseDTO]
 
 
 class ListingPartyChoiceDTO(BaseModel):
     pk: int
     name: str
+
+
+class ListingPartyContactDTO(BaseModel):
+    contact: ListingContact
+    address: str
 
 
 class ListingResponsesDTO(BaseModel):
@@ -348,5 +354,8 @@ class ListingServiceProtocol(Protocol):
     ) -> ListingResponsesDTO: ...
     def led_parties(self, author_id: int) -> list[ListingPartyChoiceDTO]: ...
     def party_listings(self, party_id: int) -> list[ListingDTO]: ...
+    def party_contacts(
+        self, *, party_id: int, viewer_id: int
+    ) -> dict[int, ListingPartyContactDTO]: ...
     @staticmethod
     def open_for_days() -> int: ...

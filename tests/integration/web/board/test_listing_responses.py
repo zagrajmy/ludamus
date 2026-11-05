@@ -174,6 +174,7 @@ class TestListingRespondActionView:
                 "waiting_count": None,
                 "author_contact": "",
                 "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -256,6 +257,7 @@ class TestListingRespondActionView:
                 "waiting_count": None,
                 "author_contact": "",
                 "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -613,6 +615,7 @@ class TestJoinedResponders:
                 "waiting_count": None,
                 "author_contact": "gm@example.com",
                 "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -640,6 +643,7 @@ class TestJoinedResponders:
                 "waiting_count": None,
                 "author_contact": "",
                 "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -648,7 +652,7 @@ class TestJoinedResponders:
         author, responder = UserFactory(), UserFactory()
         party = _party(author, responder)
         listing = ListingFactory(sphere=sphere, author=author, party=party)
-        ListingResponse.objects.create(
+        joined_response = ListingResponse.objects.create(
             listing=listing, user=responder, contact=ListingContact.EMAIL
         )
         client.force_login(author)
@@ -669,6 +673,11 @@ class TestJoinedResponders:
                 "waiting_count": 0,
                 "author_contact": "",
                 "party_members": [author.full_name, responder.full_name],
+                "joined_responses": [
+                    _response_dto(
+                        joined_response, joined=True, contact_address=responder.email
+                    )
+                ],
             },
             template_name="board/detail.html",
         )
