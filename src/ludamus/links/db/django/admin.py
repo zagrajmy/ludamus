@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
-    Notification,
     ProposalCategory,
     Session,
     SessionFieldValue,
@@ -27,6 +26,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
+from ludamus.links.db.django.notifications import ring_as_written
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
@@ -118,8 +118,8 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ) -> HttpResponse | None:
         form = SendNotificationForm(request.POST if "apply" in request.POST else None)
         if form.is_valid():
-            Notification.objects.bulk_create(
-                Notification(recipient=user, **form.cleaned_data) for user in queryset
+            ring_as_written(
+                recipient_ids=queryset.values_list("pk", flat=True), **form.cleaned_data
             )
             self.message_user(
                 request, f"Notification sent to {queryset.count()} user(s)."

@@ -29,11 +29,12 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.recipients import address_recipients, speaking_to
+from ludamus.links.db.django.recipients import address_readers, speaking_to
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
 if TYPE_CHECKING:
+    from ludamus.links.db.django.recipients import Recipient
     from ludamus.pacts.encounter import EncounterInvite
 
 
@@ -58,11 +59,11 @@ class DjangoEncounterInviteMailer:
             return
         share_code = deliverable[0].encounter.share_code
         reason = deliverable[0].reason
-        recipients = address_recipients({i.attendee_email for i in deliverable})
+        readers = address_readers({i.attendee_email for i in deliverable})
         messages = []
         for invite in deliverable:
-            with speaking_to(recipients[invite.attendee_email]):
-                messages.append(_message(invite))
+            with speaking_to(readers[invite.attendee_email]) as recipient:
+                messages.append(_message(invite, recipient=recipient))
 
         def _send() -> None:
             try:
@@ -128,7 +129,9 @@ def _organizer(invite: EncounterInvite) -> Mailbox:
     return Mailbox(name=invite.organizer_name, email=email)
 
 
-def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
+def _message(
+    invite: EncounterInvite, *, recipient: Recipient
+) -> EmailMultiAlternatives:
     encounter = invite.encounter
     url = absolute_url(
         reverse(
@@ -158,7 +161,9 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
         ),
     )
     message = EmailMultiAlternatives(
-        subject=_subject(invite), body=_body(invite, url), to=[invite.attendee_email]
+        subject=_subject(invite),
+        body=_body(invite, url),
+        to=[recipient.confirm().deliverable_email],
     )
     message.attach_alternative(
         ics, f"text/calendar; method={invite.reason.method}; charset=utf-8"

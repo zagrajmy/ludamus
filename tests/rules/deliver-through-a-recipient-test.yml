@@ -1,0 +1,12 @@
+id: deliver-through-a-recipient
+valid:
+  - 'ring_as_written(recipient_ids=ids, kind=kind, title=title, body=body, url="")'
+  - "PromotionNotification(recipient_user_id=1, session_id=2)"
+  - "Notification.objects.filter(recipient_id=user_id).count()"
+invalid:
+  - "Notification(recipient=user, title=title)"
+  - "Notification.objects.create(recipient_id=1, title=title)"
+  - "Notification.objects.bulk_create(rows)"
+  - "EmailMessage(subject=subject, body=body, to=[email]).send()"
+  - "EmailMultiAlternatives(subject=subject, body=body, to=[email])"
+  - 'send_mail("Hi", body, None, [email])'
