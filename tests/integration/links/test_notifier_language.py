@@ -112,7 +112,6 @@ def _sample(method, *, session, subscription, language):
         "notify_sphere_event_published": lambda: SphereEventPublishedNotification(
             subscription_id=subscription.pk,
             recipient_user_id=user_id,
-            recipient_email=email,
             sphere_name="Skytower",
             unsubscribe_token="tok",
             **event,

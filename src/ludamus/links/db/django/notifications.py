@@ -120,7 +120,7 @@ def _acceptance_copy(acceptance: ProposalAcceptance) -> tuple[str, str, str]:
     return title, body, url
 
 
-def _ring(
+def _ring_board(
     notification: ListingNotification,
     *,
     recipient: Recipient,
@@ -541,7 +541,7 @@ class DjangoUserNotifier:
                 "name": notification.responder_name,
                 "listing": notification.listing_title,
             }
-            _ring(
+            _ring_board(
                 notification,
                 recipient=recipient,
                 kind=NotificationKind.LISTING_INTERESTED,
@@ -556,7 +556,7 @@ class DjangoUserNotifier:
             title = _("Not this time: %(listing)s") % {
                 "listing": notification.listing_title
             }
-            _ring(
+            _ring_board(
                 notification,
                 recipient=recipient,
                 kind=NotificationKind.LISTING_DECLINED,
@@ -571,7 +571,7 @@ class DjangoUserNotifier:
             title = _("%(listing)s has closed") % {
                 "listing": notification.listing_title
             }
-            _ring(
+            _ring_board(
                 notification,
                 recipient=recipient,
                 kind=NotificationKind.LISTING_NOT_CHOSEN,
@@ -585,7 +585,7 @@ class DjangoUserNotifier:
             title = _("%(listing)s has changed") % {
                 "listing": notification.listing_title
             }
-            _ring(
+            _ring_board(
                 notification,
                 recipient=recipient,
                 kind=NotificationKind.LISTING_CHANGED,

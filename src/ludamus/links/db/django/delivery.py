@@ -116,6 +116,11 @@ def compose_calendar_mail(
 
 
 def send(message: EmailMessage) -> bool:
+    """Send one notice, best-effort: the change it announces has committed.
+
+    Returns:
+        Whether the mail server took it; a refusal is the caller's to log.
+    """
     return bool(message.send(fail_silently=True))
 
 
