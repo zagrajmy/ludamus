@@ -89,7 +89,7 @@ class TestSpherePanelServiceAccess:
     def test_manager_holds_panel_write(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
 
-        access = _service(spheres=spheres).access(SPHERE_PK, "boss")
+        access = _service(spheres=spheres).access(SPHERE_PK, "boss", is_superuser=False)
 
         assert access.role is SphereRole.MANAGER
         assert Capability.PANEL_WRITE in access.capabilities
@@ -97,15 +97,26 @@ class TestSpherePanelServiceAccess:
     def test_comms_holds_the_acknowledgement_but_not_panel_write(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "press"): SphereRole.COMMS})
 
-        access = _service(spheres=spheres).access(SPHERE_PK, "press")
+        access = _service(spheres=spheres).access(
+            SPHERE_PK, "press", is_superuser=False
+        )
 
         assert access.capabilities == frozenset({Capability.ERRATUM_ACK})
 
     def test_stranger_holds_nothing(self):
-        access = _service().access(SPHERE_PK, "passer-by")
+        access = _service().access(SPHERE_PK, "passer-by", is_superuser=False)
 
         assert access.role is None
         assert not access.capabilities
+
+    def test_superuser_holds_every_capability_even_with_a_narrow_role(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "root"): SphereRole.COMMS})
+
+        access = _service(spheres=spheres).access(SPHERE_PK, "root", is_superuser=True)
+
+        assert access.role is SphereRole.COMMS
+        assert access.allows(Capability.PANEL_WRITE)
+        assert access.capabilities == frozenset(Capability)
 
     def test_manager_role_is_scoped_to_the_sphere(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})

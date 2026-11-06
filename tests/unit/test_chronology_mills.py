@@ -587,11 +587,12 @@ class TestProposalAcceptanceService:
         sessions.read_field_values.return_value = []
         active_users.read.return_value = _user_dto()
 
-    def test_can_accept_true_for_superuser_without_manager_check(
+    def test_can_accept_true_for_superuser_without_a_role(
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
         active_users.read.return_value = _user_dto(is_superuser=True)
+        spheres.manager_role.return_value = None
 
         context = service.get_accept_context(
             session_id=5, user_slug="root", sphere_id=3
@@ -599,7 +600,6 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is True
-        spheres.manager_role.assert_not_called()
 
     def test_can_accept_false_for_non_manager_staff(
         self, service, sessions, active_users, spheres
@@ -665,6 +665,7 @@ class TestProposalAcceptanceService:
         sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
+        spheres.manager_role.return_value = None
 
         service.accept_session(
             session_id=5, space_id=7, time_slot_id=2, user_slug="root", sphere_id=3
@@ -678,7 +679,6 @@ class TestProposalAcceptanceService:
                 "schedule_confirmed": True,
             },
         )
-        spheres.manager_role.assert_not_called()
 
     def test_accept_session_denied_for_comms_member(
         self, service, sessions, agenda_items, active_users, spheres

@@ -75,6 +75,21 @@ def require_session_in_event(
     return event
 
 
+def require_event_in_sphere(
+    *, events: EventRepositoryProtocol, event_pk: int, sphere_id: int
+) -> EventDTO:
+    event = events.read(event_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused event %s of sphere %s to a request from sphere %s",
+            event_pk,
+            event.sphere_id,
+            sphere_id,
+        )
+        raise NotFoundError
+    return event
+
+
 def require_session_in_sphere(
     *, sessions: SessionRepositoryProtocol, session_pk: int, sphere_id: int
 ) -> EventDTO:
