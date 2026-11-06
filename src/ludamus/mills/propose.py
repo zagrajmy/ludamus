@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
+from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import (
     FacilitatorData,
@@ -24,7 +25,6 @@ from ludamus.pacts.propose import (
 )
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
-    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     PROPOSAL_RATE_LIMIT_SECONDS,
     REUSABLE_SESSIONS_LIMIT,
     carried_answers,

@@ -17,6 +17,8 @@ from ludamus.pacts.ids import UserId
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
+# Column width; a longer proposal answer stays on the proposal only.
+PROFILE_DISCORD_USERNAME_MAX_LENGTH = 150
 MIN_ACCOUNT_AGE = 13
 
 # Signed verification links live this long. Shared contract: the token codec

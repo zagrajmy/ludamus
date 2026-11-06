@@ -13,7 +13,6 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
     Party,
     PartyMembership,
-    ScheduleChangeAction,
     ScheduleChangeLog,
     SphereMembership,
     Tag,
@@ -22,7 +21,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.legacy import NotificationKind, ScheduleChangeAction
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory
 
