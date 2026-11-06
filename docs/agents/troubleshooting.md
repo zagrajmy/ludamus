@@ -89,4 +89,6 @@ coolify --context zagrajmy-production app logs \
 ```
 
 Static assets and `/healthz/` emit no event. Every other log line in
-production is JSON too; fields passed through `extra=` become top-level keys.
+production is JSON too; fields passed through `extra=` become top-level keys,
+and `logger` is the emitting module's last two components (`crowd.auth`,
+`mills.konwencik`, `django.request`).

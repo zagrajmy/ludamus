@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from django.urls import path
 
 from ludamus.gates.web.django.wide_event import WideEventMiddleware
-from ludamus.links.analytics.log_format import JsonFormatter
+from ludamus.links.analytics.log_format import JsonFormatter, short_name
 from tests.integration.utils import assert_response
 
 LOGGER = WideEventMiddleware.logger.name
@@ -126,7 +126,7 @@ def _fail():
 
 class TestJsonFormatter:
     def test_extra_fields_and_the_traceback_land_in_the_payload(self):
-        logger = logging.getLogger("tests.json_formatter")
+        logger = logging.getLogger("ludamus.mills.konwencik")
         record = logger.makeRecord(
             logger.name,
             logging.ERROR,
@@ -141,10 +141,23 @@ class TestJsonFormatter:
         payload = json.loads(JsonFormatter().format(record))
 
         assert payload["message"] == "Could not sync konwencik"
+        assert payload["logger"] == "mills.konwencik"
         assert payload["level"] == "ERROR"
         assert payload["integration_id"] == INTEGRATION_ID
         assert payload["exception"].startswith("Traceback")
         assert payload["exception"].rstrip().endswith("ValueError: bad value")
+
+    @pytest.mark.parametrize(
+        ("logger", "expected"),
+        (
+            ("ludamus.gates.web.django.crowd.auth", "crowd.auth"),
+            ("ludamus.links.analytics.apps", "analytics.apps"),
+            ("django.request", "django.request"),
+            ("wide_event", "wide_event"),
+        ),
+    )
+    def test_logger_names_keep_only_their_tail(self, logger, expected):
+        assert short_name(logger) == expected
 
     def test_an_unserialisable_field_is_stringified_not_dropped(self):
         record = logging.LogRecord("t", logging.INFO, __file__, 1, "x", (), None)

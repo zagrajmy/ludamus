@@ -21,12 +21,21 @@ _BUILTIN_ATTRIBUTES = frozenset(
 ) | {"message", "asctime"}
 
 
+def short_name(logger: str) -> str:
+    """`ludamus.gates.web.django.crowd.auth` reads as `crowd.auth`.
+
+    The root and the layer repeat on every line; the tail is what tells one
+    emitter from another.
+    """
+    return ".".join(logger.rsplit(".", maxsplit=2)[-2:])
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Field] = {
             "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
-            "logger": record.name,
+            "logger": short_name(record.name),
             "message": record.getMessage(),
         }
         if record.exc_info:
