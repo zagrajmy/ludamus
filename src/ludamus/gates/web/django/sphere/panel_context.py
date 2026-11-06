@@ -21,8 +21,7 @@ SphereTab = Literal["general", "announcements", "connections"]
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.gates.web.django.multiverse.access import MultiverseRequest
-    from ludamus.gates.web.django.panel import PanelNav
+    from ludamus.gates.web.django.panel import PanelNav, PanelRequest
     from ludamus.pacts.legacy import EventDTO
 
 
@@ -41,7 +40,7 @@ class SphereSettings(SphereSidebar):
 # sidebar (rendered from `panel/base.html`) has something to link to. A sphere
 # with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
-    request: MultiverseRequest, *, active_nav: PanelNav
+    request: PanelRequest, *, active_nav: PanelNav
 ) -> SphereSidebar:
     events = request.services.sphere_panel.list_events(
         request.context.current_sphere_id
@@ -64,7 +63,7 @@ def sphere_sidebar_context(
 # reverses in Python — `{% url … as … %}` would swallow a renamed route and
 # point the whole strip at the current page.
 def sphere_settings_context(
-    request: MultiverseRequest, *, active_tab: SphereTab
+    request: PanelRequest, *, active_tab: SphereTab
 ) -> SphereSettings:
     return {
         **sphere_sidebar_context(request, active_nav="sphere-settings"),

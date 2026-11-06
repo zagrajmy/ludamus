@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -17,11 +18,7 @@ from ludamus.gates.web.django.chronology.panel.forms import (
     IntegrationFormContext,
     integration_signature,
 )
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.pacts.chronology import (
     CheckOutcome,
     EventIntegrationCreateData,
@@ -30,21 +27,13 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.legacy import NotFoundError, RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.chronology import EventIntegrationDTO
-    from ludamus.pacts.legacy import EventDTO
-
-
-class _PanelViewLike(Protocol):
-    request: PanelRequest
-
-    def get_event_context(
-        self, slug: str
-    ) -> tuple[dict[str, Any], EventDTO | None]: ...
 
 
 def _form_kwargs(
@@ -82,35 +71,29 @@ def _form_kwargs(
     }
 
 
-def _load_integration(
-    view: _PanelViewLike, slug: str, pk: int
-) -> (
-    tuple[dict[str, Any], EventDTO, EventIntegrationDTO]
-    | tuple[None, None, HttpResponse]
-):
-    # On miss returns (None, None, redirect_response) — caller returns the
-    # third element as-is; otherwise (context, event, integration).
-    context, current_event = view.get_event_context(slug)
-    if current_event is None:
-        return None, None, redirect("panel:index")
-    try:
-        integration = view.request.services.event_integrations.get(current_event.pk, pk)
-    except NotFoundError:
-        messages.error(view.request, _("Integration not found."))
-        return None, None, redirect("panel:event-integration-settings", slug=slug)
-    return context, current_event, integration
+class _IntegrationView(EventPanelMixin, View):
+    request: PanelRequest
+
+    def _integration(self, slug: str, pk: int) -> EventIntegrationDTO:
+        try:
+            return self.request.services.event_integrations.get(
+                self.current_event.pk, pk
+            )
+        except NotFoundError:
+            raise RedirectError(
+                reverse("panel:event-integration-settings", kwargs={"slug": slug}),
+                error=_("Integration not found."),
+            ) from None
 
 
-class IntegrationCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class IntegrationCreatePageView(EventPanelMixin, View):
     """Create a new event integration; kind is derived from the picked impl."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        form = EventIntegrationForm(**_form_kwargs(self.request, current_event.pk))
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
+        form = EventIntegrationForm(**_form_kwargs(self.request, self.current_event.pk))
         context["active_nav"] = "settings"
         context["form"] = form
         return TemplateResponse(
@@ -118,12 +101,10 @@ class IntegrationCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = EventIntegrationForm(
-            self.request.POST, **_form_kwargs(self.request, current_event.pk)
+            self.request.POST, **_form_kwargs(self.request, self.current_event.pk)
         )
         if not form.is_valid():
             context["active_nav"] = "settings"
@@ -142,7 +123,7 @@ class IntegrationCreatePageView(PanelAccessMixin, EventContextMixin, View):
         ].kind
         integrations_service.create(
             sphere_id=sphere_id,
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
             data=EventIntegrationCreateData(
                 kind=resolved_kind,
                 implementation=implementation,
@@ -155,16 +136,14 @@ class IntegrationCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:event-integration-settings", slug=slug)
 
 
-class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
+class IntegrationEditPageView(_IntegrationView):
     """Edit an existing event integration."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        context, current_event, integration = loaded
+        context = self.panel_context()
+        integration = self._integration(slug, pk)
 
         form = EventIntegrationForm(
             initial={
@@ -173,7 +152,7 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "connection": str(integration.connection_id),
                 "config_json": integration.config_json,
             },
-            **_form_kwargs(self.request, current_event.pk, existing=integration),
+            **_form_kwargs(self.request, self.current_event.pk, existing=integration),
         )
         # Lock implementation on edit — kind+impl pair is structural.
         form.fields["implementation"].disabled = True
@@ -185,15 +164,13 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        context, current_event, integration = loaded
+        context = self.panel_context()
+        integration = self._integration(slug, pk)
 
         form = EventIntegrationForm(
             self.request.POST,
             initial={"implementation": integration.implementation},
-            **_form_kwargs(self.request, current_event.pk, existing=integration),
+            **_form_kwargs(self.request, self.current_event.pk, existing=integration),
         )
         form.fields["implementation"].disabled = True
         if not form.is_valid():
@@ -207,7 +184,7 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
         sphere_id = self.request.context.current_sphere_id
         self.request.services.event_integrations.update(
             sphere_id=sphere_id,
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
             pk=pk,
             data=EventIntegrationUpdateData(
                 display_name=form.cleaned_data["display_name"],
@@ -219,16 +196,14 @@ class IntegrationEditPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:event-integration-settings", slug=slug)
 
 
-class IntegrationDeletePageView(PanelAccessMixin, EventContextMixin, View):
+class IntegrationDeletePageView(_IntegrationView):
     """Confirm-and-delete page for an event integration."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        context, _current_event, integration = loaded
+        context = self.panel_context()
+        integration = self._integration(slug, pk)
         context["active_nav"] = "settings"
         context["integration"] = integration
         return TemplateResponse(
@@ -236,16 +211,13 @@ class IntegrationDeletePageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        loaded = _load_integration(self, slug, pk)
-        if loaded[1] is None:
-            return loaded[2]
-        _ctx, current_event, _integration = loaded
-        self.request.services.event_integrations.delete(current_event.pk, pk)
+        self._integration(slug, pk)
+        self.request.services.event_integrations.delete(self.current_event.pk, pk)
         messages.success(self.request, _("Integration deleted."))
         return redirect("panel:event-integration-settings", slug=slug)
 
 
-class IntegrationCheckActionView(PanelAccessMixin, EventContextMixin, View):
+class IntegrationCheckActionView(EventPanelMixin, View):
     """POST-only HTMX endpoint that runs `Check integration`.
 
     Returns the outcome partial as the response body.
@@ -253,11 +225,12 @@ class IntegrationCheckActionView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _ctx, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return HttpResponseBadRequest("Unknown event")
+    def event_not_found(self) -> HttpResponse:
+        # An HTMX fragment: a redirect would swap the panel index into it.
+        messages.error(self.request, _("Event not found."))
+        return HttpResponseBadRequest("Unknown event")
 
+    def post(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         implementation_raw = (self.request.POST.get("implementation") or "").strip()
         connection_raw = (self.request.POST.get("connection") or "").strip()
         config_raw = self.request.POST.get("config_json") or "{}"

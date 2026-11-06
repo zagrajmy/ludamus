@@ -11,10 +11,7 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.forms import SphereSettingsForm
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
@@ -23,13 +20,15 @@ from ludamus.pacts.multiverse import SphereSettingsOutcome
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.panel import PanelRequest
+
 
 class SphereSettingsPageView(SphereAccessMixin, View):
     """Display and edit the current sphere's settings."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )
@@ -43,7 +42,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         )
         return self._render(form, needs_confirmation=False)
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         form = SphereSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             # Re-rendered bound, not redirected: the form carries a logo

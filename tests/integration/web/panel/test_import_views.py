@@ -18,10 +18,10 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
 from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
     SESSION_COLUMNS,
 )
+from ludamus.gates.web.django.panel import import_tab_urls
 from ludamus.links.db.django.models import (
     Facilitator,
     ImportLogEntry,

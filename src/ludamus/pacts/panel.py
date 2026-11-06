@@ -14,19 +14,29 @@ if TYPE_CHECKING:
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.guild import GuildRepositoryProtocol
     from ludamus.pacts.legacy import (
+        AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
         PersonalDataFieldRepositoryProtocol,
+        PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
+        ScheduleChangeLogDTO,
+        ScheduleChangeLogRepositoryProtocol,
+        SessionContentEditData,
         SessionData,
         SessionDTO,
         SessionFieldRepositoryProtocol,
+        SessionFieldRequirementDTO,
+        SessionFieldValueDTO,
         SessionListItemDTO,
         SessionRepositoryProtocol,
+        TimeSlotDTO,
         TimeSlotRepositoryProtocol,
+        TrackDTO,
         TrackRepositoryProtocol,
     )
 
@@ -130,11 +140,11 @@ class ProposalListQuery:
 
     `raw_field_filters` is keyed by session-field pk with the value untouched
     from the query string; the service resolves it against the event's own
-    fields. `category`, `status`, and `sort` are raw request values too.
+    fields. `category_pk`, `status`, and `sort` are request values too.
     """
 
     search: str = ""
-    category: str = ""
+    category_pk: int | None = None
     status: str = ""
     track_pk: int | None = None
     multi_tracks: bool = False
@@ -212,6 +222,109 @@ class ProposalPanelRepos:
     facilitators: FacilitatorRepositoryProtocol
     tracks: TrackRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
+
+
+@dataclass
+class ProposalRecordRepos:
+    """What one proposal's page reads beside the event's own catalogue."""
+
+    agenda_items: AgendaItemRepositoryProtocol
+    schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+    personal_data_fields: PersonalDataFieldRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
+
+
+@dataclass
+class ProposalScheduleDTO:
+    """Where a proposal stands on the timetable, and how it got there."""
+
+    agenda_item: AgendaItemDTO | None
+    logs: list[ScheduleChangeLogDTO]
+    preferred_time_slots: list[TimeSlotDTO]
+
+
+@dataclass
+class ProposalDetailDTO:
+    """Read aggregate for one proposal's panel page."""
+
+    proposal: SessionDTO
+    category_name: str | None
+    tracks: list[TrackDTO]
+    field_values: list[SessionFieldValueDTO]
+    facilitators: list[FacilitatorDTO]
+    presenter: UserDTO | None
+    schedule: ProposalScheduleDTO
+
+
+@dataclass
+class ProposalFormFieldsDTO:
+    """The proposal form's category-dependent part.
+
+    `category` is the one the form renders fields for: the requested one if
+    the event has it, else the proposal's own, else the event's first.
+    `session_fields` names the answers the category no longer asks for, so it
+    is only read for an existing proposal.
+    """
+
+    proposal: SessionDTO | None
+    categories: list[ProposalCategoryDTO]
+    category: ProposalCategoryDTO | None
+    requirements: list[SessionFieldRequirementDTO]
+    field_values: list[SessionFieldValueDTO]
+    session_fields: list[OrganizerFieldDTO]
+
+
+@dataclass
+class ProposalAssignmentsDTO:
+    """What a proposal is assigned to now; empty for one not yet created."""
+
+    facilitators: list[FacilitatorDTO] = field(default_factory=list)
+    track_ids: list[int] = field(default_factory=list)
+    time_slot_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
+class ProposalFormDTO:
+    """Read aggregate for the proposal create/edit page.
+
+    The three pickers offer the event's facilitators, tracks and time slots.
+    Personal data belongs to an existing proposal's facilitators, so a create
+    page reads none.
+    """
+
+    fields: ProposalFormFieldsDTO
+    facilitators: list[FacilitatorListItemDTO]
+    tracks: list[TrackDTO]
+    time_slots: list[TimeSlotDTO]
+    assigned: ProposalAssignmentsDTO
+    personal_data_fields: list[OrganizerFieldDTO]
+    personal_data_values: dict[int, dict[str, str | list[str] | bool]]
+
+
+@dataclass
+class ProposalEdit:
+    """An organizer's save of the proposal form: content, then personal data."""
+
+    content: SessionContentEditData
+    personal_data: dict[int, list[PersonalDataFieldValueData]] = field(
+        default_factory=dict
+    )
+
+
+class ProposalPageServiceProtocol(Protocol):
+    def detail(self, *, event_id: int, proposal_id: int) -> ProposalDetailDTO: ...
+    def form_fields(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormFieldsDTO: ...
+    def form(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormDTO: ...
+    def update(
+        self, *, event_id: int, proposal_id: int, user_id: int, edit: ProposalEdit
+    ) -> None: ...
+    def set_facilitators(
+        self, *, event_id: int, proposal_id: int, facilitator_ids: list[int]
+    ) -> None: ...
 
 
 class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):

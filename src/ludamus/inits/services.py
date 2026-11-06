@@ -83,7 +83,7 @@ from ludamus.mills.notifications import (
     NotificationSubscriptionsService,
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
-from ludamus.mills.panel_proposals import ProposalPanelService
+from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
@@ -115,7 +115,11 @@ from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
-from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
+from ludamus.pacts.panel import (
+    FacilitatorPanelRepos,
+    ProposalPanelRepos,
+    ProposalRecordRepos,
+)
 from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
@@ -377,6 +381,7 @@ class Services:
             session_fields=self._repos.session_fields,
             content_change_logs=self._repos.content_change_logs,
             agenda_items=self._repos.agenda_items,
+            waitlist_promotion=self.waitlist_promotion,
         )
 
     @cached_property
@@ -396,17 +401,33 @@ class Services:
 
     @cached_property
     def proposal_panel(self) -> ProposalPanelService:
-        return ProposalPanelService(
-            self._transaction,
-            ProposalPanelRepos(
-                sessions=self._repos.sessions,
-                session_fields=self._repos.session_fields,
-                proposal_categories=self._repos.proposal_categories,
-                panel_settings=self._repos.event_panel_settings,
-                facilitators=self._repos.facilitators,
-                tracks=self._repos.tracks,
-                time_slots=self._repos.time_slots,
+        return ProposalPanelService(self._transaction, self._proposal_panel_repos)
+
+    @cached_property
+    def proposal_page(self) -> ProposalPageService:
+        return ProposalPageService(
+            transaction=self._transaction,
+            repos=self._proposal_panel_repos,
+            records=ProposalRecordRepos(
+                agenda_items=self._repos.agenda_items,
+                schedule_change_logs=self._repos.schedule_change_logs,
+                personal_data_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
             ),
+            content_edit=self.session_content_edit,
+            personal_data=self.personal_data_field_values,
+        )
+
+    @cached_property
+    def _proposal_panel_repos(self) -> ProposalPanelRepos:
+        return ProposalPanelRepos(
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            proposal_categories=self._repos.proposal_categories,
+            panel_settings=self._repos.event_panel_settings,
+            facilitators=self._repos.facilitators,
+            tracks=self._repos.tracks,
+            time_slots=self._repos.time_slots,
         )
 
     @cached_property
@@ -673,7 +694,11 @@ class Services:
 
     @cached_property
     def timetable(self) -> TimetableService:
-        return TimetableService(self._transaction, self._timetable_repos)
+        return TimetableService(
+            self._transaction,
+            self._timetable_repos,
+            categories=self._repos.proposal_categories,
+        )
 
     @cached_property
     def timetable_conflicts(self) -> ConflictDetectionService:

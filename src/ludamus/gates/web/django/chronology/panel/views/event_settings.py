@@ -12,13 +12,10 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
-from ludamus.gates.web.django.panel import settings_tab_urls
+from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
+from ludamus.gates.web.django.request_ids import parse_ids
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
@@ -79,7 +76,7 @@ def _stored_images(event: EventDTO) -> dict[str, StoredFile | None]:
     }
 
 
-class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
+class EventSettingsPageView(EventPanelMixin, View):
     """Event settings page view."""
 
     request: PanelRequest
@@ -100,35 +97,33 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             ]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "settings"
         context["active_tab"] = "general"
         context["tab_urls"] = settings_tab_urls(slug)
-        override = current_event.allow_facilitator_session_edit
+        override = self.current_event.allow_facilitator_session_edit
         form = EventSettingsForm(
             initial={
-                "name": current_event.name,
-                "slug": current_event.slug,
-                "description": current_event.description,
-                "address": current_event.address,
-                **_stored_images(current_event),
-                "start_time": localtime(current_event.start_time),
-                "end_time": localtime(current_event.end_time),
+                "name": self.current_event.name,
+                "slug": self.current_event.slug,
+                "description": self.current_event.description,
+                "address": self.current_event.address,
+                **_stored_images(self.current_event),
+                "start_time": localtime(self.current_event.start_time),
+                "end_time": localtime(self.current_event.end_time),
                 "publication_time": (
-                    localtime(current_event.publication_time)
-                    if current_event.publication_time
+                    localtime(self.current_event.publication_time)
+                    if self.current_event.publication_time
                     else None
                 ),
-                "visibility": current_event.visibility.value,
+                "visibility": self.current_event.visibility.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
-                "auto_confirm_sessions": current_event.auto_confirm_sessions,
+                "auto_confirm_sessions": self.current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
-                    current_event.use_session_cover_placeholders
+                    self.current_event.use_session_cover_placeholders
                 ),
-                "use_participants_label": current_event.use_participants_label,
+                "use_participants_label": self.current_event.use_participants_label,
             }
         )
         self._apply_facilitator_choices(form)
@@ -136,15 +131,12 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        # The invalid-form path re-renders panel/settings.html, which needs the
-        # event context — resolve it up front so a bad slug redirects instead of
-        # rendering the page empty, and so the render path reuses the same read.
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = EventSettingsForm(
-            self.request.POST, self.request.FILES, initial=_stored_images(current_event)
+            self.request.POST,
+            self.request.FILES,
+            initial=_stored_images(self.current_event),
         )
         if not form.is_valid():
             return self._render_with_form(context=context, slug=slug, form=form)
@@ -187,15 +179,13 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/settings.html", context)
 
 
-class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
+class EventDisplaySettingsPageView(EventPanelMixin, View):
     """Display settings page — displayed session fields on cards."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "settings"
         context["active_tab"] = "display"
@@ -212,10 +202,9 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         raw_ids = self.request.POST.getlist("show_on_cards")
-        if not all(raw_pk.isdecimal() for raw_pk in raw_ids):
+        if len(selected_ids := parse_ids(raw_ids)) != len(raw_ids):
             messages.error(self.request, _("Invalid field selection."))
             return redirect("panel:event-display-settings", slug=slug)
-        selected_ids = [int(raw_pk) for raw_pk in raw_ids]
 
         try:
             self.request.services.event_settings.update_shown_on_cards(
@@ -231,15 +220,13 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:event-display-settings", slug=slug)
 
 
-class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
+class EventProposalSettingsPageView(EventPanelMixin, View):
     """Proposal settings page — description, dates, apply-to-categories."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "settings"
         context["active_tab"] = "proposals"
@@ -251,13 +238,13 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             initial={
                 "proposal_description": proposal_settings.description,
                 "proposal_start_time": (
-                    localtime(current_event.proposal_start_time)
-                    if current_event.proposal_start_time
+                    localtime(self.current_event.proposal_start_time)
+                    if self.current_event.proposal_start_time
                     else None
                 ),
                 "proposal_end_time": (
-                    localtime(current_event.proposal_end_time)
-                    if current_event.proposal_end_time
+                    localtime(self.current_event.proposal_end_time)
+                    if self.current_event.proposal_end_time
                     else None
                 ),
                 "allow_anonymous_proposals": (
@@ -295,21 +282,21 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:event-proposal-settings", slug=slug)
 
 
-class EventIntegrationSettingsPageView(PanelAccessMixin, EventContextMixin, View):
+class EventIntegrationSettingsPageView(EventPanelMixin, View):
     """Integrations tab — flat CRUD list across all kinds."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "settings"
         context["active_tab"] = "integrations"
         context["tab_urls"] = settings_tab_urls(slug)
         context["integrations"] = (
-            self.request.services.event_integrations.list_for_event(current_event.pk)
+            self.request.services.event_integrations.list_for_event(
+                self.current_event.pk
+            )
         )
         return TemplateResponse(
             self.request, "panel/integration-settings.html", context

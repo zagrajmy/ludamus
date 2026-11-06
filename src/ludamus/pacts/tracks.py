@@ -46,6 +46,15 @@ class DuplicateTrackNameError(Exception):
     pass
 
 
+@dataclass
+class TrackFilterDTO:
+    # The panel's track switcher: the organizer's own tracks first, and the
+    # track the page is narrowed to, if any.
+    tracks: list[TrackDTO]
+    managed_pks: set[int]
+    selected_pk: int | None
+
+
 class TracksPanelServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[TrackListItemDTO]: ...
     def list_space_pks_by_event(self, event_pk: int) -> dict[int, list[int]]: ...
@@ -68,3 +77,11 @@ class TracksPanelServiceProtocol(Protocol):
         self, *, event_pk: int, sphere_id: int, track_slug: str, data: TrackFormData
     ) -> None: ...
     def delete(self, *, event_pk: int, track_slug: str) -> None: ...
+    def track_filter(
+        self,
+        *,
+        event_pk: int,
+        manager_id: int,
+        requested_pk: int | None,
+        auto_select: bool,
+    ) -> TrackFilterDTO: ...

@@ -12,18 +12,16 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.forms import EnrollmentWindowForm
 from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
+    EventPanelMixin,
+    PanelContext,
 )
-from ludamus.gates.web.django.panel import settings_tab_urls
+from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.pacts.enrollment import EnrollmentWindowData, EnrollmentWindowDTO
 from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts.legacy import EventDTO
 
 _SETTINGS_URL = "panel:event-enrollment-settings"
 
@@ -58,17 +56,17 @@ def _window_initial(window: EnrollmentWindowDTO) -> dict[str, object]:
     }
 
 
-class EnrollmentSettingsViewMixin(EventContextMixin):
-    request: EventPanelRequest
+class EnrollmentSettingsViewMixin(EventPanelMixin):
+    request: PanelRequest
 
-    def tab_context(self, slug: str) -> tuple[dict[str, object], EventDTO]:
-        context, current_event = self.require_event_context(slug)
+    def tab_context(self, slug: str) -> PanelContext:
+        context = self.panel_context()
         context.update(
             active_nav="settings",
             active_tab="enrollment",
             tab_urls=settings_tab_urls(slug),
         )
-        return context, current_event
+        return context
 
     def render_window_form(
         self,
@@ -77,58 +75,51 @@ class EnrollmentSettingsViewMixin(EventContextMixin):
         form: EnrollmentWindowForm,
         window: EnrollmentWindowDTO | None,
     ) -> HttpResponse:
-        context, _current_event = self.tab_context(slug)
+        context = self.tab_context(slug)
         context.update(form=form, window=window)
         return TemplateResponse(
             self.request, "panel/enrollment-window-form.html", context
         )
 
 
-class EventEnrollmentSettingsPageView(
-    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
-):
-    request: EventPanelRequest
+class EventEnrollmentSettingsPageView(EnrollmentSettingsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.tab_context(slug)
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.tab_context(slug)
         context.update(
             windows=self.request.services.enrollment_settings.list_windows(
-                current_event.pk
+                self.current_event.pk
             ),
             now=now(),
         )
         return TemplateResponse(self.request, "panel/enrollment-settings.html", context)
 
 
-class EnrollmentWindowCreatePageView(
-    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
-):
-    request: EventPanelRequest
+class EnrollmentWindowCreatePageView(EnrollmentSettingsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         return self.render_window_form(
             slug=slug, form=EnrollmentWindowForm(), window=None
         )
 
-    def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         form = EnrollmentWindowForm(self.request.POST)
         if not form.is_valid():
             return self.render_window_form(slug=slug, form=form, window=None)
 
-        current_event = self.require_current_event(slug)
         self.request.services.enrollment_settings.create_window(
-            current_event.pk, _window_data(form)
+            self.current_event.pk, _window_data(form)
         )
         messages.success(self.request, _("Enrollment window created."))
         return redirect(_SETTINGS_URL, slug=slug)
 
 
-class EnrollmentWindowEditPageView(
-    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
-):
-    request: EventPanelRequest
+class EnrollmentWindowEditPageView(EnrollmentSettingsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         window = self._read_window(slug, pk)
         return self.render_window_form(
             slug=slug,
@@ -136,7 +127,7 @@ class EnrollmentWindowEditPageView(
             window=window,
         )
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         window = self._read_window(slug, pk)
         form = EnrollmentWindowForm(self.request.POST)
         if not form.is_valid():
@@ -151,25 +142,21 @@ class EnrollmentWindowEditPageView(
         return redirect(_SETTINGS_URL, slug=slug)
 
     def _read_window(self, slug: str, pk: int) -> EnrollmentWindowDTO:
-        current_event = self.require_current_event(slug)
         window = self.request.services.enrollment_settings.read_window(
-            current_event.pk, pk
+            self.current_event.pk, pk
         )
         if window is None:
             raise _window_not_found(slug)
         return window
 
 
-class EnrollmentWindowDeleteActionView(
-    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
-):
-    request: EventPanelRequest
+class EnrollmentWindowDeleteActionView(EnrollmentSettingsViewMixin, View):
+    request: PanelRequest
     http_method_names = ("post",)
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        current_event = self.require_current_event(slug)
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         if not self.request.services.enrollment_settings.delete_window(
-            current_event.pk, pk
+            self.current_event.pk, pk
         ):
             raise _window_not_found(slug)
         messages.success(self.request, _("Enrollment window deleted."))

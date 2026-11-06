@@ -79,6 +79,7 @@ class TestContentEditRevert:
             session_fields=repos.session_fields,
             content_change_logs=repos.content_change_logs,
             agenda_items=MagicMock(),
+            waitlist_promotion=MagicMock(),
         )
         service.apply = MagicMock()
         return service
@@ -191,6 +192,7 @@ class TestContentEditStoresAnswers:
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
             agenda_items=MagicMock(),
+            waitlist_promotion=MagicMock(),
         )
         repos.sessions.read_field_values.return_value = []
         repos.session_fields.list_by_event.return_value = []
@@ -204,6 +206,7 @@ class TestContentEditStoresAnswers:
             session_fields=repos.session_fields,
             content_change_logs=repos.content_change_logs,
             agenda_items=repos.agenda_items,
+            waitlist_promotion=repos.waitlist_promotion,
         )
 
     def test_blank_answer_clears_a_field_that_has_one(self, service, repos):
@@ -352,6 +355,7 @@ class TestContentEditResizesAgendaItem:
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
             agenda_items=_FakeAgendaItems(_make_item()),
+            waitlist_promotion=MagicMock(),
         )
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
         repos.sessions.read_field_values.return_value = []
@@ -365,6 +369,7 @@ class TestContentEditResizesAgendaItem:
             session_fields=repos.session_fields,
             content_change_logs=repos.content_change_logs,
             agenda_items=repos.agenda_items,
+            waitlist_promotion=repos.waitlist_promotion,
         )
 
     @staticmethod
@@ -397,6 +402,55 @@ class TestContentEditResizesAgendaItem:
         self._apply(service, duration)
 
         assert not repos.agenda_items.updates
+
+
+class TestContentEditPromotesWaiters:
+    # Both the organizer's edit and the presenter's own go through apply(), so
+    # a raised limit seats waiters whoever raised it.
+    @pytest.fixture
+    def promotion(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, promotion):
+        sessions = MagicMock()
+        sessions.read.return_value = _session_dto(participants_limit=4)
+        sessions.read_field_values.return_value = []
+        return SessionContentEditService(
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+            agenda_items=MagicMock(),
+            waitlist_promotion=promotion,
+        )
+
+    @staticmethod
+    def _apply(service, update):
+        service.apply(
+            session_id=_SESSION_PK,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update=update),
+        )
+
+    @pytest.mark.parametrize("limit", (5, 0))
+    def test_a_limit_that_may_free_seats_promotes_waiters(
+        self, service, promotion, limit
+    ):
+        self._apply(service, {"participants_limit": limit})
+
+        promotion.fill_freed_seats.assert_called_once_with(session_id=_SESSION_PK)
+
+    @pytest.mark.parametrize(
+        "update", ({"participants_limit": 4}, {"participants_limit": 3}, {"title": "T"})
+    )
+    def test_a_limit_that_frees_nothing_promotes_nobody(
+        self, service, promotion, update
+    ):
+        self._apply(service, update)
+
+        promotion.fill_freed_seats.assert_not_called()
 
 
 class TestSessionConfirmation:
@@ -1154,6 +1208,7 @@ class TestContentEditWithFakes:
             session_fields=session_fields or MagicMock(),
             content_change_logs=logs,
             agenda_items=agenda_items or _FakeAgendaItems(),
+            waitlist_promotion=MagicMock(),
         )
 
     @staticmethod

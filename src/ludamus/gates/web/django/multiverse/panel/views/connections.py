@@ -11,10 +11,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.legacy import NotFoundError, RedirectError
@@ -25,6 +22,8 @@ from ludamus.pacts.multiverse import (
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.gates.web.django.panel import PanelRequest
 
 
 def _add_duplicate_display_name_error(form: ConnectionForm) -> None:
@@ -42,9 +41,9 @@ def _connection_not_found() -> RedirectError:
 class ConnectionsPageView(SphereAccessMixin, View):
     """List import connections for the current sphere."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         connections = self.request.services.connections.list_for_sphere(sphere_id)
         return TemplateResponse(
@@ -60,9 +59,9 @@ class ConnectionsPageView(SphereAccessMixin, View):
 class ConnectionCreatePageView(SphereAccessMixin, View):
     """Create a new import connection."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         return TemplateResponse(
             self.request,
             "multiverse/panel/connections/create.html",
@@ -72,7 +71,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         form = ConnectionForm(self.request.POST, is_create=True)
         if not form.is_valid():
             return TemplateResponse(
@@ -107,9 +106,9 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
 class ConnectionEditPageView(SphereAccessMixin, View):
     """Edit an existing import connection."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             connection = self.request.services.connections.get(sphere_id, pk)
@@ -127,7 +126,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             connection = self.request.services.connections.get(sphere_id, pk)
@@ -173,9 +172,9 @@ class ConnectionEditPageView(SphereAccessMixin, View):
 class ConnectionDeletePageView(SphereAccessMixin, View):
     """Confirm-and-delete page for a connection."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             connection = self.request.services.connections.get(sphere_id, pk)
@@ -191,7 +190,7 @@ class ConnectionDeletePageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             self.request.services.connections.delete(sphere_id, pk)

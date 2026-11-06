@@ -1,5 +1,3 @@
-# pylint: disable=duplicate-code
-# TODO(fancysnake): Extract common view boilerplate
 """Session field views for the CFP, plus the icon-preview HTMX partial."""
 
 from __future__ import annotations
@@ -13,22 +11,22 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 from heroicons import IconDoesNotExist
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    cfp_tab_urls,
-)
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_session_field_form_data,
     undeletable_field_reasons,
 )
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import SessionFieldForm
-from ludamus.gates.web.django.panel import parse_requirement_selection
+from ludamus.gates.web.django.panel import (
+    PanelAccessMixin,
+    PanelRequest,
+    cfp_tab_urls,
+    parse_requirement_selection,
+)
 from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
 
-class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
+class SessionFieldsPageView(EventPanelMixin, View):
     """List session fields for an event."""
 
     request: PanelRequest
@@ -39,42 +37,38 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             TemplateResponse with the fields list or redirect if not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "cfp"
         context["active_tab"] = "session"
         context["tab_urls"] = cfp_tab_urls(slug)
         summaries = self.request.services.session_fields.list_summaries(
-            current_event.pk
+            self.current_event.pk
         )
         context["fields"] = summaries
         context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
         return TemplateResponse(self.request, "panel/session-fields.html", context)
 
 
-class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class SessionFieldCreatePageView(EventPanelMixin, View):
     """Create a new session field for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         """Display the session field creation form.
 
         Returns:
             TemplateResponse with the form or redirect if event not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "cfp"
         context["form"] = SessionFieldForm(
             initial={"max_length": DEFAULT_FIELD_MAX_LENGTH}
         )
         context["categories"] = self.request.services.session_fields.list_categories(
-            current_event.pk
+            self.current_event.pk
         )
         context["required_category_pks"] = set()
         context["optional_category_pks"] = set()
@@ -88,16 +82,16 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to fields list on success, or form with errors.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = SessionFieldForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "cfp"
             context["form"] = form
             context["categories"] = (
-                self.request.services.session_fields.list_categories(current_event.pk)
+                self.request.services.session_fields.list_categories(
+                    self.current_event.pk
+                )
             )
             cat_reqs = parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
@@ -113,7 +107,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             )
 
         self.request.services.session_fields.create(
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             data=parse_session_field_form_data(form),
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
@@ -124,7 +118,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:session-fields", slug=slug)
 
 
-class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
+class SessionFieldEditPageView(EventPanelMixin, View):
     """Edit an existing session field."""
 
     request: PanelRequest
@@ -135,13 +129,11 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             TemplateResponse with the form or redirect if not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             field, field_cats = self.request.services.session_fields.read(
-                current_event.pk, field_slug
+                self.current_event.pk, field_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Session field not found."))
@@ -163,7 +155,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             initial["allow_custom"] = field.allow_custom
         context["form"] = SessionFieldForm(initial=initial)
         context["categories"] = self.request.services.session_fields.list_categories(
-            current_event.pk
+            self.current_event.pk
         )
         context["required_category_pks"] = {
             pk for pk, is_req in field_cats.items() if is_req
@@ -179,13 +171,11 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to fields list on success, or form with errors.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             field = self.request.services.session_fields.read(
-                current_event.pk, field_slug
+                self.current_event.pk, field_slug
             )[0]
         except NotFoundError:
             messages.error(self.request, _("Session field not found."))
@@ -200,7 +190,9 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["field"] = field
             context["form"] = form
             context["categories"] = (
-                self.request.services.session_fields.list_categories(current_event.pk)
+                self.request.services.session_fields.list_categories(
+                    self.current_event.pk
+                )
             )
             cat_reqs = parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
@@ -224,7 +216,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
         self.request.services.session_fields.update(
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             field_slug=field_slug,
             data={
                 "name": name,
@@ -246,7 +238,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:session-fields", slug=slug)
 
 
-class SessionFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class SessionFieldDeleteActionView(EventPanelMixin, View):
     """Delete a session field (POST only)."""
 
     request: PanelRequest
@@ -258,13 +250,9 @@ class SessionFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to session fields list.
         """
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         try:
             deleted = self.request.services.session_fields.delete(
-                current_event.pk, field_slug
+                self.current_event.pk, field_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Session field not found."))

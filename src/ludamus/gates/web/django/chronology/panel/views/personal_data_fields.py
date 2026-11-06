@@ -10,20 +10,16 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    cfp_tab_urls,
-)
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
     parse_personal_field_form_data,
 )
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import (
     PersonalDataFieldEditForm,
     PersonalDataFieldForm,
 )
+from ludamus.gates.web.django.panel import PanelRequest, cfp_tab_urls
 from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
 from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
@@ -44,7 +40,7 @@ def answered_field_reasons(summaries: Iterable[PersonalFieldSummary]) -> dict[in
     )
 
 
-class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
+class PersonalDataFieldsPageView(EventPanelMixin, View):
     """List personal data fields for an event."""
 
     request: PanelRequest
@@ -55,15 +51,13 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             TemplateResponse with the fields list or redirect if not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.personal_data_fields
         context["active_nav"] = "cfp"
         context["active_tab"] = "host"
         context["tab_urls"] = cfp_tab_urls(slug)
-        summaries = service.list_summaries(current_event.pk)
+        summaries = service.list_summaries(self.current_event.pk)
         context["fields"] = summaries
         context["undeletable_field_reasons"] = answered_field_reasons(summaries)
         return TemplateResponse(
@@ -71,20 +65,18 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
 
-class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class PersonalDataFieldCreatePageView(EventPanelMixin, View):
     """Create a new personal data field for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         """Display the personal data field creation form.
 
         Returns:
             TemplateResponse with the form or redirect if event not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "cfp"
         context["form"] = PersonalDataFieldForm(
@@ -100,9 +92,7 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
         Returns:
             Redirect response to fields list on success, or form with errors.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = PersonalDataFieldForm(self.request.POST)
         if not form.is_valid():
@@ -113,14 +103,14 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
             )
 
         self.request.services.personal_data_fields.create(
-            current_event.pk, parse_personal_field_form_data(form)
+            self.current_event.pk, parse_personal_field_form_data(form)
         )
 
         messages.success(self.request, _("Personal data field created successfully."))
         return redirect("panel:personal-data-fields", slug=slug)
 
 
-class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
+class PersonalDataFieldEditPageView(EventPanelMixin, View):
     """Edit an existing personal data field."""
 
     request: PanelRequest
@@ -131,13 +121,11 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             TemplateResponse with the form or redirect if not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.personal_data_fields
         try:
-            field = service.read(current_event.pk, field_slug)
+            field = service.read(self.current_event.pk, field_slug)
         except NotFoundError:
             messages.error(self.request, _("Personal data field not found."))
             return redirect("panel:personal-data-fields", slug=slug)
@@ -172,13 +160,11 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to fields list on success, or form with errors.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.personal_data_fields
         try:
-            field = service.read(current_event.pk, field_slug)
+            field = service.read(self.current_event.pk, field_slug)
         except NotFoundError:
             messages.error(self.request, _("Personal data field not found."))
             return redirect("panel:personal-data-fields", slug=slug)
@@ -208,7 +194,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         new_type = form.cleaned_data.get("field_type") or ""
         try:
             service.update(
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 field_slug=field_slug,
                 data={
                     **parse_field_form_data(form),
@@ -228,7 +214,7 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:personal-data-fields", slug=slug)
 
 
-class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class PersonalDataFieldDeleteActionView(EventPanelMixin, View):
     """Delete a personal data field (POST only)."""
 
     request: PanelRequest
@@ -240,13 +226,9 @@ class PersonalDataFieldDeleteActionView(PanelAccessMixin, EventContextMixin, Vie
         Returns:
             Redirect response to personal data fields list.
         """
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         service = self.request.services.personal_data_fields
         try:
-            deleted = service.delete(current_event.pk, field_slug)
+            deleted = service.delete(self.current_event.pk, field_slug)
         except NotFoundError:
             messages.error(self.request, _("Personal data field not found."))
             return redirect("panel:personal-data-fields", slug=slug)

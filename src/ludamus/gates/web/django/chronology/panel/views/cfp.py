@@ -10,20 +10,16 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    cfp_tab_urls,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalCategoryForm
+from ludamus.gates.web.django.panel import PanelRequest, cfp_tab_urls
 from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
 
-class CFPPageView(PanelAccessMixin, EventContextMixin, View):
+class CFPPageView(EventPanelMixin, View):
     """List call for proposals categories for an event."""
 
     request: PanelRequest
@@ -34,15 +30,13 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             TemplateResponse with the categories list or redirect if not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "cfp"
         context["active_tab"] = "types"
         context["tab_urls"] = cfp_tab_urls(slug)
         page = self.request.services.proposal_categories.get_page_context(
-            current_event.pk
+            self.current_event.pk
         )
         context["categories"] = page.categories
         context["category_stats"] = page.stats
@@ -59,20 +53,18 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/cfp.html", context)
 
 
-class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class CFPCreatePageView(EventPanelMixin, View):
     """Create a new CFP category for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         """Display the CFP category creation form.
 
         Returns:
             TemplateResponse with the form or redirect if event not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "cfp"
         context["form"] = ProposalCategoryForm()
@@ -84,9 +76,7 @@ class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to CFP list on success, or form with errors.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = ProposalCategoryForm(self.request.POST)
         if not form.is_valid():
@@ -96,7 +86,7 @@ class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         name = form.cleaned_data["name"]
         category = self.request.services.proposal_categories.create(
-            current_event.pk, name
+            self.current_event.pk, name
         )
 
         messages.success(self.request, _("Category created successfully."))
@@ -108,11 +98,12 @@ class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:cfp", slug=slug)
 
 
-class CFPDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class CFPDeleteActionView(EventPanelMixin, View):
     """Delete a CFP category (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
+    event_slug_kwarg = "event_slug"
 
     def post(
         self, _request: PanelRequest, event_slug: str, category_slug: str
@@ -122,13 +113,9 @@ class CFPDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         Returns:
             Redirect response to CFP list.
         """
-        _context, current_event = self.get_event_context(event_slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         try:
             deleted = self.request.services.proposal_categories.delete_by_slug(
-                current_event.pk, category_slug
+                self.current_event.pk, category_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Category not found."))

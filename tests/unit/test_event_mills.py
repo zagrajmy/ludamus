@@ -342,7 +342,9 @@ class TestEventPanelService:
         events = FakeEvents([_event(), _event(pk=OTHER_EVENT, slug="other")])
         events.rows[3] = _event(pk=3, slug="foreign", sphere_id=OTHER_SPHERE)
 
-        context = EventPanelService(events).load_context(SPHERE, "conf")
+        context = EventPanelService(events).load_context(
+            sphere_id=SPHERE, current_event=events.rows[EVENT]
+        )
 
         assert context.current_event.pk == EVENT
         assert [e.pk for e in context.events] == [EVENT, OTHER_EVENT]

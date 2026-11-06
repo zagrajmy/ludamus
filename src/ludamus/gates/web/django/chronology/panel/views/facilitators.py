@@ -15,22 +15,18 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    facilitator_detail_tab_urls,
-    facilitator_tab_urls,
-    format_field_value,
-    read_accreditation_filter,
-    read_field_filters,
-)
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMNS,
     column_views,
     facilitator_column_values,
 )
 from ludamus.gates.web.django.dynamic_fields import answered_value
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    format_field_value,
+    read_accreditation_filter,
+    read_field_filters,
+)
 from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
     ORGANIZER_REFUSALS,
     FacilitatorActionView,
@@ -46,7 +42,13 @@ from ludamus.gates.web.django.forms import (
     FacilitatorForm,
 )
 from ludamus.gates.web.django.pagination import pagination_context
-from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.gates.web.django.panel import (
+    PanelRequest,
+    facilitator_detail_tab_urls,
+    facilitator_tab_urls,
+    safe_next_url,
+)
+from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.panel import (
@@ -107,25 +109,23 @@ def read_facilitator_query(request: PanelRequest) -> FacilitatorListQuery:
     )
 
 
-class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorsPageView(EventPanelMixin, View):
     """List facilitators for an event."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         query = read_facilitator_query(self.request)
         list_context = self.request.services.facilitator_panel.list_context(
-            event_id=current_event.pk, query=query
+            event_id=self.current_event.pk, query=query
         )
         pagination = pagination_context(self.request, list_context.facilitators)
         page_obj = pagination["page_obj"]
 
         guilds = self.request.services.guilds
-        sphere_id = current_event.sphere_id
+        sphere_id = self.current_event.sphere_id
         facilitators = list(page_obj.object_list)
         attach_facilitator_guild_marks(facilitators, guilds=guilds, sphere_id=sphere_id)
         cells = facilitator_column_values(
@@ -161,17 +161,17 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
-class FacilitatorBinPageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorBinPageView(EventPanelMixin, View):
     """List the deleted facilitators, where restore is the only action."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
-        deleted = self.request.services.facilitator_panel.list_deleted(current_event.pk)
+        deleted = self.request.services.facilitator_panel.list_deleted(
+            self.current_event.pk
+        )
         pagination = pagination_context(self.request, deleted)
 
         context["active_nav"] = "facilitators"
@@ -182,7 +182,7 @@ class FacilitatorBinPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/facilitator-bin.html", context)
 
 
-class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorDetailPageView(EventPanelMixin, View):
     """View facilitator details and personal data."""
 
     request: PanelRequest
@@ -190,13 +190,11 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
     def get(
         self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 facilitator_slug=facilitator_slug,
                 include_deleted=True,
             )
@@ -210,7 +208,7 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["facilitator"] = detail.facilitator
         context["linked_user"] = detail.linked_user
         context["guild"] = self.request.services.guilds.mark_for_facilitator(
-            sphere_id=current_event.sphere_id, facilitator_pk=detail.facilitator.pk
+            sphere_id=self.current_event.sphere_id, facilitator_pk=detail.facilitator.pk
         )
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(detail.facilitator.accreditation_type)
@@ -221,7 +219,7 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
 
 
-class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorHistoryPageView(EventPanelMixin, View):
     """Per-facilitator change history tab."""
 
     request: PanelRequest
@@ -229,14 +227,12 @@ class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
     def get(
         self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.facilitator_panel
         try:
             name, logs = service.facilitator_history(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=self.current_event.pk, facilitator_slug=facilitator_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -251,23 +247,23 @@ class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         context["logs"] = logs
         context["field_names"] = (
             self.request.services.personal_data_field_values.list_field_names(
-                current_event.pk
+                self.current_event.pk
             )
         )
         return TemplateResponse(self.request, "panel/item-history.html", context)
 
 
-class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorCreatePageView(EventPanelMixin, View):
     """Create a new facilitator for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
 
-        fields = self.request.services.facilitator_panel.list_fields(current_event.pk)
+        fields = self.request.services.facilitator_panel.list_fields(
+            self.current_event.pk
+        )
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
         context["field_descriptors"] = personal_descriptors(
@@ -276,12 +272,10 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.facilitator_panel
-        fields = service.list_fields(current_event.pk)
+        fields = service.list_fields(self.current_event.pk)
         form = FacilitatorForm(self.request.POST)
         fields_form = personal_fields_form(fields=fields, data=self.request.POST)
         if not form.is_valid() or not fields_form.is_valid():
@@ -296,7 +290,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         display_name = form.cleaned_data["display_name"]
         service.create_facilitator(
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
             data=FacilitatorCreateData(
                 display_name=display_name,
                 base_slug=slugify(display_name),
@@ -320,7 +314,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:facilitators", slug=slug)
 
 
-class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorMergePageView(EventPanelMixin, View):
     """Search-and-collect merge flow with a reconcile-then-confirm screen."""
 
     request: PanelRequest
@@ -417,9 +411,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         basket_slugs = self._basket_slugs()
         if (
@@ -429,7 +421,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             return self._render_confirm(
                 context=context,
                 slug=slug,
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 basket_slugs=basket_slugs,
                 target_slug=self.request.GET.get("target_slug", ""),
                 error=None,
@@ -437,29 +429,27 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         return self._render_search(
             context=context,
             slug=slug,
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
             basket_slugs=basket_slugs,
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         basket_slugs = list(
             dict.fromkeys(self.request.POST.getlist("facilitator_slugs"))
         )
         keep_values_from = {
-            int(key.removeprefix("personal_")): int(self.request.POST.get(key, ""))
+            field_pk: facilitator_pk
             for key in self.request.POST
             if key.startswith("personal_")
-            and key.removeprefix("personal_").isdigit()
-            and self.request.POST.get(key, "").isdigit()
+            and (field_pk := parse_id(key.removeprefix("personal_"))) is not None
+            and (facilitator_pk := parse_id(self.request.POST.get(key))) is not None
         }
         try:
             self.request.services.facilitator_panel.merge(
-                event_id=current_event.pk,
-                sphere_id=current_event.sphere_id,
+                event_id=self.current_event.pk,
+                sphere_id=self.current_event.sphere_id,
                 target_slug=self.request.POST.get("target_slug", ""),
                 facilitator_slugs=basket_slugs,
                 data=FacilitatorMergeData(
@@ -476,7 +466,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             return self._render_confirm(
                 context=context,
                 slug=slug,
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 basket_slugs=basket_slugs,
                 target_slug=self.request.POST.get("target_slug", ""),
                 error=_merge_error_message(exc.reason),
@@ -556,17 +546,13 @@ class FacilitatorUnassignOrganizerActionView(FacilitatorActionView):
 BULK_FACILITATOR_ACTIONS = ("delete", "restore", "mark-guest", "merge")
 
 
-class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
+class FacilitatorBulkActionView(EventPanelMixin, View):
     """Apply one triage action to several facilitators at once (POST only)."""
 
     http_method_names = ("post",)
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         back = safe_next_url(
             self.request, reverse("panel:facilitators", kwargs={"slug": slug})
         )
@@ -594,7 +580,7 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
             try:
                 self._apply(
                     action=action,
-                    event_id=current_event.pk,
+                    event_id=self.current_event.pk,
                     facilitator_slug=facilitator_slug,
                 )
             except NotFoundError:
