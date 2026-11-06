@@ -17,8 +17,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.mills.chronology import SessionEditNotAllowedError
-from ludamus.pacts.chronology import SpaceTimeConflictError
+from ludamus.pacts.chronology import SessionEditNotAllowedError, SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file

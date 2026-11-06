@@ -12,7 +12,8 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
-from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
+from ludamus.mills.chronology import SessionSelfEditService
+from ludamus.pacts.chronology import SessionEditNotAllowedError
 from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.images import StoredFile
 from ludamus.pacts.legacy import SessionDTO

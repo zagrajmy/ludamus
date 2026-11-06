@@ -11,7 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import Window, slot_windows_by_local_date
+from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ClosedRangeDTO,
@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     TimetableGridDTO,
     TimetableGridFilter,
     TrackProgressDTO,
+    Window,
 )
 from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.legacy import (

@@ -13,11 +13,11 @@ from ludamus.mills.submissions.mapping import (
     generate_unique_slug,
     resolve_builtins,
     session_field_values,
-    slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import EventDTO, NotFoundError, SessionFieldValueData
+from ludamus.pacts.slugs import slugify
 from ludamus.pacts.submissions import (
     FieldDefinition,
     FieldDefinitions,

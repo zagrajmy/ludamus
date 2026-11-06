@@ -9,24 +9,9 @@ each sphere manager a link to the event's print page. Safe to run
 repeatedly — each event is reminded once.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from ludamus.gates.cli.django.management.commands._sweep import SweepCommand
-from ludamus.inits.services import Services
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Command(SweepCommand):
     help = "Email organizers to print their materials before the event starts."
-
-    @staticmethod
-    def sweep(*, now: datetime) -> int:
-        return Services().printables_reminder.send_due_reminders(now=now)
-
-    @staticmethod
-    def report(handled: int) -> str:
-        return f"Sent printables reminders for {handled} event(s)."
+    sweep = "send_printables_reminders"

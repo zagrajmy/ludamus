@@ -1,7 +1,6 @@
 import pytest
 
 from ludamus.mills.submissions.mapping import (
-    MissingKeyColumnsError,
     ResolvedBuiltins,
     RowSkippedError,
     chosen_entities,
@@ -16,6 +15,7 @@ from ludamus.pacts.submissions import (
     EntityRef,
     ImportRow,
     ImportSettings,
+    MissingKeyColumnsError,
     QuestionTarget,
 )
 

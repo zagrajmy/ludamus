@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
-    FIELD_KEY_PREFIX,
-    PROPOSAL_BUILTIN_KEYS,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
@@ -13,6 +11,8 @@ from ludamus.mills.panel_columns import (
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
+    FIELD_KEY_PREFIX,
+    PROPOSAL_BUILTIN_KEYS,
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
     ProposalDraft,

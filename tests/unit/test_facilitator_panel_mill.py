@@ -18,7 +18,6 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
     FacilitatorListQuery,
-    FacilitatorMergeContextDTO,
     FacilitatorMergeData,
     FacilitatorMergeError,
     FacilitatorPanelRepos,
@@ -528,7 +527,7 @@ def _merge_facilitator(*, pk, display_name):
 class TestFieldReconcile:
     def test_disagreement_without_target_value_falls_back_to_first(self):
         field = _field(1, field_type="text")
-        merge_context = FacilitatorMergeContextDTO(
+        conflicts, unanimous = field_reconcile(
             facilitators=[
                 _merge_facilitator(pk=1, display_name="Adam Kowalski"),
                 _merge_facilitator(pk=2, display_name="Jan Wysocki"),
@@ -536,9 +535,8 @@ class TestFieldReconcile:
             ],
             fields=[field],
             values={2: {field.slug: "Vegan"}, 3: {field.slug: "Vegetarian"}},
+            target_pk=1,
         )
-
-        conflicts, unanimous = field_reconcile(merge_context, target_pk=1)
 
         assert conflicts == [
             (
@@ -553,7 +551,7 @@ class TestFieldReconcile:
 
     def test_the_target_checks_the_group_it_shares_with_another_holder(self):
         field = _field(1, field_type="text")
-        merge_context = FacilitatorMergeContextDTO(
+        conflicts, unanimous = field_reconcile(
             facilitators=[
                 _merge_facilitator(pk=1, display_name="Adam"),
                 _merge_facilitator(pk=2, display_name="Jan"),
@@ -565,9 +563,8 @@ class TestFieldReconcile:
                 2: {field.slug: "Vegetarian"},
                 3: {field.slug: "Vegetarian"},
             },
+            target_pk=3,
         )
-
-        conflicts, unanimous = field_reconcile(merge_context, target_pk=3)
 
         assert conflicts == [
             (field, [(1, "Vegan", "Adam", False), (2, "Vegetarian", "Jan, Ewa", True)])
@@ -901,12 +898,14 @@ class TestReadPaths:
         )
 
         context = service.merge_context(
-            event_id=1, facilitator_slugs=["alice", "bob", "alice"]
+            event_id=1, facilitator_slugs=["alice", "bob", "alice"], target_slug="bob"
         )
 
         assert [f.pk for f in context.facilitators] == [1, 2]
-        assert context.fields == [_field(1)]
-        assert context.values == {1: {"field-1": "v1"}, 2: {"field-1": "v2"}}
+        assert context.target.slug == "bob"
+        assert context.field_conflicts == [
+            (_field(1), [(1, "v1", "Alice", False), (2, "v2", "Bob", True)])
+        ]
 
 
 class TestColumns:
@@ -1207,7 +1206,7 @@ class TestReconcileHelpers:
 
     def test_field_reconcile_groups_agreeing_answers(self):
         agreed, unanswered, disputed = _field(1), _field(2), _field(3)
-        merge_context = FacilitatorMergeContextDTO(
+        conflicts, unanimous = field_reconcile(
             facilitators=[
                 _merge_facilitator(pk=1, display_name="Adam"),
                 _merge_facilitator(pk=2, display_name="Jan"),
@@ -1219,9 +1218,8 @@ class TestReconcileHelpers:
                 2: {agreed.slug: "x"},
                 3: {disputed.slug: "q"},
             },
+            target_pk=3,
         )
-
-        conflicts, unanimous = field_reconcile(merge_context, target_pk=3)
 
         assert unanimous == [(agreed.pk, 1)]
         assert conflicts == [

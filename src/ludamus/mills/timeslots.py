@@ -1,83 +1,24 @@
-"""Day-window helpers for chronology mills and schedule gates.
+"""Time slots split into the local days they touch.
 
 Time slots are proposer availability windows ("when could you run your
 session?"), not schedule display units — rendered timetables show the real
-session start and end times instead. Both need the same interval math, split
-on a day boundary: local midnight for slots, the programme's own turnover for
-the rendered schedule.
+session start and end times instead. Both need the same interval math
+(`DayTurnover`), split on a day boundary: local midnight for slots, the
+programme's own turnover for the rendered schedule.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
+from ludamus.pacts.chronology import MIDNIGHT
 
 if TYPE_CHECKING:
+    from datetime import date, tzinfo
+
+    from ludamus.pacts.chronology import Window
     from ludamus.pacts.legacy import TimeSlotDTO
-
-type Window = tuple[datetime, datetime]
-
-
-@dataclass(frozen=True)
-class DayTurnover:
-    # Where a day begins: the hour, local to the event, at which one day ends
-    # and the next opens. Everything that asks "which day is this instant on"
-    # asks the same turnover, so the answers agree.
-    hour: int
-
-    def date_of(self, instant: datetime, tz: tzinfo) -> date:
-        # The date whose day holds the instant: at 02:00 on a Saturday whose
-        # days turn at 06:00, that is still Friday. Wall-clock arithmetic on
-        # purpose — a clock change that night moves the turnover with it.
-        return (instant.astimezone(tz) - timedelta(hours=self.hour)).date()
-
-    def opening(self, day: date, tz: tzinfo) -> datetime:
-        # The instant the day opens: its name and date are the day's.
-        return datetime.combine(day, time(self.hour), tzinfo=tz)
-
-    def windows(self, *, start: datetime, end: datetime, tz: tzinfo) -> list[Window]:
-        # An interval spanning multiple days contributes one (start, end)
-        # window to each day it touches, clamped to that day's 24 hours.
-        local_start = start.astimezone(tz)
-        local_end = end.astimezone(tz)
-        first_date = self.date_of(local_start, tz)
-        last_date = self.date_of(local_end, tz)
-        if first_date == last_date:
-            # Nearly every session: within one day, nothing to clamp. The
-            # loop below would answer the same, at the cost of two openings
-            # and four timestamps per session on a page of a thousand.
-            # Timestamps, as below: two wall clocks in the repeated autumn
-            # hour compare by their fold-less naive value.
-            if local_start.timestamp() < local_end.timestamp():
-                return [(local_start, local_end)]
-            return []
-        # NOTE: clamp by instant, not wall clock. Aware datetimes sharing a
-        # tzinfo compare by their fold-less naive value, and a zone whose DST
-        # change lands on the turnover hour itself (America/Havana ends DST at
-        # 00:00) gives an opening and a window edge the same wall time an hour
-        # apart.
-        windows: list[Window] = []
-        for offset in range((last_date - first_date).days + 1):  # pragma: no mutate
-            day = first_date + timedelta(days=offset)
-            window_start = max(
-                local_start, self.opening(day, tz), key=datetime.timestamp
-            )
-            window_end = min(
-                local_end,
-                self.opening(day + timedelta(days=1), tz),
-                key=datetime.timestamp,
-            )
-            if window_start.timestamp() < window_end.timestamp():
-                windows.append((window_start, window_end))
-        return windows
-
-
-MIDNIGHT = DayTurnover(0)
-PROGRAMME_DAYS = DayTurnover(PROGRAMME_DAY_STARTS_AT_HOUR)
 
 
 def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[Window]:
