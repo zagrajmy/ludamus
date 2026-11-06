@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -80,6 +80,16 @@ class SpaceInputDTO(BaseModel):
     location: str = ""
 
 
+class SpacePatch(TypedDict, total=False):
+    # Only the keys present change. `parent_id: None` moves the space to the
+    # top level; leaving the key out keeps its parent.
+    name: str
+    capacity: int | None
+    description: str
+    location: str
+    parent_id: int | None
+
+
 class SpaceTreeRepositoryProtocol(Protocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]: ...
@@ -117,6 +127,9 @@ class SpaceTreeServiceProtocol(Protocol):
     ) -> SpaceRecordDTO: ...
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
+    ) -> SpaceRecordDTO: ...
+    def patch_space(
+        self, *, event_id: int, pk: int, changes: SpacePatch
     ) -> SpaceRecordDTO: ...
     def list_reparent_targets(
         self, *, pk: int, event_pk: int
