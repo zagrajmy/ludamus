@@ -15,6 +15,7 @@ from ludamus.pacts.enrollment import (
     PromotionResult,
     PromotionStateDTO,
     SeatHoldRequest,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
 from ludamus.pacts.legacy import PromotionMode
@@ -175,7 +176,9 @@ def _state(
         promotion_mode=mode,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 

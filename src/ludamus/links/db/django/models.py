@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import math
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast, get_args
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, get_args
 from uuid import uuid4
 
 from django.conf import settings
@@ -27,6 +26,7 @@ from ludamus.pacts.crowd import (
 )
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
+from ludamus.pacts.enrollment import open_windows
 from ludamus.pacts.fields import PersonalFieldType, SessionFieldType
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import (
@@ -809,19 +809,7 @@ class Event(models.Model):
         return self.is_published or self.visibility == EventVisibility.UNLISTED
 
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
-        return [config for config in self.enrollment_configs.all() if config.is_active]
-
-    def get_allowance_enrollment_configs(self) -> list[EnrollmentConfig]:
-        if active := self.get_active_enrollment_configs():
-            return active
-        now = datetime.now(tz=UTC)
-        ended = [
-            config for config in self.enrollment_configs.all() if config.end_time <= now
-        ]
-        if not ended:
-            return []
-        latest = max(ended, key=lambda config: (config.end_time, config.pk))
-        return [latest]
+        return open_windows(self.enrollment_configs.all(), now=datetime.now(tz=UTC))
 
     def get_eligible_enrollment_configs(
         self, session: Session
@@ -900,10 +888,6 @@ class EnrollmentConfig(models.Model):
     def __str__(self) -> str:
         return f"Enrollment config for {self.event.name}"
 
-    @property
-    def is_active(self) -> bool:
-        return self.start_time < datetime.now(tz=UTC) < self.end_time
-
     def is_session_eligible(self, session: Session) -> bool:
         """Check if session is eligible for enrollment under this config.
 
@@ -932,22 +916,6 @@ class EnrollmentConfig(models.Model):
             return start_time is not None and start_time < self.end_time
 
         return True
-
-
-def effective_participants_limit(
-    *, participants_limit: int, eligible_configs: Collection[EnrollmentConfig]
-) -> int:
-    """Scale a session's limit by the most liberal window that can seat it.
-
-    Returns:
-        The seats on offer now: 0 for a session that takes no enrollment, the
-        limit itself when no window seats it.
-    """
-    if participants_limit == 0:
-        return 0
-    if percentage := max((c.percentage_slots for c in eligible_configs), default=0):
-        return math.ceil(participants_limit * percentage / 100)
-    return participants_limit
 
 
 class UserEnrollmentConfig(models.Model):
@@ -1418,55 +1386,6 @@ class Session(SoftDeleteModel):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
-
-    @property
-    def enrolled_count(self) -> int:
-        # Use cached count if available from annotation, otherwise query
-        if hasattr(self, "enrolled_count_cached"):
-            return cast("int", self.enrolled_count_cached)
-        # CONFIRMED and OFFERED both hold a seat: an offered (but not yet
-        # claimed) seat must not be handed out twice.
-        return self.session_participations.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES
-        ).count()
-
-    @property
-    def waiting_count(self) -> int:
-        # Use cached count if available from annotation, otherwise query
-        if hasattr(self, "waiting_count_cached"):
-            return cast("int", self.waiting_count_cached)
-        return self.session_participations.filter(
-            status=SessionParticipationStatus.WAITING
-        ).count()
-
-    @property
-    def effective_participants_limit(self) -> int:
-        return effective_participants_limit(
-            participants_limit=self.participants_limit,
-            eligible_configs=self.event.get_eligible_enrollment_configs(self),
-        )
-
-    @property
-    def seats_left(self) -> int:
-        return max(0, self.effective_participants_limit - self.enrolled_count)
-
-    @property
-    def is_full(self) -> bool:
-        """Check if session is at capacity for enrollment."""
-        # "Full" means there was a seat and it is taken. A session that takes no
-        # enrollment never had one, and calling it full would offer its viewers
-        # a waiting list to join and warn a leaver that their seat passes to the
-        # next person waiting. The availability ladder closes those sessions one
-        # step earlier, on takes_enrollment.
-        if self.participants_limit == 0:
-            return False
-        return self.enrolled_count >= self.effective_participants_limit
-
-    @property
-    def is_enrollment_available(self) -> bool:
-        """Check if enrollment is available for this session under any active config."""
-        active_configs = self.event.get_active_enrollment_configs()
-        return any(config.is_session_eligible(self) for config in active_configs)
 
 
 class AgendaItem(models.Model):

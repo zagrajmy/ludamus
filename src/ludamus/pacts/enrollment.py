@@ -6,6 +6,7 @@ on these ports (repositories, notifier, scheduler) so their decisions stay
 unit-testable with fakes.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -30,6 +31,102 @@ if TYPE_CHECKING:
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
 UNLIMITED_SLOTS = 1_000_000_000
+
+
+class DatedWindow(Protocol):
+    pk: int
+    start_time: datetime
+    end_time: datetime
+
+
+def window_is_open(*, start_time: datetime, end_time: datetime, now: datetime) -> bool:
+    # A window opens at its start and has closed by its end: the panel states
+    # both as the moments enrollment begins and stops.
+    return start_time <= now < end_time
+
+
+def open_windows[W: DatedWindow](windows: Iterable[W], *, now: datetime) -> list[W]:
+    return [
+        window
+        for window in windows
+        if window_is_open(
+            start_time=window.start_time, end_time=window.end_time, now=now
+        )
+    ]
+
+
+def allowance_windows[W: DatedWindow](
+    windows: Iterable[W], *, now: datetime
+) -> list[W]:
+    """Name the windows whose passes a waiting-list promotion spends.
+
+    Returns:
+        The windows open now; once every one has closed, the latest to end,
+        so a waiter keeps the allowance they joined under.
+    """
+    listed = list(windows)
+    if opened := open_windows(listed, now=now):
+        return opened
+    ended = [window for window in listed if window.end_time <= now]
+    if not ended:
+        return []
+    return [max(ended, key=_last_to_end)]
+
+
+def _last_to_end(window: DatedWindow) -> tuple[datetime, int]:
+    return (window.end_time, window.pk)
+
+
+def email_domain(email: str) -> str:
+    return email.split("@")[1] if "@" in email else ""
+
+
+def seat_cap(*, participants_limit: int, percentage_slots: int) -> int:
+    """Scale a session's limit by the share of it a window offers.
+
+    Returns:
+        The seats on offer, rounded up so a share never rounds a seat away.
+    """
+    return math.ceil(participants_limit * percentage_slots / 100)
+
+
+class SessionSeatsDTO(BaseModel):
+    """A session's seats as stored, and the cap the open windows put on them."""
+
+    participants_limit: int
+    # The most liberal share among the windows open now that can seat the
+    # session; None when none can.
+    seating_percentage: int | None
+    # CONFIRMED and OFFERED rows both hold a seat: an offered seat must not be
+    # handed out twice.
+    enrolled_count: int
+
+    @property
+    def effective_participants_limit(self) -> int:
+        # With no window seating the session its own limit stands: a waiting
+        # list keeps moving after enrollment closes. A seat for one actor is a
+        # different question, answered by EnrollmentPolicy.
+        return seat_cap(
+            participants_limit=self.participants_limit,
+            percentage_slots=(
+                100 if self.seating_percentage is None else self.seating_percentage
+            ),
+        )
+
+    @property
+    def seats_left(self) -> int:
+        return max(0, self.effective_participants_limit - self.enrolled_count)
+
+    @property
+    def is_full(self) -> bool:
+        # "Full" means there was a seat and it is taken. A session that takes no
+        # enrollment never had one, and calling it full would offer its viewers
+        # a waiting list to join and warn a leaver that their seat passes to the
+        # next person waiting.
+        return (
+            self.participants_limit != 0
+            and self.enrolled_count >= self.effective_participants_limit
+        )
 
 
 class WaitingParticipantDTO(BaseModel):
@@ -82,7 +179,7 @@ class PromotionStateDTO(BaseModel):
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
     presenter_id: int | None
-    available_seats: int
+    seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
     # Players the presenter shadowbanned — ineligible for promotion.

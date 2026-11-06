@@ -32,6 +32,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
+from ludamus.links.db.django.repositories.chronology import session_card_stats
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.pacts.crowd import UserType
@@ -49,7 +50,9 @@ from ludamus.pacts.enrollment import (
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
+    allowance_windows,
     distinct_recipients,
+    email_domain,
 )
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.legacy import (
@@ -280,7 +283,7 @@ class ParticipationPromotionRepository(SeatHolderLocks):
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
-            available_seats=session.seats_left,
+            seats=session_card_stats(session),
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
         )
@@ -290,8 +293,10 @@ class ParticipationPromotionRepository(SeatHolderLocks):
         event: Event, owner_emails: set[str]
     ) -> tuple[dict[str, int], dict[str, int]]:
         emails = {email for email in owner_emails if email}
-        domains = {email.split("@")[1] for email in emails if "@" in email}
-        configs = event.get_allowance_enrollment_configs()
+        domains = {email_domain(email) for email in emails} - {""}
+        configs = allowance_windows(
+            event.enrollment_configs.all(), now=datetime.now(tz=UTC)
+        )
         user_allowed: dict[str, int] = {}
         user_rows = UserEnrollmentConfig.objects.filter(
             enrollment_config__in=configs, user_email__in=emails
@@ -313,7 +318,7 @@ class ParticipationPromotionRepository(SeatHolderLocks):
         # None: no allowance applies to this owner, so promotion never charges them.
         if not owner.email:
             return None
-        domain = owner.email.split("@")[1] if "@" in owner.email else ""
+        domain = email_domain(owner.email)
         has_config = owner.email in user_allowed or (
             bool(domain) and domain in domain_allowed
         )
@@ -592,6 +597,7 @@ class AnonymousEnrollmentRepository(
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
         event = session.event
+        stats = session_card_stats(session)
         has_agenda_item = hasattr(session, "agenda_item")
         if has_agenda_item and not is_publicly_scheduled(
             event_id=event.pk, session_id=session.pk
@@ -610,8 +616,8 @@ class AnonymousEnrollmentRepository(
             facilitator_name=session.facilitator_name,
             description=session.description,
             min_age=session.min_age,
-            enrolled_count=session.enrolled_count,
-            waiting_count=session.waiting_count,
+            enrolled_count=stats.enrolled_count,
+            waiting_count=stats.waiting_count,
             space_name=session.agenda_item.space.name if has_agenda_item else None,
             start_time=session.agenda_item.start_time if has_agenda_item else None,
             end_time=session.agenda_item.end_time if has_agenda_item else None,
@@ -643,7 +649,9 @@ class AnonymousEnrollmentRepository(
         return AnonymousSeatingDTO(
             title=session.title,
             participants_limit=session.participants_limit,
-            enrolled_count=session.enrolled_count,
+            enrolled_count=SessionParticipation.objects.filter(
+                session_id=session.pk, status__in=OCCUPYING_PARTICIPATION_STATUSES
+            ).count(),
             eligible_windows=_enrollment_window_snapshots(
                 session.event.get_eligible_enrollment_configs(session)
             ),

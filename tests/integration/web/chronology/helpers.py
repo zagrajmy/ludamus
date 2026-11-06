@@ -33,6 +33,7 @@ from ludamus.pacts.crowd import UserDTO, gravatar_url
 from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.legacy import (
     NO_LOCATION,
+    OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
@@ -52,7 +53,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import RequestTimeMatcher
+from tests.integration.utils import AttributesMatcher, RequestTimeMatcher
 
 # What the event page reports about the viewer's own enrollment window. The
 # window ids are the page's, so any id stands for "one is open to this viewer".
@@ -297,8 +298,10 @@ def enroll_context(
     shadowban_warnings=(),
     party_choices=(),
     selected_party=None,
+    seats=None,
 ):
     return {
+        "seats": seats or stored_seats(session),
         # The two party keys, as `party_context` spells them: a caller with a
         # party splices its result straight in.
         "party_choices": list(party_choices),
@@ -310,6 +313,20 @@ def enroll_context(
         "shadowban_warnings": list(shadowban_warnings),
         "user_data": user_data,
     }
+
+
+def stored_seats(session):
+    # The page's seat counts against the rows as they stand.
+    participations = SessionParticipation.objects.filter(session=session)
+    return AttributesMatcher(
+        participants_limit=session.participants_limit,
+        enrolled_count=participations.filter(
+            status__in=OCCUPYING_PARTICIPATION_STATUSES
+        ).count(),
+        waiting_count=participations.filter(
+            status=SessionParticipationStatus.WAITING
+        ).count(),
+    )
 
 
 def enroll_page_context(*, viewer, agenda_item, **overrides):
