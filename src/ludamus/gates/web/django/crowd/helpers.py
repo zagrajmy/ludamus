@@ -127,6 +127,6 @@ def build_party_detail_context(
             else ""
         ),
         "history": history,
-        "has_enrollments": detail.has_enrollments,
+        "enrolling_locked": detail.enrolling_locked,
         "profile_active_tab": "parties",
     }

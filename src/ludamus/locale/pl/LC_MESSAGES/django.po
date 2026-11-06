@@ -2447,8 +2447,8 @@ msgid "Party created."
 msgstr "Drużyna została utworzona."
 
 #: src/ludamus/gates/web/django/crowd/views.py
-msgid "Give the party a name."
-msgstr "Nadaj drużynie nazwę."
+msgid "Could not create this party. Check its name and try again."
+msgstr "Nie udało się utworzyć drużyny. Sprawdź jej nazwę i spróbuj ponownie."
 
 #: src/ludamus/gates/web/django/crowd/views.py
 msgid "Party renamed."
@@ -8024,6 +8024,10 @@ msgstr ""
 "Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na sesje."
 
 #: src/ludamus/templates/crowd/user/party_detail.html
+msgid "Turn on enrolling together"
+msgstr "Włącz wspólne zapisy"
+
+#: src/ludamus/templates/crowd/user/party_detail.html
 msgid "This party has enrolled in sessions, so this stays on."
 msgstr "Ta drużyna ma już zapisy na sesje, więc ta opcja pozostaje włączona."
 
@@ -8034,10 +8038,6 @@ msgstr "Ta drużyna może zapisywać się razem na sesje."
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Turn off enrolling together"
 msgstr "Wyłącz wspólne zapisy"
-
-#: src/ludamus/templates/crowd/user/party_detail.html
-msgid "Turn on enrolling together"
-msgstr "Włącz wspólne zapisy"
 
 #: src/ludamus/templates/crowd/user/party_join.html
 #, python-format

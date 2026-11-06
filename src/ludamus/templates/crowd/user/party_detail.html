@@ -95,23 +95,25 @@
                             <p class="text-xs text-foreground-muted">{% translate "invited" %}</p>
                         {% elif member.is_login_less %}
                             <p class="text-xs text-foreground-muted">{% translate "companion" %}</p>
-                        {% elif party.is_leader and party.enrolls_together %}
-                            {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
-                            <p class="text-xs text-foreground-muted">
-                                {% if member.consent_mode == "accept_by_default" %}
-                                    {% translate "direct enrollment allowed" %}
-                                {% else %}
-                                    {% translate "asks for approval before enrolling" %}
-                                {% endif %}
-                            </p>
-                        {% elif member.user_pk == request.user.pk and party.enrolls_together %}
-                            <p class="text-xs text-foreground-muted">
-                                {% if member.consent_mode == "accept_invites" %}
-                                    {% translate "Asks before enrolling you" %}
-                                {% else %}
-                                    {% translate "Enrolls you directly" %}
-                                {% endif %}
-                            </p>
+                        {% elif party.enrolls_together %}
+                            {% if party.is_leader %}
+                                {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
+                                <p class="text-xs text-foreground-muted">
+                                    {% if member.consent_mode == "accept_by_default" %}
+                                        {% translate "direct enrollment allowed" %}
+                                    {% else %}
+                                        {% translate "asks for approval before enrolling" %}
+                                    {% endif %}
+                                </p>
+                            {% elif member.user_pk == request.user.pk %}
+                                <p class="text-xs text-foreground-muted">
+                                    {% if member.consent_mode == "accept_invites" %}
+                                        {% translate "Asks before enrolling you" %}
+                                    {% else %}
+                                        {% translate "Enrolls you directly" %}
+                                    {% endif %}
+                                </p>
+                            {% endif %}
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
@@ -330,28 +332,16 @@
                 <p class="mt-1 text-sm text-foreground-muted">
                     {% translate "This party is for playing. Turn this on to sign up for sessions together." %}
                 </p>
-            {% elif has_enrollments %}
+                {% translate "Turn on enrolling together" as toggle_label %}
+                {% include "crowd/user/_party_enrolls_together_form.html" with value="True" label=toggle_label %}
+            {% elif enrolling_locked %}
                 <p class="mt-1 text-sm text-foreground-muted">
                     {% translate "This party has enrolled in sessions, so this stays on." %}
                 </p>
             {% else %}
                 <p class="mt-1 text-sm text-foreground-muted">{% translate "This party can sign up for sessions together." %}</p>
-            {% endif %}
-            {% if not party.enrolls_together or not has_enrollments %}
-                <form method="post"
-                      action="{% url 'web:crowd:parties-enrolls-together' pk=party.pk %}"
-                      class="mt-3">
-                    {% csrf_token %}
-                    {% if party.enrolls_together %}
-                        <input type="hidden" name="enrolls_together" value="off">
-                        <button type="submit"
-                                class="btn btn-secondary">{% translate "Turn off enrolling together" %}</button>
-                    {% else %}
-                        <input type="hidden" name="enrolls_together" value="on">
-                        <button type="submit"
-                                class="btn btn-secondary">{% translate "Turn on enrolling together" %}</button>
-                    {% endif %}
-                </form>
+                {% translate "Turn off enrolling together" as toggle_label %}
+                {% include "crowd/user/_party_enrolls_together_form.html" with value="False" label=toggle_label %}
             {% endif %}
         </section>
     {% endif %}

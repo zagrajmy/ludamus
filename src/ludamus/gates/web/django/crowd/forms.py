@@ -68,8 +68,16 @@ class PartyNameForm(forms.Form):
     name = forms.CharField(label=_("Party name"), max_length=255)
 
 
-class PartyCreateForm(PartyNameForm):
-    enrolls_together = forms.BooleanField(required=False, widget=forms.HiddenInput())
+class PartyEnrollsTogetherForm(forms.Form):
+    enrolls_together = forms.TypedChoiceField(
+        choices=[("True", "True"), ("False", "False")],
+        coerce=lambda value: value == "True",
+        widget=forms.HiddenInput(),
+    )
+
+
+class PartyCreateForm(PartyEnrollsTogetherForm, PartyNameForm):
+    pass
 
 
 class PartyInviteForm(forms.Form):

@@ -321,7 +321,7 @@ class TestPartyCompanionAddActionView:
                 "companion_form": ANY,
                 "invite_token": party.invite_token,
                 "history": [],
-                "has_enrollments": False,
+                "enrolling_locked": False,
                 "profile_active_tab": "parties",
             },
             template_name="crowd/user/party_detail.html",

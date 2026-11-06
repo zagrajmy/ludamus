@@ -205,7 +205,7 @@ class TestCompanionMembershipWriteThrough:
 
 class TestPartyEnrollsTogetherActionView:
     @staticmethod
-    def _post(client, party, value="off"):
+    def _post(client, party, value="False"):
         return client.post(
             reverse("web:crowd:parties-enrolls-together", kwargs={"pk": party.pk}),
             data={"enrolls_together": value},
@@ -234,7 +234,7 @@ class TestPartyEnrollsTogetherActionView:
             leader=active_user, name="Ekipa", enrolls_together=False
         )
 
-        response = self._post(authenticated_client, party, "on")
+        response = self._post(authenticated_client, party, "True")
 
         assert_response(
             response,

@@ -13,6 +13,7 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.crowd.forms import (
     PartyCompanionForm,
     PartyCreateForm,
+    PartyEnrollsTogetherForm,
     PartyInviteForm,
     PartyNameForm,
 )
@@ -69,7 +70,9 @@ class PartyCreateActionView(LoginRequiredMixin, View):
             )
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)
-        messages.error(request, _("Give the party a name."))
+        messages.error(
+            request, _("Could not create this party. Check its name and try again.")
+        )
         return redirect("web:crowd:profile-parties")
 
 
@@ -307,10 +310,11 @@ class PartyEnrollsTogetherActionView(LoginRequiredMixin, View):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        if (value := request.POST.get("enrolls_together")) not in {"on", "off"}:
+        form = PartyEnrollsTogetherForm(request.POST)
+        if not form.is_valid():
             messages.error(request, _("Could not change this setting."))
             return redirect("web:crowd:party-detail", pk=pk)
-        enrolls_together = value == "on"
+        enrolls_together = form.cleaned_data["enrolls_together"]
         match request.services.parties.set_enrolls_together(
             leader_pk=request.context.current_user_id,
             party_pk=pk,

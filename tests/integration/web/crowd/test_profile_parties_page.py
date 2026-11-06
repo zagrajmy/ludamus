@@ -22,6 +22,7 @@ from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
 
 URL = reverse("web:crowd:profile-parties")
+CREATE_FAILED = "Could not create this party. Check its name and try again."
 
 
 def _avatar_url(user):
@@ -243,7 +244,8 @@ class TestPartyCreateActionView:
         self, authenticated_client, active_user
     ):
         response = authenticated_client.post(
-            reverse("web:crowd:parties-create"), data={"name": "Wtorkowa ekipa"}
+            reverse("web:crowd:parties-create"),
+            data={"name": "Wtorkowa ekipa", "enrolls_together": "True"},
         )
 
         party = Party.objects.get(name="Wtorkowa ekipa")
@@ -272,13 +274,28 @@ class TestPartyCreateActionView:
         assert Party.objects.get().enrolls_together is enrolls_together
 
     def test_post_requires_name(self, authenticated_client):
-        response = authenticated_client.post(reverse("web:crowd:parties-create"))
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-create"), data={"enrolls_together": "True"}
+        )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=URL,
-            messages=[(messages.ERROR, "Give the party a name.")],
+            messages=[(messages.ERROR, CREATE_FAILED)],
+        )
+        assert not Party.objects.exists()
+
+    def test_post_requires_the_setting(self, authenticated_client):
+        response = authenticated_client.post(
+            reverse("web:crowd:parties-create"), data={"name": "Ekipa"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=URL,
+            messages=[(messages.ERROR, CREATE_FAILED)],
         )
         assert not Party.objects.exists()
 
