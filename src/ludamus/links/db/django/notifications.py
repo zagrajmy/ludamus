@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db import transaction
 from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils import translation
@@ -27,6 +26,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
+from ludamus.links.db.django.mail import send_after_commit
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
     Announcement,
@@ -216,14 +216,19 @@ def _deliver_to(*, notification: Notification, email: str) -> None:
         )
         return
 
-    body = f"{notification.body}\n\n{notification.url}"
-
-    def _send_email() -> None:
-        EmailMessage(subject=_subject(notification.title), body=body, to=[email]).send(
-            fail_silently=True
-        )
-
-    transaction.on_commit(_send_email)
+    send_after_commit(
+        [
+            EmailMessage(
+                subject=_subject(notification.title),
+                body=f"{notification.body}\n\n{notification.url}",
+                to=[email],
+            )
+        ],
+        label=(
+            f"Notification mail kind={notification.kind} "
+            f"recipient={notification.recipient_id}"
+        ),
+    )
 
 
 class _SphereSubscriptionMail:
@@ -261,23 +266,21 @@ class _SphereSubscriptionMail:
         if not email:
             logger.info("No deliverable address for promotional notification")
             return
-        body = f"{notification.body}\n\n{notification.url}\n\n-- \n{self.footer()}"
-        headers = self.headers()
-
-        def _send_email() -> None:
-            if not self._authorized():
-                logger.info(
-                    "Queued promotional email skipped: consent is no longer valid"
+        send_after_commit(
+            [
+                EmailMessage(
+                    subject=_subject(notification.title),
+                    body=(
+                        f"{notification.body}\n\n{notification.url}"
+                        f"\n\n-- \n{self.footer()}"
+                    ),
+                    to=[email],
+                    headers=self.headers(),
                 )
-                return
-            EmailMessage(
-                subject=_subject(notification.title),
-                body=body,
-                to=[email],
-                headers=headers,
-            ).send(fail_silently=True)
-
-        transaction.on_commit(_send_email)
+            ],
+            label=f"Promotional mail recipient={self._recipient_id}",
+            still_wanted=self._authorized,
+        )
 
     def _url(self, name: str) -> str:
         return absolute_url(
@@ -742,29 +745,25 @@ class DjangoUserNotifier:
             title, body, url = _acceptance_copy(notification)
         # NOTE: unproven, unlike `_deliverable_email`: the proposer gave this
         # address for status updates, and only an organizer can trigger this.
-        message = EmailMessage(
-            subject=_subject(title),
-            body=f"{body}\n\n{url}",
-            to=[notification.contact_email],
+        session_id = notification.session_id
+
+        def _rearm() -> None:
+            Session.objects.filter(pk=session_id).update(acceptance_mailed_at=None)
+
+        send_after_commit(
+            [
+                EmailMessage(
+                    subject=_subject(title),
+                    body=f"{body}\n\n{url}",
+                    to=[notification.contact_email],
+                )
+            ],
+            label=(
+                f"Acceptance of session {session_id} to its proposer "
+                f"in {notification.language}"
+            ),
+            on_failure=_rearm,
         )
-
-        def _send_email() -> None:
-            if message.send(fail_silently=True):
-                logger.info(
-                    "Acceptance of session %s mailed to its proposer in %s",
-                    notification.session_id,
-                    notification.language,
-                )
-            else:
-                logger.warning(
-                    "Acceptance of session %s not mailed to its proposer",
-                    notification.session_id,
-                )
-                Session.objects.filter(pk=notification.session_id).update(
-                    acceptance_mailed_at=None
-                )
-
-        transaction.on_commit(_send_email)
 
     @staticmethod
     def notify_shadowbanned_signup(notification: ShadowbanSignupNotification) -> None:

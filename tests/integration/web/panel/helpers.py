@@ -17,6 +17,7 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -28,7 +29,6 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionStatus, SpaceDTO
 from ludamus.specs.timetable import (
@@ -464,7 +464,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
         "schedule_logs": [],
         "field_values": [],
         "facilitators": [],
-        "presenter": UserDTO.model_validate(presenter),
+        "presenter": user_dto(presenter),
         "preferred_time_slots": [],
         "import_log_entry": None,
         "import_log_integration": None,

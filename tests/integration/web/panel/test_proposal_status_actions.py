@@ -334,11 +334,14 @@ class TestAcceptanceNotification:
         assert [
             (record.levelname, record.getMessage())
             for record in caplog.records
-            if record.name == "ludamus.links.db.django.notifications"
+            if record.name == "ludamus.links.db.django.mail"
         ] == [
             (
                 "WARNING",
-                f"Acceptance of session {session.pk} not mailed to its proposer",
+                (
+                    f"Acceptance of session {session.pk} to its proposer in en: "
+                    "1 of 1 not delivered"
+                ),
             )
         ]
         session.refresh_from_db()

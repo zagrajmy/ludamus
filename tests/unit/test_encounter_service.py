@@ -110,6 +110,14 @@ class TestEncounterPolicy:
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
+    def test_a_superuser_may_create_under_the_managers_policy(self):
+        service = _service(
+            policy=EncountersPolicy.MANAGERS,
+            users=FakeUsers([make_user(CREATOR_ID, is_superuser=True)]),
+        )
+
+        assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
 
 class TestEncounterFeed:
     def test_a_sphere_with_encounters_off_has_an_empty_feed(self):

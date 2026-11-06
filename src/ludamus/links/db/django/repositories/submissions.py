@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING, cast
 
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
-from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
     EventProposalSettings,
@@ -125,8 +124,7 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
 
 class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
-        base_slug = slugify(name)
-        slug = self.generate_unique_slug(event_id, base_slug)
+        slug = self.generate_unique_slug(event_id, name)
 
         category = ProposalCategory.objects.create(
             event_id=event_id, name=name, slug=slug
@@ -173,7 +171,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
             name = data["name"]
             category.name = name
             category.slug = self.generate_unique_slug(
-                category.event_id, slugify(name), exclude_pk=pk
+                category.event_id, name, exclude_pk=pk
             )
             needs_save = True
 
@@ -406,11 +404,12 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
 
     @staticmethod
     def generate_unique_slug(
-        event_id: int, base_slug: str, exclude_pk: int | None = None
+        event_id: int, name: str, exclude_pk: int | None = None
     ) -> str:
         return slugs.generate_unique_slug(
             queryset=ProposalCategory.objects.filter(event_id=event_id),
-            base_slug=base_slug,
+            name=name,
+            fallback="category",
             exclude_pk=exclude_pk,
         )
 
@@ -421,8 +420,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     ) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = data.get("slug") or slugify(data["name"])
-        slug = self.generate_unique_slug(event_id, base_slug)
+        slug = self.generate_unique_slug(event_id, data.get("slug") or data["name"])
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
         actual_allow_custom = data["allow_custom"] if field_type == "select" else False
@@ -501,12 +499,14 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     def update(self, pk: int, data: PersonalDataFieldUpdateData) -> OrganizerFieldDTO:
         field = self._read(pk)
 
-        base_slug = slugify(data["name"])
-        slug = self.generate_unique_slug(field.event_id, base_slug, exclude_pk=pk)
-
+        # NOTE: re-derived only on a rename, so a slug minted under an older
+        # slug rule survives an edit that leaves the name alone.
+        if field.name != data["name"]:
+            field.slug = self.generate_unique_slug(
+                field.event_id, data["name"], exclude_pk=pk
+            )
         field.name = data["name"]
         field.question = data["question"]
-        field.slug = slug
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
@@ -547,11 +547,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
     @staticmethod
     def generate_unique_slug(
-        event_id: int, base_slug: str, exclude_pk: int | None = None
+        event_id: int, name: str, exclude_pk: int | None = None
     ) -> str:
         return slugs.generate_unique_slug(
             queryset=PersonalDataField.objects.filter(event_id=event_id),
-            base_slug=base_slug,
+            name=name,
+            fallback="field",
             exclude_pk=exclude_pk,
         )
 
@@ -564,8 +565,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     def create(self, event_id: int, data: SessionFieldCreateData) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
-        base_slug = data.get("slug") or slugify(data["name"])
-        slug = self.generate_unique_slug(event_id, base_slug)
+        slug = self.generate_unique_slug(event_id, data.get("slug") or data["name"])
 
         actual_is_multiple = data["is_multiple"] if field_type == "select" else False
         actual_allow_custom = data["allow_custom"] if field_type == "select" else False
@@ -662,12 +662,14 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         except SessionField.DoesNotExist as exc:
             raise NotFoundError from exc
 
-        base_slug = slugify(data["name"])
-        slug = self.generate_unique_slug(field.event_id, base_slug, exclude_pk=pk)
-
+        # NOTE: re-derived only on a rename, so a slug minted under an older
+        # slug rule survives an edit that leaves the name alone.
+        if field.name != data["name"]:
+            field.slug = self.generate_unique_slug(
+                field.event_id, data["name"], exclude_pk=pk
+            )
         field.name = data["name"]
         field.question = data["question"]
-        field.slug = slug
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.icon = data["icon"]
@@ -693,11 +695,12 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
 
     @staticmethod
     def generate_unique_slug(
-        event_id: int, base_slug: str, exclude_pk: int | None = None
+        event_id: int, name: str, exclude_pk: int | None = None
     ) -> str:
         return slugs.generate_unique_slug(
             queryset=SessionField.objects.filter(event_id=event_id),
-            base_slug=base_slug,
+            name=name,
+            fallback="field",
             exclude_pk=exclude_pk,
         )
 

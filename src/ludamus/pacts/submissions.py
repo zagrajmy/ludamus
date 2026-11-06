@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.fields import OrganizerFieldDTO, TextFieldKind
+from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldType, TextFieldKind
 from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ class FieldDefinition(BaseModel):
     # is the match key). Multi-choice is `select` + `multiple` (the domain has
     # no multi `checkbox`); `options` is the explicit, operator-editable list.
     name: str = ""
-    type: Literal["text", "select", "checkbox"] = "text"
+    type: SessionFieldType = "text"
     multiple: bool = False
     allow_custom: bool = False
     options: list[str] = []

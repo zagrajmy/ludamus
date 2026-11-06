@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
+from ludamus.mills.event import require_event_in_sphere
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
@@ -313,9 +314,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
 
     def _scoped(self, *, sphere_id: int, event_pk: int, pk: int) -> EventIntegrationDTO:
         # Panel access proves the sphere, not the ids the request names.
-        event = self._repos.events.read(event_pk)
-        if event.sphere_id != sphere_id:
-            raise NotFoundError
+        require_event_in_sphere(
+            events=self._repos.events, event_pk=event_pk, sphere_id=sphere_id
+        )
         integration = self._integrations.get(event_pk, pk)
         # The event's other integrations are not this page's to touch: saving
         # Konwencik settings over an importer's row would destroy its question

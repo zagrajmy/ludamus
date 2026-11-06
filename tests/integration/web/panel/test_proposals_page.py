@@ -14,7 +14,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Track,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.legacy import (
     ProposalCategoryDTO,
@@ -1787,7 +1787,7 @@ class TestProposalDetailPageView:
                     )
                 ],
                 "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
+                "presenter": user_dto(active_user),
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,

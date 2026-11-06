@@ -27,6 +27,11 @@ def parse_duration(iso_duration: str | None) -> tuple[int, int]:
     return int(match["hours"] or 0), int(match["minutes"] or 0)
 
 
+def duration_minutes(iso_duration: str | None) -> int:
+    hours, minutes = parse_duration(iso_duration)
+    return hours * MINUTES_PER_HOUR + minutes
+
+
 def parse_duration_part(raw: str, *, maximum: int) -> int:
     if not (text := (raw or "").strip()):
         return 0

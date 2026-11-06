@@ -1,17 +1,15 @@
-"""Pure mapping helpers: import-row cells to domain values, titles to slugs."""
+"""Pure mapping helpers: import-row cells to domain values."""
 
 import json
 from dataclasses import dataclass
 from hashlib import blake2b
-from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Literal, Never
+from typing import TYPE_CHECKING, Never
 
 from pydantic import TypeAdapter, ValidationError
 
 from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import PersonalDataFieldValueData, SessionFieldValueData
-from ludamus.pacts.slugs import slugify
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -23,12 +21,12 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from ludamus.pacts.fields import SessionFieldType
 
 
 def field_setup(
     definition: FieldDefinition | None,
-) -> tuple[Literal["text", "select", "checkbox"], list[str] | None, bool, bool]:
+) -> tuple[SessionFieldType, list[str] | None, bool, bool]:
     # Map a new-field definition to the (field_type, options, is_multiple,
     # allow_custom) a repo `create` expects; default to a plain text field.
     if definition is None:
@@ -360,30 +358,3 @@ def dedup_ident(*, event_id: int, identity: str) -> str:
     # plain digest: it only ever needs to be equal-comparable and collision-free
     # across the full identity, not readable.
     return blake2b(f"e{event_id}:{identity}".encode(), digest_size=16).hexdigest()
-
-
-class SlugCollisionError(Exception):
-    # Raised when a unique slug can't be found within the retry budget, so the
-    # caller fails loudly instead of handing a colliding slug to the DB.
-    def __init__(self, base_slug: str) -> None:
-        super().__init__(f"Could not generate a unique slug for {base_slug!r}.")
-        self.base_slug = base_slug
-
-
-def generate_unique_slug(
-    title: str,
-    exists: Callable[[str], bool],
-    *,
-    fallback: str = "",
-    max_attempts: int = 8,
-    max_length: int = 50,
-) -> str:
-    base_slug = slugify(title, max_length=max_length) or fallback
-    slug = base_slug
-    for _ in range(max_attempts):
-        if not exists(slug):
-            return slug
-        suffix = token_urlsafe(3)
-        trimmed = slugify(base_slug, max_length=max_length - len(suffix) - 1)
-        slug = f"{trimmed}-{suffix}"
-    raise SlugCollisionError(base_slug)

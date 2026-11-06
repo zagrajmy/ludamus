@@ -6,9 +6,11 @@ login-less companion row into the intended person's own self-login account,
 on the same row, so enrollment history is preserved.
 """
 
+import hashlib
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, TypedDict
+from urllib.parse import urlencode
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,6 +19,8 @@ from ludamus.pacts.ids import UserId
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
+# Column width; a longer proposal answer stays on the proposal only.
+PROFILE_DISCORD_USERNAME_MAX_LENGTH = 150
 MIN_ACCOUNT_AGE = 13
 
 # Signed verification links live this long. Shared contract: the token codec
@@ -214,6 +218,29 @@ class AvatarUrlProviderProtocol(Protocol):
     def __call__(self, email: str) -> str | None: ...
 
 
+def gravatar_url(email: str) -> str | None:
+    if not email:
+        return None
+    email = email.strip().lower()
+    digest = hashlib.sha256(email.encode("utf-8")).hexdigest()
+    params = urlencode({"s": "64", "d": "blank"})
+    return f"https://www.gravatar.com/avatar/{digest}?{params}"
+
+
+def display_avatar_url(
+    *,
+    email: str,
+    avatar_url: str,
+    use_gravatar: bool,
+    gravatar: AvatarUrlProviderProtocol = gravatar_url,
+) -> str:
+    # The one avatar rule: the member's Gravatar choice wins; otherwise the
+    # provider picture, falling back to Gravatar when there is none.
+    if use_gravatar:
+        return gravatar(email) or ""
+    return avatar_url or gravatar(email) or ""
+
+
 class AvatarPageDTO(BaseModel):
     user: UserDTO
     gravatar_url: str | None
@@ -244,10 +271,8 @@ class EmailTokenPayload(BaseModel):
 
 
 class EmailTokenCodecProtocol(Protocol):
-    @staticmethod
-    def dumps(payload: EmailTokenPayload) -> str: ...
-    @staticmethod
-    def loads(token: str) -> EmailTokenPayload | None: ...
+    def dumps(self, payload: EmailTokenPayload) -> str: ...
+    def loads(self, token: str) -> EmailTokenPayload | None: ...
 
 
 class RedeemOutcome(StrEnum):

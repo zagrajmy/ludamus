@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
+from ludamus.pacts.event import EventSlugConflictError
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -25,8 +27,9 @@ if TYPE_CHECKING:
     )
 
 
-class EventSlugTakenError(Exception):
-    pass
+# TODO(hasparus): one error under its `pacts.event` name; this alias stays
+# only until the panel event-settings view catches `EventSlugConflictError`.
+EventSlugTakenError = EventSlugConflictError
 
 
 @dataclass

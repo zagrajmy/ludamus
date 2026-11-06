@@ -1348,7 +1348,7 @@ class TestOrganizerEventSettingsTools:
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert "already uses the slug" in result["content"][0]["text"]
+        assert result["content"][0]["text"] == "Slug already taken: taken"
         event.refresh_from_db()
         assert event.slug != "taken"
 

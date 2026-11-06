@@ -11,9 +11,29 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 if TYPE_CHECKING:
-    from django.http import HttpResponse
+    from django.http import HttpRequest, HttpResponse
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
+    from ludamus.pacts.enrollment import ClaimResult
+
+
+def flash_claim_result(request: HttpRequest, result: ClaimResult) -> None:
+    # The token link and the dashboard button claim the same seat, so they
+    # report it in the same words.
+    if result.success:
+        messages.success(
+            request, _("Spot claimed — you are now confirmed for this session.")
+        )
+    elif result.reason == "conflict":
+        messages.error(
+            request,
+            _(
+                "This spot overlaps a session you already have a seat in, "
+                "so it was released."
+            ),
+        )
+    else:
+        messages.error(request, _("This offer has expired or was already claimed."))
 
 
 class SessionOfferClaimView(View):
@@ -38,21 +58,9 @@ class SessionOfferClaimView(View):
     @staticmethod
     def post(request: RootRequest, token: str) -> HttpResponse:
         result = request.services.waitlist_promotion.claim_offer(token=token)
-        if result.success and result.event_slug:
-            messages.success(
-                request, _("Spot claimed — you are now confirmed for this session.")
-            )
+        flash_claim_result(request, result)
+        if result.event_slug and (result.success or result.reason == "conflict"):
             return redirect("web:chronology:event", slug=result.event_slug)
-        if result.reason == "conflict":
-            messages.error(
-                request,
-                _(
-                    "This spot overlaps a session you already have a seat in, "
-                    "so it was released."
-                ),
-            )
-            return redirect("web:chronology:event", slug=result.event_slug)
-        messages.error(request, _("This offer has expired or was already claimed."))
         return redirect("web:index")
 
 

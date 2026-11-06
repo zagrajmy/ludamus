@@ -6,9 +6,9 @@ from django.urls import reverse
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.markdown import render_markdown
 from ludamus.gates.web.django.meta import encounter_description
-from ludamus.links.db.django.models import EncounterInvitee, EncounterRSVP
-from ludamus.links.gravatar import gravatar_url
+from ludamus.links.db.django.models import EncounterRSVP
 from ludamus.mills.encounter_calendar import encounter_calendar_links
+from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.encounter import EncounterDTO, EncounterInviteeDTO, InviteeStatus
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -217,15 +217,11 @@ class TestEncounterDetailPageView:
         encounter = EncounterFactory(creator=user, sphere=sphere, max_participants=3)
         EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
         EncounterInviteeFactory(
-            encounter=encounter,
-            email="bob@example.com",
-            status=EncounterInvitee.Status.ACCEPTED,
+            encounter=encounter, email="bob@example.com", status=InviteeStatus.ACCEPTED
         )
         member = UserFactory(email="cyd@example.com")
         EncounterInviteeFactory(
-            encounter=encounter,
-            email=member.email,
-            status=EncounterInvitee.Status.DECLINED,
+            encounter=encounter, email=member.email, status=InviteeStatus.DECLINED
         )
         url = reverse(
             "web:notice-board:encounter-detail",

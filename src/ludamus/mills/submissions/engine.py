@@ -20,10 +20,8 @@ from ludamus.mills.submissions.mapping import (
     extract_identity,
     field_name,
     field_setup,
-    generate_unique_slug,
     resolve_builtins,
     session_field_values,
-    slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import log_facilitator_deletion
 from ludamus.pacts.legacy import (
@@ -36,6 +34,7 @@ from ludamus.pacts.legacy import (
     SessionUpdateData,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.slugs import slugify, unique_slug
 from ludamus.pacts.submissions import (
     FieldDefinition,
     ImportLogEntryCreateData,
@@ -295,9 +294,9 @@ class ImportEngine:
             "description": builtins.description,
             "facilitator_name": builtins.display_name,
             "participants_limit": builtins.participants_limit,
-            "slug": generate_unique_slug(
+            "slug": unique_slug(
                 builtins.title,
-                lambda s: self._repos.sessions.slug_exists(event_id, s),
+                exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
                 fallback="proposal",
             ),
         }
@@ -613,9 +612,9 @@ class ImportEngine:
             {
                 "display_name": display_name,
                 "event_id": event_id,
-                "slug": generate_unique_slug(
+                "slug": unique_slug(
                     display_name,
-                    lambda s: self._repos.facilitators.slug_exists(event_id, s),
+                    exists=lambda s: self._repos.facilitators.slug_exists(event_id, s),
                     fallback="facilitator",
                 ),
                 "ident": ident,
