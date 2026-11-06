@@ -6,9 +6,10 @@ from django.utils import translation
 from ludamus.links.db.django.models import Notification, Session, SphereSubscription
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.recipients import (
+    AccountReader,
     NotSpeakingError,
-    Reader,
     Recipient,
+    Voice,
     speaking_to,
 )
 from ludamus.pacts.chronology import (
@@ -128,6 +129,8 @@ def _sample(method, *, session, subscription, language):
             **event,
         ),
     }
+    if method not in samples:
+        pytest.fail(f"Add a sample for DjangoUserNotifier.{method}")
     return samples[method]()
 
 
@@ -169,7 +172,7 @@ def test_every_notification_speaks_its_readers_language_whoever_sends_it(
 
 
 class TestRecipient:
-    reader = Reader(language="pl", deliverable_email="ola@example.com", user_id=1)
+    reader = AccountReader(user_id=1, language="pl", deliverable_email="o@example.com")
 
     def test_confirms_its_reader_while_speaking_their_language(self):
         with speaking_to(self.reader) as recipient:
@@ -179,17 +182,20 @@ class TestRecipient:
         with speaking_to(self.reader) as recipient:
             pass
 
-        with pytest.raises(NotSpeakingError):
+        with pytest.raises(NotSpeakingError, match="outside a speaking block"):
             recipient.confirm()
 
     def test_refuses_delivery_while_another_language_has_taken_over(self):
         with (
             speaking_to(self.reader) as recipient,
             translation.override("en"),
-            pytest.raises(NotSpeakingError),
+            pytest.raises(NotSpeakingError, match="in en to a pl reader"),
         ):
             recipient.confirm()
 
-    def test_cannot_be_made_outside_speaking_to(self):
-        with pytest.raises(TypeError):
-            Recipient(self.reader, seal=object())
+    def test_one_made_outside_speaking_to_never_delivers(self):
+        with (
+            translation.override("pl"),
+            pytest.raises(NotSpeakingError, match="outside a speaking block"),
+        ):
+            Recipient(self.reader, Voice("pl")).confirm()

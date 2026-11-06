@@ -1,0 +1,6 @@
+id: ring-as-written-call-sites
+valid:
+  - "ring(recipient, kind=kind, title=title, body=body, url=url, payload={})"
+invalid:
+  - 'ring_as_written(recipient_ids=ids, kind=kind, title=title, body=body, url="")'
+  - 'delivery.ring_as_written(recipient_ids=ids, kind=kind, title=t, body=b, url="")'

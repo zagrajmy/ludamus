@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.admin import helpers
 from django.shortcuts import render
 
+from ludamus.links.db.django.delivery import ring_as_written
 from ludamus.links.db.django.models import (
     AgendaItem,
     DomainEnrollmentConfig,
@@ -26,7 +27,6 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.links.db.django.notifications import ring_as_written
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:

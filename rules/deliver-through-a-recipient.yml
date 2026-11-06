@@ -4,21 +4,33 @@ severity: error
 files:
   - src/**/*.py
 ignores:
-  - src/ludamus/links/db/django/notifications.py
-  - src/ludamus/links/db/django/encounter_invites.py
+  - src/ludamus/links/db/django/delivery.py
   - src/ludamus/links/db/django/migrations/**
 rule:
   any:
     - pattern: Notification($$$)
-    - pattern: Notification.objects.create($$$)
-    - pattern: Notification.objects.bulk_create($$$)
+    - pattern: $M.Notification($$$)
+    - pattern: Notification.objects.$METHOD($$$)
+    - pattern: $M.Notification.objects.$METHOD($$$)
+    - pattern: from django.core.mail import $$$
+    - pattern: from django.core import mail
+    - pattern: import django.core.mail
     - pattern: EmailMessage($$$)
+    - pattern: $M.EmailMessage($$$)
     - pattern: EmailMultiAlternatives($$$)
+    - pattern: $M.EmailMultiAlternatives($$$)
     - pattern: send_mail($$$)
+    - pattern: $M.send_mail($$$)
     - pattern: send_mass_mail($$$)
+    - pattern: $M.send_mass_mail($$$)
+    - pattern: mail_admins($$$)
+    - pattern: $M.mail_admins($$$)
+    - pattern: $M.send_messages($$$)
+constraints:
+  METHOD:
+    regex: ^(create|bulk_create|get_or_create|update_or_create)$
 message: |
   Notifications and mail are written in their reader's language, not the
-  sender's. Compose and deliver them in links/db/django/notifications.py
-  (or encounter_invites.py), inside `speaking_to(...)`, and hand the
-  Recipient it yields to the delivery helper. Text a person wrote, sent
-  as written, goes through `ring_as_written`.
+  sender's. Compose them inside `speaking_to(...)` (an account) or
+  `speaking_in(...)` (an address), and deliver through
+  links/db/django/delivery.py with the Recipient or Voice it yields.
