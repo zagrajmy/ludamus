@@ -79,8 +79,9 @@ The origin writes one JSON line per request (`WideEventMiddleware`, logger
 than a trail of narration: `ray_id`, `environment`, `commit`, `worker` (the
 gunicorn worker's pid), `method`, `path` (redacted like the PostHog path),
 `route`, `view`, `status`, `outcome`, `duration_ms`, `db_queries`, `db_ms`,
-`sphere_id`, `user_id`, `language`, `htmx`, and on a fault `error_type` /
-`error_message`. `ray_id` is Cloudflare's `CF-Ray`, so
+`sphere_id`, `user_id`, `language`, `htmx`, and on a fault `error_type` (the
+message stays in the traceback line next to it: it can echo the value that
+failed). `ray_id` is Cloudflare's `CF-Ray`, so
 the id a user reads off an edge error page finds the origin line directly:
 
 ```text

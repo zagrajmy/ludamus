@@ -78,7 +78,7 @@ class TestWideEventMiddleware:
         assert event.status == HTTPStatus.INTERNAL_SERVER_ERROR
         assert event.outcome == "error"
         assert event.error_type == "RuntimeError"
-        assert event.error_message == "payment provider down"
+        assert not hasattr(event, "error_message")
         assert event.view == "wide_event_boom"
         assert event.user_id is None
         assert len(event.ray_id) == UUID_HEX_LENGTH

@@ -1,9 +1,9 @@
 """One context-rich log event per request, instead of a trail of narration.
 
 The event answers "what happened to this request" in a single line: who, on
-which sphere, which route, how long, how many queries, and if it failed, how.
-Outermost in MIDDLEWARE so the clock covers the whole stack and a fault in
-any inner middleware still shows up as a 500 event.
+which sphere, which route, how long, how many queries, and if it failed, what
+kind of failure. Outermost in MIDDLEWARE so the clock covers the whole stack
+and a fault in any inner middleware still shows up as a 500 event.
 """
 
 from __future__ import annotations
@@ -122,10 +122,12 @@ class WideEventMiddleware:
 
     @staticmethod
     def process_exception(_request: HttpRequest, exception: Exception) -> None:
+        # The type only: a message can echo the value that failed (an
+        # IntegrityError carries the row, a parse error the input). The
+        # traceback line django.request writes next to this one has it.
         if (event := _event.get()) is not None:
             event["outcome"] = "error"
             event["error_type"] = type(exception).__name__
-            event["error_message"] = str(exception)
 
 
 class _QueryMeter:
