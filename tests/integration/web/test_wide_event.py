@@ -10,7 +10,7 @@ from django.conf import settings as django_settings
 from django.http import HttpResponse
 from django.urls import path
 
-from ludamus.gates.web.django.wide_event import WideEventMiddleware
+from ludamus.inits.wide_event import WideEventMiddleware
 from ludamus.links.analytics.log_format import JsonFormatter, short_name
 from tests.integration.utils import assert_response
 

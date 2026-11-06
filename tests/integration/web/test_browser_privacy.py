@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
 
+from ludamus.gates.web.django.middlewares import AppMiddleware
 from ludamus.inits.browser_privacy import BrowserPrivacyMiddleware
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import User
@@ -95,6 +96,6 @@ def test_correct_cookie_does_not_emit_redundant_set_cookie():
 def test_static_response_does_not_overwrite_privacy_cookie(settings):
     request = RequestFactory().get(f"{settings.STATIC_URL}site.css")
 
-    response = BrowserPrivacyMiddleware(lambda _: HttpResponse())(request)
+    response = AppMiddleware(lambda _: HttpResponse())(request)
 
     assert "ludamus.privacy" not in response.cookies

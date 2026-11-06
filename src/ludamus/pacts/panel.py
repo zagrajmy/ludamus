@@ -66,6 +66,21 @@ class PanelFieldProtocol(Protocol):
     order: int
 
 
+FIELD_KEY_PREFIX = "field_"
+
+# Which built-in columns each list offers, in their default order. The gates
+# layer decides what they are called and how their cells render.
+FACILITATOR_BUILTIN_KEYS = (
+    "name",
+    "linked",
+    "guild",
+    "sessions",
+    "accreditation",
+    "organizer",
+)
+PROPOSAL_BUILTIN_KEYS = ("title", "host", "category", "status", "created")
+
+
 @dataclass
 class PanelColumnDTO:
     """One list column: a built-in key or a dynamic field ("field_<pk>")."""
@@ -296,17 +311,29 @@ class FacilitatorMergeData:
     keep_values_from: dict[int, int] = field(default_factory=dict)
 
 
+MIN_MERGE_FACILITATORS = 2
+
+
 @dataclass
 class FacilitatorMergeContextDTO:
     """Read aggregate for the merge reconcile screen.
 
-    `values` maps facilitator pk -> field slug -> that facilitator's answer,
-    so the screen can offer a per-attribute choice where sources disagree.
+    Each choice list offers a control only where the sources disagree, with the
+    target's own answer checked; an empty list means every source agrees, and
+    the matching `unanimous_*` value is what the merge keeps.
+    `accreditation_choices` holds (value, source names, checked);
+    `field_conflicts` holds per field (holder pk, answer, source names, checked).
     """
 
     facilitators: list[FacilitatorDTO]
-    fields: list[OrganizerFieldDTO]
-    values: dict[int, dict[str, str | list[str] | bool]]
+    target: FacilitatorDTO
+    name_choices: list[tuple[str, bool]]
+    unanimous_display_name: str | None
+    accreditation_choices: list[tuple[str, str, bool]]
+    unanimous_accreditation: str | None
+    field_conflicts: list[
+        tuple[OrganizerFieldDTO, list[tuple[int, str | list[str] | bool, str, bool]]]
+    ]
 
 
 class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
@@ -337,7 +364,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]: ...
     def merge_context(
-        self, *, event_id: int, facilitator_slugs: list[str]
+        self, *, event_id: int, facilitator_slugs: list[str], target_slug: str
     ) -> FacilitatorMergeContextDTO: ...
     def merge(
         self,

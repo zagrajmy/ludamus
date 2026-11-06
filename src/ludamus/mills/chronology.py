@@ -21,6 +21,7 @@ from ludamus.pacts.chronology import (
     ProposalAcceptDeniedError,
     ProposalAcceptedNotification,
     ProposalScheduledError,
+    SessionEditNotAllowedError,
     SourceQuestion,
     SpaceTimeConflictError,
 )
@@ -382,10 +383,6 @@ class ProposalAcceptanceService:
                     event=event,
                     placed=True,
                 )
-
-
-class SessionEditNotAllowedError(Exception):
-    """Raised when a user may not self-edit the requested session."""
 
 
 def _normalize(value: ContentFieldValue) -> ContentFieldValue:

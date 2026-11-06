@@ -252,13 +252,13 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.inits.wide_event",
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
     "ludamus.links.google_auth",
     "ludamus.links.google_forms",
     "ludamus.links.google_sheets",
-    "ludamus.links.ods",
     "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
@@ -268,6 +268,7 @@ module = [
     "ludamus.adapters.web.django.*",
     "ludamus.gates.web.django.*",
     "ludamus.gates.cli.django.management.commands.export_konwencik",
+    "ludamus.inits.wide_event",
 ]
 disallow_any_explicit = false
 
@@ -333,10 +334,13 @@ allowed-confusables = ["–", "×"]
     "private-member-access",
 ]
 # DI registries are intentionally wide: their whole job is to expose one leaf
-# per repository/service. Bucketing them (see the class docstrings) is a
-# separate refactor, not a per-leaf concern. `pacts/services.py` is the protocol
+# per repository/service. `pacts/services.py` is the protocol
 # mirror of the services registry, so it carries the same width by definition.
 "*/inits/repositories.py" = ["PLR0904"]
+# Django loads the models only after every AppConfig module is imported, and
+# the wiring InitsConfig.ready() hands out imports them; its documented home
+# for such imports is ready() itself.
+"*/inits/apps.py" = ["PLC0415"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
@@ -430,15 +434,14 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# The specs rule breaks only transitively, through mills (e.g.
-# gates.web.django.chronology.views -> mills.chronology -> specs.chronology).
-# import-linter has no direct-imports-only mode for `forbidden`, so it stays off
-# until mills stops re-exporting specs. The others break directly.
+# TODO: mills is still imported by gates.web.django.chronology.panel.views.base
+# (panel_columns.FIELD_KEY_PREFIX, now in pacts.panel) and, through
+# adapters.web.django.error_views, by gates.web.django.urls (mills.url_recovery).
 forbidden_modules = [
-    # "ludamus.links",
-    # "ludamus.inits",
+    "ludamus.links",
+    "ludamus.inits",
     # "ludamus.mills",
-    # "ludamus.specs",
+    "ludamus.specs",
     "ludamus.edges",
 ]
 
@@ -458,11 +461,9 @@ forbidden_modules = [
 name = "inits"
 type = "forbidden"
 source_modules = ["ludamus.inits"]
-# The specs rule breaks only transitively, through mills — see the gates note.
-forbidden_modules = [
-    # "ludamus.specs",
-    "ludamus.edges",
-]
+# inits builds the mills, which read specs; only a direct import is a breach.
+allow_indirect_imports = true
+forbidden_modules = ["ludamus.specs", "ludamus.edges"]
 
 
 [[tool.importlinter.contracts]]

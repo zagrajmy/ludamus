@@ -11,18 +11,16 @@ the same path the resend button uses. Safe to run repeatedly.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypedDict, Unpack
 
 from django.core.management.base import BaseCommand
 
-from ludamus.inits.services import Services
+from ludamus.gates.cli.django import wiring
+from ludamus.gates.cli.django.management.commands._sweep import run_sweep
 
 if TYPE_CHECKING:
     from django.core.management.base import CommandParser
-
-logger = logging.getLogger(__name__)
 
 
 class _Options(TypedDict, total=False):
@@ -37,14 +35,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help=self.dry_run_help)
 
     def handle(self, *_args: *tuple[()], **options: Unpack[_Options]) -> None:
-        service = Services().email_verification
-        now = datetime.now(UTC)
-        if options.get("dry_run"):
-            due = service.count_due(now=now)
-            self.stdout.write(f"Would send verification reminders to {due} user(s).")
+        if not options.get("dry_run"):
+            run_sweep(self, "send_verification_reminders")
             return
-        sent = service.send_due_reminders(now=now)
-        logger.info("send_verification_reminders: reminded %s user(s)", sent)
-        self.stdout.write(
-            self.style.SUCCESS(f"Sent verification reminders to {sent} user(s).")
-        )
+        due = wiring.services().email_verification.count_due(now=datetime.now(UTC))
+        self.stdout.write(f"Would send verification reminders to {due} user(s).")
