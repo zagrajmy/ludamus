@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Literal, override
 
-from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.event_tools import event_tools
@@ -441,7 +440,6 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
             event_id=event.pk,
             data=FacilitatorCreateData(
                 display_name=call.data.display_name,
-                base_slug=slugify(call.data.display_name),
                 accreditation_type=AccreditationType.NONE,
             ),
             user_id=call.actor.user_id,
@@ -578,7 +576,7 @@ def _create_session(
                     "presenter_id": None,
                     "title": title,
                 },
-                base_slug=slugify(title),
+                base_slug=title,
                 facilitator_ids=data.facilitator_ids,
                 track_ids=data.track_ids,
             ),

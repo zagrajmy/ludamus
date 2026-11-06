@@ -8,7 +8,6 @@ from ludamus.mills.panel_columns import (
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.mills.slugs import unique_slug
 from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
@@ -31,6 +30,7 @@ from ludamus.pacts.panel import (
     FacilitatorPanelServiceProtocol,
     MergeErrorReason,
 )
+from ludamus.pacts.slugs import unique_slug
 from ludamus.pacts.submissions import (
     AccreditationType,
     FacilitatorActionError,
@@ -448,9 +448,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     ) -> FacilitatorDTO:
         with self._transaction.atomic():
             slug = unique_slug(
-                base=data.base_slug,
-                default="facilitator",
+                data.display_name,
                 exists=lambda s: self._repos.facilitators.slug_exists(event_id, s),
+                fallback="facilitator",
             )
             facilitator = self._repos.facilitators.create(
                 FacilitatorData(

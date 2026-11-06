@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, assert_never
 from uuid import uuid4
 
-from ludamus.mills.slugs import unique_slug
 from ludamus.pacts.crowd import (
     AgeBand,
     AgeBandRequiredError,
@@ -39,6 +38,7 @@ from ludamus.pacts.crowd import (
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.slugs import unique_slug
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
     EMAIL_VERIFICATION_RESEND_THROTTLE,
@@ -226,7 +226,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         # row can own the one the provider sub slugifies to; uniquifying also
         # caps it to the SlugField width, which an over-long sub would blow.
         data["slug"] = unique_slug(
-            base=data.get("slug", ""), default="user", exists=self._users.slug_exists
+            data.get("slug", ""), exists=self._users.slug_exists, fallback="user"
         )
         try:
             with self._transaction.savepoint():

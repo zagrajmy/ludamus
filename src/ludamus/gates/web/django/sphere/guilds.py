@@ -7,7 +7,6 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -82,12 +81,8 @@ class GuildCreatePageView(SphereAccessMixin, View):
         if not form.is_valid():
             return self._render(form)
 
-        name = form.cleaned_data["name"]
         self.request.services.guilds.create(
-            sphere_id=self.request.context.current_sphere_id,
-            # The gate slugifies; the service uniquifies against the sphere.
-            base_slug=slugify(name),
-            data=_write_data(form),
+            sphere_id=self.request.context.current_sphere_id, data=_write_data(form)
         )
         messages.success(self.request, _("Guild created."))
         return redirect("multiverse:panel:guilds")
