@@ -11,12 +11,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.mills.slugs import unique_slug
 from ludamus.pacts.guild import (
     AssignMemberOutcome,
     DeleteGuildOutcome,
     GuildServiceProtocol,
 )
+from ludamus.pacts.slugs import unique_slug
 
 if TYPE_CHECKING:
     from ludamus.pacts.guild import (
@@ -43,18 +43,16 @@ class GuildService(GuildServiceProtocol):
     def read(self, *, sphere_id: int, guild_pk: int) -> GuildDTO | None:
         return self._guilds.read(sphere_id=sphere_id, guild_pk=guild_pk)
 
-    def create(self, *, sphere_id: int, base_slug: str, data: GuildWriteData) -> int:
+    def create(self, *, sphere_id: int, data: GuildWriteData) -> int:
         with self._transaction.atomic():
-            # The gate slugifies the name (mills cannot import Django's
-            # slugify); uniquifying it against the sphere happens here. The
-            # check and the insert are not atomic against each other under READ
-            # COMMITTED, so what actually keeps slugs unique is the constraint
+            # NOTE: the check and the insert are not atomic against each other
+            # under READ COMMITTED, so what keeps slugs unique is the constraint
             # on (sphere, slug) — two managers creating the same guild name in
             # the same second means one of them sees an error and retries by
             # hand. Rare enough to leave; not rare enough to lie about.
             slug = unique_slug(
-                base=base_slug,
-                default="guild",
+                data.get("name", ""),
+                fallback="guild",
                 exists=lambda candidate: self._guilds.slug_exists(
                     sphere_id=sphere_id, slug=candidate
                 ),

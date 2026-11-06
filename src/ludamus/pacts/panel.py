@@ -156,7 +156,9 @@ class ProposalListQuery:
 class ProposalDraft:
     """A new proposal as the create form spelled it.
 
-    `base_slug` is the slugified title — the service uniquifies it.
+    `base_slug` is the text to slug, normally the title; the service slugs
+    and uniquifies it (to be folded into `data["title"]` once the panel
+    create view stops pre-slugifying).
     `field_values` holds parsed session-field answers keyed by field pk; the
     service attaches the session id once the row exists.
     """
@@ -388,16 +390,18 @@ class FacilitatorFilterOptionsDTO:
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
-    `values` holds parsed personal-data answers keyed by field pk;
-    `base_slug` is the slugified display name — the service uniquifies it.
+    `values` holds parsed personal-data answers keyed by field pk. The service
+    slugs `display_name` itself.
     """
 
     display_name: str
-    base_slug: str
     accreditation_type: str
     is_collective: bool = False
     organizer_id: int | None = None
     values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+    # TODO(hasparus): unread; drop once the facilitator-create view stops
+    # passing it.
+    base_slug: str = ""
 
 
 @dataclass

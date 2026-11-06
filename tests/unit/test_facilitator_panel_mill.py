@@ -406,9 +406,7 @@ class TestCreateFacilitator:
 
         result = service.find_or_create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result is existing
@@ -420,9 +418,7 @@ class TestCreateFacilitator:
 
         result = service.find_or_create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result.pk == _CREATED_PK
@@ -448,23 +444,20 @@ class TestCreateFacilitator:
 
         result = service.create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result.slug != "alice"
         assert result.slug.startswith("alice-")
         assert repos.facilitators.create.call_args[0][0]["slug"] == result.slug
 
-    def test_blank_base_slug_falls_back_and_the_organizer_is_kept(self):
+    def test_unsluggable_name_falls_back_and_the_organizer_is_kept(self):
         service, repos = self._create_service()
 
         service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="",
+                display_name="!!!",
                 accreditation_type="guest",
                 is_collective=True,
                 organizer_id=_MINE,
@@ -474,7 +467,7 @@ class TestCreateFacilitator:
         repos.facilitators.create.assert_called_once_with(
             {
                 "accreditation_type": "guest",
-                "display_name": "Alice",
+                "display_name": "!!!",
                 "event_id": 10,
                 "is_collective": True,
                 "organizer_id": _MINE,
@@ -490,10 +483,7 @@ class TestCreateFacilitator:
         service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "yes"},
+                display_name="Alice", accreditation_type="none", values={5: "yes"}
             ),
             user_id=_USER_ID,
         )
@@ -980,10 +970,7 @@ class TestCreateWithAnswers:
         result = service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "Vegan"},
+                display_name="Alice", accreditation_type="none", values={5: "Vegan"}
             ),
             user_id=_ACTOR,
         )
@@ -1014,10 +1001,7 @@ class TestCreateWithAnswers:
         result = service.find_or_create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "Vegan"},
+                display_name="Alice", accreditation_type="none", values={5: "Vegan"}
             ),
             user_id=_ACTOR,
         )

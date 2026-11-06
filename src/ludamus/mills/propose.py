@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import (
@@ -23,6 +22,7 @@ from ludamus.pacts.propose import (
     ProposeSessionServiceProtocol,
     ReusableSessionDTO,
 )
+from ludamus.pacts.slugs import unique_slug
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import (
     PROPOSAL_RATE_LIMIT_SECONDS,
@@ -31,7 +31,7 @@ from ludamus.specs.proposal import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Mapping
 
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
@@ -65,10 +65,6 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         self._transaction = transaction
         self._repos = repos
         self._cache = cache
-
-    @staticmethod
-    def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-        return generate_unique_slug(title, exists)
 
     def get_event(self, slug: str, sphere_id: int) -> EventDTO:
         return self._repos.events.read_by_slug(slug, sphere_id)
@@ -176,8 +172,10 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 )
             except NotFoundError:
                 pass
-        slug = self._generate_unique_slug(
-            display_name, lambda s: self._repos.facilitators.slug_exists(event.pk, s)
+        slug = unique_slug(
+            display_name,
+            exists=lambda s: self._repos.facilitators.slug_exists(event.pk, s),
+            fallback="facilitator",
         )
         return self._repos.facilitators.create(
             FacilitatorData(
@@ -218,8 +216,10 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         facilitator_name = str(
             session_data.get(FACILITATOR_NAME_FIELD, default_facilitator_name)
         )
-        slug = self._generate_unique_slug(
-            title, lambda s: self._repos.sessions.slug_exists(event.pk, s)
+        slug = unique_slug(
+            title,
+            exists=lambda s: self._repos.sessions.slug_exists(event.pk, s),
+            fallback="session",
         )
 
         with self._transaction.atomic():
