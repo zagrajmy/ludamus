@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 from http import HTTPStatus
 from importlib import import_module
@@ -48,6 +49,9 @@ class TestWideEventMiddleware:
 
         (event,) = _wide_events(events)
         assert event.ray_id == RAY_ID
+        assert event.environment == "test"
+        assert event.commit == django_settings.COMMIT_SHA
+        assert event.worker == os.getpid()
         assert event.method == "GET"
         assert event.path == "/"
         assert event.view == "web:index"

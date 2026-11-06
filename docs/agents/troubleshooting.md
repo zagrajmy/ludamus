@@ -76,10 +76,11 @@ next discriminating check. Never turn an event gap into a root-cause claim.
 
 The origin writes one JSON line per request (`WideEventMiddleware`, logger
 `ludamus.gates.web.django.wide_event`), carrying what the request did rather
-than a trail of narration: `ray_id`, `method`, `path` (redacted like the
-PostHog path), `route`, `view`, `status`, `outcome`, `duration_ms`,
-`db_queries`, `db_ms`, `sphere_id`, `user_id`, `language`, `htmx`, and on a
-fault `error_type` / `error_message`. `ray_id` is Cloudflare's `CF-Ray`, so
+than a trail of narration: `ray_id`, `environment`, `commit`, `worker` (the
+gunicorn worker's pid), `method`, `path` (redacted like the PostHog path),
+`route`, `view`, `status`, `outcome`, `duration_ms`, `db_queries`, `db_ms`,
+`sphere_id`, `user_id`, `language`, `htmx`, and on a fault `error_type` /
+`error_message`. `ray_id` is Cloudflare's `CF-Ray`, so
 the id a user reads off an edge error page finds the origin line directly:
 
 ```text

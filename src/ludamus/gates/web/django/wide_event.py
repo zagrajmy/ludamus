@@ -9,6 +9,7 @@ any inner middleware still shows up as a 500 event.
 from __future__ import annotations
 
 import logging
+import os
 import time
 import uuid
 from contextvars import ContextVar
@@ -19,7 +20,7 @@ from django.conf import settings
 from django.db import connection
 from django.utils.translation import get_language
 
-from ludamus.links.analytics import redaction
+from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -65,6 +66,12 @@ class WideEventMiddleware:
             # the user sees on an edge error page and what its logs are
             # keyed by, so one search covers edge, origin and the report.
             "ray_id": request.headers.get("CF-Ray") or uuid.uuid4().hex,
+            # Which build and which of the gunicorn workers served it, so a
+            # regression lines up with a deploy and a wedged worker with its
+            # requests.
+            "environment": identity.environment(),
+            "commit": settings.COMMIT_SHA,
+            "worker": os.getpid(),
             "method": request.method,
             "path": redaction.safe_path(request.path_info),
             "htmx": request.headers.get("HX-Request") == "true",
