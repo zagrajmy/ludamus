@@ -1,0 +1,10 @@
+id: voice-call-sites
+valid:
+  - "with speaking_to(account_reader(user_id)) as recipient: pass"
+  - "voice_note = 1"
+invalid:
+  - |
+    with Voice(translation.get_language(), address=user.email) as voice:
+        compose_mail(voice, subject=subject, body=body)
+  - "from ludamus.links.db.django.recipients import Voice as Speaker"
+  - "speaker = recipients.Voice"

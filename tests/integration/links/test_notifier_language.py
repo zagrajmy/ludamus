@@ -195,7 +195,7 @@ class TestRecipient:
 
     def test_refuses_a_voice_in_another_language_than_its_readers(self):
         with (
-            Voice("en") as voice,
+            Voice("en", address="o@example.com") as voice,
             pytest.raises(NotSpeakingError, match="A en voice for a pl reader"),
         ):
             Recipient(self.reader, voice).confirm()
@@ -205,4 +205,27 @@ class TestRecipient:
             translation.override("pl"),
             pytest.raises(NotSpeakingError, match="outside a speaking block"),
         ):
-            Recipient(self.reader, Voice("pl")).confirm()
+            Recipient(self.reader, Voice("pl", address="o@example.com")).confirm()
+
+    def test_a_reader_with_no_language_reads_the_site_default(self, settings):
+        settings.LANGUAGE_CODE = "pl"
+        reader = AccountReader(user_id=1, language="", deliverable_email="")
+
+        with speaking_to(reader) as recipient:
+            assert recipient.confirm() == reader
+
+
+class TestVoice:
+    def test_holds_one_block_at_a_time(self):
+        voice = Voice("pl", address="guest@example.com")
+
+        with voice, pytest.raises(RuntimeError, match="one block at a time"), voice:
+            pass
+
+    def test_hands_over_its_address_only_inside_its_block(self):
+        voice = Voice("pl", address="guest@example.com")
+
+        with voice:
+            assert voice.mail_to() == "guest@example.com"
+        with pytest.raises(NotSpeakingError):
+            voice.mail_to()

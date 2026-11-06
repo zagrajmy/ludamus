@@ -10,8 +10,9 @@ rule:
   any:
     - pattern: Notification($$$)
     - pattern: $M.Notification($$$)
-    - pattern: Notification.objects.$METHOD($$$)
-    - pattern: $M.Notification.objects.$METHOD($$$)
+    - pattern: Notification.$MANAGER.$METHOD($$$)
+    - pattern: $M.Notification.$MANAGER.$METHOD($$$)
+    - pattern: $X.notifications.$METHOD($$$)
     - pattern: from django.core.mail import $$$
     - pattern: from django.core import mail
     - pattern: from django.core import mail as $A
@@ -38,5 +39,5 @@ constraints:
 message: |
   Notifications and mail are written in their reader's language, not the
   sender's. Compose them inside `speaking_to(...)` (an account) or
-  `with Voice(language)` (an address), and deliver through
-  links/db/django/delivery.py with the Recipient or Voice.
+  `with Voice(language, address=...)` (an address alone), and deliver
+  through links/db/django/delivery.py with the Recipient or Voice.

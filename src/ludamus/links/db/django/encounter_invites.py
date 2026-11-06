@@ -62,7 +62,9 @@ class DjangoEncounterInviteMailer:
         languages = address_languages({i.attendee_email for i in deliverable})
         messages = []
         for invite in deliverable:
-            with Voice(languages[invite.attendee_email]) as voice:
+            with Voice(
+                languages[invite.attendee_email], address=invite.attendee_email
+            ) as voice:
                 messages.append(_message(invite, voice=voice))
 
         def _send() -> None:
@@ -162,7 +164,6 @@ def _message(invite: EncounterInvite, *, voice: Voice) -> Mail:
         voice,
         subject=_subject(invite),
         body=_body(invite, url),
-        to=invite.attendee_email,
         ics=ics,
         method=invite.reason.method,
     )

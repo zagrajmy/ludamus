@@ -124,6 +124,7 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
                 title=form.cleaned_data["title"],
                 body=form.cleaned_data["body"],
                 url=form.cleaned_data["url"],
+                payload={},
             )
             self.message_user(request, f"Notification sent to {sent} user(s).")
             return None

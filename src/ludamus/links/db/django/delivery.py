@@ -57,7 +57,7 @@ def ring_as_written(
     title: str,
     body: str,
     url: str,
-    payload: Mapping[str, str | int] | None = None,
+    payload: Mapping[str, str | int],
 ) -> int:
     """Ring each recipient's bell with text a person wrote, as they wrote it.
 
@@ -77,7 +77,7 @@ def ring_as_written(
                 title=title,
                 body=body,
                 url=url,
-                payload=dict(payload or {}),
+                payload=dict(payload),
             )
             for recipient_id in recipient_ids
         ],
@@ -100,26 +100,22 @@ def compose_mail(
     *,
     subject: str,
     body: str,
-    to: str,
     headers: Mapping[str, str] | None = None,
 ) -> EmailMessage:
-    speaker.confirm()
     return EmailMessage(
-        subject=_subject_line(subject), body=body, to=[to], headers=dict(headers or {})
+        subject=_subject_line(subject),
+        body=body,
+        to=[speaker.mail_to()],
+        headers=dict(headers or {}),
     )
 
 
 def compose_calendar_mail(
-    speaker: Voice | Recipient,
-    *,
-    subject: str,
-    body: str,
-    to: str,
-    ics: str,
-    method: str,
+    speaker: Voice | Recipient, *, subject: str, body: str, ics: str, method: str
 ) -> EmailMultiAlternatives:
-    speaker.confirm()
-    message = EmailMultiAlternatives(subject=_subject_line(subject), body=body, to=[to])
+    message = EmailMultiAlternatives(
+        subject=_subject_line(subject), body=body, to=[speaker.mail_to()]
+    )
     message.attach_alternative(ics, f"text/calendar; method={method}; charset=utf-8")
     return message
 

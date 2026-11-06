@@ -169,9 +169,7 @@ def _deliver(
             reader.user_id,
         )
         return
-    message = compose_mail(
-        recipient, subject=title, body=f"{body}\n\n{url}", to=reader.deliverable_email
-    )
+    message = compose_mail(recipient, subject=title, body=f"{body}\n\n{url}")
     transaction.on_commit(partial(send, message))
 
 
@@ -225,7 +223,6 @@ class _SphereSubscriptionMail:
             recipient,
             subject=title,
             body=f"{body}\n\n{url}\n\n-- \n{self.footer()}",
-            to=reader.deliverable_email,
             headers=self.headers(),
         )
 
@@ -679,14 +676,9 @@ class DjangoUserNotifier:
             return
         # NOTE: unproven, unlike an account's address: the proposer gave this
         # address for status updates, and only an organizer can trigger this.
-        with Voice(notification.language) as voice:
+        with Voice(notification.language, address=notification.contact_email) as voice:
             title, body, url = _acceptance_copy(notification)
-            message = compose_mail(
-                voice,
-                subject=title,
-                body=f"{body}\n\n{url}",
-                to=notification.contact_email,
-            )
+            message = compose_mail(voice, subject=title, body=f"{body}\n\n{url}")
 
         def _send_email() -> None:
             if send(message):

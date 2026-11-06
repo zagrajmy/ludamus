@@ -34,20 +34,26 @@ class NotSpeakingError(RuntimeError):
 
 
 class Voice:
-    """A reader's language, in force while a message is written in it.
+    """An address's language, in force while a message to it is written.
 
-    An empty language (a reader never seen signed in, a proposer who left
-    none) is the site default.
+    For mail to an address alone (an encounter guest, an anonymous
+    proposer); an account's goes through `speaking_to`. An empty language
+    (none stored) is the site default. One block at a time.
     """
 
-    __slots__ = ("_active", "_language", "_override")
+    __slots__ = ("_active", "_address", "_language", "_override")
 
-    def __init__(self, language: str) -> None:
+    def __init__(self, language: str, *, address: str) -> None:
         self._language = _language(language)
-        self._override = translation.override(self._language)
+        self._address = address
+        self._override: translation.override | None = None
         self._active: str | None = None
 
     def __enter__(self) -> Self:
+        if self._override is not None:
+            msg = "A Voice holds one block at a time"
+            raise RuntimeError(msg)
+        self._override = translation.override(self._language)
         self._override.__enter__()
         self._active = translation.get_language()
         return self
@@ -58,8 +64,9 @@ class Voice:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self._active = None
-        self._override.__exit__(exc_type, exc, traceback)
+        override, self._override, self._active = self._override, None, None
+        if override is not None:
+            override.__exit__(exc_type, exc, traceback)
 
     @property
     def language(self) -> str:
@@ -78,6 +85,15 @@ class Voice:
         if (active := translation.get_language()) != self._active:
             msg = f"Delivery in {active} to a {self._language} reader"
             raise NotSpeakingError(msg)
+
+    def mail_to(self) -> str:
+        """Hand over the address, once its language is in force.
+
+        Returns:
+            The address the message was composed for.
+        """
+        self.confirm()
+        return self._address
 
 
 @dataclass(frozen=True)
@@ -107,18 +123,23 @@ class Recipient:
                 language than the reader's.
         """
         self._voice.confirm()
-        if self._voice.language != self._reader.language:
-            msg = (
-                f"A {self._voice.language} voice for a "
-                f"{self._reader.language} reader"
-            )
+        if self._voice.language != (expected := _language(self._reader.language)):
+            msg = f"A {self._voice.language} voice for a {expected} reader"
             raise NotSpeakingError(msg)
         return self._reader
+
+    def mail_to(self) -> str:
+        """Hand over the reader's deliverable address, once in their language.
+
+        Returns:
+            The address, empty when the reader has none to mail.
+        """
+        return self.confirm().deliverable_email
 
 
 @contextmanager
 def speaking_to(reader: AccountReader) -> Generator[Recipient]:
-    with Voice(reader.language) as voice:
+    with Voice(reader.language, address=reader.deliverable_email) as voice:
         yield Recipient(reader, voice)
 
 
