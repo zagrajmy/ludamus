@@ -33,19 +33,20 @@ from ludamus.gates.web.django.event.panel.import_durations import (
     duration_values_from_post,
     option_durations,
 )
-from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
     MAX_DURATION_MINUTES,
     InvalidDurationError,
 )
+from ludamus.pacts.slugs import slugify
 from ludamus.pacts.submissions import (
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
     ImportLogStatus,
     ImportSettings,
+    MissingKeyColumnsError,
     QuestionTarget,
     QuestionValue,
     TimeSlotSpec,

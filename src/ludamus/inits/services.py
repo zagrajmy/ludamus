@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_credentials_decryptor,
+    build_credentials_encryptor,
     build_email_verification,
     build_encounter_guests,
     build_encounters,
@@ -17,21 +19,18 @@ from ludamus.inits.builders import (
     build_waitlist_promotion,
 )
 from ludamus.inits.dbos_scheduler import (
-    DBOSAnnouncementFanoutScheduler,
-    DBOSOfferExpiryScheduler,
+    announcement_fanout_scheduler,
+    offer_expiry_scheduler,
 )
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
-from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
@@ -123,6 +122,7 @@ from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
+    from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.mills.listing import ListingService
     from ludamus.pacts.chronology import (
@@ -130,15 +130,10 @@ if TYPE_CHECKING:
         IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
-    from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
-    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
 
 
 class Services:
-    """Lazy flat service namespace exposed on `request.services`.
-
-    Buckets will appear when the leaf count grows past ~12.
-    """
+    """Lazy flat service namespace exposed on `request.services`."""
 
     def __init__(self) -> None:
         self._repos = Repositories()
@@ -187,9 +182,8 @@ class Services:
 
     @cached_property
     def connections(self) -> ConnectionsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return ConnectionsService(
-            self._transaction, self._repos.connections, FernetEncryptor(key)
+            self._transaction, self._repos.connections, build_credentials_encryptor()
         )
 
     @cached_property
@@ -257,16 +251,7 @@ class Services:
         return AnnouncementsService(
             self._transaction,
             self._repos.announcements,
-            self._announcement_fanout_scheduler(),
-        )
-
-    @staticmethod
-    def _announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
-        scheduler_mode: str = settings.SCHEDULER_MODE
-        return (
-            DBOSAnnouncementFanoutScheduler()
-            if scheduler_mode == "dbos"
-            else CronSweepAnnouncementFanout()
+            announcement_fanout_scheduler(),
         )
 
     @cached_property
@@ -406,7 +391,7 @@ class Services:
             self._transaction,
             self._repos.sessions,
             self._repos.agenda_items,
-            ScheduleChangeLogRepository(),
+            self._repos.schedule_change_logs,
         )
 
     @cached_property
@@ -455,7 +440,7 @@ class Services:
 
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
-        return build_waitlist_promotion(self._offer_expiry_scheduler())
+        return build_waitlist_promotion(offer_expiry_scheduler())
 
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentService:
@@ -464,15 +449,6 @@ class Services:
             user_repository=self._repos.anonymous_users,
             enrollment_repository=self._repos.anonymous_enrollment,
             waitlist_promotion=self.waitlist_promotion,
-        )
-
-    @staticmethod
-    def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
-        scheduler_mode: str = settings.SCHEDULER_MODE
-        return (
-            DBOSOfferExpiryScheduler()
-            if scheduler_mode == "dbos"
-            else CronSweepOfferScheduler()
         )
 
     @cached_property
@@ -549,11 +525,6 @@ class Services:
         )
 
     @cached_property
-    def _decryptor(self) -> FernetDecryptor:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        return FernetDecryptor(key)
-
-    @cached_property
     def tags(self) -> TagService:
         return TagService(self._transaction, self._repos.tags)
 
@@ -567,7 +538,11 @@ class Services:
 
     @cached_property
     def encounters(self) -> EncounterService:
-        return build_encounters(self.sites)
+        return build_encounters(self.sites, self._encounter_guests)
+
+    @cached_property
+    def _encounter_guests(self) -> EncounterGuests:
+        return build_encounter_guests(self.sites)
 
     @cached_property
     def encounter_replies(self) -> EncounterReplyService:
@@ -576,7 +551,7 @@ class Services:
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
-            guests=build_encounter_guests(self.sites),
+            guests=self._encounter_guests,
             reply_addresses=SignedReplyAddress(),
             sites=self.sites,
         )
@@ -613,7 +588,7 @@ class Services:
             transaction=self._transaction,
             integrations=self._repos.event_integrations,
             connections=self._repos.connections,
-            decryptor=self._decryptor,
+            decryptor=build_credentials_decryptor(),
             implementations=IntegrationImplementations(
                 imports=self._import_implementations,
                 ticketing=self._ticketing_implementations,

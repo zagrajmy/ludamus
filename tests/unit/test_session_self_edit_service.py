@@ -3,11 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.chronology import (
-    SessionContentEditService,
-    SessionEditNotAllowedError,
-    SessionSelfEditService,
-)
+from ludamus.mills.chronology import SessionContentEditService, SessionSelfEditService
+from ludamus.pacts.chronology import SessionEditNotAllowedError
 from ludamus.pacts.legacy import (
     NotFoundError,
     SessionFieldValueData,

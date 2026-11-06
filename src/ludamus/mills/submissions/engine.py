@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
-    MissingKeyColumnsError,
     ResolvedBuiltins,
     RowSkippedError,
     build_personal_data_field_values,
@@ -44,6 +43,7 @@ from ludamus.pacts.submissions import (
     ImportRepos,
     ImportRow,
     ImportSettings,
+    MissingKeyColumnsError,
     ProposalImportResult,
     TimeSlotSpec,
 )

@@ -6,7 +6,7 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, tzinfo
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
@@ -41,6 +41,66 @@ if TYPE_CHECKING:
 # a reader at 02:00 is still living Friday. Every schedule layout, server- and
 # client-side alike, turns its days over at this hour.
 PROGRAMME_DAY_STARTS_AT_HOUR = 6
+
+type Window = tuple[datetime, datetime]
+
+
+@dataclass(frozen=True)
+class DayTurnover:
+    # Where a day begins: the hour, local to the event, at which one day ends
+    # and the next opens. Everything that asks "which day is this instant on"
+    # asks the same turnover, so the answers agree.
+    hour: int
+
+    def date_of(self, instant: datetime, tz: tzinfo) -> date:
+        # The date whose day holds the instant: at 02:00 on a Saturday whose
+        # days turn at 06:00, that is still Friday. Wall-clock arithmetic on
+        # purpose — a clock change that night moves the turnover with it.
+        return (instant.astimezone(tz) - timedelta(hours=self.hour)).date()
+
+    def opening(self, day: date, tz: tzinfo) -> datetime:
+        # The instant the day opens: its name and date are the day's.
+        return datetime.combine(day, time(self.hour), tzinfo=tz)
+
+    def windows(self, *, start: datetime, end: datetime, tz: tzinfo) -> list[Window]:
+        # An interval spanning multiple days contributes one (start, end)
+        # window to each day it touches, clamped to that day's 24 hours.
+        local_start = start.astimezone(tz)
+        local_end = end.astimezone(tz)
+        first_date = self.date_of(local_start, tz)
+        last_date = self.date_of(local_end, tz)
+        if first_date == last_date:
+            # Nearly every session: within one day, nothing to clamp. The
+            # loop below would answer the same, at the cost of two openings
+            # and four timestamps per session on a page of a thousand.
+            # Timestamps, as below: two wall clocks in the repeated autumn
+            # hour compare by their fold-less naive value.
+            if local_start.timestamp() < local_end.timestamp():
+                return [(local_start, local_end)]
+            return []
+        # NOTE: clamp by instant, not wall clock. Aware datetimes sharing a
+        # tzinfo compare by their fold-less naive value, and a zone whose DST
+        # change lands on the turnover hour itself (America/Havana ends DST at
+        # 00:00) gives an opening and a window edge the same wall time an hour
+        # apart.
+        windows: list[Window] = []
+        for offset in range((last_date - first_date).days + 1):  # pragma: no mutate
+            day = first_date + timedelta(days=offset)
+            window_start = max(
+                local_start, self.opening(day, tz), key=datetime.timestamp
+            )
+            window_end = min(
+                local_end,
+                self.opening(day + timedelta(days=1), tz),
+                key=datetime.timestamp,
+            )
+            if window_start.timestamp() < window_end.timestamp():
+                windows.append((window_start, window_end))
+        return windows
+
+
+MIDNIGHT = DayTurnover(0)
+PROGRAMME_DAYS = DayTurnover(PROGRAMME_DAY_STARTS_AT_HOUR)
 
 
 class IntegrationKind(StrEnum):
@@ -242,6 +302,10 @@ class ContentChangeNotLatestError(Exception):
 
 class ContentChangeNotRevertibleError(Exception):
     """Every entry in the change is irreversible (cover image, assignments)."""
+
+
+class SessionEditNotAllowedError(Exception):
+    """Raised when a user may not self-edit the requested session."""
 
 
 class SessionContentEditServiceProtocol(Protocol):

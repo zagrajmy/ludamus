@@ -48,15 +48,9 @@ from ludamus.gates.web.django.forms import (
 from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
-from ludamus.mills.panel_facilitators import (
-    MIN_MERGE_FACILITATORS,
-    accreditation_reconcile,
-    field_reconcile,
-    merge_target,
-    name_reconcile,
-)
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.panel import (
+    MIN_MERGE_FACILITATORS,
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
@@ -381,34 +375,24 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         error: str | None,
     ) -> HttpResponse:
         try:
-            merge_context = self.request.services.facilitator_panel.merge_context(
-                event_id=event_id, facilitator_slugs=basket_slugs
+            preview = self.request.services.facilitator_panel.merge_context(
+                event_id=event_id,
+                facilitator_slugs=basket_slugs,
+                target_slug=target_slug,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitator-merge", slug=slug)
 
         self._base_context(context, slug)
-        target = merge_target(merge_context.facilitators, slug=target_slug)
-        name_choices, unanimous_name = name_reconcile(
-            merge_context.facilitators, target=target
-        )
-        accreditation_values, unanimous_accreditation = accreditation_reconcile(
-            merge_context.facilitators, target=target
-        )
-        # Only the disputed fields need a control: the merge keeps a unanimous
-        # answer itself, so nothing about it round-trips through the browser.
-        field_conflicts, _unanimous_field_values = field_reconcile(
-            merge_context, target_pk=target.pk
-        )
         context["confirm"] = True
-        context["facilitators"] = merge_context.facilitators
+        context["facilitators"] = preview.facilitators
         context["target_choices"] = [
-            (facilitator, facilitator.pk == target.pk)
-            for facilitator in merge_context.facilitators
+            (facilitator, facilitator.pk == preview.target.pk)
+            for facilitator in preview.facilitators
         ]
-        context["name_choices"] = name_choices
-        context["unanimous_display_name"] = unanimous_name
+        context["name_choices"] = preview.name_choices
+        context["unanimous_display_name"] = preview.unanimous_display_name
         context["accreditation_choices"] = [
             (
                 value,
@@ -416,9 +400,9 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                 sources,
                 checked,
             )
-            for value, sources, checked in accreditation_values
+            for value, sources, checked in preview.accreditation_choices
         ]
-        context["unanimous_accreditation"] = unanimous_accreditation
+        context["unanimous_accreditation"] = preview.unanimous_accreditation
         context["field_choices"] = [
             (
                 field,
@@ -427,7 +411,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                     for pk, value, sources, checked in choices
                 ],
             )
-            for field, choices in field_conflicts
+            for field, choices in preview.field_conflicts
         ]
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)

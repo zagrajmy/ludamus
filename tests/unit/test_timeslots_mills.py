@@ -3,12 +3,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ludamus.mills.timeslots import (
-    MIDNIGHT,
-    PROGRAMME_DAYS,
-    DayTurnover,
-    slot_windows_by_local_date,
-)
+from ludamus.mills.timeslots import slot_windows_by_local_date
+from ludamus.pacts.chronology import MIDNIGHT, PROGRAMME_DAYS, DayTurnover
 from ludamus.pacts.legacy import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")

@@ -5,40 +5,24 @@ that is what lets those flows work without a login — so such a path is a
 credential, not a location.
 
 The rules are not written here. `gates` derives them from the URLconf, which is
-the only place that knows which segments are parameters, and registers them at
-startup; this module only applies them. Both halves of the integration consume
-that one list: the server through `safe_path`, the browser through
-`client_patterns`, which the context processor ships in the page. One
+the only place that knows which segments are parameters, and `inits` hands that
+derivation over at startup; this module only applies them. Both halves of the
+integration consume that one list: the server through `safe_path`, the browser
+through `client_patterns`, which the context processor ships in the page. One
 derivation, two consumers, so neither half can drift from the routes.
 """
 
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
+
+from ludamus.pacts.analytics import RedactionRule
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-SECRET_URL_KWARGS = frozenset({"token"})
-
-
-class Rule(NamedTuple):
-    """One substitution, in each engine's own dialect.
-
-    Python and ECMAScript spell a named group differently — `(?P<p1>…)` versus
-    `(?<p1>…)` — and a JavaScript RegExp raises on Python's form, which would
-    take down `posthog.init` and with it every event on the page. Both sides are
-    built from the route rather than derived from one another.
-    """
-
-    pattern: re.Pattern[str]
-    python: str
-    javascript_pattern: str
-    javascript: str
-
-
-# Always applied, before anything gates registers. It makes redaction
+# Always applied, even before the derived rules arrive. It makes redaction
 # independent of startup order, of the kwarg still being spelled `token`, and
 # of the route being a path() rather than a re_path() the walk skips.
 # The claim and offer tokens are token_urlsafe(48), invariably 64 characters.
@@ -57,7 +41,7 @@ class Rule(NamedTuple):
 # analytics and replay. Lower-case hex is excluded for the same reason — a
 # gravatar URL ends in a sha256 digest, also 64 characters, and a token is
 # base64url so it carries upper case or -_ that a digest never can.
-_FLOOR = Rule(
+_FLOOR = RedactionRule(
     re.compile(r"/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)"),
     "/:token",
     r"/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)",
@@ -66,7 +50,7 @@ _FLOOR = Rule(
 
 
 class _Rules:
-    """What gates registered, built on first use rather than at startup.
+    """What gates derives, built on first use rather than at startup.
 
     Deriving the rules means walking the URLconf, which imports every view. Held
     behind a callable, that cost lands on the first event instead of on every
@@ -75,18 +59,18 @@ class _Rules:
     """
 
     def __init__(self) -> None:
-        self._build: Callable[[], list[Rule]] | None = None
-        self._cache: list[Rule] | None = None
+        self._build: Callable[[], list[RedactionRule]] | None = None
+        self._cache: list[RedactionRule] | None = None
 
-    def set_builder(self, build: Callable[[], list[Rule]]) -> None:
+    def set_builder(self, build: Callable[[], list[RedactionRule]]) -> None:
         self._build = build
         self._cache = None
 
-    def set(self, rules: list[Rule]) -> None:
+    def set(self, rules: list[RedactionRule]) -> None:
         self._build = None
         self._cache = list(rules)
 
-    def get(self) -> list[Rule]:
+    def get(self) -> list[RedactionRule]:
         if self._cache is None:
             self._cache = list(self._build()) if self._build else []
         return self._cache
@@ -95,12 +79,12 @@ class _Rules:
 _rules = _Rules()
 
 
-def register_builder(build: Callable[[], list[Rule]]) -> None:
+def register_builder(build: Callable[[], list[RedactionRule]]) -> None:
     """Hand over how to derive the rules. Called once, at startup."""
     _rules.set_builder(build)
 
 
-def register(rules: list[Rule]) -> None:
+def register(rules: list[RedactionRule]) -> None:
     """Install rules directly, bypassing the builder. For tests."""
     _rules.set(rules)
 

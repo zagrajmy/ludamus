@@ -56,6 +56,21 @@ class DuplicateValueError(Exception):
         self.values = values
 
 
+class MissingKeyColumnsError(Exception):
+    # Raised when settings.unique_key_columns or .facilitator_key_columns names
+    # headers the source sheet doesn't carry (e.g. the English
+    # "Timestamp"/"Email Address" defaults saved against a Polish-localized form
+    # whose real headers are "Sygnatura czasowa"/"Adres e-mail"). Left silent,
+    # the identity collapses to the columns that *do* match — distinct rows
+    # share a slug and get merged, and a renamed facilitator silently falls back
+    # to display-name dedup. Abort loudly instead of quietly losing records.
+    def __init__(self, columns: list[str]) -> None:
+        super().__init__(
+            "Key columns missing from the sheet: " + ", ".join(repr(c) for c in columns)
+        )
+        self.columns = columns
+
+
 class ImportRow:
     # A single response row read from the source spreadsheet. Form-linked
     # sheets suffix duplicate question columns with " (2)", " (3)", ... and

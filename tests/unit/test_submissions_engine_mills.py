@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.submissions.engine import FieldIdsByHeader, ImportEngine
-from ludamus.mills.submissions.mapping import MissingKeyColumnsError, dedup_ident
+from ludamus.mills.submissions.mapping import dedup_ident
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import (
@@ -28,6 +28,7 @@ from ludamus.pacts.submissions import (
     ImportRepos,
     ImportRow,
     ImportSettings,
+    MissingKeyColumnsError,
     ProposalImportResult,
     QuestionTarget,
     TimeSlotSpec,
