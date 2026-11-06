@@ -3,7 +3,6 @@ from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any
 
 from django import forms
@@ -18,7 +17,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
 from django.views.decorators.vary import vary_on_cookie as vary_cookie
-from django.views.generic.base import TemplateView, View
+from django.views.generic.base import View
 from django.views.generic.detail import DetailView
 
 from ludamus.adapters.web.django.forms import (
@@ -26,9 +25,9 @@ from ludamus.adapters.web.django.forms import (
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import fake_full_seats
 from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    EnrollmentChoice,
     PartyMemberFlags,
     SessionUserParticipationData,
 )
@@ -36,6 +35,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
+    fake_full_seats,
     filter_availability,
     filterable_tag_fields,
     mask_session_card,
@@ -104,15 +104,6 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
 )
 
-from .design_fixtures import (
-    mock_event_info,
-    mock_form,
-    mock_session_data,
-    mock_session_data_ended,
-    mock_session_data_overflow,
-    mock_session_proposal,
-    mock_user,
-)
 from .forms import AllowanceCheck, EnrollmentForm, create_enrollment_form
 
 if TYPE_CHECKING:
@@ -124,27 +115,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet
-
-
-@method_decorator(cache_control(public=True, max_age=300), name="get")
-class DesignPageView(TemplateView):
-    request: RootRequest
-    template_name = "design.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["design_event"] = mock_event_info()
-        context["design_session_data"] = mock_session_data()
-        context["design_session_data_ended"] = mock_session_data_ended()
-        context["design_session_data_overflow"] = mock_session_data_overflow()
-        context["design_session_proposal"] = mock_session_proposal()
-        context["design_user"] = mock_user()
-        context["design_form"] = mock_form()
-        context["design_radio_options"] = [
-            ("a", "Radio A", True, "design-radio-a"),
-            ("b", "Radio B", False, "design-radio-b"),
-        ]
-        return context
 
 
 def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:
@@ -616,13 +586,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         return sessions_data
 
 
-class EnrollmentChoice(StrEnum):
-    CANCEL = auto()
-    ENROLL = auto()
-    WAITLIST = auto()
-    BLOCK = auto()
-
-
 @dataclass
 class EnrollmentRequest:
     user: UserDTO
@@ -731,8 +694,8 @@ def _get_session_or_redirect(
 
 
 _status_by_choice = {
-    "enroll": SessionParticipationStatus.CONFIRMED,
-    "waitlist": SessionParticipationStatus.WAITING,
+    EnrollmentChoice.ENROLL: SessionParticipationStatus.CONFIRMED,
+    EnrollmentChoice.WAITLIST: SessionParticipationStatus.WAITING,
 }
 
 
@@ -1197,9 +1160,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 # skipped in processing anyway); leave them untouched.
                 if currently_in or Session.objects.has_conflicts(session, user):
                     continue
-                if "enroll" in choices or "waitlist" in choices:
+                if (
+                    EnrollmentChoice.ENROLL in choices
+                    or EnrollmentChoice.WAITLIST in choices
+                ):
                     wants_in.append(member)
-            elif currently_in and "cancel" in choices:
+            elif currently_in and EnrollmentChoice.CANCEL in choices:
                 cancels.append(
                     EnrollmentRequest(
                         user=user,
@@ -1272,9 +1238,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 if not has_room:
                     continue
                 choice = EnrollmentChoice.ENROLL
-            elif has_room and "enroll" in choices:
+            elif has_room and EnrollmentChoice.ENROLL in choices:
                 choice = EnrollmentChoice.ENROLL
-            elif "waitlist" in choices:
+            elif EnrollmentChoice.WAITLIST in choices:
                 choice = EnrollmentChoice.WAITLIST
             else:
                 # Full and this person cannot wait (limit reached / no access).
@@ -1293,15 +1259,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return routed
 
     @staticmethod
-    def _choice_values(form: forms.Form, user_pk: int) -> set[str]:
+    def _choice_values(form: forms.Form, user_pk: int) -> set[EnrollmentChoice]:
         form_field = form.fields.get(f"user_{user_pk}")
         if not isinstance(form_field, forms.ChoiceField):
             return set()
-        return {
-            value
-            for value in ("enroll", "waitlist", "cancel")
-            if form_field.valid_value(value)
-        }
+        return {choice for choice in EnrollmentChoice if form_field.valid_value(choice)}
 
     def _process_enrollments(
         self,
@@ -1385,11 +1347,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # companion enrolling in the same submit (e.g. swapping a seat on a
         # full session).
         ordered_requests = sorted(
-            enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1
+            enrollment_requests,
+            key=lambda req: 0 if req.choice == EnrollmentChoice.CANCEL else 1,
         )
 
         for req in ordered_requests:
-            if req.choice == "cancel":
+            if req.choice == EnrollmentChoice.CANCEL:
                 self._handle_cancellation(req, participations, enrollments)
             else:
                 self._check_and_create_enrollment(
@@ -1478,7 +1441,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return
 
         # Check for time conflicts for confirmed enrollment
-        if req.choice == "enroll" and Session.objects.has_conflicts(session, req.user):
+        if req.choice == EnrollmentChoice.ENROLL and Session.objects.has_conflicts(
+            session, req.user
+        ):
             enrollments.skipped_users.append(
                 _("%(name)s (time conflict)") % {"name": req.name}
             )
@@ -1602,14 +1567,18 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
     ) -> bool:
-        member_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        member_count = sum(
+            1 for req in enrollment_requests if req.choice == EnrollmentChoice.ENROLL
+        )
         if (enroll_count := member_count + guest_seats_needed) == 0:
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
         # OFFERED both occupy capacity) — credit it back before checking.
         cancelling_user_ids = {
-            req.user.pk for req in enrollment_requests if req.choice == "cancel"
+            req.user.pk
+            for req in enrollment_requests
+            if req.choice == EnrollmentChoice.CANCEL
         }
         freed_spots = guest_seats_freed
         if cancelling_user_ids:

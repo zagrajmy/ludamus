@@ -1,6 +1,7 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.adapters.web.django import views
 from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
@@ -10,6 +11,7 @@ from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
@@ -26,8 +28,6 @@ from ludamus.gates.web.django.notice_board.urls import (
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
-
-from . import views
 
 app_name = "web"  # pylint: disable=invalid-name
 
@@ -137,7 +137,7 @@ urlpatterns = [
         offers.NotificationsMarkReadView.as_view(),
         name="notifications-mark-read",
     ),
-    path("design/", views.DesignPageView.as_view(), name="design"),
+    path("design/", DesignPageView.as_view(), name="design"),
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path(
         "dev/emails/",
