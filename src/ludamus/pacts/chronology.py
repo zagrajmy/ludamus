@@ -388,6 +388,7 @@ class PartyEventHistoryDTO(BaseModel):
 class PartyDetailDTO(BaseModel):
     party: PartyDTO
     history: list[PartyEventHistoryDTO]
+    has_enrollments: bool
 
 
 class PartySessionHistoryRepositoryProtocol(Protocol):

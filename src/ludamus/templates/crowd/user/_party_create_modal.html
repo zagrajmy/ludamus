@@ -1,0 +1,19 @@
+{% load i18n tessera %}
+<dialog id="{{ modal_id }}"
+        class="modal w-[calc(100%-2rem)] max-w-md p-0"
+        aria-labelledby="{{ modal_id }}-title">
+    <form action="{% url 'web:crowd:parties-create' %}" method="post">
+        {% csrf_token %}
+        <div class="px-6 pt-5 pb-4">
+            <h3 id="{{ modal_id }}-title" class="font-semibold text-foreground">{{ title }}</h3>
+            <p class="mt-1 text-sm text-foreground-muted">{{ hint }}</p>
+            <div class="mt-4">{% tessera_form form %}</div>
+        </div>
+        <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
+            <button type="button"
+                    class="btn btn-secondary"
+                    data-modal-close="{{ modal_id }}">{% translate "Cancel" %}</button>
+            <button type="submit" class="btn btn-primary">{% translate "Create party" %}</button>
+        </div>
+    </form>
+</dialog>

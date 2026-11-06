@@ -29,7 +29,11 @@
                     {% translate "Not now" %}
                 </a>
                 <p class="mt-6 text-left text-xs text-foreground-muted">
-                    {% translate "A party enrolls in sessions together and moves up the waiting list together. You can leave anytime." %}
+                    {% if party.enrolls_together %}
+                        {% translate "A party enrolls in sessions together and moves up the waiting list together. You can leave anytime." %}
+                    {% else %}
+                        {% translate "A party is a group you play with. You can leave anytime." %}
+                    {% endif %}
                 </p>
             </div>
         </div>

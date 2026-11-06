@@ -3,7 +3,13 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Party, PartyMembership, User
+from ludamus.links.db.django.models import (
+    Party,
+    PartyMembership,
+    SessionParticipation,
+    SessionParticipationStatus,
+    User,
+)
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import UserFactory, sponsor_user
@@ -195,6 +201,102 @@ class TestCompanionMembershipWriteThrough:
         companion = User.objects.get(name="Kiddo")
         assert companion.manager_id == active_user.pk
         assert not PartyMembership.objects.filter(member=companion).exists()
+
+
+class TestPartyEnrollsTogetherActionView:
+    @staticmethod
+    def _post(client, party, value="off"):
+        return client.post(
+            reverse("web:crowd:parties-enrolls-together", kwargs={"pk": party.pk}),
+            data={"enrolls_together": value},
+        )
+
+    @staticmethod
+    def _detail(party):
+        return reverse("web:crowd:party-detail", kwargs={"pk": party.pk})
+
+    def test_post_turns_the_setting_off(self, authenticated_client, active_user):
+        party = sponsor_user(leader=active_user, member=active_user)
+
+        response = self._post(authenticated_client, party)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._detail(party),
+            messages=[(messages.SUCCESS, "This party no longer enrolls together.")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+
+    def test_post_turns_the_setting_on(self, authenticated_client, active_user):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+
+        response = self._post(authenticated_client, party, "on")
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._detail(party),
+            messages=[(messages.SUCCESS, "This party can now enroll together.")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+
+    def test_a_past_enrollment_keeps_the_setting_on(
+        self, authenticated_client, active_user, session
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        SessionParticipation.objects.create(
+            session=session,
+            user=active_user,
+            party=party,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = self._post(authenticated_client, party)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._detail(party),
+            messages=[
+                (messages.ERROR, "A party that has enrolled keeps enrolling together.")
+            ],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+
+    def test_someone_elses_party_is_left_alone(self, authenticated_client):
+        leader = UserFactory(username="friend", name="Frida Friend")
+        party = sponsor_user(leader=leader, member=leader)
+
+        response = self._post(authenticated_client, party)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._detail(party),
+            messages=[(messages.ERROR, "Could not change this setting.")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+
+    def test_post_rejects_unknown_value(self, authenticated_client, active_user):
+        party = sponsor_user(leader=active_user, member=active_user)
+
+        response = self._post(authenticated_client, party, "maybe")
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._detail(party),
+            messages=[(messages.ERROR, "Could not change this setting.")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
 
 
 class TestPartyConsentActionView:

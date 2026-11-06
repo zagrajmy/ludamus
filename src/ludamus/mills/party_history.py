@@ -32,4 +32,7 @@ class PartySessionHistoryService(PartySessionHistoryServiceProtocol):
                 history=self._history.list_for_party(
                     party_pk=party_pk, viewer_pk=viewer_pk
                 ),
+                has_enrollments=self._parties.has_enrollments(
+                    leader_pk=viewer_pk, party_pk=party_pk
+                ),
             )

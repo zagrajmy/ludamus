@@ -12,6 +12,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.crowd.forms import (
     PartyCompanionForm,
+    PartyCreateForm,
     PartyInviteForm,
     PartyNameForm,
 )
@@ -25,6 +26,7 @@ from ludamus.pacts.party import (
     InviteOutcome,
     PartyConsentMode,
     PartyMembershipStatus,
+    SetEnrollsTogetherOutcome,
 )
 
 if TYPE_CHECKING:
@@ -58,11 +60,12 @@ class PartyCreateActionView(LoginRequiredMixin, View):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        form = PartyNameForm(request.POST)
+        form = PartyCreateForm(request.POST)
         if form.is_valid():
             party_pk = request.services.parties.create(
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
+                enrolls_together=form.cleaned_data["enrolls_together"],
             )
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)
@@ -296,6 +299,33 @@ class PartyConsentActionView(LoginRequiredMixin, View):
                 messages.success(request, _("Enrollments now wait for your approval."))
         else:
             messages.error(request, _("Could not change this setting."))
+        return redirect("web:crowd:party-detail", pk=pk)
+
+
+class PartyEnrollsTogetherActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        if (value := request.POST.get("enrolls_together")) not in {"on", "off"}:
+            messages.error(request, _("Could not change this setting."))
+            return redirect("web:crowd:party-detail", pk=pk)
+        enrolls_together = value == "on"
+        match request.services.parties.set_enrolls_together(
+            leader_pk=request.context.current_user_id,
+            party_pk=pk,
+            enrolls_together=enrolls_together,
+        ):
+            case SetEnrollsTogetherOutcome.UPDATED if enrolls_together:
+                messages.success(request, _("This party can now enroll together."))
+            case SetEnrollsTogetherOutcome.UPDATED:
+                messages.success(request, _("This party no longer enrolls together."))
+            case SetEnrollsTogetherOutcome.LOCKED:
+                messages.error(
+                    request, _("A party that has enrolled keeps enrolling together.")
+                )
+            case SetEnrollsTogetherOutcome.NOT_FOUND:
+                messages.error(request, _("Could not change this setting."))
         return redirect("web:crowd:party-detail", pk=pk)
 
 

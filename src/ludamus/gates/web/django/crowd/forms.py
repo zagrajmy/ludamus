@@ -68,6 +68,10 @@ class PartyNameForm(forms.Form):
     name = forms.CharField(label=_("Party name"), max_length=255)
 
 
+class PartyCreateForm(PartyNameForm):
+    enrolls_together = forms.BooleanField(required=False, widget=forms.HiddenInput())
+
+
 class PartyInviteForm(forms.Form):
     identifier = forms.CharField(
         label=_("Email or Discord username"),

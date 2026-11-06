@@ -20,6 +20,7 @@ def _party():
         is_active_member=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=[],
+        enrolls_together=True,
     )
 
 
@@ -35,6 +36,10 @@ class FakeParties:
         if (party_pk, viewer_pk) == (PARTY_PK, VIEWER_PK):
             return _party()
         return None
+
+    @staticmethod
+    def has_enrollments(*, leader_pk, party_pk):
+        return (party_pk, leader_pk) == (PARTY_PK, VIEWER_PK)
 
 
 class FakeHistory:
@@ -56,7 +61,9 @@ def _service(history):
 def test_member_sees_party_with_its_history():
     detail = _service(FakeHistory()).read_detail(party_pk=PARTY_PK, viewer_pk=VIEWER_PK)
 
-    assert detail == PartyDetailDTO(party=_party(), history=[_event_history()])
+    assert detail == PartyDetailDTO(
+        party=_party(), history=[_event_history()], has_enrollments=True
+    )
 
 
 def test_outsider_gets_nothing_and_history_is_not_read():
