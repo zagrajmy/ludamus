@@ -1,0 +1,9 @@
+{% load i18n %}
+{% comment %}
+    One person's address on the channel they picked. Variables: contact, address.
+{% endcomment %}
+{% if contact == "discord" %}
+    {% blocktranslate %}Discord: {{ address }}{% endblocktranslate %}
+{% else %}
+    {% blocktranslate %}Email: {{ address }}{% endblocktranslate %}
+{% endif %}

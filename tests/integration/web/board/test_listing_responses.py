@@ -4,14 +4,21 @@ from unittest.mock import ANY
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ListingResponse, Notification
+from ludamus.links.db.django.models import (
+    ListingResponse,
+    Notification,
+    Party,
+    PartyMembership,
+)
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.listing import (
     ListingContact,
     ListingResponseDTO,
     ListingResponseStatus,
+    ListingResponseTab,
     ListingStatus,
 )
+from ludamus.pacts.party import PartyMembershipStatus
 from tests.integration.conftest import ListingFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
@@ -42,9 +49,22 @@ def _decline(response):
     )
 
 
-def _response_dto(response):
-    response = ListingResponse.objects.select_related("user").get(pk=response.pk)
+def _invite(response):
+    return reverse(
+        "web:board:invite",
+        kwargs={"pk": response.listing_id, "response_pk": response.pk},
+    )
+
+
+def _response_dto(response, *, joined=False, contact_address=""):
+    response = ListingResponse.objects.select_related("user", "party").get(
+        pk=response.pk
+    )
     return ListingResponseDTO(
+        joined=joined,
+        contact_address=contact_address,
+        party_name=response.party.name if response.party else "",
+        contact=ListingContact(response.contact),
         pk=response.pk,
         listing_id=response.listing_id,
         user_id=response.user_id,
@@ -53,6 +73,36 @@ def _response_dto(response):
         status=ListingResponseStatus(response.status),
         decline_message=response.decline_message,
         creation_time=response.creation_time,
+    )
+
+
+def _counts(*, waiting=0, invited=0, joined=0, declined=0):
+    return {
+        ListingResponseTab.WAITING: waiting,
+        ListingResponseTab.INVITED: invited,
+        ListingResponseTab.JOINED: joined,
+        ListingResponseTab.DECLINED: declined,
+    }
+
+
+def _party(leader, *members, name="Drużyna"):
+    party = Party.objects.create(leader=leader, name=name)
+    for member in (leader, *members):
+        PartyMembership.objects.create(
+            party=party, member=member, status=PartyMembershipStatus.ACTIVE
+        )
+    return party
+
+
+def _joined_response(listing, user, **fields):
+    party = _party(listing.author, user)
+    return ListingResponse.objects.create(
+        listing=listing,
+        user=user,
+        contact=ListingContact.EMAIL,
+        status=ListingResponseStatus.INVITED,
+        party=party,
+        **fields,
     )
 
 
@@ -122,6 +172,9 @@ class TestListingRespondActionView:
                 "own_response": _response_dto(own),
                 "response_form": None,
                 "waiting_count": None,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -202,6 +255,9 @@ class TestListingRespondActionView:
                     ]
                 ),
                 "waiting_count": None,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -274,13 +330,10 @@ class TestListingResponsesPageView:
             context_data={
                 "listing": listing_dto(listing),
                 "responses": [_response_dto(waiting)],
-                "counts": {
-                    ListingResponseStatus.WAITING: 1,
-                    ListingResponseStatus.DECLINED: 1,
-                    ListingResponseStatus.NOT_CHOSEN: 0,
-                },
+                "counts": _counts(waiting=1, declined=1),
                 "active_tab": "waiting",
                 "decline_form": ANY,
+                "invite_form": ANY,
             },
             template_name="board/responses.html",
         )
@@ -380,3 +433,253 @@ class TestCloseDismissesWaiting:
                 "Mörk Borg has closed",
             )
         ]
+
+
+class TestListingResponseInviteActionView:
+    def test_adds_them_to_a_new_party_named_after_the_listing(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user, title="Mörk Borg")
+        responder = UserFactory()
+        waiting = ListingResponse.objects.create(
+            listing=listing, user=responder, contact=ListingContact.EMAIL
+        )
+
+        response = authenticated_client.post(_invite(waiting), {"party": "new"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=(
+                (constants.SUCCESS, "Invitation sent. They join once they accept it."),
+            ),
+            url=_responses(listing),
+        )
+        party = Party.objects.get()
+        assert (party.leader_id, party.name) == (active_user.pk, "Mörk Borg")
+        assert dict(
+            PartyMembership.objects.filter(party=party).values_list("member", "status")
+        ) == {
+            active_user.pk: PartyMembershipStatus.ACTIVE,
+            responder.pk: PartyMembershipStatus.INVITED,
+        }
+        waiting.refresh_from_db()
+        assert (waiting.status, waiting.party_id) == (
+            ListingResponseStatus.INVITED,
+            party.pk,
+        )
+        assert list(
+            Notification.objects.filter(recipient=responder).values_list(
+                "kind", "title", "body"
+            )
+        ) == [
+            (
+                NotificationKind.PARTY_INVITE,
+                "Test User invited you to Mörk Borg",
+                (
+                    "You showed interest in Mörk Borg. Accept the invitation to "
+                    "join the party, and you and the author see each other's "
+                    "contact."
+                ),
+            )
+        ]
+
+    def test_adds_them_to_a_party_the_author_leads(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        party = _party(active_user, name="Wtorki")
+        waiting = ListingResponse.objects.create(
+            listing=listing, user=UserFactory(), contact=ListingContact.EMAIL
+        )
+
+        authenticated_client.post(_invite(waiting), {"party": str(party.pk)})
+
+        waiting.refresh_from_db()
+        assert (Party.objects.count(), waiting.party_id) == (1, party.pk)
+        assert PartyMembership.objects.get(party=party, member=waiting.user).status == (
+            PartyMembershipStatus.INVITED
+        )
+
+    def test_a_party_led_by_someone_else_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        foreign = _party(UserFactory())
+        waiting = ListingResponse.objects.create(
+            listing=listing, user=UserFactory(), contact=ListingContact.EMAIL
+        )
+
+        response = authenticated_client.post(
+            _invite(waiting), {"party": str(foreign.pk)}
+        )
+
+        assert_response_404(response)
+        waiting.refresh_from_db()
+        assert (waiting.status, waiting.party_id) == (
+            ListingResponseStatus.WAITING,
+            None,
+        )
+        assert not PartyMembership.objects.filter(member=waiting.user).exists()
+        assert not Notification.objects.exists()
+
+    def test_a_response_to_another_listing_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        own = ListingFactory(sphere=sphere, author=active_user)
+        foreign = ListingResponse.objects.create(
+            listing=ListingFactory(sphere=sphere),
+            user=UserFactory(),
+            contact=ListingContact.EMAIL,
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "web:board:invite", kwargs={"pk": own.pk, "response_pk": foreign.pk}
+            ),
+            {"party": "new"},
+        )
+
+        assert_response_404(response)
+        foreign.refresh_from_db()
+        assert foreign.status == ListingResponseStatus.WAITING
+        assert not Party.objects.exists()
+
+    def test_a_declined_response_is_reported_stale(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        declined = ListingResponse.objects.create(
+            listing=listing,
+            user=UserFactory(),
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.DECLINED,
+        )
+
+        response = authenticated_client.post(_invite(declined), {"party": "new"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.ERROR, STALE),),
+            url=_responses(listing),
+        )
+        assert not Party.objects.exists()
+
+
+class TestJoinedResponders:
+    def test_author_sees_the_contact_of_whoever_joined(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        joined = _joined_response(listing, UserFactory(email="ola@example.com"))
+
+        response = authenticated_client.get(_responses(listing) + "?tab=joined")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing, party_formed=True),
+                "responses": [
+                    _response_dto(
+                        joined, joined=True, contact_address="ola@example.com"
+                    )
+                ],
+                "counts": _counts(joined=1),
+                "active_tab": "joined",
+                "decline_form": ANY,
+                "invite_form": ANY,
+            },
+            template_name="board/responses.html",
+        )
+
+    def test_member_sees_the_authors_contact(
+        self, authenticated_client, active_user, sphere
+    ):
+        author = UserFactory(email="gm@example.com")
+        listing = ListingFactory(sphere=sphere, author=author)
+        own = _joined_response(listing, active_user)
+
+        response = authenticated_client.get(_detail(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing, party_formed=True),
+                "is_author": False,
+                "open_for_days": 30,
+                "own_response": _response_dto(own, joined=True),
+                "response_form": None,
+                "waiting_count": None,
+                "author_contact": "gm@example.com",
+                "party_members": [],
+                "joined_responses": [],
+            },
+            template_name="board/detail.html",
+        )
+
+    def test_an_invited_responder_sees_no_contact_until_they_accept(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere)
+        own = _joined_response(listing, active_user)
+        PartyMembership.objects.filter(member=active_user).update(
+            status=PartyMembershipStatus.INVITED
+        )
+
+        response = authenticated_client.get(_detail(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing),
+                "is_author": False,
+                "open_for_days": 30,
+                "own_response": _response_dto(own),
+                "response_form": None,
+                "waiting_count": None,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
+            },
+            template_name="board/detail.html",
+        )
+
+    def test_joining_the_shown_party_by_link_counts(self, client, sphere):
+        author, responder = UserFactory(), UserFactory()
+        party = _party(author, responder)
+        listing = ListingFactory(sphere=sphere, author=author, party=party)
+        joined_response = ListingResponse.objects.create(
+            listing=listing, user=responder, contact=ListingContact.EMAIL
+        )
+        client.force_login(author)
+
+        client.post(reverse("web:board:close", kwargs={"pk": listing.pk}))
+        response = client.get(_detail(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=((constants.SUCCESS, "Listing closed."),),
+            context_data={
+                "listing": listing_dto(listing, party_formed=True),
+                "is_author": True,
+                "open_for_days": 30,
+                "own_response": None,
+                "response_form": None,
+                "waiting_count": 0,
+                "author_contact": "",
+                "party_members": [author.full_name, responder.full_name],
+                "joined_responses": [
+                    _response_dto(
+                        joined_response, joined=True, contact_address=responder.email
+                    )
+                ],
+            },
+            template_name="board/detail.html",
+        )
+        assert ListingResponse.objects.get().status == ListingResponseStatus.WAITING
+        assert not Notification.objects.filter(recipient=responder).exists()

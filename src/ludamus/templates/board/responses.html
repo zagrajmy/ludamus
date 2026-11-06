@@ -21,6 +21,12 @@
             {% tab "waiting" href=responses_url|add:"?tab=waiting" %}
                 {% blocktranslate with count=counts.waiting %}Interested ({{ count }}){% endblocktranslate %}
             {% end_tab %}
+            {% tab "invited" href=responses_url|add:"?tab=invited" %}
+                {% blocktranslate with count=counts.invited %}Invited ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
+            {% tab "joined" href=responses_url|add:"?tab=joined" %}
+                {% blocktranslate with count=counts.joined %}In your party ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
             {% tab "declined" href=responses_url|add:"?tab=declined" %}
                 {% blocktranslate with count=counts.declined %}Not this time ({{ count }}){% endblocktranslate %}
             {% end_tab %}
@@ -38,7 +44,31 @@
                         {% if response.message %}
                             <p class="whitespace-pre-line break-words text-sm text-foreground-secondary">{{ response.message }}</p>
                         {% endif %}
-                        {% if response.status == "waiting" %}
+                        {% if response.joined %}
+                            <p class="break-words text-sm text-foreground-primary">
+                                {% include "board/_contact.html" with contact=response.contact address=response.contact_address only %}
+                            </p>
+                        {% elif response.status == "invited" %}
+                            <p class="break-words text-sm text-foreground-muted">
+                                {% if response.party_name %}
+                                    {% blocktranslate with party=response.party_name %}Invited to {{ party }}. They join once they accept.{% endblocktranslate %}
+                                {% else %}
+                                    {% translate "Invited to your party. They join once they accept." %}
+                                {% endif %}
+                            </p>
+                        {% elif response.status == "waiting" %}
+                            <form method="post"
+                                  action="{% url 'web:board:invite' pk=listing.pk response_pk=response.pk %}"
+                                  class="flex flex-col">
+                                {% csrf_token %}
+                                {% tessera_field invite_form.party %}
+                                {% if invite_form.fields.party.choices|length > 1 %}
+                                    {% translate "Add to party" as t_invite %}
+                                {% else %}
+                                    {% translate "Add to a new party" as t_invite %}
+                                {% endif %}
+                                {% tessera_button text=t_invite %}
+                            </form>
                             <details>
                                 <summary class="cursor-pointer text-sm font-medium text-foreground-secondary hover:text-foreground-primary">
                                     {% translate "Not this time" %}
@@ -65,6 +95,16 @@
                     <p class="mt-3 font-medium text-foreground-primary">{% translate "Nobody is waiting for an answer" %}</p>
                     <p class="mt-1 text-sm text-foreground-secondary">
                         {% translate "People who click “I'm interested” on your listing show up here." %}
+                    </p>
+                {% elif active_tab == "invited" %}
+                    <p class="mt-3 font-medium text-foreground-primary">{% translate "No invitations waiting" %}</p>
+                    <p class="mt-1 text-sm text-foreground-secondary">
+                        {% translate "People you add to a party wait here until they accept." %}
+                    </p>
+                {% elif active_tab == "joined" %}
+                    <p class="mt-3 font-medium text-foreground-primary">{% translate "Nobody has joined yet" %}</p>
+                    <p class="mt-1 text-sm text-foreground-secondary">
+                        {% translate "Once someone accepts your invitation, you see each other's contact here." %}
                     </p>
                 {% else %}
                     <p class="mt-3 font-medium text-foreground-primary">{% translate "You haven't turned anyone down" %}</p>

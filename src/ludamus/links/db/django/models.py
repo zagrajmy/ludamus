@@ -403,6 +403,9 @@ class Listing(models.Model):
         default=ListingStatus.DRAFT,
     )
     opened_at = models.DateTimeField(null=True, blank=True)
+    party = models.ForeignKey(
+        Party, on_delete=models.SET_NULL, null=True, blank=True, related_name="listings"
+    )
     header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     header_image_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
@@ -452,6 +455,13 @@ class ListingResponse(models.Model):
         default=ListingResponseStatus.WAITING,
     )
     decline_message = models.TextField(blank=True, default="")
+    party = models.ForeignKey(
+        Party,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="listing_responses",
+    )
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
