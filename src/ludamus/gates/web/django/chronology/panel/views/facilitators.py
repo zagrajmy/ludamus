@@ -55,7 +55,7 @@ from ludamus.mills.panel_facilitators import (
     merge_target,
     name_reconcile,
 )
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.panel import (
     FacilitatorCreateData,
     FacilitatorListQuery,

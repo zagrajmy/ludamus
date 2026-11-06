@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from django.utils.functional import Promise
 
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
-    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+    from ludamus.pacts.legacy import ProposalCategoryDTO, SessionFieldRequirementDTO
 
 
 def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:

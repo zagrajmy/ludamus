@@ -18,8 +18,8 @@ from ludamus.links.db.django.models import (
     Space,
     TimeSlot,
 )
-from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,

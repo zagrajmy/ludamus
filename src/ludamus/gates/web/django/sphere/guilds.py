@@ -18,13 +18,13 @@ from ludamus.gates.web.django.multiverse.access import (
 )
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts import RedirectError
 from ludamus.pacts.guild import (
     AssignMemberOutcome,
     GuildFacilitatorMemberDTO,
     GuildMembershipMemberDTO,
 )
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

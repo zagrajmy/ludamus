@@ -10,14 +10,14 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.helpers import read_public_event
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId
+from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
 
 
 class SessionModalComponentView(View):

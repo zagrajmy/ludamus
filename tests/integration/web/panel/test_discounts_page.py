@@ -21,8 +21,8 @@ from ludamus.links.db.django.models import (
     DiscountRule,
     Facilitator,
 )
-from ludamus.pacts import FacilitatorDTO
 from ludamus.pacts.discounts import DiscountDTO
+from ludamus.pacts.legacy import FacilitatorDTO
 from ludamus.pacts.submissions import AccreditationType
 from tests.integration.conftest import EventFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_login_required, assert_response

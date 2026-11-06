@@ -24,22 +24,6 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts import (
-    DomainEnrollmentConfigDTO,
-    EnrollmentConfigDTO,
-    EnrollmentConfigRepositoryProtocol,
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    EventStatsData,
-    EventUpdateData,
-    NotFoundError,
-    SessionDTO,
-    SessionParticipationStatus,
-    SessionStatus,
-    UserEnrollmentConfigData,
-    UserEnrollmentConfigDTO,
-)
 from ludamus.pacts.chronology import (
     EventIntegrationCreateData,
     EventIntegrationDTO,
@@ -54,7 +38,24 @@ from ludamus.pacts.chronology import (
     SessionSeatDTO,
 )
 from ludamus.pacts.ids import EventId, HasPk
-from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.legacy import (
+    AgendaItemDTO,
+    DomainEnrollmentConfigDTO,
+    EnrollmentConfigDTO,
+    EnrollmentConfigRepositoryProtocol,
+    EventDTO,
+    EventListItemDTO,
+    EventRepositoryProtocol,
+    EventStatsData,
+    EventUpdateData,
+    LocationData,
+    NotFoundError,
+    SessionDTO,
+    SessionParticipationStatus,
+    SessionStatus,
+    UserEnrollmentConfigData,
+    UserEnrollmentConfigDTO,
+)
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,

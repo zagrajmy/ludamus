@@ -8,8 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from PIL import Image
 
-from ludamus.pacts import EventDTO, NotFoundError
 from ludamus.pacts.images import StoredFile
+from ludamus.pacts.legacy import EventDTO, NotFoundError
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import (
     FormErrorsMatcher,

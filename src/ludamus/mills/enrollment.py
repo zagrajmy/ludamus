@@ -17,11 +17,6 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.crowd import build_anonymous_user
 from ludamus.mills.enrollment_windows import viewer_access
-from ludamus.pacts import (
-    MembershipAPIError,
-    UserEnrollmentConfigData,
-    VirtualEnrollmentConfig,
-)
 from ludamus.pacts.enrollment import (
     ClaimResult,
     EnrollmentAccessDTO,
@@ -35,7 +30,12 @@ from ludamus.pacts.enrollment import (
     PromotionResult,
     distinct_recipients,
 )
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import (
+    MembershipAPIError,
+    PromotionMode,
+    UserEnrollmentConfigData,
+    VirtualEnrollmentConfig,
+)
 from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import (
     MEMBERSHIP_CHECK_INTERVAL_MINUTES,
@@ -46,12 +46,6 @@ from ludamus.specs.enrollment import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from ludamus.pacts import (
-        EnrollmentConfigRepositoryProtocol,
-        EventDTO,
-        TicketAPIProtocol,
-        UserEnrollmentConfigDTO,
-    )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
         EnrollmentParticipationRepositoryProtocol,
@@ -69,6 +63,12 @@ if TYPE_CHECKING:
         WaitingParticipantDTO,
     )
     from ludamus.pacts.ids import HasPk
+    from ludamus.pacts.legacy import (
+        EnrollmentConfigRepositoryProtocol,
+        EventDTO,
+        TicketAPIProtocol,
+        UserEnrollmentConfigDTO,
+    )
     from ludamus.pacts.services import TransactionProtocol
 
 

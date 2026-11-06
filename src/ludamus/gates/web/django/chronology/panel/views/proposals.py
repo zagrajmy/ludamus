@@ -30,12 +30,12 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_views,
 )
 from ludamus.gates.web.django.pagination import pagination_context
-from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
+from ludamus.pacts.legacy import NotFoundError, SessionStatus
 from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
 
 if TYPE_CHECKING:
@@ -44,8 +44,9 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO, SessionListItemDTO
     from ludamus.pacts.chronology import ProposalStatusServiceProtocol
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.legacy import FacilitatorDTO, SessionListItemDTO
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
     PersonalFieldItems = list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]

@@ -2,7 +2,7 @@ import pytest
 
 from ludamus.links.db.django.models import Session
 from ludamus.links.db.django.repositories import SessionRepository
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from tests.integration.conftest import ProposalCategoryFactory, SessionFactory
 
 

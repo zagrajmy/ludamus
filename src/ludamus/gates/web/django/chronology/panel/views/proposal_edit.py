@@ -37,7 +37,13 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_fields_form,
 )
 from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
-from ludamus.pacts import (
+from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.images import (
+    parse_uploaded_file,
+    resolve_uploaded_file_field,
+    stored_file,
+)
+from ludamus.pacts.legacy import (
     NotFoundError,
     PersonalDataFieldValueData,
     SessionContentEditData,
@@ -45,12 +51,6 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
     SessionUpdateData,
-)
-from ludamus.pacts.durations import parse_duration
-from ludamus.pacts.images import (
-    parse_uploaded_file,
-    resolve_uploaded_file_field,
-    stored_file,
 )
 from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError
@@ -61,11 +61,10 @@ if TYPE_CHECKING:
     from django import forms
     from django.http import QueryDict
 
-    from ludamus.pacts import (
+    from ludamus.pacts.fields import FieldDescriptor, OrganizerFieldDTO
+    from ludamus.pacts.legacy import (
         EventDTO,
         FacilitatorDTO,
-        FieldDescriptor,
-        OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionDTO,
         SessionFieldRequirementDTO,

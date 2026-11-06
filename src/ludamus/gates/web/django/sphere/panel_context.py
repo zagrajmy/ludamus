@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest
     from ludamus.gates.web.django.panel import PanelNav
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
 
 
 class SphereSidebar(PanelNavContext):

@@ -18,7 +18,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.gates.web.django.forms import TrackForm
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
     TrackFormData,

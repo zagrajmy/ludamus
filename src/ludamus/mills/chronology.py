@@ -13,17 +13,6 @@ from pydantic import TypeAdapter
 
 from ludamus.mills.event import require_session_in_event, require_session_in_sphere
 from ludamus.mills.multiverse import can_write_programme
-from ludamus.pacts import (
-    EventDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogData,
-    SessionContentEditData,
-    SessionDTO,
-    SessionFieldValueData,
-    SessionSelfEditContext,
-    SessionStatus,
-)
 from ludamus.pacts.chronology import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
@@ -37,6 +26,17 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.images import resolve_uploaded_file_field
+from ludamus.pacts.legacy import (
+    EventDTO,
+    NotFoundError,
+    ScheduleChangeAction,
+    ScheduleChangeLogData,
+    SessionContentEditData,
+    SessionDTO,
+    SessionFieldValueData,
+    SessionSelfEditContext,
+    SessionStatus,
+)
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
@@ -45,7 +45,9 @@ _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ludamus.pacts import (
+    from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
+    from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.legacy import (
         AgendaItemRepositoryProtocol,
         ContentChangeLogData,
         ContentChangeLogDTO,
@@ -60,8 +62,6 @@ if TYPE_CHECKING:
         SphereRepositoryProtocol,
         TimeSlotDTO,
     )
-    from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
-    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 

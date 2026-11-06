@@ -1,7 +1,7 @@
 import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.venues import (
     ProgrammeSpaceRowDTO,
     SpaceInputDTO,

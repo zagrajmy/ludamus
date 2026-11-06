@@ -33,7 +33,7 @@ from ludamus.gates.web.django.propose_cover import (
     wizard_cover_initial,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.legacy import NotFoundError, RedirectError
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
@@ -45,10 +45,10 @@ if TYPE_CHECKING:
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import (
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.legacy import (
         EventDTO,
         EventProposalSettingsDTO,
-        OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,

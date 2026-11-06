@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import logging
+import string
 from contextlib import suppress
+from secrets import choice
 from typing import TYPE_CHECKING
 
-from ludamus.mills.encounter_calendar import guest_for
+from ludamus.mills.encounter_calendar import (
+    encounter_calendar_links,
+    encounter_ics,
+    guest_for,
+)
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
@@ -36,6 +42,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 logger = logging.getLogger(__name__)
+
+_SHARE_CODE_ALPHABET = string.ascii_letters + string.digits
+_SHARE_CODE_LENGTH = 6
+
+
+def _new_share_code() -> str:
+    return "".join(choice(_SHARE_CODE_ALPHABET) for _ in range(_SHARE_CODE_LENGTH))
 
 
 # The feed renders every past encounter as a card, and a sphere accumulates
@@ -149,7 +162,12 @@ class EncounterService(EncounterServiceProtocol):
         }
 
     def build_detail(
-        self, *, share_code: str, sphere_id: int, current_user_id: int | None
+        self,
+        *,
+        share_code: str,
+        sphere_id: int,
+        current_user_id: int | None,
+        page_url: str,
     ) -> EncounterDetailContextDTO:
         encounter = self._encounters.read_by_share_code(share_code, sphere_id)
         creator = self._users.read_by_id(encounter.creator_id)
@@ -177,6 +195,12 @@ class EncounterService(EncounterServiceProtocol):
             accepted_guest_count=(
                 self._guests.invitees.count_accepted_without_signup(encounter.pk)
             ),
+            calendar_links=encounter_calendar_links(encounter, page_url),
+        )
+
+    def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str:
+        return encounter_ics(
+            self._encounters.read_by_share_code(share_code, sphere_id), page_url
         )
 
     def read_by_share_code(self, *, share_code: str, sphere_id: int) -> EncounterDTO:
@@ -189,8 +213,10 @@ class EncounterService(EncounterServiceProtocol):
         # methods below answer that.
         if not self.can_create(sphere_id=data["sphere_id"], user_id=data["creator_id"]):
             raise NotFoundError
+        record = data.copy()
+        record["share_code"] = _new_share_code()
         with self._transaction.atomic():
-            encounter = self._encounters.create(data)
+            encounter = self._encounters.create(record)
             creator = self._users.read_by_id(encounter.creator_id)
             added = self._guests.replace_invitees(
                 encounter, invitee_emails, creator=creator

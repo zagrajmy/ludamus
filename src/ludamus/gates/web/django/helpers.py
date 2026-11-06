@@ -7,13 +7,13 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import Http404
 
 from ludamus.gates.web.django.access import panel_access
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
 
 
 def read_public_event(request: RootRequest, slug: str) -> EventDTO:

@@ -19,7 +19,7 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     SessionFieldValue,
 )
-from ludamus.pacts import FieldAnswer, OrganizerFieldDTO
+from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     facilitator_list_item_dto,

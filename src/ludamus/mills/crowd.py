@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Literal, assert_never
 from uuid import uuid4
 
 from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AgeBand,
     AgeBandRequiredError,
@@ -38,6 +37,7 @@ from ludamus.pacts.crowd import (
     UserType,
     VerificationRequestOutcome,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,

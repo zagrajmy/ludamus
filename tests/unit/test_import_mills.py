@@ -9,7 +9,7 @@ from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.mills.submissions.mapping import dedup_ident
-from ludamus.pacts import (
+from ludamus.pacts.legacy import (
     FacilitatorDTO,
     NotFoundError,
     PersonalDataFieldValueData,

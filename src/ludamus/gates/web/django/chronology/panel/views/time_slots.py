@@ -24,13 +24,13 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TimeSlotForm
 from ludamus.gates.web.django.panel import PanelNavContext
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
+from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import EventDTO, TimeSlotDTO
+    from ludamus.pacts.legacy import EventDTO, TimeSlotDTO
 
 
 class _TimeSlotsContext(PanelNavContext):

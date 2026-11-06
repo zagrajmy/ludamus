@@ -11,7 +11,8 @@ from ludamus.mills.panel_facilitators import (
     merge_target,
     name_reconcile,
 )
-from ludamus.pacts import FacilitatorDTO, NotFoundError, OrganizerFieldDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     EventPanelSettingsDTO,
