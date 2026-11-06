@@ -9,8 +9,6 @@ relevant page.
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -34,8 +32,8 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
     Session,
     SphereSubscription,
-    User,
 )
+from ludamus.links.db.django.recipients import Recipient, account_recipient, speaking_to
 from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import (
@@ -45,7 +43,7 @@ from ludamus.pacts.notifications import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from contextlib import AbstractContextManager
 
     from ludamus.pacts.chronology import (
         AnonymousProposalAcceptedNotification,
@@ -79,38 +77,9 @@ logger = logging.getLogger(__name__)
 _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
 
 
-@dataclass(frozen=True)
-class _Recipient:
-    language: str
-    deliverable_email: str
-
-
-def _load_recipient(recipient_id: int) -> _Recipient:
-    user = (
-        User.objects.filter(pk=recipient_id)
-        .only("language", "email", "email_verified")
-        .first()
-    )
-    if user is None:
-        return _Recipient(language=settings.LANGUAGE_CODE, deliverable_email="")
-    # Mail goes only to proven addresses. Resolved here rather than at each
-    # producer so a new notification cannot opt out of the rule by accident.
-    return _Recipient(
-        language=user.language or settings.LANGUAGE_CODE,
-        deliverable_email=user.email if user.email_verified else "",
-    )
-
-
-@contextmanager
-def _speaking_to(recipient_id: int) -> Generator[_Recipient]:
-    """Compose the bell row and the mail in the recipient's language.
-
-    Whoever triggers a notification (an organizer, a party leader, a
-    scheduled job) browses in their own; the reader may not share it.
-    """
-    recipient = _load_recipient(recipient_id)
-    with translation.override(recipient.language):
-        yield recipient
+def _speaking_to(recipient_id: int) -> AbstractContextManager[Recipient]:
+    """Compose the bell row and the mail in the recipient's language."""
+    return speaking_to(account_recipient(recipient_id))
 
 
 def _session_enrollment_url(event_slug: str, session_id: int) -> str:
@@ -188,7 +157,7 @@ def _subject(title: str) -> str:
     return " ".join(title.split())
 
 
-def _deliver(notification: Notification, recipient: _Recipient) -> None:
+def _deliver(notification: Notification, recipient: Recipient) -> None:
     _deliver_to(notification=notification, email=recipient.deliverable_email)
 
 

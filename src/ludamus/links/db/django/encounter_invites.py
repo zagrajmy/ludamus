@@ -5,6 +5,10 @@ Gmail, Outlook and Apple Mail act on without a click: a REQUEST adds or
 updates the event, a CANCEL removes it. With ``ENCOUNTER_REPLY_EMAIL`` set,
 each invite names a per-guest organizer address there, so a guest's
 accept or decline comes back as a REPLY the app can trust.
+
+Each message speaks its guest's language: their account's, else the site
+default. A guest with no account has told us none; the link they get is
+the encounter's shared page, so a visit does not say which guest it was.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
+from ludamus.links.db.django.recipients import address_recipients, speaking_to
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
@@ -53,10 +58,11 @@ class DjangoEncounterInviteMailer:
             return
         share_code = deliverable[0].encounter.share_code
         reason = deliverable[0].reason
-        # NOTE: rendered now, in the acting user's language and time zone; a
-        # guest may be an address with no account, so an owner's edit reaches
-        # guests in the owner's language, not each guest's.
-        messages = [_message(invite) for invite in deliverable]
+        recipients = address_recipients({i.attendee_email for i in deliverable})
+        messages = []
+        for invite in deliverable:
+            with speaking_to(recipients[invite.attendee_email]):
+                messages.append(_message(invite))
 
         def _send() -> None:
             try:
