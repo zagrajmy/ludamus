@@ -29,13 +29,12 @@ from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.delivery import compose_calendar_mail, send_all
-from ludamus.links.db.django.recipients import address_languages, speaking_in
+from ludamus.links.db.django.recipients import Voice, address_languages
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.delivery import Mail
-    from ludamus.links.db.django.recipients import Voice
     from ludamus.pacts.encounter import EncounterInvite
 
 
@@ -63,7 +62,7 @@ class DjangoEncounterInviteMailer:
         languages = address_languages({i.attendee_email for i in deliverable})
         messages = []
         for invite in deliverable:
-            with speaking_in(languages[invite.attendee_email]) as voice:
+            with Voice(languages[invite.attendee_email]) as voice:
                 messages.append(_message(invite, voice=voice))
 
         def _send() -> None:

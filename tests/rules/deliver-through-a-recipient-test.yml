@@ -4,6 +4,8 @@ valid:
   - "PromotionNotification(recipient_user_id=1, session_id=2)"
   - "Notification.objects.filter(recipient_id=user_id).count()"
   - "message = compose_mail(voice, subject=subject, body=body, to=email)"
+  - "from ludamus.links.db.django.models import Notification"
+  - "from ludamus.pacts.enrollment import PromotionNotification as Promoted"
 invalid:
   - "Notification(recipient=user, title=title)"
   - "models.Notification(recipient=user, title=title)"
@@ -14,6 +16,9 @@ invalid:
   - "from django.core.mail import EmailMessage as Mail"
   - "from django.core import mail"
   - "import django.core.mail"
+  - "import django.core.mail as m"
+  - "from django.core import mail as m"
+  - "from ludamus.links.db.django.models import Notification as Bell"
   - "EmailMessage(subject=subject, body=body, to=[email]).send()"
   - "mail.EmailMultiAlternatives(subject=subject, body=body, to=[email])"
   - 'send_mail("Hi", body, None, [email])'

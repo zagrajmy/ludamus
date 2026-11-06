@@ -6,16 +6,17 @@ share it. A reader never seen signed in, or with no account at all, reads
 the site default, never the sender's language.
 
 Every delivery in `delivery` takes a `Voice` (an address-only mail) or a
-`Recipient` (an account's bell row and mail). Only `speaking_in` and
-`speaking_to` hand one out, and it holds only inside their block, so a
-message cannot go out composed in anyone's language but its reader's.
+`Recipient` (an account's bell row and mail, from `speaking_to`). Either
+confirms only inside its block, and a Recipient only in its reader's own
+language, so a message cannot go out composed in anyone's language but its
+reader's.
 """
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from django.conf import settings
 from django.utils import translation
@@ -25,6 +26,7 @@ from ludamus.links.db.django.models import User
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Generator
+    from types import TracebackType
 
 
 class NotSpeakingError(RuntimeError):
@@ -32,29 +34,43 @@ class NotSpeakingError(RuntimeError):
 
 
 class Voice:
-    """A reader's language, in force while a message is written in it."""
+    """A reader's language, in force while a message is written in it.
 
-    __slots__ = ("_active", "_language")
+    An empty language (a reader never seen signed in, a proposer who left
+    none) is the site default.
+    """
+
+    __slots__ = ("_active", "_language", "_override")
 
     def __init__(self, language: str) -> None:
-        self._language = language
+        self._language = _language(language)
+        self._override = translation.override(self._language)
         self._active: str | None = None
 
-    @contextmanager
-    def held(self) -> Generator[Voice]:
-        with translation.override(self._language):
-            self._active = translation.get_language()
-            try:
-                yield self
-            finally:
-                self._active = None
+    def __enter__(self) -> Self:
+        self._override.__enter__()
+        self._active = translation.get_language()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self._active = None
+        self._override.__exit__(exc_type, exc, traceback)
+
+    @property
+    def language(self) -> str:
+        return self._language
 
     def confirm(self) -> None:
-        """Check the reader's language is the one in force.
+        """Check this language is the one in force.
 
         Raises:
-            NotSpeakingError: outside a `speaking_in` block, or another
-                language took over inside it.
+            NotSpeakingError: outside the voice's block, or another language
+                took over inside it.
         """
         if self._active is None:
             msg = f"Delivery outside a speaking block ({self._language} reader)"
@@ -74,31 +90,35 @@ class AccountReader:
 class Recipient:
     """An account's reader, while a message is being written for them."""
 
-    __slots__ = ("_reader", "voice")
+    __slots__ = ("_reader", "_voice")
 
     def __init__(self, reader: AccountReader, voice: Voice) -> None:
         self._reader = reader
-        self.voice = voice
+        self._voice = voice
 
     def confirm(self) -> AccountReader:
         """Hand over the reader to deliver to, once their language is in force.
 
         Returns:
             The reader the message was composed for.
+
+        Raises:
+            NotSpeakingError: the voice is not in force, or speaks another
+                language than the reader's.
         """
-        self.voice.confirm()
+        self._voice.confirm()
+        if self._voice.language != self._reader.language:
+            msg = (
+                f"A {self._voice.language} voice for a "
+                f"{self._reader.language} reader"
+            )
+            raise NotSpeakingError(msg)
         return self._reader
 
 
 @contextmanager
-def speaking_in(language: str) -> Generator[Voice]:
-    with Voice(language).held() as voice:
-        yield voice
-
-
-@contextmanager
 def speaking_to(reader: AccountReader) -> Generator[Recipient]:
-    with speaking_in(reader.language) as voice:
+    with Voice(reader.language) as voice:
         yield Recipient(reader, voice)
 
 
@@ -134,8 +154,3 @@ def address_languages(emails: Collection[str]) -> dict[str, str]:
         for email, language in accounts_at(emails).values_list("email", "language")
     }
     return {email: _language(languages.get(email.lower(), "")) for email in emails}
-
-
-def contact_language(stored: str) -> str:
-    """Resolve the language someone with no account left with their address."""
-    return _language(stored)

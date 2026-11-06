@@ -53,7 +53,7 @@ def ring(
 def ring_as_written(
     *,
     recipient_ids: Iterable[int],
-    kind: str,
+    kind: NotificationKind,
     title: str,
     body: str,
     url: str,
@@ -73,7 +73,7 @@ def ring_as_written(
         [
             Notification(
                 recipient_id=recipient_id,
-                kind=kind,
+                kind=kind.value,
                 title=title,
                 body=body,
                 url=url,
@@ -86,7 +86,7 @@ def ring_as_written(
     return len(rows)
 
 
-def subject_line(title: str) -> str:
+def _subject_line(title: str) -> str:
     """Fold a title onto one line for a mail subject.
 
     Titles carry user text (session, listing, event names), and mail refuses
@@ -96,24 +96,30 @@ def subject_line(title: str) -> str:
 
 
 def compose_mail(
-    voice: Voice,
+    speaker: Voice | Recipient,
     *,
     subject: str,
     body: str,
     to: str,
     headers: Mapping[str, str] | None = None,
 ) -> EmailMessage:
-    voice.confirm()
+    speaker.confirm()
     return EmailMessage(
-        subject=subject_line(subject), body=body, to=[to], headers=dict(headers or {})
+        subject=_subject_line(subject), body=body, to=[to], headers=dict(headers or {})
     )
 
 
 def compose_calendar_mail(
-    voice: Voice, *, subject: str, body: str, to: str, ics: str, method: str
+    speaker: Voice | Recipient,
+    *,
+    subject: str,
+    body: str,
+    to: str,
+    ics: str,
+    method: str,
 ) -> EmailMultiAlternatives:
-    voice.confirm()
-    message = EmailMultiAlternatives(subject=subject_line(subject), body=body, to=[to])
+    speaker.confirm()
+    message = EmailMultiAlternatives(subject=_subject_line(subject), body=body, to=[to])
     message.attach_alternative(ics, f"text/calendar; method={method}; charset=utf-8")
     return message
 

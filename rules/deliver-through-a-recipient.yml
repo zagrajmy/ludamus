@@ -14,7 +14,13 @@ rule:
     - pattern: $M.Notification.objects.$METHOD($$$)
     - pattern: from django.core.mail import $$$
     - pattern: from django.core import mail
+    - pattern: from django.core import mail as $A
     - pattern: import django.core.mail
+    - pattern: import django.core.mail as $A
+    - kind: aliased_import
+      has:
+        field: name
+        regex: (^|\.)Notification$
     - pattern: EmailMessage($$$)
     - pattern: $M.EmailMessage($$$)
     - pattern: EmailMultiAlternatives($$$)
@@ -32,5 +38,5 @@ constraints:
 message: |
   Notifications and mail are written in their reader's language, not the
   sender's. Compose them inside `speaking_to(...)` (an account) or
-  `speaking_in(...)` (an address), and deliver through
-  links/db/django/delivery.py with the Recipient or Voice it yields.
+  `with Voice(language)` (an address), and deliver through
+  links/db/django/delivery.py with the Recipient or Voice.

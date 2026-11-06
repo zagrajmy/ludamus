@@ -193,6 +193,13 @@ class TestRecipient:
         ):
             recipient.confirm()
 
+    def test_refuses_a_voice_in_another_language_than_its_readers(self):
+        with (
+            Voice("en") as voice,
+            pytest.raises(NotSpeakingError, match="A en voice for a pl reader"),
+        ):
+            Recipient(self.reader, voice).confirm()
+
     def test_one_made_outside_speaking_to_never_delivers(self):
         with (
             translation.override("pl"),

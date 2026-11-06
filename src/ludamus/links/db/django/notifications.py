@@ -24,32 +24,21 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.delivery import compose_mail, ring, ring_as_written, send
+from ludamus.links.db.django.delivery import compose_mail, ring, send
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
-    Announcement,
     Notification,
     NotificationSubscription,
     Session,
     SphereSubscription,
 )
-from ludamus.links.db.django.recipients import (
-    account_reader,
-    contact_language,
-    speaking_in,
-    speaking_to,
-)
+from ludamus.links.db.django.recipients import Voice, account_reader, speaking_to
 from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
 from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import (
-    ClaimedAnnouncementDTO,
-    NotificationDTO,
-    SubscriptionDTO,
-)
+from ludamus.pacts.notifications import NotificationDTO, SubscriptionDTO
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from contextlib import AbstractContextManager
 
     from ludamus.links.db.django.recipients import Recipient
     from ludamus.pacts.chronology import (
@@ -82,12 +71,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
-
-
-def _speaking_to(
-    recipient_id: int, *, mail_to: str | None = None
-) -> AbstractContextManager[Recipient]:
-    return speaking_to(account_reader(recipient_id, mail_to=mail_to))
 
 
 def _session_enrollment_url(event_slug: str, session_id: int) -> str:
@@ -187,10 +170,7 @@ def _deliver(
         )
         return
     message = compose_mail(
-        recipient.voice,
-        subject=title,
-        body=f"{body}\n\n{url}",
-        to=reader.deliverable_email,
+        recipient, subject=title, body=f"{body}\n\n{url}", to=reader.deliverable_email
     )
     transaction.on_commit(partial(send, message))
 
@@ -242,7 +222,7 @@ class _SphereSubscriptionMail:
             logger.info("No deliverable address for promotional notification")
             return
         message = compose_mail(
-            recipient.voice,
+            recipient,
             subject=title,
             body=f"{body}\n\n{url}\n\n-- \n{self.footer()}",
             to=reader.deliverable_email,
@@ -284,7 +264,7 @@ class _SphereSubscriptionMail:
 
 
 class DjangoUserNotifier:
-    """Every `notify_*` composes inside `_speaking_to(recipient)`.
+    """Every `notify_*` composes inside `speaking_to(reader)`.
 
     It loads the recipient once (language and proven address) and holds
     their language while the copy is written. Delivery takes the recipient
@@ -293,7 +273,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_promoted(notification: PromotionNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = _session_enrollment_url(
                 notification.event_slug, notification.session_id
             )
@@ -314,7 +294,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_offered(notification: OfferNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = absolute_url(
                 reverse(
                     "web:chronology:offer-claim",
@@ -350,7 +330,7 @@ class DjangoUserNotifier:
     def notify_offer_expired(notification: PromotionNotification) -> None:
         # Flow-neutral: an expired row may be a waitlist offer or a seat a
         # leader held — nothing on it records which, so the copy fits both.
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = _("Your offer for %(session)s expired") % {
                 "session": notification.session_title
             }
@@ -371,7 +351,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_party_invited(notification: PartyInviteNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             party = notification.party_name or _("their party")
             title = _("%(member)s invited you to %(party)s") % {
                 "member": notification.actor_name,
@@ -395,7 +375,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_party_enrolled(notification: PartyEnrolledNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = _session_enrollment_url(
                 notification.event_slug, notification.session_id
             )
@@ -418,7 +398,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_seat_held(notification: HeldSeatNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = absolute_url(
                 reverse(
                     "web:chronology:offer-claim",
@@ -453,8 +433,10 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_email_verification(notification: EmailVerificationNotification) -> None:
         # The address being proven: nobody has proven it yet, by definition.
-        with _speaking_to(
-            notification.recipient_user_id, mail_to=notification.recipient_email
+        with speaking_to(
+            account_reader(
+                notification.recipient_user_id, mail_to=notification.recipient_email
+            )
         ) as recipient:
             url = absolute_url(
                 reverse("web:crowd:email-link", kwargs={"token": notification.token}),
@@ -483,8 +465,10 @@ class DjangoUserNotifier:
     ) -> None:
         # The pre-change address, so the cancel link reaches the account's
         # current owner rather than whoever asked for the change.
-        with _speaking_to(
-            notification.recipient_user_id, mail_to=notification.recipient_email
+        with speaking_to(
+            account_reader(
+                notification.recipient_user_id, mail_to=notification.recipient_email
+            )
         ) as recipient:
             url = absolute_url(
                 reverse(
@@ -516,8 +500,10 @@ class DjangoUserNotifier:
         notification: EmailChangeCompletedNotification,
     ) -> None:
         # The pre-change address; the row already holds the new one.
-        with _speaking_to(
-            notification.recipient_user_id, mail_to=notification.recipient_email
+        with speaking_to(
+            account_reader(
+                notification.recipient_user_id, mail_to=notification.recipient_email
+            )
         ) as recipient:
             title = _("Your email address was changed")
             body = _(
@@ -537,7 +523,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_printables_ready(notification: PrintablesReadyNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = absolute_url(
                 reverse(
                     "web:chronology:event-print",
@@ -563,7 +549,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_listing_interested(notification: ListingInterestedNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = _("%(name)s is interested in %(listing)s") % {
                 "name": notification.responder_name,
                 "listing": notification.listing_title,
@@ -579,7 +565,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_listing_declined(notification: ListingDeclinedNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = _("Not this time: %(listing)s") % {
                 "listing": notification.listing_title
             }
@@ -594,7 +580,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_listing_not_chosen(notification: ListingNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = _("%(listing)s has closed") % {
                 "listing": notification.listing_title
             }
@@ -608,7 +594,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_listing_changed(notification: ListingNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = _("%(listing)s has changed") % {
                 "listing": notification.listing_title
             }
@@ -624,7 +610,7 @@ class DjangoUserNotifier:
     def notify_sphere_event_published(
         notification: SphereEventPublishedNotification,
     ) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             url = absolute_url(
                 reverse(
                     "web:chronology:event", kwargs={"slug": notification.event_slug}
@@ -657,7 +643,7 @@ class DjangoUserNotifier:
     def notify_proposal_accepted(notification: ProposalAcceptedNotification) -> None:
         # Once per session and person: accepting again, or after a rejection
         # nobody was told about, is no news to them.
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             if Notification.objects.filter(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.PROPOSAL_ACCEPTED.value,
@@ -693,7 +679,7 @@ class DjangoUserNotifier:
             return
         # NOTE: unproven, unlike an account's address: the proposer gave this
         # address for status updates, and only an organizer can trigger this.
-        with speaking_in(contact_language(notification.language)) as voice:
+        with Voice(notification.language) as voice:
             title, body, url = _acceptance_copy(notification)
             message = compose_mail(
                 voice,
@@ -722,7 +708,7 @@ class DjangoUserNotifier:
 
     @staticmethod
     def notify_shadowbanned_signup(notification: ShadowbanSignupNotification) -> None:
-        with _speaking_to(notification.recipient_user_id) as recipient:
+        with speaking_to(account_reader(notification.recipient_user_id)) as recipient:
             title = (
                 _("A shadowbanned player joined %(session)s with you") % {
                     "session": notification.session_title
@@ -852,50 +838,3 @@ class NotificationSubscriptionRepository:
             user_id=user_id, pk=pk
         ).update(muted=muted)
         return bool(updated)
-
-
-class AnnouncementFanoutRepository:
-    @staticmethod
-    def claim(announcement_id: int) -> ClaimedAnnouncementDTO | None:
-        # The filtered UPDATE is the notify-at-most-once gate: only one caller
-        # ever flips notified_at from NULL, everyone else gets 0 rows and backs
-        # off. Republishing keeps the stamp, so it never re-notifies.
-        updated = Announcement.objects.filter(
-            pk=announcement_id, is_published=True, notified_at__isnull=True
-        ).update(notified_at=datetime.now(UTC))
-        if not updated:
-            return None
-        return ClaimedAnnouncementDTO.model_validate(
-            Announcement.objects.get(pk=announcement_id)
-        )
-
-    @staticmethod
-    def due_ids() -> list[int]:
-        return list(
-            Announcement.objects.filter(
-                is_published=True, notified_at__isnull=True
-            ).values_list("pk", flat=True)
-        )
-
-    @staticmethod
-    def active_sphere_subscriber_ids(sphere_id: int) -> list[int]:
-        return list(
-            NotificationSubscription.objects.filter(
-                sphere_id=sphere_id, muted=False
-            ).values_list("user_id", flat=True)
-        )
-
-    @staticmethod
-    def create_announcement_notifications(
-        *, recipient_ids: list[int], announcement: ClaimedAnnouncementDTO
-    ) -> int:
-        # Empty url routes the bell to the in-place overlay — an announcement
-        # is read where you are, it does not navigate.
-        return ring_as_written(
-            recipient_ids=recipient_ids,
-            kind=NotificationKind.ANNOUNCEMENT.value,
-            title=announcement.title,
-            body=announcement.content,
-            url="",
-            payload={"announcement_id": announcement.pk},
-        )
