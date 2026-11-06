@@ -454,8 +454,9 @@ class EventPanelService(EventPanelServiceProtocol):
     def __init__(self, events: EventRepositoryProtocol) -> None:
         self._events = events
 
-    def load_context(self, sphere_id: int, slug: str) -> EventPanelContextDTO:
-        current_event = self._events.read_by_slug(slug, sphere_id)
+    def load_context(
+        self, *, sphere_id: int, current_event: EventDTO
+    ) -> EventPanelContextDTO:
         stats_data = self._events.get_stats_data(current_event.pk)
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),

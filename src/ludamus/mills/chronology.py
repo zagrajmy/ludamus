@@ -26,7 +26,6 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
-from ludamus.pacts.images import resolve_uploaded_file_field
 from ludamus.pacts.legacy import (
     EventDTO,
     NotFoundError,
@@ -48,6 +47,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
     from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
     from ludamus.pacts.legacy import (
         AgendaItemRepositoryProtocol,
         ContentChangeLogData,
@@ -602,6 +602,14 @@ def _drop_stale_contact_language(
     return cleared
 
 
+def _frees_seats(old_session: SessionDTO, update: SessionUpdateData) -> bool:
+    # A raised limit may seat waiters. A limit set to 0 is passed on too:
+    # `fill_freed_seats` works out what is actually free either way.
+    if (new_limit := update.get("participants_limit")) is None:
+        return False
+    return new_limit == 0 or new_limit > old_session.participants_limit
+
+
 class SessionContentEditService:
     # Shared by the facilitator self-edit and organizer panel edit so both
     # paths write the same ContentChangeLog; owns the transactional boundary.
@@ -614,12 +622,14 @@ class SessionContentEditService:
         session_fields: SessionFieldRepositoryProtocol,
         content_change_logs: ContentChangeLogRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
+        waitlist_promotion: WaitlistPromotionServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._session_fields = session_fields
         self._content_change_logs = content_change_logs
         self._agenda_items = agenda_items
+        self._waitlist_promotion = waitlist_promotion
 
     def apply(
         self,
@@ -708,6 +718,8 @@ class SessionContentEditService:
                     "changes": changes,
                 }
                 self._content_change_logs.create(log_data)
+        if _frees_seats(old_session, data.update):
+            self._waitlist_promotion.fill_freed_seats(session_id=session_id)
 
     def _resize(
         self, *, session_id: int, old_session: SessionDTO, update: SessionUpdateData
@@ -850,34 +862,16 @@ class SessionSelfEditService:
 
     def update(
         self,
+        *,
         session_id: int,
         user_id: int | None,
-        cleaned_data: dict[str, object],
+        data: SessionUpdateData,
         field_values: list[SessionFieldValueData] | None,
     ) -> None:
         _session, event = self._gate(session_id, user_id)
-
-        def _str(key: str) -> str:
-            value = cleaned_data.get(key)
-            return str(value) if value else ""
-
-        def _int(key: str) -> int:
-            value = cleaned_data.get(key)
-            return value if isinstance(value, int) else 0
-
-        update: SessionUpdateData = {
-            "title": _str("title"),
-            "facilitator_name": _str("facilitator_name"),
-            "description": _str("description"),
-            "contact_email": _str("contact_email"),
-            "participants_limit": _int("participants_limit"),
-            "min_age": _int("min_age"),
-            "duration": _str("duration"),
-        }
-        if (
-            cover := resolve_uploaded_file_field(cleaned_data.get("cover_image"))
-        ) is not None:
-            update["cover_image"] = cover
+        # A presenter picks no category: that is the organizer's call.
+        update = data.copy()
+        update.pop("category_id", None)
         self._content_edit.apply(
             session_id=session_id,
             event_id=event.pk,

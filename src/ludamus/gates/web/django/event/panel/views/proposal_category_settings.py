@@ -10,13 +10,9 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalCategoryForm
-from ludamus.gates.web.django.panel import parse_requirement_selection
+from ludamus.gates.web.django.panel import PanelRequest, parse_requirement_selection
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import NotFoundError, PromotionMode, RedirectError
 from ludamus.pacts.submissions import (
@@ -54,7 +50,7 @@ def _form(page: ProposalCategoryEditContextDTO) -> ProposalCategoryForm:
 
 
 def _settings_data(
-    request: EventPanelRequest, form: ProposalCategoryForm
+    request: PanelRequest, form: ProposalCategoryForm
 ) -> ProposalCategorySettingsData:
     cleaned = form.cleaned_data
     return ProposalCategorySettingsData(
@@ -93,7 +89,7 @@ def _settings_data(
 
 def _render(
     *,
-    request: EventPanelRequest,
+    request: PanelRequest,
     context: dict[str, object],
     page: ProposalCategoryEditContextDTO,
     form: ProposalCategoryForm,
@@ -114,31 +110,31 @@ def _render(
     return TemplateResponse(request, "panel/cfp-edit.html", context)
 
 
-class ProposalCategorySettingsPageView(EventPanelAccessMixin, EventContextMixin, View):
-    request: EventPanelRequest
+class ProposalCategorySettingsPageView(EventPanelMixin, View):
+    request: PanelRequest
+    event_slug_kwarg = "event_slug"
 
     def get(
-        self, _request: EventPanelRequest, event_slug: str, category_slug: str
+        self, _request: PanelRequest, event_slug: str, category_slug: str
     ) -> HttpResponse:
-        context, current_event = self.require_event_context(event_slug)
-        page = self._read_page(current_event.pk, category_slug, event_slug)
+        context = self.panel_context()
+        page = self._read_page(self.current_event.pk, category_slug, event_slug)
         return _render(
             request=self.request, context=context, page=page, form=_form(page)
         )
 
     def post(
-        self, _request: EventPanelRequest, event_slug: str, category_slug: str
+        self, _request: PanelRequest, event_slug: str, category_slug: str
     ) -> HttpResponse:
-        context, current_event = self.require_event_context(event_slug)
-
+        context = self.panel_context()
         form = ProposalCategoryForm(self.request.POST)
         if not form.is_valid():
-            page = self._read_page(current_event.pk, category_slug, event_slug)
+            page = self._read_page(self.current_event.pk, category_slug, event_slug)
             return _render(request=self.request, context=context, page=page, form=form)
 
         try:
             self.request.services.proposal_category_settings.update(
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 category_slug=category_slug,
                 data=_settings_data(self.request, form),
             )

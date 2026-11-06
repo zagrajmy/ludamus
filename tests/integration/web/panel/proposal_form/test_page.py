@@ -297,6 +297,7 @@ class TestEdit:
     ):
         other_event = EventFactory(sphere=sphere)
         session = make_session(other_event)
+        title = session.title
 
         response = panel_client.post(
             form_url(event, session.pk),
@@ -304,6 +305,8 @@ class TestEdit:
         )
 
         assert_proposal_not_found(response, event)
+        session.refresh_from_db()
+        assert session.title == title
 
     def test_post_updates_session_and_redirects(self, panel_client, event):
         session = make_session(event)

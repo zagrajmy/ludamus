@@ -1,5 +1,3 @@
-# pylint: disable=duplicate-code
-# TODO(fancysnake): Extract common view boilerplate
 """Track views (configurable lanes spanning spaces and managers)."""
 
 from __future__ import annotations
@@ -12,12 +10,12 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    PanelContext,
 )
 from ludamus.gates.web.django.forms import TrackForm
+from ludamus.gates.web.django.request_ids import parse_ids
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
@@ -28,12 +26,12 @@ from ludamus.pacts.tracks import (
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.gates.web.django.event.panel.views.base import PanelContext
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.tracks import TrackEditFormContextDTO
 
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
-    return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
+    return parse_ids(request.POST.getlist(field))
 
 
 def _add_duplicate_name_error(form: TrackForm) -> None:
@@ -50,35 +48,32 @@ def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFor
     )
 
 
-class TracksPageView(PanelAccessMixin, EventContextMixin, View):
+class TracksPageView(EventPanelMixin, View):
     """List tracks for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
 
         context["active_nav"] = "tracks"
         context["tracks"] = self.request.services.tracks_panel.list_tracks(
-            current_event.pk
+            self.current_event.pk
         )
         return TemplateResponse(self.request, "panel/tracks.html", context)
 
 
-class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class TrackCreatePageView(EventPanelMixin, View):
     """Create a new track for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
 
         form_context = self.request.services.tracks_panel.get_form_context(
-            event_pk=current_event.pk, sphere_id=self.request.context.current_sphere_id
+            event_pk=self.current_event.pk,
+            sphere_id=self.request.context.current_sphere_id,
         )
         context["active_nav"] = "tracks"
         context["form"] = TrackForm(initial={"is_public": True})
@@ -89,9 +84,7 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/track-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.tracks_panel
         sphere_id = self.request.context.current_sphere_id
@@ -101,13 +94,13 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return self._rerender_create_form(
                 context=context,
                 form=form,
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 sphere_id=sphere_id,
             )
 
         try:
             service.create(
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 sphere_id=sphere_id,
                 data=_submitted_track_data(request=self.request, form=form),
             )
@@ -121,7 +114,10 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
             messages.success(self.request, _("Track created successfully."))
             return redirect("panel:tracks", slug=slug)
         return self._rerender_create_form(
-            context=context, form=form, event_pk=current_event.pk, sphere_id=sphere_id
+            context=context,
+            form=form,
+            event_pk=self.current_event.pk,
+            sphere_id=sphere_id,
         )
 
     def _rerender_create_form(
@@ -139,19 +135,17 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/track-create.html", context)
 
 
-class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
+class TrackEditPageView(EventPanelMixin, View):
     """Edit an existing track."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, track_slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             edit_context = self.request.services.tracks_panel.get_edit_context(
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 sphere_id=self.request.context.current_sphere_id,
                 track_slug=track_slug,
             )
@@ -172,9 +166,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/track-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, track_slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.tracks_panel
         sphere_id = self.request.context.current_sphere_id
@@ -183,7 +175,9 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         # ask for it first.
         try:
             edit_context = service.get_edit_form_context(
-                event_pk=current_event.pk, sphere_id=sphere_id, track_slug=track_slug
+                event_pk=self.current_event.pk,
+                sphere_id=sphere_id,
+                track_slug=track_slug,
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))
@@ -193,7 +187,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         if form.is_valid():
             try:
                 service.update(
-                    event_pk=current_event.pk,
+                    event_pk=self.current_event.pk,
                     sphere_id=sphere_id,
                     track_slug=track_slug,
                     data=_submitted_track_data(request=self.request, form=form),
@@ -233,20 +227,16 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/track-edit.html", context)
 
 
-class TrackDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class TrackDeleteActionView(EventPanelMixin, View):
     """Delete a track (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, track_slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         try:
             self.request.services.tracks_panel.delete(
-                event_pk=current_event.pk, track_slug=track_slug
+                event_pk=self.current_event.pk, track_slug=track_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))

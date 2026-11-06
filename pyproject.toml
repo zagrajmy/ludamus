@@ -434,9 +434,8 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# TODO: mills is still imported by gates.web.django.chronology.panel.views.base
-# (panel_columns.FIELD_KEY_PREFIX, now in pacts.panel) and, through
-# adapters.web.django.error_views, by gates.web.django.urls (mills.url_recovery).
+# TODO: mills is still reached through adapters.web.django.error_views
+# (mills.url_recovery) from gates.web.django.urls.
 forbidden_modules = [
     "ludamus.links",
     "ludamus.inits",
