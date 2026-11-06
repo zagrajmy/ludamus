@@ -561,6 +561,8 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    # Named by dotted path in LOGGING in settings.py, which is excluded above
+    "JsonFormatter",
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
