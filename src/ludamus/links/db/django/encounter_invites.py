@@ -20,21 +20,21 @@ from email.utils import parseaddr
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives, mailers
 from django.db import transaction
 from django.urls import reverse
-from django.utils import translation
 from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.recipients import address_languages
+from ludamus.links.db.django.delivery import compose_calendar_mail, send_all
+from ludamus.links.db.django.recipients import Voice, address_languages
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
 if TYPE_CHECKING:
+    from ludamus.links.db.django.delivery import Mail
     from ludamus.pacts.encounter import EncounterInvite
 
 
@@ -62,12 +62,14 @@ class DjangoEncounterInviteMailer:
         languages = address_languages({i.attendee_email for i in deliverable})
         messages = []
         for invite in deliverable:
-            with translation.override(languages[invite.attendee_email]):
-                messages.append(_message(invite))
+            with Voice(
+                languages[invite.attendee_email], address=invite.attendee_email
+            ) as voice:
+                messages.append(_message(invite, voice=voice))
 
         def _send() -> None:
             try:
-                sent = mailers.default.send_messages(messages)
+                sent = send_all(messages)
             except OSError:
                 # NOTE: the change already committed; a lost invite must not
                 # undo it, but it has to be visible.
@@ -129,7 +131,7 @@ def _organizer(invite: EncounterInvite) -> Mailbox:
     return Mailbox(name=invite.organizer_name, email=email)
 
 
-def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
+def _message(invite: EncounterInvite, *, voice: Voice) -> Mail:
     encounter = invite.encounter
     url = absolute_url(
         reverse(
@@ -158,13 +160,13 @@ def _message(invite: EncounterInvite) -> EmailMultiAlternatives:
             rsvp=invite.asks_reply and bool(settings.ENCOUNTER_REPLY_EMAIL),
         ),
     )
-    message = EmailMultiAlternatives(
-        subject=_subject(invite), body=_body(invite, url), to=[invite.attendee_email]
+    return compose_calendar_mail(
+        voice,
+        subject=_subject(invite),
+        body=_body(invite, url),
+        ics=ics,
+        method=invite.reason.method,
     )
-    message.attach_alternative(
-        ics, f"text/calendar; method={invite.reason.method}; charset=utf-8"
-    )
-    return message
 
 
 def _subject(invite: EncounterInvite) -> str:
