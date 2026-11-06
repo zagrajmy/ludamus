@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 import pytest
 from django.utils import translation
 
+from ludamus.links.db.django import notifications
+from ludamus.links.db.django.delivery import compose_mail
 from ludamus.links.db.django.models import Notification, Session, SphereSubscription
-from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.recipients import (
-    AccountReader,
+    NoAddressError,
     NotSpeakingError,
-    Recipient,
     Voice,
     speaking_to,
 )
@@ -39,9 +39,13 @@ from ludamus.pacts.safety import ShadowbanSignupNotification
 from tests.integration.conftest import SessionFactory, UserFactory
 
 _EXPIRES = datetime(2031, 5, 1, 17, 0, tzinfo=UTC)
-_NOTIFY = sorted(
-    name for name in vars(DjangoUserNotifier) if name.startswith("notify_")
-)
+_NOTIFIERS = [
+    pytest.param(notifier, method, id=f"{notifier.__name__}.{method}")
+    for notifier in vars(notifications).values()
+    if isinstance(notifier, type) and notifier.__module__ == notifications.__name__
+    for method in sorted(vars(notifier))
+    if method.startswith("notify_")
+]
 
 
 def _sample(method, *, session, subscription, language):
@@ -130,14 +134,14 @@ def _sample(method, *, session, subscription, language):
         ),
     }
     if method not in samples:
-        pytest.fail(f"Add a sample for DjangoUserNotifier.{method}")
+        pytest.fail(f"Add a sample for {method}")
     return samples[method]()
 
 
 @pytest.mark.usefixtures("polish_catalog")
-@pytest.mark.parametrize("method", _NOTIFY)
+@pytest.mark.parametrize(("notifier", "method"), _NOTIFIERS)
 def test_every_notification_speaks_its_readers_language_whoever_sends_it(
-    method, mailoutbox, django_capture_on_commit_callbacks
+    notifier, method, mailoutbox, django_capture_on_commit_callbacks
 ):
     reader = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
     session = SessionFactory(presenter=reader)
@@ -158,7 +162,7 @@ def test_every_notification_speaks_its_readers_language_whoever_sends_it(
             translation.override(sender_language),
             django_capture_on_commit_callbacks(execute=True),
         ):
-            getattr(DjangoUserNotifier(), method)(notification)
+            getattr(notifier(), method)(notification)
         return (
             list(Notification.objects.values_list("title", "body", "url")),
             [(mail.subject, mail.body, mail.to) for mail in mailoutbox],
@@ -172,14 +176,31 @@ def test_every_notification_speaks_its_readers_language_whoever_sends_it(
 
 
 class TestRecipient:
-    reader = AccountReader(user_id=1, language="pl", deliverable_email="o@example.com")
+    def test_speaks_the_accounts_stored_language(self):
+        user = UserFactory(language="pl")
 
-    def test_confirms_its_reader_while_speaking_their_language(self):
-        with speaking_to(self.reader) as recipient:
-            assert recipient.confirm() == self.reader
+        with speaking_to(user.pk) as recipient:
+            recipient.confirm()
+            assert translation.get_language() == "pl"
+            assert recipient.mail_to() == user.email
+
+    def test_an_account_never_seen_reads_the_site_default(self, settings):
+        settings.LANGUAGE_CODE = "pl"
+        user = UserFactory(language="")
+
+        with speaking_to(user.pk):
+            assert translation.get_language() == "pl"
+
+    def test_an_unproven_address_is_never_mailed(self):
+        user = UserFactory(language="pl", email_verified=False)
+
+        with speaking_to(user.pk) as recipient:
+            assert not recipient.can_mail
+            with pytest.raises(NoAddressError):
+                compose_mail(recipient, subject="Hej", body="Treść")
 
     def test_refuses_delivery_once_its_block_has_ended(self):
-        with speaking_to(self.reader) as recipient:
+        with speaking_to(UserFactory(language="pl").pk) as recipient:
             pass
 
         with pytest.raises(NotSpeakingError, match="outside a speaking block"):
@@ -187,32 +208,11 @@ class TestRecipient:
 
     def test_refuses_delivery_while_another_language_has_taken_over(self):
         with (
-            speaking_to(self.reader) as recipient,
+            speaking_to(UserFactory(language="pl").pk) as recipient,
             translation.override("en"),
             pytest.raises(NotSpeakingError, match="in en to a pl reader"),
         ):
             recipient.confirm()
-
-    def test_refuses_a_voice_in_another_language_than_its_readers(self):
-        with (
-            Voice("en", address="o@example.com") as voice,
-            pytest.raises(NotSpeakingError, match="A en voice for a pl reader"),
-        ):
-            Recipient(self.reader, voice).confirm()
-
-    def test_one_made_outside_speaking_to_never_delivers(self):
-        with (
-            translation.override("pl"),
-            pytest.raises(NotSpeakingError, match="outside a speaking block"),
-        ):
-            Recipient(self.reader, Voice("pl", address="o@example.com")).confirm()
-
-    def test_a_reader_with_no_language_reads_the_site_default(self, settings):
-        settings.LANGUAGE_CODE = "pl"
-        reader = AccountReader(user_id=1, language="", deliverable_email="")
-
-        with speaking_to(reader) as recipient:
-            assert recipient.confirm() == reader
 
 
 class TestVoice:

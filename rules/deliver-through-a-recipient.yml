@@ -38,6 +38,6 @@ constraints:
     regex: ^(create|bulk_create|get_or_create|update_or_create)$
 message: |
   Notifications and mail are written in their reader's language, not the
-  sender's. Compose them inside `speaking_to(...)` (an account) or
+  sender's. Compose them inside `speaking_to(user_id)` (an account) or
   `with Voice(language, address=...)` (an address alone), and deliver
-  through links/db/django/delivery.py with the Recipient or Voice.
+  with `ring` / `compose_mail` from links/db/django/delivery.py.

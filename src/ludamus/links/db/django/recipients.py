@@ -6,10 +6,10 @@ share it. A reader never seen signed in, or with no account at all, reads
 the site default, never the sender's language.
 
 Every delivery in `delivery` takes a `Voice` (an address-only mail) or a
-`Recipient` (an account's bell row and mail, from `speaking_to`). Either
-confirms only inside its block, and a Recipient only in its reader's own
-language, so a message cannot go out composed in anyone's language but its
-reader's.
+`Recipient` (an account's bell row and mail). Only `speaking_to(user_id)`
+makes a Recipient, from the account's stored language and proven address,
+and either token confirms only inside its block, so a message cannot go out
+composed in anyone's language but its reader's.
 """
 
 from __future__ import annotations
@@ -31,6 +31,10 @@ if TYPE_CHECKING:
 
 class NotSpeakingError(RuntimeError):
     """A message was delivered outside its reader's language."""
+
+
+class NoAddressError(RuntimeError):
+    """A mail was composed for a reader with no address to mail."""
 
 
 class Voice:
@@ -68,10 +72,6 @@ class Voice:
         if override is not None:
             override.__exit__(exc_type, exc, traceback)
 
-    @property
-    def language(self) -> str:
-        return self._language
-
     def confirm(self) -> None:
         """Check this language is the one in force.
 
@@ -97,75 +97,83 @@ class Voice:
 
 
 @dataclass(frozen=True)
-class AccountReader:
+class _AccountReader:
     user_id: int
     language: str
     deliverable_email: str
 
 
-class Recipient:
-    """An account's reader, while a message is being written for them."""
-
-    __slots__ = ("_reader", "_voice")
-
-    def __init__(self, reader: AccountReader, voice: Voice) -> None:
-        self._reader = reader
-        self._voice = voice
-
-    def confirm(self) -> AccountReader:
-        """Hand over the reader to deliver to, once their language is in force.
-
-        Returns:
-            The reader the message was composed for.
-
-        Raises:
-            NotSpeakingError: the voice is not in force, or speaks another
-                language than the reader's.
-        """
-        self._voice.confirm()
-        if self._voice.language != (expected := _language(self._reader.language)):
-            msg = f"A {self._voice.language} voice for a {expected} reader"
-            raise NotSpeakingError(msg)
-        return self._reader
-
-    def mail_to(self) -> str:
-        """Hand over the reader's deliverable address, once in their language.
-
-        Returns:
-            The address, empty when the reader has none to mail.
-        """
-        return self.confirm().deliverable_email
-
-
-@contextmanager
-def speaking_to(reader: AccountReader) -> Generator[Recipient]:
-    with Voice(reader.language, address=reader.deliverable_email) as voice:
-        yield Recipient(reader, voice)
-
-
-def _language(stored: str) -> str:
-    return stored or settings.LANGUAGE_CODE
-
-
-def account_reader(user_id: int, *, mail_to: str | None = None) -> AccountReader:
-    """Read the account's language, and its address only once proven.
-
-    Resolved here rather than at each producer, so a new notification cannot
-    opt out of either rule by accident. `mail_to` names the address for the
-    email-lifecycle notices alone: the one being proven, or the pre-change
-    one the row no longer holds.
-    """
+def _account_reader(user_id: int, *, mail_to: str | None) -> _AccountReader:
     user = (
         User.objects.filter(pk=user_id)
         .only("language", "email", "email_verified")
         .first()
     )
     proven = user.email if user is not None and user.email_verified else ""
-    return AccountReader(
+    return _AccountReader(
         user_id=user_id,
         language=_language(user.language if user is not None else ""),
         deliverable_email=proven if mail_to is None else mail_to,
     )
+
+
+class Recipient:
+    """An account, while a message is being written for them."""
+
+    __slots__ = ("_reader", "_voice")
+
+    def __init__(self, reader: _AccountReader, voice: Voice) -> None:
+        self._reader = reader
+        self._voice = voice
+
+    @property
+    def user_id(self) -> int:
+        return self._reader.user_id
+
+    @property
+    def can_mail(self) -> bool:
+        return bool(self._reader.deliverable_email)
+
+    def confirm(self) -> None:
+        """Check the reader's language is the one in force.
+
+        Raises:
+            NotSpeakingError: past the `speaking_to` block, or another
+                language took over inside it.
+        """
+        self._voice.confirm()
+
+    def mail_to(self) -> str:
+        """Hand over the reader's address, once their language is in force.
+
+        Returns:
+            The address to mail.
+
+        Raises:
+            NoAddressError: the reader has no address anyone proved.
+        """
+        if not (address := self._voice.mail_to()):
+            msg = f"User {self.user_id} has no deliverable address"
+            raise NoAddressError(msg)
+        return address
+
+
+@contextmanager
+def speaking_to(user_id: int, *, mail_to: str | None = None) -> Generator[Recipient]:
+    """Compose for this account, in its stored language, to its proven address.
+
+    Loads the account once and resolves both rules here rather than at each
+    producer, so a new notification cannot opt out of either by accident.
+    `mail_to` names the address for the email-lifecycle notices alone: the
+    one being proven, or the pre-change one the row no longer holds.
+    """
+    reader = _account_reader(user_id, mail_to=mail_to)
+    with Voice(reader.language, address=reader.deliverable_email) as voice:
+        yield Recipient(reader, voice)
+
+
+def _language(stored: str) -> str:
+    return stored or settings.LANGUAGE_CODE
 
 
 def address_languages(emails: Collection[str]) -> dict[str, str]:

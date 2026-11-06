@@ -1,6 +1,6 @@
 id: delivery-call-sites
 valid:
-  - "from ludamus.links.db.django.recipients import account_reader"
+  - "from ludamus.links.db.django.recipients import speaking_to"
 invalid:
   - "from ludamus.links.db.django.delivery import compose_mail"
   - "from ludamus.links.db.django.delivery import ring as bell"

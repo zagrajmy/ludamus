@@ -16,5 +16,5 @@ message: |
   is only as right as that language. It is for addresses with no account
   behind them, in the language resolved for them: encounter guests
   (`address_languages`) and anonymous proposers (stored at submission).
-  Mail to an account goes through `speaking_to(account_reader(...))`.
+  Mail to an account goes through `speaking_to(user_id)`.
   A new use must be added to this rule's ignores, in review.

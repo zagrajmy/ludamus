@@ -1,4 +1,4 @@
-"""The only place a bell row is saved or a mail is built and sent.
+"""The only place a bell row is created or a mail is built and sent.
 
 Each primitive takes the `Voice` or `Recipient` its message was composed
 under and confirms that language is still in force, so copy written in the
@@ -18,7 +18,7 @@ from ludamus.links.db.django.models import Notification
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
-    from ludamus.links.db.django.recipients import AccountReader, Recipient, Voice
+    from ludamus.links.db.django.recipients import Recipient, Voice
     from ludamus.pacts.legacy import NotificationKind
 
 type Mail = EmailMessage
@@ -32,22 +32,17 @@ def ring(
     body: str,
     url: str,
     payload: Mapping[str, str | int],
-) -> AccountReader:
-    """Save the bell row for the reader the copy was written for.
-
-    Returns:
-        That reader, for the caller to mail.
-    """
-    reader = recipient.confirm()
+) -> None:
+    """Create the bell row for the account the copy was written for."""
+    recipient.confirm()
     Notification.objects.create(
-        recipient_id=reader.user_id,
+        recipient_id=recipient.user_id,
         kind=kind.value,
         title=title,
         body=body,
         url=url,
         payload=dict(payload),
     )
-    return reader
 
 
 def ring_as_written(
@@ -63,8 +58,8 @@ def ring_as_written(
 
     The one delivery that takes no `Recipient`: an organizer's announcement
     or a notice staff send from the admin is someone's own words in a
-    language they chose. ast-grep rules allow it only at those call sites
-    and never with translated copy in its arguments.
+    language they chose. ast-grep rules allow it only in those modules and
+    keep translation out of them.
 
     Returns:
         How many bells rang.

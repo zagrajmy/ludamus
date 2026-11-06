@@ -1,6 +1,6 @@
 id: voice-call-sites
 valid:
-  - "with speaking_to(account_reader(user_id)) as recipient: pass"
+  - "with speaking_to(user_id) as recipient: pass"
   - "voice_note = 1"
 invalid:
   - |

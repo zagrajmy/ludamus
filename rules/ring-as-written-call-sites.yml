@@ -14,6 +14,7 @@ message: |
   `ring_as_written` sends one text to every reader, in whatever language it
   was written. It is for a person's own words alone: organizer
   announcements (announcements.py) and staff notices (admin.py). Copy the
-  app writes goes through `ring` / `_deliver` inside `speaking_to(...)`.
+  app writes goes inside `speaking_to(user_id)`, delivered with `ring` /
+  `compose_mail`.
   A new call site of hand-written text must be added to this rule's
   ignores, in review.
