@@ -7,9 +7,8 @@ from ludamus.mills.timeslots import (
     MIDNIGHT,
     PROGRAMME_DAYS,
     DayTurnover,
-    slot_windows_by_local_date,
+    event_opening_hours,
 )
-from ludamus.pacts import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
 # Zones on either side of UTC whose date differs from the server's at these
@@ -123,29 +122,115 @@ class TestProgrammeDays:
         ]
 
 
-class TestSlotWindows:
-    def test_groups_split_windows_under_their_local_date(self):
-        slot = TimeSlotDTO(
-            pk=1,
-            start_time=datetime(2026, 7, 10, 22, tzinfo=_TZ),
-            end_time=datetime(2026, 7, 11, 2, tzinfo=_TZ),
-        )
-        midnight = datetime(2026, 7, 11, 0, tzinfo=_TZ)
+class TestEventOpeningHours:
+    _SNAP = 60
 
-        assert slot_windows_by_local_date([slot], _TZ) == {
-            date(2026, 7, 10): [(slot.start_time, midnight)],
-            date(2026, 7, 11): [(midnight, slot.end_time)],
-        }
-
-    def test_groups_under_the_event_zone_date_not_the_server_clock(self):
-        slot = TimeSlotDTO(
-            pk=1,
-            start_time=datetime(2026, 7, 10, 14, tzinfo=UTC),
-            end_time=datetime(2026, 7, 10, 15, tzinfo=UTC),
+    def _hours(self, *, start, end, occupied=(), **extend):
+        return event_opening_hours(
+            start=start,
+            end=end,
+            occupied=occupied,
+            tz=_TZ,
+            snap_minutes=self._SNAP,
+            **extend,
         )
 
-        assert slot_windows_by_local_date([slot], _EAST) == {
-            date(2026, 7, 11): [
-                (slot.start_time.astimezone(_EAST), slot.end_time.astimezone(_EAST))
-            ]
-        }
+    def test_the_event_clock_times_set_the_span(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 11, 22, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11)]
+        assert hours.span == (16 * 60, 22 * 60)
+
+    def test_the_span_snaps_out_to_the_slot_grid(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, 20, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 21, 40, tzinfo=_TZ),
+        )
+
+        assert hours.span == (16 * 60, 22 * 60)
+
+    def test_something_scheduled_early_widens_the_span(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            occupied=[
+                (
+                    datetime(2026, 7, 10, 8, 30, tzinfo=_TZ),
+                    datetime(2026, 7, 10, 9, 30, tzinfo=_TZ),
+                )
+            ],
+        )
+
+        assert hours.span == (8 * 60, 22 * 60)
+
+    def test_something_scheduled_off_the_event_dates_adds_its_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            occupied=[
+                (
+                    datetime(2026, 7, 12, 9, tzinfo=_TZ),
+                    datetime(2026, 7, 12, 10, tzinfo=_TZ),
+                )
+            ],
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 12)]
+        assert hours.span == (9 * 60, 22 * 60)
+
+    def test_the_extend_arguments_reach_hours_nothing_occupies(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 22, tzinfo=_TZ),
+            extend_before_hours=2,
+            extend_after_hours=1,
+        )
+
+        assert hours.span == (14 * 60, 23 * 60)
+
+    def test_extending_stops_at_the_edges_of_the_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 2, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 23, tzinfo=_TZ),
+            extend_before_hours=5,
+            extend_after_hours=5,
+        )
+
+        assert hours.span == (0, 24 * 60)
+
+    def test_an_event_starting_and_ending_on_the_same_clock_time_still_opens(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 10, tzinfo=_TZ),
+            end=datetime(2026, 7, 12, 10, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11), date(2026, 7, 12)]
+        assert hours.span == (10 * 60, 18 * 60)
+
+    def test_an_event_closing_at_midnight_runs_to_the_end_of_the_day(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 10, 16, tzinfo=_TZ),
+            end=datetime(2026, 7, 11, 0, tzinfo=_TZ),
+        )
+
+        assert hours.span == (16 * 60, 24 * 60)
+
+    def test_reversed_event_dates_still_list_every_day_in_order(self):
+        hours = self._hours(
+            start=datetime(2026, 7, 12, 10, tzinfo=_TZ),
+            end=datetime(2026, 7, 10, 18, tzinfo=_TZ),
+        )
+
+        assert hours.dates == [date(2026, 7, 10), date(2026, 7, 11), date(2026, 7, 12)]
+
+    def test_a_grid_step_that_misses_midnight_falls_back_to_a_full_span(self):
+        late = datetime(2026, 7, 10, 23, 59, tzinfo=_TZ)
+
+        hours = event_opening_hours(
+            start=late, end=late, occupied=(), tz=_TZ, snap_minutes=50
+        )
+
+        assert hours.span == (16 * 60, 24 * 60)

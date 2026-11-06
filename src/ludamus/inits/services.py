@@ -85,7 +85,6 @@ from ludamus.mills.notifications import (
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -312,14 +311,6 @@ class Services:
         )
 
     @cached_property
-    def panel_time_slots(self) -> PanelTimeSlotsService:
-        return PanelTimeSlotsService(
-            transaction=self._transaction,
-            time_slots=self._repos.time_slots,
-            events=self._repos.events,
-        )
-
-    @cached_property
     def print_materials(self) -> PrintMaterialsService:
         return PrintMaterialsService(
             self._repos.events,
@@ -420,7 +411,6 @@ class Services:
                 panel_settings=self._repos.event_panel_settings,
                 facilitators=self._repos.facilitators,
                 tracks=self._repos.tracks,
-                time_slots=self._repos.time_slots,
             ),
         )
 
@@ -441,6 +431,7 @@ class Services:
             agenda_items=self._repos.agenda_items,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            events=self._repos.events,
             notifier=DjangoUserNotifier(),
         )
 
@@ -498,7 +489,6 @@ class Services:
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
-                time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,
             ),
         )
@@ -628,7 +618,6 @@ class Services:
             self._repos.session_fields,
             self._repos.personal_data_fields,
             self._repos.personal_data_field_values,
-            self._repos.time_slots,
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
@@ -691,7 +680,6 @@ class Services:
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,
-            time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
         )

@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, call
 
 import pytest
 
 from ludamus.mills.propose import ProposeSessionService
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import (
     FacilitatorData,
@@ -190,7 +191,7 @@ class TestSubmit:
         )
         submitting_repos.sessions.slug_exists.assert_called_once_with(1, "test-session")
         submitting_repos.sessions.create.assert_called_once_with(
-            _expected_session(), time_slot_ids=[], facilitator_ids=[FACILITATOR_PK]
+            _expected_session(), availability=[], facilitator_ids=[FACILITATOR_PK]
         )
         submitting_repos.sessions.save_field_values.assert_not_called()
         submitting_repos.personal_data_field_values.save.assert_not_called()
@@ -207,7 +208,7 @@ class TestSubmit:
             {
                 "category_id": 3,
                 "contact_email": "host@example.com",
-                "time_slot_ids": [4, 5],
+                "availability": ["2026-07-10:evening", "not-a-pair"],
                 "session_data": {
                     "title": "Test Session",
                     "facilitator_name": "Anon Host",
@@ -232,7 +233,7 @@ class TestSubmit:
                 contact_email="host@example.com",
                 cover_image=cover_image,
             ),
-            time_slot_ids=[4, 5],
+            availability=[AvailabilityDTO(day=date(2026, 7, 10), part=DayPart.EVENING)],
             facilitator_ids=[FACILITATOR_PK],
         )
 
@@ -274,7 +275,7 @@ class TestSubmit:
         submitting_repos.facilitators.create.assert_not_called()
         submitting_repos.sessions.create.assert_called_once_with(
             _expected_session(presenter_id=USER_PK, facilitator_name="Bob Host"),
-            time_slot_ids=[],
+            availability=[],
             facilitator_ids=[FACILITATOR_PK],
         )
 
@@ -645,8 +646,8 @@ class TestReads:
             is repos.categories.list_session_field_requirements.return_value
         )
         assert (
-            service.get_timeslot_requirements(2)
-            is repos.categories.list_time_slot_requirements.return_value
+            service.asks_availability(2)
+            is repos.categories.asks_availability.return_value
         )
         assert (
             service.get_public_tracks(1)
@@ -659,7 +660,7 @@ class TestReads:
         repos.categories.read.assert_called_once_with(2, 1)
         repos.personal_fields.list_by_event.assert_called_once_with(1)
         repos.categories.list_session_field_requirements.assert_called_once_with(2)
-        repos.categories.list_time_slot_requirements.assert_called_once_with(2)
+        repos.categories.asks_availability.assert_called_once_with(2)
         repos.tracks.list_public_by_event.assert_called_once_with(1)
 
     def test_saved_personal_data_is_empty_for_anonymous_or_new_users(

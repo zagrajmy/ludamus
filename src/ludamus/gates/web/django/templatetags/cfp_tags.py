@@ -75,7 +75,6 @@ def content_field_label(field_key: str) -> str:
         "category": _("Category"),
         "facilitators": _("Facilitators"),
         "tracks": _("Tracks"),
-        "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
         "deleted": _("Deleted"),
         "internal_comment": _("Internal comment"),
@@ -115,7 +114,7 @@ def is_continuation(continuation_set: set[tuple[int, str]], slot_and_date: str) 
     return (int(slot_pk), date_iso) in continuation_set
 
 
-_WIZARD_ORDER = ("category", "personal", "timeslots", "details", "review")
+_WIZARD_ORDER = ("personal", "category", "days", "details", "review")
 
 
 @register.filter

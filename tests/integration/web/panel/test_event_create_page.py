@@ -21,8 +21,6 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldRequirement,
     Space,
-    TimeSlot,
-    TimeSlotRequirement,
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
@@ -63,11 +61,6 @@ def source_fixture(sphere, active_user):
     track = Track.objects.create(event=source, name="RPG", slug="rpg")
     track.spaces.add(room)
     track.managers.add(active_user)
-    slot = TimeSlot.objects.create(
-        event=source,
-        start_time=SOURCE_START,
-        end_time=SOURCE_START + timedelta(hours=4),
-    )
     system = SessionField.objects.create(
         event=source,
         name="System",
@@ -91,9 +84,9 @@ def source_fixture(sphere, active_user):
         slug="rpg",
         start_time=SOURCE_START - timedelta(days=30),
         end_time=SOURCE_START - timedelta(days=7),
+        asks_availability=True,
     )
     SessionFieldRequirement.objects.create(category=category, field=system)
-    TimeSlotRequirement.objects.create(category=category, time_slot=slot)
     EventProposalSettings.objects.create(event=source, description="Bring dice")
     EventPanelSettings.objects.create(
         event=source,
@@ -162,8 +155,6 @@ class TestEventCreatePageView:
         track = Track.objects.get(event=event)
         assert list(track.spaces.all()) == [room]
         assert list(track.managers.all()) == [active_user]
-        slot = TimeSlot.objects.get(event=event)
-        assert slot.start_time == NEW_START
         system = SessionField.objects.get(event=event)
         assert system.show_on_cards is False
         assert list(system.options.values_list("value", flat=True)) == ["trophy"]
@@ -171,8 +162,8 @@ class TestEventCreatePageView:
         assert pronouns.is_required is True
         category = ProposalCategory.objects.get(event=event)
         assert category.start_time == NEW_START - timedelta(days=30)
+        assert category.asks_availability is True
         assert SessionFieldRequirement.objects.get(category=category).field == system
-        assert TimeSlotRequirement.objects.get(category=category).time_slot == slot
         assert event.proposal_settings.description == "Bring dice"
         assert event.panel_settings.facilitator_columns == [
             "name",
@@ -204,8 +195,10 @@ class TestEventCreatePageView:
         source = EventFactory(
             sphere=sphere, start_time=summer, end_time=summer + timedelta(hours=8)
         )
-        TimeSlot.objects.create(
+        ProposalCategory.objects.create(
             event=source,
+            name="RPG",
+            slug="rpg",
             start_time=summer + timedelta(hours=2),
             end_time=summer + timedelta(hours=4),
         )
@@ -216,8 +209,8 @@ class TestEventCreatePageView:
         )
 
         _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
-        slot = TimeSlot.objects.get(event__slug="mim-2027")
-        assert localtime(slot.start_time).strftime("%H:%M") == "12:00"
+        category = ProposalCategory.objects.get(event__slug="mim-2027")
+        assert localtime(category.start_time).strftime("%H:%M") == "12:00"
 
     def test_moves_an_hourly_grid_onto_the_spring_clock_change_intact(
         self, panel_client, sphere
@@ -227,8 +220,10 @@ class TestEventCreatePageView:
             sphere=sphere, start_time=june, end_time=june + timedelta(hours=8)
         )
         for hour in (2, 3):
-            TimeSlot.objects.create(
+            ProposalCategory.objects.create(
                 event=source,
+                name=f"Hour {hour}",
+                slug=f"hour-{hour}",
                 start_time=june + timedelta(hours=hour),
                 end_time=june + timedelta(hours=hour + 1),
             )
@@ -240,7 +235,7 @@ class TestEventCreatePageView:
 
         _assert_created(response, name="MiM 2027", url="/panel/event/mim-2027/")
         assert list(
-            TimeSlot.objects.filter(event__slug="mim-2027")
+            ProposalCategory.objects.filter(event__slug="mim-2027")
             .order_by("start_time")
             .values_list("start_time", "end_time")
         ) == [

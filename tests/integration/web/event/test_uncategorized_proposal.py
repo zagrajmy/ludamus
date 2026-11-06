@@ -117,7 +117,7 @@ def test_proposal_without_categories_can_be_submitted(
                 "private_session_fields": [],
                 "public_personal_fields": [],
                 "private_personal_fields": [],
-                "time_slots": [],
+                "availability": [],
             },
         },
     )
@@ -137,7 +137,7 @@ def test_proposal_without_categories_can_be_submitted(
     assert proposal.category_id is None
     assert proposal.status == SessionStatus.PENDING
     assert proposal.participants_limit == 0
-    assert list(proposal.time_slots.all()) == []
+    assert list(proposal.availability.all()) == []
     assert proposal.facilitators.get().display_name == "Host"
     assert proposal.presenter_id == (None if anonymous else active_user.pk)
     assert f"propose_{event.slug}" not in proposer.session
