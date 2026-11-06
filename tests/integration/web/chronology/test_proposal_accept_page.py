@@ -18,7 +18,7 @@ from ludamus.links.db.django.models import (
     Space,
     TimeSlot,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
 from tests.integration.conftest import (
     EventFactory,
@@ -78,7 +78,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -104,7 +104,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -247,7 +247,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -269,7 +269,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [],
@@ -296,7 +296,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -327,7 +327,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -409,7 +409,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -605,7 +605,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -643,7 +643,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -682,7 +682,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -731,7 +731,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
@@ -780,7 +780,7 @@ class TestProposalAcceptPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
-                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],

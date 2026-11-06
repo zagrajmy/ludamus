@@ -9,7 +9,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     User,
 )
-from ludamus.links.gravatar import gravatar_url
+from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.safety import ShadowbanCandidateDTO, ShadowbanMeetSessionDTO
 from tests.integration.conftest import SessionFactory, UserFactory
 from tests.integration.utils import assert_response

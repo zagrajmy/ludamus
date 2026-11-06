@@ -28,8 +28,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
-from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import UserDTO, gravatar_url
 from ludamus.pacts.guild import GuildMarkDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,

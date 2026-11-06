@@ -166,9 +166,7 @@ class TestSignUpSendsInvite:
                 "django.core.mail.backends.locmem.EmailBackend.send_messages",
                 side_effect=ConnectionRefusedError,
             ),
-            caplog.at_level(
-                "ERROR", logger="ludamus.links.db.django.encounter_invites"
-            ),
+            caplog.at_level("ERROR", logger="ludamus.links.db.django.mail"),
             django_capture_on_commit_callbacks(execute=True),
         ):
             rsvp(authenticated_client, encounter)

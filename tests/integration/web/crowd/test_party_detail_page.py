@@ -13,8 +13,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.crowd import UserType, gravatar_url
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (
     AgendaItemFactory,

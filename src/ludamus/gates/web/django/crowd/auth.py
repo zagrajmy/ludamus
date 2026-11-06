@@ -357,6 +357,7 @@ class Auth0LoginCallbackActionView(RedirectView):
             try:
                 result = oauth.auth0.userinfo(token=token)
             except Exception as exc:
+                logger.warning("Auth0 /userinfo request failed", exc_info=True)
                 raise RedirectError(
                     reverse("web:index"), error=_("Authentication failed")
                 ) from exc
@@ -364,6 +365,12 @@ class Auth0LoginCallbackActionView(RedirectView):
         try:
             userinfo = Auth0UserInfo.model_validate(raw)
         except PydanticValidationError as exc:
+            # Field names only: the values are the person's profile.
+            logger.warning(
+                "Auth0 userinfo from %s is malformed at %s",
+                source,
+                [error["loc"] for error in exc.errors()],
+            )
             raise RedirectError(
                 reverse("web:index"), error=_("Authentication failed")
             ) from exc

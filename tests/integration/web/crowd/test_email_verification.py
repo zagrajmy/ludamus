@@ -5,7 +5,7 @@ from django.core import signing
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, User
-from ludamus.links.email_tokens import SIGNING_SALT, DjangoEmailTokenCodec
+from ludamus.links.signed_tokens import EMAIL_VERIFICATION_SALT, DjangoEmailTokenCodec
 from ludamus.pacts.crowd import EmailTokenPayload, EmailVerificationAction
 from tests.integration.utils import assert_response
 
@@ -19,7 +19,7 @@ def _link_url(token):
 
 
 def _token(*, action, user_id, address):
-    return DjangoEmailTokenCodec.dumps(
+    return DjangoEmailTokenCodec().dumps(
         EmailTokenPayload(action=action, user_id=user_id, address=address)
     )
 
@@ -65,7 +65,7 @@ class TestConfirmLink:
 
     def test_get_unparseable_payload_renders_invalid_page(self, client, active_user):
         _ = active_user
-        token = signing.dumps({"act": "confirm"}, salt=SIGNING_SALT)
+        token = signing.dumps({"act": "confirm"}, salt=EMAIL_VERIFICATION_SALT)
 
         response = client.get(_link_url(token))
 

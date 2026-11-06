@@ -16,8 +16,7 @@ from email.utils import parseaddr
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives, mailers
-from django.db import transaction
+from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
 from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils.formats import date_format
@@ -25,6 +24,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
+from ludamus.links.db.django.mail import send_after_commit
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
@@ -51,26 +51,16 @@ class DjangoEncounterInviteMailer:
             )
         if not deliverable:
             return
-        share_code = deliverable[0].encounter.share_code
-        reason = deliverable[0].reason
         # NOTE: rendered now, in the acting user's language and time zone; a
         # guest may be an address with no account, so an owner's edit reaches
         # guests in the owner's language, not each guest's.
-        messages = [_message(invite) for invite in deliverable]
-
-        def _send() -> None:
-            try:
-                sent = mailers.default.send_messages(messages)
-            except OSError:
-                # NOTE: the change already committed; a lost invite must not
-                # undo it, but it has to be visible.
-                logger.exception(
-                    "Encounter %s: %s invites not delivered", share_code, reason
-                )
-                return
-            logger.info("Encounter %s: %s %s invites sent", share_code, sent, reason)
-
-        transaction.on_commit(_send, robust=True)
+        send_after_commit(
+            [_message(invite) for invite in deliverable],
+            label=(
+                f"Encounter {deliverable[0].encounter.share_code}: "
+                f"{deliverable[0].reason} invites"
+            ),
+        )
 
 
 class SignedReplyAddress:

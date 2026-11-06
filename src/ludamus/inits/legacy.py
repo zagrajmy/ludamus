@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.uow import UnitOfWork
-from ludamus.links.gravatar import gravatar_url
+from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.legacy import CacheProtocol, DependencyInjectorProtocol
 
 if TYPE_CHECKING:
