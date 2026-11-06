@@ -7,7 +7,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     dynamic_fields_form,
     field_descriptors,
 )
-from ludamus.pacts import PersonalDataFieldValueData
+from ludamus.pacts.legacy import PersonalDataFieldValueData
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from django import forms
     from django.http import QueryDict
 
-    from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.fields import FieldDescriptor, FieldValue, OrganizerFieldDTO
 
 PERSONAL_PREFIX = "personal"
 

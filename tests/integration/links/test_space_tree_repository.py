@@ -6,7 +6,7 @@ from ludamus.links.db.django.repositories import SpaceTreeRepository
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 from tests.integration.conftest import AgendaItemFactory
 

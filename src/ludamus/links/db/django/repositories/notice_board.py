@@ -14,20 +14,18 @@ from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
 )
-from ludamus.pacts import (
+from ludamus.pacts.crowd import UserType
+from ludamus.pacts.encounter import (
     EncounterData,
     EncounterDTO,
+    EncounterInviteeDTO,
+    EncounterInviteeRepositoryProtocol,
     EncounterRepositoryProtocol,
     EncounterRSVPDTO,
     EncounterRSVPRepositoryProtocol,
-    NotFoundError,
-)
-from ludamus.pacts.crowd import UserType
-from ludamus.pacts.encounter import (
-    EncounterInviteeDTO,
-    EncounterInviteeRepositoryProtocol,
     InviteeStatus,
 )
+from ludamus.pacts.legacy import NotFoundError
 
 
 class EncounterRepository(EncounterRepositoryProtocol):

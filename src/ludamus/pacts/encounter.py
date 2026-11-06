@@ -154,6 +154,12 @@ class EncounterInviteeDTO(BaseModel):
     user_id: int | None = None
 
 
+@dataclass(frozen=True)
+class EncounterCalendarLinks:
+    google: str
+    outlook: str
+
+
 class EncounterDetailContextDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,6 +175,7 @@ class EncounterDetailContextDTO(BaseModel):
     # Invitees without an account who accepted from their calendar: coming,
     # though not in `attendees`.
     accepted_guest_count: int = 0
+    calendar_links: EncounterCalendarLinks
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.
@@ -312,8 +319,14 @@ class EncounterServiceProtocol(Protocol):
     ) -> list[EncounterIndexItem]: ...
     def can_create(self, *, sphere_id: int, user_id: int) -> bool: ...
     def build_detail(
-        self, *, share_code: str, sphere_id: int, current_user_id: int | None
+        self,
+        *,
+        share_code: str,
+        sphere_id: int,
+        current_user_id: int | None,
+        page_url: str,
     ) -> EncounterDetailContextDTO: ...
+    def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str: ...
     def read_by_share_code(
         self, *, share_code: str, sphere_id: int
     ) -> EncounterDTO: ...

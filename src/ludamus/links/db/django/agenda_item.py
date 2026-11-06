@@ -8,16 +8,17 @@ from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
-from ludamus.pacts import (
+from ludamus.pacts.discounts import FacilitatorScheduleRow
+from ludamus.pacts.legacy import (
     AgendaItemData,
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
     AgendaItemUpdateData,
+    ConfirmationCountsRow,
+    ConfirmationTotalsRow,
     NotFoundError,
     SessionStatus,
 )
-from ludamus.pacts.discounts import FacilitatorScheduleRow
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
     from datetime import datetime

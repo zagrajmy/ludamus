@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.models import TimeSlot
-from ludamus.pacts import TimeSlotDTO
+from ludamus.pacts.legacy import TimeSlotDTO
 from tests.integration.conftest import EventFactory, dst_free_midnight
 from tests.integration.utils import (
     FormErrorsMatcher,

@@ -17,7 +17,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.forms import FacilitatorAssignGuildForm
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
 
 if TYPE_CHECKING:

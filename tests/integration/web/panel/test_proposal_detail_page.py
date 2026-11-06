@@ -15,7 +15,12 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import (
+from ludamus.pacts.chronology import (
+    EventIntegrationDTO,
+    IntegrationImplementationId,
+    IntegrationKind,
+)
+from ludamus.pacts.legacy import (
     AgendaItemDTO,
     FacilitatorDTO,
     ScheduleChangeAction,
@@ -24,11 +29,6 @@ from ludamus.pacts import (
     SessionStatus,
     TimeSlotDTO,
     TrackDTO,
-)
-from ludamus.pacts.chronology import (
-    EventIntegrationDTO,
-    IntegrationImplementationId,
-    IntegrationKind,
 )
 from ludamus.pacts.submissions import ImportLogEntryDTO
 from tests.integration.conftest import (

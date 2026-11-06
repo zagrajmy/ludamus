@@ -11,7 +11,11 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
-    from ludamus.pacts import ProposalCategoryDTO, SessionDTO, SessionFieldValueDTO
+    from ludamus.pacts.legacy import (
+        ProposalCategoryDTO,
+        SessionDTO,
+        SessionFieldValueDTO,
+    )
 
 register = template.Library()
 

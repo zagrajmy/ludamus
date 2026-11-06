@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from django.contrib.auth import get_user_model
 from django.core import signing
 
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.mcp import ActorContext, ToolScope
 
 if TYPE_CHECKING:

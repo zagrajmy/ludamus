@@ -1,7 +1,7 @@
 from django import template
 from django.utils.safestring import SafeString
 
-from ludamus.mills import render_markdown as _render_markdown
+from ludamus.gates.web.django.markdown import render_markdown as _render_markdown
 
 register = template.Library()
 

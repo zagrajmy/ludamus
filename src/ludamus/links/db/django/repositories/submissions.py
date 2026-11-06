@@ -18,13 +18,12 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
 )
 from ludamus.links.db.django.repositories import slugs
-from ludamus.pacts import (
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts.legacy import (
     CategoryStats,
     EventProposalSettingsDTO,
     EventProposalSettingsRepositoryProtocol,
     NotFoundError,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
     PersonalDataFieldCreateData,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,

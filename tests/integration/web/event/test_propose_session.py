@@ -27,13 +27,13 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import (
+from ludamus.pacts.images import StoredFile
+from ludamus.pacts.legacy import (
     EventDTO,
     EventProposalSettingsDTO,
     ProposalCategoryDTO,
     RedirectError,
 )
-from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,

@@ -17,7 +17,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

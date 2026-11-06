@@ -6,16 +6,16 @@ from django.http import HttpRequest, HttpResponseBase, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
-from ludamus.pacts import (
+from ludamus.pacts.ids import UserId
+from ludamus.pacts.legacy import (
     AuthenticatedRequestContext,
     NotFoundError,
     RedirectError,
     RequestContext,
 )
-from ludamus.pacts.ids import UserId
 
 if TYPE_CHECKING:
-    from ludamus.pacts import DependencyInjectorProtocol
+    from ludamus.pacts.legacy import DependencyInjectorProtocol
     from ludamus.pacts.services import ServicesProtocol
 
 

@@ -2,7 +2,6 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills.crowd import EmailVerificationService
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     ChangeRequestOutcome,
     EmailTokenPayload,
@@ -10,6 +9,7 @@ from ludamus.pacts.crowd import (
     RedeemOutcome,
     VerificationRequestOutcome,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
 from tests.unit.factories import user_dto

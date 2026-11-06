@@ -6,12 +6,12 @@ from django.conf import settings
 from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import CacheProtocol, DependencyInjectorProtocol
+from ludamus.pacts.legacy import CacheProtocol, DependencyInjectorProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ludamus.pacts import RootRequestProtocol
+    from ludamus.pacts.legacy import RootRequestProtocol
 
 
 Response = TypeVar("Response")

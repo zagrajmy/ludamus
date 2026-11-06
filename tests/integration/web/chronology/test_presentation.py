@@ -14,8 +14,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
     build_schedule_days,
 )
-from ludamus.pacts import AgendaItemDTO
-from ludamus.pacts.legacy import SessionFieldValueDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SessionFieldValueDTO
 from tests.integration.web.chronology.helpers import make_session_data
 
 

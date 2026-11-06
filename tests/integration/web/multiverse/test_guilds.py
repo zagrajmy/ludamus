@@ -8,13 +8,13 @@ from django.urls import reverse
 from ludamus.gates.web.django.sphere.guilds import RosterRow
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts import EventDTO
 from ludamus.pacts.guild import (
     GuildDTO,
     GuildFacilitatorMemberDTO,
     GuildMembershipMemberDTO,
     GuildSummaryDTO,
 )
+from ludamus.pacts.legacy import EventDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,

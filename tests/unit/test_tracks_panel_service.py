@@ -5,9 +5,9 @@ from uuid import UUID
 import pytest
 
 from ludamus.mills.tracks import TracksPanelService
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.legacy import (
+    NotFoundError,
     SpaceDTO,
     TrackCreateData,
     TrackDTO,

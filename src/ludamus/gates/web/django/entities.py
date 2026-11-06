@@ -8,12 +8,12 @@ from django.http import HttpRequest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ludamus.pacts import (
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.legacy import (
         AuthenticatedRequestContext,
         DependencyInjectorProtocol,
         RequestContext,
     )
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.services import ServicesProtocol
 
 

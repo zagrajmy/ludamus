@@ -1,5 +1,5 @@
 from ludamus.mills.chronology import diff_session_content
-from ludamus.pacts import SessionDTO, SessionFieldValueDTO
+from ludamus.pacts.legacy import SessionDTO, SessionFieldValueDTO
 
 
 def _session(**overrides):

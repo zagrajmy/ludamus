@@ -19,11 +19,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
-from ludamus.pacts import EventUpdateData, NotFoundError
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import EventVisibility
+from ludamus.pacts.legacy import EventUpdateData, EventVisibility, NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

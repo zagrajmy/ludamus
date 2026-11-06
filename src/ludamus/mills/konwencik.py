@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
@@ -21,14 +20,15 @@ from ludamus.pacts.konwencik import (
     KonwencikSheetConfig,
     KonwencikSkipReason,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
     from ludamus.pacts.chronology import (
         EventIntegrationDTO,
         EventIntegrationsRepositoryProtocol,
     )
+    from ludamus.pacts.legacy import AgendaItemDTO, SpaceDTO, TrackDTO
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,

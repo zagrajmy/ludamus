@@ -36,7 +36,8 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts import (
+from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
+from ludamus.pacts.legacy import (
     NO_LOCATION,
     AgendaItemDTO,
     SessionDTO,
@@ -45,7 +46,6 @@ from ludamus.pacts import (
     SessionStatus,
     TimeSlotDTO,
 )
-from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
