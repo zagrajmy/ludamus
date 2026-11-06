@@ -89,6 +89,13 @@ class TestWideEventMiddleware:
 
         assert _wide_events(events) == []
 
+    def test_an_unnamed_route_carries_no_view(self, client, events):
+        client.get("/events/")
+
+        (event,) = _wide_events(events)
+        assert event.route == "events/"
+        assert event.view is None
+
     def test_the_event_renders_as_one_json_line(self, client, sphere, events):
         client.get("/", HTTP_CF_RAY=RAY_ID)
 
@@ -100,7 +107,7 @@ class TestWideEventMiddleware:
         assert payload["ray_id"] == RAY_ID
         assert payload["sphere_id"] == sphere.pk
         assert payload["level"] == "INFO"
-        assert payload["logger"] == LOGGER
+        assert payload["logger"] == "wide_event"
         assert payload["ts"].endswith("+00:00")
         assert {"args", "msg", "exc_info", "levelno"}.isdisjoint(payload)
 

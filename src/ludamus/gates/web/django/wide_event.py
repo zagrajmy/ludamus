@@ -52,7 +52,9 @@ _event: ContextVar[WideEvent | None] = ContextVar("wide_event", default=None)
 
 
 class WideEventMiddleware:
-    logger: ClassVar[logging.Logger] = logging.getLogger(__name__)
+    # Named for what the line is, not where it was emitted: the module path
+    # would repeat what the fields already say.
+    logger: ClassVar[logging.Logger] = logging.getLogger("wide_event")
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponseBase]) -> None:
         self.get_response = get_response
@@ -98,8 +100,11 @@ class WideEventMiddleware:
             ),
         )
         if (match := request.resolver_match) is not None:
-            event["view"] = match.view_name
             event["route"] = match.route
+            # An unnamed pattern's view_name is the handler's dotted path,
+            # Django's own class for every redirect, which says nothing the
+            # route does not.
+            event["view"] = match.view_name if match.url_name else None
         event["language"] = get_language()
         context: RequestContext | None = getattr(request, "context", None)
         event["sphere_id"] = context.current_sphere_id if context else None
