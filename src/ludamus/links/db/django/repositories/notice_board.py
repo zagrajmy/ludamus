@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, Now
 
+from ludamus.links.db.django.crowd import accounts_at
 from ludamus.links.db.django.models import (
     Encounter,
     EncounterInvitee,
@@ -22,7 +23,6 @@ from ludamus.pacts import (
     EncounterRSVPRepositoryProtocol,
     NotFoundError,
 )
-from ludamus.pacts.crowd import UserType
 from ludamus.pacts.encounter import (
     EncounterInviteeDTO,
     EncounterInviteeRepositoryProtocol,
@@ -172,9 +172,7 @@ class EncounterRSVPRepository(EncounterRSVPRepositoryProtocol):
 
 
 def _active_account() -> QuerySet[User]:
-    return User.objects.filter(
-        email__iexact=OuterRef("email"), user_type=UserType.ACTIVE
-    )
+    return accounts_at(OuterRef("email"))
 
 
 class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):

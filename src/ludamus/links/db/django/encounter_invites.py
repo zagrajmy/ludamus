@@ -23,13 +23,14 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, mailers
 from django.db import transaction
 from django.urls import reverse
+from django.utils import translation
 from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.recipients import address_recipients, speaking_to
+from ludamus.links.db.django.recipients import address_languages
 from ludamus.pacts.calendar import CalendarEntry, CalendarInvite, Mailbox, ics_document
 from ludamus.pacts.encounter import EncounterInviteReason
 
@@ -58,10 +59,10 @@ class DjangoEncounterInviteMailer:
             return
         share_code = deliverable[0].encounter.share_code
         reason = deliverable[0].reason
-        recipients = address_recipients({i.attendee_email for i in deliverable})
+        languages = address_languages({i.attendee_email for i in deliverable})
         messages = []
         for invite in deliverable:
-            with speaking_to(recipients[invite.attendee_email]):
+            with translation.override(languages[invite.attendee_email]):
                 messages.append(_message(invite))
 
         def _send() -> None:

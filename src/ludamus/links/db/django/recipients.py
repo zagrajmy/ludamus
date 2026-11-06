@@ -13,11 +13,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.db.models.functions import Lower
 from django.utils import translation
 
+from ludamus.links.db.django.crowd import accounts_at
 from ludamus.links.db.django.models import User
-from ludamus.pacts.crowd import UserType
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Generator
@@ -52,26 +51,13 @@ def account_recipient(user_id: int) -> Recipient:
     )
 
 
-def address_recipients(emails: Collection[str]) -> dict[str, Recipient]:
-    """Each address in the language of its account, else the site default.
-
-    An address matches an account as encounter invitees do: case-insensitive,
-    active accounts only. The address itself stays deliverable, because
-    whoever named it chose to mail it, proven or not.
-    """
-    languages = dict(
-        User.objects.annotate(address=Lower("email"))
-        .filter(address__in={email.lower() for email in emails})
-        .filter(user_type=UserType.ACTIVE)
-        .values_list("address", "language")
-    )
-    return {
-        email: Recipient(
-            language=_language(languages.get(email.lower(), "")),
-            deliverable_email=email,
-        )
-        for email in emails
+def address_languages(emails: Collection[str]) -> dict[str, str]:
+    """Each address in the language of its account, else the site default."""
+    languages = {
+        email.lower(): language
+        for email, language in accounts_at(emails).values_list("email", "language")
     }
+    return {email: _language(languages.get(email.lower(), "")) for email in emails}
 
 
 @contextmanager

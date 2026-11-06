@@ -78,7 +78,6 @@ _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
 
 
 def _speaking_to(recipient_id: int) -> AbstractContextManager[Recipient]:
-    """Compose the bell row and the mail in the recipient's language."""
     return speaking_to(account_recipient(recipient_id))
 
 
