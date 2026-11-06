@@ -1,5 +1,3 @@
-# pylint: disable=duplicate-code
-# TODO(fancysnake): Extract common view boilerplate
 """Time slot views for the CFP."""
 
 from __future__ import annotations
@@ -16,14 +14,10 @@ from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    cfp_tab_urls,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import TimeSlotForm
-from ludamus.gates.web.django.panel import PanelNavContext
+from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, cfp_tab_urls
+from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
 from ludamus.pacts.legacy import NotFoundError
 
@@ -103,8 +97,7 @@ def _time_slots_context(
     all_days = _event_days(
         localtime(event.start_time).date(), localtime(event.end_time).date()
     )
-    raw_page = request.GET.get("page", "")
-    page = int(raw_page) if raw_page.isdigit() else 0
+    page = parse_id(request.GET.get("page")) or 0
     total_pages = max(1, (len(all_days) + days_per_page - 1) // days_per_page)
     page = max(0, min(page, total_pages - 1))
 
@@ -162,31 +155,27 @@ def _time_slots_context(
     }
 
 
-class TimeSlotsPageView(PanelAccessMixin, EventContextMixin, View):
+class TimeSlotsPageView(EventPanelMixin, View):
     """List time slots for an event, grouped by date."""
 
     DAYS_PER_PAGE = 3
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
 
-        context.update(_time_slots_context(request=self.request, event=current_event))
+        context.update(
+            _time_slots_context(request=self.request, event=self.current_event)
+        )
         return TemplateResponse(self.request, "panel/time-slots.html", context)
 
 
-class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class TimeSlotCreatePageView(EventPanelMixin, View):
     """Create a new time slot for an event."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         time_slots_url = reverse("panel:time-slots", kwargs={"slug": slug})
         date_param = self.request.GET.get("date")
         if _date_initial(date_param):
@@ -195,15 +184,13 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect(f"{time_slots_url}?create=1")
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         form = TimeSlotForm(self.request.POST)
         if not form.is_valid():
             context.update(
                 _time_slots_context(
-                    request=self.request, event=current_event, create_form=form
+                    request=self.request, event=self.current_event, create_form=form
                 )
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
@@ -211,13 +198,13 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         start_time, end_time = _slot_times(form)
         try:
             saved = self.request.services.panel_time_slots.create(
-                event=current_event, start_time=start_time, end_time=end_time
+                event=self.current_event, start_time=start_time, end_time=end_time
             )
         except TimeSlotRejectedError as error:
             _add_slot_errors(form, error.errors)
             context.update(
                 _time_slots_context(
-                    request=self.request, event=current_event, create_form=form
+                    request=self.request, event=self.current_event, create_form=form
                 )
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
@@ -233,19 +220,17 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:time-slots", slug=slug)
 
 
-class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
+class TimeSlotEditPageView(EventPanelMixin, View):
     """Edit an existing time slot."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             time_slot = self.request.services.panel_time_slots.read(
-                event_id=current_event.pk, pk=pk
+                event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))
@@ -266,13 +251,11 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             time_slot = self.request.services.panel_time_slots.read(
-                event_id=current_event.pk, pk=pk
+                event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))
@@ -288,7 +271,10 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
         start_time, end_time = _slot_times(form)
         try:
             saved = self.request.services.panel_time_slots.update(
-                event=current_event, pk=pk, start_time=start_time, end_time=end_time
+                event=self.current_event,
+                pk=pk,
+                start_time=start_time,
+                end_time=end_time,
             )
         except TimeSlotRejectedError as error:
             _add_slot_errors(form, error.errors)
@@ -308,20 +294,16 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:time-slots", slug=slug)
 
 
-class TimeSlotDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class TimeSlotDeleteActionView(EventPanelMixin, View):
     """Delete a time slot (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         try:
             deleted = self.request.services.panel_time_slots.delete(
-                event_id=current_event.pk, pk=pk
+                event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))

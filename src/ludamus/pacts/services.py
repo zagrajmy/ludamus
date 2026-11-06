@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
+        ProposalPageServiceProtocol,
         ProposalPanelServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
@@ -185,6 +186,8 @@ class ServicesProtocol(Protocol):
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
     def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
+    @property
+    def proposal_page(self) -> ProposalPageServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property

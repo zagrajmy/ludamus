@@ -1,4 +1,3 @@
-# pylint: disable=duplicate-code
 """Recursive Space-tree CRUD for the panel "Venues" section."""
 
 from __future__ import annotations
@@ -16,16 +15,13 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import (
     SpaceEditForm,
     SpaceForm,
     create_space_copy_form,
 )
+from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 
@@ -121,33 +117,31 @@ def suggest_copy_name(name: str) -> str:
     return f"{name} (Copy)"
 
 
-class SpacesPageView(PanelAccessMixin, EventContextMixin, View):
+class SpacesPageView(EventPanelMixin, View):
     """Render the whole space tree for an event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
 
         active_tab = (
             "programme" if self.request.GET.get("view") == "programme" else "layout"
         )
         tree = (
-            self.request.services.space_tree.list_tree(current_event.pk)
+            self.request.services.space_tree.list_tree(self.current_event.pk)
             if active_tab == "layout"
             else []
         )
         programme_spaces = self.request.services.space_tree.list_programme_spaces(
-            current_event.pk
+            self.current_event.pk
         )
         longest_space = max(
             programme_spaces,
             key=lambda space: (len(space.path), space.path),
             default=None,
         )
-        venues_url = reverse("panel:venues", kwargs={"slug": current_event.slug})
+        venues_url = reverse("panel:venues", kwargs={"slug": self.current_event.slug})
         context["active_nav"] = "venues"
         context["active_tab"] = active_tab
         context["layout_url"] = venues_url
@@ -159,7 +153,7 @@ class SpacesPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/spaces.html", context)
 
 
-class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class SpaceCreatePageView(EventPanelMixin, View):
     """Create a node, optionally under a parent (parent_pk in the URL)."""
 
     request: PanelRequest
@@ -177,11 +171,9 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
     def get(
         self, _request: PanelRequest, slug: str, parent_pk: int | None = None
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            parent = self._parent(current_event.pk, parent_pk)
+            parent = self._parent(self.current_event.pk, parent_pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
@@ -195,11 +187,9 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
     def post(
         self, _request: PanelRequest, slug: str, parent_pk: int | None = None
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            parent = self._parent(current_event.pk, parent_pk)
+            parent = self._parent(self.current_event.pk, parent_pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
@@ -208,7 +198,7 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if form.is_valid():
             try:
                 self.request.services.space_tree.create(
-                    event_id=current_event.pk,
+                    event_id=self.current_event.pk,
                     parent_id=parent.pk if parent else None,
                     data=SpaceInputDTO(
                         name=form.cleaned_data["name"],
@@ -230,7 +220,7 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/space-form.html", context)
 
 
-class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
+class SpaceEditPageView(EventPanelMixin, View):
     """Edit a single node."""
 
     request: PanelRequest
@@ -250,11 +240,9 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
         return [("", _("Top level"))] + [(str(pk), name) for pk, name in targets]
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            node = self._node(current_event.pk, pk)
+            node = self._node(self.current_event.pk, pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
@@ -267,7 +255,7 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "location": node.location,
                 "parent": node.parent_id or "",
             },
-            parent_choices=self._parent_choices(node.pk, current_event.pk),
+            parent_choices=self._parent_choices(node.pk, self.current_event.pk),
         )
         context["active_nav"] = "venues"
         context["parent"] = None
@@ -276,18 +264,16 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/space-form.html", context)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            node = self._node(current_event.pk, pk)
+            node = self._node(self.current_event.pk, pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
 
         form = SpaceEditForm(
             self.request.POST,
-            parent_choices=self._parent_choices(node.pk, current_event.pk),
+            parent_choices=self._parent_choices(node.pk, self.current_event.pk),
         )
         if form.is_valid():
             parent_raw = form.cleaned_data.get("parent")
@@ -315,22 +301,19 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/space-form.html", context)
 
 
-class SpaceDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class SpaceDeleteActionView(EventPanelMixin, View):
     """Delete a node and its subtree (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
         try:
             node = self.request.services.space_tree.read(pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
-        if node.event_id != current_event.pk:
+        if node.event_id != self.current_event.pk:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
 
@@ -344,22 +327,19 @@ class SpaceDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:venues", slug=slug)
 
 
-class SpaceDuplicateActionView(PanelAccessMixin, EventContextMixin, View):
+class SpaceDuplicateActionView(EventPanelMixin, View):
     """Duplicate a node's subtree under the same parent (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
         try:
             node = self.request.services.space_tree.read(pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
-        if node.event_id != current_event.pk:
+        if node.event_id != self.current_event.pk:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
 
@@ -370,7 +350,7 @@ class SpaceDuplicateActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:venues", slug=slug)
 
 
-class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
+class SpaceCopyPageView(EventPanelMixin, View):
     """Copy a node's subtree into another event as a new root."""
 
     request: PanelRequest
@@ -397,11 +377,9 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/space-copy.html", context)
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            node, choices = self._node_and_choices(context, current_event.pk, pk)
+            node, choices = self._node_and_choices(context, self.current_event.pk, pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)
@@ -413,11 +391,9 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
         return self._render(context=context, node=node, form=form)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
         try:
-            node, choices = self._node_and_choices(context, current_event.pk, pk)
+            node, choices = self._node_and_choices(context, self.current_event.pk, pk)
         except NotFoundError:
             messages.error(self.request, _("Space not found."))
             return redirect("panel:venues", slug=slug)

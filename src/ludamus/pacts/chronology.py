@@ -33,6 +33,7 @@ from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
+    from ludamus.pacts.legacy import SessionUpdateData
     from ludamus.pacts.submissions import ImportRow
 
 
@@ -289,9 +290,10 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> SessionSelfEditContext: ...
     def update(
         self,
+        *,
         session_id: int,
         user_id: int | None,
-        cleaned_data: dict[str, object],
+        data: SessionUpdateData,
         field_values: list[SessionFieldValueData] | None,
     ) -> None: ...
 

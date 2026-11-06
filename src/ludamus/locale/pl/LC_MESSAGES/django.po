@@ -992,6 +992,7 @@ msgstr "Ogłoszenie wznowione."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/chronology/panel/views/integrations.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Event not found."
@@ -1234,17 +1235,6 @@ msgstr "Nie znaleziono użytkownika o tej nazwie lub adresie e-mail."
 #: src/ludamus/gates/web/django/chronology/panel/views/bans.py
 msgid "Ban removed."
 msgstr "Ban został usunięty."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Yes"
-msgstr "Tak"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "No"
-msgstr "Nie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
 msgid "Has proposals"
@@ -2917,8 +2907,15 @@ msgid "Rules are checked from the lowest number; the first match wins."
 msgstr "Reguły sprawdzamy od najniższej liczby; wygrywa pierwsza pasująca."
 
 #: src/ludamus/gates/web/django/event/panel/views/base.py
-msgid "You don't have permission to access the backoffice panel."
-msgstr "Nie masz uprawnień do panelu organizatora."
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Yes"
+msgstr "Tak"
+
+#: src/ludamus/gates/web/django/event/panel/views/base.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "No"
+msgstr "Nie"
 
 #: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
 msgid "Discount rule not found."
@@ -4068,6 +4065,10 @@ msgstr "Polityka prywatności"
 #: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/gates/web/django/panel.py
+msgid "You don't have permission to access the backoffice panel."
+msgstr "Nie masz uprawnień do panelu organizatora."
 
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."

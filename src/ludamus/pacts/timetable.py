@@ -30,12 +30,19 @@ if TYPE_CHECKING:
         AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         EventRepositoryProtocol,
+        FacilitatorDTO,
+        ProposalCategoryDTO,
+        ScheduleChangeLogDTO,
         ScheduleChangeLogRepositoryProtocol,
+        SessionDTO,
         SessionRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
+        TimeSlotDTO,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
+        UnscheduledSessionDTO,
+        UnscheduledSessionFilter,
     )
 
 
@@ -56,8 +63,40 @@ class TimetableRepos:
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
 
 
+@dataclass
+class UnscheduledSessionsDTO:
+    sessions: list[UnscheduledSessionDTO]
+    has_more: bool
+
+
+@dataclass
+class TimetableSessionDetailDTO:
+    session: SessionDTO
+    agenda_item: AgendaItemDTO | None
+    facilitators: list[FacilitatorDTO]
+    time_slots: list[TimeSlotDTO]
+
+
+@dataclass
+class TimetableChangeLogDTO:
+    logs: list[ScheduleChangeLogDTO]
+    spaces: list[SpaceDTO]
+    # The newest change per session: only those may be undone.
+    revertible_pks: set[int]
+
+
 class TimetableServiceProtocol(Protocol):
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]: ...
+    def list_categories(self, event_pk: int) -> list[ProposalCategoryDTO]: ...
+    def list_unscheduled(
+        self, *, event_pk: int, filters: UnscheduledSessionFilter
+    ) -> UnscheduledSessionsDTO: ...
+    def session_detail(
+        self, *, event_pk: int, session_pk: int
+    ) -> TimetableSessionDetailDTO: ...
+    def change_log(
+        self, *, event_pk: int, space_pk: int | None
+    ) -> TimetableChangeLogDTO: ...
     def build_grid(
         self,
         *,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -9,12 +9,11 @@ from django.views.decorators.cache import never_cache
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
+    EventPanelMixin,
+    PanelContext,
 )
 from ludamus.gates.web.django.mcp.tokens import TOKEN_MAX_AGE_DAYS, mint_organizer_token
-from ludamus.gates.web.django.panel import settings_tab_urls
+from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -23,24 +22,24 @@ TEMPLATE = "panel/mcp-token.html"
 
 
 @method_decorator(never_cache, name="dispatch")
-class EventMcpTokenPageView(EventPanelAccessMixin, EventContextMixin, View):
-    request: EventPanelRequest
+class EventMcpTokenPageView(EventPanelMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        context, _current_event = self.require_event_context(slug)
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
         return self._render(slug=slug, token=None, context=context)
 
-    def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.require_event_context(slug)
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
         token = mint_organizer_token(
             user_id=self.request.context.current_user_id,
             sphere_id=self.request.context.current_sphere_id,
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
         )
         return self._render(slug=slug, token=token, context=context)
 
     def _render(
-        self, *, slug: str, token: str | None, context: dict[str, Any]
+        self, *, slug: str, token: str | None, context: PanelContext
     ) -> HttpResponse:
         context.update(
             active_nav="settings",

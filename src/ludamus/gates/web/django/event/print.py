@@ -16,6 +16,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.qr import qr_svg
+from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.printing import PrintQueryDTO
@@ -103,15 +104,6 @@ def _available_materials(*, tracks_available: bool) -> tuple[MaterialSpec, ...]:
     )
 
 
-def _scope_pk(raw: str | None) -> int | None:
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
-
-
 class _PrintScope(NamedTuple):
     space_pks: frozenset[int] | None
     track_pk: int | None
@@ -195,7 +187,7 @@ class PublicEventPrintView(View):
         if not event.is_open and not panel_user:
             raise Http404
 
-        scope_pk = _scope_pk(request.GET.get("scope"))
+        scope_pk = parse_id(request.GET.get("scope"))
         try:
             scope = request.services.venues.resolve_scope(event.pk, scope_pk)
         except NotFoundError as exc:
