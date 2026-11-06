@@ -1,0 +1,140 @@
+/* One element, two layouts: a card in the page from `lg` up, a bottom sheet
+   below it. Only .bottom-sheet-body scrolls, so nothing in a section needs to
+   know which layout it landed in. */
+@layer components {
+  .bottom-sheet {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background-color: var(--color-bg-secondary);
+    padding: 1.5rem;
+  }
+
+  .bottom-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .bottom-sheet-handle,
+  .bottom-sheet .bottom-sheet-close,
+  .bottom-sheet-backdrop {
+    display: none;
+  }
+
+  @media (width < 64rem) {
+    .bottom-sheet {
+      --bottom-sheet-half: 60dvh;
+      --bottom-sheet-full: calc(100dvh - 3rem);
+
+      display: none;
+    }
+
+    .bottom-sheet[data-open],
+    .bottom-sheet:target {
+      position: fixed;
+      inset-inline: 0;
+      bottom: var(--bottom-sheet-keyboard, 0px);
+      /* Over the sticky navbar and the banners, under .flash-region, so a
+         saved or failed form still reports itself. */
+      z-index: 55;
+      display: flex;
+      flex-direction: column;
+      height: var(--bottom-sheet-half);
+      max-height: calc(var(--bottom-sheet-full) - var(--bottom-sheet-keyboard, 0px));
+      border-width: 1px 0 0;
+      border-radius: 1rem 1rem 0 0;
+      padding: 0;
+      box-shadow: var(--shadow-elevated);
+      transition: height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+
+      @starting-style {
+        height: 0;
+      }
+    }
+
+    .bottom-sheet[data-height="full"] {
+      height: var(--bottom-sheet-full);
+    }
+
+    :root[data-bottom-sheet-snap="half"] .bottom-sheet {
+      height: var(--bottom-sheet-half);
+    }
+
+    :root[data-bottom-sheet-snap="full"] .bottom-sheet {
+      height: var(--bottom-sheet-full);
+    }
+
+    .bottom-sheet[data-dragging],
+    :root[data-bottom-sheet-still] .bottom-sheet {
+      transition: none;
+    }
+
+    .bottom-sheet[data-closing] {
+      height: 0;
+    }
+
+    .bottom-sheet-handle {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 1.75rem;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .bottom-sheet-handle::after {
+      content: "";
+      width: 2.5rem;
+      height: 0.3125rem;
+      border-radius: 9999px;
+      background-color: var(--color-border);
+    }
+
+    .bottom-sheet-header {
+      flex-shrink: 0;
+      margin: 0;
+      border-bottom: 1px solid var(--color-border);
+      padding: 0 0.75rem 0.5rem 1.25rem;
+    }
+
+    .bottom-sheet .bottom-sheet-close {
+      display: inline-flex;
+      flex-shrink: 0;
+    }
+
+    .bottom-sheet-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 1rem 1.25rem calc(2rem + env(safe-area-inset-bottom));
+    }
+
+    .bottom-sheet-backdrop:not([hidden]) {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 54;
+      background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+      backdrop-filter: blur(var(--modal-backdrop-blur, 4px));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bottom-sheet[data-open],
+    .bottom-sheet:target {
+      transition: none;
+    }
+  }
+}
+
+/* The same lock the filter sheet takes, for the same reason: .app-scroll is
+   the only thing that scrolls, and its overflow is unlayered. */
+body:has(.bottom-sheet[aria-modal="true"]) .app-scroll {
+  overflow: hidden;
+}

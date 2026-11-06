@@ -1,0 +1,8 @@
+{% load i18n %}
+{# The first child of .bottom-sheet. Wired by src/bottom-sheet.ts, which picks the label for the current height. #}
+<button type="button"
+        class="bottom-sheet-handle"
+        data-bottom-sheet-handle
+        data-label-grow="{% translate "Expand to full height" %}"
+        data-label-shrink="{% translate "Shrink to half height" %}"
+        aria-label="{% translate "Expand to full height" %}"></button>

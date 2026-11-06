@@ -16,7 +16,7 @@ test.describe("Profile notification subscriptions", () => {
   test("visiting signed in subscribes and the tab lists the sphere", async ({ page }) => {
     await page.goto("/crowd/profile/notifications/");
 
-    await expect(page.getByRole("tab", { name: "Notifications" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
     // The request that opened the tab subscribed the visitor to this sphere.
     await expect(page.getByRole("button", { name: /Mute|Unmute/ }).first()).toBeVisible();
   });

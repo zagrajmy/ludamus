@@ -22,6 +22,7 @@ from ludamus.pacts.party import (
     PartiesOverviewDTO,
     PartyActionContextDTO,
     PartyConsentMode,
+    PartyCountsDTO,
     PartyDTO,
     PartyInviteDTO,
     PartyJoinResult,
@@ -118,6 +119,19 @@ class PartyRepository(PartyRepositoryProtocol):
             )
         ]
         return PartiesOverviewDTO(parties=party_dtos, invites=invites)
+
+    @staticmethod
+    def counts(viewer_pk: int) -> PartyCountsDTO:
+        memberships = PartyMembership.objects.filter(member_id=viewer_pk)
+        active = memberships.filter(status=PartyMembershipStatus.ACTIVE)
+        return PartyCountsDTO(
+            parties=Party.objects.filter(
+                Q(leader_id=viewer_pk) | Q(pk__in=active.values("party_id"))
+            ).count(),
+            pending_invites=memberships.filter(
+                status=PartyMembershipStatus.INVITED
+            ).count(),
+        )
 
     @staticmethod
     def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None:

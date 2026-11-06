@@ -25,7 +25,7 @@
             {% translate "Go to profile" as profile_label %}
             {% url 'web:crowd:profile' as profile_url %}
             {% tessera_button later_label button_type="button" variant="secondary" full_width_mobile=False data_action="dismiss-banner" data_dismiss_target="email-verification-banner" data_dismiss_cookie="hide_email_verification_banner" %}
-            {% tessera_button profile_label href=profile_url variant="primary" %}
+            {% tessera_button profile_label href=profile_url|add:"#personal" variant="primary" %}
         </div>
     </div>
 </section>

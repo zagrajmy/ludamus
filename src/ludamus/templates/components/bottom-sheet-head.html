@@ -1,0 +1,19 @@
+{% load csp_tags django_vite %}
+{% comment %}
+For a page with a bottom sheet: goes in extra_head. Runs before first paint, so
+a form post back to the same page does not replay the slide-up and the sheet
+keeps the height the user chose.
+{% endcomment %}
+<script{% nonce %}>
+    (function() {
+        var root = document.documentElement;
+        try {
+            if (document.referrer && new URL(document.referrer).pathname === location.pathname) {
+                root.setAttribute("data-bottom-sheet-still", "");
+            }
+            var snap = sessionStorage.getItem("bottom-sheet-snap:" + location.pathname);
+            if (snap) root.setAttribute("data-bottom-sheet-snap", snap);
+        } catch (e) {}
+    })();
+</script>
+{% vite_asset 'src/bottom-sheet.ts' %}
