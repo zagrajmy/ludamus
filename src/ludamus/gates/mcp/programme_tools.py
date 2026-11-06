@@ -41,7 +41,12 @@ from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import AccreditationType
 from ludamus.pacts.timetable import PlacementRejectedError
 from ludamus.pacts.tracks import TrackSelectionInvalidError
-from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidationError
+from ludamus.pacts.venues import (
+    SpaceInputDTO,
+    SpacePatch,
+    SpaceTreeNodeDTO,
+    SpaceValidationError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -809,6 +814,23 @@ class _UpdateSpaceInput(BaseModel):
     location: str | None = Field(default=None, description="New location; omit to keep")
 
 
+def _space_patch(body: _UpdateSpaceInput) -> SpacePatch:
+    # "Omit to keep" is the input's None; the patch says it by leaving the key
+    # out, and "root" is the one way to ask for the top level.
+    changes: SpacePatch = {}
+    if body.name is not None:
+        changes["name"] = body.name
+    if body.capacity is not None:
+        changes["capacity"] = body.capacity
+    if body.description is not None:
+        changes["description"] = body.description
+    if body.location is not None:
+        changes["location"] = body.location
+    if body.parent_id is not None:
+        changes["parent_id"] = None if body.parent_id == "root" else body.parent_id
+    return changes
+
+
 class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
     name = "update_space"
     description = (
@@ -822,40 +844,9 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
     @staticmethod
     def handle(call: ToolCall[_UpdateSpaceInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        current = call.services.space_tree.read(call.data.pk)
-        if current.event_id != event.pk:
-            raise NotFoundError
-        if call.data.parent_id == "root":
-            parent_id = None
-        elif call.data.parent_id is None:
-            parent_id = current.parent_id
-        else:
-            parent = call.services.space_tree.read(call.data.parent_id)
-            if parent.event_id != event.pk:
-                raise NotFoundError
-            parent_id = parent.pk
         try:
-            space = call.services.space_tree.update(
-                pk=current.pk,
-                parent_id=parent_id,
-                data=SpaceInputDTO(
-                    name=call.data.name or current.name,
-                    capacity=(
-                        current.capacity
-                        if call.data.capacity is None
-                        else call.data.capacity
-                    ),
-                    description=(
-                        current.description
-                        if call.data.description is None
-                        else call.data.description
-                    ),
-                    location=(
-                        current.location
-                        if call.data.location is None
-                        else call.data.location
-                    ),
-                ),
+            space = call.services.space_tree.patch_space(
+                event_id=event.pk, pk=call.data.pk, changes=_space_patch(call.data)
             )
         except SpaceValidationError as error:
             raise ToolError(str(error)) from error
