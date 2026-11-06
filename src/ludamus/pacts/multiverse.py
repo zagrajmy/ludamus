@@ -28,7 +28,7 @@ class SphereVisibility(StrEnum):
 class SphereRole(StrEnum):
     # Who someone is in a sphere. MANAGER is the historical "sphere manager";
     # COMMS is the read-mostly one. What each may do is
-    # `specs.permissions.ROLE_CAPABILITIES` — never spelled out at a call site.
+    # `specs.permissions.sphere_access` — never spelled out at a call site.
     MANAGER = "manager"
     COMMS = "comms"
 
@@ -48,6 +48,9 @@ class SphereAccessDTO(BaseModel):
     # query.
     role: SphereRole | None
     capabilities: frozenset[Capability]
+
+    def allows(self, capability: Capability) -> bool:
+        return capability in self.capabilities
 
 
 class DuplicateConnectionDisplayNameError(Exception):
@@ -185,7 +188,9 @@ class SphereSettingsPatch(TypedDict, total=False):
 class SpherePanelServiceProtocol(Protocol):
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None: ...
     def can_write_programme(self, sphere_id: int, user_slug: str) -> bool: ...
-    def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
+    def access(
+        self, sphere_id: int, user_slug: str, *, is_superuser: bool
+    ) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
     def update_settings(
