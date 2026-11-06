@@ -159,6 +159,7 @@ class TestSpherePanelServiceUpdateSettings:
     def _update(service, **overrides):
         kwargs = {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": EncountersPolicy.MANAGERS,
         }
@@ -175,6 +176,7 @@ class TestSpherePanelServiceUpdateSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
+                    "parley_enabled": False,
                     "event_cover_buttons_at_bottom": True,
                     "encounters_policy": "managers",
                 },
@@ -188,6 +190,7 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1] == {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": "managers",
             "logo": "",

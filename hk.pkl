@@ -19,8 +19,11 @@ local linters = new Mapping<String, Step> {
   // optional: Poetry generates it, every dependency it pins adds hashes for
   // every wheel, and mutmut's `libcst` + `setproctitle` took it past the line.
   // Same reasoning already exempts `**/*.lock` from codespell below.
+  // `django.po` is makemessages' output and grows with every translated
+  // string; the Polish catalog crossed the line once Parley's copy joined
+  // main's.
   ["check-added-large-files"] = (Builtins.check_added_large_files) {
-    exclude = List("poetry.lock")
+    exclude = List("poetry.lock", "src/ludamus/locale/*/LC_MESSAGES/django.po")
   }
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["detect-private-key"] = Builtins.detect_private_key

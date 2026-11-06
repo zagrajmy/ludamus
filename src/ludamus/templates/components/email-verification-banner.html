@@ -4,10 +4,11 @@
     cookie with a max-age (set in actions.ts), so it quiets down for a while
     and costs nothing to lose in a new browser. On phones both this and the
     consent banner span the bottom edge, so this one waits while consent is
-    asked.
+    asked. Where Parley's chat button holds the bottom-right corner, the
+    banner sits above it rather than under it.
 {% endcomment %}
 <section id="email-verification-banner"
-         class="max-sm:[body:has(#consent-banner:not([hidden]))_&]:hidden fixed z-40 bottom-3 left-3 right-3 sm:bottom-4 sm:right-4 sm:left-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
+         class="max-sm:[body:has(#consent-banner:not([hidden]))_&]:hidden fixed z-40 bottom-3 left-3 right-3 sm:bottom-4 [body:has([data-parley-root])_&]:bottom-24 sm:[body:has([data-parley-root])_&]:bottom-24 sm:right-4 sm:left-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
          aria-label="{% translate "Email verification" %}">
     <div class="p-4 flex flex-col gap-3">
         <div class="flex items-start gap-2.5">
