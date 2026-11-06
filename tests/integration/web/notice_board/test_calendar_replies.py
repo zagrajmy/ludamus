@@ -6,8 +6,8 @@ from django.contrib.messages import constants
 from django.urls import reverse
 
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
-from ludamus.links.db.django.models import EncounterInvitee
 from ludamus.mills.encounter_calendar import encounter_calendar_uid
+from ludamus.pacts.encounter import InviteeStatus
 from tests.integration.conftest import (
     EncounterFactory,
     EncounterInviteeFactory,
@@ -419,7 +419,7 @@ class TestCalendarReplies:
         EncounterInviteeFactory(
             encounter=encounter,
             email="friend@example.com",
-            status=EncounterInvitee.Status.ACCEPTED,
+            status=InviteeStatus.ACCEPTED,
         )
 
         with django_capture_on_commit_callbacks(execute=True):
@@ -445,9 +445,7 @@ class TestAcceptedGuestsHoldSpots:
         encounter = EncounterFactory(sphere=sphere, max_participants=1)
         late_account = UserFactory(email="friend@example.com")
         EncounterInviteeFactory(
-            encounter=encounter,
-            email=late_account.email,
-            status=EncounterInvitee.Status.ACCEPTED,
+            encounter=encounter, email=late_account.email, status=InviteeStatus.ACCEPTED
         )
 
         response = rsvp(authenticated_client, encounter)

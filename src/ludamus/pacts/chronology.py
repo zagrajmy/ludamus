@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.fields import SessionFieldType
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
@@ -135,7 +136,7 @@ class SourceQuestion(BaseModel):
     # maps to `select` + `is_multiple` (the domain has no multi `checkbox`); an
     # "other"/free-text option sets `allow_custom` and is dropped from `options`.
     title: str
-    field_type: Literal["text", "select", "checkbox"] = "text"
+    field_type: SessionFieldType = "text"
     is_multiple: bool = False
     allow_custom: bool = False
     options: list[str] = []

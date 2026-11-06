@@ -11,10 +11,10 @@ from django.utils.timezone import localtime
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.models import (
     Encounter,
-    EncounterInvitee,
     EncounterInviteMailing,
     EncounterRSVP,
 )
+from ludamus.pacts.encounter import InviteeStatus
 from ludamus.specs.encounter import CALENDAR_MAILS_PER_CREATOR_PER_DAY
 from tests.integration.conftest import (
     EncounterFactory,
@@ -310,9 +310,7 @@ class TestOwnerChangesReachGuests:
         EncounterRSVPFactory(encounter=encounter, user=attendee)
         EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
         EncounterInviteeFactory(
-            encounter=encounter,
-            email="gone@example.com",
-            status=EncounterInvitee.Status.DECLINED,
+            encounter=encounter, email="gone@example.com", status=InviteeStatus.DECLINED
         )
 
         with django_capture_on_commit_callbacks(execute=True):
@@ -343,9 +341,7 @@ class TestOwnerChangesReachGuests:
     ):
         encounter = _minute_encounter(creator=user, sphere=sphere)
         EncounterInviteeFactory(
-            encounter=encounter,
-            email="no@example.com",
-            status=EncounterInvitee.Status.DECLINED,
+            encounter=encounter, email="no@example.com", status=InviteeStatus.DECLINED
         )
         edit = reverse("web:notice-board:edit", kwargs={"pk": encounter.pk})
 
@@ -357,7 +353,7 @@ class TestOwnerChangesReachGuests:
         response = authenticated_client.get(edit)
 
         assert mailoutbox == []
-        assert encounter.invitees.get().status == EncounterInvitee.Status.DECLINED
+        assert encounter.invitees.get().status == InviteeStatus.DECLINED
         assert not response.context["form"].initial["invitees"]
 
     def test_edit_invites_the_added_and_cancels_the_removed(
@@ -383,7 +379,7 @@ class TestOwnerChangesReachGuests:
                 ),
             )
 
-        on_list = encounter.invitees.exclude(status=EncounterInvitee.Status.REMOVED)
+        on_list = encounter.invitees.exclude(status=InviteeStatus.REMOVED)
         assert sorted(on_list.values_list("email", flat=True)) == [
             "new@example.com",
             "stays@example.com",
@@ -447,9 +443,7 @@ class TestAcceptedInviteeSigningUp:
     ):
         encounter = EncounterFactory(sphere=sphere, max_participants=1)
         EncounterInviteeFactory(
-            encounter=encounter,
-            email=user.email,
-            status=EncounterInvitee.Status.ACCEPTED,
+            encounter=encounter, email=user.email, status=InviteeStatus.ACCEPTED
         )
 
         response = rsvp(authenticated_client, encounter)

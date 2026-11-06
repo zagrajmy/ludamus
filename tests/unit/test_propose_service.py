@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills.propose import ProposeSessionService
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH, UserDTO
 from ludamus.pacts.legacy import (
     FacilitatorData,
     FacilitatorDTO,
@@ -22,10 +22,7 @@ from ludamus.pacts.propose import (
     ProposeRepos,
     ReusableSessionRecord,
 )
-from ludamus.specs.proposal import (
-    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
-    PROPOSAL_RATE_LIMIT_SECONDS,
-)
+from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 from tests.unit.factories import event_dto
 
 EXPECTED_SESSION_ID = 99
