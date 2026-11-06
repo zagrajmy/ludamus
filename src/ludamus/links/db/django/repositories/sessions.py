@@ -1,5 +1,4 @@
 import json
-import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -35,7 +34,7 @@ from ludamus.pacts.chronology import (
     SessionModalRepositoryProtocol,
     SessionSeatDTO,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.legacy import (
     OCCUPYING_PARTICIPATION_STATUSES,
     UNSCHEDULED_LIST_LIMIT,
@@ -64,9 +63,8 @@ from ludamus.pacts.legacy import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.ids import EventId, SessionId, UserId
-
-_ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
 # facilitator list. Anything else falls back to newest first.
@@ -89,14 +87,6 @@ def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
     if not (order_field := _SESSION_SORT_FIELDS.get(key, "")):
         return ("-creation_time",)
     return (f"-{order_field}" if descending else order_field, "-pk")
-
-
-def _parse_iso8601_duration_minutes(duration: str) -> int:
-    if not (m := _ISO8601_DURATION_RE.match(duration)):
-        return 0
-    hours = int(m.group(1) or 0)
-    minutes = int(m.group(2) or 0)
-    return hours * 60 + minutes
 
 
 def sessions_run_by(user_id: int) -> QuerySet[Session]:
@@ -344,7 +334,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             raise NotFoundError from exception
         if session.presenter is None:
             return None
-        return UserDTO.model_validate(session.presenter)
+        return user_dto(session.presenter)
 
     @staticmethod
     def lock(pk: int) -> None:
@@ -956,10 +946,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         results: list[UnscheduledSessionDTO] = []
         has_more = False
         for s in qs.order_by("title").iterator():
-            duration_minutes = _parse_iso8601_duration_minutes(s.duration)
+            minutes = duration_minutes(s.duration)
             if (
                 filters.max_duration_minutes is not None
-                and duration_minutes > filters.max_duration_minutes
+                and minutes > filters.max_duration_minutes
             ):
                 continue
             if len(results) >= UNSCHEDULED_LIST_LIMIT:
@@ -972,7 +962,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                     facilitator_name=s.facilitator_name,
                     category_name=s.category.name if s.category else "",
                     category_pk=s.category_id,
-                    duration_minutes=duration_minutes,
+                    duration_minutes=minutes,
                     participants_limit=s.participants_limit,
                 )
             )

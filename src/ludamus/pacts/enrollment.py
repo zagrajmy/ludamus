@@ -9,7 +9,7 @@ unit-testable with fakes.
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, Self
+from typing import TYPE_CHECKING, Literal, Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 
@@ -120,11 +120,16 @@ class PromotionResult(BaseModel):
     offered: list[int] = []
 
 
+# "conflict": the offered seat overlaps one the member already holds, so it
+# was released rather than claimed.
+type ClaimFailure = Literal["not_found", "expired", "conflict"]
+
+
 class ClaimResult(BaseModel):
     success: bool
     session_id: int | None = None
     event_slug: str | None = None
-    reason: str | None = None
+    reason: ClaimFailure | None = None
 
 
 class SeatHoldRequest(BaseModel):

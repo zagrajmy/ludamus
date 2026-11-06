@@ -7,8 +7,8 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.markdown import render_markdown
 from ludamus.gates.web.django.meta import encounter_description
 from ludamus.links.db.django.models import EncounterRSVP
-from ludamus.links.gravatar import gravatar_url
 from ludamus.mills.encounter_calendar import encounter_calendar_links
+from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.encounter import EncounterDTO, EncounterInviteeDTO, InviteeStatus
 from tests.integration.conftest import (
     PNG_BYTES,

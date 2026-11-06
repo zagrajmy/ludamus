@@ -9,11 +9,14 @@ of every other module.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from django.core.mail import EmailMessage, EmailMultiAlternatives, mailers
 
 from ludamus.links.db.django.models import Notification
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -119,9 +122,15 @@ def send(message: EmailMessage) -> bool:
     """Send one notice, best-effort: the change it announces has committed.
 
     Returns:
-        Whether the mail server took it; a refusal is the caller's to log.
+        Whether the mail server took it. A refusal is logged here; the caller
+        decides what else it means (re-arming a flag, say).
     """
-    return bool(message.send(fail_silently=True))
+    if sent := bool(message.send(fail_silently=True)):
+        return sent
+    logger.warning(
+        "Mail not sent: %r to %d recipient(s)", message.subject, len(message.to)
+    )
+    return sent
 
 
 def send_all(messages: Sequence[EmailMessage]) -> int:
