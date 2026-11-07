@@ -30,7 +30,7 @@ class TestTimetableSessionDetailPartView:
 
     @staticmethod
     def expected_context(
-        event, session, *, agenda_item=None, back_url=None, duration_minutes=60
+        event, session, *, agenda_item=None, back_url=None, duration_minutes=0
     ):
         return {
             "session": SessionDTO.model_validate(session),
@@ -114,7 +114,7 @@ class TestTimetableSessionDetailPartView:
     def test_ok_reads_duration_from_iso_value(
         self, panel_client, event, proposal_category
     ):
-        # The factory leaves `duration` unset, which falls back to 60; an
+        # The factory leaves `duration` unset, which reads as no duration; an
         # actual ISO value is what the hours-and-minutes parse runs on.
         session = SessionFactory(
             category=proposal_category,
