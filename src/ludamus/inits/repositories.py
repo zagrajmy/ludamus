@@ -15,6 +15,7 @@ from ludamus.links.db.django.enrollment import (
     AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
     EnrollmentWindowRepository,
+    MemberEnrollmentRepository,
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.facilitator_change_log import (
@@ -146,6 +147,10 @@ class Repositories:
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
         return AnonymousEnrollmentRepository()
+
+    @cached_property
+    def member_enrollment(self) -> MemberEnrollmentRepository:
+        return MemberEnrollmentRepository()
 
     @cached_property
     def enrollment_participations(self) -> EnrollmentParticipationRepository:

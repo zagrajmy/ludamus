@@ -547,7 +547,7 @@ class AnonymousEnrollmentError(Exception):
         self.event_slug = event_slug
 
 
-class AnonymousEnrollmentWindowSnapshot(BaseModel):
+class EnrollmentWindowSnapshot(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     percentage_slots: int
@@ -559,7 +559,7 @@ class AnonymousEnrollmentWindowSnapshot(BaseModel):
 class AnonymousEventDTO(BaseModel):
     event_id: int
     slug: str
-    active_windows: list[AnonymousEnrollmentWindowSnapshot]
+    active_windows: list[EnrollmentWindowSnapshot]
 
 
 class AnonymousSessionDTO(BaseModel):
@@ -568,7 +568,7 @@ class AnonymousSessionDTO(BaseModel):
     event_slug: str
     has_agenda_item: bool
     participants_limit: int
-    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
+    eligible_windows: list[EnrollmentWindowSnapshot]
     title: str
     facilitator_name: str
     description: str
@@ -614,11 +614,15 @@ class AnonymousSessionContextDTO(AnonymousSessionDTO):
         )
 
 
-class AnonymousSeatingDTO(BaseModel):
+class SessionSeatingDTO(BaseModel):
+    """A session's seats as read under its row lock, for the decision that holds it."""
+
     title: str
     participants_limit: int
+    presenter_id: int | None = None
+    # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
-    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
+    eligible_windows: list[EnrollmentWindowSnapshot]
 
 
 class AnonymousActivationDTO(BaseModel):
@@ -673,7 +677,44 @@ class AnonymousEnrollmentRequestDTO(BaseModel):
     code: str | None
 
 
-class AnonymousEnrollmentRepositoryProtocol(SeatHolderLockProtocol, Protocol):
+class SeatRepositoryProtocol(SeatHolderLockProtocol, Protocol):
+    """The reads and writes every seat decision on the enroll paths makes.
+
+    `lock_seating` takes the Session row lock and `lock_seat_holders` the
+    people's; every other method is called after both, in the caller's
+    transaction, so what it reads is what the decision holds.
+    """
+
+    def lock_seating(self, session_id: int) -> SessionSeatingDTO: ...
+
+    def conflicted_user_ids(
+        self, *, session_id: int, user_ids: list[int]
+    ) -> set[int]: ...
+
+    # Each person's row on the session, by user id; nobody without one. The
+    # status as stored: a legacy value SessionParticipationStatus no longer
+    # names still marks a row.
+    def read_statuses(
+        self, *, session_id: int, user_ids: list[int]
+    ) -> dict[int, str]: ...
+
+    # Creates the person's row, or rewrites the status and party of theirs.
+    def seat(
+        self,
+        *,
+        session_id: int,
+        user_id: int,
+        status: SessionParticipationStatus,
+        party_id: int | None,
+    ) -> None: ...
+
+    # Deletes the person's row, returning its status (None if absent).
+    def release(
+        self, *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+
+class AnonymousEnrollmentRepositoryProtocol(SeatRepositoryProtocol, Protocol):
     # Raises NotFoundError when no event matches the slug.
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO: ...
@@ -689,25 +730,6 @@ class AnonymousEnrollmentRepositoryProtocol(SeatHolderLockProtocol, Protocol):
 
     @staticmethod
     def read_participation_status(
-        *, session_id: int, user_id: int
-    ) -> SessionParticipationStatus | None: ...
-
-    @staticmethod
-    def has_conflicts(*, session_id: int, user: UserDTO) -> bool: ...
-
-    # Locks the session row for the enrollment mutation that follows.
-    @staticmethod
-    def lock_seating(session_id: int) -> AnonymousSeatingDTO: ...
-
-    @staticmethod
-    def create_or_confirm(*, session_id: int, user_id: int) -> None: ...
-
-    @staticmethod
-    def create_waiting(*, session_id: int, user_id: int) -> None: ...
-
-    # Deletes the user's participation, returning its status (None if absent).
-    @staticmethod
-    def delete_participation(
         *, session_id: int, user_id: int
     ) -> SessionParticipationStatus | None: ...
 

@@ -56,6 +56,10 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
+from ludamus.mills.enrollment_member import (
+    MemberEnrollmentPeers,
+    MemberEnrollmentService,
+)
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
     EventConfirmationsService,
@@ -524,6 +528,20 @@ class Services:
                 participations=self._repos.enrollment_participations,
                 ticket_api_resolver=self.event_integrations,
                 windows=self._repos.enrollment_windows,
+            ),
+        )
+
+    @cached_property
+    def member_enrollment(self) -> MemberEnrollmentService:
+        return MemberEnrollmentService(
+            transaction=self._transaction,
+            repository=self._repos.member_enrollment,
+            peers=MemberEnrollmentPeers(
+                enrollment=self.enrollment,
+                waitlist_promotion=self.waitlist_promotion,
+                shadowban=self.shadowban,
+                parties=self.parties,
+                event_bans=self.event_bans,
             ),
         )
 

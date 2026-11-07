@@ -10,6 +10,7 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.mills.crowd import build_anonymous_user
+from ludamus.mills.enrollment_seats import SeatDesk
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.pacts.crowd import UserData, UserDTO
 from ludamus.pacts.enrollment import (
@@ -24,7 +25,11 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     AnonymousSessionContextDTO,
 )
-from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES, NotFoundError
+from ludamus.pacts.legacy import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    NotFoundError,
+    SessionParticipationStatus,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
@@ -50,6 +55,7 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
         self._transaction = transaction
         self._user_repository = user_repository
         self._enrollment_repository = enrollment_repository
+        self._seats = SeatDesk(enrollment_repository)
         self._waitlist_promotion = waitlist_promotion
 
     def get_user_by_code(self, code: str) -> UserDTO:
@@ -107,11 +113,13 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
         user = self._user_for(enrollment_request, session)
         self._require_name(user, name)
         with self._transaction.atomic():
-            seating = self._enrollment_repository.lock_seating(session.session_id)
-            self._enrollment_repository.lock_seat_holders(user_ids=[user.pk])
+            seating = self._seats.lock_session(session.session_id)
+            self._seats.lock_people(
+                session_id=session.session_id, user_ids=[user.pk], refills=False
+            )
             self._update_name(user, name)
-            if self._enrollment_repository.has_conflicts(
-                session_id=session.session_id, user=user
+            if self._enrollment_repository.conflicted_user_ids(
+                session_id=session.session_id, user_ids=[user.pk]
             ):
                 return AnonymousEnrollResultDTO(
                     outcome=AnonymousEnrollOutcome.CONFLICT,
@@ -124,22 +132,39 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
                     AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
                     event_slug=session.event_slug,
                 )
-            if policy.is_full(
-                participants_limit=seating.participants_limit,
-                enrolled_count=seating.enrolled_count,
-            ):
-                self._enrollment_repository.create_waiting(
-                    session_id=session.session_id, user_id=user.pk
-                )
-                outcome = AnonymousEnrollOutcome.WAITLISTED
-            else:
-                self._enrollment_repository.create_or_confirm(
-                    session_id=session.session_id, user_id=user.pk
-                )
-                outcome = AnonymousEnrollOutcome.ENROLLED
+            outcome = self._take_seat(
+                session_id=session.session_id,
+                user=user,
+                has_room=bool(SeatDesk.room(policy, seating)),
+            )
         return AnonymousEnrollResultDTO(
             outcome=outcome, session_title=seating.title, event_slug=session.event_slug
         )
+
+    def _take_seat(
+        self, *, session_id: int, user: UserDTO, has_room: bool
+    ) -> AnonymousEnrollOutcome:
+        if has_room:
+            self._enrollment_repository.seat(
+                session_id=session_id,
+                user_id=user.pk,
+                status=SessionParticipationStatus.CONFIRMED,
+                party_id=None,
+            )
+            return AnonymousEnrollOutcome.ENROLLED
+        # A full session waitlists a newcomer and leaves a row already there
+        # as it is: a replayed submit must not trade a seat for a place in
+        # the queue.
+        if user.pk not in self._enrollment_repository.read_statuses(
+            session_id=session_id, user_ids=[user.pk]
+        ):
+            self._enrollment_repository.seat(
+                session_id=session_id,
+                user_id=user.pk,
+                status=SessionParticipationStatus.WAITING,
+                party_id=None,
+            )
+        return AnonymousEnrollOutcome.WAITLISTED
 
     def cancel(
         self, enrollment_request: AnonymousEnrollmentRequestDTO, name: str
@@ -147,14 +172,14 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
         session, user = self._validate(enrollment_request)
         self._require_name(user, name)
         with self._transaction.atomic():
-            seating = self._enrollment_repository.lock_seating(session.session_id)
+            seating = self._seats.lock_session(session.session_id)
             # The waiters too: the refill below runs in this request's
             # transaction and must ask for no row this one does not hold yet.
-            self._enrollment_repository.lock_seat_holders(
-                user_ids=[user.pk], waiters_of=session.session_id
+            self._seats.lock_people(
+                session_id=session.session_id, user_ids=[user.pk], refills=True
             )
             self._update_name(user, name)
-            status = self._enrollment_repository.delete_participation(
+            status = self._enrollment_repository.release(
                 session_id=session.session_id, user_id=user.pk
             )
         # A freed confirmed (or held offered) seat promotes/offers the next

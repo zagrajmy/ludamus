@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         EnrollmentSettingsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.enrollment_member import MemberEnrollmentServiceProtocol
     from ludamus.pacts.errata import ErrataServiceProtocol
     from ludamus.pacts.event import (
         EventConfirmationsServiceProtocol,
@@ -207,6 +208,8 @@ class ServicesProtocol(Protocol):
     ) -> NotificationSubscriptionsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
+    @property
+    def member_enrollment(self) -> MemberEnrollmentServiceProtocol: ...
     @property
     def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
     @property
