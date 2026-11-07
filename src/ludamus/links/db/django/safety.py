@@ -11,8 +11,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Shadowban,
 )
-from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.crowd import UserDTO
+from ludamus.links.db.django.users import display_avatar_url, user_dto
 from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
 from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
 from ludamus.pacts.safety import (
@@ -208,7 +207,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         )
         return [
             SessionShadowbanWarningDTO(
-                user=UserDTO.model_validate(row.target), shadowbanned_at=row.created_at
+                user=user_dto(row.target), shadowbanned_at=row.created_at
             )
             for row in rows
         ]
