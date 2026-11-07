@@ -188,5 +188,16 @@ test.describe("Accepting into a meetup that needs no room", () => {
     });
     await page.getByRole("link", { name: "Open details for Roomless Talk" }).click();
     await expect(page.getByRole("dialog", { name: "Roomless Talk" })).toBeVisible();
+
+    // With no room to give it a column, the timetable still prints it.
+    await page.goto("/event/roomless-meetup/print/?material=timetable");
+    const sheet = page.getByRole("region", { name: "Print preview" }).getByRole("group");
+    await expect(sheet.getByText("No space", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("article", { name: "Roomless Talk" })).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "roomless-meetup-timetable",
+      region: sheet,
+      facts: { session: "Roomless Talk", column: "No space" },
+    });
   });
 });

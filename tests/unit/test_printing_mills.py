@@ -388,6 +388,50 @@ class TestBuildTimetable:
 
         assert document.pages == []
 
+    def test_a_meetup_without_spaces_prints_its_sessions(self):
+        items = [_item(1, None, 18, 20, title="Board games", confirmed=True)]
+        service = _service(spaces=[], items=items)
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == [None]
+        assert page.space_range_name is None
+        assert [(t.session.title, t.col) for t in page.tiles] == [("Board games", 1)]
+
+    def test_overlapping_sessions_without_a_space_take_lanes_after_the_rooms(self):
+        # Nothing stops two of them at once, and tiles in one column would
+        # paint over each other; a lane frees as its session ends.
+        items = [
+            _item(1, 1, 10, 11, title="In Alfa", confirmed=True),
+            _item(2, None, 10, 12, title="Long", confirmed=True),
+            _item(3, None, 11, 12, title="Beside", confirmed=True),
+            _item(4, None, 12, 13, title="After", confirmed=True),
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == ["Alfa", None, None]
+        assert page.space_range_name == "Alfa"
+        assert sorted((t.session.title, t.col) for t in page.tiles) == [
+            ("After", 2),
+            ("Beside", 3),
+            ("In Alfa", 1),
+            ("Long", 2),
+        ]
+
+    def test_a_room_sheet_leaves_sessions_without_a_space_off(self):
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True),
+            _item(2, None, 9, 10, title="Anywhere", confirmed=True),
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        (page,) = _timetable(service, scope_space_pks=frozenset({1})).pages
+
+        assert page.space_names == ["Alfa"]
+        assert [t.session.title for t in page.tiles] == ["RPG"]
+
 
 def _session_list(service, **kwargs):
     return service.build_session_list(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))

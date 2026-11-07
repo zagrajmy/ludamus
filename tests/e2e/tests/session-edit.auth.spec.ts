@@ -24,6 +24,14 @@ test.describe("Editing a scheduled session from its modal", () => {
       await expect(dialog).toBeHidden();
       await expect(page).not.toHaveURL(/[?&]session=/);
       await expect(card).toContainText(edited);
+
+      // The swapped-in card answers the search like the cards booted with the page.
+      const search = page.getByRole("textbox", { name: "Search by name or text..." });
+      await search.fill("no session is called this");
+      await expect(card).toBeHidden();
+      await search.fill(edited);
+      await expect(card).toBeVisible();
+      await search.fill("");
       await attachArtifacts(test.info(), {
         name: "session-edit-saved-card",
         region: card,
