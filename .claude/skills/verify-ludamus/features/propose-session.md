@@ -13,8 +13,8 @@ event.
 
 ## How to get to it (user POV)
 
-- On `/event/autumn-open/` choose `Propose a session`
-  (proposals must be open on that event).
+- On `/event/autumn-open/` choose `Propose Session` in the programme
+  toolbar (proposals must be open on that event).
 - Direct: `/event/autumn-open/session/propose/`.
 
 ## Driving it with control-ludamus
@@ -22,13 +22,13 @@ event.
 Preconditions:
 
 - `autumn-open` exists and has proposals open (`proposal_start_time` /
-  `proposal_end_time` cover now. Bootstrap sets this).
+  `proposal_end_time` cover now. The launch seed sets this).
 - Anonymous is allowed on that event when seed says so. Otherwise sign in.
 - Pick a title that is not already in the programme so cleanup can find it.
 
 - **Open.** Run
   `mise run control-ludamus -- open /event/autumn-open/` then
-  `mise run control-ludamus -- find role link click --name "Propose a session"`.
+  `mise run control-ludamus -- find role link click --name "Propose Session"`.
   Or `open /event/autumn-open/session/propose/`. Heading
   `What would you like to propose?` is visible. `#wizard-content` is the step.
 - **Category.** Choose a radio card (the category name is visible text) and
