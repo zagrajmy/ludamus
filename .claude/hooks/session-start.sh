@@ -19,19 +19,21 @@ export PATH="$HOME/.local/bin:$PATH"
 # The human driving the session authors its commits: they carry them, and the
 # CLA check reads the commit author, not trailers. Claude is the co-author.
 # The name is the email local-part (best-effort); GitHub attributes by email.
+# NOTE: only the author. The committer stays the sandbox's signing identity
+# (noreply@anthropic.com); a human committer leaves the commit unsigned, so
+# GitHub shows it Unverified and the harness stop hook asks to reset the
+# author to Claude, which would break the CLA.
 human_email="${CLAUDE_CODE_USER_EMAIL:-}"
 if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  for role in AUTHOR COMMITTER; do
-    printf 'export GIT_%s_NAME=%q\nexport GIT_%s_EMAIL=%q\n' \
-      "$role" "${human_email%@*}" "$role" "$human_email" >> "$CLAUDE_ENV_FILE"
-  done
+  printf 'export GIT_AUTHOR_NAME=%q\nexport GIT_AUTHOR_EMAIL=%q\n' \
+    "${human_email%@*}" "$human_email" >> "$CLAUDE_ENV_FILE"
 fi
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   if [ -n "$human_email" ]; then
     printf '@CLAUDE.md\n\n## Commits\n\nCommits are authored as %s (session-start sets GIT_AUTHOR_*). Co-author Claude. End commits with:\n\n    Co-authored-by: Claude <noreply@anthropic.com>\n' \
       "$human_email" >> CLAUDE.local.md
   else
-    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human driving this session, not Claude/Anthropic.\n' >> CLAUDE.local.md
+    printf '@CLAUDE.md\n\n## Commits\n\nAuthor commits as the human driving this session (the CLA check reads the author), e.g. with git commit --author; never reset the author to Claude. Co-author Claude.\n' >> CLAUDE.local.md
   fi
 fi
 
