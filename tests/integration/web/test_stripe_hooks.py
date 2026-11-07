@@ -319,6 +319,7 @@ class TestOrderMail:
             )
         ]
 
+    @pytest.mark.usefixtures("polish_catalog")
     @pytest.mark.parametrize(
         ("language", "subject"),
         (
