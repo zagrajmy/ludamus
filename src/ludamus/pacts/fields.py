@@ -123,7 +123,7 @@ class OrganizerFieldDTO(BaseModel):
     def control_required(self, *, is_required: bool) -> bool:
         # A write-in can stand in for a choice, so the control alone can no
         # longer enforce the requirement — the form checks the pair instead.
-        return is_required and not self.offers_custom_input
+        return is_required and self.can_be_required and not self.offers_custom_input
 
 
 @dataclass(frozen=True, slots=True)
