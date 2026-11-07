@@ -8,8 +8,8 @@ export type Party = { name: string; url: string };
 export const foundParty = async (page: Page, prefix: string): Promise<Party> => {
   const name = `${prefix} ${Date.now()}`;
   await page.goto("/crowd/profile/parties/");
-  await page.getByRole("link", { name: "Create party", exact: true }).click();
-  const createDialog = page.getByRole("dialog", { name: "Create party" });
+  await page.getByRole("link", { name: "Create enrollment party", exact: true }).click();
+  const createDialog = page.getByRole("dialog", { name: "Create enrollment party" });
   await createDialog.getByLabel("Party name").fill(name);
   await createDialog.getByRole("button", { name: "Create party", exact: true }).click();
   await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\/$/);

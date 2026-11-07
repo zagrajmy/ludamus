@@ -1,0 +1,7 @@
+<form method="post"
+      action="{% url 'web:crowd:parties-enrolls-together' pk=party.pk %}"
+      class="mt-3">
+    {% csrf_token %}
+    <input type="hidden" name="enrolls_together" value="{{ value }}">
+    <button type="submit" class="btn btn-secondary">{{ label }}</button>
+</form>

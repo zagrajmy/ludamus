@@ -95,23 +95,25 @@
                             <p class="text-xs text-foreground-muted">{% translate "invited" %}</p>
                         {% elif member.is_login_less %}
                             <p class="text-xs text-foreground-muted">{% translate "companion" %}</p>
-                        {% elif party.is_leader %}
-                            {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
-                            <p class="text-xs text-foreground-muted">
-                                {% if member.consent_mode == "accept_by_default" %}
-                                    {% translate "direct enrollment allowed" %}
-                                {% else %}
-                                    {% translate "asks for approval before enrolling" %}
-                                {% endif %}
-                            </p>
-                        {% elif member.user_pk == request.user.pk %}
-                            <p class="text-xs text-foreground-muted">
-                                {% if member.consent_mode == "accept_invites" %}
-                                    {% translate "Asks before enrolling you" %}
-                                {% else %}
-                                    {% translate "Enrolls you directly" %}
-                                {% endif %}
-                            </p>
+                        {% elif party.enrolls_together %}
+                            {% if party.is_leader %}
+                                {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
+                                <p class="text-xs text-foreground-muted">
+                                    {% if member.consent_mode == "accept_by_default" %}
+                                        {% translate "direct enrollment allowed" %}
+                                    {% else %}
+                                        {% translate "asks for approval before enrolling" %}
+                                    {% endif %}
+                                </p>
+                            {% elif member.user_pk == request.user.pk %}
+                                <p class="text-xs text-foreground-muted">
+                                    {% if member.consent_mode == "accept_invites" %}
+                                        {% translate "Asks before enrolling you" %}
+                                    {% else %}
+                                        {% translate "Enrolls you directly" %}
+                                    {% endif %}
+                                </p>
+                            {% endif %}
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
@@ -141,7 +143,7 @@
                                     <span class="sr-only">{% translate "Delete companion" %}</span>
                                 </button>
                             </form>
-                        {% elif not party.is_leader and member.user_pk == request.user.pk %}
+                        {% elif not party.is_leader and member.user_pk == request.user.pk and party.enrolls_together %}
                             <form method="post"
                                   action="{% url 'web:crowd:parties-consent' pk=party.pk %}">
                                 {% csrf_token %}
@@ -297,28 +299,50 @@
         </dialog>
     {% endif %}
     {# Shared session history #}
-    <section class="border-t border-border pt-6">
-        <h5 class="font-semibold">{% translate "Sessions together" %}</h5>
-        {% if history %}
-            <div class="mt-4 flex flex-col gap-5">
-                {% for group in history %}
-                    <div>
-                        {% url 'web:chronology:event' slug=group.event_slug as event_url %}
-                        <h6 class="font-semibold text-sm mb-2">
-                            <a href="{{ event_url }}" class="hover:underline">{{ group.event_name }}</a>
-                        </h6>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {% for data in group.cards %}
-                                {% include "chronology/_session_card.html" with data=data session_link_base=event_url %}
-                            {% endfor %}
+    {% if party.enrolls_together %}
+        <section class="border-t border-border pt-6">
+            <h5 class="font-semibold">{% translate "Sessions together" %}</h5>
+            {% if history %}
+                <div class="mt-4 flex flex-col gap-5">
+                    {% for group in history %}
+                        <div>
+                            {% url 'web:chronology:event' slug=group.event_slug as event_url %}
+                            <h6 class="font-semibold text-sm mb-2">
+                                <a href="{{ event_url }}" class="hover:underline">{{ group.event_name }}</a>
+                            </h6>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {% for data in group.cards %}
+                                    {% include "chronology/_session_card.html" with data=data session_link_base=event_url %}
+                                {% endfor %}
+                            </div>
                         </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="mt-2 text-sm text-foreground-muted">
-                {% translate "No sessions together yet — pick a session at an event and enroll as a party." %}
-            </p>
-        {% endif %}
-    </section>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="mt-2 text-sm text-foreground-muted">
+                    {% translate "No sessions together yet — pick a session at an event and enroll as a party." %}
+                </p>
+            {% endif %}
+        </section>
+    {% endif %}
+    {% if party.is_leader %}
+        <section class="border-t border-border pt-6 {% if party.enrolls_together %}mt-6{% endif %}">
+            <h5 class="font-semibold">{% translate "Enrolling together" %}</h5>
+            {% if not party.enrolls_together %}
+                <p class="mt-1 text-sm text-foreground-muted">
+                    {% translate "This party is for playing. Turn this on to sign up for sessions together." %}
+                </p>
+                {% translate "Turn on enrolling together" as toggle_label %}
+                {% include "crowd/user/_party_enrolls_together_form.html" with value="True" label=toggle_label %}
+            {% elif enrolling_locked %}
+                <p class="mt-1 text-sm text-foreground-muted">
+                    {% translate "This party has enrolled in sessions, so this stays on." %}
+                </p>
+            {% else %}
+                <p class="mt-1 text-sm text-foreground-muted">{% translate "This party can sign up for sessions together." %}</p>
+                {% translate "Turn off enrolling together" as toggle_label %}
+                {% include "crowd/user/_party_enrolls_together_form.html" with value="False" label=toggle_label %}
+            {% endif %}
+        </section>
+    {% endif %}
 {% endblock profile_content %}
