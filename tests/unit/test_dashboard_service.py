@@ -173,10 +173,7 @@ class TestSphereSubscriptionService:
 
         assert announced == 1
         assert repo.announced == [(7, NOW)]
-        assert [(n.recipient_user_id, n.recipient_email) for n in notifier.sent] == [
-            (1, "a@example.test"),
-            (2, "b@example.test"),
-        ]
+        assert [n.recipient_user_id for n in notifier.sent] == [1, 2]
         assert {(n.event_slug, n.sphere_domain) for n in notifier.sent} == {
             ("kapitularz-2026", "kapitularz.example.test")
         }

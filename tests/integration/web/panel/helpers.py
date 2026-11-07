@@ -490,7 +490,9 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     )
 
 
-def make_optional_session_field(*, event, category, slug="system", name="System"):
+def make_session_field(
+    *, event, category, slug="system", name="System", is_required=False
+):
     field = SessionField.objects.create(
         event=event,
         name=name,
@@ -500,7 +502,7 @@ def make_optional_session_field(*, event, category, slug="system", name="System"
         order=0,
     )
     SessionFieldRequirement.objects.create(
-        category=category, field=field, is_required=False, order=0
+        category=category, field=field, is_required=is_required, order=0
     )
     return field
 

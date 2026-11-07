@@ -1,0 +1,21 @@
+id: mail-to-only-for-email-lifecycle
+valid:
+  - "with speaking_to(notification.recipient_user_id) as recipient: pass"
+  - |
+    def notify_email_verification(notification):
+        with speaking_to(
+            notification.recipient_user_id, mail_to=notification.recipient_email
+        ) as recipient:
+            pass
+  - |
+    def notify_email_change_completed(notification):
+        with speaking_to(n.recipient_user_id, mail_to=n.recipient_email) as r:
+            pass
+invalid:
+  - |
+    def notify_sphere_event_published(notification):
+        with speaking_to(
+            notification.recipient_user_id, mail_to=notification.recipient_email
+        ) as recipient:
+            pass
+  - "speaking_to(user.pk, mail_to=user.email)"

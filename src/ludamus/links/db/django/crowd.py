@@ -2,7 +2,8 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
 from django.db import connection
-from django.db.models import Q
+from django.db.models import OuterRef, Q
+from django.db.models.functions import Lower
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import PartyMembership
@@ -23,6 +24,7 @@ from ludamus.pacts.crowd import (
 from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from datetime import datetime, timedelta
 
     from django.db.models import QuerySet
@@ -32,6 +34,23 @@ else:
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
+
+
+def accounts_at(addresses: Collection[str] | OuterRef) -> QuerySet[User]:
+    """Active accounts at `addresses`, matched case-insensitively.
+
+    How an address someone typed finds its account. Leaving out blank
+    emails matches the partial unique index on lower(email), so the
+    lookup can use it.
+    """
+    accounts = (
+        User.objects.filter(user_type=UserType.ACTIVE)
+        .exclude(email="")
+        .annotate(address=Lower("email"))
+    )
+    if isinstance(addresses, OuterRef):
+        return accounts.filter(address=Lower(addresses))
+    return accounts.filter(address__in={address.lower() for address in addresses})
 
 
 class UserRepository(UserRepositoryProtocol):
@@ -233,7 +252,10 @@ class CompanionRepository(CompanionRepositoryProtocol):
 
     @staticmethod
     def delete(manager_slug: str, user_slug: str) -> None:
-        companions = active_companions(manager_slug)
+        # The person's row before the cascade reaches their participation
+        # rows: the seat lock order (docs/agents/architecture.md) takes the
+        # User row first, so taking it last here could close a cycle.
+        companions = active_companions(manager_slug).select_for_update(of=("self",))
         if (user := companions.filter(slug=user_slug).first()) is None:
             raise NotFoundError
         user.delete()

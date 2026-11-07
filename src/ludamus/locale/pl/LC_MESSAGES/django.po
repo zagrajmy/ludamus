@@ -423,6 +423,17 @@ msgid "Our best people are on it."
 msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/adapters/web/django/forms.py
+#, python-format
+msgid ""
+"%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
+"of %(allowed)s unique people (each person can enroll in multiple sessions). "
+"Only %(available)s slots remaining for new people."
+msgstr ""
+"%(name)s: nie można zapisać więcej osób. Masz już zapisane %(used)s z "
+"%(allowed)s różnych osób (każda osoba może zapisać się na wiele punktów "
+"programu). Zostało %(available)s miejsc dla nowych osób."
+
+#: src/ludamus/adapters/web/django/forms.py
 msgid "No change"
 msgstr "Bez zmian"
 
@@ -1149,6 +1160,14 @@ msgstr "Ta oferta jest już niedostępna lub wygasła."
 msgid "Spot claimed — you are now confirmed for this session."
 msgstr ""
 "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+#: src/ludamus/gates/web/django/dashboard.py
+msgid ""
+"This spot overlaps a session you already have a seat in, so it was released."
+msgstr ""
+"To miejsce nakłada się w czasie na punkt programu, w którym masz już "
+"miejsce, więc zostało zwolnione."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
 #: src/ludamus/gates/web/django/dashboard.py
