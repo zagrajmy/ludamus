@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum, auto
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
+
+
+class EnrollmentChoice(StrEnum):
+    """What a per-person enroll field posts: the values its choices carry."""
+
+    CANCEL = auto()
+    ENROLL = auto()
+    WAITLIST = auto()
 
 
 @dataclass(frozen=True)

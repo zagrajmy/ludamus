@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
@@ -19,7 +19,6 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     UserEnrollmentConfig,
-    effective_participants_limit,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
@@ -39,6 +38,7 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
@@ -65,7 +65,12 @@ from ludamus.pacts.services import DatabaseConstraintError
 if TYPE_CHECKING:
     from collections.abc import Collection, Sequence
 
+    from django_stubs_ext import WithAnnotations
+
     from ludamus.pacts.event import EventCreateData
+
+    class _SessionCount(TypedDict):
+        session_count: int
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -73,6 +78,26 @@ def event_dto(event: Event) -> EventDTO:
     description = settings.description if settings is not None else ""
     dto = EventDTO.model_validate(event)
     return dto.model_copy(update={"proposal_description": description})
+
+
+def _list_item(event: WithAnnotations[Event, _SessionCount]) -> EventListItemDTO:
+    # The status flags are EventDTO's: one answer to "is it live", "is it
+    # published", "are proposals open" for every page that asks.
+    status = EventDTO.model_validate(event)
+    return EventListItemDTO(
+        cover_image_url=event.cover_image_url,
+        description=event.description,
+        end_time=event.end_time,
+        is_ended=status.is_ended,
+        is_live=status.is_live,
+        is_proposal_active=status.is_proposal_active,
+        is_published=status.is_published,
+        name=event.name,
+        session_count=event.session_count,
+        slug=event.slug,
+        start_time=event.start_time,
+        visibility=status.visibility,
+    )
 
 
 class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
@@ -87,23 +112,6 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
         )
         sessions = (
             Session.objects.filter(pk__in=session_ids, agenda_item__isnull=False)
-            .annotate(
-                enrolled_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status__in=(
-                            SessionParticipationStatus.CONFIRMED,
-                            SessionParticipationStatus.OFFERED,
-                        )
-                    ),
-                ),
-                waiting_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=SessionParticipationStatus.WAITING
-                    ),
-                ),
-            )
             .select_related(
                 "event",
                 "presenter",
@@ -168,17 +176,6 @@ def location_data(space: Space) -> LocationData:
     return location_from_chain((*reversed(tuple(space.iter_ancestors())), space))
 
 
-def eligible_window_ids(session: Session) -> frozenset[int]:
-    """Name the enrollment windows that can seat this session.
-
-    Returns:
-        The window ids, to be intersected with a viewer's own open windows.
-    """
-    return frozenset(
-        config.pk for config in session.event.get_eligible_enrollment_configs(session)
-    )
-
-
 def card_stats(
     *,
     participants_limit: int,
@@ -198,27 +195,29 @@ def card_stats(
         for config in active_configs
         if config.can_seat(participants_limit=participants_limit, start_time=start_time)
     ]
-    effective = effective_participants_limit(
-        participants_limit=participants_limit, eligible_configs=eligible
-    )
     return SessionCardStatsDTO(
+        participants_limit=participants_limit,
+        seating_percentage=max(
+            (config.percentage_slots for config in eligible), default=None
+        ),
         enrolled_count=enrolled_count,
         waiting_count=waiting_count,
-        # Session.is_full: there was a seat, and it is taken. A session that
-        # takes no enrollment never had one.
-        is_full=participants_limit != 0 and enrolled_count >= effective,
         enrollment_window_ids=frozenset(config.pk for config in eligible),
-        effective_participants_limit=effective,
     )
 
 
 def session_card_stats(session: Session) -> SessionCardStatsDTO:
+    # Counted off the rows themselves: every reader of an instance prefetches
+    # them for the roster it draws, and a locked instance reads them fresh.
+    statuses = [p.status for p in session.session_participations.all()]
     agenda_item = getattr(session, "agenda_item", None)
     return card_stats(
         participants_limit=session.participants_limit,
         start_time=None if agenda_item is None else agenda_item.start_time,
-        enrolled_count=session.enrolled_count,
-        waiting_count=session.waiting_count,
+        enrolled_count=sum(
+            status in OCCUPYING_PARTICIPATION_STATUSES for status in statuses
+        ),
+        waiting_count=statuses.count(SessionParticipationStatus.WAITING),
         active_configs=session.event.get_active_enrollment_configs(),
     )
 
@@ -286,10 +285,7 @@ class EventRepository(EventRepositoryProtocol):
         )
         if not include_hidden:
             events = events.filter(listed_events(now=datetime.now(tz=UTC)))
-        return [
-            EventListItemDTO.model_validate(event)
-            for event in events.order_by("start_time")
-        ]
+        return [_list_item(event) for event in events.order_by("start_time")]
 
     @staticmethod
     def read(pk: int) -> EventDTO:
@@ -410,16 +406,10 @@ class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
     @staticmethod
-    def read_list(
-        event_id: int, max_start_time: datetime, min_end_time: datetime
-    ) -> list[EnrollmentConfigDTO]:
+    def read_list(event_id: int) -> list[EnrollmentConfigDTO]:
         return [
             EnrollmentConfigDTO.model_validate(config)
-            for config in EnrollmentConfig.objects.filter(
-                event_id=event_id,
-                start_time__lte=max_start_time,
-                end_time__gte=min_end_time,
-            ).all()
+            for config in EnrollmentConfig.objects.filter(event_id=event_id)
         ]
 
     @staticmethod

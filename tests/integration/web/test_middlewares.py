@@ -5,15 +5,13 @@ from django.http import HttpResponseRedirect
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.web.django.middlewares import (
+from ludamus.gates.web.django.middlewares import AppMiddleware
+from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
+from ludamus.inits.request_context import (
     RedirectErrorMiddleware,
     RequestContextMiddleware,
 )
-from ludamus.gates.web.django.middlewares import AppMiddleware
-from ludamus.inits.legacy import DependencyInjector, RepositoryInjectionMiddleware
-from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
-from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts.legacy import RedirectError, RequestContext
 
 
@@ -36,7 +34,6 @@ class TestRequestContextMiddleware:
     ):
         request = rf.get("/")
         request.META["HTTP_HOST"] = sphere.site.domain
-        request.di = DependencyInjector()
         root_sphere = Sphere.objects.get(site__domain=settings.ROOT_DOMAIN)
 
         sphere.site.sphere = sphere
@@ -70,7 +67,6 @@ class TestRequestContextMiddleware:
         )
         request = rf.get("/")
         request.META["HTTP_HOST"] = host
-        request.di = DependencyInjector()
         root_sphere = Sphere.objects.get(site__domain=settings.ROOT_DOMAIN)
 
         middleware(request)
@@ -91,9 +87,8 @@ class TestRequestContextMiddleware:
         settings.ALLOWED_HOSTS.append("nonexistent.example.com")
         request = rf.get("/")
         request.META["HTTP_HOST"] = "nonexistent.example.com"
-        request.di = DependencyInjector()
 
-        with patch("ludamus.adapters.web.django.middlewares.messages") as mock_messages:
+        with patch("ludamus.inits.request_context.messages") as mock_messages:
             response = middleware(request)
 
             assert isinstance(response, HttpResponseRedirect)
@@ -120,23 +115,6 @@ class TestRequestContextMiddleware:
         get_response_mock.assert_called_once_with(request)
 
 
-class TestRepositoryInjectionMiddleware:
-    @pytest.fixture
-    @staticmethod
-    def middleware(get_response_mock):
-        return RepositoryInjectionMiddleware(get_response_mock)
-
-    @staticmethod
-    def test_injects_uow_for_normal_requests(middleware, get_response_mock, rf):
-        request = rf.get("/some/page/")
-
-        middleware(request)
-
-        assert hasattr(request, "di")
-        assert isinstance(request.di.uow, UnitOfWork)
-        get_response_mock.assert_called_once_with(request)
-
-
 class TestAppMiddleware:
     @staticmethod
     @pytest.mark.parametrize(
@@ -150,7 +128,6 @@ class TestAppMiddleware:
 
         AppMiddleware(get_response_mock)(request)
 
-        assert not hasattr(request, "di")
         assert not hasattr(request, "services")
         assert not hasattr(request, "context")
         get_response_mock.assert_called_once_with(request)
@@ -179,7 +156,7 @@ class TestRedirectErrorMiddleware:
         exception = RedirectError(url=error_url, error=error_message)
 
         with patch(
-            "ludamus.adapters.web.django.middlewares.messages.error"
+            "ludamus.inits.request_context.messages.error"
         ) as mock_messages_error:
             response = middleware.process_exception(request, exception)
 
@@ -196,7 +173,7 @@ class TestRedirectErrorMiddleware:
         exception = RedirectError(url=error_url, warning=warning_message)
 
         with patch(
-            "ludamus.adapters.web.django.middlewares.messages.warning"
+            "ludamus.inits.request_context.messages.warning"
         ) as mock_messages_warning:
             response = middleware.process_exception(request, exception)
 
@@ -217,10 +194,10 @@ class TestRedirectErrorMiddleware:
 
         with (
             patch(
-                "ludamus.adapters.web.django.middlewares.messages.error"
+                "ludamus.inits.request_context.messages.error"
             ) as mock_messages_error,
             patch(
-                "ludamus.adapters.web.django.middlewares.messages.warning"
+                "ludamus.inits.request_context.messages.warning"
             ) as mock_messages_warning,
         ):
             response = middleware.process_exception(request, exception)
@@ -239,10 +216,10 @@ class TestRedirectErrorMiddleware:
 
         with (
             patch(
-                "ludamus.adapters.web.django.middlewares.messages.error"
+                "ludamus.inits.request_context.messages.error"
             ) as mock_messages_error,
             patch(
-                "ludamus.adapters.web.django.middlewares.messages.warning"
+                "ludamus.inits.request_context.messages.warning"
             ) as mock_messages_warning,
         ):
             response = middleware.process_exception(request, exception)

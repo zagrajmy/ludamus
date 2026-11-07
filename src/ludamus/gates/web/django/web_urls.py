@@ -1,6 +1,7 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.adapters.web.django import views
 from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
@@ -10,9 +11,11 @@ from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
+from ludamus.gates.web.django.event.page import EventPageView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.landing import (
@@ -27,8 +30,6 @@ from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
 
-from . import views
-
 app_name = "web"  # pylint: disable=invalid-name
 
 
@@ -36,7 +37,7 @@ crowd_urls: list[URLPattern | URLResolver] = [*crowd_gate_urls]
 
 chronology_urls = [
     *chronology_gate_urls,
-    path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
+    path("event/<str:slug>/", EventPageView.as_view(), name="event"),
     path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
     path("event/<str:slug>/calendar.ics", EventICSView.as_view(), name="event-ics"),
     path("event/<str:slug>/maps/", maps.EventMapsPageView.as_view(), name="event-maps"),
@@ -137,7 +138,7 @@ urlpatterns = [
         offers.NotificationsMarkReadView.as_view(),
         name="notifications-mark-read",
     ),
-    path("design/", views.DesignPageView.as_view(), name="design"),
+    path("design/", DesignPageView.as_view(), name="design"),
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path(
         "dev/emails/",

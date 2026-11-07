@@ -8,12 +8,8 @@ from django.http import HttpRequest
 from ludamus.pacts.crowd import display_avatar_url
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import AvatarUrlProviderProtocol, UserDTO
-    from ludamus.pacts.legacy import (
-        AuthenticatedRequestContext,
-        DependencyInjectorProtocol,
-        RequestContext,
-    )
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.legacy import AuthenticatedRequestContext, RequestContext
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -28,15 +24,12 @@ class UserInfo:
     username: str
 
     @classmethod
-    def from_user_dto(
-        cls, user_dto: UserDTO, *, gravatar_url: AvatarUrlProviderProtocol
-    ) -> Self:
+    def from_user_dto(cls, user_dto: UserDTO) -> Self:
         return cls(
             avatar_url=display_avatar_url(
                 email=user_dto.email,
                 avatar_url=user_dto.avatar_url,
                 use_gravatar=user_dto.use_gravatar,
-                gravatar=gravatar_url,
             )
             or None,
             discord_username=user_dto.discord_username,
@@ -50,7 +43,6 @@ class UserInfo:
 
 class RootRequest(HttpRequest):
     context: RequestContext
-    di: DependencyInjectorProtocol
     services: ServicesProtocol
 
 

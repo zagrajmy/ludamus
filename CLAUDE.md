@@ -35,7 +35,7 @@ description — run it rather than trusting a hardcoded list here. Most used:
   edit a migration already on `main`.
 - `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
   flags.
-- Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
+- Use the `src/ludamus/gates/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
   `extra_class` for page layout only. No utility copy-paste into CSS.
@@ -89,11 +89,6 @@ Access data: views call `request.services.<service_name>.<method>(...)` and get
 back ready-to-render DTOs (Pydantic, never Django models). Services live in
 `mills/`, take specific repo protocols + `TransactionProtocol` via the
 constructor, and own transactional boundaries.
-
-Legacy: some views still use `request.di.uow.<repo>` during the strangler-fig
-migration. [docs/agents/services-migration.md](docs/agents/services-migration.md)
-has the per-file recipe. New code must use `request.services`; never extend the
-`request.di.uow` surface.
 
 ## Testing
 

@@ -27,12 +27,13 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import LinkPreview, markdown_summary
 from ludamus.links.db.django.models import SessionParticipation
-from ludamus.links.db.django.repositories.chronology import location_data
+from ludamus.links.db.django.repositories.chronology import event_dto, location_data
 from ludamus.pacts.chronology import PROGRAMME_DAYS
-from ludamus.pacts.crowd import UserDTO, gravatar_url
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.legacy import (
     NO_LOCATION,
+    OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
@@ -52,7 +53,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import RequestTimeMatcher
+from tests.integration.utils import AttributesMatcher, RequestTimeMatcher
 
 # What the event page reports about the viewer's own enrollment window. The
 # window ids are the page's, so any id stands for "one is open to this viewer".
@@ -78,9 +79,7 @@ def session_card(agenda_item, *, presenter, **overrides):
         is_enrollment_available=False,
         is_full=False,
         is_ongoing=False,
-        presenter=UserInfo.from_user_dto(
-            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
-        ),
+        presenter=UserInfo.from_user_dto(UserDTO.model_validate(presenter)),
         session_participations=[],
         session=SessionDTO.model_validate(session),
         should_show_as_inactive=False,
@@ -107,9 +106,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         is_full=False,
         loc=NO_LOCATION,
         preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
-        presenter=UserInfo.from_user_dto(
-            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
-        ),
+        presenter=UserInfo.from_user_dto(UserDTO.model_validate(presenter)),
         session=SessionDTO.model_validate(session),
         session_participations=[],
     )
@@ -155,6 +152,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
+    event = event_dto(event)
     context = {
         # The pills follow from the event's own state and this viewer's
         # windows; which pills those are is unit-tested beside the function.
@@ -170,7 +168,6 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "track_filter_names": [],
         "category_filter_names": [],
         "hour_data": {},
-        "object": event,
         "pending_review_visible": False,
         "pending_sessions": [],
         "pending_wizard_view": False,
@@ -297,8 +294,10 @@ def enroll_context(
     shadowban_warnings=(),
     party_choices=(),
     selected_party=None,
+    seats=None,
 ):
     return {
+        "seats": seats or stored_seats(session),
         # The two party keys, as `party_context` spells them: a caller with a
         # party splices its result straight in.
         "party_choices": list(party_choices),
@@ -310,6 +309,20 @@ def enroll_context(
         "shadowban_warnings": list(shadowban_warnings),
         "user_data": user_data,
     }
+
+
+def stored_seats(session):
+    # The page's seat counts against the rows as they stand.
+    participations = SessionParticipation.objects.filter(session=session)
+    return AttributesMatcher(
+        participants_limit=session.participants_limit,
+        enrolled_count=participations.filter(
+            status__in=OCCUPYING_PARTICIPATION_STATUSES
+        ).count(),
+        waiting_count=participations.filter(
+            status=SessionParticipationStatus.WAITING
+        ).count(),
+    )
 
 
 def enroll_page_context(*, viewer, agenda_item, **overrides):

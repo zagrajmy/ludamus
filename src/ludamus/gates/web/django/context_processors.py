@@ -10,7 +10,7 @@ from ludamus.gates.web.django.entities import UserInfo
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
+    from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.legacy import SiteDTO, SphereDTO
     from ludamus.pacts.notifications import NavbarNotificationsDTO
@@ -24,10 +24,10 @@ class SitesContextData(TypedDict):
     has_panel_access: bool
 
 
-def sites(request: RootRepositoryRequest) -> SitesContextData:
+def sites(request: RootRequest) -> SitesContextData:
     # Context processor may run during error handling before middleware completes
     if not hasattr(request, "context") or not hasattr(
-        request, "di"
+        request, "services"
     ):  # pragma: no cover
         return SitesContextData(
             root_origin="",
@@ -77,11 +77,11 @@ class CurrentUserContextData(TypedDict):
     navbar_notifications: NotRequired[NavbarNotificationsDTO]
 
 
-def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
+def current_user(request: RootRequest) -> CurrentUserContextData:
     # Context processor may run during error handling before middleware completes
     if (
         not hasattr(request, "context")
-        or not hasattr(request, "di")
+        or not hasattr(request, "services")
         or not request.context.current_user_slug
     ):
         return CurrentUserContextData(
@@ -92,9 +92,7 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
     return CurrentUserContextData(
         current_user=user_dto,
         optional_features_available=user_dto.age_band.allows_optional_features,
-        current_user_info=UserInfo.from_user_dto(
-            user_dto, gravatar_url=request.di.gravatar_url
-        ),
+        current_user_info=UserInfo.from_user_dto(user_dto),
         navbar_notifications=request.services.notifications.get_navbar(user_dto.pk),
     )
 

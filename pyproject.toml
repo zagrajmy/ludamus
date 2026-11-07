@@ -252,6 +252,7 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.inits.request_context",
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
@@ -432,14 +433,17 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# TODO: mills is still reached through adapters.web.django.error_views
-# (mills.url_recovery) from gates.web.django.urls.
 forbidden_modules = [
     "ludamus.links",
     "ludamus.inits",
-    # "ludamus.mills",
+    "ludamus.mills",
     "ludamus.specs",
     "ludamus.edges",
+]
+# TODO: the member enroll page (adapters.web.django.views) still does its own
+# ORM work; drop this once it reads through a service.
+ignore_imports = [
+    "ludamus.gates.web.django.web_urls -> ludamus.adapters.web.django.views",
 ]
 
 [[tool.importlinter.contracts]]
@@ -447,6 +451,7 @@ name = "links"
 type = "forbidden"
 source_modules = ["ludamus.links"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.inits",
     "ludamus.mills",
@@ -460,7 +465,7 @@ type = "forbidden"
 source_modules = ["ludamus.inits"]
 # inits builds the mills, which read specs; only a direct import is a breach.
 allow_indirect_imports = true
-forbidden_modules = ["ludamus.specs", "ludamus.edges"]
+forbidden_modules = ["ludamus.adapters", "ludamus.specs", "ludamus.edges"]
 
 
 [[tool.importlinter.contracts]]
@@ -468,6 +473,7 @@ name = "mills"
 type = "forbidden"
 source_modules = ["ludamus.mills"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -481,6 +487,7 @@ name = "pacts"
 type = "forbidden"
 source_modules = ["ludamus.pacts"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -496,6 +503,7 @@ name = "specs"
 type = "forbidden"
 source_modules = ["ludamus.specs"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -510,6 +518,7 @@ name = "edges"
 type = "forbidden"
 source_modules = ["ludamus.edges"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",

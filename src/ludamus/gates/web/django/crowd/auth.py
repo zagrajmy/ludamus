@@ -27,7 +27,7 @@ from django.views.generic.base import RedirectView, View
 from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import ValidationError as PydanticValidationError
 
-from ludamus.adapters.oauth import oauth
+from ludamus.gates.web.django.crowd.auth0_client import oauth
 from ludamus.gates.web.django.crowd.forms import SignupAgeForm
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,

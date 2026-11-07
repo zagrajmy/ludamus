@@ -18,17 +18,8 @@ from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from contextlib import AbstractContextManager
 
-    from ludamus.pacts.crowd import (
-        CompanionRepositoryProtocol,
-        UserDTO,
-        UserRepositoryProtocol,
-    )
-    from ludamus.pacts.encounter import (
-        EncounterRepositoryProtocol,
-        EncounterRSVPRepositoryProtocol,
-    )
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.multiverse import SphereRole
@@ -503,6 +494,14 @@ class EventDTO(BaseModel):
         )
 
     @property
+    def is_live(self) -> bool:
+        return self.start_time < datetime.now(tz=UTC) < self.end_time
+
+    @property
+    def is_ended(self) -> bool:
+        return self.end_time < datetime.now(tz=UTC)
+
+    @property
     def is_published(self) -> bool:
         return (
             self.publication_time is not None
@@ -514,17 +513,21 @@ class EventDTO(BaseModel):
         """Whether anyone with the link may open the event's pages."""
         return self.is_published or self.visibility is EventVisibility.UNLISTED
 
+    @property
+    def is_proposal_window_open(self) -> bool:
+        """Whether the call for proposals' own dates have come, open or not."""
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
+
     # Proposals only open on an event with a public page — without one there
     # is nowhere to send a facilitator.
     @property
     def is_proposal_active(self) -> bool:
-        current_time = datetime.now(tz=UTC)
-        return bool(
-            self.is_open
-            and self.proposal_start_time is not None
-            and self.proposal_end_time is not None
-            and self.proposal_start_time <= current_time <= self.proposal_end_time
-        )
+        return self.is_open and self.is_proposal_window_open
 
 
 class EventListItemDTO(BaseModel):
@@ -1203,9 +1206,7 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
     @staticmethod
-    def read_list(
-        event_id: int, max_start_time: datetime, min_end_time: datetime
-    ) -> list[EnrollmentConfigDTO]: ...
+    def read_list(event_id: int) -> list[EnrollmentConfigDTO]: ...
     @staticmethod
     def create_user_config(
         user_enrollment_config: UserEnrollmentConfigData,
@@ -1503,55 +1504,6 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
-class UnitOfWorkProtocol(Protocol):
-    @staticmethod
-    def atomic() -> AbstractContextManager[None]: ...
-    @staticmethod
-    def savepoint() -> AbstractContextManager[None]: ...
-    @property
-    def active_users(self) -> UserRepositoryProtocol: ...
-    @property
-    def agenda_items(self) -> AgendaItemRepositoryProtocol: ...
-    @property
-    def anonymous_users(self) -> UserRepositoryProtocol: ...
-    @property
-    def companions(self) -> CompanionRepositoryProtocol: ...
-    @property
-    def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
-    @property
-    def events(self) -> EventRepositoryProtocol: ...
-    @property
-    def facilitators(self) -> FacilitatorRepositoryProtocol: ...
-    @property
-    def personal_data_fields(self) -> PersonalDataFieldRepositoryProtocol: ...
-    @property
-    def proposal_categories(self) -> ProposalCategoryRepositoryProtocol: ...
-    @property
-    def session_fields(self) -> SessionFieldRepositoryProtocol: ...
-    @property
-    def sessions(self) -> SessionRepositoryProtocol: ...
-    @property
-    def spheres(self) -> SphereRepositoryProtocol: ...
-    @property
-    def spaces(self) -> SpaceRepositoryProtocol: ...
-    @property
-    def time_slots(self) -> TimeSlotRepositoryProtocol: ...
-    @property
-    def tracks(self) -> TrackRepositoryProtocol: ...
-    @property
-    def encounters(self) -> EncounterRepositoryProtocol: ...
-    @property
-    def encounter_rsvps(self) -> EncounterRSVPRepositoryProtocol: ...
-    @property
-    def enrollment_configs(self) -> EnrollmentConfigRepositoryProtocol: ...
-    @property
-    def personal_data_field_values(
-        self,
-    ) -> PersonalDataFieldValueRepositoryProtocol: ...
-    @property
-    def schedule_change_logs(self) -> ScheduleChangeLogRepositoryProtocol: ...
-
-
 class TicketAPIProtocol(Protocol):
     def fetch_membership_count(self, user_email: str, /) -> int: ...
 
@@ -1566,18 +1518,8 @@ class CacheProtocol(Protocol):
     def set(key: str, value: object, timeout: int | None = None) -> None: ...
 
 
-class DependencyInjectorProtocol(Protocol):
-    @property
-    def uow(self) -> UnitOfWorkProtocol: ...
-    @property
-    def cache(self) -> CacheProtocol: ...
-    @staticmethod
-    def gravatar_url(email: str) -> str | None: ...
-
-
 class RootRequestProtocol(Protocol):
     path: str
-    di: DependencyInjectorProtocol
     services: ServicesProtocol
     context: RequestContext
 

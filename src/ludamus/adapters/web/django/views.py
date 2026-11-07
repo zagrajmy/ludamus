@@ -1,65 +1,31 @@
 import logging
 from collections import defaultdict
-from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
-from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
-from django.views.generic.base import TemplateView, View
-from django.views.generic.detail import DetailView
+from django.views.generic.base import View
 
 from ludamus.adapters.web.django.forms import (
     INCLUDE_VALUE,
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import fake_full_session
-from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    EnrollmentChoice,
     PartyMemberFlags,
     SessionUserParticipationData,
 )
-from ludamus.gates.web.django.chronology.event_presentation import (
-    ParticipationInfo,
-    SessionData,
-    build_display_field_row,
-    filter_availability,
-    filterable_tag_fields,
-    mask_session_card,
-)
-from ludamus.gates.web.django.chronology.schedule import (
-    CardDay,
-    build_card_days,
-    build_room_lanes,
-    build_schedule_days,
-)
-from ludamus.gates.web.django.entities import (
-    AuthenticatedRootRequest,
-    RootRequest,
-    UserInfo,
-)
+from ludamus.gates.web.django.chronology.event_presentation import fake_full_seats
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
-from ludamus.gates.web.django.event.ics import event_calendar_entry
-from ludamus.gates.web.django.event.status_pills import event_status_pills
-from ludamus.gates.web.django.meta import (
-    LinkPreview,
-    markdown_summary,
-    session_link_preview,
-)
-from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.enrollment import SeatHolderLocks
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -68,30 +34,15 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.chronology import eligible_window_ids
-from ludamus.links.db.django.repositories.session_cards import (
-    proposal_cards,
-    scheduled_session_cards,
-)
-from ludamus.links.db.django.repositories.sessions import (
-    own_pending_proposals,
-    review_inbox_proposals,
-)
+from ludamus.links.db.django.repositories.chronology import session_card_stats
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
-from ludamus.pacts.calendar import google_calendar_url
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR, SessionCardDTO
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
-from ludamus.pacts.enrollment import (
-    NO_ENROLLMENT_ACCESS,
-    EnrollmentAccessDTO,
-    SeatHoldRequest,
-)
+from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.ids import EventId, SessionId, UserId
 from ludamus.pacts.legacy import (
     OCCUPYING_PARTICIPATION_STATUSES,
     EventDTO,
-    NotFoundError,
     RedirectError,
 )
 from ludamus.pacts.party import (
@@ -100,523 +51,21 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
 )
 
-from .design_fixtures import (
-    mock_event_info,
-    mock_form,
-    mock_session_data,
-    mock_session_data_ended,
-    mock_session_data_overflow,
-    mock_session_proposal,
-    mock_user,
-)
 from .forms import AllowanceCheck, EnrollmentForm, create_enrollment_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from django.http import HttpResponse
+
+    from ludamus.gates.web.django.entities import AuthenticatedRootRequest
+    from ludamus.pacts.chronology import SessionCardStatsDTO
     from ludamus.pacts.party import EnrollmentPartiesDTO, SelectedEnrollmentPartyDTO
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet
-
-
-@method_decorator(cache_control(public=True, max_age=300), name="get")
-class DesignPageView(TemplateView):
-    request: RootRequest
-    template_name = "design.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["design_event"] = mock_event_info()
-        context["design_session_data"] = mock_session_data()
-        context["design_session_data_ended"] = mock_session_data_ended()
-        context["design_session_data_overflow"] = mock_session_data_overflow()
-        context["design_session_proposal"] = mock_session_proposal()
-        context["design_user"] = mock_user()
-        context["design_form"] = mock_form()
-        context["design_radio_options"] = [
-            ("a", "Radio A", True, "design-radio-a"),
-            ("b", "Radio B", False, "design-radio-b"),
-        ]
-        return context
-
-
-def _mark_held_seats(sessions: dict[int, SessionData], *, user_ids: list[int]) -> None:
-    # One read of these users' seats on the page's sessions; a seat held by
-    # any of them marks the card.
-    seats = SessionParticipation.objects.filter(
-        session_id__in=sessions, user_id__in=user_ids
-    ).values_list("session_id", "status")
-    for session_id, status in seats:
-        data = sessions[session_id]
-        data.user_enrolled |= status == SessionParticipationStatus.CONFIRMED
-        data.user_waiting |= status == SessionParticipationStatus.WAITING
-
-
-# Above this many scheduled sessions, the card grid becomes unwieldy and the
-# event page switches to the compact schedule (a dense chronological list with
-# an hour scrubber). Tunable; not a business invariant, so it lives here rather
-# than in specs.
-COMPACT_SCHEDULE_MIN_SESSIONS = 20
-
-
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventPageView(DetailView):  # type: ignore [type-arg]
-    template_name = "chronology/event.html"
-    model = Event
-    context_object_name = "event"
-    request: RootRequest
-
-    def get_queryset(self) -> QuerySet[Event]:
-        # Only enrollment_configs: the schedule is read through
-        # public_scheduled_sessions, not walked from the event's spaces.
-        return (
-            Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
-            .select_related("sphere")
-            .prefetch_related("enrollment_configs")
-        )
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-
-        if not self.object.is_open and not has_panel_access(self.request):
-            raise Http404
-
-        # Every published session of this event, as flat rows. A private track
-        # is unlisted here for everyone, panel access included, so a manager
-        # previewing the page sees the schedule participants will get.
-        scheduled = scheduled_session_cards(
-            self.object, roster_up_to=COMPACT_SCHEDULE_MIN_SESSIONS
-        )
-
-        shadowbanned_ids: frozenset[UserId] = frozenset()
-        banned_by: set[UserId] = set()
-        if current_user_id := self.request.context.current_user_id:
-            banned_by = self.request.services.shadowban.banning_owner_ids(
-                current_user_id
-            )
-            shadowbanned_ids = frozenset(
-                self.request.services.shadowban.banned_user_ids(current_user_id)
-            )
-
-        # A window restricted to pass holders is not open to everyone, so the
-        # cards, the pill and the modal all read enrollment off this one
-        # viewer-scoped answer.
-        access = self.request.services.enrollment.access(
-            event=EventDTO.model_validate(self.object),
-            viewer_slug=self.request.context.current_user_slug,
-        )
-
-        # Get session data objects that include enrollment status; the
-        # hour grouping reuses them instead of rebuilding every DTO.
-        sessions_data = self._get_session_data(
-            scheduled, shadowbanned_ids, access=access
-        )
-
-        # Hard event ban: a banned viewer sees every session as full (with
-        # simulacra participants) and gets no Enroll action, so the event looks
-        # full and they are never told they are banned.
-        event_banned = current_user_id is not None and (
-            self.request.services.event_bans.is_banned(
-                event_id=self.object.pk, user_id=current_user_id
-            )
-        )
-        sessions_data = {
-            sid: mask_session_card(
-                data, event_banned=event_banned, banned_presenter_ids=banned_by
-            )
-            for sid, data in sessions_data.items()
-        }
-        has_maps = self.request.services.event_maps.has_maps(self.object.pk)
-
-        hour_data = self._get_hour_data(sessions_data)
-
-        scheduled_count = len(sessions_data)
-        if compact_schedule := scheduled_count >= COMPACT_SCHEDULE_MIN_SESSIONS:
-            self._set_bookmark_counts(sessions_data)
-            if current_user_id:
-                self._set_user_bookmarks(sessions_data, current_user_id)
-
-        total_enrolled = sum(s.enrolled_count for s in sessions_data.values())
-        user_enrolled_sessions = [s for s in sessions_data.values() if s.user_enrolled]
-        # Gates the filter panel's enrollment checkbox; a limit of 0 takes no
-        # enrollment, so an event of drop-ins offers nothing to narrow to.
-        has_enrollable_sessions = any(
-            data.takes_enrollment for data in sessions_data.values()
-        )
-
-        # The day-major grouping only feeds the card-grid layout; the compact
-        # schedule renders from schedule_days instead, so skip the pass there.
-        card_days: list[CardDay] = (
-            [] if compact_schedule else build_card_days(hour_data)
-        )
-
-        schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
-        # The compact schedule offers two layouts: the chronological ledger
-        # (default) and a rooms grid (?view=rooms) with a column per room.
-        rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
-        event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
-        calendar_entry = event_calendar_entry(self.object, request=self.request)
-
-        context.update(
-            {
-                "hour_data": hour_data,
-                "sessions": list(sessions_data.values()),
-                "scheduled_count": scheduled_count,
-                "compact_schedule": compact_schedule,
-                "schedule_days": schedule_days,
-                "programme_day_start_hour": PROGRAMME_DAY_STARTS_AT_HOUR,
-                "active_tab": "rooms" if rooms_view else "list",
-                "has_enrollable_sessions": has_enrollable_sessions,
-                "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
-                "schedule_list_url": event_url,
-                "schedule_rooms_url": f"{event_url}?view=rooms",
-                "maps_url": (
-                    reverse(
-                        "web:chronology:event-maps", kwargs={"slug": self.object.slug}
-                    )
-                    if has_maps
-                    else None
-                ),
-                "print_url": reverse(
-                    "web:chronology:event-print", kwargs={"slug": self.object.slug}
-                ),
-                "google_calendar_url": google_calendar_url(calendar_entry),
-                "card_days": card_days,
-                "total_enrolled": total_enrolled,
-                "user_enrolled_sessions": user_enrolled_sessions,
-                "event_banned": event_banned,
-            }
-        )
-
-        context["status_pills"] = event_status_pills(
-            is_live=self.object.is_live,
-            is_ended=self.object.is_ended,
-            is_proposal_active=self.object.is_proposal_active,
-            access=access,
-        )
-        context["enrollment_notices"] = [
-            config.banner_text
-            for config in self.object.get_active_enrollment_configs()
-            if config.banner_text
-        ]
-        context.update(self._get_anonymous_context())
-
-        # The repository hands back DTOs with their options prefetched, so the
-        # filter panel reads its choices without the template walking the ORM.
-        public_select_fields = [
-            field
-            for field in self.request.di.uow.session_fields.list_by_event(
-                self.object.pk
-            )
-            if field.field_type == "select" and field.is_public
-        ]
-        context["filterable_tag_categories"] = filterable_tag_fields(
-            public_select_fields, sessions_data.values()
-        )
-        context.update(filter_availability(sessions_data.values()))
-        context.update(self._get_pending_sessions_context(shadowbanned_ids))
-        context["link_preview"] = self._link_preview(sessions_data)
-
-        return context
-
-    # SAFETY: only a session the schedule already lists. A private or
-    # unpublished one never reaches sessions_data, so its title can't leak.
-    def _link_preview(self, sessions_data: dict[int, SessionData]) -> LinkPreview:
-        raw = self.request.GET.get("session", "")
-        if raw.isdecimal() and (data := sessions_data.get(int(raw))) is not None:
-            return session_link_preview(data=data, event_name=self.object.name)
-        return LinkPreview(description=markdown_summary(self.object.description))
-
-    def _get_anonymous_context(self) -> dict[str, Any]:
-        ctx: dict[str, Any] = {}
-        anonymous_service = self.request.services.anonymous_enrollment
-
-        if self.request.context.current_user_id and self.request.session.get(
-            "anonymous_enrollment_active"
-        ):
-            self._clear_anonymous_session()
-            return ctx
-
-        if (
-            not self.request.session.get("anonymous_enrollment_active")
-            or self.request.context.current_user_id
-        ):
-            return ctx
-
-        anonymous_user_code = self.request.session.get("anonymous_user_code")
-        current_site_id = self.request.context.current_site_id
-        session_site_id = self.request.session.get("anonymous_site_id")
-
-        if not (anonymous_user_code and session_site_id == current_site_id):
-            self._clear_anonymous_session()
-            return ctx
-
-        anonymous_user = None
-        with suppress(NotFoundError):
-            anonymous_user = anonymous_service.get_user_by_code(
-                code=anonymous_user_code
-            )
-
-        if not anonymous_user:
-            self._clear_anonymous_session()
-            return ctx
-
-        ctx["anonymous_code"] = anonymous_user.slug.removeprefix("code_")
-        anonymous_enrollments = SessionParticipation.objects.filter(
-            user_id=anonymous_user.pk, session__event=self.object
-        ).select_related("session")
-        ctx["anonymous_user_enrollments"] = list(anonymous_enrollments)
-        return ctx
-
-    def _clear_anonymous_session(self) -> None:
-        self.request.session.pop("anonymous_user_code", None)
-        self.request.session.pop("anonymous_enrollment_active", None)
-        self.request.session.pop("anonymous_event_id", None)
-        self.request.session.pop("anonymous_site_id", None)
-
-    def _get_pending_sessions_context(
-        self, shadowbanned_ids: frozenset[UserId]
-    ) -> dict[str, Any]:
-        context: dict[str, Any] = {
-            "pending_sessions": [],
-            "pending_review_visible": False,
-            "pending_wizard_view": False,
-            "own_pending_proposals": [],
-        }
-        if (
-            not self.request.context.current_user_slug
-            or self.request.context.current_user_id is None
-        ):
-            return context
-
-        # The review block only renders while the call for proposals is open,
-        # so one place decides that — building its cards for a shut CFP meant
-        # a whole card pipeline per organizer page view, discarded in the
-        # template.
-        if (access := panel_access(self.request)).granted:
-            if not self.object.is_proposal_active:
-                return context
-            return context | {
-                "pending_sessions": self._proposal_cards(
-                    review_inbox_proposals(self.object.pk), shadowbanned_ids
-                ),
-                "pending_review_visible": True,
-                # The wizard is the superuser's view of a sphere they have no
-                # part in; one who also holds a role here reviews as that role.
-                "pending_wizard_view": access.is_superuser and access.role is None,
-            }
-
-        return context | {
-            "own_pending_proposals": self._proposal_cards(
-                own_pending_proposals(
-                    event_id=self.object.pk,
-                    presenter_id=self.request.context.current_user_id,
-                ),
-                shadowbanned_ids,
-            )
-        }
-
-    def _proposal_cards(
-        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[UserId]
-    ) -> list[SessionData]:
-        # The shadowban ids, but deliberately not mask_session_card: the mask
-        # rewrites participants_limit to a fabricated fill, and an organizer
-        # has to judge the capacity the author actually asked for. The ids
-        # alone are what the danger ring reads, and without them a presenter
-        # the viewer shadowbanned would be ringed on their scheduled card and
-        # clean on their proposal, on the same page.
-        # A proposal holds no agenda item, so no window can seat it yet and
-        # no viewer's windows reach the card.
-        return list(
-            self._get_session_data(
-                proposal_cards(proposals), shadowbanned_ids, access=NO_ENROLLMENT_ACCESS
-            ).values()
-        )
-
-    def _set_user_participations(self, sessions: dict[int, SessionData]) -> None:
-        # The viewer's seats mark the cards: a signed-in viewer's together with
-        # their companions', an anonymous viewer's alone.
-        if self.request.context.current_user_slug:
-            all_users = [
-                self.request.di.uow.active_users.read(
-                    self.request.context.current_user_slug
-                ),
-                *self.request.services.companions.list_companions(
-                    self.request.context.current_user_slug
-                ),
-            ]
-            _mark_held_seats(sessions, user_ids=[u.pk for u in all_users])
-        elif (anonymous_user := self._anonymous_viewer()) is not None:
-            _mark_held_seats(sessions, user_ids=[anonymous_user.pk])
-
-    def _anonymous_viewer(self) -> UserDTO | None:
-        session = self.request.session
-        if not (
-            session.get("anonymous_enrollment_active")
-            and session.get("anonymous_user_code")
-        ):
-            return None
-        # An anonymous code is for one site: another site's code says nothing
-        # about this page's sessions.
-        if session.get("anonymous_site_id") != self.request.context.current_site_id:
-            return None
-        with suppress(NotFoundError):
-            return self.request.services.anonymous_enrollment.get_user_by_code(
-                code=session["anonymous_user_code"]
-            )
-        return None
-
-    def _set_bookmark_counts(self, sessions_data: dict[int, SessionData]) -> None:
-        counts = self.request.services.bookmarks.bookmark_counts(
-            event_id=EventId(self.object.pk)
-        )
-        for sid, data in sessions_data.items():
-            data.bookmark_count = counts.get(SessionId(sid), 0)
-
-    def _set_user_bookmarks(
-        self, sessions_data: dict[int, SessionData], current_user_id: UserId
-    ) -> None:
-        # Bookmarks are only surfaced on the compact schedule (the lightweight
-        # "I want to attend" gesture for big events). One query for the whole set.
-        bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
-            user_id=current_user_id, event_id=EventId(self.object.pk)
-        )
-        for sid, data in sessions_data.items():
-            data.user_bookmarked = sid in bookmarked_ids
-
-    @staticmethod
-    def _get_hour_data(
-        sessions_data: dict[int, SessionData],
-    ) -> dict[datetime, list[SessionData]]:
-        # Keeps the cards' order, which is the schedule's: earliest first.
-        sessions_by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
-        for data in sessions_data.values():
-            if data.agenda_item is not None:
-                sessions_by_hour[data.agenda_item.start_time].append(data)
-        return dict(sessions_by_hour)
-
-    def _get_session_data(
-        self,
-        cards: list[SessionCardDTO],
-        shadowbanned_ids: frozenset[UserId] = frozenset(),
-        *,
-        access: EnrollmentAccessDTO,
-    ) -> dict[int, SessionData]:
-        event_override = self.object.allow_facilitator_session_edit
-        sphere_default = self.object.sphere.allow_facilitator_session_edit
-        edit_allowed = sphere_default if event_override is None else event_override
-        current_user_id = self.request.context.current_user_id
-        gravatar_url = self.request.di.gravatar_url
-
-        sessions_data = {}
-        for card in cards:
-            session = card.session
-            if card.presenter is not None:
-                presenter = UserInfo.from_user_dto(
-                    card.presenter, gravatar_url=gravatar_url
-                )
-            else:
-                presenter_name = session.facilitator_name or ""
-                presenter = UserInfo(
-                    avatar_url=None,
-                    discord_username="",
-                    full_name=presenter_name,
-                    name=presenter_name,
-                    pk=0,
-                    slug="",
-                    username=presenter_name,
-                )
-            sessions_data[session.pk] = SessionData(
-                can_edit=(
-                    edit_allowed
-                    and current_user_id is not None
-                    and session.presenter_id == current_user_id
-                ),
-                effective_participants_limit=card.effective_participants_limit,
-                agenda_item=card.agenda_item,
-                session=session,
-                presenter=presenter,
-                presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
-                field_values=card.field_values,
-                # Unfiltered: the schedule read drops a session with any
-                # private track outright, so the only cards left carrying one
-                # are proposals, whose readers are organizers and the author.
-                track_names=card.track_names,
-                category_name=card.category_name,
-                # An unscheduled proposal can't be enrolled in yet. A session
-                # inside a window that turns this viewer away is not available
-                # to them, whatever its seat count says.
-                is_enrollment_available=(
-                    card.agenda_item is not None
-                    and access.seats(card.enrollment_window_ids)
-                ),
-                is_full=card.is_full,
-                loc=card.location,
-                enrolled_count=card.enrolled_count,
-                waiting_count=card.waiting_count,
-                session_participations=[
-                    ParticipationInfo(
-                        user=UserInfo.from_user_dto(
-                            seat.user, gravatar_url=gravatar_url
-                        ),
-                        status=seat.status,
-                        creation_time=seat.creation_time,
-                        is_shadowbanned=seat.user.pk in shadowbanned_ids,
-                    )
-                    for seat in card.participations
-                ],
-                preferred_time_slots=card.preferred_time_slots,
-            )
-
-        # Check if any active enrollment config has limit_to_end_time enabled
-        active_configs = self.object.get_active_enrollment_configs()
-        limit_configs = [c for c in active_configs if c.limit_to_end_time]
-        current_time = datetime.now(tz=UTC)
-
-        # Get the earliest end_time from configs with limit_to_end_time
-        earliest_limit_end_time = None
-        if limit_configs:
-            earliest_limit_end_time = min(config.end_time for config in limit_configs)
-
-        # Set displayed field values and display status for each session
-        for session_data in sessions_data.values():
-            session_data.displayed_field_rows = [
-                build_display_field_row(fv)
-                for fv in session_data.field_values
-                if fv.show_on_cards
-            ]
-
-            if session_data.agenda_item is None:
-                continue
-            session_start = session_data.agenda_item.start_time
-
-            # Calculate if session is ongoing (has already started) or fully over
-            session_data.is_ongoing = session_start <= current_time
-            session_data.is_ended = session_data.agenda_item.end_time <= current_time
-
-            # Mark sessions as inactive for display based on limit_to_end_time rules
-            if limit_configs and earliest_limit_end_time and session_data.is_ongoing:
-                session_data.should_show_as_inactive = True
-
-        # Set user participation data for authenticated users and anonymous users
-        self._set_user_participations(sessions_data)
-        attach_guild_marks(
-            sessions_data,
-            guilds=self.request.services.guilds,
-            sphere_id=self.request.context.current_sphere_id,
-        )
-
-        return sessions_data
-
-
-class EnrollmentChoice(StrEnum):
-    CANCEL = auto()
-    ENROLL = auto()
-    WAITLIST = auto()
-    BLOCK = auto()
 
 
 @dataclass
@@ -700,8 +149,6 @@ def _get_session_or_redirect(
             reverse("web:index"), error=_("Session not found.")
         ) from None
     viewer_id = request.context.current_user_id
-    if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
-        fake_full_session(session)
     has_agenda_item = AgendaItem.objects.filter(session_id=session.pk).exists()
     has_participation = session.session_participations.filter(
         user_id=viewer_id
@@ -729,8 +176,8 @@ def _get_session_or_redirect(
 
 
 _status_by_choice = {
-    "enroll": SessionParticipationStatus.CONFIRMED,
-    "waitlist": SessionParticipationStatus.WAITING,
+    EnrollmentChoice.ENROLL: SessionParticipationStatus.CONFIRMED,
+    EnrollmentChoice.WAITLIST: SessionParticipationStatus.WAITING,
 }
 
 
@@ -791,6 +238,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> dict[str, Any]:
         return {
             "session": session,
+            "seats": self._seats(session),
             "event": session.event,
             "party_choices": selection.choices,
             "selected_party": selection.selected,
@@ -806,6 +254,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             ),
             "form": form,
         }
+
+    def _seats(self, session: Session) -> SessionCardStatsDTO:
+        # A viewer the presenter shadowbanned sees the session full, and is
+        # never told why.
+        seats = session_card_stats(session)
+        banning = self.request.services.shadowban.banning_owner_ids(
+            self.request.context.current_user_id
+        )
+        return fake_full_seats(seats) if session.presenter_id in banning else seats
 
     def _guest_count(self, session: Session) -> int | None:
         # None when the organizer has not opened anonymous enrollment for this
@@ -970,13 +427,14 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             event=EventDTO.model_validate(session.event),
             viewer_slug=self.request.context.current_user_slug,
         )
+        seats = self._seats(session)
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=True,
-            participants_limit=session.participants_limit,
-            is_enrollment_available=access.seats(eligible_window_ids(session)),
+            participants_limit=seats.participants_limit,
+            is_enrollment_available=access.seats(seats.enrollment_window_ids),
             is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
-            is_full=session.is_full,
+            is_full=seats.is_full,
             user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
             user_waiting=SessionParticipationStatus.WAITING in statuses,
         )
@@ -1184,9 +642,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 # skipped in processing anyway); leave them untouched.
                 if currently_in or Session.objects.has_conflicts(session, user):
                     continue
-                if "enroll" in choices or "waitlist" in choices:
+                if (
+                    EnrollmentChoice.ENROLL in choices
+                    or EnrollmentChoice.WAITLIST in choices
+                ):
                     wants_in.append(member)
-            elif currently_in and "cancel" in choices:
+            elif currently_in and EnrollmentChoice.CANCEL in choices:
                 cancels.append(
                     EnrollmentRequest(
                         user=user,
@@ -1226,9 +687,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _spots(
         enrollment_policy: EnrollmentPolicy, session: Session, *, freed: int
     ) -> int:
+        occupied = SessionParticipation.objects.filter(
+            session=session, status__in=OCCUPYING_PARTICIPATION_STATUSES
+        ).count()
         return enrollment_policy.available_slots(
             participants_limit=session.participants_limit,
-            enrolled_count=session.enrolled_count - freed,
+            enrolled_count=occupied - freed,
         )
 
     def _available_slots(self, session: Session, *, freed: int = 0) -> int:
@@ -1256,9 +720,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 if not has_room:
                     continue
                 choice = EnrollmentChoice.ENROLL
-            elif has_room and "enroll" in choices:
+            elif has_room and EnrollmentChoice.ENROLL in choices:
                 choice = EnrollmentChoice.ENROLL
-            elif "waitlist" in choices:
+            elif EnrollmentChoice.WAITLIST in choices:
                 choice = EnrollmentChoice.WAITLIST
             else:
                 # Full and this person cannot wait (limit reached / no access).
@@ -1277,15 +741,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return routed
 
     @staticmethod
-    def _choice_values(form: forms.Form, user_pk: int) -> set[str]:
+    def _choice_values(form: forms.Form, user_pk: int) -> set[EnrollmentChoice]:
         form_field = form.fields.get(f"user_{user_pk}")
         if not isinstance(form_field, forms.ChoiceField):
             return set()
-        return {
-            value
-            for value in ("enroll", "waitlist", "cancel")
-            if form_field.valid_value(value)
-        }
+        return {choice for choice in EnrollmentChoice if form_field.valid_value(choice)}
 
     def _process_enrollments(
         self,
@@ -1369,11 +829,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # companion enrolling in the same submit (e.g. swapping a seat on a
         # full session).
         ordered_requests = sorted(
-            enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1
+            enrollment_requests,
+            key=lambda req: 0 if req.choice == EnrollmentChoice.CANCEL else 1,
         )
 
         for req in ordered_requests:
-            if req.choice == "cancel":
+            if req.choice == EnrollmentChoice.CANCEL:
                 self._handle_cancellation(req, participations, enrollments)
             else:
                 self._check_and_create_enrollment(
@@ -1462,7 +923,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return
 
         # Check for time conflicts for confirmed enrollment
-        if req.choice == "enroll" and Session.objects.has_conflicts(session, req.user):
+        if req.choice == EnrollmentChoice.ENROLL and Session.objects.has_conflicts(
+            session, req.user
+        ):
             enrollments.skipped_users.append(
                 _("%(name)s (time conflict)") % {"name": req.name}
             )
@@ -1586,14 +1049,18 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
     ) -> bool:
-        member_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        member_count = sum(
+            1 for req in enrollment_requests if req.choice == EnrollmentChoice.ENROLL
+        )
         if (enroll_count := member_count + guest_seats_needed) == 0:
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
         # OFFERED both occupy capacity) — credit it back before checking.
         cancelling_user_ids = {
-            req.user.pk for req in enrollment_requests if req.choice == "cancel"
+            req.user.pk
+            for req in enrollment_requests
+            if req.choice == EnrollmentChoice.CANCEL
         }
         freed_spots = guest_seats_freed
         if cancelling_user_ids:

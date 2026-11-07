@@ -5,12 +5,7 @@ from uuid import UUID
 import pytest
 from freezegun import freeze_time
 
-from ludamus.mills.enrollment import (
-    EnrollmentService,
-    EnrollmentSettingsService,
-    can_enroll_users,
-    get_vc_available_slots,
-)
+from ludamus.mills.enrollment import EnrollmentService, EnrollmentSettingsService
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
@@ -151,16 +146,8 @@ class FakeEnrollmentConfigs:
         self.updated: list[UserEnrollmentConfigDTO] = []
         self.domain_reads: list[tuple[int, str]] = []
 
-    def read_list(self, event_id, max_start_time, min_end_time):
-        # The real repo bounds the period; a fake that ignores it lets a test
-        # pass on windows the service would never have been handed.
-        return [
-            config
-            for config in self._configs
-            if config.event_id == event_id
-            and config.start_time <= max_start_time
-            and config.end_time >= min_end_time
-        ]
+    def read_list(self, event_id):
+        return [config for config in self._configs if config.event_id == event_id]
 
     def create_user_config(self, user_enrollment_config):
         self.created.append(dict(user_enrollment_config))
@@ -285,33 +272,36 @@ def _service(
 
 class TestSlotMath:
     def test_can_enroll_users_rejects_over_limit(self):
-        allowed = can_enroll_users(
+        service = _service(participations=FakeParticipations(occupying={1}))
+
+        allowed = service.can_enroll_users(
             users=[_user(1), _user(2)],
             event=_event(),
             virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[_user(2)],
-            participations=FakeParticipations(occupying={1}),
         )
 
         assert allowed is False
 
     def test_can_enroll_users_does_not_double_count_enrolled_user(self):
-        allowed = can_enroll_users(
+        service = _service(participations=FakeParticipations(occupying={1}))
+
+        allowed = service.can_enroll_users(
             users=[_user(1)],
             event=_event(),
             virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[_user(1)],
-            participations=FakeParticipations(occupying={1}),
         )
 
         assert allowed is True
 
     def test_get_vc_available_slots_clamps_at_zero(self):
-        available = get_vc_available_slots(
+        service = _service(participations=FakeParticipations(occupying={1, 2}))
+
+        available = service.get_vc_available_slots(
             users=[_user(1), _user(2)],
             event=_event(),
             virtual_config=VirtualEnrollmentConfig(user_slots=1),
-            participations=FakeParticipations(occupying={1, 2}),
         )
 
         assert available == 0

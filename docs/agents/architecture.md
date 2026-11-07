@@ -180,20 +180,6 @@ def get(self, request: PanelRequest, slug: str) -> TemplateResponse:
     )
 ```
 
-## Strangler-fig migration
-
-Two middleware run in parallel: the legacy `RepositoryInjectionMiddleware`
-(attaches `request.di.uow`) and the new `ServiceInjectionMiddleware`
-(attaches `request.services`). New code uses `request.services`. A single
-view file picks one shape; never both in the same view.
-
-Migration is per view file. The recipe lives in
-[services-migration.md](services-migration.md). Once the last view migrates,
-`RepositoryInjectionMiddleware` and `request.di.uow` are removed.
-
-New code must use `request.services`. Do not extend the `request.di.uow`
-surface — write a new mills service instead.
-
 ## Specs
 
 Business invariants consumed only by mills. No IO, no Django.
@@ -253,10 +239,13 @@ grows: `propose` (CFP config, proposals, facilitators), `enroll`,
 `schedule` (venues, time slots, tracks, timetable), `present` (public
 pages, printing).
 
-Enrollment behaviour currently bolted onto the `Session` model
-(`enrolled_count`, `is_full`, `effective_participants_limit`,
-`is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
-`enroll` mills/specs, not on the model.
+Seat arithmetic lives in `pacts/enrollment.py`, the one module links,
+mills and gates all read: `SessionSeatsDTO` (a session's cap, seats left and
+fullness, from the stored limit, the open windows' share and the seats
+taken), `seat_cap`, and the window rules `window_is_open` (`[start, end)`)
+and `allowance_windows`. Links supply only those facts;
+`EnrollmentPolicy` (mills) answers the per-actor question with the same
+`seat_cap`. `SessionManager.has_conflicts` still sits on the model.
 
 **Seat lock order.** Every transaction that decides a seat takes, before
 it reads what it decides on, the steps below. Most lock `User` rows
@@ -319,7 +308,8 @@ the past. `/` redirects here.
 What visitors see: event details, session list, session cards.
 
 - **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
-- **Views:** `adapters/web/django/views.py` — `EventPageView`
+- **Views:** `gates/web/django/event/page.py` — `EventPageView`, reading
+  through `services.event_schedule` (`mills/event_schedule.py`)
 - **Templates:** `templates/chronology/event.html`,
   `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
@@ -443,8 +433,7 @@ the event resolution `EventPanelMixin` adds.
 - **Templates:** `templates/multiverse/panel/`
 - **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/multiverse.py`
   (legacy module names; new cuts use `sphere`)
-- **Access:** `SphereAccessMixin` (sphere-manager check via
-  `request.di.uow.spheres.is_manager`)
+- **Access:** `SphereAccessMixin` (the panel access check, scoped to the sphere)
 - **First feature:** sphere-scoped import-connections CRUD
   ("Połączenia importu" subpage)
 

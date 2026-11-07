@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import SessionSeatsDTO
 from ludamus.pacts.fields import SessionFieldType
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
@@ -424,16 +425,13 @@ class SessionSeatDTO(BaseModel):
     creation_time: datetime
 
 
-class SessionCardStatsDTO(BaseModel):
-    enrolled_count: int
+class SessionCardStatsDTO(SessionSeatsDTO):
     waiting_count: int
-    is_full: bool
     # The windows that can seat this session, by id — not whether enrollment
     # is available, which is a question about a viewer. Intersecting these
     # with the viewer's own open windows is the only way to that answer, so
     # every reader has to state whose windows it means.
     enrollment_window_ids: frozenset[int]
-    effective_participants_limit: int
 
 
 class PartySessionHistoryDTO(SessionCardStatsDTO):

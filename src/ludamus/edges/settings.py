@@ -160,15 +160,14 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "ludamus.gates.web.django.middlewares.AppMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
+    "ludamus.inits.request_context.RedirectErrorMiddleware",
 ]
 
 # Run in this order by AppMiddleware, and only for paths outside
 # MIDDLEWARE_SKIP_PREFIXES.
 APP_MIDDLEWARE = [
-    "ludamus.inits.legacy.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
-    "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.request_context.RequestContextMiddleware",
     "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",

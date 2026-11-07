@@ -14,7 +14,7 @@ from django.template.response import TemplateResponse
 from django.urls import Resolver404, resolve, reverse
 from django.utils.translation import gettext as _
 
-from ludamus.mills.url_recovery import strip_trailing_junk
+from ludamus.gates.web.django.url_recovery import strip_trailing_junk
 from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
