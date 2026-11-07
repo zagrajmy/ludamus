@@ -4,7 +4,8 @@ How it could go wrong: a non-manager edits prices or refunds; a ticket type or
 order from another event is changed through this event's URLs; the fee shown
 is not the sphere's deal's; a price is stored in złoty instead of grosze; a
 refund leaves Zagrajmy's fee behind or the tickets valid; a refund Stripe
-refused is shown as done.
+refused is shown as done; an installation with no Stripe key offers to
+connect an account it cannot create.
 """
 
 from decimal import Decimal
@@ -71,6 +72,21 @@ def _form_data(**overrides):
     } | overrides
 
 
+def _empty_page(*, payments_available):
+    return TicketPanelDTO(
+        payout_status=PayoutStatus.NOT_CONNECTED,
+        payments_available=payments_available,
+        platform_fee_percent=Decimal("3.5"),
+        rows=[],
+        archived=[],
+        summary=TicketSalesSummaryDTO(
+            orders=0, tickets=0, gross=0, platform_fees=0, estimated_stripe_fees=0
+        ),
+        orders=[],
+        more_orders=False,
+    )
+
+
 def _foreign_event():
     return EventFactory(sphere=SphereFactory(name="Elsewhere"), slug="elsewhere")
 
@@ -97,22 +113,24 @@ class TestTicketsPage:
             template_name="panel/tickets.html",
             context_data={
                 **panel_context(event, active_nav="tickets"),
-                "page": TicketPanelDTO(
-                    payout_status=PayoutStatus.NOT_CONNECTED,
-                    payments_available=True,
-                    platform_fee_percent=Decimal("3.5"),
-                    rows=[],
-                    archived=[],
-                    summary=TicketSalesSummaryDTO(
-                        orders=0,
-                        tickets=0,
-                        gross=0,
-                        platform_fees=0,
-                        estimated_stripe_fees=0,
-                    ),
-                    orders=[],
-                    more_orders=False,
-                ),
+                "page": _empty_page(payments_available=True),
+            },
+        )
+
+    def test_without_stripe_tickets_can_be_prepared_but_not_sold(
+        self, panel_client, event, settings
+    ):
+        settings.STRIPE_SECRET_KEY = ""
+
+        response = panel_client.get(_url("panel:tickets", event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/tickets.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "page": _empty_page(payments_available=False),
             },
         )
 

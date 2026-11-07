@@ -5,7 +5,8 @@ sell-out through guest checkouts, from one address or across an IPv6 /64;
 the guest limit binds an account, another network or another event; a ticket
 type id from another event is sold; seats held by someone still in Checkout
 are sold twice; Zagrajmy's fee (or a deal's lower one) or the connected
-account is wrong on the Checkout Session; a Stripe failure keeps seats held.
+account is wrong on the Checkout Session; a Stripe failure keeps seats held;
+an installation with no Stripe key sells, or fails on the shop page.
 """
 
 import json
@@ -205,6 +206,22 @@ class TestEventTicketsPageView:
 
         shop = response.context_data["shop"]
         assert shop.viewer_ticket_count == 1 + 1
+
+    def test_without_stripe_the_shop_lists_tickets_as_not_yet_on_sale(
+        self, client, event, settings
+    ):
+        settings.STRIPE_SECRET_KEY = ""
+        connected_account(event.sphere)
+        ticket_type(event)
+
+        response = client.get(tickets_url(event))
+
+        shop = response.context_data["shop"]
+        assert (response.status_code, shop.has_tickets, shop.on_sale) == (
+            HTTPStatus.OK,
+            True,
+            False,
+        )
 
     def test_unpublished_event_stays_hidden(self, client, sphere):
         hidden = EventFactory(sphere=sphere, publication_time=None)
@@ -500,6 +517,31 @@ class TestEventTicketsBuyActionView:
         self, authenticated_client, event, stripe_api
     ):
         connected_account(event.sphere, charges_enabled=False)
+        kind = ticket_type(event)
+
+        response = authenticated_client.post(
+            _buy_url(event), {f"quantity-{kind.pk}": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=tickets_url(event),
+            messages=[
+                (
+                    messages.ERROR,
+                    "Ticket sales for this event are paused. Try again later.",
+                )
+            ],
+        )
+        assert not TicketOrder.objects.exists()
+        assert not stripe_api.calls
+
+    def test_without_stripe_buying_starts_nothing(
+        self, authenticated_client, event, stripe_api, settings
+    ):
+        settings.STRIPE_SECRET_KEY = ""
+        connected_account(event.sphere)
         kind = ticket_type(event)
 
         response = authenticated_client.post(
