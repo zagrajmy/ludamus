@@ -170,6 +170,8 @@ def test_never_spends_more_slots_than_an_owner_has(state):
 @example(
     _state([_member(user_id=1, order=0, slots=0), _member(user_id=2, order=1)], seats=1)
 )
+# Both parties fit, so the first is charged before the second is judged.
+@example(_state([_member(user_id=1, order=0), _member(user_id=2, order=1)], seats=2))
 def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     selected = [_ids(party) for party in select_promotable_parties(state)]
     parties = _eligible_parties(state)

@@ -69,7 +69,7 @@ freezegun = "^1.5.2"
 honcho = "^2.0.0"
 hypothesis = { version = "^6.170.5", extras = ["crosshair"] }
 import-linter = "^2.15"
-ipython = "^9.17.1"
+ipython = "^9.18.1"
 lxml-stubs = "^0.5.1"
 mutmut = "^3.8.0"
 mypy = "^2.4.0"

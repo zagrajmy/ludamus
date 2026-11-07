@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from secrets import token_urlsafe
+from types import SimpleNamespace
 from unittest.mock import ANY, patch
 from urllib.parse import urlencode
 
@@ -235,7 +236,7 @@ class TestSignupAgeGate:
 
     def test_expired_form_can_be_restarted(self, client, faker):
         _reach_gate(client, faker.uuid4())
-        with patch("django.core.signing.time.time", return_value=1):
+        with patch("django.core.signing.time", SimpleNamespace(time=lambda: 1)):
             old_token = (
                 client.get(GATE_URL).context_data["form"]["confirmation_token"].value()
             )
