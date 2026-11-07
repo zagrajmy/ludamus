@@ -50,7 +50,6 @@ class EncounterRSVPDTO(BaseModel):
 
     creation_time: datetime
     encounter_id: int
-    ip_address: str | None
     pk: int
     user_id: int
 
@@ -111,17 +110,13 @@ class EncounterRepositoryProtocol(Protocol):
 
 class EncounterRSVPRepositoryProtocol(Protocol):
     @staticmethod
-    def create(
-        encounter_id: int, ip_address: str | None, user_id: int
-    ) -> EncounterRSVPDTO: ...
+    def create(encounter_id: int, user_id: int) -> EncounterRSVPDTO: ...
     @staticmethod
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int: ...
     @staticmethod
     def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
-    @staticmethod
-    def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
     @staticmethod
     def user_has_rsvpd(encounter_id: int, user_id: int) -> bool: ...
     @staticmethod

@@ -287,14 +287,12 @@ class EncounterService(EncounterServiceProtocol):
         # a repo method in pacts/encounter.py — held by open PRs.
         with self._transaction.atomic():
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
-            if self._rsvps.recent_rsvp_exists(ip_address):
+            if self._guests.recently_rsvpd(ip_address):
                 return RSVPOutcome.THROTTLED
             if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return RSVPOutcome.ALREADY_SIGNED_UP
             user = self._users.read_by_id(user_id)
-            if not self._guests.admit(
-                encounter, email=user.email, user=user, ip_address=ip_address
-            ):
+            if not self._guests.admit(encounter, email=user.email, user=user):
                 return RSVPOutcome.FULL
             self._guests.send(
                 encounter, reason=EncounterInviteReason.JOINED, guests=[guest_for(user)]
