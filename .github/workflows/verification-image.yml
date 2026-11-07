@@ -27,7 +27,7 @@ jobs:
           # The image copies .git in for hk, so no token may be stored in it.
           persist-credentials: false
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build
         uses: docker/build-push-action@v6
