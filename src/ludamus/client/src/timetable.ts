@@ -1,4 +1,5 @@
 import { requestConfirm } from "./confirm";
+import { csrfToken } from "./post-json";
 
 interface PreferredSlot {
   end: string;
@@ -38,9 +39,6 @@ const columnsForDayGrid = (dayGrid: HTMLElement): NodeListOf<HTMLElement> =>
 
 const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
   col.closest<HTMLElement>(".timetable-day-grid");
-
-const csrfToken = (): string =>
-  (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement).value;
 
 function pxPerMinute(cal: HTMLElement): number {
   const raw = getComputedStyle(cal).getPropertyValue("--minute-px").trim();

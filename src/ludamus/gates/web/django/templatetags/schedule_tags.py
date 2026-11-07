@@ -27,6 +27,7 @@ these same builders returned.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from functools import cache
 from html import escape
@@ -40,7 +41,6 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
-from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
 from ludamus.pacts.chronology import SessionAvailability
 from ludamus.pacts.durations import format_duration
 
@@ -191,6 +191,11 @@ _TILE_HOST = (
     '<span class="shrink-0" data-morph="avatar">%(avatar)s</span>%(guild_mark)s'
     '<span class="truncate" data-morph="host">%(host)s</span></div>'
 )
+
+
+def space_sort_path_json(path: tuple[tuple[int, str, int], ...]) -> str:
+    # data-space-order: session-filters.ts parses it to sort cards by room.
+    return json.dumps(path, ensure_ascii=True, separators=(",", ":"))
 
 
 @dataclass(frozen=True)

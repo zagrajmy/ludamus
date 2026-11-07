@@ -81,9 +81,7 @@
         {% endblock extra_head %}
     </head>
     <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground print:bg-white{% endblock body_class %}"
-          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}"
-          data-flash-region-label="{% translate "Notifications" %}"
-          data-flash-dismiss-label="{% translate "Dismiss" %}">
+          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}">
         {% comment %}
             App-shell scroll container: the document itself never scrolls, an
             inner element owns the scroll. A top-layer <dialog> then always
@@ -100,12 +98,7 @@
                 {% block main_region %}
                     <!-- Flash Messages -->
                     {% if messages %}
-                        <div class="flash-region"
-                             role="region"
-                             aria-live="polite"
-                             aria-label="{% translate "Notifications" %}">
-                            {% include "components/flash-messages.html" %}
-                        </div>
+                        {% include "components/flash-region.html" %}
                     {% endif %}
                     <!-- Main Content -->
                     {# A page whose first element is a full-bleed one drops the #}
@@ -173,6 +166,16 @@
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {# What flash.ts clones for a flash it raises itself (flash-region.html). #}
+        <template id="flash-region-template">
+            {% include "components/flash-region.html" with messages="" %}
+        </template>
+        <template id="flash-error-template">
+            {% include "components/flash-message.html" with level="error" text="" only %}
+        </template>
+        <template id="flash-success-template">
+            {% include "components/flash-message.html" with level="success" text="" only %}
+        </template>
         {% block email_verification_banner %}
             {% if current_user and not current_user.email_verified and not request.COOKIES.hide_email_verification_banner %}
                 {% include "components/email-verification-banner.html" %}

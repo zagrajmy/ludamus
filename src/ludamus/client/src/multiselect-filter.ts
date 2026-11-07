@@ -10,6 +10,8 @@
 // second search would drop the first search's picks on the floor. Failures
 // surface through the global htmx:responseError handler in flash.ts.
 
+import { normalizeText } from "./text";
+
 const DEBOUNCE_MS = 300;
 
 const wire = (root: HTMLElement): void => {
@@ -25,10 +27,12 @@ const wire = (root: HTMLElement): void => {
   const searchFirst = Object.hasOwn(root.dataset, "multiselectSearchFirst");
 
   const filterInPlace = (): void => {
-    const query = search.value.toLowerCase().trim();
+    const query = normalizeText(search.value.trim());
     let matches = 0;
     for (const row of list.querySelectorAll<HTMLElement>("[data-search]")) {
-      const matched = query ? (row.dataset.search ?? "").includes(query) : !searchFirst;
+      const matched = query
+        ? normalizeText(row.dataset.search ?? "").includes(query)
+        : !searchFirst;
       if (matched) matches++;
       row.hidden = !matched && !row.querySelector("input")?.checked;
     }
