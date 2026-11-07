@@ -36,7 +36,6 @@ from ludamus.gates.web.django.chronology.panel.views.facilitators import (
     read_facilitator_query,
 )
 from ludamus.gates.web.django.chronology.panel.views.proposals import (
-    PROPOSAL_STATUS_LABELS,
     read_proposal_query,
 )
 from ludamus.gates.web.django.event.panel.views.base import (
@@ -46,6 +45,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import DISCOUNT_KIND_LABELS
 from ludamus.gates.web.django.ods import spreadsheet_bytes
+from ludamus.gates.web.django.panel import PROPOSAL_STATUS_LABELS
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.pacts.durations import MINUTES_PER_HOUR
 from ludamus.pacts.event import FacilitatorListItemDTO

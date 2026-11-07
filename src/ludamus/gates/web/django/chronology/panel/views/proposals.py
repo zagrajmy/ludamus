@@ -26,6 +26,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.gates.web.django.panel import (
+    PROPOSAL_STATUS_LABELS,
+    SCHEDULED_LABEL,
     PanelRequest,
     proposal_detail_tab_urls,
     proposal_tab_urls,
@@ -69,14 +71,6 @@ def _build_column_values(
             field_ids=[c.field.pk for c in columns if c.field is not None],
         ),
     )
-
-
-PROPOSAL_STATUS_LABELS: dict[SessionStatus, _StrPromise] = {
-    SessionStatus.PENDING: gettext_lazy("Pending"),
-    SessionStatus.ACCEPTED: gettext_lazy("Accepted"),
-    SessionStatus.ON_HOLD: gettext_lazy("On hold"),
-    SessionStatus.REJECTED: gettext_lazy("Rejected"),
-}
 
 
 def read_proposal_query(
@@ -153,7 +147,7 @@ class ProposalsPageView(EventPanelMixin, View):
         context["filter_category_pk"] = list_context.category_pk
         context["statuses"] = [
             *((str(s), str(PROPOSAL_STATUS_LABELS[s])) for s in SessionStatus),
-            (SCHEDULED_FILTER, _("Scheduled")),
+            (SCHEDULED_FILTER, str(SCHEDULED_LABEL)),
         ]
         context["filter_status"] = list_context.status
         # Value the track form and the Clear link echo back so the status

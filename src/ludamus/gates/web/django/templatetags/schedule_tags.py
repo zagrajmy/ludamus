@@ -41,6 +41,7 @@ from django.utils.translation import ngettext
 from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
 from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
+from ludamus.pacts.chronology import SessionAvailability
 from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
@@ -302,7 +303,7 @@ def _session_attrs(
         # started session as in progress, while the label waits for a
         # limit_to_end_time window to shut it (should_show_as_inactive).
         "status": (
-            "in-progress"
+            SessionAvailability.IN_PROGRESS
             if data.is_ongoing and not data.is_ended
             else data.availability
         ),
@@ -378,25 +379,38 @@ def session_seat_count(data: SessionData, extra_class: str = "") -> SafeString:
     return SafeString(_seat_count(data, extra_class))
 
 
+_AVAILABILITY_TERMS = {term.name: term.value for term in SessionAvailability}
+
+
+@register.simple_tag
+def availability_terms() -> dict[str, str]:
+    """Name SessionAvailability's terms for a template and the page's client.
+
+    Returns:
+        Each term's value by its name, e.g. ``{"FULL": "full"}``.
+    """
+    return _AVAILABILITY_TERMS
+
+
 def _availability(sheet: _Sheet, data: SessionData) -> str:
     # The compact label of the ledger row and the room tile. Nothing for a
     # session that takes no enrollment: on big events a repeated negative
     # label on most rows is redundant noise.
     availability = data.availability
     words = sheet.words
-    if availability == "ended":
+    if availability is SessionAvailability.ENDED:
         return _MUTED_LABEL.format(words.ended)
-    if availability == "in-progress":
+    if availability is SessionAvailability.IN_PROGRESS:
         return _MUTED_LABEL.format(words.in_progress)
-    if availability == "unavailable":
+    if availability is SessionAvailability.UNAVAILABLE:
         return _seat_count(data, "")
-    if availability == "full":
+    if availability is SessionAvailability.FULL:
         if data.waiting_count > 0:
             return _FULL_WAITING_LABEL.format(
                 words.full, data.waiting_count, words.waiting
             )
         return _FULL_LABEL.format(words.full)
-    if availability == "available":
+    if availability is SessionAvailability.AVAILABLE:
         spots = data.spots_left
         return _SPOTS_LABEL.format(
             _CORAL if data.spots_scarce else _TEAL,

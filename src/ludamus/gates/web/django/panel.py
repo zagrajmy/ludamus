@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, Final, Literal, TypedDict, get_args
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Final,
+    Literal,
+    NamedTuple,
+    TypedDict,
+    get_args,
+)
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -13,6 +21,7 @@ from django.utils.translation import gettext_lazy
 from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
 from ludamus.gates.web.django.redirects import safe_url
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
+from ludamus.pacts.legacy import SessionStatus
 from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.submissions import RequirementSelectionDTO
 
@@ -211,3 +220,36 @@ def refuse_panel_access(
     )
     back = safe_url(request, request.META.get("HTTP_REFERER"))
     return redirect(back) if back else redirect("web:index")
+
+
+PROPOSAL_STATUS_LABELS: Final[dict[SessionStatus, _StrPromise]] = {
+    SessionStatus.PENDING: gettext_lazy("Pending"),
+    SessionStatus.ACCEPTED: gettext_lazy("Accepted"),
+    SessionStatus.ON_HOLD: gettext_lazy("On hold"),
+    SessionStatus.REJECTED: gettext_lazy("Rejected"),
+}
+# Accepted and on the timetable: the badge and the list's filter both say so
+# instead of "Accepted".
+SCHEDULED_LABEL: Final = gettext_lazy("Scheduled")
+_PROPOSAL_STATUS_TONES: Final[dict[SessionStatus, str]] = {
+    SessionStatus.PENDING: "bg-warning-bg text-warning-text",
+    SessionStatus.ACCEPTED: "bg-success-bg text-success-text",
+    SessionStatus.ON_HOLD: "bg-bg-tertiary text-foreground-muted",
+    SessionStatus.REJECTED: "bg-danger-bg text-danger-text",
+}
+_SCHEDULED_TONE: Final = "bg-info-bg text-info-text"
+
+
+class ProposalStatusLook(NamedTuple):
+    label: str
+    tone: str
+
+
+def proposal_status_look(status: str, *, is_scheduled: bool) -> ProposalStatusLook:
+    session_status = SessionStatus(status)
+    if session_status is SessionStatus.ACCEPTED and is_scheduled:
+        return ProposalStatusLook(str(SCHEDULED_LABEL), _SCHEDULED_TONE)
+    return ProposalStatusLook(
+        str(PROPOSAL_STATUS_LABELS[session_status]),
+        _PROPOSAL_STATUS_TONES[session_status],
+    )
