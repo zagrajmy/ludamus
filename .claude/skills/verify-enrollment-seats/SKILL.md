@@ -1,6 +1,6 @@
 ---
 name: verify-enrollment-seats
-description: Check the Bend proofs about enrollment seats before and after changing how a seat is taken, held, offered, claimed, dropped or promoted. Use when a change touches `_process_enrollments` / `_check_and_create_enrollment` / `_is_capacity_invalid` / `_hold_member_seats` in `adapters/web/django/views.py`, `WaitlistPromotionService` in `mills/enrollment.py`, `AnonymousEnrollmentService.enroll` / `cancel` in `mills/enrollment_anonymous.py`, `select_promotable_parties` in `specs/enrollment.py`, `ParticipationPromotionRepository` / `AnonymousEnrollmentRepository` in `links/db/django/enrollment.py`, `conflicted_user_ids` / `has_conflicts` on `SessionManager` in `links/db/django/models.py`, `SessionSeatsDTO` / `seat_cap` in `pacts/enrollment.py`, `OCCUPYING_PARTICIPATION_STATUSES`, or any `select_for_update` on the enrollment path. Also use for "can this double-book someone", "can this overbook a session", or a race between two signups.
+description: Check the Bend proofs about enrollment seats before and after changing how a seat is taken, held, offered, claimed, dropped or promoted. Use when a change touches `SeatDesk` in `mills/enrollment_seats.py`, `MemberEnrollmentService.submit` / `allowance_refusal` in `mills/enrollment_member.py`, `skip_reason` in `mills/enrollment_member_options.py`, `WaitlistPromotionService` in `mills/enrollment.py`, `AnonymousEnrollmentService.enroll` / `cancel` in `mills/enrollment_anonymous.py`, `select_promotable_parties` in `specs/enrollment.py`, `SeatRepository` / `MemberEnrollmentRepository` / `ParticipationPromotionRepository` / `AnonymousEnrollmentRepository` in `links/db/django/enrollment.py`, `conflicted_user_ids` / `has_conflicts` on `SessionManager` in `links/db/django/models.py`, `SessionSeatsDTO` / `seat_cap` in `pacts/enrollment.py`, `OCCUPYING_PARTICIPATION_STATUSES`, or any `select_for_update` on the enrollment path. Also use for "can this double-book someone", "can this overbook a session", or a race between two signups.
 ---
 
 # Verify enrollment seats
@@ -86,9 +86,10 @@ taking the lock order above (plan 021):
    `_claim` rechecks under the locks; a clash releases the whole offer
    (`reason="conflict"`), as a decline does, and the seats roll on.
 3. **Two requests at once seated more people than the owner holds passes**:
-   the form's `can_enroll_users` ran before any lock. The enroll view now
-   asks again under the owner's lock (`AllowanceCheck.passes`) and refuses
-   with the form's message.
+   the form's `can_enroll_users` ran before any lock. The enroll service
+   now asks again under the owner's lock
+   (`MemberEnrollmentService._recheck_allowance`) and refuses with the
+   form's message.
 
 The Postgres tests in
 `tests/integration/web/chronology/test_enrollment_locking.py` replay 1 and 3
@@ -102,17 +103,17 @@ Each op names the code it stands for in its comment.
 
 | Model | Code |
 | --- | --- |
-| `seats.Check{want}`, `schedule.Enroll` | `_process_enrollments` → `_lock_seat_holders` → `_is_capacity_invalid` → `_check_and_create_enrollment`. Also `AnonymousEnrollmentService.enroll` (`lock_seating`, `lock_seat_holders`, `has_conflicts`, `is_full`) |
-| `seats.Check{want}`, `schedule.Hold` | `_hold_member_seats` → `WaitlistPromotionService.hold_seat` |
+| `seats.Check{want}`, `schedule.Enroll` | `MemberEnrollmentService.submit` → `_take`: `SeatDesk.lock_session` → `SeatDesk.lock_people` → `_recheck_allowance` → `_check_capacity` → `_apply` (`conflicted_user_ids`, `skip_reason`, `seat`). Also `AnonymousEnrollmentService.enroll` (`SeatDesk.lock_session`, `SeatDesk.lock_people`, `conflicted_user_ids`, `SeatDesk.room`, `seat`) |
+| `seats.Check{want}`, `schedule.Hold` | `MemberEnrollmentService._hold_seats` → `WaitlistPromotionService.hold_seat` |
 | `seats.Check{want}`, `schedule.Promote` | `fill_freed_seats` → `lock_and_read_state` (Session row, the WAITING read, then `lock_seat_holders` on the waiters) → `select_promotable_parties` |
 | `Commit` | the writes and COMMIT of any check |
-| `seats.Free`, `schedule.Cancel` / `Drop` | `_handle_cancellation`, anonymous `cancel`, `decline_offer` / `expire_offer` → `drop` |
+| `seats.Free`, `schedule.Cancel` / `Drop` | `MemberEnrollmentService._cancel` and anonymous `cancel` (both `release`), `release_guests`, `decline_offer` / `expire_offer` → `drop` |
 | `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row, `lock_seat_holders` on the party and the waiters, the OFFERED rows) → `_claim` → `conflicted_user_ids`, then `drop` or `mark_claimed` |
 | `seats.fits` | `SessionSeatsDTO.seats_left` (`pacts/enrollment.py`) |
 | `schedule.has_conflict` | `SessionManager.conflicted_user_ids` |
-| `held`, `lock_a` / `lock_b` | `select_for_update` on the `Session` row |
+| `held`, `lock_a` / `lock_b` | `select_for_update` on the `Session` row (`SeatRepository.lock_seating` behind `SeatDesk.lock_session`) |
 | `schedule.lock_p`, `allowance.owner_free` | `lock_seat_holders`: the `User` rows of the people decided and their pass owners |
-| `allowance.Check` | `AllowanceCheck.passes` under the locks in `_process_enrollments` (the form's earlier `can_enroll_users` only refuses sooner) |
+| `allowance.Check` | `_recheck_allowance` under the locks in `MemberEnrollmentService.submit` (the page's earlier `allowance_refusal` only refuses sooner) |
 
 The model must change when your change does any of these:
 

@@ -1,11 +1,12 @@
 # One pass owner's household across an event, against the enroll requests
 # that spend the passes.
 #
-# A pass covers one distinct person per event. The enroll form checks the
-# allowance (can_enroll_users inside form.is_valid) before any lock, as an
-# early answer. _process_enrollments then locks the Session row and, through
-# lock_seat_holders, the User rows of the people it seats and of their pass
-# owner, and asks again (AllowanceCheck.passes); that answer decides. Two
+# A pass covers one distinct person per event. The enroll page asks
+# MemberEnrollmentService.allowance_refusal (can_enroll_users) before any
+# lock, as an early answer. MemberEnrollmentService.submit then locks the
+# Session row and, through lock_seat_holders, the User rows of the people it
+# seats and of their pass owner, and asks again (_recheck_allowance); that
+# answer decides. Two
 # requests into two sessions share the owner's row, so the second asks only
 # once the first has committed. promotion's owner_slots_remaining is read
 # under the same owner lock, and is not modelled here.
@@ -41,7 +42,8 @@ type Op is Data:
   # |already seated ∪ {who}| <= allowed. The form's earlier check reads the
   # same thing with no lock and only ever refuses sooner, so it is left out.
   Check{lane: Lane, who: Member}
-  # _process_enrollments writes the seat and commits, releasing the lock.
+  # MemberEnrollmentService.submit writes the seat and commits, releasing
+  # the lock.
   Commit{lane: Lane}
 
 def start() -> Household:

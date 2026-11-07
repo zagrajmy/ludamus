@@ -139,7 +139,6 @@ INSTALLED_APPS = [
     "django_vite",
     "heroicons",
     # First Party
-    "ludamus.adapters.web.django.apps.WebMainConfig",
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",

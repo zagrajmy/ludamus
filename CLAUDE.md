@@ -77,7 +77,7 @@ GLIMPSE layers, bottom to top: `pacts` (protocols, DTOs, errors), `mills`
 (logic, services), `links` (models, repos), `gates` (views, CLIs, APIs),
 `inits` (DI). `specs` (business invariants, pure constants) sits beside
 `pacts` and is imported only by `mills`. `edges` (settings, wsgi) stay
-outside the import graph. `adapters/` is legacy.
+outside the import graph.
 
 Before writing backend code in these layers, load the `glimpse` skill. It is
 the `glimpse@glimpse` plugin; install steps in
@@ -117,8 +117,8 @@ constructor, and own transactional boundaries.
   split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
   deliberate deviation, `TODO:` known gap, issue link. No narration, no
   summaries, no work history microblogging.
-- `gates`, `links`, `adapters.web`, and templates get integration tests when
-  they need a Python test at all. Never raise coverage with a mock-everything
+- `gates`, `links`, and templates get integration tests when they need a
+  Python test at all. Never raise coverage with a mock-everything
   unit test. Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - View tests use `assert_response`, never manual assertions, and use ANY only
   for forms/views, never for simple values ([], {}, booleans, strings, ints).

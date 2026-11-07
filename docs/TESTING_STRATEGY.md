@@ -21,7 +21,7 @@ repository and assert the service passed arguments through, or that assert DTO
 field mapping, constants, or template-tag wrappers, do not.
 
 When a Python test is warranted, the layer decides its type: `gates`, `links`,
-`adapters.web`, and templates get **integration** tests. Never raise coverage
+and templates get **integration** tests. Never raise coverage
 with a mock-everything unit test of IO-bearing code: views, repositories,
 importers.
 

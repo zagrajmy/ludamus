@@ -31,11 +31,14 @@ type Person is Data:
   Person{a: Status, b: Status, lock_a: Lock, lock_b: Lock}
 
 type Op is Data:
-  # _process_enrollments for "enroll", or AnonymousEnrollmentService.enroll:
-  # the Session row lock, lock_seat_holders, has_conflicts, then the write.
+  # MemberEnrollmentService.submit for "enroll", or
+  # AnonymousEnrollmentService.enroll: SeatDesk.lock_session (the Session
+  # row), SeatDesk.lock_people (lock_seat_holders), conflicted_user_ids, then
+  # the write.
   Enroll{side: Side}
-  # _hold_member_seats -> hold_seat for an ACCEPT_INVITES member: inside the
-  # same batch, after the same locks and has_conflicts check; an OFFERED row.
+  # MemberEnrollmentService._hold_seats -> hold_seat for an ACCEPT_INVITES
+  # member: inside the same batch, after the same locks and conflict check;
+  # an OFFERED row.
   Hold{side: Side}
   # fill_freed_seats: lock_and_read_state locks the Session row and the
   # waiters, then reads has_conflict from conflicted_user_ids; AUTO confirms,
@@ -43,11 +46,12 @@ type Op is Data:
   Promote{side: Side, offer: Bool}
   # The lock holder's writes and COMMIT; both locks go.
   Commit{side: Side}
-  # Choice "waitlist", or create_waiting: no conflict check. The code takes
+  # Choice "waitlist", or a full anonymous enroll: no conflict check. The code takes
   # P's lock here too; the model asks only for the Session lock, which lets
   # more runs through, never fewer.
   Join{side: Side}
-  # _handle_cancellation, anonymous cancel; the same over-approximation.
+  # MemberEnrollmentService._cancel, anonymous cancel (both `release`); the
+  # same over-approximation.
   Cancel{side: Side}
   # claim_offer / claim_member_offer -> _claim: the Session row lock and
   # lock_seat_holders (both inside the offer read), then conflicted_user_ids.
