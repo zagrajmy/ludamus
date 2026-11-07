@@ -448,6 +448,7 @@ name = "links"
 type = "forbidden"
 source_modules = ["ludamus.links"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.inits",
     "ludamus.mills",
@@ -461,7 +462,7 @@ type = "forbidden"
 source_modules = ["ludamus.inits"]
 # inits builds the mills, which read specs; only a direct import is a breach.
 allow_indirect_imports = true
-forbidden_modules = ["ludamus.specs", "ludamus.edges"]
+forbidden_modules = ["ludamus.adapters", "ludamus.specs", "ludamus.edges"]
 
 
 [[tool.importlinter.contracts]]
@@ -469,6 +470,7 @@ name = "mills"
 type = "forbidden"
 source_modules = ["ludamus.mills"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -482,6 +484,7 @@ name = "pacts"
 type = "forbidden"
 source_modules = ["ludamus.pacts"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -497,6 +500,7 @@ name = "specs"
 type = "forbidden"
 source_modules = ["ludamus.specs"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
@@ -511,6 +515,7 @@ name = "edges"
 type = "forbidden"
 source_modules = ["ludamus.edges"]
 forbidden_modules = [
+    "ludamus.adapters",
     "ludamus.gates",
     "ludamus.links",
     "ludamus.inits",
