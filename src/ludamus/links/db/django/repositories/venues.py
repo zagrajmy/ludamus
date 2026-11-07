@@ -163,14 +163,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         ]
 
     @staticmethod
-    def read(pk: int) -> SpaceRecordDTO:
-        try:
-            space = Space.objects.get(pk=pk)
-        except Space.DoesNotExist as err:
-            raise NotFoundError from err
-        return SpaceRecordDTO.model_validate(space)
-
-    @staticmethod
     def read_in_event(event_id: int, pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(event_id=event_id, pk=pk)
