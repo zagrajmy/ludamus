@@ -61,8 +61,6 @@ from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
 
-    from ludamus.pacts.crowd import UserDTO
-
 
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
@@ -1205,9 +1203,6 @@ class SessionManager(AliveManager["Session"]):
             .values_list("session_participations__user_id", flat=True)
         )
 
-    def has_conflicts(self, session: Session, user: UserDTO) -> bool:
-        return user.pk in self.conflicted_user_ids(session, [user.pk])
-
 
 class EventMap(models.Model):
     """One venue plan (a floor, a building) and the spaces drawn on it.
@@ -1398,16 +1393,6 @@ class AgendaItem(models.Model):
     def schedule_confirmed(self) -> bool:
         # What AgendaItemDTO reads; the session owns the flag.
         return self.session.schedule_confirmed
-
-    def overlaps_with(self, other_item: AgendaItem) -> bool:
-        return bool(
-            other_item.start_time
-            and other_item.end_time
-            and self.start_time
-            and self.end_time
-            and other_item.start_time < self.end_time
-            and self.start_time < other_item.end_time
-        )
 
 
 class ProposalCategory(models.Model):

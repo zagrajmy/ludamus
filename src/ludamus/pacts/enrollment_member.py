@@ -11,18 +11,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.chronology import SessionCardStatsDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import EnrollmentWindowSnapshot, SeatRepositoryProtocol
-from ludamus.pacts.legacy import EventDTO
-
-if TYPE_CHECKING:
-    from ludamus.pacts.legacy import VirtualEnrollmentConfig
-    from ludamus.pacts.party import EnrollmentPartiesDTO
+from ludamus.pacts.legacy import EventDTO, VirtualEnrollmentConfig
+from ludamus.pacts.party import EnrollmentPartiesDTO
 
 # The guests stepper's upper bound: the form offers no more, the page says so.
 MAX_GUESTS = 10
@@ -166,9 +163,10 @@ class MemberEnrollQuery:
     requested_party: str | None
 
 
-@dataclass(frozen=True)
-class MemberEnrollPageDTO:
+class MemberEnrollPageDTO(BaseModel):
     """Everything one request decides from, read once before the form."""
+
+    model_config = ConfigDict(frozen=True)
 
     session: EnrollSessionDTO
     viewer: UserDTO
@@ -286,26 +284,28 @@ class EnrollFooterDTO:
 
 class MemberEnrollmentRepositoryProtocol(SeatRepositoryProtocol, Protocol):
     # Raises NotFoundError when no such session is in the sphere's event.
+    @staticmethod
     def read_session(
-        self, *, session_id: int, event_slug: str, sphere_id: int
+        *, session_id: int, event_slug: str, sphere_id: int
     ) -> EnrollSessionDTO: ...
 
-    def read_seats(self, session_id: int) -> SessionCardStatsDTO: ...
+    @staticmethod
+    def read_seats(session_id: int) -> SessionCardStatsDTO: ...
 
     # Who holds any row in a session whose slot overlaps this one's.
-    def overlapping_user_ids(
-        self, *, session_id: int, user_ids: list[int]
-    ) -> set[int]: ...
+    @staticmethod
+    def overlapping_user_ids(*, session_id: int, user_ids: list[int]) -> set[int]: ...
 
     # Scheduled sessions of the event each person waits for.
-    def waitlist_counts(
-        self, *, event_id: int, user_ids: list[int]
-    ) -> dict[int, int]: ...
+    @staticmethod
+    def waitlist_counts(*, event_id: int, user_ids: list[int]) -> dict[int, int]: ...
 
-    def guest_count(self, *, session_id: int, host_id: int) -> int: ...
+    @staticmethod
+    def guest_count(*, session_id: int, host_id: int) -> int: ...
 
     # Deletes the host's `count` most recent guests, throwaway users and all.
-    def release_guests(self, *, session_id: int, host_id: int, count: int) -> None: ...
+    @staticmethod
+    def release_guests(*, session_id: int, host_id: int, count: int) -> None: ...
 
 
 class MemberEnrollmentServiceProtocol(Protocol):

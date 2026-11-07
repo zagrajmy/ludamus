@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.crowd import build_anonymous_user, claim_token
+from ludamus.mills.crowd import build_anonymous_user, mint_claim_token
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.enrollment import (
     ClaimResult,
@@ -232,7 +232,7 @@ class WaitlistPromotionService:
     ) -> None:
         for party in parties:
             ids = [p.participation_id for p in party]
-            token = claim_token()
+            token = mint_claim_token()
             self._participations.offer(
                 ids,
                 offered_at=offered_at,
@@ -264,7 +264,7 @@ class WaitlistPromotionService:
             expires_at = now + self._participations.read_offer_claim_window(
                 hold.session_id
             )
-            token = claim_token()
+            token = mint_claim_token()
             participation_id = self._participations.create_offered(
                 HeldSeatData(
                     session_id=hold.session_id,

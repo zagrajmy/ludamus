@@ -147,7 +147,7 @@ def other(side: Side) -> Side:
     case B{}:
       A{}
 
-# SessionManager.conflicted_user_ids / has_conflicts: occupying rows.
+# SessionManager.conflicted_user_ids: occupying rows.
 def has_conflict(+side: Side, +p: Person) -> Bool:
   is_occupying(row(other(side), p))
 

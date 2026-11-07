@@ -685,22 +685,21 @@ class SeatRepositoryProtocol(SeatHolderLockProtocol, Protocol):
     transaction, so what it reads is what the decision holds.
     """
 
-    def lock_seating(self, session_id: int) -> SessionSeatingDTO: ...
+    @staticmethod
+    def lock_seating(session_id: int) -> SessionSeatingDTO: ...
 
-    def conflicted_user_ids(
-        self, *, session_id: int, user_ids: list[int]
-    ) -> set[int]: ...
+    @staticmethod
+    def conflicted_user_ids(*, session_id: int, user_ids: list[int]) -> set[int]: ...
 
     # Each person's row on the session, by user id; nobody without one. The
     # status as stored: a legacy value SessionParticipationStatus no longer
     # names still marks a row.
-    def read_statuses(
-        self, *, session_id: int, user_ids: list[int]
-    ) -> dict[int, str]: ...
+    @staticmethod
+    def read_statuses(*, session_id: int, user_ids: list[int]) -> dict[int, str]: ...
 
     # Creates the person's row, or rewrites the status and party of theirs.
+    @staticmethod
     def seat(
-        self,
         *,
         session_id: int,
         user_id: int,
@@ -709,8 +708,9 @@ class SeatRepositoryProtocol(SeatHolderLockProtocol, Protocol):
     ) -> None: ...
 
     # Deletes the person's row, returning its status (None if absent).
+    @staticmethod
     def release(
-        self, *, session_id: int, user_id: int
+        *, session_id: int, user_id: int
     ) -> SessionParticipationStatus | None: ...
 
 
