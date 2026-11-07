@@ -193,8 +193,6 @@ class FakeEvents:
         self._sphere_by_event = sphere_by_event
 
     def read(self, pk):
-        if pk not in self._sphere_by_event:
-            raise NotFoundError
         return event_dto(pk=pk, sphere_id=self._sphere_by_event[pk])
 
 
