@@ -26,6 +26,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import LinkPreview, markdown_summary
+from ludamus.links.db.django.enrollment import SeatHolderLocks
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import event_dto, location_data
 from ludamus.pacts.chronology import PROGRAMME_DAYS
@@ -333,6 +334,24 @@ def enroll_page_context(*, viewer, agenda_item, **overrides):
             session=agenda_item.session, user_data=[participation_row(viewer)]
         )
         | overrides
+    )
+
+
+def commit_before_seat_lock(monkeypatch, competing):
+    # A competing request commits `competing` after this one built its form
+    # and before it takes the seat locks: the race every under-the-lock guard
+    # on the enroll path exists for. Fires once, so the refill a freed seat
+    # triggers takes its locks as usual.
+    lock = SeatHolderLocks.lock_seat_holders
+    pending = [competing]
+
+    def lock_after_competitor(**kwargs):
+        while pending:
+            pending.pop()()
+        return lock(**kwargs)
+
+    monkeypatch.setattr(
+        SeatHolderLocks, "lock_seat_holders", staticmethod(lock_after_competitor)
     )
 
 
