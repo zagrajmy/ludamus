@@ -698,7 +698,9 @@ class Services:
 
     @cached_property
     def timetable(self) -> TimetableService:
-        return TimetableService(self._transaction, self._timetable_repos)
+        return TimetableService(
+            self._transaction, self._timetable_repos, spheres=self._repos.spheres
+        )
 
     @cached_property
     def timetable_conflicts(self) -> ConflictDetectionService:

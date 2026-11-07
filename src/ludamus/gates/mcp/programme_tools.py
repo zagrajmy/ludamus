@@ -663,8 +663,12 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
 class _AssignSessionInput(AwareDatetimeRange):
     session_id: int = Field(description="Session pk (see list_sessions)")
-    space_id: int = Field(
-        description="Leaf space pk (see list_spaces); must belong to this event"
+    space_id: int | None = Field(
+        default=None,
+        description=(
+            "Leaf space pk (see list_spaces); must belong to this event. Omit "
+            "only where the event does not require a space"
+        ),
     )
 
 

@@ -124,7 +124,7 @@ _AGE_MARK = f' · <span class="font-medium {_CORAL}">{{}}+</span>'
 # run: only a flex parent keeps the guild mark's shrink-0, and inline it
 # would be clipped by exactly the long title where knowing the guild helps.
 _ROW = (
-    '<article class="min-w-0" data-session-wrapper>'
+    '<article class="min-w-0" data-session-wrapper data-session-card="%(pk)s">'
     '<div class="session group/row relative flex flex-wrap items-center gap-x-2'
     " rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors"
     " has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary"
@@ -163,7 +163,8 @@ _ROW_TOGGLE_CLASS = (
 # never clipped — the grid row grows to the tallest tile. w-fit keeps the
 # title's morph group on the text rather than the tile column.
 _TILE = (
-    '<article class="h-full min-w-0" data-session-wrapper%(slot)s>'
+    '<article class="h-full min-w-0" data-session-wrapper'
+    ' data-session-card="%(pk)s"%(slot)s>'
     '<div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl'
     " border border-border pb-1 bg-bg-secondary p-2 transition-colors"
     " hover:border-neutral-300 dark:hover:border-neutral-600%(tone)s"

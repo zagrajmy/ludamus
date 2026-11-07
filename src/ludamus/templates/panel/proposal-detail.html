@@ -32,7 +32,8 @@
                     <div class="card mb-6">
                         <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <p class="text-sm text-foreground">
-                                {% blocktranslate trimmed with space=agenda_item.space_name start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
+                                {% translate "No space" as no_space %}
+                                {% blocktranslate trimmed with space=agenda_item.space_name|default:no_space start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
                                     Scheduled in {{ space }}, {{ start }} – {{ end }}
                                 {% endblocktranslate %}
                             </p>
@@ -78,12 +79,8 @@
                     </div>
                 </div>
                 {% if proposal.cover_image_url %}
-                    <div class="card mb-6 overflow-hidden">
-                        <img src="{{ proposal.cover_image_url }}"
-                             alt="{{ proposal.title }}"
-                             width="960"
-                             height="540"
-                             class="aspect-video w-full object-cover">
+                    <div class="card mb-6 p-1">
+                        {% include "components/cover-image.html" with url=proposal.cover_image_url alt=proposal.title only %}
                     </div>
                 {% endif %}
                 {% if proposal.description %}

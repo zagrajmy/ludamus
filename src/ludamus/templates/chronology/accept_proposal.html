@@ -3,6 +3,7 @@
 {% load cfp_tags %}
 {% load tessera %}
 {% load markdown_tags %}
+{% load vite_tags %}
 {% block title %}
     {% translate "Accept Proposal" %} • {{ session.title }}
 {% endblock title %}
@@ -20,6 +21,9 @@
         {# proposal should not look like two different things depending on #}
         {# whether it is being reviewed or already scheduled. #}
         <div class="card">
+            {% if session.cover_image_url %}
+                <div class="p-1">{% include "components/cover-image.html" with url=session.cover_image_url only %}</div>
+            {% endif %}
             <div class="card-body">
                 <h2 class="text-xl font-semibold text-foreground mb-4">{{ session.title }}</h2>
                 {# Who proposed it, and how to reach them — one row, one kind of #}
@@ -96,14 +100,22 @@
                             {% translate "This event has no time slots yet, so nothing can go on the agenda. Add the time slots, then come back to accept this proposal." %}
                         {% elif schedule_blocker == "spaces" %}
                             {% translate "This event has no spaces yet, so nothing can go on the agenda. Add a space, then come back to accept this proposal." %}
+                        {% elif schedule_blocker == "full" %}
+                            {% translate "Every space is taken at every time this session can go. Add a space, or move a session in the timetable, then come back to accept this proposal." %}
                         {% endif %}
                     </p>
                 {% else %}
-                    {% tessera_sole_choice form.space as sole_space %}
+                    {% if form.fields.space %}
+                        {% tessera_sole_choice form.space as sole_space %}
+                    {% endif %}
                     {% tessera_sole_choice form.time_slot as sole_slot %}
                     {# The submit lives in the shared actions block below, tied back #}
                     {# by form=, so the "or / Back to event" tail is written once. #}
+                    {{ taken_space_ids_by_slot|json_script:"accept-taken-spaces" }}
+                    {% vite_asset_once 'src/accept-placement.ts' %}
                     <form id="accept-proposal-form"
+                          data-taken-spaces="accept-taken-spaces"
+                          data-taken-label="{% translate "taken" context "placement option" %}"
                           method="post"
                           action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                           class="space-y-5">
@@ -124,7 +136,9 @@
                                 {% endif %}
                             </dl>
                         {% endif %}
-                        {% tessera_field form.space %}
+                        {% if form.fields.space %}
+                            {% tessera_field form.space %}
+                        {% endif %}
                         {% tessera_field form.time_slot %}
                     </form>
                 {% endif %}
@@ -135,7 +149,7 @@
                         {% url 'panel:time-slot-create' slug=event.slug as fix_url %}
                         {% translate "Add time slots" as fix_label %}
                         {% tessera_button fix_label href=fix_url icon="clock" full_width_mobile=True %}
-                    {% elif schedule_blocker == "spaces" %}
+                    {% elif schedule_blocker == "spaces" or schedule_blocker == "full" %}
                         {% url 'panel:space-create' slug=event.slug as fix_url %}
                         {% translate "Add a space" as fix_label %}
                         {% tessera_button fix_label href=fix_url icon="map-pin" full_width_mobile=True %}

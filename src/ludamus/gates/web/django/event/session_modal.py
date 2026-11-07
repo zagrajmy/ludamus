@@ -76,10 +76,11 @@ class SessionModalComponentView(View):
                 "data": data,
                 "event": event,
                 "event_banned": event_banned,
-                # The plan the room is drawn on; a proposal has no room yet.
+                # The plan the room is drawn on; a proposal has no room yet, and
+                # a session placed without a space has none at all.
                 "map_pk": (
                     None
-                    if data.is_unscheduled
+                    if data.is_unscheduled or not data.loc["space_id"]
                     else request.services.event_maps.map_pk_for_space(
                         event_pk=event.pk, space_pk=data.loc["space_id"]
                     )

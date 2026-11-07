@@ -17,8 +17,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
+from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
+from ludamus.gates.web.django.settings_forms import EventSettingsForm
 from ludamus.pacts import EventUpdateData, NotFoundError
 from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
@@ -57,6 +58,9 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
+        ),
+        "require_session_space": _choice_to_override(
+            cd.get("require_session_space") or ""
         ),
         "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
         "use_session_cover_placeholders": bool(
@@ -99,6 +103,14 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 ("true", _("Allow")),
                 ("false", _("Disallow")),
             ]
+        space_default = _("required") if sphere.require_session_space else _("optional")
+        space_field = form.fields["require_session_space"]
+        if isinstance(space_field, forms.ChoiceField):
+            space_field.choices = [
+                ("", _("Use sphere default (currently: {})").format(space_default)),
+                ("true", _("Required")),
+                ("false", _("Optional")),
+            ]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -125,6 +137,9 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 ),
                 "visibility": current_event.visibility.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "require_session_space": _override_to_choice(
+                    value=current_event.require_session_space
+                ),
                 "auto_confirm_sessions": current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
                     current_event.use_session_cover_placeholders

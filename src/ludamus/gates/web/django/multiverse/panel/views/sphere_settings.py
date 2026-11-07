@@ -10,11 +10,11 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.forms import SphereSettingsForm
 from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
+from ludamus.gates.web.django.settings_forms import SphereSettingsForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
@@ -36,6 +36,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "require_session_space": sphere.require_session_space,
                 "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
@@ -65,6 +66,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
                 "event_cover_buttons_at_bottom"
             ],
             encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
+            require_session_space=form.cleaned_data["require_session_space"],
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
             confirmed_encounters_disable=form.cleaned_data[
                 "confirmed_encounters_disable"

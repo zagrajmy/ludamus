@@ -184,7 +184,8 @@ class AgendaItemDTO(BaseModel):
     pk: int
     schedule_confirmed: bool
     start_time: datetime
-    space_id: int = 0
+    # None where the event does not require a space and none was given.
+    space_id: int | None = None
     space_name: str = ""
     session_id: int = 0
     session_title: str = ""
@@ -414,14 +415,14 @@ class AgendaItemData(TypedDict):
     end_time: datetime
     session_confirmed: bool
     session_id: int
-    space_id: int
+    space_id: int | None
     start_time: datetime
 
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
     session_confirmed: bool
-    space_id: int
+    space_id: int | None
     start_time: datetime
 
 
@@ -437,6 +438,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    require_session_space: bool = True
     event_cover_buttons_at_bottom: bool = False
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
@@ -449,6 +451,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: str
@@ -476,6 +479,7 @@ class EventDTO(BaseModel):
 
     address: str = ""
     allow_facilitator_session_edit: bool | None = None
+    require_session_space: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
     end_time: datetime
@@ -602,6 +606,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    require_session_space: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
     use_participants_label: bool

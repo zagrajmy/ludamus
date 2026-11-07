@@ -10,6 +10,7 @@ class PlacementRejection(StrEnum):
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
     BEFORE_PUBLICATION = "before_publication"
+    SPACE_REQUIRED = "space_required"
 
 
 if TYPE_CHECKING:

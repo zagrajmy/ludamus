@@ -45,13 +45,22 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     return groups
 
 
+def taken_values(field: BoundField) -> frozenset[str]:
+    """Return the values a field shows but cannot take (TakenOptionsSelect).
+
+    Returns:
+        The taken options' values as strings, empty for any other widget.
+    """
+    return getattr(field.field.widget, "taken", frozenset())
+
+
 def sole_required_choice(field: BoundField) -> SoleChoice | None:
     """Return the option a field carries instead of asking for it.
 
     The single answer to "has this field stopped asking?", so the renderer
     that drops the control and the page that names the value in its place
     cannot disagree — a rejected field renders in full, and prose calling it
-    settled would contradict the error beside it.
+    settled would contradict the error beside it. Taken options are no answer.
 
     Returns:
         The value and its label, or ``None`` when the field is optional,
@@ -59,10 +68,11 @@ def sole_required_choice(field: BoundField) -> SoleChoice | None:
     """
     if not field.field.required or field.field.disabled or field.errors:
         return None
+    taken = taken_values(field)
     real = [
         (value, label)
         for group in grouped_choices(field)
         for value, label in group.options
-        if value not in {"", None}
+        if value not in {"", None} and str(value) not in taken
     ]
     return SoleChoice(*real[0]) if len(real) == 1 else None

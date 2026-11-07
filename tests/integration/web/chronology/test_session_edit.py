@@ -1,7 +1,9 @@
+import json
 from http import HTTPStatus
 from unittest.mock import ANY, patch
 
 import pytest
+from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -14,6 +16,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
 from ludamus.pacts import (
+    EventDTO,
     FieldAnswer,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
@@ -66,18 +69,44 @@ class TestSessionEditViewGet:
     def test_owner_gets_form_fragment(self, authenticated_client, event, owned_session):
         url = _url(event, owned_session)
 
-        response = authenticated_client.get(url)
+        response = authenticated_client.get(url, headers={"hx-request": "true"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
+            },
+        )
+
+    def test_pending_proposal_gets_the_edit_page(
+        self, authenticated_client, event, owned_session
+    ):
+        # The author's pending card links here as a page: an unscheduled
+        # proposal has no session dialog to swap the form into.
+        owned_session.status = "pending"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/session-edit-page.html",
+            context_data={
+                "page": True,
+                "event": EventDTO.model_validate(event),
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
             },
         )
 
@@ -88,20 +117,21 @@ class TestSessionEditViewGet:
         owned_session.save()
         url = _url(event, owned_session)
 
-        response = authenticated_client.get(url)
+        response = authenticated_client.get(url, headers={"hx-request": "true"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 # The facilitator is offered hours and minutes, never the
                 # stored ISO.
                 "form": FormInitialMatcher(duration_hours=1, duration_minutes=30),
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -140,7 +170,7 @@ class TestSessionEditViewGet:
             kwargs={"event_slug": other_event.slug, "session_id": owned_session.pk},
         )
 
-        response = authenticated_client.get(url)
+        response = authenticated_client.get(url, headers={"hx-request": "true"})
 
         assert_response_404(response)
 
@@ -163,18 +193,19 @@ class TestSessionEditViewGet:
         event.save()
         url = _url(event, owned_session)
 
-        response = authenticated_client.get(url)
+        response = authenticated_client.get(url, headers={"hx-request": "true"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -186,7 +217,7 @@ class TestSessionEditViewPost:
         data.update(overrides)
         return data
 
-    def test_htmx_post_saves_and_returns_saved_fragment(
+    def test_htmx_post_saves_and_signals_the_page(
         self, authenticated_client, event, owned_session
     ):
         url = _url(event, owned_session)
@@ -197,14 +228,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -224,14 +250,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -250,14 +271,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -273,14 +289,9 @@ class TestSessionEditViewPost:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name=FRAGMENT,
-            context_data={
-                "session": _expected_session(owned_session),
-                "form": ANY,
-                "field_descriptors": [],
-                "post_url": url,
-                "saved": True,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
             },
         )
         owned_session.refresh_from_db()
@@ -339,7 +350,7 @@ class TestSessionEditViewPost:
         assert not owned_session.cover_image
         assert not storage.exists(old_name)
 
-    def test_non_htmx_post_saves_and_redirects(
+    def test_page_post_saves_and_returns_to_the_event(
         self, authenticated_client, event, owned_session
     ):
         response = authenticated_client.post(
@@ -349,7 +360,8 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/event/{event.slug}/?session={owned_session.pk}",
+            url=f"/event/{event.slug}/",
+            messages=[(messages.SUCCESS, "Your changes are saved.")],
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
@@ -385,11 +397,12 @@ class TestSessionEditViewPost:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 "form": ANY,
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
         owned_session.refresh_from_db()
@@ -420,6 +433,8 @@ class TestSessionEditViewPost:
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 # The re-rendered form keeps the stored cover: a failed save
                 # must not look like the image was dropped.
@@ -428,7 +443,6 @@ class TestSessionEditViewPost:
                 ),
                 "field_descriptors": [],
                 "post_url": url,
-                "saved": False,
             },
         )
 
@@ -581,13 +595,15 @@ class TestSessionEditViewPost:
         )
         url = _url(event, owned_session)
 
-        response = authenticated_client.get(url)
+        response = authenticated_client.get(url, headers={"hx-request": "true"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=FRAGMENT,
             context_data={
+                "page": False,
+                "event": EventDTO.model_validate(event),
                 "session": _expected_session(owned_session),
                 "form": ANY,
                 "field_descriptors": [
@@ -620,7 +636,6 @@ class TestSessionEditViewPost:
                     }
                 ],
                 "post_url": url,
-                "saved": False,
             },
         )
 

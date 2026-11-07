@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 from django import forms
@@ -26,6 +27,35 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
     from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+
+
+# Hyphen, en dash, em dash, minus: whichever the keyboard gave.
+_RANGE_DASHES = str.maketrans(dict.fromkeys("\u2013\u2014\u2212", "-"))
+# The same shape for the browser to check before submitting, as a number
+# input's min did: a count or a range, so "-1" is caught at once. Written for
+# the v flag browsers compile patterns with, where a class's hyphen is escaped.
+_SEATS_INPUT_PATTERN = "\\s*\\d+(\\s*[\\-\u2013\u2014\u2212]\\s*\\d+)?\\s*"
+
+
+class SeatsField(forms.IntegerField):
+    """Seats, taken as typed: "3-6" reads as its upper bound, 6.
+
+    The empty field shows the category's range, so a range is what people
+    type back. A number input would drop it as unparsable, and an empty
+    optional limit means the session takes no sign-up.
+    """
+
+    def to_python(self, value: str | int | None) -> int | None:
+        # Split by hand rather than by regex: one pass over whatever was typed.
+        if isinstance(value, str):
+            low, dash, high = value.translate(_RANGE_DASHES).partition("-")
+            bounds = (low.strip(), high.strip())
+            if dash and all(bound.isdecimal() for bound in bounds):
+                # A bound past int()'s digit limit is left for IntegerField to
+                # refuse as "Enter a whole number." rather than raise here.
+                with suppress(ValueError):
+                    value = str(max(int(bound) for bound in bounds))
+        return super().to_python(value)
 
 
 def build_personal_data_form(pairs: FieldPairs) -> type[forms.Form]:
@@ -74,8 +104,13 @@ def build_session_details_form(
         seats_placeholder = f"{min_limit}+"
     else:
         seats_placeholder = _("no sign-up")
-    participants_kwargs["widget"] = forms.NumberInput(
-        attrs={"placeholder": seats_placeholder}
+    participants_kwargs["widget"] = forms.TextInput(
+        attrs={
+            "placeholder": seats_placeholder,
+            "inputmode": "numeric",
+            "pattern": _SEATS_INPUT_PATTERN,
+            "title": _("A number of seats, or a range like 3–6."),
+        }
     )
 
     fields: dict[str, forms.Field] = {
@@ -97,7 +132,7 @@ def build_session_details_form(
                 },
             ),
         ),
-        "participants_limit": forms.IntegerField(**participants_kwargs),
+        "participants_limit": SeatsField(**participants_kwargs),
         "min_age": forms.IntegerField(
             label=_("Minimum age"), required=False, min_value=0, max_value=80, initial=0
         ),

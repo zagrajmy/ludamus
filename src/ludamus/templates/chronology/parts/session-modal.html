@@ -1,4 +1,4 @@
-{% load i18n tessera %}
+{% load i18n tessera cfp_tags %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
@@ -59,6 +59,12 @@
                  {% if show_roster %}role="tabpanel"{% endif %}
                  class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
                  data-active>
+                {# The whole upload, at the 16:9 its help text asks for; the card #}
+                {# shows the same cover cropped to its strip. #}
+                {% session_cover_image data.session as cover_image_url %}
+                {% if cover_image_url %}
+                    {% include "components/cover-image.html" with url=cover_image_url extra_class="mb-4" only %}
+                {% endif %}
                 {% include "chronology/parts/_session_info_view.html" %}
                 <!-- Enrollment Status for Authenticated Users -->
                 {# Only when the footer has no state badge of its own (past #}

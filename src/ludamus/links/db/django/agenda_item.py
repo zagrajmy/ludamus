@@ -66,7 +66,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         schedule_confirmed=item.session.schedule_confirmed,
         start_time=item.start_time,
         space_id=item.space_id,
-        space_name=item.space.name,
+        space_name=item.space.name if item.space is not None else "",
         session_id=item.session_id,
         session_title=item.session.title,
         session_description=item.session.description,

@@ -334,6 +334,7 @@ def grid_with(
         total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
         first_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + 1,
         last_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + len(space_dtos),
+        columns_per_day=len(space_dtos),
         total_columns=len(space_dtos) * len(days),
         available_dates=[day.date for day in days],
         date_selection=date_selection,

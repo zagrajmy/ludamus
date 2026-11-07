@@ -54,6 +54,7 @@ COPIED_FIELDS: Final = frozenset(
         "description",
         "proposal_end_time",
         "proposal_start_time",
+        "require_session_space",
         "use_participants_label",
         "use_session_cover_placeholders",
     }

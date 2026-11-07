@@ -69,7 +69,7 @@ def _session_card(
         origin_name=event.name,
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
-        place=item.space.name,
+        place=item.space.name if item.space is not None else "",
         attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
         offer_expires_at=offer_expires_at,

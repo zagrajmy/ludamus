@@ -72,6 +72,7 @@ def _grid_under(room, *, parent):
             ],
             "total_spaces": 1,
             "last_space_number": 1,
+            "columns_per_day": 1,
         }
     )
 
