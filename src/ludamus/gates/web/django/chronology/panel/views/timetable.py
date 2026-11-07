@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import date, datetime
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import urlencode
@@ -33,6 +32,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.legacy import (
     UNSCHEDULED_LIST_LIMIT,
     NotFoundError,
@@ -42,14 +42,6 @@ from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
-
-
-def _parse_iso_duration_minutes(iso: str) -> int:
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso)):
-        return 60
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    return hours * 60 + minutes
 
 
 _BACK_URL_KEYS = (
@@ -379,8 +371,6 @@ class TimetableSessionDetailPartView(EventPanelMixin, View):
         session = detail.session
         time_slots = detail.time_slots
 
-        duration_minutes = _parse_iso_duration_minutes(session.duration)
-
         back_url = _build_back_url(slug, self.request.GET)
 
         time_slots_json = json.dumps(
@@ -396,7 +386,7 @@ class TimetableSessionDetailPartView(EventPanelMixin, View):
             "facilitators": detail.facilitators,
             "time_slots": time_slots,
             "time_slots_json": time_slots_json,
-            "duration_minutes": duration_minutes,
+            "duration_minutes": duration_minutes(session.duration),
             "slug": slug,
             "event": self.current_event,
             "back_url": back_url,
