@@ -41,7 +41,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
-from ludamus.pacts.crowd import UserDTO, gravatar_url
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
@@ -166,9 +166,7 @@ class TestEventPageView:
             is_full=True,
             session_participations=[
                 ParticipationInfo(
-                    user=UserInfo.from_user_dto(
-                        UserDTO.model_validate(seat.user), gravatar_url=gravatar_url
-                    ),
+                    user=UserInfo.from_user_dto(UserDTO.model_validate(seat.user)),
                     status=seat.status,
                     creation_time=seat.creation_time,
                 )
@@ -229,9 +227,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
@@ -331,9 +327,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
@@ -807,9 +801,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
@@ -996,9 +988,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
@@ -1389,8 +1379,7 @@ class TestEventPageView:
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
-                        UserDTO.model_validate(participation.user),
-                        gravatar_url=gravatar_url,
+                        UserDTO.model_validate(participation.user)
                     ),
                     status=participation.status,
                     creation_time=participation.creation_time,
@@ -1607,9 +1596,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
@@ -2067,21 +2054,15 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[
                 ParticipationInfo(
-                    user=UserInfo.from_user_dto(
-                        UserDTO.model_validate(part1.user), gravatar_url=gravatar_url
-                    ),
+                    user=UserInfo.from_user_dto(UserDTO.model_validate(part1.user)),
                     status=part1.status,
                     creation_time=part1.creation_time,
                 ),
                 ParticipationInfo(
-                    user=UserInfo.from_user_dto(
-                        UserDTO.model_validate(part2.user), gravatar_url=gravatar_url
-                    ),
+                    user=UserInfo.from_user_dto(UserDTO.model_validate(part2.user)),
                     status=part2.status,
                     creation_time=part2.creation_time,
                 ),
@@ -2112,9 +2093,7 @@ class TestEventPageView:
     def test_ok_session_with_linked_proposal(
         self, active_user, agenda_item, client, event, session
     ):
-        host = UserInfo.from_user_dto(
-            UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-        )
+        host = UserInfo.from_user_dto(UserDTO.model_validate(active_user))
         session_data = SessionData(
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
@@ -2152,9 +2131,7 @@ class TestEventPageView:
         session.participants_limit = 0
         session.save()
 
-        host = UserInfo.from_user_dto(
-            UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-        )
+        host = UserInfo.from_user_dto(UserDTO.model_validate(active_user))
         session_data = SessionData(
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=0,
@@ -2250,9 +2227,7 @@ class TestEventPageView:
             is_full=False,
             is_ongoing=True,
             is_ended=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
@@ -2287,9 +2262,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
@@ -2471,14 +2444,11 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[
                 ParticipationInfo(
                     user=UserInfo.from_user_dto(
-                        UserDTO.model_validate(participation.user),
-                        gravatar_url=gravatar_url,
+                        UserDTO.model_validate(participation.user)
                     ),
                     status=participation.status,
                     creation_time=participation.creation_time,
@@ -2524,9 +2494,7 @@ class TestEventPageView:
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=True,
@@ -2589,9 +2557,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
@@ -2700,9 +2666,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
@@ -2776,9 +2740,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
@@ -2840,9 +2802,7 @@ class TestEventPageView:
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
+            presenter=UserInfo.from_user_dto(UserDTO.model_validate(active_user)),
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,

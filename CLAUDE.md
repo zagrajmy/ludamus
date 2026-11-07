@@ -90,11 +90,6 @@ back ready-to-render DTOs (Pydantic, never Django models). Services live in
 `mills/`, take specific repo protocols + `TransactionProtocol` via the
 constructor, and own transactional boundaries.
 
-Legacy: some views still use `request.di.uow.<repo>` during the strangler-fig
-migration. [docs/agents/services-migration.md](docs/agents/services-migration.md)
-has the per-file recipe. New code must use `request.services`; never extend the
-`request.di.uow` surface.
-
 ## Testing
 
 - Never write unit tests after you write code.

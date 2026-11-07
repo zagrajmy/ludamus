@@ -166,7 +166,6 @@ MIDDLEWARE = [
 # Run in this order by AppMiddleware, and only for paths outside
 # MIDDLEWARE_SKIP_PREFIXES.
 APP_MIDDLEWARE = [
-    "ludamus.inits.legacy.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.inits.request_context.RequestContextMiddleware",
     "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",

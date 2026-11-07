@@ -28,7 +28,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
-from ludamus.pacts.crowd import UserDTO, gravatar_url
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.guild import GuildMarkDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
@@ -109,9 +109,7 @@ def _activate_anonymous(client, *, sphere, event, code, settings, site_id=None):
 
 
 def _user_info(user):
-    return UserInfo.from_user_dto(
-        UserDTO.model_validate(user), gravatar_url=gravatar_url
-    )
+    return UserInfo.from_user_dto(UserDTO.model_validate(user))
 
 
 def _participation(participation, *, is_shadowbanned=False):
