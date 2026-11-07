@@ -100,7 +100,7 @@ jobs:
       - run: mise run test:postgres -- --cov
         env:
           COVERAGE_FILE: .coverage.postgres
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-postgres
           path: .coverage.postgres
