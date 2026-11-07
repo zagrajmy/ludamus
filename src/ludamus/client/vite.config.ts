@@ -89,6 +89,7 @@ export default defineConfig({
         "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
+        "show-when": resolve(rootDir, "src/show-when.ts"),
         sound: resolve(rootDir, "src/sound.ts"),
         "space-tree": resolve(rootDir, "src/space-tree.ts"),
         "staging-inbox": resolve(rootDir, "src/staging-inbox.ts"),

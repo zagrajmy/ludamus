@@ -1,5 +1,5 @@
 {% extends "panel/base.html" %}
-{% load csp_tags %}
+{% load django_vite %}
 {% load i18n %}
 {% load tessera %}
 {% block title %}
@@ -60,24 +60,9 @@
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_field_type">{% translate "Field Type" %}</label>
-                                <select name="field_type"
-                                        id="id_field_type"
-                                        class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="text"
-                                            {% if form.field_type.value == "text" %}selected{% endif %}>
-                                        {% translate "Text" %}
-                                    </option>
-                                    <option value="select"
-                                            {% if form.field_type.value == "select" %}selected{% endif %}>
-                                        {% translate "Select" %}
-                                    </option>
-                                    <option value="checkbox"
-                                            {% if form.field_type.value == "checkbox" %}selected{% endif %}>
-                                        {% translate "Checkbox" %}
-                                    </option>
-                                </select>
+                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=form.field_type.field.choices selected=form.field_type.value has_errors=form.field_type.errors only %}
                             </div>
-                            <div id="options-container" class="hidden">
+                            <div id="options-container" data-show-when="field_type=select" hidden>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_options">{% translate "Options" %}</label>
                                 <textarea name="options"
@@ -106,7 +91,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div id="max-length-container">
+                            <div id="max-length-container" data-hide-when="field_type=checkbox">
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_max_length">{% translate "Max Length" %}</label>
                                 <input type="number"
@@ -158,30 +143,6 @@
                                 <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                             </label>
                         </div>
-                        <script{% nonce %}>
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const fieldType = document.getElementById('id_field_type');
-                                const optionsContainer = document.getElementById('options-container');
-                                const maxLengthContainer = document.getElementById('max-length-container');
-
-                                const categorySelects = document.querySelectorAll('select[name^="category_"]');
-
-                                function toggleOptions() {
-                                    const isCheckbox = fieldType.value === 'checkbox';
-                                    optionsContainer.classList.toggle('hidden', fieldType.value !== 'select');
-                                    maxLengthContainer.classList.toggle('hidden', isCheckbox);
-                                    categorySelects.forEach(sel => {
-                                        const required = sel.querySelector('option[value="required"]');
-                                        if (!required) return;
-                                        required.hidden = isCheckbox;
-                                        required.disabled = isCheckbox;
-                                        if (isCheckbox && sel.value === 'required') sel.value = 'optional';
-                                    });
-                                }
-                                fieldType.addEventListener('change', toggleOptions);
-                                toggleOptions();
-                            });
-                        </script>
                     </div>
                 </div>
                 <div class="card p-6 mt-6">
@@ -199,6 +160,7 @@
                                             {% translate "Not included" %}
                                         </option>
                                         <option value="required"
+                                                data-hide-when="field_type={{ form.UNREQUIRABLE_TYPES }}"
                                                 {% if category.pk in required_category_pks %}selected{% endif %}>
                                             {% translate "Required" %}
                                         </option>
@@ -217,4 +179,5 @@
             </form>
         {% endif %}
     </div>
+    {% vite_asset 'src/show-when.ts' %}
 {% endblock content %}

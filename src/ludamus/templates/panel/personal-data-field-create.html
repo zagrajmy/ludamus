@@ -1,5 +1,5 @@
 {% extends "panel/base.html" %}
-{% load csp_tags %}
+{% load django_vite %}
 {% load i18n %}
 {% load tessera %}
 {% block title %}
@@ -61,28 +61,9 @@
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_field_type">{% translate "Field Type" %}</label>
-                                <select name="field_type"
-                                        id="id_field_type"
-                                        class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="text"
-                                            {% if form.field_type.value == "text" %}selected{% endif %}>
-                                        {% translate "Text" %}
-                                    </option>
-                                    <option value="select"
-                                            {% if form.field_type.value == "select" %}selected{% endif %}>
-                                        {% translate "Select" %}
-                                    </option>
-                                    <option value="checkbox"
-                                            {% if form.field_type.value == "checkbox" %}selected{% endif %}>
-                                        {% translate "Checkbox" %}
-                                    </option>
-                                    <option value="discord"
-                                            {% if form.field_type.value == "discord" %}selected{% endif %}>
-                                        {% translate "Discord username" %}
-                                    </option>
-                                </select>
+                                {% include "components/select.html" with name="field_type" id="id_field_type" choices=form.field_type.field.choices selected=form.field_type.value has_errors=form.field_type.errors only %}
                             </div>
-                            <div id="options-container" class="hidden">
+                            <div id="options-container" data-show-when="field_type=select" hidden>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_options">{% translate "Options" %}</label>
                                 <textarea name="options"
@@ -111,7 +92,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div id="max-length-container">
+                            <div id="max-length-container" data-hide-when="field_type=checkbox">
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                        for="id_max_length">{% translate "Max Length" %}</label>
                                 <input type="number"
@@ -144,7 +125,8 @@
                                        class="rounded border-border text-primary focus:ring-primary">
                                 <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                             </label>
-                            <div id="required-container">
+                            <div id="required-container"
+                                 data-hide-when="field_type={{ form.UNREQUIRABLE_TYPES }}">
                                 <label class="flex items-center">
                                     <input type="checkbox"
                                            name="is_required"
@@ -168,28 +150,10 @@
                                 {% if form.order.errors %}<p class="mt-1 text-sm text-danger">{{ form.order.errors.0 }}</p>{% endif %}
                             </div>
                         </div>
-                        <script{% nonce %}>
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const fieldType = document.getElementById('id_field_type');
-                                const optionsContainer = document.getElementById('options-container');
-                                const maxLengthContainer = document.getElementById('max-length-container');
-                                const requiredContainer = document.getElementById('required-container');
-                                const requiredInput = document.getElementById('id_is_required');
-
-                                function toggleOptions() {
-                                    const isCheckbox = fieldType.value === 'checkbox';
-                                    optionsContainer.classList.toggle('hidden', fieldType.value !== 'select');
-                                    maxLengthContainer.classList.toggle('hidden', isCheckbox);
-                                    requiredContainer.classList.toggle('hidden', isCheckbox);
-                                    if (isCheckbox) requiredInput.checked = false;
-                                }
-                                fieldType.addEventListener('change', toggleOptions);
-                                toggleOptions();
-                            });
-                        </script>
                     </div>
                 </div>
             </form>
         {% endif %}
     </div>
+    {% vite_asset 'src/show-when.ts' %}
 {% endblock content %}
