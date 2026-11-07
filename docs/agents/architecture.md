@@ -180,20 +180,6 @@ def get(self, request: PanelRequest, slug: str) -> TemplateResponse:
     )
 ```
 
-## Strangler-fig migration
-
-Two middleware run in parallel: the legacy `RepositoryInjectionMiddleware`
-(attaches `request.di.uow`) and the new `ServiceInjectionMiddleware`
-(attaches `request.services`). New code uses `request.services`. A single
-view file picks one shape; never both in the same view.
-
-Migration is per view file. The recipe lives in
-[services-migration.md](services-migration.md). Once the last view migrates,
-`RepositoryInjectionMiddleware` and `request.di.uow` are removed.
-
-New code must use `request.services`. Do not extend the `request.di.uow`
-surface — write a new mills service instead.
-
 ## Specs
 
 Business invariants consumed only by mills. No IO, no Django.
@@ -447,8 +433,7 @@ the event resolution `EventPanelMixin` adds.
 - **Templates:** `templates/multiverse/panel/`
 - **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/multiverse.py`
   (legacy module names; new cuts use `sphere`)
-- **Access:** `SphereAccessMixin` (sphere-manager check via
-  `request.di.uow.spheres.is_manager`)
+- **Access:** `SphereAccessMixin` (the panel access check, scoped to the sphere)
 - **First feature:** sphere-scoped import-connections CRUD
   ("Połączenia importu" subpage)
 

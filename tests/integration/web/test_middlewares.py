@@ -6,14 +6,12 @@ from django.test import Client
 from django.urls import reverse
 
 from ludamus.gates.web.django.middlewares import AppMiddleware
-from ludamus.inits.legacy import RepositoryInjectionMiddleware
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
 from ludamus.inits.request_context import (
     RedirectErrorMiddleware,
     RequestContextMiddleware,
 )
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
-from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts.legacy import RedirectError, RequestContext
 
 
@@ -117,23 +115,6 @@ class TestRequestContextMiddleware:
         get_response_mock.assert_called_once_with(request)
 
 
-class TestRepositoryInjectionMiddleware:
-    @pytest.fixture
-    @staticmethod
-    def middleware(get_response_mock):
-        return RepositoryInjectionMiddleware(get_response_mock)
-
-    @staticmethod
-    def test_injects_uow_for_normal_requests(middleware, get_response_mock, rf):
-        request = rf.get("/some/page/")
-
-        middleware(request)
-
-        assert hasattr(request, "di")
-        assert isinstance(request.di.uow, UnitOfWork)
-        get_response_mock.assert_called_once_with(request)
-
-
 class TestAppMiddleware:
     @staticmethod
     @pytest.mark.parametrize(
@@ -147,7 +128,6 @@ class TestAppMiddleware:
 
         AppMiddleware(get_response_mock)(request)
 
-        assert not hasattr(request, "di")
         assert not hasattr(request, "services")
         assert not hasattr(request, "context")
         get_response_mock.assert_called_once_with(request)

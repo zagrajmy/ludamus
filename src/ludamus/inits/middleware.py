@@ -102,12 +102,7 @@ def _remember_language(request: LanguageRequestProtocol) -> None:
 
 
 class ServiceInjectionMiddleware[Response]:
-    """Attach `request.services` — the gate-facing service namespace.
-
-    Runs in parallel with RepositoryInjectionMiddleware during the strangler-fig
-    migration. A view either uses `request.di.uow.*` (legacy) or
-    `request.services.*` (migrated) — never both shapes in the same view.
-    """
+    """Attach `request.services` — the gate-facing service namespace."""
 
     def __init__(self, get_response: Callable[[RootRequestProtocol], Response]) -> None:
         self.get_response: Callable[[RootRequestProtocol], Response] = get_response
