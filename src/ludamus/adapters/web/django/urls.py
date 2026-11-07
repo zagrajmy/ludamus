@@ -156,8 +156,8 @@ urlpatterns = [
     ),
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
     path("board/", include((board_urls, "board"), namespace="board")),
-    # The Auth0 tenant's error page setting points here; the path must stay
-    # /auth-error to match it.
+    # The login callback sends AuthKit errors here; old Auth0 error links
+    # point at the same /auth-error path.
     path("auth-error/", auth_error_page, name="auth-error"),
     path(
         "hooks/calendar-replies",

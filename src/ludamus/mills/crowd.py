@@ -6,18 +6,19 @@ plus a transaction. First feature: claiming a managed profile.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, assert_never
 from uuid import uuid4
 
-from ludamus.mills.slugs import unique_slug
+from ludamus.mills.slugs import slug_base, unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    MAX_AVATAR_URL_LENGTH,
     AgeBand,
     AgeBandRequiredError,
-    AuthProvisionDTO,
     AvatarPageDTO,
     ChangeRequestOutcome,
     ClaimOutcome,
@@ -32,6 +33,7 @@ from ludamus.pacts.crowd import (
     EmailVerificationAction,
     EmailVerificationNotification,
     EmailVerificationServiceProtocol,
+    LoginDTO,
     ProfileServiceProtocol,
     RedeemOutcome,
     UserData,
@@ -46,6 +48,7 @@ from ludamus.specs.email_verification import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import (
+        AuthenticationDTO,
         AvatarUrlProviderProtocol,
         ClaimableProfileDTO,
         ClaimRepositoryProtocol,
@@ -54,6 +57,8 @@ if TYPE_CHECKING:
         EmailTokenCodecProtocol,
         EmailVerificationNotifierProtocol,
         EmailVerificationReminderRepositoryProtocol,
+        IdentityDTO,
+        IdentityProviderProtocol,
         SphereDomainRepositoryProtocol,
         UserDTO,
         UserRepositoryProtocol,
@@ -62,6 +67,12 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 type _Effect = Literal["cancel", "promote", "verify"]
+
+
+logger = logging.getLogger(__name__)
+
+AUTH0_USERNAME_PREFIX = "auth0|"
+WORKOS_USERNAME_PREFIX = "workos|"
 
 
 def _token() -> str:
@@ -116,6 +127,47 @@ class ClaimService(ClaimServiceProtocol):
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)
 
 
+class LegacyAccountLinker:
+    """Finds the Auth0-era account behind a first WorkOS login and claims it.
+
+    TODO: https://github.com/zagrajmy/ludamus/issues/1402 — delete once no
+    active account is left on an auth0| username.
+    """
+
+    def __init__(self, *, users: UserRepositoryProtocol) -> None:
+        self._users = users
+
+    def exists(self, identity: IdentityDTO) -> bool:
+        return self._find(identity) is not None
+
+    def adopt(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
+        if (legacy := self._find(identity)) is None:
+            return None
+        self._users.update(legacy.slug, {"username": username})
+        logger.info("Linked legacy account %s to %s", legacy.slug, username)
+        return self._users.read(legacy.slug)
+
+    def _find(self, identity: IdentityDTO) -> UserDTO | None:
+        # The import's external_id is authoritative: when it is set but its
+        # account is gone, an email match would land on someone else's row.
+        if identity.legacy_id:
+            with suppress(NotFoundError):
+                return self._users.read_by_username(
+                    f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
+                )
+            return None
+        if not identity.email_verified or not identity.email:
+            return None
+        with suppress(NotFoundError):
+            user = self._users.read_by_email(identity.email)
+            if user.username.startswith(AUTH0_USERNAME_PREFIX):
+                # SAFETY: Auth0 never verified the stored address, so this
+                # match is weaker than external_id; keep it visible.
+                logger.warning("Linking legacy account %s by verified email", user.slug)
+                return user
+        return None
+
+
 class CrowdAuthService(CrowdAuthServiceProtocol):
     def __init__(
         self,
@@ -124,72 +176,108 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         users: UserRepositoryProtocol,
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
+        identity: IdentityProviderProtocol,
+        legacy_accounts: LegacyAccountLinker,
         subscriptions: SphereSubscriptionRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
+        self._identity = identity
+        self._legacy_accounts = legacy_accounts
         self._subscriptions = subscriptions
 
-    def provision_user(
-        self, *, username: str, create_data: UserData, claim_token: str = ""
-    ) -> AuthProvisionDTO:
+    def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
+        return self._identity.authorization_url(
+            redirect_uri=redirect_uri, state=state, sign_up=sign_up
+        )
+
+    def logout_url(self, *, session_id: str, return_to: str) -> str:
+        return self._identity.logout_url(session_id=session_id, return_to=return_to)
+
+    def authenticate(self, code: str) -> AuthenticationDTO:
+        return self._identity.authenticate(code)
+
+    def has_account(self, identity: IdentityDTO) -> bool:
+        existing = self._read_by_username(_workos_username(identity))
+        return existing is not None or self._legacy_accounts.exists(identity)
+
+    def complete_login(
+        self,
+        *,
+        authentication: AuthenticationDTO,
+        claim_token: str = "",
+        age_band: AgeBand = AgeBand.UNKNOWN,
+    ) -> LoginDTO:
+        """Log in, creating the account if need be.
+
+        `age_band` only reaches an account created or claimed here.
+        """
+        identity = authentication.identity
+        username = _workos_username(identity)
+        avatar_url = _avatar_url(identity)
         with self._transaction.atomic():
             self._users.lock_username(username)
-            return self._provision_locked(
-                username=username, create_data=create_data, claim_token=claim_token
-            )
-
-    def _provision_locked(
-        self, *, username: str, create_data: UserData, claim_token: str = ""
-    ) -> AuthProvisionDTO:
-        claim_outcome: ClaimOutcome | None = None
-        if claim_token:
-            with self._transaction.atomic():
+            user = self._find_account(identity, username=username)
+            claim_outcome: ClaimOutcome | None = None
+            if claim_token:
                 result = self._claims.redeem(token=claim_token, username=username)
                 claim_outcome = result.outcome
                 if result.outcome == ClaimOutcome.CONVERTED:
                     # The converted row keeps its own fields, so the age range
                     # the new owner declared is written onto it here.
-                    self._set_age_band(
-                        result.user_slug, create_data.get("age_band", AgeBand.UNKNOWN)
-                    )
-                    return AuthProvisionDTO(
-                        user=self._users.read(result.user_slug),
-                        claim_outcome=claim_outcome,
-                    )
-        with suppress(NotFoundError):
-            return AuthProvisionDTO(
-                user=self._users.read_by_username(username), claim_outcome=claim_outcome
-            )
-        email_conflict = self._users.email_unavailable(
-            email=create_data.get("email", ""), now=datetime.now(UTC)
-        )
-        data = create_data
-        if email_conflict:
-            data = create_data | UserData(email="", email_verified=False)
-        return AuthProvisionDTO(
-            user=self._create_user(username=username, create_data=data),
+                    self._set_age_band(result.user_slug, age_band)
+                    user = self._users.read(result.user_slug)
+            email_conflict = False
+            if user is None:
+                email_conflict = self._users.email_unavailable(
+                    email=identity.email, now=datetime.now(UTC)
+                )
+                email = "" if email_conflict else identity.email
+                user = self._create_user(
+                    username=username,
+                    identity=identity,
+                    data=UserData(
+                        age_band=age_band,
+                        email=email,
+                        email_verified=bool(email and identity.email_verified),
+                        avatar_url=avatar_url,
+                        name=identity.name,
+                    ),
+                )
+            # NOTE: a disabled account (one an underage answer rejected) must
+            # not collect the identity's personal data on a later sign-in.
+            if user.is_active:
+                user = self._sync_identity(
+                    user, identity=identity, avatar_url=avatar_url
+                )
+        return LoginDTO(
+            user=user,
             claim_outcome=claim_outcome,
+            session_id=authentication.session_id,
             email_conflict=email_conflict,
         )
 
-    def reject_signup(self, *, username: str, slug: str, password: str) -> None:
+    def _find_account(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
+        return self._read_by_username(username) or self._legacy_accounts.adopt(
+            identity, username=username
+        )
+
+    def _read_by_username(self, username: str) -> UserDTO | None:
+        with suppress(NotFoundError):
+            return self._users.read_by_username(username)
+        return None
+
+    def reject_signup(self, identity: IdentityDTO) -> None:
+        """Keep a disabled account so the identity cannot sign up again."""
+        username = _workos_username(identity)
         with self._transaction.atomic():
             self._users.lock_username(username)
-            result = self._provision_locked(
-                username=username,
-                create_data=UserData(
-                    username=username,
-                    slug=slug,
-                    password=password,
-                    user_type=UserType.ACTIVE,
-                    age_band=AgeBand.UNKNOWN,
-                    is_active=False,
-                ),
+            user = self._find_account(identity, username=username) or self._create_user(
+                username=username, identity=identity, data=UserData()
             )
-            self.disable_underage_account(result.user.slug)
+            self.disable_underage_account(user.slug)
 
     def disable_underage_account(self, user_slug: str) -> None:
         with self._transaction.atomic():
@@ -213,24 +301,20 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         user_id = self._users.read(user_slug).pk
         return self._subscriptions.unsubscribe_everywhere(user_id) > 0
 
-    def has_account(self, username: str) -> bool:
-        try:
-            self._users.read_by_username(username)
-        except NotFoundError:
-            return False
-        return True
-
-    def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
-        data = create_data.copy()
+    def _create_user(
+        self, *, username: str, identity: IdentityDTO, data: UserData
+    ) -> UserDTO:
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
-        # row can own the one the provider sub slugifies to; uniquifying also
-        # caps it to the SlugField width, which an over-long sub would blow.
-        data["slug"] = unique_slug(
-            base=data.get("slug", ""), default="user", exists=self._users.slug_exists
+        # row can own the one the provider id slugifies to; uniquifying also
+        # caps it to the SlugField width, which an over-long id would blow.
+        slug = unique_slug(
+            base=slug_base(identity.provider_user_id),
+            default="user",
+            exists=self._users.slug_exists,
         )
         try:
             with self._transaction.savepoint():
-                self._users.create(data)
+                self._users.create(data | UserData(slug=slug, username=username))
         except DatabaseConstraintError:
             # NOTE: a concurrent callback for the same identity may have
             # inserted the row between our read_by_username miss and this
@@ -241,29 +325,25 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             raise
         return self._users.read_by_username(username)
 
-    def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
-        user = self._users.read(user_slug)
-        if updates := self._identity_updates(user=user, data=data):
-            with self._transaction.atomic():
-                self._users.update(user_slug, updates)
-            return self._users.read(user_slug)
-        return user
-
-    def _identity_updates(self, *, user: UserDTO, data: UserData) -> UserData:
-        updates = data.copy()
-        # NOTE: a None default would read the same as "" in _email_updates.
-        claim_email = updates.pop("email", "")  # pragma: no mutate
-        claim_verified = updates.pop("email_verified", False)
-        if updates.get("avatar_url") == user.avatar_url:
-            del updates["avatar_url"]
-        if "name" in updates and (user.name or "").strip():
-            del updates["name"]
+    def _sync_identity(
+        self, user: UserDTO, *, identity: IdentityDTO, avatar_url: str
+    ) -> UserDTO:
+        updates = UserData()
+        if avatar_url and user.avatar_url != avatar_url:
+            updates["avatar_url"] = avatar_url
+        if identity.name and not user.name.strip():
+            updates["name"] = identity.name
         updates.update(
             self._email_updates(
-                user=user, claim_email=claim_email, claim_verified=claim_verified
+                user=user,
+                claim_email=identity.email,
+                claim_verified=identity.email_verified,
             )
         )
-        return updates
+        if not updates:
+            return user
+        self._users.update(user.slug, updates)
+        return self._users.read(user.slug)
 
     def _email_updates(
         self, *, user: UserDTO, claim_email: str, claim_verified: bool
@@ -290,6 +370,22 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def is_known_sphere_domain(self, domain: str) -> bool:
         return self._spheres.domain_exists(domain)
+
+
+def _workos_username(identity: IdentityDTO) -> str:
+    return f"{WORKOS_USERNAME_PREFIX}{identity.provider_user_id}"
+
+
+def _avatar_url(identity: IdentityDTO) -> str:
+    # A URL truncated to the column width would be broken; better no avatar.
+    if len(identity.avatar_url) > MAX_AVATAR_URL_LENGTH:
+        logger.warning(
+            "Identity avatar dropped: %s chars exceeds %s",
+            len(identity.avatar_url),
+            MAX_AVATAR_URL_LENGTH,
+        )
+        return ""
+    return identity.avatar_url
 
 
 class EmailVerificationService(EmailVerificationServiceProtocol):
@@ -525,7 +621,7 @@ class ProfileService(ProfileServiceProtocol):
         return AvatarPageDTO(
             user=user,
             gravatar_url=self._avatar_url(user.email),
-            has_auth0_avatar=bool(user.avatar_url),
+            has_provider_avatar=bool(user.avatar_url),
         )
 
     def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None:

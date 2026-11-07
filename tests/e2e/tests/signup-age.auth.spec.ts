@@ -4,7 +4,7 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 
 const state = (name: string) => path.join(__dirname, "..", `.auth-state-age-${name}.json`);
-const AGE_URL = "/crowd/auth0/signup/age";
+const AGE_URL = "/crowd/auth/signup/age";
 const PRIVACY_URL = "/crowd/profile/privacy/";
 
 for (const [scenario, choice] of [
@@ -100,9 +100,6 @@ test.describe("Signup from a convention sphere", () => {
 test.describe("Under thirteen", () => {
   test.use({ storageState: state("child"), consentSeed: "accepted" });
   test("is directed to guardian-managed participation", async ({ page }, testInfo) => {
-    await page.route("https://auth0.example.com/**", (route) =>
-      route.fulfill({ body: "Signed out" }),
-    );
     await page.goto(AGE_URL);
     await page.getByRole("radio", { name: "Under 13", exact: true }).check();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -115,8 +112,9 @@ test.describe("Under thirteen", () => {
       region: page.getByRole("main"),
       facts: { authenticated: false },
     });
-    await page.getByRole("link", { name: "Continue with a parent or guardian" }).click();
-    await page.waitForURL(/auth0\.example\.com/);
+    await expect(
+      page.getByRole("link", { name: "Continue with a parent or guardian" }),
+    ).toHaveAttribute("href", /\/crowd\/auth\/do\/login$/);
   });
 });
 

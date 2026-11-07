@@ -20,10 +20,10 @@ W ramach świadczonych usług przetwarzamy następujące kategorie danych osobow
 
 - Pseudonim (identyfikator użytkownika)
 - Adres email
-- Unikalny identyfikator z systemu Auth0
+- Unikalny identyfikator z systemu logowania WorkOS (w kontach założonych przed 25.09.2026 także dawny identyfikator Auth0)
 - Zadeklarowany przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 
-Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygnuje z rejestracji na tym etapie lub nie spełnia wymogu wieku, Auth0 może już przetwarzać dane uwierzytelniania, a serwis — dane techniczne związane z logowaniem. Nie zbieramy daty urodzenia ani dokumentów tożsamości.
+Pytamy o przedział wieku po zalogowaniu przez WorkOS. Jeśli użytkownik zrezygnuje z rejestracji na tym etapie lub nie spełnia wymogu wieku, WorkOS może już przetwarzać dane uwierzytelniania, a serwis — dane techniczne związane z logowaniem. Nie zbieramy daty urodzenia ani dokumentów tożsamości.
 
 ### 2.2 Dane techniczne:
 
@@ -44,7 +44,7 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 ### 3.1 Świadczenie usługi zapisów na wydarzenia
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** pseudonim, email, identyfikator Auth0, zadeklarowany przedział wieku
+- **Dane:** pseudonim, email, identyfikator z systemu logowania, zadeklarowany przedział wieku
 - **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia; interes polega na świadczeniu usługi społecznościowej organizacji wydarzeń. Przedział wieku służy stosowaniu ograniczeń chroniących osoby małoletnie. Uwzględniamy ich prawa i potrzebę szczególnej ochrony oraz ograniczamy dane do niezbędnego minimum
 
 ### 3.2 Niezbędne wiadomości związane z usługą
@@ -84,7 +84,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 ### 4.1 Dostawcy usług technicznych:
 
 - **OVH SAS** (Francja) - dostawca usług hostingowych
-- **Auth0** (USA/UE) - dostawca usług uwierzytelniania
+- **WorkOS** (USA) - dostawca usług uwierzytelniania
 
 ### 4.2 Dostawcy analityki:
 
@@ -98,7 +98,7 @@ W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie
 
 Część danych może być przetwarzana poza Europejskim Obszarem Gospodarczym przez:
 
-- **Auth0** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **WorkOS** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
 - Inne usługi, z których możemy korzystać w przyszłości
 
 Zapewniamy, że wszystkie transfery odbywają się z zachowaniem odpowiednich zabezpieczeń przewidzianych przez RODO.

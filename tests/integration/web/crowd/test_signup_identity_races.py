@@ -4,35 +4,33 @@ from threading import Barrier, Event
 from time import monotonic
 
 import pytest
-from django.contrib.auth.hashers import make_password
 from django.db import connection, transaction
 
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import SphereSubscription, User
-from ludamus.pacts.crowd import AgeBand, UserType
+from ludamus.pacts.crowd import AgeBand, AuthenticationDTO, IdentityDTO, UserType
 from tests.integration.conftest import UserFactory
+
+_IDENTITY = IdentityDTO(
+    provider_user_id="racing",
+    email="child@example.com",
+    email_verified=True,
+    name="Child",
+    avatar_url="https://pic.test/child",
+    legacy_id="",
+)
 
 
 def _complete(claim_token):
-    return Services().crowd_auth.provision_user(
-        username="auth0|racing",
-        create_data={
-            "username": "auth0|racing",
-            "slug": "racing",
-            "password": make_password(None),
-            "age_band": AgeBand.SIXTEEN_PLUS,
-            "email": "child@example.com",
-            "name": "Child",
-            "avatar_url": "https://pic.test/child",
-        },
+    return Services().crowd_auth.complete_login(
+        authentication=AuthenticationDTO(identity=_IDENTITY, session_id="session"),
         claim_token=claim_token,
+        age_band=AgeBand.SIXTEEN_PLUS,
     )
 
 
 def _reject():
-    Services().crowd_auth.reject_signup(
-        username="auth0|racing", slug="racing", password=make_password(None)
-    )
+    Services().crowd_auth.reject_signup(_IDENTITY)
 
 
 def _contend(*, reject_first, claim_token, barrier, pids):
@@ -99,7 +97,7 @@ class TestSignupIdentityRaces:
                 _wait_for_blocked_identity(pid=pid, future=future)
             completed = future.result(timeout=10)
 
-        user = User.objects.get(username="auth0|racing")
+        user = User.objects.get(username="workos|racing")
         assert user.is_active is False
         assert user.age_band == "unknown"
         assert not user.has_usable_password()

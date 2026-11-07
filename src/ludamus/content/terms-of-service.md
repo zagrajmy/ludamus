@@ -28,13 +28,13 @@ Użyte w Regulaminie pojęcia oznaczają:
 ### 2.1 Zasady rejestracji
 
 1. Korzystanie z Serwisu wymaga założenia Konta.
-2. Rejestracja odbywa się poprzez system Auth0 z możliwością logowania przez Google, Facebook lub bezpośrednie założenie konta.
+2. Rejestracja odbywa się poprzez system WorkOS z możliwością logowania przez Google, Facebook lub bezpośrednie założenie konta.
 3. Podczas rejestracji Użytkownik podaje:
    - pseudonim (nie musi być prawdziwym imieniem i nazwiskiem)
    - adres email
    - przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 4. Użytkownik może używać tylko jednego Konta w Serwisie.
-5. Pytanie o przedział wieku pojawia się po zalogowaniu przez Auth0. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: Auth0 może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
+5. Pytanie o przedział wieku pojawia się po zalogowaniu przez WorkOS. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: Auth0 może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
 
 ### 2.2 Ograniczenia wiekowe
 

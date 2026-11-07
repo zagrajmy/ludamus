@@ -10,7 +10,7 @@
                 </form>
             {% else %}
                 <div class="space-y-3">
-                    <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.path|urlencode }}"
+                    <a href="{% url 'web:crowd:auth:login' %}?next={{ request.path|urlencode }}"
                        class="btn btn-primary w-full text-center">{% translate "Join with account" %}</a>
                     <div class="relative">
                         <div class="absolute inset-0 flex items-center">

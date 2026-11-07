@@ -1,6 +1,6 @@
 """Unit tests for the shared unique-slug helper (pure, IO-free)."""
 
-from ludamus.mills.slugs import unique_slug
+from ludamus.mills.slugs import slug_base, unique_slug
 
 _SLUG_MAX_LENGTH = 50
 _COLLISION_ATTEMPTS = 4
@@ -49,3 +49,8 @@ class TestUniqueSlug:
         assert slug.startswith("taken-")
         assert len(slug) <= _SLUG_MAX_LENGTH
         assert len(seen) == _COLLISION_ATTEMPTS
+
+
+class TestSlugBase:
+    def test_lowercases_and_drops_non_slug_characters(self) -> None:
+        assert slug_base("Auth0|User_01.AB-c") == "auth0user_01ab-c"
