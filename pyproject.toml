@@ -433,14 +433,17 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# TODO: mills is still reached through adapters.web.django.error_views
-# (mills.url_recovery) from gates.web.django.urls.
 forbidden_modules = [
     "ludamus.links",
     "ludamus.inits",
-    # "ludamus.mills",
+    "ludamus.mills",
     "ludamus.specs",
     "ludamus.edges",
+]
+# TODO: the member enroll page (adapters.web.django.views) still does its own
+# ORM work; drop this once it reads through a service.
+ignore_imports = [
+    "ludamus.gates.web.django.web_urls -> ludamus.adapters.web.django.views",
 ]
 
 [[tool.importlinter.contracts]]
