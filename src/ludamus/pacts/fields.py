@@ -27,6 +27,9 @@ type TextFieldKind = Literal["text", "discord"]
 TEXT_FIELD_KINDS: frozenset[str] = frozenset({"text", "discord"})
 _SESSION_FIELD_TYPES: frozenset[str] = frozenset({"text", "select", "checkbox"})
 _PERSONAL_FIELD_TYPES: frozenset[str] = _SESSION_FIELD_TYPES | TEXT_FIELD_KINDS
+# A required checkbox would only accept a tick, so it is never required: not by
+# the organiser's flag, and not by a category asking for it.
+UNREQUIRABLE_FIELD_TYPES: frozenset[str] = frozenset({"checkbox"})
 
 
 def is_session_field_type(value: str) -> TypeIs[SessionFieldType]:
@@ -90,6 +93,10 @@ class OrganizerFieldDTO(BaseModel):
     # validate against one option list and offer another.
 
     @property
+    def can_be_required(self) -> bool:
+        return self.field_type not in UNREQUIRABLE_FIELD_TYPES
+
+    @property
     def offers_custom_input(self) -> bool:
         # A checkbox has nothing to customise; every other type with
         # allow_custom gets the companion write-in.
@@ -116,7 +123,7 @@ class OrganizerFieldDTO(BaseModel):
     def control_required(self, *, is_required: bool) -> bool:
         # A write-in can stand in for a choice, so the control alone can no
         # longer enforce the requirement — the form checks the pair instead.
-        return is_required and not self.offers_custom_input
+        return is_required and self.can_be_required and not self.offers_custom_input
 
 
 @dataclass(frozen=True, slots=True)

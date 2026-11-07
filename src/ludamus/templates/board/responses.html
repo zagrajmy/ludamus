@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n tessera %}
+{% load empty_state_tags %}
 {% block title %}
     {% blocktranslate with title=listing.title %}Responses to {{ title }}{% endblocktranslate %}
 {% endblock title %}
@@ -59,17 +60,16 @@
                 {% endfor %}
             </ul>
         {% else %}
-            <div class="mt-4 rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
-                {% icon "inbox" class="w-8 h-8 mx-auto text-foreground-muted" %}
+            <div class="mt-4">
                 {% if active_tab == "waiting" %}
-                    <p class="mt-3 font-medium text-foreground-primary">{% translate "Nobody is waiting for an answer" %}</p>
-                    <p class="mt-1 text-sm text-foreground-secondary">
-                        {% translate "People who click “I'm interested” on your listing show up here." %}
-                    </p>
+                    {% translate "Nobody is waiting for an answer" as t_empty_title %}
+                    {% translate "People who click “I'm interested” on your listing show up here." as t_empty_text %}
                 {% else %}
-                    <p class="mt-3 font-medium text-foreground-primary">{% translate "You haven't turned anyone down" %}</p>
+                    {% translate "You haven't turned anyone down" as t_empty_title %}
                 {% endif %}
-            </div>
-        {% endif %}
+        {% empty_state icon="inbox" title=t_empty_title text=t_empty_text|default:"" framed=True %}
+        {% end_empty_state %}
     </div>
+{% endif %}
+</div>
 {% endblock body %}

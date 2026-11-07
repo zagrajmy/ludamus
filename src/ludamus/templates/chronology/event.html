@@ -5,6 +5,7 @@
 {% load date_tags %}
 {% load django_vite %}
 {% load markdown_tags %}
+{% load schedule_tags %}
 {% load meta_tags %}
 {% block title %}
     {{ event.name }}
@@ -347,13 +348,14 @@
                                     <div class="flex flex-col gap-1.5">
                                         <label class="{{ label_class }}"
                                                for="status-filter">{% translate "Status" %}</label>
+                                        {% availability_terms as availability %}
                                         {% select id="status-filter" class=select_class %}
                                             <option value="">{% translate "All statuses" %}</option>
-                                            <option value="available">{% translate "Available spots" %}</option>
-                                            <option value="full">{% translate "Full" %}</option>
-                                            <option value="in-progress">{% translate "In progress" %}</option>
-                                            <option value="unavailable">{% translate "Enrollment unavailable" %}</option>
-                                            <option value="ended">{% translate "Ended" %}</option>
+                                            <option value="{{ availability.AVAILABLE }}">{% translate "Available spots" %}</option>
+                                            <option value="{{ availability.FULL }}">{% translate "Full" %}</option>
+                                            <option value="{{ availability.IN_PROGRESS }}">{% translate "In progress" %}</option>
+                                            <option value="{{ availability.UNAVAILABLE }}">{% translate "Enrollment unavailable" %}</option>
+                                            <option value="{{ availability.ENDED }}">{% translate "Ended" %}</option>
                                             <option value="my-enrolled">{% translate "I am enrolled" %}</option>
                                             <option value="my-waiting">{% translate "I am waiting" %}</option>
                                             {# Bookmark toggles exist only on the compact layouts, so the #}
@@ -589,6 +591,8 @@
     {# Unconditional: the view tabs swap the rooms grid in without a page #}
     {# load, and a module the response never carries cannot wire it. #}
     {% vite_asset 'src/room-lanes.ts' %}
+    {% availability_terms as availability %}
+    {{ availability|json_script:"session-availability" }}
     {% vite_asset 'src/schedule-now.ts' %}
     {# After room-lanes.ts: auto-folding dispatches schedule:filtered, which #}
     {# the rooms grid must already be listening for. #}

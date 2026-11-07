@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n tessera vite_tags %}
+{% load empty_state_tags %}
 {% block title %}
     {% translate "Board" %}
 {% endblock title %}
@@ -64,26 +65,20 @@
                     </ul>
                     {% include "components/_pagination.html" %}
                 {% elif is_filtered %}
-                    <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
-                        {% icon "magnifying-glass" class="w-8 h-8 mx-auto text-foreground-muted" %}
-                        <p class="mt-3 font-medium text-foreground-primary">{% translate "No listings match these filters" %}</p>
-                        <div class="mt-4">
-                            {% url 'web:board:index' as board_url %}
-                            {% translate "Clear filters" as t_clear_filters %}
-                            {% tessera_button text=t_clear_filters href=board_url variant="secondary" %}
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
-                        {% icon "megaphone" class="w-8 h-8 mx-auto text-foreground-muted" %}
-                        <p class="mt-3 font-medium text-foreground-primary">{% translate "No listings yet" %}</p>
-                        <p class="mt-1 text-sm text-foreground-secondary">
-                            {% translate "Looking for players or a GM? Add the first listing." %}
-                        </p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% vite_asset_once 'src/filter-autosubmit.ts' %}
+                    {% translate "No listings match these filters" as t_empty_title %}
+                {% empty_state icon="magnifying-glass" title=t_empty_title framed=True %}
+                    {% url 'web:board:index' as board_url %}
+                    {% translate "Clear filters" as t_clear_filters %}
+                    {% tessera_button text=t_clear_filters href=board_url variant="secondary" %}
+                {% end_empty_state %}
+{% else %}
+    {% translate "No listings yet" as t_empty_title %}
+    {% translate "Looking for players or a GM? Add the first listing." as t_empty_text %}
+{% empty_state icon="megaphone" title=t_empty_title text=t_empty_text framed=True %}
+{% end_empty_state %}
+{% endif %}
+</div>
+</div>
+</div>
+{% vite_asset_once 'src/filter-autosubmit.ts' %}
 {% endblock body %}

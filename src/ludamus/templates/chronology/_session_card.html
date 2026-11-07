@@ -109,6 +109,7 @@
                     {% endwith %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2 print:hidden">
+                    {% availability_terms as availability %}
                     {# No "awaiting review" pill: every card under the proposals #}
                     {# heading is awaiting review, and saying so per card is the #}
                     {# same word three times on one screen. This slot carries the #}
@@ -117,25 +118,25 @@
                     {% if data.is_unscheduled %}
                         {# Guarded because a limit of 0 means the proposal takes #}
                         {# no sign-up at all ("Empty or 0 = no enrollment") — #}
-                        {# there availability answers "no-enrollment" and matches #}
+                        {# there availability answers NO_ENROLLMENT and matches #}
                         {# no arm, while a proposal leaves the ladder first, so #}
                         {# only this arm can say it. "0 seats" would read as full. #}
                         {% if data.session.participants_limit %}
                             {% session_seat_count data extra_class="text-sm" %}
                         {% endif %}
-                    {% elif data.availability == "full" %}
+                    {% elif data.availability == availability.FULL %}
                         {% if data.waiting_count > 0 %}
                             <span class="text-sm font-medium text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>
                         {% endif %}
-                    {% elif data.availability == "available" %}
+                    {% elif data.availability == availability.AVAILABLE %}
                         <span class="text-sm font-semibold {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
                             {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
                         </span>
-                    {% elif data.availability == "ended" %}
+                    {% elif data.availability == availability.ENDED %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "Ended" %}</span>
-                    {% elif data.availability == "in-progress" %}
+                    {% elif data.availability == availability.IN_PROGRESS %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
-                    {% elif data.availability == "unavailable" %}
+                    {% elif data.availability == availability.UNAVAILABLE %}
                         {% session_seat_count data extra_class="text-sm" %}
                     {% endif %}
                 </div>
