@@ -9,11 +9,11 @@ ids, which only Stripe's signed payload names.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Count, Max, Q, Sum
 from django.db.models.functions import Coalesce, Now
@@ -22,6 +22,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
+from ludamus.links.db.django.delivery import compose_mail, send
 from ludamus.links.db.django.models import (
     Event,
     PayoutAccount,
@@ -29,6 +30,12 @@ from ludamus.links.db.django.models import (
     TicketOrder,
     TicketOrderLine,
     TicketType,
+)
+from ludamus.links.db.django.recipients import (
+    Recipient,
+    Voice,
+    address_languages,
+    speaking_to,
 )
 from ludamus.pacts.tickets import (
     CHECKOUT_STATUSES,
@@ -53,10 +60,12 @@ from ludamus.pacts.tickets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from datetime import datetime
 
     from django.db.models import QuerySet
 
+    from ludamus.links.db.django.delivery import Mail
     from ludamus.pacts.payment_api import AccountState
     from ludamus.pacts.tickets import (
         ClaimConfirmationMail,
@@ -468,22 +477,28 @@ def _order_url(event: OrderMailEvent, *, name: str, **kwargs: str) -> str:
     )
 
 
-def _send_now(*, subject: str, body: str, to: str) -> None:
-    try:
-        EmailMessage(subject=subject, body=body, to=[to]).send()
-    # NOTE: SMTPException is an OSError; a header Django refuses, a ValueError.
-    except (OSError, ValueError) as error:
-        raise OrderMailError from error
+def _voice(address: str) -> Voice:
+    return Voice(address_languages([address])[address], address=address)
 
 
-def _send_after_commit(*, order_pk: int, subject: str, body: str, to: str) -> None:
+@contextmanager
+def _reader(mail: OrderLinkMail) -> Generator[Voice | Recipient]:
+    # NOTE: an account is mailed at its proven address, not the one typed
+    # into Checkout; only a guest's order goes to the address it was bought with.
+    if mail.buyer_id is None:
+        with _voice(mail.email) as voice:
+            yield voice
+    else:
+        with speaking_to(mail.buyer_id) as recipient:
+            yield recipient
+
+
+def _send_after_commit(message: Mail, *, order_pk: int) -> None:
     def _send() -> None:
-        try:
-            _send_now(subject=subject, body=body, to=to)
-        except OrderMailError:
-            logger.exception("Ticket order mail failed: order=%s", order_pk)
-            return
-        logger.info("Ticket order mail sent: order=%s", order_pk)
+        if send(message):
+            logger.info("Ticket order mail sent: order=%s", order_pk)
+        else:
+            logger.error("Ticket order mail failed: order=%s", order_pk)
 
     # SAFETY: after commit, so a rolled-back webhook never mails a page that
     # still says pending; a failed mail is logged, never raised into the
@@ -497,31 +512,44 @@ class DjangoTicketMailer(TicketMailerProtocol):
         url = _order_url(
             mail.event, name="web:event:event-ticket-order", reference=mail.reference
         )
-        lines = [
-            (
-                _("Thank you for your order. Your tickets and their QR codes are here:")
-                if mail.paid
-                else _(
-                    "Thank you for your order. Your tickets appear on this page as"
-                    " soon as the payment reaches us:"
+        with _reader(mail) as reader:
+            if isinstance(reader, Recipient) and not reader.can_mail:
+                logger.info(
+                    "Ticket order mail skipped, no proven address: order=%s",
+                    mail.order_pk,
                 )
-            ),
-            url,
-        ]
-        if mail.is_guest:
-            lines += [
-                _("Anyone with this link can see the tickets, so keep it to yourself."),
-                _(
-                    "To keep them in your Zagrajmy account, open the link and sign"
-                    " in or create an account there."
+                return
+            lines = [
+                (
+                    _(
+                        "Thank you for your order. Your tickets and their QR codes"
+                        " are here:"
+                    )
+                    if mail.paid
+                    else _(
+                        "Thank you for your order. Your tickets appear on this page"
+                        " as soon as the payment reaches us:"
+                    )
                 ),
+                url,
             ]
-        _send_after_commit(
-            order_pk=mail.order_pk,
-            subject=_("Your tickets for %(event)s") % {"event": mail.event.name},
-            body="\n\n".join(lines),
-            to=mail.email,
-        )
+            if mail.buyer_id is None:
+                lines += [
+                    _(
+                        "Anyone with this link can see the tickets, so keep it to"
+                        " yourself."
+                    ),
+                    _(
+                        "To keep them in your Zagrajmy account, open the link and"
+                        " sign in or create an account there."
+                    ),
+                ]
+            message = compose_mail(
+                reader,
+                subject=_("Your tickets for %(event)s") % {"event": mail.event.name},
+                body="\n\n".join(lines),
+            )
+        _send_after_commit(message, order_pk=mail.order_pk)
 
     @staticmethod
     def send_claim_confirmation(mail: ClaimConfirmationMail) -> None:
@@ -532,25 +560,28 @@ class DjangoTicketMailer(TicketMailerProtocol):
             token=mail.token,
         )
         hours = ORDER_CLAIM_LINK_MAX_AGE // timedelta(hours=1)
-        lines = [
-            _(
-                "Someone signed in to Zagrajmy wants to add your tickets for"
-                " %(event)s to their account."
+        with _voice(mail.email) as voice:
+            lines = [
+                _(
+                    "Someone signed in to Zagrajmy wants to add your tickets for"
+                    " %(event)s to their account."
+                )
+                % {"event": mail.event.name},
+                ngettext(
+                    "If that was you, confirm it here within %(hours)d hour:",
+                    "If that was you, confirm it here within %(hours)d hours:",
+                    hours,
+                )
+                % {"hours": hours},
+                url,
+                _("If it wasn't, ignore this email. Your tickets stay as they are."),
+            ]
+            message = compose_mail(
+                voice,
+                subject=_("Add your tickets for %(event)s to an account?") % {
+                    "event": mail.event.name
+                },
+                body="\n\n".join(lines),
             )
-            % {"event": mail.event.name},
-            ngettext(
-                "If that was you, confirm it here within %(hours)d hour:",
-                "If that was you, confirm it here within %(hours)d hours:",
-                hours,
-            )
-            % {"hours": hours},
-            url,
-            _("If it wasn't, ignore this email. Your tickets stay as they are."),
-        ]
-        _send_now(
-            subject=_("Add your tickets for %(event)s to an account?") % {
-                "event": mail.event.name
-            },
-            body="\n\n".join(lines),
-            to=mail.email,
-        )
+        if not send(message):
+            raise OrderMailError

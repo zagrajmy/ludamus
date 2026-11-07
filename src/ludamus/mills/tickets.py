@@ -689,7 +689,7 @@ class TicketSalesService(TicketSalesServiceProtocol):
                 event=_mail_event(order),
                 reference=order.reference,
                 paid=paid,
-                is_guest=order.is_guest,
+                buyer_id=order.buyer_id,
             )
         )
 

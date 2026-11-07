@@ -12,7 +12,6 @@ shown or claimed.
 
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from smtplib import SMTPServerDisconnected
 from urllib.parse import urlencode, urlparse
 
 import pytest
@@ -542,7 +541,8 @@ class TestEventTicketOrderClaimActionView:
         send = EmailMessage.send
 
         def refused(_message, *_args, **_kwargs):
-            raise SMTPServerDisconnected
+            # NOTE: delivery sends fail_silently, so a refusal reads as none sent.
+            return 0
 
         monkeypatch.setattr(EmailMessage, "send", refused)
         refused_response = authenticated_client.post(url)

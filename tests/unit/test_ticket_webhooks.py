@@ -339,7 +339,7 @@ class TestWebhook:
 
 class TestOrderMail:
     @staticmethod
-    def _mail(book, order, *, email=GUEST_EMAIL, paid=True, is_guest=True):
+    def _mail(book, order, *, email=GUEST_EMAIL, paid=True, buyer_id=None):
         return OrderLinkMail(
             order_pk=order.pk,
             email=email,
@@ -348,7 +348,7 @@ class TestOrderMail:
             ),
             reference=order.reference,
             paid=paid,
-            is_guest=is_guest,
+            buyer_id=buyer_id,
         )
 
     def test_paid_guest_order_keeps_the_email_and_is_mailed_once(
@@ -414,7 +414,7 @@ class TestOrderMail:
         deliver(sales, payments, checkout_event(CheckoutStage.COMPLETED, email=typed))
 
         assert book.orders[order.pk].email == kept
-        assert mailer.sent == [self._mail(book, order, email=kept, is_guest=False)]
+        assert mailer.sent == [self._mail(book, order, email=kept, buyer_id=BUYER_ID)]
 
     def test_order_without_any_email_is_paid_and_not_mailed(
         self, sales, book, types, orders, payments, mailer, caplog

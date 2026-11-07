@@ -13,7 +13,6 @@ checkout is taken for a ticket order.
 import logging
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from smtplib import SMTPException
 from urllib.parse import parse_qs
 
 import pytest
@@ -320,6 +319,73 @@ class TestOrderMail:
             )
         ]
 
+    @pytest.mark.parametrize(
+        ("language", "subject"),
+        (
+            pytest.param("", "Your tickets for {event}", id="site-default"),
+            pytest.param("pl", "Twoje bilety na {event}", id="account-language"),
+        ),
+    )
+    def test_account_buyer_is_mailed_at_their_proven_address_in_their_language(
+        self,
+        client,
+        event,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+        language,
+        subject,
+    ):
+        active_user.email_verified = True
+        active_user.language = language
+        active_user.save()
+        connected_account(event.sphere)
+        placed = order(event, buyer=active_user, lines=[(ticket_type(event), 1)])
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("typed@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert [(mail.to, mail.subject) for mail in mailoutbox] == [
+            ([active_user.email], subject.format(event=placed.event.name))
+        ]
+
+    def test_account_without_a_proven_address_is_not_mailed(
+        self,
+        client,
+        event,
+        active_user,
+        mailoutbox,
+        caplog,
+        django_capture_on_commit_callbacks,
+    ):
+        active_user.email_verified = False
+        active_user.save()
+        connected_account(event.sphere)
+        placed = order(event, buyer=active_user, lines=[(ticket_type(event), 1)])
+
+        with (
+            caplog.at_level(logging.INFO, logger="ludamus.links.db.django.tickets"),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            response = _connect(
+                client,
+                "checkout.session.completed",
+                _checkout(**_buyer("typed@example.com")),
+            )
+
+        assert_response(response, HTTPStatus.OK, json={"outcome": "paid"})
+        assert not mailoutbox
+        assert [
+            record.getMessage()
+            for record in caplog.records
+            if record.getMessage().startswith("Ticket order mail")
+        ] == [f"Ticket order mail skipped, no proven address: order={placed.pk}"]
+
     def test_redelivery_mails_nothing_more(
         self, client, guest_order, mailoutbox, django_capture_on_commit_callbacks
     ):
@@ -436,7 +502,8 @@ class TestOrderMail:
         django_capture_on_commit_callbacks,
     ):
         def _refuse(*_args, **_kwargs):
-            raise SMTPException
+            # NOTE: delivery sends fail_silently, so a refusal reads as none sent.
+            return 0
 
         monkeypatch.setattr(EmailMessage, "send", _refuse)
 

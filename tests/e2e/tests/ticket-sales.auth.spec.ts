@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+import { mailHeaders } from "./helpers/mail";
 
 // bootstrap_data.py: ticket-fair sells four ticket types on a connected Stripe
 // account; the tester holds a paid order and one still in Checkout.
@@ -121,8 +122,10 @@ test.describe("Ticket sales", () => {
 
       let confirmPath = "";
       await expect(async () => {
-        const mail = readMailSince(mailBefore).find((body) =>
-          body.includes("Add your tickets for Ticket Fair to an account?"),
+        // NOTE: found by recipient, not subject: an address with no account
+        // is mailed in the site's language.
+        const mail = readMailSince(mailBefore).find((raw) =>
+          mailHeaders(raw).to?.includes("guest@test.local"),
         );
         confirmPath =
           mail?.match(

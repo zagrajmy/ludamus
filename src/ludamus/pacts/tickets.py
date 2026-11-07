@@ -510,8 +510,9 @@ class OrderLinkMail(BaseModel):
     reference: str
     # Paid: the tickets are on the page; else the money is still on its way.
     paid: bool
-    # No account holds the order: the mail says how to keep it in one.
-    is_guest: bool
+    # None: no account holds the order, so the mail says how to keep it in
+    # one, and it is written in the address's language, not an account's.
+    buyer_id: int | None
 
 
 class ClaimConfirmationMail(BaseModel):
