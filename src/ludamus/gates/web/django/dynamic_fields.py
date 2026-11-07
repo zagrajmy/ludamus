@@ -72,9 +72,8 @@ def build_field(
             )
 
     elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
         fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
+            label=label, help_text=help_text, required=control_required
         )
     else:
         fields[field_key] = forms.CharField(
