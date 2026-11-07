@@ -16,14 +16,18 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
-from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
+from ludamus.pacts.event import (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+)
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 from ludamus.pacts.legacy import EventUpdateData, EventVisibility, NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.pacts.event_settings import ProposalSettingsUpdateData
     from ludamus.pacts.legacy import EventDTO
 
 
@@ -150,7 +154,7 @@ class EventSettingsPageView(EventPanelMixin, View):
                 slug=slug,
                 data=_event_update_data(cd, new_slug),
             )
-        except EventSlugTakenError:
+        except EventSlugConflictError:
             form.add_error("slug", _("An event with this slug already exists."))
             return self._render_with_form(context=context, slug=slug, form=form)
         except EventDatesInvalidError:
