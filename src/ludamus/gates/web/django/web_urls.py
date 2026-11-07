@@ -15,6 +15,7 @@ from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
 from ludamus.gates.web.django.event.ics import EventICSView
+from ludamus.gates.web.django.event.page import EventPageView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.landing import (
@@ -36,7 +37,7 @@ crowd_urls: list[URLPattern | URLResolver] = [*crowd_gate_urls]
 
 chronology_urls = [
     *chronology_gate_urls,
-    path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
+    path("event/<str:slug>/", EventPageView.as_view(), name="event"),
     path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
     path("event/<str:slug>/calendar.ics", EventICSView.as_view(), name="event-ics"),
     path("event/<str:slug>/maps/", maps.EventMapsPageView.as_view(), name="event-maps"),

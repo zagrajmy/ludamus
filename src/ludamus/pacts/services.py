@@ -52,6 +52,7 @@ if TYPE_CHECKING:
         LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
@@ -150,6 +151,8 @@ class ServicesProtocol(Protocol):
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
     @property
     def session_modal(self) -> SessionModalServiceProtocol: ...
+    @property
+    def event_schedule(self) -> EventScheduleServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
