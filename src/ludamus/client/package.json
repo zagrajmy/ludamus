@@ -15,7 +15,7 @@
   "author": "",
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "@hasparus/oxlint-config": "^0.1.1",
+    "@hasparus/oxlint-config": "^0.3.0",
     "@hasparus/tailwind": "1.1.8",
     "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
