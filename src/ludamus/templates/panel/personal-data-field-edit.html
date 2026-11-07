@@ -135,7 +135,7 @@
                                        class="rounded border-border text-primary focus:ring-primary">
                                 <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                             </label>
-                            {% if field.field_type != "checkbox" %}
+                            {% if field.can_be_required %}
                                 <div>
                                     <label class="flex items-center">
                                         <input type="checkbox"
