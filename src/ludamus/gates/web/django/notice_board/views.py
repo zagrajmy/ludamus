@@ -281,7 +281,8 @@ class EncounterDeleteActionView(_EncounterGate, LoginRequiredMixin, View):
 class EncounterDetailPageView(_EncounterGate, View):
     request: RootRequest
 
-    def get(self, request: RootRequest, share_code: str) -> TemplateResponse:
+    @staticmethod
+    def get(request: RootRequest, share_code: str) -> TemplateResponse:
         share_url = request.build_absolute_uri(
             reverse(
                 "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
@@ -303,12 +304,8 @@ class EncounterDetailPageView(_EncounterGate, View):
         description_html = render_markdown(raw_description) if raw_description else ""
         meta_description = encounter_description(result.encounter, description_html)
 
-        gravatar = self.request.di.gravatar_url
-        creator = UserInfo.from_user_dto(result.creator, gravatar_url=gravatar)
-        attendees = [
-            UserInfo.from_user_dto(attendee, gravatar_url=gravatar)
-            for attendee in result.attendees
-        ]
+        creator = UserInfo.from_user_dto(result.creator)
+        attendees = [UserInfo.from_user_dto(attendee) for attendee in result.attendees]
 
         return TemplateResponse(
             request,

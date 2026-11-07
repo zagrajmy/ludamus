@@ -29,7 +29,7 @@ from ludamus.gates.web.django.meta import LinkPreview, markdown_summary
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import event_dto, location_data
 from ludamus.pacts.chronology import PROGRAMME_DAYS
-from ludamus.pacts.crowd import UserDTO, gravatar_url
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.legacy import (
     NO_LOCATION,
@@ -79,9 +79,7 @@ def session_card(agenda_item, *, presenter, **overrides):
         is_enrollment_available=False,
         is_full=False,
         is_ongoing=False,
-        presenter=UserInfo.from_user_dto(
-            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
-        ),
+        presenter=UserInfo.from_user_dto(UserDTO.model_validate(presenter)),
         session_participations=[],
         session=SessionDTO.model_validate(session),
         should_show_as_inactive=False,
@@ -108,9 +106,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         is_full=False,
         loc=NO_LOCATION,
         preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
-        presenter=UserInfo.from_user_dto(
-            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
-        ),
+        presenter=UserInfo.from_user_dto(UserDTO.model_validate(presenter)),
         session=SessionDTO.model_validate(session),
         session_participations=[],
     )

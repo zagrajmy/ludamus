@@ -405,15 +405,12 @@ class EventPageView(TemplateView):
     ) -> dict[int, SessionData]:
         edit_allowed = self._edit_allowed()
         current_user_id = self.request.context.current_user_id
-        gravatar_url = self.request.di.gravatar_url
 
         sessions_data = {}
         for card in cards:
             session = card.session
             if card.presenter is not None:
-                presenter = UserInfo.from_user_dto(
-                    card.presenter, gravatar_url=gravatar_url
-                )
+                presenter = UserInfo.from_user_dto(card.presenter)
             else:
                 presenter_name = session.facilitator_name or ""
                 presenter = UserInfo(
@@ -455,9 +452,7 @@ class EventPageView(TemplateView):
                 waiting_count=card.waiting_count,
                 session_participations=[
                     ParticipationInfo(
-                        user=UserInfo.from_user_dto(
-                            seat.user, gravatar_url=gravatar_url
-                        ),
+                        user=UserInfo.from_user_dto(seat.user),
                         status=seat.status,
                         creation_time=seat.creation_time,
                         is_shadowbanned=seat.user.pk in shadowbanned_ids,
