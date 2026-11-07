@@ -503,6 +503,14 @@ class EventDTO(BaseModel):
         )
 
     @property
+    def is_live(self) -> bool:
+        return self.start_time < datetime.now(tz=UTC) < self.end_time
+
+    @property
+    def is_ended(self) -> bool:
+        return self.end_time < datetime.now(tz=UTC)
+
+    @property
     def is_published(self) -> bool:
         return (
             self.publication_time is not None
@@ -514,17 +522,21 @@ class EventDTO(BaseModel):
         """Whether anyone with the link may open the event's pages."""
         return self.is_published or self.visibility is EventVisibility.UNLISTED
 
+    @property
+    def is_proposal_window_open(self) -> bool:
+        """Whether the call for proposals' own dates have come, open or not."""
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
+
     # Proposals only open on an event with a public page — without one there
     # is nowhere to send a facilitator.
     @property
     def is_proposal_active(self) -> bool:
-        current_time = datetime.now(tz=UTC)
-        return bool(
-            self.is_open
-            and self.proposal_start_time is not None
-            and self.proposal_end_time is not None
-            and self.proposal_start_time <= current_time <= self.proposal_end_time
-        )
+        return self.is_open and self.is_proposal_window_open
 
 
 class EventListItemDTO(BaseModel):

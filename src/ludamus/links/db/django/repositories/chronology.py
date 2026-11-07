@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from django.db import IntegrityError
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
@@ -65,7 +65,12 @@ from ludamus.pacts.services import DatabaseConstraintError
 if TYPE_CHECKING:
     from collections.abc import Collection, Sequence
 
+    from django_stubs_ext import WithAnnotations
+
     from ludamus.pacts.event import EventCreateData
+
+    class _SessionCount(TypedDict):
+        session_count: int
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -73,6 +78,26 @@ def event_dto(event: Event) -> EventDTO:
     description = settings.description if settings is not None else ""
     dto = EventDTO.model_validate(event)
     return dto.model_copy(update={"proposal_description": description})
+
+
+def _list_item(event: WithAnnotations[Event, _SessionCount]) -> EventListItemDTO:
+    # The status flags are EventDTO's: one answer to "is it live", "is it
+    # published", "are proposals open" for every page that asks.
+    status = EventDTO.model_validate(event)
+    return EventListItemDTO(
+        cover_image_url=event.cover_image_url,
+        description=event.description,
+        end_time=event.end_time,
+        is_ended=status.is_ended,
+        is_live=status.is_live,
+        is_proposal_active=status.is_proposal_active,
+        is_published=status.is_published,
+        name=event.name,
+        session_count=event.session_count,
+        slug=event.slug,
+        start_time=event.start_time,
+        visibility=status.visibility,
+    )
 
 
 class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
@@ -260,10 +285,7 @@ class EventRepository(EventRepositoryProtocol):
         )
         if not include_hidden:
             events = events.filter(listed_events(now=datetime.now(tz=UTC)))
-        return [
-            EventListItemDTO.model_validate(event)
-            for event in events.order_by("start_time")
-        ]
+        return [_list_item(event) for event in events.order_by("start_time")]
 
     @staticmethod
     def read(pk: int) -> EventDTO:
