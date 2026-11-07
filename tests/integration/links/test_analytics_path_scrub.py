@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 NODE = shutil.which("node") or "node"
-# SlugField() defaults to this, and mills.slugs caps the base at 45 + "-XXXX".
+# SlugField() defaults to this, and pacts.slugs caps the base at 45 + "-XXXX".
 SLUG_MAX_LENGTH = 50
 # models.Party.invite_token: a bare token_urlsafe is 32 bytes.
 PARTY_TOKEN_LENGTH = 43

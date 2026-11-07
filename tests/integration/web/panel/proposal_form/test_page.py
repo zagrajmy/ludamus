@@ -149,6 +149,33 @@ class TestCreate:
         new_session = assert_created(response, event, title="My New Session")
         assert new_session.slug != "my-new-session"
 
+    def test_post_transliterates_a_polish_title_into_the_slug(
+        self, panel_client, event
+    ):
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = panel_client.post(
+            form_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Łódzkie Łowy",
+                "facilitator_name": "Test Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
+            },
+        )
+
+        new_session = assert_created(response, event, title="Łódzkie Łowy")
+        assert new_session.slug == "lodzkie-lowy"
+
     def test_post_creates_session_with_cover_image(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
