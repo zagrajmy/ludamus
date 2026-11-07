@@ -336,7 +336,11 @@ class Services:
 
     @cached_property
     def space_tree(self) -> SpaceTreeService:
-        return SpaceTreeService(self._transaction, self._repos.space_tree)
+        return SpaceTreeService(
+            transaction=self._transaction,
+            spaces=self._repos.space_tree,
+            events=self._repos.events,
+        )
 
     @cached_property
     def event_maps(self) -> EventMapsService:
