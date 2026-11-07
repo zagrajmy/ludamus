@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.chronology.enrollment_presentation import EnrollmentChoice
 from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import EnrollmentServiceProtocol
 
 
-TODAY = datetime.now(tz=UTC).date()
 logger = logging.getLogger(__name__)
 
 
@@ -96,17 +95,19 @@ def _build_user_choices(
 
     match current_participation and current_participation.status:
         case SessionParticipationStatus.CONFIRMED:
-            choices.append(("cancel", _("Cancel enrollment")))
+            choices.append((EnrollmentChoice.CANCEL, _("Cancel enrollment")))
             if can_join_wl:
-                choices.append(("waitlist", _("Move to waiting list")))
+                choices.append((EnrollmentChoice.WAITLIST, _("Move to waiting list")))
         case SessionParticipationStatus.WAITING:
-            choices.append(("cancel", _("Cancel enrollment")))
+            choices.append((EnrollmentChoice.CANCEL, _("Cancel enrollment")))
             if user_can_enroll:
-                choices.append(("enroll", _("Enroll (if spots available)")))
+                choices.append(
+                    (EnrollmentChoice.ENROLL, _("Enroll (if spots available)"))
+                )
         case SessionParticipationStatus.OFFERED:
             # The seat is held for this user; claiming happens via the offer
             # link. Here they may only decline it (which frees the held seat).
-            choices.append(("cancel", _("Decline offer")))
+            choices.append((EnrollmentChoice.CANCEL, _("Decline offer")))
         case _:
             choices, help_text = _build_default_choices(
                 user_can_enroll=user_can_enroll,
@@ -123,14 +124,14 @@ def _build_default_choices(
     if has_conflict:
         choices: list[tuple[str, str]] = [("", _("No change (time conflict)"))]
         if can_join_wl:
-            choices.append(("waitlist", _("Join waiting list")))
+            choices.append((EnrollmentChoice.WAITLIST, _("Join waiting list")))
         return choices, _("Time conflict detected")
 
     choices = [("", _("No change"))]
     if user_can_enroll:
-        choices.append(("enroll", _("Enroll")))
+        choices.append((EnrollmentChoice.ENROLL, _("Enroll")))
     if can_join_wl:
-        choices.append(("waitlist", _("Join waiting list")))
+        choices.append((EnrollmentChoice.WAITLIST, _("Join waiting list")))
     return choices, ""
 
 
@@ -199,9 +200,9 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
         super().validate(value)
 
     def _validate_rejected_value(self, value: str, user_name: str) -> None:
-        if value == "enroll":
+        if value == EnrollmentChoice.ENROLL:
             self._raise_enroll_error(user_name)
-        elif value != "waitlist":
+        elif value != EnrollmentChoice.WAITLIST:
             raise ValidationError(
                 _("Invalid choice for %(user)s: %(value)s") % {
                     "user": user_name,
@@ -247,7 +248,7 @@ def _make_enrollment_clean(
             return False
         # Explicit "enroll" (inline fragment / legacy) always counts; a checkbox
         # "include" only counts when it newly seats someone not already in.
-        if value == "enroll":
+        if value == EnrollmentChoice.ENROLL:
             return True
         return (
             value == INCLUDE_VALUE
@@ -308,7 +309,10 @@ def _build_held_seat_choices(
     if current_participation is not None:
         if current_participation.status == SessionParticipationStatus.OFFERED:
             return (
-                [("", _("No change")), ("cancel", _("Withdraw held seat"))],
+                [
+                    ("", _("No change")),
+                    (EnrollmentChoice.CANCEL, _("Withdraw held seat")),
+                ],
                 _("Withdrawing releases the seat before they claim it"),
             )
         return [("", _("No change"))], _("They manage their own enrollment")
@@ -319,7 +323,10 @@ def _build_held_seat_choices(
     if not member_can_enroll:
         return _member_no_access_choices()
     return (
-        [("", _("No change")), ("enroll", _("Hold a seat — needs their approval"))],
+        [
+            ("", _("No change")),
+            (EnrollmentChoice.ENROLL, _("Hold a seat — needs their approval")),
+        ],
         _("The seat is released if they do not claim it in time"),
     )
 

@@ -35,7 +35,7 @@ description — run it rather than trusting a hardcoded list here. Most used:
   edit a migration already on `main`.
 - `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
   flags.
-- Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
+- Use the `src/ludamus/gates/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
   `extra_class` for page layout only. No utility copy-paste into CSS.

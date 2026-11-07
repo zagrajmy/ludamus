@@ -10,7 +10,7 @@ from ludamus.gates.web.django.entities import UserInfo
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
+    from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.legacy import SiteDTO, SphereDTO
     from ludamus.pacts.notifications import NavbarNotificationsDTO
@@ -24,7 +24,7 @@ class SitesContextData(TypedDict):
     has_panel_access: bool
 
 
-def sites(request: RootRepositoryRequest) -> SitesContextData:
+def sites(request: RootRequest) -> SitesContextData:
     # Context processor may run during error handling before middleware completes
     if not hasattr(request, "context") or not hasattr(
         request, "di"
@@ -77,7 +77,7 @@ class CurrentUserContextData(TypedDict):
     navbar_notifications: NotRequired[NavbarNotificationsDTO]
 
 
-def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
+def current_user(request: RootRequest) -> CurrentUserContextData:
     # Context processor may run during error handling before middleware completes
     if (
         not hasattr(request, "context")

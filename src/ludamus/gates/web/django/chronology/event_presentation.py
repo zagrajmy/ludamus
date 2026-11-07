@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import (
         PartyEventHistoryDTO,
         PartySessionHistoryDTO,
+        SessionCardStatsDTO,
         SessionModalDTO,
     )
     from ludamus.pacts.crowd import UserDTO
@@ -430,6 +431,20 @@ def fake_full_card(session_data: SessionData) -> SessionData:
         user_waiting=False,
         session_participations=_simulacra_participations(min(3, fill)),
         pretend_full=True,
+    )
+
+
+def fake_full_seats(seats: SessionCardStatsDTO) -> SessionCardStatsDTO:
+    # The enroll page's side of fake_full_card: every seat taken, nobody
+    # waiting, and a limit of 0 filled the same way.
+    fill = seats.effective_participants_limit or _SIMULACRA_FILL
+    return seats.model_copy(
+        update={
+            "participants_limit": fill,
+            "seating_percentage": None,
+            "enrolled_count": fill,
+            "waiting_count": 0,
+        }
     )
 
 
