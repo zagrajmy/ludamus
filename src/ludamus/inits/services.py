@@ -62,6 +62,7 @@ from ludamus.mills.event import (
     EventPanelService,
     EventsService,
     LandingService,
+    PanelTimeSlotsService,
 )
 from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
@@ -84,7 +85,6 @@ from ludamus.mills.notifications import (
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
