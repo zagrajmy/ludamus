@@ -21,7 +21,7 @@ from ludamus.pacts.enrollment import (
     AnonymousEnrollmentWindowSnapshot,
     AnonymousSessionContextDTO,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES, NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
 
@@ -62,8 +62,12 @@ def _expected_session_dto(agenda_item, enrollment_config) -> AnonymousSessionCon
         facilitator_name=session.facilitator_name,
         description=session.description,
         min_age=session.min_age,
-        enrolled_count=session.enrolled_count,
-        waiting_count=session.waiting_count,
+        enrolled_count=SessionParticipation.objects.filter(
+            session=session, status__in=OCCUPYING_PARTICIPATION_STATUSES
+        ).count(),
+        waiting_count=SessionParticipation.objects.filter(
+            session=session, status=SessionParticipationStatus.WAITING
+        ).count(),
         effective_participants_limit=participants_limit,
         space_name=agenda_item.space.name,
         start_time=agenda_item.start_time,

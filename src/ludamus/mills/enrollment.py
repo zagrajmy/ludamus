@@ -29,6 +29,8 @@ from ludamus.pacts.enrollment import (
     PromotionNotification,
     PromotionResult,
     distinct_recipients,
+    email_domain,
+    open_windows,
 )
 from ludamus.pacts.legacy import (
     MembershipAPIError,
@@ -48,7 +50,6 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
-        EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
         EnrollmentWindowDTO,
@@ -167,7 +168,7 @@ class WaitlistPromotionService:
                 logger.info(
                     "Session %s promotes nobody: %s seats free, %s waiting, mode %s",
                     session_id,
-                    state.available_seats,
+                    state.seats.seats_left,
                     len(state.waiting),
                     state.promotion_mode.value,
                 )
@@ -521,17 +522,15 @@ def window_slots(
         enrollment_config_repo=enrollment_config_repo,
     )
     user_config = api_user_config or existing_user_config
-    email_domain = user_email.split("@")[1] if "@" in user_email else ""
+    domain = email_domain(user_email)
     domain_config = (
-        enrollment_config_repo.read_domain_config(window, email_domain)
-        if email_domain
-        else None
+        enrollment_config_repo.read_domain_config(window, domain) if domain else None
     )
     domain_slots = domain_config.allowed_slots_per_user if domain_config else 0
     return VirtualEnrollmentConfig(
         user_slots=user_config.allowed_slots if user_config else 0,
         domain_slots=domain_slots,
-        domain=email_domain if domain_slots else "",
+        domain=domain if domain_slots else "",
     )
 
 
@@ -588,63 +587,12 @@ def get_user_enrollment_config(
     Returns:
         The allowance the enroll paths spend, or None when there is none.
     """
-    now = datetime.now(tz=UTC)
     return sum_window_slots(
         event=event,
-        windows=enrollment_config_repo.read_list(
-            event.pk, max_start_time=now, min_end_time=now
-        ),
+        windows=open_windows(enrollment_config_repo.read_list(event.pk), now=_now()),
         user_email=user_email,
         enrollment_config_repo=enrollment_config_repo,
         ticket_api_resolver=ticket_api_resolver,
-    )
-
-
-def get_used_slots(
-    *,
-    users: list[UserDTO],
-    event: EventDTO,
-    participations: EnrollmentParticipationRepositoryProtocol,
-) -> int:
-    # Count unique users who hold at least one seat (confirmed or offered)
-    return len(
-        participations.occupying_user_ids(
-            user_ids=[u.pk for u in users], event_id=event.pk
-        )
-    )
-
-
-def can_enroll_users(
-    *,
-    users: list[UserDTO],
-    event: EventDTO,
-    virtual_config: VirtualEnrollmentConfig,
-    users_to_enroll: list[UserDTO],
-    participations: EnrollmentParticipationRepositoryProtocol,
-) -> bool:
-    # Get currently enrolled users (CONFIRMED + OFFERED both hold a slot)
-    currently_enrolled = participations.occupying_user_ids(
-        user_ids=[u.pk for u in users], event_id=event.pk
-    )
-
-    # Add new users to enroll
-    users_to_enroll_ids = {u.pk for u in users_to_enroll}
-    total_enrolled = currently_enrolled | users_to_enroll_ids
-
-    return len(total_enrolled) <= virtual_config.allowed_slots
-
-
-def get_vc_available_slots(
-    *,
-    users: list[UserDTO],
-    event: EventDTO,
-    virtual_config: VirtualEnrollmentConfig,
-    participations: EnrollmentParticipationRepositoryProtocol,
-) -> int:
-    return max(
-        0,
-        virtual_config.allowed_slots
-        - get_used_slots(users=users, event=event, participations=participations),
     )
 
 
@@ -737,17 +685,19 @@ class EnrollmentService(EnrollmentServiceProtocol):
         virtual_config: VirtualEnrollmentConfig,
         users_to_enroll: list[UserDTO],
     ) -> bool:
-        return can_enroll_users(
-            users=users,
-            event=event,
-            virtual_config=virtual_config,
-            users_to_enroll=users_to_enroll,
-            participations=self._participations,
+        # A pass covers one distinct person per event: someone already seated
+        # (CONFIRMED or OFFERED) anywhere in it spends nothing more.
+        seated = self._participations.occupying_user_ids(
+            user_ids=[u.pk for u in users], event_id=event.pk
         )
+        wanted = seated | {u.pk for u in users_to_enroll}
+        return len(wanted) <= virtual_config.allowed_slots
 
     def get_used_slots(self, *, users: list[UserDTO], event: EventDTO) -> int:
-        return get_used_slots(
-            users=users, event=event, participations=self._participations
+        return len(
+            self._participations.occupying_user_ids(
+                user_ids=[u.pk for u in users], event_id=event.pk
+            )
         )
 
     def get_vc_available_slots(
@@ -757,11 +707,10 @@ class EnrollmentService(EnrollmentServiceProtocol):
         event: EventDTO,
         virtual_config: VirtualEnrollmentConfig,
     ) -> int:
-        return get_vc_available_slots(
-            users=users,
-            event=event,
-            virtual_config=virtual_config,
-            participations=self._participations,
+        return max(
+            0,
+            virtual_config.allowed_slots
+            - self.get_used_slots(users=users, event=event),
         )
 
     def create_guests(

@@ -253,10 +253,13 @@ grows: `propose` (CFP config, proposals, facilitators), `enroll`,
 `schedule` (venues, time slots, tracks, timetable), `present` (public
 pages, printing).
 
-Enrollment behaviour currently bolted onto the `Session` model
-(`enrolled_count`, `is_full`, `effective_participants_limit`,
-`is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
-`enroll` mills/specs, not on the model.
+Seat arithmetic lives in `pacts/enrollment.py`, the one module links,
+mills and gates all read: `SessionSeatsDTO` (a session's cap, seats left and
+fullness, from the stored limit, the open windows' share and the seats
+taken), `seat_cap`, and the window rules `window_is_open` (`[start, end)`)
+and `allowance_windows`. Links supply only those facts;
+`EnrollmentPolicy` (mills) answers the per-actor question with the same
+`seat_cap`. `SessionManager.has_conflicts` still sits on the model.
 
 **Seat lock order.** Every transaction that decides a seat takes, before
 it reads what it decides on, the steps below. Most lock `User` rows

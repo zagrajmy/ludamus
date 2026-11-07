@@ -187,11 +187,9 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_enroll_url(session.pk, session.event.slug))
 
-        # The page holds the Session model, which compares by pk — stating the
-        # instance would say nothing about the faked counts it renders. The
-        # counts walk event.enrollment_configs on an unprefetched instance, so
-        # the assertion-side read is exempted from zeal rather than the view
-        # under test being flagged for it.
+        # The helper reads the stored counts the page would have shown, so the
+        # assertion-side read is exempted from zeal rather than the view under
+        # test being flagged for it.
         with zeal_ignore():
             assert_response(
                 response,
@@ -199,8 +197,8 @@ class TestShadowbanPretendFull:
                 context_data=enroll_page_context(
                     viewer=active_user,
                     agenda_item=agenda_item,
-                    session=AttributesMatcher(
-                        pk=session.pk, is_full=True, enrolled_count=10, waiting_count=0
+                    seats=AttributesMatcher(
+                        is_full=True, enrolled_count=10, waiting_count=0
                     ),
                 ),
                 template_name="chronology/enroll_select.html",

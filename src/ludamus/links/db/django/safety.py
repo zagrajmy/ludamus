@@ -195,16 +195,12 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
     def list_session_shadowbanned(
         *, viewer_id: UserId, session_id: SessionId
     ) -> list[SessionShadowbanWarningDTO]:
-        occupying = (
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.WAITING,
-            SessionParticipationStatus.OFFERED,
-        )
+        # Signed up in any form: someone waiting can still be seated beside
+        # the viewer, so the warning names them too.
         rows = (
             Shadowban.objects.filter(
                 owner_id=viewer_id,
                 target__session_participations__session_id=session_id,
-                target__session_participations__status__in=occupying,
             )
             .select_related("target")
             .distinct()
@@ -241,15 +237,11 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .values_list("pk", "shadowbanned__id")
             .distinct()
         )
-        occupying = (
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.WAITING,
-            SessionParticipationStatus.OFFERED,
-        )
+        # Any participation counts as being in the session, waiting included,
+        # as for list_session_shadowbanned.
         player_rows = (
             User.objects.filter(
                 session_participations__session_id=session_id,
-                session_participations__status__in=occupying,
                 shadowbanned__id__in=signed_up_ids,
             )
             .values_list("pk", "shadowbanned__id")

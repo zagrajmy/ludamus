@@ -90,13 +90,13 @@ def _membership_slot_action(
 def select_promotable_parties(
     state: PromotionStateDTO,
 ) -> list[list[WaitingParticipantDTO]]:
-    # Walks parties front-to-back filling `available_seats`. A party with no
+    # Walks parties front-to-back filling the seats left. A party with no
     # still-eligible members (conflict / presenter / shadowban) or no remaining
     # membership slots is skipped — it can never be promoted now, so it does not
     # hold the line. Otherwise the party is promoted only if all its eligible
     # members fit the remaining seats *and* membership allowance at once; the
     # first eligible party that does not fit stops the walk (no leapfrogging).
-    seats_remaining = state.available_seats
+    seats_remaining = state.seats.seats_left
     selected: list[list[WaitingParticipantDTO]] = []
     slots_by_owner = _initial_slots_by_owner(state.waiting)
 

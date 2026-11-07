@@ -21,6 +21,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.chronology.helpers import stored_seats
 
 
 def _url(agenda_item):
@@ -62,6 +63,7 @@ def _page_context(viewer, agenda_item):
         "event": agenda_item.session.event,
         "form": ANY,
         "session": agenda_item.session,
+        "seats": stored_seats(agenda_item.session),
         "shadowban_warnings": [],
         "user_data": [
             SessionUserParticipationData(
