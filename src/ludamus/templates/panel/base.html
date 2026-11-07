@@ -110,7 +110,7 @@ floating UI for the same corner.{% endcomment %}
                             {% translate "Facilitators" as t_facilitators %}
                             {% sidebar_link url="panel:facilitators" slug=current_event.slug icon="user-group" label=t_facilitators key="facilitators" %}
                             {% translate "Discounts" as t_discounts %}
-                            {% sidebar_link url="panel:discounts" slug=current_event.slug icon="ticket" label=t_discounts key="discounts" %}
+                            {% sidebar_link url="panel:discounts" slug=current_event.slug icon="receipt-percent" label=t_discounts key="discounts" %}
                             {% translate "Google Docs Import" as t_google_docs_import %}
                             {% sidebar_link url="panel:import" slug=current_event.slug icon="arrow-down-tray" label=t_google_docs_import key="import" %}
                         {% end_sidebar_cat %}
@@ -136,6 +136,11 @@ floating UI for the same corner.{% endcomment %}
                             {% translate "Errata" as t_errata %}
                             {% sidebar_link url="panel:errata" slug=current_event.slug icon="megaphone" label=t_errata key="errata" %}
                         {% end_sidebar_cat %}
+                        {% translate "Sales" context "Sidebar category" as t_sales_cat %}
+                        {% sidebar_cat key="sales" label=t_sales_cat %}
+                            {% translate "Tickets" as t_tickets %}
+                            {% sidebar_link url="panel:tickets" slug=current_event.slug icon="ticket" label=t_tickets key="tickets" %}
+                        {% end_sidebar_cat %}
                         {% translate "Settings" as t_settings %}
                         {% sidebar_cat key="settings" label=t_settings %}
                             {% translate "Event Settings" as t_event_settings %}
@@ -153,6 +158,8 @@ floating UI for the same corner.{% endcomment %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}
                         {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
+                        {% translate "Plan & payouts" as t_billing %}
+                        {% sidebar_link url="multiverse:panel:billing" icon="banknotes" label=t_billing key="billing" %}
                     {% end_sidebar_cat %}
                 {% endblock sidebar_nav %}
             </nav>

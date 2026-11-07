@@ -1,0 +1,8 @@
+{% load i18n %}
+{% if status == "paid" %}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Paid" context "ticket order" %}</span>
+{% elif status == "awaiting_payment" %}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">{% translate "Awaiting payment" %}</span>
+{% elif status == "refunded" %}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">{% translate "Refunded" %}</span>
+{% endif %}

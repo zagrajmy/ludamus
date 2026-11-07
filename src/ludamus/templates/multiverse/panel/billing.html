@@ -1,0 +1,128 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera ticket_tags %}
+{% block title %}
+    {% translate "Plan & payouts" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Plan & payouts" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="panel-bleed grid grid-cols-1 gap-6 items-start lg:grid-cols-2">
+        <section class="card p-6" aria-labelledby="payouts-heading">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="payouts-heading" class="text-lg font-semibold text-foreground">{% translate "Payouts" %}</h2>
+                {% if payouts.status == "active" %}
+                    <span class="shrink-0 rounded-full bg-success-bg px-2.5 py-1 text-xs font-medium text-success-text">{% translate "Stripe connected" %}</span>
+                {% elif payouts.status == "incomplete" %}
+                    <span class="shrink-0 rounded-full bg-warning-bg px-2.5 py-1 text-xs font-medium text-warning-text">{% translate "Setup unfinished" %}</span>
+                {% endif %}
+            </div>
+            <p class="mt-2 text-sm text-foreground-muted">
+                {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
+                    Ticket money goes straight to your sphere's own Stripe account. Zagrajmy keeps {{ percent }}% of each order;
+                    Stripe charges its processing fee from the same payment.
+                {% endblocktranslate %}
+            </p>
+            <div class="mt-4 text-sm text-foreground">
+                {% if not payouts.available %}
+                    <p>{% translate "This Zagrajmy installation has no Stripe account configured, so tickets can't be sold here yet." %}</p>
+                {% elif payouts.status == "not_connected" %}
+                    <p>{% translate "Connect Stripe to sell tickets. Stripe asks for your organization's details and a bank account for payouts; it takes about ten minutes." %}</p>
+                {% elif payouts.status == "incomplete" %}
+                    <p>{% translate "Stripe needs a few more details before it can take payments for you. Ticket sales stay paused until then." %}</p>
+                {% elif payouts.payouts_enabled %}
+                    <p>{% translate "Payments and payouts are on. Refunds, disputes and payout dates are in your Stripe dashboard." %}</p>
+                {% else %}
+                    <p>{% translate "You can sell tickets. Stripe hasn't switched payouts on yet, so the money waits in your Stripe balance until it does." %}</p>
+                {% endif %}
+            </div>
+            {% if payouts.available and can_manage %}
+                <div class="mt-5 flex flex-wrap gap-3">
+                    {% if payouts.status == "active" %}
+                        {% translate "Open Stripe dashboard" as dashboard_label %}
+                        {% tessera_button dashboard_label href="https://dashboard.stripe.com/" variant="secondary" icon="arrow-top-right-on-square" target="_blank" rel="noopener" %}
+                    {% else %}
+                        <form method="post" action="{% url 'multiverse:panel:billing-connect' %}">
+                            {% csrf_token %}
+                            {% if payouts.status == "incomplete" %}
+                                {% translate "Continue Stripe setup" as connect_label %}
+                            {% else %}
+                                {% translate "Connect Stripe" as connect_label %}
+                            {% endif %}
+                            {% tessera_button connect_label icon="banknotes" %}
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+        <section class="card p-6" aria-labelledby="plan-heading">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="plan-heading" class="text-lg font-semibold text-foreground">{% translate "Plan" %}</h2>
+                {% if plan.terms.technical_partner %}
+                    <span class="shrink-0 rounded-full bg-success-bg px-2.5 py-1 text-xs font-medium text-success-text">{% translate "Technical Partner" %}</span>
+                {% endif %}
+            </div>
+            {% if plan.terms.has_deal %}
+                <p class="mt-2 text-sm text-foreground-muted">
+                    {% if plan.terms.technical_partner %}
+                        {% translate "The Zagrajmy team runs the technical side of your convention with you: setup, your programme, and help on the day." %}
+                    {% else %}
+                        {% translate "Your sphere has terms agreed with the Zagrajmy team." %}
+                    {% endif %}
+                </p>
+                <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                    <dt class="text-foreground-muted">{% translate "Ticket fee" %}</dt>
+                    <dd class="text-foreground tabular-nums">
+                        {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
+                            {{ percent }}% of each order
+                        {% endblocktranslate %}
+                    </dd>
+                    {% if plan.terms.yearly_price %}
+                        <dt class="text-foreground-muted">{% translate "Fixed price" %}</dt>
+                        <dd class="text-foreground tabular-nums">
+                            {% blocktranslate trimmed with price=plan.terms.yearly_price|money %}
+                                {{ price }} a year
+                            {% endblocktranslate %}
+                        </dd>
+                    {% endif %}
+                    {% if plan.terms.paid_until %}
+                        <dt class="text-foreground-muted">{% translate "Valid until" %}</dt>
+                        <dd class="text-foreground">
+                            {{ plan.terms.paid_until|date:"j E Y" }}
+                        </dd>
+                    {% endif %}
+                </dl>
+            {% else %}
+                <p class="mt-2 text-sm text-foreground-muted">
+                    {% blocktranslate trimmed with percent=plan.ticket_fee_percent|floatformat:"-1" %}
+                        Zagrajmy costs nothing up front. When you sell tickets here, we keep {{ percent }}% of each order. Free events stay free.
+                    {% endblocktranslate %}
+                </p>
+                <h3 class="mt-5 text-sm font-semibold text-foreground">{% translate "Technical Partner" %}</h3>
+                <p class="mt-1 text-sm text-foreground">
+                    {% translate "Want your convention to run without technical worries? As a Technical Partner, the Zagrajmy team sets everything up with you, brings your programme in and is on hand during the event. We agree the terms, ticket fee included, for each convention." %}
+                </p>
+            {% endif %}
+            {% if can_manage %}
+                <div class="mt-5 flex flex-wrap gap-3">
+                    {% if plan.terms.has_deal %}
+                        {% translate "Ask about your terms" as ask_label %}
+                    {% else %}
+                        {% translate "Talk to us about partnering" as ask_label %}
+                    {% endif %}
+                    {% tessera_button ask_label href="mailto:"|add:SUPPORT_EMAIL variant="secondary" icon="envelope" %}
+                    {% if plan.has_billing_history %}
+                        <form method="post" action="{% url 'multiverse:panel:billing-portal' %}">
+                            {% csrf_token %}
+                            {% translate "Invoices and billing" as portal_label %}
+                            {% tessera_button portal_label variant="secondary" icon="document-text" %}
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+    </div>
+{% endblock content %}

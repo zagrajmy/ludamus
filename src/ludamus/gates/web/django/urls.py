@@ -19,6 +19,10 @@ from ludamus.gates.web.django.mcp.oauth import (
 )
 from ludamus.gates.web.django.mcp.views import McpEndpointView, McpOrganizerEndpointView
 from ludamus.gates.web.django.pages import PAGES, content_page
+from ludamus.gates.web.django.stripe_hooks import (
+    StripeBillingEndpointView,
+    StripeConnectEndpointView,
+)
 from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
@@ -73,6 +77,16 @@ urlpatterns: list[URLResolver | URLPattern] = [
         include(("ludamus.gates.web.django.user.urls", "user"), namespace="user"),
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
+    path(
+        "hooks/stripe/connect",
+        StripeConnectEndpointView.as_view(),
+        name="stripe-connect-hook",
+    ),
+    path(
+        "hooks/stripe/billing",
+        StripeBillingEndpointView.as_view(),
+        name="stripe-billing-hook",
+    ),
     # Connector URLs get typed without the slash, and MCP clients won't
     # follow APPEND_SLASH's redirect on a POST, so the endpoints answer both.
     path("mcp", McpEndpointView.as_view()),

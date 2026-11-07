@@ -142,8 +142,26 @@
                     {# its longest word; stretched rather than centred, since #}
                     {# only .btn-secondary carries a border. #}
                     <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44 lg:row-start-3 print:hidden">
+                        {# Buying entry outranks reading the programme: it is the one thing on the page that can run out. #}
+                        {% url 'web:event:event-tickets' event_slug=event.slug as tickets_url %}
+                        {% if ticket_shop.on_sale %}
+                            {% translate "Buy tickets" as t_buy_tickets %}
+                            {% tessera_button t_buy_tickets href=tickets_url size="lg" icon="ticket" %}
+                        {% endif %}
                         {% translate "View the program" as t_view_program %}
-                        {% tessera_button t_view_program href="#schedule-region" size="lg" %}
+                        {% if ticket_shop.on_sale %}
+                            {% tessera_button t_view_program href="#schedule-region" size="lg" variant="secondary" %}
+                        {% else %}
+                            {% tessera_button t_view_program href="#schedule-region" size="lg" %}
+                        {% endif %}
+                        {% if ticket_shop.viewer_ticket_count %}
+                            {% url 'user:profile-tickets' as my_tickets_url %}
+                            {% blocktranslate count counter=ticket_shop.viewer_ticket_count asvar t_my_tickets %}Your ticket{% plural %}Your tickets ({{ counter }}){% endblocktranslate %}
+                            {% tessera_button t_my_tickets href=my_tickets_url size="lg" variant="secondary" icon="ticket" %}
+                        {% elif ticket_shop.has_tickets and not ticket_shop.on_sale %}
+                            {% translate "Tickets" as t_tickets %}
+                            {% tessera_button t_tickets href=tickets_url size="lg" variant="secondary" icon="ticket" %}
+                        {% endif %}
                         {% if has_enrollable_sessions and not event.is_ended %}
                             {% translate "Sign up for sessions" as t_sign_up_sessions %}
                             {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" %}

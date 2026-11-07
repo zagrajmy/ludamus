@@ -18,9 +18,11 @@ local linters = new Mapping<String, Step> {
   // vendored bundles — out of the tree. `poetry.lock` is neither authored nor
   // optional: Poetry generates it, every dependency it pins adds hashes for
   // every wheel, and mutmut's `libcst` + `setproctitle` took it past the line.
-  // Same reasoning already exempts `**/*.lock` from codespell below.
+  // Same reasoning already exempts `**/*.lock` from codespell below. The
+  // translation catalog is `makemessages` output that grows with every string
+  // the app adds, so it would cross the line by design, not by accident.
   ["check-added-large-files"] = (Builtins.check_added_large_files) {
-    exclude = List("poetry.lock")
+    exclude = List("poetry.lock", "src/ludamus/locale/**/django.po")
   }
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["detect-private-key"] = Builtins.detect_private_key

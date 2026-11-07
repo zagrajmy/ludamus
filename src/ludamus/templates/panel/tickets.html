@@ -1,0 +1,283 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera ticket_tags %}
+{% block title %}
+    {% translate "Tickets" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Tickets" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event and page.rows %}
+        {% translate "Add ticket type" as add_label %}
+        {% url 'panel:ticket-type-create' slug=current_event.slug as add_url %}
+        {% tessera_button add_label href=add_url icon="plus" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        <div class="panel-bleed max-w-5xl space-y-8">
+            {% if page.payout_status != "active" %}
+                {# Where the money goes comes first: without it, nothing on this page can be bought. #}
+                <section class="card" aria-labelledby="payouts-heading">
+                    <div class="card-body max-w-2xl">
+                        <h2 id="payouts-heading" class="text-lg font-semibold text-foreground">
+                            {% if not page.payments_available %}
+                                {% translate "Payments are not available here" %}
+                            {% elif page.payout_status == "incomplete" %}
+                                {% translate "Finish setting up payouts" %}
+                            {% else %}
+                                {% translate "Connect Stripe to sell tickets" %}
+                            {% endif %}
+                        </h2>
+                        <p class="mt-2 text-sm text-foreground-muted">
+                            {% if not page.payments_available %}
+                                {% translate "This Zagrajmy installation has no Stripe account configured, so tickets can be prepared but not sold." %}
+                            {% elif page.payout_status == "incomplete" %}
+                                {% translate "Stripe still needs a few details before it can take payments for you. Ticket types stay off sale until then." %}
+                            {% else %}
+                                {% translate "Ticket money goes straight to your sphere's own Stripe account. Until it is connected, ticket types stay off sale." %}
+                            {% endif %}
+                        </p>
+                        {% if page.payments_available %}
+                            <div class="mt-5">
+                                {% translate "Set up payouts" as payouts_label %}
+                                {% url 'multiverse:panel:billing' as payouts_url %}
+                                {% tessera_button payouts_label href=payouts_url variant="secondary" icon="banknotes" %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
+            {% endif %}
+            {% if page.rows or page.archived %}
+                <section aria-labelledby="sales-heading" class="space-y-3">
+                    <h2 id="sales-heading"
+                        class="text-lg font-semibold text-foreground">{% translate "Sales so far" %}</h2>
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {% translate "tickets sold" as t_sold %}
+                        {% include "components/stat_card.html" with value=page.summary.tickets label=t_sold %}
+                        {% translate "paid by buyers" as t_gross %}
+                        {% include "components/stat_card.html" with value=page.summary.gross|money label=t_gross %}
+                        {% blocktranslate asvar t_fees with percent=page.platform_fee_percent|floatformat:"-1" %}Zagrajmy {{ percent }}% and Stripe fees (est.){% endblocktranslate %}
+                        {% include "components/stat_card.html" with value=page.summary.estimated_fees|money label=t_fees %}
+                        {% translate "you keep (est.)" as t_net %}
+                        {% include "components/stat_card.html" with value=page.summary.estimated_net|money label=t_net %}
+                    </div>
+                    <p class="text-xs text-foreground-muted max-w-2xl">
+                        {% translate "Stripe's fee depends on the card and payment method; the exact amount for every payment is in your Stripe dashboard." %}
+                    </p>
+                </section>
+            {% endif %}
+            <section aria-labelledby="types-heading" class="space-y-3">
+                <h2 id="types-heading" class="text-lg font-semibold text-foreground">{% translate "Ticket types" %}</h2>
+                {% if page.rows %}
+                    {% tessera_table %}
+                        <thead class="bg-bg-secondary">
+                            <tr>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                    {% translate "Ticket" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-right text-sm font-medium text-foreground-secondary">
+                                    {% translate "Price" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-right text-sm font-medium text-foreground-secondary">
+                                    {% translate "You keep (est.)" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-right text-sm font-medium text-foreground-secondary">
+                                    {% translate "Sold" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                    {% translate "On sale" %}
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-right">
+                                    <span class="sr-only">{% translate "Actions" %}</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border bg-bg-primary">
+                            {% for row in page.rows %}
+                                {% with ticket_type=row.ticket_type %}
+                                    <tr class="hover:bg-bg-tertiary">
+                                        <td class="px-4 py-4 text-sm text-foreground">
+                                            <div class="font-medium wrap-anywhere">{{ ticket_type.name }}</div>
+                                            {% if ticket_type.description %}
+                                                <div class="mt-0.5 text-foreground-muted line-clamp-2">{{ ticket_type.description }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-4 text-sm text-right tabular-nums whitespace-nowrap text-foreground">
+                                            {{ ticket_type.price|money:ticket_type.currency }}
+                                        </td>
+                                        <td class="px-4 py-4 text-sm text-right tabular-nums whitespace-nowrap text-foreground-muted">
+                                            {{ row.fees.estimated_net|money:ticket_type.currency }}
+                                        </td>
+                                        <td class="px-4 py-4 text-sm text-right tabular-nums whitespace-nowrap text-foreground">
+                                            {{ ticket_type.sold }}{% if ticket_type.quantity is not None %} / {{ ticket_type.quantity }}{% endif %}
+                                            {% if ticket_type.held %}
+                                                <div class="text-xs text-foreground-muted">
+                                                    {% blocktranslate count counter=ticket_type.held %}{{ counter }} in checkout{% plural %}{{ counter }} in checkout{% endblocktranslate %}
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-4 text-sm text-foreground-muted">
+                                            {% if ticket_type.sales_start %}
+                                                {% blocktranslate with when=ticket_type.sales_start|date:"j E, G:i" %}from {{ when }}{% endblocktranslate %}
+                                                <br>
+                                            {% endif %}
+                                            {% if ticket_type.sales_end %}
+                                                {% blocktranslate with when=ticket_type.sales_end|date:"j E, G:i" %}until {{ when }}{% endblocktranslate %}
+                                            {% else %}
+                                                {% translate "until the event ends" %}
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-4">
+                                            <div class="flex items-center justify-end gap-2 whitespace-nowrap">
+                                                {% translate "Edit" as edit_label %}
+                                                {% url 'panel:ticket-type-edit' slug=current_event.slug pk=ticket_type.pk as edit_url %}
+                                                {% tessera_button edit_label href=edit_url variant="secondary" size="sm" data_row_action=True %}
+                                                <form method="post"
+                                                      action="{% url 'panel:ticket-type-archive' slug=current_event.slug pk=ticket_type.pk %}">
+                                                    {% csrf_token %}
+                                                    {% translate "Take off sale" as archive_label %}
+                                                    {% tessera_button archive_label variant="secondary" size="sm" %}
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    {% end_tessera_table %}
+                {% else %}
+                    <div class="card">
+                        <div class="card-body max-w-2xl">
+                            <h3 class="text-lg font-semibold text-foreground">
+                                {% if page.archived %}
+                                    {% translate "Nothing is on sale now" %}
+                                {% else %}
+                                    {% translate "This event is free to attend" %}
+                                {% endif %}
+                            </h3>
+                            <p class="mt-2 text-sm text-foreground-muted">
+                                {% blocktranslate trimmed with percent=page.platform_fee_percent|floatformat:"-1" %}
+                                    Add a ticket type to sell entry on Zagrajmy. Buyers pay by card, BLIK or bank transfer through Stripe;
+                                    Zagrajmy keeps {{ percent }}% of each order and Stripe charges its own processing fee.
+                                {% endblocktranslate %}
+                            </p>
+                            <div class="mt-5">
+                                {% translate "Add ticket type" as empty_add_label %}
+                                {% url 'panel:ticket-type-create' slug=current_event.slug as empty_add_url %}
+                                {% tessera_button empty_add_label href=empty_add_url icon="plus" %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                {% if page.archived %}
+                    <details class="text-sm">
+                        <summary class="cursor-pointer text-foreground-muted">
+                            {% blocktranslate count counter=page.archived|length %}{{ counter }} ticket type off sale{% plural %}{{ counter }} ticket types off sale{% endblocktranslate %}
+                        </summary>
+                        <ul class="mt-2 divide-y divide-border">
+                            {% for ticket_type in page.archived %}
+                                <li class="flex items-center justify-between gap-3 py-2">
+                                    <span class="text-foreground wrap-anywhere">
+                                        {{ ticket_type.name }} · <span class="tabular-nums">{{ ticket_type.price|money:ticket_type.currency }}</span>
+                                        <span class="text-foreground-muted">
+                                            · {% blocktranslate count counter=ticket_type.sold %}{{ counter }} sold{% plural %}{{ counter }} sold{% endblocktranslate %}
+                                        </span>
+                                    </span>
+                                    <form method="post"
+                                          action="{% url 'panel:ticket-type-restore' slug=current_event.slug pk=ticket_type.pk %}">
+                                        {% csrf_token %}
+                                        {% translate "Put back on sale" as restore_label %}
+                                        {% tessera_button restore_label variant="secondary" size="sm" %}
+                                    </form>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                {% endif %}
+            </section>
+            {% if page.orders %}
+                <section aria-labelledby="orders-heading" class="space-y-3">
+                    <h2 id="orders-heading" class="text-lg font-semibold text-foreground">{% translate "Orders" %}</h2>
+                    {% tessera_table %}
+                        <thead class="bg-bg-secondary">
+                            <tr>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                    {% translate "Buyer" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                    {% translate "Tickets" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-right text-sm font-medium text-foreground-secondary">
+                                    {% translate "Total" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                    {% translate "Status" %}
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-right">
+                                    <span class="sr-only">{% translate "Actions" %}</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border bg-bg-primary">
+                            {% for order in page.orders %}
+                                <tr>
+                                    <td class="px-4 py-4 text-sm text-foreground" data-ph-mask>
+                                        <div class="font-medium wrap-anywhere">{{ order.buyer_name|default:order.email }}</div>
+                                        {% if order.buyer_name %}<div class="text-foreground-muted wrap-anywhere">{{ order.email }}</div>{% endif %}
+                                        <div class="text-xs text-foreground-muted">
+                                            #{{ order.pk }} · <time datetime="{{ order.creation_time|date:'c' }}">{{ order.creation_time|date:"j E, G:i" }}</time>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 text-sm text-foreground">
+                                        <ul>
+                                            {% for line in order.lines %}
+                                                <li>
+                                                    <span class="tabular-nums">{{ line.quantity }}×</span> {{ line.ticket_type_name }}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </td>
+                                    <td class="px-4 py-4 text-sm text-right tabular-nums whitespace-nowrap text-foreground">
+                                        {{ order.total|money:order.currency }}
+                                    </td>
+                                    <td class="px-4 py-4 text-sm">{% include "panel/_ticket_order_status_badge.html" with status=order.status %}</td>
+                                    <td class="px-4 py-4">
+                                        {% if order.status == "paid" %}
+                                            <form method="post"
+                                                  class="flex justify-end"
+                                                  action="{% url 'panel:ticket-order-refund' slug=current_event.slug pk=order.pk %}"
+                                                  data-confirm="{% blocktranslate with total=order.total|money:order.currency %}Refund {{ total }} to the buyer? Their tickets stop being valid. Stripe keeps its processing fee.{% endblocktranslate %}"
+                                                  data-confirm-action="{% translate 'Refund order' %}">
+                                                {% csrf_token %}
+                                                {% translate "Refund order" as refund_label %}
+                                                {% tessera_button refund_label variant="danger" size="sm" %}
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% end_tessera_table %}
+                    {% if page.more_orders %}
+                        <p class="text-sm text-foreground-muted">
+                            {% blocktranslate with shown=page.orders|length %}These are the latest {{ shown }} orders. Your Stripe dashboard has all of them, with search.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
+                </section>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock content %}
