@@ -71,3 +71,25 @@ coolify --context zagrajmy-production context verify
 
 Report facts, bounded incident times, missing evidence, uncertainty, and the
 next discriminating check. Never turn an event gap into a root-cause claim.
+
+## Wide events
+
+The origin writes one JSON line per request (`WideEventMiddleware`, logger
+`wide_event`), carrying what the request did rather
+than a trail of narration: `ray_id`, `environment`, `commit`, `worker` (the
+gunicorn worker's pid), `method`, `path` (redacted like the PostHog path),
+`route`, `view`, `status`, `outcome`, `duration_ms`, `db_queries`, `db_ms`,
+`sphere_id`, `user_id`, `language`, `htmx`, and on a fault `error_type` (the
+message stays in the traceback line next to it: it can echo the value that
+failed). `ray_id` is Cloudflare's `CF-Ray`, so
+the id a user reads off an edge error page finds the origin line directly:
+
+```text
+coolify --context zagrajmy-production app logs \
+  wk4p10un5xghmkgrqlsd7jda --lines 2000 | grep 9c1a0b2d3e4f5a6b
+```
+
+Static assets and `/healthz/` emit no event. Every other log line in
+production is JSON too; fields passed through `extra=` become top-level keys,
+and `logger` is the emitting module's last two components (`crowd.auth`,
+`mills.konwencik`, `django.request`).

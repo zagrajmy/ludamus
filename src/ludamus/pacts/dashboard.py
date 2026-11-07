@@ -108,7 +108,6 @@ class SphereEventAnnouncementDTO(BaseModel):
 class SphereEventPublishedNotification(BaseModel):
     subscription_id: int
     recipient_user_id: int
-    recipient_email: str
     event_name: str
     event_slug: str
     sphere_name: str

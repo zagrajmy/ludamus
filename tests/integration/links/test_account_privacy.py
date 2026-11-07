@@ -28,7 +28,6 @@ def _promotion(subscription):
     return SphereEventPublishedNotification(
         subscription_id=subscription.pk,
         recipient_user_id=subscription.user_id,
-        recipient_email=subscription.user.email,
         event_name="Family Convention",
         event_slug="family-convention",
         sphere_name=subscription.sphere.name,
