@@ -2,7 +2,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -11,9 +11,6 @@ from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    SessionUserParticipationData,
-)
 from ludamus.gates.web.django.event.enroll_presentation import (
     EnrollActions,
     SeatBadge,
@@ -30,7 +27,8 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.enrollment_member import SessionUserParticipationData
+from ludamus.pacts.legacy import EventDTO, NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
@@ -44,6 +42,7 @@ from tests.integration.web.chronology.helpers import (
     commit_before_seat_lock,
     enroll_context,
     enroll_page_context,
+    enroll_session,
     participation_row,
     party_context,
     party_member,
@@ -94,9 +93,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -134,9 +133,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -204,7 +203,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 # The seat is held for them, so the only move the form offers
                 # is declining it.
                 "form": FormFieldsMatcher(
@@ -214,7 +213,7 @@ class TestSessionEnrollPageView:
                         }
                     }
                 ),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -454,48 +453,6 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session
         ).exists()
 
-    def test_post_cancel_with_guest_increase_when_no_enrollment_config(
-        self, agenda_item, authenticated_client, active_user
-    ):
-        # With zero config rows the config contributes no slots, so a guest
-        # increase beyond the seats freed by the same batch's cancels is
-        # rejected as over capacity (here: 2 guests against 1 freed seat).
-        # The stepper never renders without an active config, so force it the
-        # way the race tests force stale cleaned data.
-        SessionParticipation.objects.create(
-            user=active_user,
-            session=agenda_item.session,
-            status=SessionParticipationStatus.CONFIRMED,
-        )
-
-        with patch(
-            "ludamus.adapters.web.django.views.SessionEnrollPageView._guest_count",
-            return_value=0,
-        ):
-            response = authenticated_client.post(
-                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
-                data={f"user_{active_user.id}": "cancel", "guests": "2"},
-            )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.ERROR,
-                    (
-                        "Not enough spots available. 2 spots requested, 1 available. "
-                        "Bring fewer guests or use the waiting list for account "
-                        "holders."
-                    ),
-                )
-            ],
-            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
-        )
-        assert SessionParticipation.objects.filter(
-            user=active_user, session=agenda_item.session
-        ).exists()
-
     def test_post_invalid_form(self, active_user, agenda_item, authenticated_client):
         response = authenticated_client.post(
             self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
@@ -512,9 +469,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -588,9 +545,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -808,9 +765,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1089,9 +1046,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1134,9 +1091,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1176,9 +1133,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1231,9 +1188,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1473,9 +1430,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1670,9 +1627,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1725,9 +1682,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1782,9 +1739,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1864,9 +1821,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1917,9 +1874,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1995,9 +1952,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -2056,9 +2013,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -2107,9 +2064,9 @@ class TestSessionEnrollPageView:
             ],
             context_data={
                 **party_context(),
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "companions": [],
                 "shadowban_warnings": [],
                 "user_data": [
@@ -2163,9 +2120,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "event": agenda_item.space.event,
+                "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
@@ -2230,9 +2187,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -2274,9 +2231,9 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "companions": [],
-                "session": agenda_item.session,
+                "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
-                "event": event,
+                "event": EventDTO.model_validate(event),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(

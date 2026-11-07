@@ -7,14 +7,12 @@ from django import template
 from django.forms import ChoiceField
 from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import EnrollmentChoice
+from ludamus.pacts.enrollment_member import EnrollmentChoice
 
 if TYPE_CHECKING:
     from django import forms
 
-    from ludamus.gates.web.django.chronology.enrollment_presentation import (
-        SessionUserParticipationData,
-    )
+    from ludamus.pacts.enrollment_member import SessionUserParticipationData
 
 register = template.Library()
 
