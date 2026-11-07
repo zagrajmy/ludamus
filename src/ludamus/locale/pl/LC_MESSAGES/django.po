@@ -1116,6 +1116,7 @@ msgstr "Wybierz przestrzeń..."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/schedule.py
+#: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/parts/timetable-day-grid.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
