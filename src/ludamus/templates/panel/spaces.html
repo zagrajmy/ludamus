@@ -1,5 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load empty_state_tags %}
 {% load django_vite %}
 {% load tessera %}
 {% block title %}
@@ -36,8 +37,8 @@
                     {% include "panel/_programme_space_order.html" %}
                 {% else %}
                     {% if tree %}
-                        {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
-                        {% translate "Could not move the space to the top level. Reloading the page." as t_move_error %}
+                        {% translate "Could not save the new order. Reload the page to see the saved one." as t_reorder_error %}
+                        {% translate "Could not move the space to the top level." as t_move_error %}
                         {% if has_nested_spaces %}
                             {# A hint at rest; space-tree.ts arms the dashed drop box #}
                             {# only while a nested space is being dragged. #}
@@ -60,19 +61,16 @@
                         </ul>
                         {% vite_asset 'src/space-tree.ts' %}
                     {% else %}
-                        <div class="py-8 text-center">
-                            <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
-                            <p class="text-foreground-muted mb-4">
-                                {% translate "No spaces yet. Add a single room, or nest spaces to map a larger venue." %}
-                            </p>
-                            {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
-                            {% translate "New top-level space" as t_new_space %}
-                            {% tessera_button t_new_space href=new_space_url icon="plus" %}
-                        </div>
-                    {% endif %}
-                    {% include "panel/_venue_path_previews.html" %}
+                        {% translate "No spaces yet. Add a single room, or nest spaces to map a larger venue." as t_empty_title %}
+                    {% empty_state icon="building-office-2" title=t_empty_title %}
+                        {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+                        {% translate "New top-level space" as t_new_space %}
+                        {% tessera_button t_new_space href=new_space_url icon="plus" %}
+                    {% end_empty_state %}
                 {% endif %}
-            {% end_tab_shell_body %}
-        {% end_tab_shell %}
-    </div>
+                {% include "panel/_venue_path_previews.html" %}
+            {% endif %}
+        {% end_tab_shell_body %}
+{% end_tab_shell %}
+</div>
 {% endblock content %}

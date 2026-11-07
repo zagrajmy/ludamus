@@ -1,5 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load empty_state_tags %}
 {% load tessera %}
 {% block title %}
     {% translate "Bans" %}
@@ -84,10 +85,9 @@
                 </tbody>
             {% end_tessera_table %}
         {% else %}
-            <div class="text-center py-8">
-                {% icon "no-symbol" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
-                <h5 class="text-foreground-muted font-medium">{% translate "Nobody is banned from this event" %}</h5>
-            </div>
-        {% endif %}
-    </div>
+            {% translate "Nobody is banned from this event" as t_empty_title %}
+        {% empty_state icon="no-symbol" title=t_empty_title %}
+        {% end_empty_state %}
+{% endif %}
+</div>
 {% endblock content %}
