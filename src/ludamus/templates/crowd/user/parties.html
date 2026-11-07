@@ -1,5 +1,6 @@
 {% extends "crowd/user/profile_base.html" %}
 {% load i18n tessera %}
+{% load empty_state_tags %}
 {% block title %}
     {% translate "Parties" %}
 {% endblock title %}
@@ -215,160 +216,157 @@
                 </dialog>
             {% endif %}
         {% empty %}
-            <div class="text-center py-8">
-                {% icon "users" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
-                <h5 class="text-foreground-muted font-medium">{% translate "No party yet" %}</h5>
-                <p class="text-sm text-foreground-muted max-w-sm mx-auto">
-                    {% translate "Create a party and invite friends, or add a companion and sign them up yourself." %}
-                </p>
-            </div>
-        {% endfor %}
-    </div>
-    {# Section: companions #}
-    <div class="border-t border-border mt-6 pt-4">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-            <div>
-                <h5 class="font-semibold">
-                    {% translate "Your companions" %}
-                    <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_companions }})</span>
-                </h5>
-                <p class="text-sm text-foreground-muted text-balance">
-                    {% translate "Kids, partners, guests: anyone without their own account. You sign them up yourself. They can claim their profile later." %}
-                </p>
-            </div>
-            {% if can_add_companion %}
-                <a href="?add-companion=1"
-                   class="btn btn-secondary shrink-0"
-                   aria-controls="add-companion-modal"
-                   aria-haspopup="dialog">
-                    {% icon "plus-circle" class="w-4 h-4" %}
-                    {% translate "Add companion" %}
-                </a>
-            {% endif %}
-        </div>
-        {% if not can_add_companion %}
-            <p class="text-xs text-foreground-muted mb-4">
-                {% blocktranslate %}You can have at most {{ max_companions }} companions.{% endblocktranslate %}
+            {% translate "No party yet" as t_empty_title %}
+            {% translate "Create a party and invite friends, or add a companion and sign them up yourself." as t_empty_text %}
+        {% empty_state icon="users" title=t_empty_title text=t_empty_text %}
+        {% end_empty_state %}
+{% endfor %}
+</div>
+{# Section: companions #}
+<div class="border-t border-border mt-6 pt-4">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+            <h5 class="font-semibold">
+                {% translate "Your companions" %}
+                <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_companions }})</span>
+            </h5>
+            <p class="text-sm text-foreground-muted text-balance">
+                {% translate "Kids, partners, guests: anyone without their own account. You sign them up yourself. They can claim their profile later." %}
             </p>
-        {% endif %}
+        </div>
         {% if can_add_companion %}
-            <dialog id="add-companion-modal"
-                    class="modal w-[calc(100%-2rem)] max-w-md p-0"
-                    aria-labelledby="add-companion-modal-title">
-                {# action carries ?add-companion=1 so a failed submit reopens the modal via syncModalsFromUrl #}
-                <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1"
-                      method="post">
-                    {% csrf_token %}
-                    <div class="px-6 pt-5 pb-4">
-                        <h3 id="add-companion-modal-title"
-                            class="font-semibold text-foreground">{% translate "Add companion" %}</h3>
-                        <p class="mt-1 text-sm text-foreground-muted">
-                            {% translate "Someone without their own account. You sign them up; they can claim their profile later." %}
-                        </p>
-                        <div class="mt-4">{% tessera_form create_companion_form %}</div>
-                    </div>
-                    <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
-                        <button type="button"
-                                class="btn btn-secondary"
-                                data-modal-close="add-companion-modal">{% translate "Cancel" %}</button>
-                        <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
-                    </div>
-                </form>
-            </dialog>
+            <a href="?add-companion=1"
+               class="btn btn-secondary shrink-0"
+               aria-controls="add-companion-modal"
+               aria-haspopup="dialog">
+                {% icon "plus-circle" class="w-4 h-4" %}
+                {% translate "Add companion" %}
+            </a>
         {% endif %}
-        <div class="grid gap-2 sm:grid-cols-2">
-            {% for row in companions %}
-                <div class="rounded-lg bg-bg-tertiary/60 p-3">
-                    <div id="companion-display-{{ row.companion.slug }}"
-                         {% if row.editing %}style="display:none"{% endif %}>
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex min-w-0 items-center gap-3">
-                                {% include "components/avatar.html" with user=row.companion size="size-10" %}
-                                <p class="min-w-0 text-sm font-medium leading-tight">
-                                    <span class="block truncate" data-ph-mask>{{ row.companion.name }}</span>
-                                </p>
-                            </div>
-                            {# ludamus-disable:no-negative-margin -- keeps the icon controls aligned to the card edge without shrinking their tap targets #}
-                            <div class="flex gap-1 shrink-0 -mr-1 -mt-1">
+    </div>
+    {% if not can_add_companion %}
+        <p class="text-xs text-foreground-muted mb-4">
+            {% blocktranslate %}You can have at most {{ max_companions }} companions.{% endblocktranslate %}
+        </p>
+    {% endif %}
+    {% if can_add_companion %}
+        <dialog id="add-companion-modal"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="add-companion-modal-title">
+            {# action carries ?add-companion=1 so a failed submit reopens the modal via syncModalsFromUrl #}
+            <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1"
+                  method="post">
+                {% csrf_token %}
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="add-companion-modal-title"
+                        class="font-semibold text-foreground">{% translate "Add companion" %}</h3>
+                    <p class="mt-1 text-sm text-foreground-muted">
+                        {% translate "Someone without their own account. You sign them up; they can claim their profile later." %}
+                    </p>
+                    <div class="mt-4">{% tessera_form create_companion_form %}</div>
+                </div>
+                <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-modal-close="add-companion-modal">{% translate "Cancel" %}</button>
+                    <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
+                </div>
+            </form>
+        </dialog>
+    {% endif %}
+    <div class="grid gap-2 sm:grid-cols-2">
+        {% for row in companions %}
+            <div class="rounded-lg bg-bg-tertiary/60 p-3">
+                <div id="companion-display-{{ row.companion.slug }}"
+                     {% if row.editing %}style="display:none"{% endif %}>
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex min-w-0 items-center gap-3">
+                            {% include "components/avatar.html" with user=row.companion size="size-10" %}
+                            <p class="min-w-0 text-sm font-medium leading-tight">
+                                <span class="block truncate" data-ph-mask>{{ row.companion.name }}</span>
+                            </p>
+                        </div>
+                        {# ludamus-disable:no-negative-margin -- keeps the icon controls aligned to the card edge without shrinking their tap targets #}
+                        <div class="flex gap-1 shrink-0 -mr-1 -mt-1">
+                            <button type="button"
+                                    class="icon-btn"
+                                    data-action="swap-visibility"
+                                    data-hide="companion-display-{{ row.companion.slug }}"
+                                    data-show="companion-edit-{{ row.companion.slug }}">
+                                {% icon "pencil" class="w-3.5 h-3.5" %}
+                                <span class="sr-only">{% translate "Edit" %}</span>
+                            </button>
+                            {% if row.companion.claim_token %}
+                                {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
                                 <button type="button"
-                                        class="icon-btn"
-                                        data-action="swap-visibility"
-                                        data-hide="companion-display-{{ row.companion.slug }}"
-                                        data-show="companion-edit-{{ row.companion.slug }}">
-                                    {% icon "pencil" class="w-3.5 h-3.5" %}
-                                    <span class="sr-only">{% translate "Edit" %}</span>
+                                        class="icon-btn relative"
+                                        data-ph-no-capture
+                                        data-copy="{{ claim_path }}"
+                                        data-copy-origin
+                                        data-copied-label="{% translate "Copied!" %}"
+                                        title="{% translate "Copy claim link" %}">
+                                    {% icon "clipboard-document" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Copy claim link" %}</span>
+                                    {% tessera_copy_popover %}
                                 </button>
+                            {% endif %}
+                            <form method="post"
+                                  action="{% url 'web:crowd:profile-companions-claim-link' slug=row.companion.slug %}"
+                                  {% if row.companion.claim_token %} data-confirm="{% translate "Generate a new claim link? The old one stops working." %}" data-confirm-action="{% translate "Generate new link" %}" {% endif %}>
+                                {% csrf_token %}
                                 {% if row.companion.claim_token %}
-                                    {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
-                                    <button type="button"
-                                            class="icon-btn relative"
-                                            data-ph-no-capture
-                                            data-copy="{{ claim_path }}"
-                                            data-copy-origin
-                                            data-copied-label="{% translate "Copied!" %}"
-                                            title="{% translate "Copy claim link" %}">
-                                        {% icon "clipboard-document" class="w-3.5 h-3.5" %}
-                                        <span class="sr-only">{% translate "Copy claim link" %}</span>
-                                        {% tessera_copy_popover %}
+                                    <button type="submit"
+                                            class="icon-btn"
+                                            title="{% translate "Generate a new claim link. The old one stops working." %}">
+                                        {% icon "arrow-path" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Generate a new claim link" %}</span>
+                                    </button>
+                                {% else %}
+                                    <button type="submit"
+                                            class="icon-btn"
+                                            title="{% translate "Create a link so they can claim their profile" %}">
+                                        {% icon "link" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Create claim link" %}</span>
                                     </button>
                                 {% endif %}
-                                <form method="post"
-                                      action="{% url 'web:crowd:profile-companions-claim-link' slug=row.companion.slug %}"
-                                      {% if row.companion.claim_token %} data-confirm="{% translate "Generate a new claim link? The old one stops working." %}" data-confirm-action="{% translate "Generate new link" %}" {% endif %}>
-                                    {% csrf_token %}
-                                    {% if row.companion.claim_token %}
-                                        <button type="submit"
-                                                class="icon-btn"
-                                                title="{% translate "Generate a new claim link. The old one stops working." %}">
-                                            {% icon "arrow-path" class="w-3.5 h-3.5" %}
-                                            <span class="sr-only">{% translate "Generate a new claim link" %}</span>
-                                        </button>
-                                    {% else %}
-                                        <button type="submit"
-                                                class="icon-btn"
-                                                title="{% translate "Create a link so they can claim their profile" %}">
-                                            {% icon "link" class="w-3.5 h-3.5" %}
-                                            <span class="sr-only">{% translate "Create claim link" %}</span>
-                                        </button>
-                                    {% endif %}
-                                </form>
-                                <form method="post"
-                                      action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
-                                      data-ph-block
-                                      data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
-                                      data-confirm-action="{% translate "Delete companion" %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="icon-btn">
-                                        {% icon "trash" class="w-3.5 h-3.5" %}
-                                        <span class="sr-only">{% translate "Delete companion" %}</span>
-                                    </button>
-                                </form>
-                            </div>
+                            </form>
+                            <form method="post"
+                                  action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
+                                  data-ph-block
+                                  data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
+                                  data-confirm-action="{% translate "Delete companion" %}">
+                                {% csrf_token %}
+                                <button type="submit" class="icon-btn">
+                                    {% icon "trash" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Delete companion" %}</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
-                    <div id="companion-edit-{{ row.companion.slug }}"
-                         {% if not row.editing %}style="display:none"{% endif %}>
-                        <form action="{% url 'web:crowd:profile-companions-update' slug=row.companion.slug %}"
-                              method="post">
-                            {% csrf_token %}
-                            {% tessera_form row.form %}
-                            <div class="flex flex-col gap-2 sm:flex-row">
-                                <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
-                                <button type="button"
-                                        class="btn btn-secondary"
-                                        data-action="swap-visibility"
-                                        data-hide="companion-edit-{{ row.companion.slug }}"
-                                        data-show="companion-display-{{ row.companion.slug }}">
-                                    {% icon "x-mark" class="w-4 h-4" %}
-                                    {% translate "Cancel" %}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
                 </div>
-            {% empty %}
-                <p class="text-sm text-foreground-muted sm:col-span-2">{% translate "No companions yet." %}</p>
-            {% endfor %}
-        </div>
+                <div id="companion-edit-{{ row.companion.slug }}"
+                     {% if not row.editing %}style="display:none"{% endif %}>
+                    <form action="{% url 'web:crowd:profile-companions-update' slug=row.companion.slug %}"
+                          method="post">
+                        {% csrf_token %}
+                        {% tessera_form row.form %}
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
+                            <button type="button"
+                                    class="btn btn-secondary"
+                                    data-action="swap-visibility"
+                                    data-hide="companion-edit-{{ row.companion.slug }}"
+                                    data-show="companion-display-{{ row.companion.slug }}">
+                                {% icon "x-mark" class="w-4 h-4" %}
+                                {% translate "Cancel" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-sm text-foreground-muted sm:col-span-2">{% translate "No companions yet." %}</p>
+        {% endfor %}
     </div>
+</div>
 {% endblock profile_content %}

@@ -2,8 +2,16 @@
 One number and what it means. `of` renders the number as a fraction (pass it
 even when both sides are zero, so `0/0` still reads as a fraction), `suffix`
 appends a unit such as `%`.
+
+Optional: `href` makes the card the link to the page the number counts,
+`icon` (with `tone`: blue, purple, green or yellow) marks it, and `note`
+adds a line of detail under the label.
 {% endcomment %}
-<div class="rounded-xl border border-border bg-bg-tertiary p-3">
-    <div class="text-2xl font-semibold tabular-nums">{{ value }}{% if of is not None %}/{{ of }}{% endif %}{{ suffix|default:"" }}</div>
-    <div class="mt-0.5 text-xs text-foreground-muted">{{ label }}</div>
-</div>
+{% if href %}
+    <a href="{{ href }}"
+       class="block rounded-xl border border-border bg-bg-tertiary p-3 ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+        {% include "components/stat_card_body.html" %}
+    </a>
+{% else %}
+    <div class="rounded-xl border border-border bg-bg-tertiary p-3">{% include "components/stat_card_body.html" %}</div>
+{% endif %}
