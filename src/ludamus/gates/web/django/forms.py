@@ -341,6 +341,9 @@ class ProposalSettingsForm(forms.Form):
 class ProposalCategoryForm(forms.Form):
     """Form for creating/editing proposal categories."""
 
+    # The mode the claim window belongs to, for the page's `data-show-when`.
+    OFFER_CLAIM: ClassVar = PromotionMode.OFFER_CLAIM.value
+
     name = forms.CharField(
         max_length=255,
         strip=True,
