@@ -63,6 +63,7 @@ from ludamus.mills.event import (
     EventsService,
     LandingService,
 )
+from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import (
@@ -242,6 +243,14 @@ class Services:
             transaction=self._transaction,
             parties=self._repos.parties,
             history=self._repos.party_session_history,
+        )
+
+    @cached_property
+    def event_schedule(self) -> EventScheduleService:
+        return EventScheduleService(
+            schedule=self._repos.event_schedule,
+            windows=self._repos.enrollment_windows,
+            session_fields=self._repos.session_fields,
         )
 
     @cached_property

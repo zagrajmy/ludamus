@@ -4,7 +4,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.web.django.views import COMPACT_SCHEDULE_MIN_SESSIONS
+from ludamus.gates.web.django.event.page import COMPACT_SCHEDULE_MIN_SESSIONS
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
