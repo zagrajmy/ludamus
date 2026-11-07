@@ -1,6 +1,7 @@
 ---
 title: 'Random proposal-window fixtures flake across the DST fold'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1520'
 ---
 
 ## Expected Behavior
