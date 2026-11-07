@@ -1,0 +1,18 @@
+id: written-text-modules
+valid:
+  - |
+    ring_as_written(
+        recipient_ids=ids, kind=kind, title=announcement.title, body=body, url=""
+    )
+  - "ring_as_written(recipient_ids=ids, kind=kind, title=t, body=b, url='', payload={})"
+invalid:
+  - |
+    title = _("Event cancelled: %(event)s") % {"event": name}
+    ring_as_written(recipient_ids=ids, kind=kind, title=title, body="", url="")
+  - 'ring_as_written(recipient_ids=ids, kind=kind, title=_("Closed"), body="", url="")'
+  - 'body = ngettext("one seat", "%(n)d seats", n)'
+  - 'label = gettext_lazy("Send")'
+  - 'label = pgettext("admin", "Send")'
+  - "from django.utils.translation import gettext as tr"
+  - "from django.utils import translation"
+  - "import django.utils.translation as t"
