@@ -29,6 +29,11 @@ shipped pattern lands here.
   pager without raising it.
 - **Mobile navigation.** The compact-viewport nav pattern isn't documented.
   Check `base.html` and adjacent pages before inventing.
+- **Bottom sheet.** One shipped use: the profile below `lg`
+  (`client/src/bottom-sheet.ts`, gallery entry at `/design/`). It is a `div`
+  with `aria-modal`, not a `<dialog>`, because the same element is a card on
+  desktop and flash messages must stay above it. Promote it to `patterns.md`
+  when a second page needs it.
 - **Form layout at scale.** `tessera_form` handles short forms well; long,
   multi-section forms (the proposal wizard aside) have no agreed sectioning
   pattern.

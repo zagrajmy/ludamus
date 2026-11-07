@@ -49,6 +49,7 @@ export default defineConfig({
         actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         avatar: resolve(rootDir, "src/avatar.ts"),
+        "bottom-sheet": resolve(rootDir, "src/bottom-sheet.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
         "color-field": resolve(rootDir, "src/color-field.ts"),

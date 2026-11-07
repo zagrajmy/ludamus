@@ -3,6 +3,9 @@
 {% block title %}
     {% translate "Avatar" %}
 {% endblock title %}
+{% block profile_heading %}
+    {% translate "Avatar" %}
+{% endblock profile_heading %}
 {% block profile_content %}
     {% if has_auth0_avatar %}
         <form action="{% url 'web:crowd:profile-avatar' %}" method="post">

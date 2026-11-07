@@ -1,18 +1,18 @@
+import { type Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 
+const sectionLink = (page: Page, name: string) =>
+  page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name });
+
 test.describe("Profile — Personal Information (edit.html)", () => {
-  test("shows profile form with tab navigation", async ({ page }) => {
+  test("shows profile form with section navigation", async ({ page }) => {
     await page.goto("/crowd/profile/");
 
-    // Tab navigation
-    await expect(page.getByRole("tab", { name: /Personal Information/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Parties/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Avatar/ })).toBeVisible();
-
-    // Active tab is Personal Information
-    const activeTab = page.getByRole("tab", { name: /Personal Information/ });
-    await expect(activeTab).toHaveAttribute("aria-selected", "true");
-    await expect(activeTab).toHaveAttribute("href", /profile/);
+    await expect(sectionLink(page, "Parties")).toBeVisible();
+    await expect(sectionLink(page, "Avatar")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Change avatar" })).toBeVisible();
+    await expect(sectionLink(page, "Personal Information")).toHaveAttribute("aria-current", "page");
 
     // Form with submit button
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
@@ -34,17 +34,11 @@ test.describe("Profile — Personal Information (edit.html)", () => {
 });
 
 test.describe("Profile — Parties (parties.html)", () => {
-  test("shows parties page with tab navigation", async ({ page }) => {
+  test("shows parties page with section navigation", async ({ page }) => {
     await page.goto("/crowd/profile/parties/");
 
-    // Tab navigation present
-    await expect(page.getByRole("tab", { name: /Personal Information/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Parties/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Avatar/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Parties/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(sectionLink(page, "Personal Information")).toBeVisible();
+    await expect(sectionLink(page, "Parties")).toHaveAttribute("aria-current", "page");
 
     // Page content — either empty state or the parties list
     const heading = page.getByRole("heading", { level: 2 }).or(page.getByText(/parties/i));
@@ -60,10 +54,7 @@ test.describe("Profile — Parties (parties.html)", () => {
     await page.goto("/crowd/profile/companions/");
 
     await expect(page).toHaveURL(/profile\/parties/);
-    await expect(page.getByRole("tab", { name: /Parties/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(sectionLink(page, "Parties")).toHaveAttribute("aria-current", "page");
   });
 
   test("adds a companion to a party by display name", async ({ page }) => {
@@ -97,10 +88,7 @@ test.describe("Profile — Privacy (privacy.html)", () => {
   test("shows the analytics choice and reopens the consent banner", async ({ page }) => {
     await page.goto("/crowd/profile/privacy/");
 
-    await expect(page.getByRole("tab", { name: /Privacy/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(sectionLink(page, "Privacy")).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("Your current choice:")).toBeVisible();
     await expect(page.getByText("analytics declined")).toBeVisible();
 
@@ -119,12 +107,8 @@ test.describe("Profile — Avatar (avatar.html)", () => {
     await page.goto("/crowd/profile/avatar/");
 
     // Tab navigation
-    await expect(page.getByRole("tab", { name: /Personal Information/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Avatar/ })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Avatar/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(sectionLink(page, "Personal Information")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avatar", level: 1 })).toBeVisible();
 
     // Gravatar image
     await expect(page.getByAltText(/Gravatar/i)).toBeVisible();

@@ -36,6 +36,7 @@ deferred finding later.
 | 019 | CSP tightening + enforcement (nonces, drop unsafe-inline/eval) | P2 | M | 007 | DONE |
 | 020 | One export page for proposals, facilitators and discounts | P2 | M | — | DONE |
 | 021 | Serialise seat decisions per person and per pass owner | P1 | M | — (composes with the conflict-containment fix) | DONE |
+| 022 | Profile sidebar and phone view (#1676) | P2 | L | — | DONE |
 
 ## Execution log (2026-07-09)
 

@@ -1,0 +1,14 @@
+{% load tessera %}
+<a href="{{ href }}"
+   {% if profile_active_tab == key %}aria-current="page"{% endif %}
+   class="flex items-center gap-2.5 min-h-11 max-lg:min-h-15 max-lg:py-2 px-3 rounded-lg text-sm text-foreground-secondary hover:bg-bg-tertiary hover:text-foreground lg:aria-[current=page]:bg-bg-tertiary lg:aria-[current=page]:font-semibold lg:aria-[current=page]:text-foreground transition hover:duration-0">
+    {% icon icon class="size-4.5 shrink-0" %}
+    <span class="flex flex-col min-w-0 flex-1">
+        <span class="max-lg:text-base max-lg:font-medium max-lg:text-foreground">{{ label }}</span>
+        <span class="lg:hidden text-foreground-muted">{{ hint }}</span>
+    </span>
+    {% if has_badge|default:0 %}
+        <span class="lg:hidden shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{{ badge }}</span>
+    {% endif %}
+    {% icon "chevron-right" class="lg:hidden size-4 shrink-0 text-foreground-muted" %}
+</a>
