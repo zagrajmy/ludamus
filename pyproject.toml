@@ -252,6 +252,7 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.inits.request_context",
     "ludamus.inits.wide_event",
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
