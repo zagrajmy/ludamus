@@ -1,0 +1,20 @@
+id: written-text-modules
+language: python
+severity: error
+files:
+  - src/ludamus/links/db/django/announcements.py
+  - src/ludamus/links/db/django/admin.py
+rule:
+  any:
+    - kind: identifier
+      regex: ^(_|gettext\w*|ngettext\w*|pgettext\w*|npgettext\w*)$
+    - pattern: from django.utils.translation import $$$
+    - pattern: from django.utils import translation
+    - pattern: from django.utils import translation as $A
+    - pattern: import django.utils.translation
+    - pattern: import django.utils.translation as $A
+message: |
+  These modules call `ring_as_written`, which sends one text to every
+  reader as is, so no translated copy may be written here: it would reach
+  them all in the sender's language. Compose app copy inside
+  `speaking_to(user_id)` and deliver it with `ring` / `compose_mail`.

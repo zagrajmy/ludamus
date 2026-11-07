@@ -1,0 +1,19 @@
+id: voice-call-sites
+valid:
+  - "with speaking_to(user_id) as recipient: pass"
+  - "voice_note = 1"
+  - "from ludamus.links.db.django.recipients import Voice, speaking_to"
+  - |
+    def notify_anonymous_proposal_accepted(notification):
+        with Voice(notification.language, address=notification.contact_email) as v:
+            pass
+invalid:
+  - |
+    with Voice(translation.get_language(), address=user.email) as voice:
+        compose_mail(voice, subject=subject, body=body)
+  - |
+    def notify_guest_listed(notification):
+        with Voice(notification.language, address=notification.email) as voice:
+            pass
+  - "speaker = recipients.Voice"
+  - "from ludamus.links.db.django.recipients import Voice as Speaker"

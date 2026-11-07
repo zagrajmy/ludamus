@@ -2,6 +2,7 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.announcements import AnnouncementFanoutRepository
 from ludamus.links.db.django.billing import SpherePlanRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
@@ -23,7 +24,6 @@ from ludamus.links.db.django.facilitator_change_log import (
 from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
 from ludamus.links.db.django.notifications import (
-    AnnouncementFanoutRepository,
     NotificationReadRepository,
     NotificationSubscriptionRepository,
 )

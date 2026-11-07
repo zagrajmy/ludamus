@@ -170,6 +170,14 @@ class OfferClaimActionView(LoginRequiredMixin, View):
             messages.success(
                 request, _("Spot claimed — you are now confirmed for this session.")
             )
+        elif result.reason == "conflict":
+            messages.error(
+                request,
+                _(
+                    "This spot overlaps a session you already have a seat in, "
+                    "so it was released."
+                ),
+            )
         else:
             messages.error(request, _("This offer has expired or was already claimed."))
         return redirect(reverse("web:dashboard"))

@@ -42,7 +42,7 @@ odfpy = "~1.4.1"
 nh3 = "~0.3.7"
 pillow = "~13.0.0"
 posthog = "~7.80.3"
-psycopg = "~3.3.6"
+psycopg = "~3.3.7"
 pydantic = "~2.14.0"
 requests = "~2.34.2"
 segno = "~1.6.6"
@@ -70,7 +70,7 @@ freezegun = "^1.5.2"
 honcho = "^2.0.0"
 hypothesis = { version = "^6.170.5", extras = ["crosshair"] }
 import-linter = "^2.15"
-ipython = "^9.17.1"
+ipython = "^9.18.1"
 lxml-stubs = "^0.5.1"
 mutmut = "^3.8.0"
 mypy = "^2.4.0"
@@ -562,6 +562,8 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    # Named by dotted path in LOGGING in settings.py, which is excluded above
+    "JsonFormatter",
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
