@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.cache import (
+    EVENT_PAGE_CACHE_SECONDS,
+    AudienceCachedResponseMixin,
+)
 from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     split_events,
@@ -57,10 +58,10 @@ def _merge(
     return [item for _, item in dated]
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventsPageView(TemplateView):
+class EventsPageView(AudienceCachedResponseMixin, TemplateView):
     request: RootRequest
     template_name = "index.html"
+    audience_cache_max_age = EVENT_PAGE_CACHE_SECONDS
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
