@@ -190,4 +190,3 @@ class TestPromotionAfterEnrollmentCloses:
         participation.refresh_from_db()
         assert result.promoted == [participation.pk]
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
-        assert event.get_allowance_enrollment_configs() == []

@@ -1203,9 +1203,7 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
     @staticmethod
-    def read_list(
-        event_id: int, max_start_time: datetime, min_end_time: datetime
-    ) -> list[EnrollmentConfigDTO]: ...
+    def read_list(event_id: int) -> list[EnrollmentConfigDTO]: ...
     @staticmethod
     def create_user_config(
         user_enrollment_config: UserEnrollmentConfigData,
