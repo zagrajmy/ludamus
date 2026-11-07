@@ -8,7 +8,7 @@
     {% translate "Google Docs Import" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}{{ current_event.name }}{% endif %}
+    {{ current_event.name }}
 {% endblock page_subtitle %}
 {% block content %}
     {% if active_integration %}

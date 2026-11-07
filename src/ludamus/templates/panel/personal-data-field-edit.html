@@ -8,24 +8,20 @@
     {% translate "Edit Personal Data Field" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} · {% translate "Host Information" %}
-    {% endif %}
+    {{ current_event.name }} · {% translate "Host Information" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
-        <div class="flex items-center space-x-3">
-            {% url 'panel:personal-data-fields' slug=current_event.slug as cancel_url %}
-            {% translate "Cancel" as cancel_label %}
-            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
-            {% translate "Save" as save_label %}
-            {% tessera_button save_label form="personal-data-field-form" icon="check" %}
-        </div>
-    {% endif %}
+    <div class="flex items-center space-x-3">
+        {% url 'panel:personal-data-fields' slug=current_event.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save" as save_label %}
+        {% tessera_button save_label form="personal-data-field-form" icon="check" %}
+    </div>
 {% endblock header_actions %}
 {% block content %}
     <div class="panel-bleed">
-        {% if current_event and field %}
+        {% if field %}
             <form id="personal-data-field-form" method="post" class="max-w-2xl">
                 {% csrf_token %}
                 <div class="card">
