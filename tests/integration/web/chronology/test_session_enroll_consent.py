@@ -316,6 +316,51 @@ class TestHeldSeatForConsentingMember:
         assert "disabled" in tag
 
 
+class TestOfferedSeatTimeConflict:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_offered_seat_counts_against_overlapping_enrollment(
+        self, authenticated_client, client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        other = SessionFactory(event=agenda_item.session.event, title="Overlap")
+        other_agenda = AgendaItemFactory(
+            session=other,
+            space=SpaceFactory(event=agenda_item.session.event),
+            start_time=agenda_item.start_time,
+            end_time=agenda_item.end_time,
+        )
+        _reassign_presenter(agenda_item)
+        other.presenter = agenda_item.session.presenter
+        other.save()
+
+        authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+        held = SessionParticipation.objects.get(
+            user=member, session=agenda_item.session
+        )
+        assert held.status == SessionParticipationStatus.OFFERED
+
+        authenticated_client.post(
+            _url(other_agenda), data={f"user_{member.pk}": "enroll"}
+        )
+        assert not SessionParticipation.objects.filter(
+            user=member, session=other
+        ).exists()
+
+        SessionParticipation.objects.create(
+            session=other, user=member, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        client.post(
+            reverse("web:chronology:offer-claim", kwargs={"token": held.claim_token})
+        )
+        held.refresh_from_db()
+        assert held.status == SessionParticipationStatus.OFFERED
+
+
 class TestHeldSeatUnavailable:
     @pytest.mark.usefixtures("enrollment_config")
     def test_member_with_time_conflict_cannot_be_offered_a_seat(
