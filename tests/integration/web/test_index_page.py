@@ -16,7 +16,12 @@ from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts.dashboard import DashboardDTO
-from ludamus.pacts.encounter import PAST_FEED_LIMIT, EncounterDTO, EncounterIndexItem
+from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
+    EncounterDTO,
+    EncounterIndexItem,
+    InviteeStatus,
+)
 from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
 from ludamus.pacts.legacy import EventDTO, EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
@@ -24,6 +29,7 @@ from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EncounterFactory,
+    EncounterInviteeFactory,
     EncounterRSVPFactory,
     EventFactory,
     SessionFactory,
@@ -646,13 +652,16 @@ def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
     }
 
 
-def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
+def _expected_feed_encounter(
+    encounter, *, organizer_name, rsvp_count=0, accepted_guest_count=0, is_mine=False
+):
     return FeedEncounter(
         entry=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
             rsvp_count=rsvp_count,
             is_mine=is_mine,
             organizer_name=organizer_name,
+            accepted_guest_count=accepted_guest_count,
         )
     )
 
@@ -715,6 +724,37 @@ class TestEventsPageFeed:
             },
             template_name=["index.html"],
         )
+
+    def test_an_accepted_calendar_guest_takes_a_spot_on_the_feed_card(
+        self, client, non_root_sphere
+    ):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            sphere=non_root_sphere,
+            creator=creator,
+            is_public=True,
+            max_participants=2,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+        EncounterRSVPFactory(encounter=encounter)
+        EncounterInviteeFactory(encounter=encounter, status=InviteeStatus.ACCEPTED)
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        expected = _expected_feed_encounter(
+            encounter,
+            organizer_name="Pub Organizer",
+            rsvp_count=1,
+            accepted_guest_count=1,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(upcoming=[expected]),
+            template_name=["index.html"],
+        )
+        assert expected.entry.spots_remaining == 0
 
     def test_private_encounter_is_hidden_from_other_visitors(
         self, client, non_root_sphere

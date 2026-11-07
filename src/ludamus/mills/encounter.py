@@ -143,7 +143,9 @@ class EncounterService(EncounterServiceProtocol):
         # Both lookups are batched: the public feed is rendered for anonymous
         # visitors on every sphere's events feed, so a query per card here
         # would be the page's cost.
-        rsvp_counts = self._rsvps.count_by_encounters([e.pk for e in encounters])
+        pks = [e.pk for e in encounters]
+        rsvp_counts = self._rsvps.count_by_encounters(pks)
+        guest_counts = self._guests.invitees.count_accepted_without_signup(pks)
         names = self._creator_names(
             {e.creator_id for e in encounters if e.creator_id != user_id}
         )
@@ -151,6 +153,7 @@ class EncounterService(EncounterServiceProtocol):
             EncounterIndexItem(
                 encounter=encounter,
                 rsvp_count=rsvp_counts.get(encounter.pk, 0),
+                accepted_guest_count=guest_counts.get(encounter.pk, 0),
                 is_mine=encounter.creator_id == user_id,
                 organizer_name=names.get(encounter.creator_id, ""),
             )
@@ -196,7 +199,9 @@ class EncounterService(EncounterServiceProtocol):
                 else []
             ),
             accepted_guest_count=(
-                self._guests.invitees.count_accepted_without_signup(encounter.pk)
+                self._guests.invitees.count_accepted_without_signup([encounter.pk]).get(
+                    encounter.pk, 0
+                )
             ),
             calendar_links=encounter_calendar_links(encounter, page_url),
         )

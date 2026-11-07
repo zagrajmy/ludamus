@@ -269,16 +269,20 @@ class FakeInvitees:
         key = self._key(encounter_id, email)
         return None if key is None else self.rows[key]
 
-    def count_accepted_without_signup(self, encounter_id):
-        return sum(
-            1
-            for invitee in self.list_by_encounter(encounter_id)
-            if invitee.status is InviteeStatus.ACCEPTED
-            and not (
-                invitee.user_id
-                and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+    def count_accepted_without_signup(self, encounter_ids):
+        counts = {
+            encounter_id: sum(
+                1
+                for invitee in self.list_by_encounter(encounter_id)
+                if invitee.status is InviteeStatus.ACCEPTED
+                and not (
+                    invitee.user_id
+                    and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+                )
             )
-        )
+            for encounter_id in encounter_ids
+        }
+        return {pk: count for pk, count in counts.items() if count}
 
     def emails_invited_by_creator_since(self, creator_id, since):
         return {
