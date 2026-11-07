@@ -1,0 +1,33 @@
+id: deliver-through-a-recipient
+valid:
+  - "ring(recipient, kind=kind, title=title, body=body, url=url, payload={})"
+  - "PromotionNotification(recipient_user_id=1, session_id=2)"
+  - "Notification.objects.filter(recipient_id=user_id).count()"
+  - "request.services.notifications.mark_read(user_id, pk)"
+  - "user.notifications.filter(read_at__isnull=True).count()"
+  - "message = compose_mail(voice, subject=subject, body=body, to=email)"
+  - "from ludamus.links.db.django.models import Notification"
+  - "from ludamus.pacts.enrollment import PromotionNotification as Promoted"
+invalid:
+  - "Notification(recipient=user, title=title)"
+  - "models.Notification(recipient=user, title=title)"
+  - "Notification.objects.create(recipient_id=1, title=title)"
+  - "Notification.objects.bulk_create(rows)"
+  - "Notification.objects.get_or_create(recipient_id=1, kind=kind)"
+  - "Notification.objects.update_or_create(recipient_id=1, kind=kind)"
+  - "user.notifications.create(kind=kind, title=title)"
+  - "request.user.notifications.bulk_create(rows)"
+  - "m.Notification._default_manager.create(recipient_id=1, title=title)"
+  - "Notification._base_manager.get_or_create(recipient_id=1, kind=kind)"
+  - "from django.core.mail import EmailMessage as Mail"
+  - "from django.core import mail"
+  - "import django.core.mail"
+  - "import django.core.mail as m"
+  - "from django.core import mail as m"
+  - "from ludamus.links.db.django.models import Notification as Bell"
+  - "EmailMessage(subject=subject, body=body, to=[email]).send()"
+  - "mail.EmailMultiAlternatives(subject=subject, body=body, to=[email])"
+  - 'send_mail("Hi", body, None, [email])'
+  - 'mail.send_mass_mail(messages)'
+  - 'mail_admins("Hi", body)'
+  - "mailers.default.send_messages(messages)"

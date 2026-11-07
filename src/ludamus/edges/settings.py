@@ -147,6 +147,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "ludamus.gates.web.django.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
@@ -672,9 +673,17 @@ LOGGING = {
         "verbose": {
             "format": "[{levelname}] {asctime} {module} {message}",
             "style": "{",
+        },
+        "json": {"()": "ludamus.links.analytics.log_format.JsonFormatter"},
+    },
+    # Production lines are read by machines (Coolify, PostHog) and queried by
+    # field; a terminal is read by a person.
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if IS_PRODUCTION else "verbose",
         }
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
     "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
