@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
+from ludamus.mills.event import PanelTimeSlotsService
 from ludamus.pacts.event import (
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
