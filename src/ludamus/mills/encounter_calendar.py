@@ -26,6 +26,7 @@ from ludamus.pacts.encounter import (
     EncounterInviteReason,
     InviteeStatus,
     InviteLimitError,
+    spots_remaining,
 )
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.specs.encounter import (
@@ -155,8 +156,11 @@ class EncounterGuests:
         # turns that spot into a signup rather than taking a second one.
         if self.invitees.read_status(encounter.pk, email) is InviteeStatus.ACCEPTED:
             return True
-        taken = self._rsvps.count_by_encounter(encounter.pk)
-        return taken + self.invitees.count_accepted_without_signup(encounter.pk) < limit
+        guests = self.invitees.count_accepted_without_signup([encounter.pk])
+        taken = self._rsvps.count_by_encounter(encounter.pk) + guests.get(
+            encounter.pk, 0
+        )
+        return spots_remaining(limit=limit, taken=taken) != 0
 
     def admit(
         self,
