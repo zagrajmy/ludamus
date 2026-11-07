@@ -72,15 +72,19 @@ def normalize_duration(text: str) -> str:
     )
 
 
+HOUR_UNIT = "h"
+MINUTE_UNIT = "min"
+
+
 def format_duration(iso_duration: str | None) -> str:
     hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
-        return f"{hours}h {minutes}min"
+        return f"{hours}{HOUR_UNIT} {minutes}{MINUTE_UNIT}"
     if hours:
-        return f"{hours}h"
+        return f"{hours}{HOUR_UNIT}"
     if minutes:
-        return f"{minutes}min"
+        return f"{minutes}{MINUTE_UNIT}"
     return ""
 
 
