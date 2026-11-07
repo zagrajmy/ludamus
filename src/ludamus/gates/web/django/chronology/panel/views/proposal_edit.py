@@ -9,7 +9,6 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -488,7 +487,6 @@ class ProposalFormPageView(_ProposalFormBase):
             event_id=event_id,
             draft=ProposalDraft(
                 data=session_data,
-                base_slug=slugify(title),
                 facilitator_ids=facilitator_ids,
                 field_values=(
                     collect_session_field_inputs(requirements=requirements, form=form)
