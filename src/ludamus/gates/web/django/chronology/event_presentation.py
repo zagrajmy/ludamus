@@ -9,6 +9,7 @@ from django.utils.translation import ngettext
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.pacts.chronology import SessionAvailability
 from ludamus.pacts.legacy import (
     EventListItemDTO,
     SessionParticipationStatus,
@@ -169,27 +170,27 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return not self.is_unscheduled and self.session.participants_limit > 0
 
     @property
-    def availability(self) -> str:
+    def availability(self) -> SessionAvailability:
         """Name the one availability state every layout and label dispatches on."""
         # Order matters: a session that takes no sign-up is not "unavailable"
         # (its window never opens) and not "full" (it never had a seat), so it
         # leaves the ladder before either term is asked. A proposal leaves
         # first of all: every term below is about a seat it does not have yet,
-        # and this string reaches the DOM as data-status, where answering
-        # "unavailable" would put proposals behind the enrollment filters.
+        # and this term reaches the DOM as data-status, where answering
+        # UNAVAILABLE would put proposals behind the enrollment filters.
         if self.is_unscheduled:
-            return "proposal"
+            return SessionAvailability.PROPOSAL
         if self.is_ended:
-            return "ended"
+            return SessionAvailability.ENDED
         if self.should_show_as_inactive:
-            return "in-progress"
+            return SessionAvailability.IN_PROGRESS
         if not self.takes_enrollment:
-            return "no-enrollment"
+            return SessionAvailability.NO_ENROLLMENT
         if not self.is_enrollment_available:
-            return "unavailable"
+            return SessionAvailability.UNAVAILABLE
         if self.is_full:
-            return "full"
-        return "available"
+            return SessionAvailability.FULL
+        return SessionAvailability.AVAILABLE
 
     @property
     def spots_left(self) -> int:
