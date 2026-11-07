@@ -581,7 +581,6 @@ def _create_session(
                     "presenter_id": None,
                     "title": title,
                 },
-                base_slug=title,
                 facilitator_ids=data.facilitator_ids,
                 track_ids=data.track_ids,
             ),

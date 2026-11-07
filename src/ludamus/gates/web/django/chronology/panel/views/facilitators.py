@@ -10,7 +10,6 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.http import urlencode
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
@@ -293,7 +292,6 @@ class FacilitatorCreatePageView(EventPanelMixin, View):
             event_id=self.current_event.pk,
             data=FacilitatorCreateData(
                 display_name=display_name,
-                base_slug=slugify(display_name),
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 is_collective=form.cleaned_data["is_collective"],
                 organizer_id=(

@@ -1,6 +1,5 @@
 import pytest
 
-from ludamus.mills.slugs import unique_slug as unique_slug_from_base
 from ludamus.pacts.slugs import (
     SLUG_MAX_LENGTH,
     SlugCollisionError,
@@ -69,13 +68,6 @@ class TestUniqueSlug:
         slug = unique_slug("", exists=lambda _s: False, fallback="d" * 60)
 
         assert len(slug) == SLUG_MAX_LENGTH
-
-
-class TestUniqueSlugFromBase:
-    def test_follows_the_same_rule_as_unique_slug(self):
-        assert unique_slug_from_base(
-            base="", default="session", exists=lambda _s: False
-        ) == ("session")
 
 
 class TestSlugify:
