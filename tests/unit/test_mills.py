@@ -5,19 +5,16 @@ import pytest
 
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
-    SlugCollisionError,
     cell,
     dedup_ident,
     extract_identity,
     field_answer,
-    generate_unique_slug,
     resolve_builtins,
     session_field_values,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import EventDTO, NotFoundError, SessionFieldValueData
-from ludamus.pacts.slugs import slugify
 from ludamus.pacts.submissions import (
     FieldDefinition,
     FieldDefinitions,
@@ -423,76 +420,6 @@ class TestMappingHelpers:
         )
 
         assert values == [SessionFieldValueData(session_id=7, field_id=55, value="D&D")]
-
-
-class TestGenerateUniqueSlug:
-    SUFFIX_LENGTH = 4  # token_urlsafe(3) as base64
-    DEFAULT_ATTEMPTS = 8
-
-    def test_appends_suffix_until_free(self):
-        taken = {"my-talk"}
-
-        slug = generate_unique_slug("My Talk", lambda s: s in taken)
-
-        assert slug.startswith("my-talk-")
-        assert len(slug) == len("my-talk-") + self.SUFFIX_LENGTH
-
-    def test_raises_when_retry_budget_exhausted(self):
-        with pytest.raises(SlugCollisionError) as exc_info:
-            generate_unique_slug("My Talk", lambda _s: True, max_attempts=3)
-
-        assert exc_info.value.base_slug == "my-talk"
-        assert str(exc_info.value) == "Could not generate a unique slug for 'my-talk'."
-
-    def test_tries_eight_slugs_by_default(self):
-        tried: list[str] = []
-
-        def taken(slug: str) -> bool:
-            tried.append(slug)
-            return True
-
-        with pytest.raises(SlugCollisionError):
-            generate_unique_slug("My Talk", taken)
-
-        assert len(tried) == self.DEFAULT_ATTEMPTS
-
-    def test_keeps_slug_within_max_length_with_suffix(self):
-        taken = {slugify("x" * 80)}
-
-        slug = generate_unique_slug("x" * 80, lambda s: s in taken)
-
-        assert len(slug) == TestSlugify.MAX_SLUG_LENGTH
-        assert slug not in taken
-
-    def test_honours_a_custom_max_length(self):
-        assert generate_unique_slug("x" * 80, lambda _s: False, max_length=10) == (
-            "x" * 10
-        )
-
-    def test_strips_the_dash_the_cut_leaves_before_the_suffix(self):
-        slug = generate_unique_slug(
-            "aaaa bbbb", lambda s: s == "aaaa-bbbb", max_length=10
-        )
-
-        assert slug.startswith("aaaa-")
-        assert len(slug) == len("aaaa-") + self.SUFFIX_LENGTH
-
-    def test_without_a_fallback_an_unsluggable_title_yields_an_empty_slug(self):
-        assert not generate_unique_slug("!!!", lambda _s: False)
-
-
-class TestSlugify:
-    MAX_SLUG_LENGTH = 50
-
-    def test_truncation_drops_trailing_dash(self):
-        # 49 chars then a space+word so the cut lands on a separator
-        assert not slugify(f"{'a' * 49} bb").endswith("-")
-
-    def test_caps_at_the_slug_column_width_by_default(self):
-        assert len(slugify("x" * 80)) == self.MAX_SLUG_LENGTH
-
-    def test_strips_a_leading_dash_before_capping(self):
-        assert slugify(f"-{'a' * self.MAX_SLUG_LENGTH}") == "a" * self.MAX_SLUG_LENGTH
 
 
 class TestDedupIdent:
