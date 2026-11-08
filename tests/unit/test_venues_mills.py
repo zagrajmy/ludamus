@@ -250,6 +250,66 @@ class TestSpaceTreeService:
         assert (updated.name, updated.parent_id) == ("Sala 1", 1)
         assert repo.records[2] == updated
 
+    def test_patch_changes_only_the_named_fields(self):
+        sala = _record(
+            pk=2,
+            name="Sala",
+            parent_id=1,
+            capacity=12,
+            description="Duża",
+            location="1",
+        )
+        repo = FakeSpaces([_record(pk=1, name="Budynek"), sala])
+
+        patched = _tree_service(repo).patch_space(
+            event_id=EVENT_PK, pk=2, changes={"name": "Sala 1"}
+        )
+
+        assert patched == sala.model_copy(update={"name": "Sala 1"})
+        assert repo.records[2] == patched
+
+    def test_patch_moves_under_a_parent_of_the_same_event_or_to_the_top(self):
+        repo = FakeSpaces(
+            [
+                _record(pk=1, name="A"),
+                _record(pk=3, name="B"),
+                _record(pk=2, name="Sala", parent_id=1),
+            ]
+        )
+        service = _tree_service(repo)
+        other_parent = 3
+
+        assert (
+            service.patch_space(
+                event_id=EVENT_PK, pk=2, changes={"parent_id": other_parent}
+            )
+        ).parent_id == other_parent
+        assert (
+            service.patch_space(event_id=EVENT_PK, pk=2, changes={"parent_id": None})
+        ).parent_id is None
+
+    def test_patch_refuses_a_space_of_another_event(self):
+        foreign = _record(pk=2, name="Sala", event_id=9)
+        repo = FakeSpaces([foreign])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).patch_space(
+                event_id=EVENT_PK, pk=2, changes={"name": "Mine"}
+            )
+
+        assert repo.records[2] == foreign
+
+    def test_patch_refuses_a_parent_of_another_event(self):
+        sala = _record(pk=2, name="Sala")
+        repo = FakeSpaces([_record(pk=1, name="Obcy", event_id=9), sala])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).patch_space(
+                event_id=EVENT_PK, pk=2, changes={"parent_id": 1}
+            )
+
+        assert repo.records[2] == sala
+
     def test_reparent_targets_skip_self_descendants_and_full_leaves(self):
         tree = [
             _node(

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import (
         ProgrammeSpaceRowDTO,
+        SpacePatch,
         SpaceRecordDTO,
         SpaceTreeNodeDTO,
         SpaceTreeRepositoryProtocol,
@@ -104,10 +105,37 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
                 event_id=event_id, parent_id=parent_id, data=data
             )
 
+    # TODO(hasparus): unscoped, like `read`, `duplicate` and `delete_space`;
+    # the panel venues view checks the event itself. Move it onto
+    # `patch_space`-style event-scoped methods and drop these.
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO:
         return self._spaces.update(pk=pk, parent_id=parent_id, data=data)
+
+    def patch_space(
+        self, *, event_id: int, pk: int, changes: SpacePatch
+    ) -> SpaceRecordDTO:
+        with self._transaction.atomic():
+            current = self._spaces.read_in_event(event_id, pk)
+            parent_id = current.parent_id
+            if "parent_id" in changes:
+                new_parent = changes["parent_id"]
+                parent_id = (
+                    None
+                    if new_parent is None
+                    else self._spaces.read_in_event(event_id, new_parent).pk
+                )
+            return self._spaces.update(
+                pk=current.pk,
+                parent_id=parent_id,
+                data=SpaceInputDTO(
+                    name=changes.get("name", current.name),
+                    capacity=changes.get("capacity", current.capacity),
+                    description=changes.get("description", current.description),
+                    location=changes.get("location", current.location),
+                ),
+            )
 
     def list_reparent_targets(self, *, pk: int, event_pk: int) -> list[tuple[int, str]]:
         # Valid new parents for the node: every space in the event except the
