@@ -433,7 +433,7 @@ and shares the panel access mixin (`gates/web/django/panel.py`) without
 the event resolution `EventPanelMixin` adds.
 
 - **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
-- **Views:** `gates/web/django/multiverse/panel/views/…`
+- **Views:** `gates/web/django/sphere/panel/views/…`
 - **Templates:** `templates/multiverse/panel/`
 - **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/sphere.py`
   (legacy module names; new cuts use `sphere`)
@@ -482,7 +482,7 @@ route below.
 - **URLs:** `/encounters/create/`, `/encounters/<pk>/edit/` (authenticated),
   `/e/<share_code>/` (public, namespace `notice-board`). `/encounters/`
   itself redirects to the events feed.
-- **Views:** `gates/web/django/notice_board/views.py` —
+- **Views:** `gates/web/django/encounter/views.py` —
   `EncounterCreatePageView`, `EncounterEditPageView`,
   `EncounterDeleteActionView`, `EncounterDetailPageView`,
   `EncounterRSVPActionView`, `EncounterCancelRSVPActionView`,
@@ -537,7 +537,7 @@ user upsert on callback.
 
 - **URLs:** `/crowd/auth0/` (namespace `auth0`), `/crowd/login-required/`,
   `/auth-error/` (the Auth0 tenant's error page setting points at it)
-- **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
+- **Views:** `gates/web/django/user/auth.py` — `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
   `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
   `login_required_page`, `auth_error_page`
@@ -553,7 +553,7 @@ User profile management and delegate (connected) accounts.
 
 - **URLs:** `/crowd/profile/`, `/crowd/profile/connected-users/` and
   `/crowd/claim/<token>/`
-- **Views:** `gates/web/django/crowd/profile.py` — `ProfilePageView`,
+- **Views:** `gates/web/django/user/profile.py` — `ProfilePageView`,
   `ProfileAvatarPageView`, `ProfileShadowbanPageView`,
   `ProfileConnectedUsersPageView`,
   `ProfileConnectedUserUpdateActionView`,

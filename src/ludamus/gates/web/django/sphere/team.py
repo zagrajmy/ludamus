@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
-from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import SphereInvitationForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.multiverse import Capability, SphereRole

@@ -18,8 +18,8 @@ from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.gates.web.django.crowd.forms import CompanionForm, UserForm
-from ludamus.gates.web.django.crowd.helpers import (
+from ludamus.gates.web.django.user.forms import CompanionForm, UserForm
+from ludamus.gates.web.django.user.helpers import (
     COMPANION_CREATE_AUTO_ID,
     build_parties_context,
     companion_edit_auto_id,

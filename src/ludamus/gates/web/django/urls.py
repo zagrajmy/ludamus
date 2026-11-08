@@ -21,6 +21,7 @@ from ludamus.gates.web.django.mcp.oauth import (
 )
 from ludamus.gates.web.django.mcp.views import McpEndpointView, McpOrganizerEndpointView
 from ludamus.gates.web.django.pages import PAGES, content_page
+from ludamus.gates.web.django.sphere.urls import multiverse_urlpatterns
 from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
@@ -78,7 +79,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     ),
     path(
         "multiverse/",
-        include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
+        include((multiverse_urlpatterns, "multiverse"), namespace="multiverse"),
     ),
     # Same "crowd/" prefix as the legacy namespace on purpose: URLs keep their
     # shape while pages migrate from web:crowd:* to user:* one at a time.

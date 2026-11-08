@@ -42,7 +42,7 @@ def _reach_gate(client, sub, **claims):
         timeout=600,
     )
     with patch(
-        "ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token",
+        "ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token",
         return_value={"userinfo": {"sub": sub, **claims}},
     ):
         return client.get(CALLBACK_URL, {"state": state_token})

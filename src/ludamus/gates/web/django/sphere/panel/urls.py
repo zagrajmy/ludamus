@@ -2,7 +2,7 @@
 
 from django.urls import include, path
 
-from ludamus.gates.web.django.multiverse.panel.views import (
+from ludamus.gates.web.django.sphere.panel.views import (
     announcements,
     connections,
     sphere_settings,

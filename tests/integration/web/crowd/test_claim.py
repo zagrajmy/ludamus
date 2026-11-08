@@ -196,7 +196,7 @@ class TestClaimRedemptionOnLogin:
         session["pending_claim_token"] = token
         session.save()
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_converts_managed_row_into_account(self, token_mock, client, faker):
         manager = _active(username="mgr", slug="mgr")
         kid = _companion(manager=manager, token="claimtok", username="connected|kid")
@@ -225,7 +225,7 @@ class TestClaimRedemptionOnLogin:
             ],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_spent_token_falls_through_to_normal_login(self, token_mock, client, faker):
         sub = faker.uuid4()
         token_mock.return_value = {"userinfo": {"sub": sub}}
@@ -246,7 +246,7 @@ class TestClaimRedemptionOnLogin:
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_refuses_when_recipient_already_has_account(
         self, token_mock, client, faker
     ):

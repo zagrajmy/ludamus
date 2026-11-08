@@ -12,7 +12,7 @@ from tests.integration.utils import assert_response
 class TestAuth0LoginActionView:
     URL = reverse("web:crowd:auth0:login")
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    @patch("ludamus.gates.web.django.user.auth.oauth")
     def test_ok_redirect(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 
@@ -29,7 +29,7 @@ class TestAuth0LoginActionView:
             "created_at": cached_data["created_at"],
         }
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    @patch("ludamus.gates.web.django.user.auth.oauth")
     def test_ok_redirect_drops_external_next(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 
@@ -42,7 +42,7 @@ class TestAuth0LoginActionView:
         cached_data = json.loads(cache.get(cache_key))
         assert cached_data["redirect_to"] is None
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    @patch("ludamus.gates.web.django.user.auth.oauth")
     def test_ok_redirect_forwards_signup_screen_hint(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 
@@ -53,7 +53,7 @@ class TestAuth0LoginActionView:
         assert call.args[1] == "http://testserver/crowd/auth0/do/login/callback"
         assert call.kwargs["screen_hint"] == "signup"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    @patch("ludamus.gates.web.django.user.auth.oauth")
     def test_ok_redirect_drops_unknown_screen_hint(self, oauth_mock, client):
         oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
 

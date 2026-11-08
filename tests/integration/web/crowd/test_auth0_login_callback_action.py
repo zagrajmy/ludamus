@@ -32,7 +32,7 @@ class TestAuth0LoginCallbackActionView:
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
         return state_token
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok(self, authorize_access_token_mock, client, faker):
         sub = faker.uuid4()
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
@@ -50,7 +50,7 @@ class TestAuth0LoginCallbackActionView:
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_clear_anonymous_session(
         self, authorize_access_token_mock, client, faker
     ):
@@ -78,7 +78,7 @@ class TestAuth0LoginCallbackActionView:
         assert client.session.get("anonymous_enrollment_active") is None
         assert client.session.get("anonymous_event_id") is None
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_redirect_to(self, authorize_access_token_mock, client, faker):
         sub = faker.uuid4()
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
@@ -130,7 +130,7 @@ class TestAuth0LoginCallbackActionView:
 
         assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_external_redirect_to_dropped_on_login(
         self, authorize_access_token_mock, client, faker
     ):
@@ -147,7 +147,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_complete_user(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -164,7 +164,7 @@ class TestAuth0LoginCallbackActionView:
             response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_long_sub_truncates_slug(self, authorize_access_token_mock, client):
         # A long provider sub makes the raw slug overflow the 50-char field; the
         # login must still succeed with a truncated slug.
@@ -184,7 +184,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=f"auth0|{sub}")
         assert len(user.slug) <= User._meta.get_field("slug").max_length
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_slug_collision_creates_distinct_account(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -207,7 +207,7 @@ class TestAuth0LoginCallbackActionView:
         )
         assert User.objects.get(username=username).slug != slugify(username)
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_error_bad_token(self, authorize_access_token_mock, client):
         authorize_access_token_mock.return_value = {}
         state_token = self._setup_valid_state()
@@ -247,7 +247,7 @@ class TestAuth0LoginCallbackActionView:
             ],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_error_expired_state(self, authorize_access_token_mock, client, faker):
 
         authorize_access_token_mock.return_value = {"userinfo": {"sub": faker.uuid4()}}
@@ -270,7 +270,7 @@ class TestAuth0LoginCallbackActionView:
             ],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_error_replay_attack(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -326,7 +326,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.ERROR, "Invalid authentication state")],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_existing_user_fields(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -360,7 +360,7 @@ class TestAuth0LoginCallbackActionView:
         assert user.avatar_url == "https://example.com/new.png"
         assert user.name == "New Name"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_overlong_picture_dropped_on_create(
         self, authorize_access_token_mock, client, faker
     ):
@@ -383,7 +383,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=f"auth0|{sub}")
         assert not user.avatar_url
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_overlong_picture_dropped_on_update(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -408,7 +408,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=username)
         assert user.avatar_url == "https://example.com/old.png"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_max_length_picture_stored_on_create(
         self, authorize_access_token_mock, client, faker
     ):
@@ -434,7 +434,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=f"auth0|{sub}")
         assert user.avatar_url == picture
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_email_without_name(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -461,8 +461,8 @@ class TestAuth0LoginCallbackActionView:
         assert user.email == "new@example.com"
         assert user.name == "Existing Name"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.userinfo")
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.userinfo")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_token_not_dict(
         self, authorize_access_token_mock, userinfo_mock, client, faker
     ):
@@ -482,8 +482,8 @@ class TestAuth0LoginCallbackActionView:
         )
         assert User.objects.get().username == f"auth0|{sub}"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.userinfo")
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.userinfo")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_error_userinfo_returns_non_dict(
         self, authorize_access_token_mock, userinfo_mock, client
     ):
@@ -500,7 +500,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.ERROR, "Authentication failed")],
         )
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_create_strips_duplicate_email(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -527,7 +527,7 @@ class TestAuth0LoginCallbackActionView:
         new_user = User.objects.get(username=f"auth0|{sub}")
         assert not new_user.email
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_update_strips_duplicate_email(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -554,7 +554,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=username)
         assert user.email == "old@example.com"
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_verified_claim_sets_flag(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -583,7 +583,7 @@ class TestAuth0LoginCallbackActionView:
         user = User.objects.get(username=username)
         assert user.email_verified is True
 
-    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_verified_address_is_not_reverted(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):

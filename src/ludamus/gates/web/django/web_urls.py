@@ -6,8 +6,13 @@ from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
-from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.design import DesignPageView
+from ludamus.gates.web.django.encounter.urls import (
+    authenticated_urlpatterns as encounter_authenticated,
+)
+from ludamus.gates.web.django.encounter.urls import (
+    public_urlpatterns as encounter_public,
+)
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps, offers
 from ludamus.gates.web.django.event import views as chronology_views
@@ -24,12 +29,7 @@ from ludamus.gates.web.django.landing import (
     landing_page,
     legacy_feed_redirect,
 )
-from ludamus.gates.web.django.notice_board.urls import (
-    authenticated_urlpatterns as encounter_authenticated,
-)
-from ludamus.gates.web.django.notice_board.urls import (
-    public_urlpatterns as encounter_public,
-)
+from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
 
 app_name = "web"  # pylint: disable=invalid-name
 

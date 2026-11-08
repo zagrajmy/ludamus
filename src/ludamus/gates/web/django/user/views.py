@@ -10,12 +10,12 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.crowd.forms import (
+from ludamus.gates.web.django.user.forms import (
     PartyCompanionForm,
     PartyInviteForm,
     PartyNameForm,
 )
-from ludamus.gates.web.django.crowd.helpers import (
+from ludamus.gates.web.django.user.helpers import (
     build_parties_context,
     build_party_detail_context,
 )

@@ -11,8 +11,8 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.guild import (

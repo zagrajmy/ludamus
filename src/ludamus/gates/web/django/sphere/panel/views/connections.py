@@ -11,9 +11,9 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
-from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
 from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
+from ludamus.gates.web.django.sphere.panel.forms import ConnectionForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import (
