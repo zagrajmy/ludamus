@@ -53,6 +53,15 @@ def ring(recipient: Recipient, bell: Bell) -> None:
     _bell_row(bell, recipient.user_id).save()
 
 
+def already_rang(
+    recipient: Recipient, *, kind: NotificationKind, session_id: int
+) -> bool:
+    """Whether this account's bell already carries this kind for the session."""
+    return Notification.objects.filter(
+        recipient_id=recipient.user_id, kind=kind.value, payload__session_id=session_id
+    ).exists()
+
+
 def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:
     """Ring each recipient's bell with text a person wrote, as they wrote it.
 

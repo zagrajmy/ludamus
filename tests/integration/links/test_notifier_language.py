@@ -253,10 +253,12 @@ def test_every_notification_speaks_its_readers_language_whoever_sends_it(
         )
 
     polish = delivered(reader_language="pl", sender_language="en")
+    english = delivered(reader_language="en", sender_language="pl")
 
     assert polish != ([], [])
+    assert polish != english
     assert delivered(reader_language="pl", sender_language="pl") == polish
-    assert delivered(reader_language="en", sender_language="pl") != polish
+    assert delivered(reader_language="en", sender_language="en") == english
 
 
 class TestRecipient:

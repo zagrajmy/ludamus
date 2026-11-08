@@ -9,6 +9,9 @@ valid:
   - |
     for _ in range(3):
         retry()
+  - |
+    for _, row in pairs:
+        keep(row)
 invalid:
   - |
     title = _("Event cancelled: %(event)s") % {"event": name}
@@ -21,5 +24,7 @@ invalid:
   - "from django.utils.translation import gettext as tr"
   - "from ludamus.links.db.django.models import _ as tr"
   - "tr = models._"
+  - "tr = _"
+  - "from ludamus.links.db.django.models import _"
   - "from django.utils import translation"
   - "import django.utils.translation as t"

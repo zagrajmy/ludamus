@@ -24,10 +24,15 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.delivery import Bell, compose_mail, ring, send
+from ludamus.links.db.django.delivery import (
+    Bell,
+    already_rang,
+    compose_mail,
+    ring,
+    send,
+)
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
-    Notification,
     NotificationSubscription,
     Session,
     SphereSubscription,
@@ -35,7 +40,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.recipients import Voice, speaking_to
 from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
 from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import NotificationDTO, SubscriptionDTO
+from ludamus.pacts.notifications import SubscriptionDTO
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.recipients import Recipient
@@ -637,11 +642,11 @@ class DjangoUserNotifier:
         # Once per session and person: accepting again, or after a rejection
         # nobody was told about, is no news to them.
         with speaking_to(notification.recipient_user_id) as recipient:
-            if Notification.objects.filter(
-                recipient_id=notification.recipient_user_id,
-                kind=NotificationKind.PROPOSAL_ACCEPTED.value,
-                payload__session_id=notification.session_id,
-            ).exists():
+            if already_rang(
+                recipient,
+                kind=NotificationKind.PROPOSAL_ACCEPTED,
+                session_id=notification.session_id,
+            ):
                 logger.info(
                     "Acceptance of session %s already announced to user %s",
                     notification.session_id,
@@ -748,51 +753,6 @@ class DjangoUserNotifier:
                     payload={"event_slug": notification.event_slug},
                 ),
             )
-
-
-class NotificationReadRepository:
-    @staticmethod
-    def unread_count(user_id: int) -> int:
-        return Notification.objects.filter(
-            recipient_id=user_id, read_at__isnull=True
-        ).count()
-
-    @staticmethod
-    def total_count(user_id: int) -> int:
-        return Notification.objects.filter(recipient_id=user_id).count()
-
-    @staticmethod
-    def list_for_user(
-        user_id: int, *, limit: int, offset: int = 0
-    ) -> list[NotificationDTO]:
-        # The window is the query's, not Python's: the bell asks for the first
-        # ten and the history page for one page, so a long backlog is never
-        # loaded whole to show a screenful.
-        # `-pk` only breaks ties: two notifications raised in the same
-        # transaction share a timestamp, and a page window needs a total order
-        # or rows drift between pages.
-        rows = Notification.objects.filter(recipient_id=user_id).order_by(
-            "-creation_time", "-pk"
-        )[offset : offset + limit]
-        return [NotificationDTO.model_validate(notification) for notification in rows]
-
-    @staticmethod
-    def mark_read(user_id: int, pk: int) -> NotificationDTO | None:
-        # Scoped by recipient AND pk: a notification addressed to someone else
-        # returns None (the view 404s) and is never mutated.
-        notification = Notification.objects.filter(recipient_id=user_id, pk=pk).first()
-        if notification is None:
-            return None
-        if notification.read_at is None:
-            notification.read_at = datetime.now(UTC)
-            notification.save(update_fields=["read_at"])
-        return NotificationDTO.model_validate(notification)
-
-    @staticmethod
-    def mark_all_read(user_id: int) -> None:
-        Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(
-            read_at=datetime.now(UTC)
-        )
 
 
 class NotificationSubscriptionRepository:

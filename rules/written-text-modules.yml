@@ -8,12 +8,17 @@ rule:
   any:
     - kind: identifier
       regex: ^n?p?gettext\w*$
-    - pattern: _($$$)
-    - pattern: $M._
-    - kind: aliased_import
-      has:
-        field: name
-        regex: ^_$
+    # Any `_` but a throwaway: `obj, _ = ...` or `for _ in ...`.
+    - all:
+        - kind: identifier
+          regex: ^_$
+        - not:
+            inside:
+              kind: pattern_list
+        - not:
+            inside:
+              kind: for_statement
+              field: left
     - pattern: from django.utils.translation import $$$
     - pattern: from django.utils import translation
     - pattern: from django.utils import translation as $A
