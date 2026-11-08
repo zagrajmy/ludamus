@@ -44,9 +44,11 @@ class FakeRepo:
             ],
         )
 
-    @staticmethod
-    def list_candidates(owner_id):
-        return [_candidate()] if owner_id == _PRESENTER_ID else []
+    def list_candidates(self, owner_id):
+        return [
+            _candidate(slug, is_shadowbanned=(owner_id, slug) in self.bans)
+            for slug in _USER_ID_BY_SLUG
+        ]
 
     def banned_user_ids(self, owner_id):
         return {
@@ -69,9 +71,12 @@ class FakeRepo:
         self.bans.add((owner_id, identifier))
         return True
 
-    @staticmethod
-    def list_session_shadowbanned(*, viewer_id, session_id):
-        return {(_PRESENTER_ID, _SESSION_ID): [_warning()]}[viewer_id, session_id]
+    def list_session_shadowbanned(self, *, viewer_id, session_id):
+        # NOTE: bob is the one player seated in the session.
+        seated_and_banned = (
+            session_id == _SESSION_ID and (viewer_id, "bob") in self.bans
+        )
+        return [_warning()] if seated_and_banned else []
 
 
 class FakeNotifier:
@@ -86,14 +91,14 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _candidate():
+def _candidate(slug, *, is_shadowbanned):
     return ShadowbanCandidateDTO(
-        pk=_USER_ID_BY_SLUG["bob"],
-        full_name="Bob",
-        username="bob",
-        slug="bob",
+        pk=_USER_ID_BY_SLUG[slug],
+        full_name=slug.title(),
+        username=slug,
+        slug=slug,
         avatar_url="",
-        is_shadowbanned=True,
+        is_shadowbanned=is_shadowbanned,
     )
 
 
@@ -262,20 +267,33 @@ def test_notify_signups_without_hits_or_session_is_a_noop():
     assert not notifier.signups
 
 
-def test_read_methods_pass_through_the_repo():
+def test_a_ban_shows_on_both_sides_and_in_the_session_it_touches():
     repo = FakeRepo(signup=None)
-    repo.bans = {(_PRESENTER_ID, "bob"), (_OTHER_PRESENTER_ID, "bob")}
     service = _service(repo)
 
-    assert service.list_candidates(_PRESENTER_ID) == [_candidate()]
+    service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=True)
+    service.set_shadowban(owner_id=_OTHER_PRESENTER_ID, target_slug="bob", banned=True)
+
     assert service.banned_user_ids(_PRESENTER_ID) == {_USER_ID_BY_SLUG["bob"]}
     assert service.banning_owner_ids(_USER_ID_BY_SLUG["bob"]) == {
         _PRESENTER_ID,
         _OTHER_PRESENTER_ID,
     }
+    assert service.list_candidates(_PRESENTER_ID) == [
+        _candidate("bob", is_shadowbanned=True),
+        _candidate("alice", is_shadowbanned=False),
+    ]
     assert service.list_session_warnings(
         viewer_id=_PRESENTER_ID, session_id=_SESSION_ID
     ) == [_warning()]
+
+
+def test_an_unbanned_player_raises_no_session_warning():
+    service = _service(FakeRepo(signup=None))
+
+    assert not service.list_session_warnings(
+        viewer_id=_PRESENTER_ID, session_id=_SESSION_ID
+    )
 
 
 def test_set_shadowban_toggles_the_row():
