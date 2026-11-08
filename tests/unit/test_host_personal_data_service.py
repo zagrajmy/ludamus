@@ -14,6 +14,7 @@ from ludamus.pacts.legacy import (
     NotFoundError,
     PersonalDataFieldValueData,
 )
+from ludamus.pacts.slugs import slugify
 from tests.unit.factories import FakeTransaction
 
 EVENT_ID = 10
@@ -429,6 +430,15 @@ class FakeCFPFields:
     def has_values(self, pk):
         return pk in self._answered
 
+    def create(self, event_id, data):
+        field = OrganizerFieldDTO(
+            pk=len(self._fields[event_id]) + 5,
+            slug=slugify(data["name"]),
+            **{key: data[key] for key in ("field_type", "name", "order", "question")},
+        )
+        self._fields[event_id].append(field)
+        return field
+
     def update(self, pk, data):
         self.updated[pk] = data
 
@@ -455,6 +465,20 @@ def test_summaries_default_unanswered_fields_to_zero():
     summaries = service.list_summaries(10)
 
     assert [(s.field.pk, s.answer_count) for s in summaries] == [(5, 3), (6, 0)]
+
+
+def test_a_created_field_is_readable_by_its_slug_and_listed_unanswered():
+    service = _cfp_service(FakeCFPFields())
+
+    created = service.create(
+        EVENT_ID,
+        {"name": "Phone", "question": "Your number?", "field_type": "text", "order": 1},
+    )
+
+    assert service.read(EVENT_ID, "phone") == created
+    assert [(s.field, s.answer_count) for s in service.list_summaries(EVENT_ID)] == [
+        (created, 0)
+    ]
 
 
 def test_update_writes_against_the_pk_the_slug_resolved_to():
