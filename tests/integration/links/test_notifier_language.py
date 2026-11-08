@@ -21,6 +21,7 @@ from ludamus.pacts.crowd import (
     EmailChangeCompletedNotification,
     EmailChangeRequestedNotification,
     EmailVerificationNotification,
+    UserType,
 )
 from ludamus.pacts.dashboard import SphereEventPublishedNotification
 from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
@@ -183,11 +184,22 @@ class TestRecipient:
             assert translation.get_language() == "pl"
             assert recipient.mail_to() == user.email
 
-    def test_an_account_never_seen_reads_the_site_default(self, settings):
+    def test_an_account_never_seen_reads_english_whatever_the_site_default(
+        self, settings
+    ):
         settings.LANGUAGE_CODE = "pl"
         user = UserFactory(language="")
 
         with speaking_to(user.pk):
+            assert translation.get_language() == "en"
+
+    def test_a_companion_reads_its_managers_language(self):
+        manager = UserFactory(language="pl")
+        companion = UserFactory(
+            user_type=UserType.CONNECTED, manager=manager, language="en"
+        )
+
+        with speaking_to(companion.pk):
             assert translation.get_language() == "pl"
 
     def test_an_unproven_address_is_never_mailed(self):
