@@ -322,7 +322,8 @@ the past. `/` redirects here.
 What visitors see: event details, session list, session cards.
 
 - **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
-- **Views:** `adapters/web/django/views.py` — `EventPageView`
+- **Views:** `gates/web/django/event/page.py` — `EventPageView`, reading
+  through `services.event_schedule` (`mills/event_schedule.py`)
 - **Templates:** `templates/chronology/event.html`,
   `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
