@@ -259,6 +259,8 @@ def test_every_notification_speaks_its_readers_language_whoever_sends_it(
     assert polish != english
     assert delivered(reader_language="pl", sender_language="pl") == polish
     assert delivered(reader_language="en", sender_language="en") == english
+    if not email_verified and not method.startswith("notify_email_"):
+        assert all(reader.email not in to for *_, to in polish[1] + english[1])
 
 
 class TestRecipient:
