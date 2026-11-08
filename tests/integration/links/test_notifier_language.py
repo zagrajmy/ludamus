@@ -211,14 +211,14 @@ class TestRecipient:
     def test_a_claimed_companion_reads_its_own_language(self):
         companion = UserFactory(
             user_type=UserType.CONNECTED,
-            manager=UserFactory(language="pl"),
+            manager=UserFactory(language="en"),
             claim_token="tok",
         )
         ClaimRepository.convert(token="tok", username="ola")
-        User.objects.filter(pk=companion.pk).update(language="en")
+        User.objects.filter(pk=companion.pk).update(language="pl")
 
         with speaking_to(companion.pk):
-            assert translation.get_language() == "en"
+            assert translation.get_language() == "pl"
 
     def test_an_unproven_address_is_never_mailed(self):
         user = UserFactory(language="pl", email_verified=False)

@@ -50,8 +50,8 @@ class Voice:
     __slots__ = ("_active", "_address", "_language", "_override")
 
     def __init__(self, language: str, *, address: str) -> None:
-        # NOTE: not the site's Polish default: a reader we know nothing
-        # about is likelier to read English.
+        # NOTE: not settings.LANGUAGE_CODE: a reader we know nothing about
+        # is likelier to read English than the site's own language.
         self._language = language or _UNRECORDED_LANGUAGE
         self._address = address
         self._override: translation.override | None = None
@@ -119,7 +119,6 @@ def _account_reader(user_id: int, *, mail_to: str | None) -> _AccountReader:
             user_id=user_id, language="", deliverable_email=mail_to or ""
         )
     proven = user.email if user.email_verified else ""
-    # A companion never browses, so it speaks its manager's language.
     return _AccountReader(
         user_id=user_id,
         language=(user.manager or user).language,
