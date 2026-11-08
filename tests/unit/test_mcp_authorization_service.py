@@ -2,7 +2,6 @@ import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -95,29 +94,67 @@ def _rejection(error):
     return (error.error, error.description, error.redirect_uri, error.state)
 
 
+class FakeFetcher:
+    def __init__(self, document):
+        self.document = document
+        self.fetched: list[str] = []
+
+    def fetch(self, client_id):
+        self.fetched.append(client_id)
+        return self.document
+
+
+class FakeCodes:
+    def __init__(self, stored=None):
+        self.stored = {} if stored is None else {"abc": (stored, None)}
+
+    def put(self, code, issued, *, ttl_seconds):
+        self.stored[code] = (issued, ttl_seconds)
+
+    def take(self, code):
+        issued, _ttl = self.stored.pop(code, (None, None))
+        return issued
+
+
+class FakeSpheres:
+    def __init__(self, *, manager, events):
+        self._managers = {(SPHERE_ID, USER_SLUG): manager}
+        self._events = {SPHERE_ID: list(events)}
+
+    def can_write_programme(self, sphere_id, slug):
+        return self._managers[sphere_id, slug]
+
+    def list_events(self, sphere_id):
+        return self._events[sphere_id]
+
+
+class FakeUsers:
+    def __init__(self, *, superuser):
+        self._users = {USER_SLUG: SimpleNamespace(is_superuser=superuser)}
+
+    def read(self, slug):
+        return self._users[slug]
+
+
 class _Deps:
     def __init__(
         self, *, document=None, stored=None, superuser=True, manager=True, events=()
     ):
-        self.fetcher = MagicMock()
-        self.fetcher.fetch.return_value = _document() if document is None else document
-        self.codes = MagicMock()
-        self.codes.take.return_value = stored
-        self.spheres = MagicMock()
-        managers = {(SPHERE_ID, USER_SLUG): manager}
-        self.spheres.can_write_programme.side_effect = lambda sphere_id, slug: (
-            managers[sphere_id, slug]
-        )
-        self.spheres.list_events.side_effect = {SPHERE_ID: list(events)}.__getitem__
-        self.users = MagicMock()
-        self.users.read.side_effect = {
-            USER_SLUG: SimpleNamespace(is_superuser=superuser)
-        }.__getitem__
+        self.fetcher = FakeFetcher(_document() if document is None else document)
+        self.codes = FakeCodes(stored)
         self.service = McpAuthorizationService(
             fetcher=self.fetcher,
             codes=self.codes,
-            spheres=self.spheres,
-            users=self.users,
+            spheres=FakeSpheres(manager=manager, events=events),
+            users=FakeUsers(superuser=superuser),
+        )
+
+    def redeem(self, code):
+        return self.service.redeem(
+            code=code,
+            client_id=CLIENT_ID,
+            redirect_uri=LOOPBACK_REDIRECT,
+            code_verifier=VERIFIER,
         )
 
 
@@ -128,7 +165,7 @@ class TestBegin:
         pending = deps.service.begin(_request())
 
         assert pending == _pending()
-        deps.fetcher.fetch.assert_called_once_with(CLIENT_ID)
+        assert deps.fetcher.fetched == [CLIENT_ID]
 
     def test_client_that_also_supports_public_exchange_is_accepted(self):
         # ChatGPT's document: a private_key_jwt preference in the legacy
@@ -196,7 +233,7 @@ class TestBegin:
             deps.service.begin(_request(client_id=client_id))
 
         assert caught.value.reason == ClientRejection.BAD_CLIENT_ID
-        deps.fetcher.fetch.assert_not_called()
+        assert not deps.fetcher.fetched
 
     @pytest.mark.parametrize(
         ("document", "reason"),
@@ -320,7 +357,6 @@ class TestConsent:
                 McpEventChoiceDTO(pk=1, name="Event 1"),
             ],
         )
-        deps.spheres.can_write_programme.assert_called_once_with(SPHERE_ID, USER_SLUG)
 
     @freeze_time("2026-08-01 09:00:00")
     def test_organizer_lists_an_event_ending_right_now_as_upcoming(self):
@@ -359,11 +395,8 @@ class TestApprove:
         )
 
         assert len(code) == CODE_LENGTH
-        deps.codes.put.assert_called_once_with(
-            code,
-            _issued(grant=MaintainerGrant(user_id=7)),
-            ttl_seconds=AUTHORIZATION_CODE_TTL_SECONDS,
-        )
+        assert deps.codes.stored[code][1] == AUTHORIZATION_CODE_TTL_SECONDS
+        assert deps.redeem(code) == MaintainerGrant(user_id=7)
 
     def test_organizer_code_names_the_event(self):
         deps = _Deps(events=[_event(11, days=5)])
@@ -376,8 +409,8 @@ class TestApprove:
             event_id=11,
         )
 
-        deps.codes.put.assert_called_once_with(
-            code, _issued(), ttl_seconds=AUTHORIZATION_CODE_TTL_SECONDS
+        assert deps.redeem(code) == OrganizerGrant(
+            user_id=7, sphere_id=SPHERE_ID, event_id=11
         )
 
     @pytest.mark.parametrize("event_id", (99, None))
@@ -399,7 +432,7 @@ class TestApprove:
             LOOPBACK_REDIRECT,
             "xyz",
         )
-        deps.codes.put.assert_not_called()
+        assert not deps.codes.stored
 
     @pytest.mark.parametrize(
         ("pending", "roles"),
@@ -426,22 +459,21 @@ class TestApprove:
             LOOPBACK_REDIRECT,
             "xyz",
         )
-        deps.codes.put.assert_not_called()
+        assert not deps.codes.stored
 
 
 class TestRedeem:
     def test_returns_grant(self):
         deps = _Deps(stored=_issued())
 
-        grant = deps.service.redeem(
-            code="abc",
-            client_id=CLIENT_ID,
-            redirect_uri=LOOPBACK_REDIRECT,
-            code_verifier=VERIFIER,
-        )
+        assert deps.redeem("abc") == OrganizerGrant(user_id=7, sphere_id=3, event_id=11)
 
-        assert grant == OrganizerGrant(user_id=7, sphere_id=3, event_id=11)
-        deps.codes.take.assert_called_once_with("abc")
+    def test_a_code_redeems_once(self):
+        deps = _Deps(stored=_issued())
+        deps.redeem("abc")
+
+        with pytest.raises(McpGrantRejectedError):
+            deps.redeem("abc")
 
     @pytest.mark.parametrize(
         ("stored", "overrides"),
