@@ -127,7 +127,9 @@ jobs:
           retention-days: 7
 
   test-e2e:
-    runs-on: ubuntu-latest
+    # NOTE: ubuntu-latest became 26.04, whose ICU 78 the WebKit build of
+    # Playwright 1.64 cannot load (it links ICU 74). Move with Playwright.
+    runs-on: ubuntu-24.04
     # A stuck `playwright install` has no timeout of its own and rode the 6h
     # job default; cap it so a hang fails in minutes instead of hours.
     timeout-minutes: 30
