@@ -1,18 +1,17 @@
 """Pure mapping helpers: import-row cells to domain values, titles to slugs."""
 
 import json
-import re
 from dataclasses import dataclass
 from hashlib import blake2b
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Literal, Never
 
 from pydantic import TypeAdapter, ValidationError
-from unidecode import unidecode
 
 from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import PersonalDataFieldValueData, SessionFieldValueData
+from ludamus.pacts.slugs import slugify
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -159,21 +158,6 @@ class DuplicateRowError(Exception):
         super().__init__()
         self.existing_session_id = existing_session_id
         self.adopt_ident = adopt_ident
-
-
-class MissingKeyColumnsError(Exception):
-    # Raised when settings.unique_key_columns or .facilitator_key_columns names
-    # headers the source sheet doesn't carry (e.g. the English
-    # "Timestamp"/"Email Address" defaults saved against a Polish-localized form
-    # whose real headers are "Sygnatura czasowa"/"Adres e-mail"). Left silent,
-    # the identity collapses to the columns that *do* match — distinct rows
-    # share a slug and get merged, and a renamed facilitator silently falls back
-    # to display-name dedup. Abort loudly instead of quietly losing records.
-    def __init__(self, columns: list[str]) -> None:
-        super().__init__(
-            "Key columns missing from the sheet: " + ", ".join(repr(c) for c in columns)
-        )
-        self.columns = columns
 
 
 def field_name(definition: FieldDefinition | None, slug: str) -> str:
@@ -368,20 +352,6 @@ def locate_row(
     if fallback_index < len(rows):
         return fallback_index, rows[fallback_index]
     return None
-
-
-def slugify(value: str, *, max_length: int = 50) -> str:
-    # ASCII slug mirroring the live TS preview (simov/slugify with locale="pl").
-    # Unidecode transliterates the full Unicode range (Polish ł/Ł, German ß,
-    # CJK, etc.) rather than relying on NFKD decomposition, which silently
-    # drops non-decomposable characters like ł. Capped at max_length to fit the
-    # SlugField column (default 50); strip again so truncation never leaves a
-    # trailing dash.
-    transliterated = unidecode(value).lower()
-    slug = re.sub(r"[^\w\s-]", "", transliterated)
-    # pragma: no mutate start
-    return re.sub(r"[-\s]+", "-", slug).strip("-")[:max_length].strip("-")
-    # pragma: no mutate end
 
 
 def dedup_ident(*, event_id: int, identity: str) -> str:

@@ -1,9 +1,10 @@
-"""Service builders shared by the two composition roots.
+"""Service builders shared by the request scope and the sweeps.
 
-`Services` (request-scoped) and `inits.dbos_scheduler` (workflow steps) build
-the same services; sharing the wiring here keeps the two copies from drifting.
-The offer-expiry scheduler is a parameter so this module imports neither of
-its consumers (which is also what keeps it cycle-free).
+`Services` (request-scoped) and `inits.sweeps` (run by DBOS and by the
+management commands) build the same services; sharing the wiring here keeps
+the copies from drifting. The offer-expiry scheduler is a parameter so this
+module imports neither `inits.dbos_scheduler` nor `inits.services`, both of
+which import it.
 """
 
 from __future__ import annotations
@@ -13,12 +14,13 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 
+from ludamus.inits.config import credentials_key
 from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.email_tokens import DjangoEmailTokenCodec
-from ludamus.links.encryption import FernetDecryptor
+from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
 from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.mills.crowd import EmailVerificationService
@@ -83,9 +85,16 @@ def build_sphere_subscriptions() -> SphereSubscriptionService:
     )
 
 
+def build_credentials_encryptor() -> FernetEncryptor:
+    return FernetEncryptor(credentials_key())
+
+
+def build_credentials_decryptor() -> FernetDecryptor:
+    return FernetDecryptor(credentials_key())
+
+
 def build_konwencik_export() -> KonwencikExportService:
     repos = Repositories()
-    key: str = settings.CREDENTIALS_ENCRYPTION_KEY
     return KonwencikExportService(
         repos=KonwencikScheduleRepos(
             agenda_items=repos.agenda_items,
@@ -98,7 +107,7 @@ def build_konwencik_export() -> KonwencikExportService:
         ),
         integrations=repos.event_integrations,
         connections=repos.connections,
-        decryptor=FernetDecryptor(key),
+        decryptor=build_credentials_decryptor(),
         sheet_writer=GoogleSheetsWriter(),
         zone=ZoneInfo(settings.TIME_ZONE),
         transaction=DjangoTransaction(),
@@ -133,7 +142,9 @@ def build_listings() -> ListingService:
     )
 
 
-def build_encounters(sites: SitesServiceProtocol) -> EncounterService:
+def build_encounters(
+    sites: SitesServiceProtocol, guests: EncounterGuests
+) -> EncounterService:
     repos = Repositories()
     return EncounterService(
         transaction=DjangoTransaction(),
@@ -142,5 +153,5 @@ def build_encounters(sites: SitesServiceProtocol) -> EncounterService:
         users=repos.active_users,
         spheres=repos.spheres,
         sites=sites,
-        guests=build_encounter_guests(sites),
+        guests=guests,
     )

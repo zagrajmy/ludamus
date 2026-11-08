@@ -1,8 +1,6 @@
 from functools import cached_property
 from typing import TYPE_CHECKING, TypeVar
 
-from django.conf import settings
-
 from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.links.gravatar import gravatar_url
@@ -50,7 +48,5 @@ class RepositoryInjectionMiddleware[Response]:
         self.get_response: Callable[[RootRequestProtocol], Response] = get_response
 
     def __call__(self, request: RootRequestProtocol) -> Response:
-        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
-            request.di = DependencyInjector()
-
+        request.di = DependencyInjector()
         return self.get_response(request)

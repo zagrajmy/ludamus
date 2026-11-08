@@ -39,8 +39,7 @@ class Repositories:
     """Lazy flat repository registry.
 
     Internal to inits — never imported from gates. Mills services receive
-    specific repo protocols from this tree, not the tree itself. Buckets
-    will appear when the leaf count grows past ~12.
+    specific repo protocols from this tree, not the tree itself.
     """
 
     @cached_property

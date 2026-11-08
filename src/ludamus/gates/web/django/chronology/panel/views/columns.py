@@ -27,10 +27,13 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     proposal_tab_urls,
 )
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
-from ludamus.mills.panel_columns import FACILITATOR_BUILTIN_KEYS, PROPOSAL_BUILTIN_KEYS
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import SessionListItemDTO
-from ludamus.pacts.panel import EmptyColumnSelectionError
+from ludamus.pacts.panel import (
+    FACILITATOR_BUILTIN_KEYS,
+    PROPOSAL_BUILTIN_KEYS,
+    EmptyColumnSelectionError,
+)
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:

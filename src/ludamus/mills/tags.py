@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.mapping import slugify
+from ludamus.pacts.slugs import slugify
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,

@@ -144,10 +144,11 @@ INSTALLED_APPS = [
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
     "ludamus.links.analytics.apps.AnalyticsConfig",
+    "ludamus.inits.apps.InitsConfig",
 ]
 
 MIDDLEWARE = [
-    "ludamus.gates.web.django.wide_event.WideEventMiddleware",
+    "ludamus.inits.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
@@ -158,6 +159,14 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "ludamus.gates.web.django.middlewares.AppMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
+]
+
+# Run in this order by AppMiddleware, and only for paths outside
+# MIDDLEWARE_SKIP_PREFIXES.
+APP_MIDDLEWARE = [
     "ludamus.inits.legacy.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
@@ -165,8 +174,6 @@ MIDDLEWARE = [
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "ludamus.inits.middleware.UserLanguageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]
 
 if DEBUG:
@@ -229,7 +236,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
-                "ludamus.gates.web.django.context_processors.analytics",
+                "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -372,7 +379,7 @@ MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# URL prefixes that skip middleware processing (UoW injection, context setup)
+# URL prefixes that skip APP_MIDDLEWARE (UoW injection, context setup)
 MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
