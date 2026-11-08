@@ -140,17 +140,23 @@
                 {% include "components/_pagination.html" %}
             </div>
         {% elif current_event.publication_time %}
-            {% translate "The agenda has not changed since it went public" as t_empty_title %}
-        {% empty_state icon="megaphone" title=t_empty_title %}
-        {% end_empty_state %}
-{% else %}
-    {% translate "The agenda is not public yet" as t_empty_title %}
-    {% translate "Changes count as errata once the event is published — until then, edit the schedule freely." as t_empty_text %}
-{% empty_state icon="megaphone" title=t_empty_title text=t_empty_text %}
-    {% translate "Open event settings" as t_settings %}
-    {% url 'panel:event-settings' slug=current_event.slug as settings_url %}
-    {% tessera_button t_settings href=settings_url variant="secondary" %}
-{% end_empty_state %}
-{% endif %}
-</div>
+            <div class="text-center py-8">
+                {% icon "megaphone" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                <h5 class="text-foreground-muted font-medium">{% translate "The agenda has not changed since it went public" %}</h5>
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                {% icon "megaphone" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                <h5 class="text-foreground-muted font-medium">{% translate "The agenda is not public yet" %}</h5>
+                <p class="mt-1 text-sm text-foreground-muted">
+                    {% translate "Changes count as errata once the event is published — until then, edit the schedule freely." %}
+                </p>
+                <div class="mt-4">
+                    {% translate "Open event settings" as t_settings %}
+                    {% url 'panel:event-settings' slug=current_event.slug as settings_url %}
+                    {% tessera_button t_settings href=settings_url variant="secondary" %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
 {% endblock content %}

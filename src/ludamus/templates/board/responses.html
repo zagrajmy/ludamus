@@ -67,7 +67,7 @@
                 {% else %}
                     {% translate "You haven't turned anyone down" as t_empty_title %}
                 {% endif %}
-        {% empty_state icon="inbox" title=t_empty_title text=t_empty_text|default:"" framed=True %}
+        {% empty_state icon="inbox" title=t_empty_title text=t_empty_text|default:"" %}
         {% end_empty_state %}
     </div>
 {% endif %}
