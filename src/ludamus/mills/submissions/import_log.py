@@ -70,8 +70,6 @@ class ImportLogService:
         except NotFoundError:
             # entry belongs to an integration that's not in this event — refuse.
             return False
-        if integration.pk != entry.integration_id:
-            return False
         settings = self._engine.settings(event_id, integration.pk)
         rows = self._event_integrations.fetch_responses(
             sphere_id=sphere_id, event_id=event_id, pk=integration.pk
@@ -122,8 +120,6 @@ class ImportLogService:
         try:
             integration = self._event_integrations.get(event_id, entry.integration_id)
         except NotFoundError:
-            return False
-        if integration.pk != entry.integration_id:
             return False
         if entry.session_id is None:
             return self.retry_entry(
