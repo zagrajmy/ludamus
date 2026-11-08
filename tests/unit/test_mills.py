@@ -13,7 +13,7 @@ from ludamus.mills.propose.mapping import (
 )
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.fields import SessionFieldValueData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     FieldDefinition,
     FieldDefinitions,
     ImportRow,

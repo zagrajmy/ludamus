@@ -5,7 +5,6 @@ import pytest
 from django.utils import translation
 
 from ludamus.links.db.django import notifications
-from ludamus.links.db.django.users import ClaimRepository
 from ludamus.links.db.django.delivery import compose_mail
 from ludamus.links.db.django.models import (
     Notification,
@@ -19,17 +18,7 @@ from ludamus.links.db.django.recipients import (
     Voice,
     speaking_to,
 )
-from ludamus.pacts.chronology import (
-    AnonymousProposalAcceptedNotification,
-    ProposalAcceptedNotification,
-)
-from ludamus.pacts.crowd import (
-    AgeBand,
-    EmailChangeCompletedNotification,
-    EmailChangeRequestedNotification,
-    EmailVerificationNotification,
-    UserType,
-)
+from ludamus.links.db.django.users import ClaimRepository
 from ludamus.pacts.dashboard import SphereEventPublishedNotification
 from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
 from ludamus.pacts.listing import (
@@ -44,6 +33,17 @@ from ludamus.pacts.party import (
 )
 from ludamus.pacts.printing import PrintablesReadyNotification
 from ludamus.pacts.safety import ShadowbanSignupNotification
+from ludamus.pacts.sessions import (
+    AnonymousProposalAcceptedNotification,
+    ProposalAcceptedNotification,
+)
+from ludamus.pacts.user import (
+    AgeBand,
+    EmailChangeCompletedNotification,
+    EmailChangeRequestedNotification,
+    EmailVerificationNotification,
+    UserType,
+)
 from tests.integration.conftest import SessionFactory, UserFactory
 
 _EXPIRES = datetime(2031, 5, 1, 17, 0, tzinfo=UTC)

@@ -39,7 +39,7 @@ from ludamus.pacts.konwencik import KonwencikScheduleRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
-    from ludamus.pacts.multiverse import SitesServiceProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol
 
 
 def build_waitlist_promotion(

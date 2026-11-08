@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING
 from django.core import signing
 from pydantic import BaseModel, ValidationError
 
-from ludamus.pacts.crowd import (
-    EMAIL_LINK_MAX_AGE,
-    EmailTokenCodecProtocol,
-    EmailTokenPayload,
-)
 from ludamus.pacts.dashboard import (
     SphereUnsubscribeTokenCodecProtocol,
     SphereUnsubscribeTokenPayload,
+)
+from ludamus.pacts.user import (
+    EMAIL_LINK_MAX_AGE,
+    EmailTokenCodecProtocol,
+    EmailTokenPayload,
 )
 
 if TYPE_CHECKING:

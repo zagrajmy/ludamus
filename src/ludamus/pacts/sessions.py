@@ -1,7 +1,7 @@
-"""Sessions: the proposal row, its write shapes and its content log."""
+"""Sessions: the proposal row, its write shapes, its log and its lifecycle."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time, timedelta, tzinfo
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.event import EventDTO, TimeSlotDTO
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.fields import (
@@ -19,12 +18,14 @@ if TYPE_CHECKING:
         SessionFieldValueDTO,
     )
     from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.session_cards import ProposalAcceptContextDTO
     from ludamus.pacts.timetable import (
         ConfirmationSessionRow,
         UnscheduledSessionDTO,
         UnscheduledSessionFilter,
     )
     from ludamus.pacts.tracks import TrackDTO, TrackSessionCountsDTO
+    from ludamus.pacts.user import UserDTO
     from ludamus.pacts.venues import SpaceOptionDTO
 
 
@@ -319,3 +320,209 @@ class ContentChangeLogRepositoryProtocol(Protocol):
 
     @staticmethod
     def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
+
+# A convention day ends when people go to sleep, not at midnight: a session
+# that runs from Friday 22:00 into the small hours is Friday's programme, and
+# a reader at 02:00 is still living Friday. Every schedule layout, server- and
+# client-side alike, turns its days over at this hour.
+PROGRAMME_DAY_STARTS_AT_HOUR = 6
+
+
+type Window = tuple[datetime, datetime]
+
+
+@dataclass(frozen=True)
+class DayTurnover:
+    # Where a day begins: the hour, local to the event, at which one day ends
+    # and the next opens. Everything that asks "which day is this instant on"
+    # asks the same turnover, so the answers agree.
+    hour: int
+
+    def date_of(self, instant: datetime, tz: tzinfo) -> date:
+        # The date whose day holds the instant: at 02:00 on a Saturday whose
+        # days turn at 06:00, that is still Friday. Wall-clock arithmetic on
+        # purpose — a clock change that night moves the turnover with it.
+        return (instant.astimezone(tz) - timedelta(hours=self.hour)).date()
+
+    def opening(self, day: date, tz: tzinfo) -> datetime:
+        # The instant the day opens: its name and date are the day's.
+        return datetime.combine(day, time(self.hour), tzinfo=tz)
+
+    def windows(self, *, start: datetime, end: datetime, tz: tzinfo) -> list[Window]:
+        # An interval spanning multiple days contributes one (start, end)
+        # window to each day it touches, clamped to that day's 24 hours.
+        local_start = start.astimezone(tz)
+        local_end = end.astimezone(tz)
+        first_date = self.date_of(local_start, tz)
+        last_date = self.date_of(local_end, tz)
+        if first_date == last_date:
+            # Nearly every session: within one day, nothing to clamp. The
+            # loop below would answer the same, at the cost of two openings
+            # and four timestamps per session on a page of a thousand.
+            # Timestamps, as below: two wall clocks in the repeated autumn
+            # hour compare by their fold-less naive value.
+            if local_start.timestamp() < local_end.timestamp():
+                return [(local_start, local_end)]
+            return []
+        # NOTE: clamp by instant, not wall clock. Aware datetimes sharing a
+        # tzinfo compare by their fold-less naive value, and a zone whose DST
+        # change lands on the turnover hour itself (America/Havana ends DST at
+        # 00:00) gives an opening and a window edge the same wall time an hour
+        # apart.
+        windows: list[Window] = []
+        for offset in range((last_date - first_date).days + 1):  # pragma: no mutate
+            day = first_date + timedelta(days=offset)
+            window_start = max(
+                local_start, self.opening(day, tz), key=datetime.timestamp
+            )
+            window_end = min(
+                local_end,
+                self.opening(day + timedelta(days=1), tz),
+                key=datetime.timestamp,
+            )
+            if window_start.timestamp() < window_end.timestamp():
+                windows.append((window_start, window_end))
+        return windows
+
+
+MIDNIGHT = DayTurnover(0)
+
+
+PROGRAMME_DAYS = DayTurnover(PROGRAMME_DAY_STARTS_AT_HOUR)
+
+
+class SessionAvailability(StrEnum):
+    """The one state a schedule card's label and the status filter read.
+
+    The values reach the page as data-status and the filter's option values,
+    and the client reads them from the page rather than restating them.
+    """
+
+    PROPOSAL = "proposal"
+    ENDED = "ended"
+    IN_PROGRESS = "in-progress"
+    NO_ENROLLMENT = "no-enrollment"
+    UNAVAILABLE = "unavailable"
+    FULL = "full"
+    AVAILABLE = "available"
+
+
+class SessionSelfEditServiceProtocol(Protocol):
+    def get_edit_context(
+        self, session_id: int, user_id: int | None
+    ) -> SessionSelfEditContext: ...
+    def update(
+        self,
+        *,
+        session_id: int,
+        user_id: int | None,
+        data: SessionUpdateData,
+        field_values: list[SessionFieldValueData] | None,
+    ) -> None: ...
+
+
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
+class SessionEditNotAllowedError(Exception):
+    """Raised when a user may not self-edit the requested session."""
+
+
+class SessionContentEditServiceProtocol(Protocol):
+    def apply(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        user_id: int | None,
+        data: SessionContentEditData,
+    ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
+    def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
+    def session_history(
+        self, *, event_id: int, session_id: int
+    ) -> tuple[str, list[ContentChangeLogDTO]]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(
+        self, event_id: int, logs: list[ContentChangeLogDTO]
+    ) -> set[int]: ...
+
+
+class SessionConfirmationServiceProtocol(Protocol):
+    def set_session_confirmed(
+        self, event_pk: int, session_pk: int, *, confirmed: bool
+    ) -> None: ...
+
+
+class SessionDeletionServiceProtocol(Protocol):
+    def soft_delete(
+        self, event_pk: int, session_pk: int, user_pk: int | None = None
+    ) -> None: ...
+    def restore(self, event_pk: int, session_pk: int) -> None: ...
+
+
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
+class ProposalAcceptance(BaseModel):
+    session_id: int
+    session_title: str
+    event_name: str
+    event_slug: str
+    # Placed sessions are on the public agenda, so the link can open them.
+    placed: bool
+
+
+class ProposalAcceptedNotification(ProposalAcceptance):
+    recipient_user_id: int
+
+
+class AnonymousProposalAcceptedNotification(ProposalAcceptance):
+    contact_email: str
+    language: str
+
+
+class ProposalAcceptedNotifierProtocol(Protocol):
+    def notify_proposal_accepted(
+        self, notification: ProposalAcceptedNotification
+    ) -> None: ...
+    def notify_anonymous_proposal_accepted(
+        self, notification: AnonymousProposalAcceptedNotification
+    ) -> None: ...
+
+
+class SpaceTimeConflictError(Exception):
+    """Another session already occupies that space during the chosen slot."""
+
+
+class ProposalAcceptDeniedError(Exception):
+    """Only sphere managers and superusers may accept proposals."""
+
+
+class ProposalAcceptanceServiceProtocol(Protocol):
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None: ...
+    def accept_session(
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
+    ) -> None: ...

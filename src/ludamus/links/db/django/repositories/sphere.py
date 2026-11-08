@@ -9,9 +9,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.links.db.django.repositories.storage import save_replacing_files
-from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     AnnouncementData,
     AnnouncementDTO,
     AnnouncementsRepositoryProtocol,
@@ -26,6 +25,7 @@ from ludamus.pacts.multiverse import (
     SphereRole,
     SphereUpdateData,
 )
+from ludamus.pacts.user import SphereDomainRepositoryProtocol, UserDTO
 
 
 class SphereRepository(

@@ -45,7 +45,6 @@ from ludamus.specs.enrollment import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
         EnrollmentConfigRepositoryProtocol,
         EnrollmentRepos,
@@ -66,6 +65,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event import EventDTO
     from ludamus.pacts.ids import HasPk
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import UserDTO
 
 
 def _now() -> datetime:

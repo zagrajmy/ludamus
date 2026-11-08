@@ -10,7 +10,7 @@ from ludamus.pacts.fields import (
     PersonalDataFieldValueRepositoryProtocol,
     is_text_field_kind,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     CFPPersonalDataFieldServiceProtocol,
     PersonalFieldSummary,
     is_empty_answer,

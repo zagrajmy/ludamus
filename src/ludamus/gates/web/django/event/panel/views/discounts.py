@@ -23,7 +23,7 @@ from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, safe_n
 from ludamus.pacts.discounts import DiscountData, DiscountKind
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import FacilitatorListQuery
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

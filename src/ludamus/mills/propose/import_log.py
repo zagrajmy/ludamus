@@ -11,16 +11,16 @@ from ludamus.mills.propose.mapping import (
     locate_row,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogStatus,
     ImportRepos,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 

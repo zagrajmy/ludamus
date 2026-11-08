@@ -17,14 +17,14 @@ from ludamus.links.google_sheets import (
     SHEETS_VALUES_URL,
     SpreadsheetMeta,
 )
-from ludamus.pacts.chronology import (
+from ludamus.pacts.integrations import (
     CheckOutcome,
     CheckResult,
     ImportIntegrationImplementation,
     IntegrationKind,
     SourceQuestion,
 )
-from ludamus.pacts.submissions import ImportRow
+from ludamus.pacts.propose import ImportRow
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

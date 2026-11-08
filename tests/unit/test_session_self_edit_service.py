@@ -4,10 +4,10 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.sessions import SessionContentEditService, SessionSelfEditService
-from ludamus.pacts.chronology import SessionEditNotAllowedError
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
-from ludamus.pacts.multiverse import SiteDTO, SphereDTO
+from ludamus.pacts.sessions import SessionEditNotAllowedError
+from ludamus.pacts.sphere import SiteDTO, SphereDTO
 from tests.unit.factories import FakeTransaction, event_dto, session_dto
 
 _SESSION_PK = 5

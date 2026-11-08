@@ -9,13 +9,13 @@ from pydantic import BaseModel, ValidationError, field_validator
 
 from ludamus.links.http_check import probe_failed, probe_result
 from ludamus.links.retry import mount_retries
-from ludamus.pacts.chronology import (
+from ludamus.pacts.enrollment import MembershipAPIError
+from ludamus.pacts.integrations import (
     CheckOutcome,
     CheckResult,
     IntegrationKind,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.enrollment import MembershipAPIError
 
 logger = logging.getLogger(__name__)
 

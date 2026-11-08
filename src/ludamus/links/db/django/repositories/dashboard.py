@@ -38,7 +38,7 @@ from ludamus.pacts.dashboard import (
 )
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.enrollment import SessionParticipationStatus
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.sphere import SphereVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime

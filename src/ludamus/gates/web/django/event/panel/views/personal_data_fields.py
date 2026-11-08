@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
     from django.http import HttpResponse
 
-    from ludamus.pacts.submissions import PersonalFieldSummary
+    from ludamus.pacts.propose import PersonalFieldSummary
 
 
 def answered_field_reasons(summaries: Iterable[PersonalFieldSummary]) -> dict[int, str]:

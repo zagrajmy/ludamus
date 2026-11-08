@@ -1,36 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.sessions import SessionStatus
-
-
-class PlacementRejection(StrEnum):
-    NAIVE_DATETIME = "naive_datetime"
-    END_NOT_AFTER_START = "end_not_after_start"
-    SESSION_NOT_ACCEPTED = "session_not_accepted"
-    BEFORE_PUBLICATION = "before_publication"
-
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.venues import SpaceDTO
 
 if TYPE_CHECKING:
-    from datetime import tzinfo
-
-    from ludamus.pacts.chronology import (
-        CapacityHoursDTO,
-        ConflictDTO,
-        HeatmapDTO,
-        MultiselectOptionDTO,
-        PreferredSlotViolationDTO,
-        SessionPlacement,
-        TimetableGridDTO,
-        TimetableGridFilter,
-        TrackProgressDTO,
-    )
     from ludamus.pacts.event import (
         EventRepositoryProtocol,
         TimeSlotDTO,
@@ -38,9 +18,16 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.proposal_categories import ProposalCategoryDTO
-    from ludamus.pacts.sessions import SessionDTO, SessionRepositoryProtocol
+    from ludamus.pacts.sessions import SessionRepositoryProtocol
     from ludamus.pacts.tracks import TrackRepositoryProtocol
-    from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
+
+
+class PlacementRejection(StrEnum):
+    NAIVE_DATETIME = "naive_datetime"
+    END_NOT_AFTER_START = "end_not_after_start"
+    SESSION_NOT_ACCEPTED = "session_not_accepted"
+    BEFORE_PUBLICATION = "before_publication"
 
 
 class PlacementRejectedError(Exception):
@@ -382,3 +369,209 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
 
     @staticmethod
     def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
+
+type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
+
+
+class SessionPositionDTO(BaseModel):
+    agenda_item: AgendaItemDTO
+    start_minutes: int
+    # How tall the block is on this day's column. A session crossing midnight
+    # is clipped to the day it is drawn on and drawn again on the next; its
+    # real length is `agenda_item.session_duration_minutes`.
+    duration_minutes: int
+    lane_start_pct: float = 0.0
+    lane_width_pct: float = 100.0
+    # What the block is warning about, resolved once here so the grid stops
+    # testing the same session against two page-wide sets in four places.
+    state: SessionPositionState = "normal"
+
+
+class TimeLabelDTO(BaseModel):
+    time: datetime
+    offset_minutes: int
+
+
+class ClosedRangeDTO(BaseModel):
+    # A stretch of the day's axis no time slot covers. A drop there is
+    # accepted and widens the day, so the grid greys it instead of refusing it.
+    start_minutes: int
+    duration_minutes: int
+
+
+class SpaceColumnDTO(BaseModel):
+    space: SpaceDTO
+    sessions: list[SessionPositionDTO] = []
+
+
+class SpaceGroupDTO(BaseModel):
+    # One header cell spanning the leaf columns that share an immediate parent.
+    # parent_pk None / empty name means the leaves are top-level (no parent).
+    parent_pk: int | None
+    parent_name: str
+    span: int
+
+
+class TimetableDayGridDTO(BaseModel):
+    date: date
+    columns: list[SpaceColumnDTO]
+    event_start_iso: str
+    # Each day owns its time axis. Sharing one grid-wide axis would stretch
+    # every column to the union of the days, and a session split at midnight
+    # puts 00:00 on one day and 24:00 on the one before -- a full 24 hours,
+    # mostly empty, on every day of the event.
+    total_minutes: int
+    time_labels: list[TimeLabelDTO]
+    closed_ranges: list[ClosedRangeDTO]
+
+
+class MultiselectOptionDTO(BaseModel):
+    # One row of components/multiselect-filter.html. value/label rather than
+    # pk/name because this is the component's contract, not the thing it lists:
+    # spaces use `depth` to indent their tree, facilitators use `meta` for the
+    # columns under the name, and each leaves the other at its default.
+    value: int
+    label: str
+    depth: int = 0
+    meta: str = ""
+
+
+type DateSelection = date | Literal["all"]
+
+
+class TimetableGridFilter(BaseModel):
+    # What the filter bar narrows the grid by. Empty means "everything".
+    track_pk: int | None = None
+    date_selection: DateSelection = "all"
+    space_pks: set[int] = set()
+    facilitator_pks: set[int] = set()
+
+
+class ConflictType(StrEnum):
+    SPACE_OVERLAP = auto()
+    FACILITATOR_OVERLAP = auto()
+    CAPACITY_EXCEEDED = auto()
+
+
+class ConflictSeverity(StrEnum):
+    ERROR = auto()
+    WARNING = auto()
+
+
+@dataclass(frozen=True)
+class SessionPlacement:
+    """A space and time window a session can be scheduled into."""
+
+    space_pk: int
+    start_time: datetime
+    end_time: datetime
+
+
+class ConflictDTO(BaseModel):
+    type: ConflictType
+    severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
+    session_title: str
+    session_pk: int
+    facilitator_name: str | None = None
+    space_capacity: int | None = None
+    session_limit: int | None = None
+    track_name: str | None = None
+    manager_names: list[str] = []
+
+
+class TimetableGridDTO(BaseModel):
+    spaces: list[SpaceDTO]
+    groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
+    slot_minutes: int
+    snap_minutes: int
+    page: int
+    total_pages: int
+    total_spaces: int
+    # 1-based, for "Rooms 6–10 of 11".
+    first_space_number: int
+    last_space_number: int
+    total_columns: int
+    available_dates: list[date] = []
+    date_selection: DateSelection = "all"
+    # The clashes the cards are already coloured for. Carried with the grid so
+    # the page cannot list one set of conflicts while the grid marks another.
+    conflicts: list[ConflictDTO] = []
+
+
+class PreferredSlotRangeDTO(BaseModel):
+    start_time: datetime
+    end_time: datetime
+
+
+class PreferredSlotViolationDTO(BaseModel):
+    session_pk: int
+    session_title: str
+    scheduled_start: datetime
+    scheduled_end: datetime
+    preferred_slots: list[PreferredSlotRangeDTO]
+    track_name: str | None = None
+    manager_names: list[str] = []
+
+
+class HeatmapCellStatus(StrEnum):
+    EMPTY = auto()
+    SCHEDULED = auto()
+    CONFLICT = auto()
+
+
+class HeatmapCellDTO(BaseModel):
+    space_pk: int
+    status: HeatmapCellStatus
+
+
+class HeatmapRowDTO(BaseModel):
+    time: datetime
+    cells: list[HeatmapCellDTO]
+
+
+class HeatmapDayDTO(BaseModel):
+    date: date
+    rows: list[HeatmapRowDTO]
+
+
+class HeatmapDTO(BaseModel):
+    spaces: list[SpaceDTO]
+    rows: list[HeatmapRowDTO]
+    days: list[HeatmapDayDTO] = []
+
+
+class TrackProgressDTO(BaseModel):
+    track_pk: int
+    track_name: str
+    manager_names: list[str]
+    accepted_count: int
+    scheduled_count: int
+    pending_count: int = 0
+    on_hold_count: int = 0
+    rejected_count: int = 0
+    progress_pct: int
+
+    @property
+    def active_count(self) -> int:
+        # The scheduling target: proposals still in play (not rejected / on
+        # hold). Denominator of the scheduled/total ratio.
+        return self.pending_count + self.accepted_count
+
+    @property
+    def unassigned_count(self) -> int:
+        return self.accepted_count - self.scheduled_count
+
+
+class CapacityHoursDTO(BaseModel):
+    room_count: int
+    slot_hours: float
+    capacity_hours: float
+    scheduled_hours: float
+    hours_to_fill: float
+    filled_pct: int

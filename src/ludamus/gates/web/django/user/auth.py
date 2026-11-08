@@ -30,7 +30,7 @@ from pydantic import ValidationError as PydanticValidationError
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.user.auth0_client import oauth
 from ludamus.gates.web.django.user.forms import SignupAgeForm
-from ludamus.pacts.crowd import (
+from ludamus.pacts.user import (
     MAX_AVATAR_URL_LENGTH,
     MIN_ACCOUNT_AGE,
     AgeBand,
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.user import UserDTO
 
 logger = logging.getLogger(__name__)
 
@@ -398,7 +398,7 @@ def sign_out_to_guardian_page(request: RootRequest) -> TemplateResponse:
     django_logout(request)
     return TemplateResponse(
         request,
-        "crowd/signup_guardian.html",
+        "user/signup_guardian.html",
         {
             "min_age": MIN_ACCOUNT_AGE,
             "guardian_login_url": _auth0_logout_url(
@@ -447,7 +447,7 @@ class Auth0SignupAgePageView(View):
         ).model_dump(mode="json")
         return TemplateResponse(
             request,
-            "crowd/signup_age.html",
+            "user/signup_age.html",
             {"form": SignupAgeForm(initial={"confirmation_token": token})},
         )
 
@@ -463,7 +463,7 @@ class Auth0SignupAgePageView(View):
             return redirect("web:crowd:auth0:signup-age")
         form = SignupAgeForm(request.POST)
         if not form.is_valid():
-            return TemplateResponse(request, "crowd/signup_age.html", {"form": form})
+            return TemplateResponse(request, "user/signup_age.html", {"form": form})
         if (age_band := form.cleaned_data["age_band"]) is None:
             request.services.crowd_auth.reject_signup(
                 username=pending.userinfo.username,
@@ -484,7 +484,7 @@ class Auth0SignupAgePageView(View):
         # sphere's host, so a cross-host destination is reached from a page.
         if (host := urlparse(destination).netloc) and host != request.get_host():
             return TemplateResponse(
-                request, "crowd/signup_continue.html", {"redirect_to": destination}
+                request, "user/signup_continue.html", {"redirect_to": destination}
             )
         return redirect(destination)
 

@@ -13,28 +13,26 @@ from pydantic import TypeAdapter
 
 from ludamus.mills.event import require_session_in_event, require_session_in_sphere
 from ludamus.mills.sphere import can_write_programme
-from ludamus.pacts.chronology import (
-    AnonymousProposalAcceptedNotification,
-    ContentChangeNotLatestError,
-    ContentChangeNotRevertibleError,
-    ProposalAcceptContextDTO,
-    ProposalAcceptDeniedError,
-    ProposalAcceptedNotification,
-    ProposalScheduledError,
-    SessionEditNotAllowedError,
-    SourceQuestion,
-    SpaceTimeConflictError,
-)
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
+from ludamus.pacts.integrations import SourceQuestion
+from ludamus.pacts.propose import is_empty_answer
+from ludamus.pacts.session_cards import ProposalAcceptContextDTO
 from ludamus.pacts.sessions import (
+    AnonymousProposalAcceptedNotification,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalAcceptDeniedError,
+    ProposalAcceptedNotification,
+    ProposalScheduledError,
     SessionContentEditData,
     SessionDTO,
+    SessionEditNotAllowedError,
     SessionSelfEditContext,
     SessionStatus,
+    SpaceTimeConflictError,
 )
-from ludamus.pacts.submissions import is_empty_answer
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
 from ludamus.specs.sessions import resolve_facilitator_session_edit
 
@@ -43,15 +41,12 @@ _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
-    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
     from ludamus.pacts.event import EventDTO, TimeSlotDTO
     from ludamus.pacts.fields import (
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
     )
-    from ludamus.pacts.multiverse import SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sessions import (
         ContentChangeLogData,
@@ -59,13 +54,16 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
+        ProposalAcceptedNotifierProtocol,
         SessionRepositoryProtocol,
         SessionUpdateData,
     )
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.timetable import (
         AgendaItemRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
     )
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 
 def _announce_acceptance(

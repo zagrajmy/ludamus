@@ -39,11 +39,15 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
 from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
+from ludamus.pacts.session_cards import (
+    SessionCardDTO,
+    SessionCardStatsDTO,
+    SessionSeatDTO,
+)
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.venues import NO_LOCATION
@@ -53,8 +57,8 @@ if TYPE_CHECKING:
 
     from django.db.models import QuerySet
 
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.ids import EventId, UserId
+    from ludamus.pacts.user import UserDTO
     from ludamus.pacts.venues import LocationData
 
 

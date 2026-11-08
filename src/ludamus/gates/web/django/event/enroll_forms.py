@@ -26,12 +26,12 @@ from ludamus.pacts.enrollment_member import (
 if TYPE_CHECKING:
     from django.utils.functional import Promise
 
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment_member import (
         AllowanceRefusal,
         EnrollField,
         MemberEnrollPageDTO,
     )
+    from ludamus.pacts.user import UserDTO
 
 _LABELS: dict[EnrollOptionLabel, Promise] = {
     EnrollOptionLabel.NO_CHANGE: gettext_lazy("No change"),

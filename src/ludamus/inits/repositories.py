@@ -34,7 +34,7 @@ from ludamus.links.db.django.users import (
     EmailVerificationReminderRepository,
     UserRepository,
 )
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.user import UserType
 
 
 class Repositories:

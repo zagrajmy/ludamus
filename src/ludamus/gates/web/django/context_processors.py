@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.multiverse import SiteDTO, SphereDTO
     from ludamus.pacts.notifications import NavbarNotificationsDTO
+    from ludamus.pacts.sphere import SiteDTO, SphereDTO
+    from ludamus.pacts.user import UserDTO
 
 
 class SitesContextData(TypedDict):

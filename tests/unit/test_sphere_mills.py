@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.sphere import AnnouncementsService, ConnectionsService, SitesService
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     AnnouncementData,
     AnnouncementDTO,
     ConnectionDTO,

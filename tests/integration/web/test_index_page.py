@@ -28,7 +28,7 @@ from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,
 )
-from ludamus.pacts.multiverse import AnnouncementDTO
+from ludamus.pacts.sphere import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,

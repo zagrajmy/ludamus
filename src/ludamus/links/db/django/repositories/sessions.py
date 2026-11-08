@@ -29,17 +29,17 @@ from ludamus.links.db.django.repositories.storage import (
     with_original_names,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.chronology import (
-    SessionModalDTO,
-    SessionModalRepositoryProtocol,
-    SessionSeatDTO,
-)
 from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO, TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
+from ludamus.pacts.session_cards import (
+    SessionModalDTO,
+    SessionModalRepositoryProtocol,
+    SessionSeatDTO,
+)
 from ludamus.pacts.sessions import (
     SessionData,
     SessionDTO,
@@ -62,8 +62,8 @@ from ludamus.pacts.venues import SpaceOptionDTO
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.ids import EventId, SessionId, UserId
+    from ludamus.pacts.user import UserDTO
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
 # facilitator list. Anything else falls back to newest first.

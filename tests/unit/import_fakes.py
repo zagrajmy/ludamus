@@ -13,23 +13,23 @@ from datetime import UTC, datetime
 from itertools import count
 from types import SimpleNamespace
 
-from ludamus.pacts.chronology import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.facilitators import FacilitatorDTO
-from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueDTO
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.sessions import SessionDTO, SessionStatus
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportRepos,
     ImportRow,
     ImportSettings,
 )
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
 
 SPHERE_ID = 1
 EVENT_ID = 2

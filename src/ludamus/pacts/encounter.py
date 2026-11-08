@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.calendar import CalendarReply, InviteMethod, PartStat
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.user import UserDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol

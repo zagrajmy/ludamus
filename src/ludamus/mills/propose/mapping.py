@@ -10,7 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     DuplicateValueError,
     DurationSpec,
     EntityRef,

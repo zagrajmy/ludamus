@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from ludamus.links.google_auth import CredentialsError, build_session, probe
 from ludamus.links.http_check import ERROR_HINT_LIMIT
-from ludamus.pacts.chronology import (
+from ludamus.pacts.integrations import (
     CheckOutcome,
     CheckResult,
     IntegrationImplementation,

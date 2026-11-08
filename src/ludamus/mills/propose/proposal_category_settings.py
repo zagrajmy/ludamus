@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.ids import HasPk
 from ludamus.pacts.proposal_categories import ProposalCategoryData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,

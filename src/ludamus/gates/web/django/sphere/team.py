@@ -18,7 +18,7 @@ from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import SphereInvitationForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts.multiverse import Capability, SphereRole
+from ludamus.pacts.sphere import Capability, SphereRole
 from ludamus.pacts.team import (
     INVITATION_NOTE_MAX_LENGTH,
     AcceptInvitationOutcome,
@@ -90,7 +90,7 @@ class TeamPageView(SphereAccessMixin, View):
         can_invite = panel_access(self.request).allows(Capability.PANEL_WRITE)
         response = TemplateResponse(
             self.request,
-            "multiverse/panel/team.html",
+            "sphere/panel/team.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="team"),
                 "members": self.request.services.sphere_team.list_members(
@@ -220,7 +220,7 @@ def _render_join(request: RootRequest, page: JoinPageDTO) -> HttpResponse:
     gone = page.invitation is None and page.member_role is None
     return TemplateResponse(
         request,
-        "multiverse/join.html",
+        "sphere/join.html",
         {"page": page},
         status=HTTPStatus.GONE if gone else HTTPStatus.OK,
     )

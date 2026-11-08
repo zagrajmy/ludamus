@@ -35,9 +35,9 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
-from ludamus.pacts.submissions import (
+from ludamus.pacts.integrations import IntegrationImplementationId
+from ludamus.pacts.propose import (
     EntityRef,
     ImportLogStatus,
     ImportSettings,

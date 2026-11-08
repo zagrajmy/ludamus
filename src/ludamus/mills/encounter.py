@@ -22,7 +22,7 @@ from ludamus.pacts.encounter import (
     RSVPOutcome,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.sphere import Capability
 from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
 from ludamus.specs.permissions import sphere_access
 
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.mills.encounter_calendar import EncounterGuests
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterData,
         EncounterDTO,
@@ -38,8 +37,9 @@ if TYPE_CHECKING:
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import SitesServiceProtocol, SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol, SphereRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 logger = logging.getLogger(__name__)
 

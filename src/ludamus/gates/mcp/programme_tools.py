@@ -17,7 +17,6 @@ from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, tok
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
-from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
@@ -36,10 +35,10 @@ from ludamus.pacts.panel import (
     SourceRowIdMissingError,
 )
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionListItemDTO
-from ludamus.pacts.submissions import AccreditationType
-from ludamus.pacts.timetable import PlacementRejectedError
+from ludamus.pacts.timetable import PlacementRejectedError, SessionPlacement
 from ludamus.pacts.tracks import TrackListItemDTO, TrackSelectionInvalidError
 from ludamus.pacts.venues import (
     SpaceInputDTO,

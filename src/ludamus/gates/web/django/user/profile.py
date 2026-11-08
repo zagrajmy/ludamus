@@ -24,9 +24,9 @@ from ludamus.gates.web.django.user.helpers import (
     build_parties_context,
     companion_edit_auto_id,
 )
-from ludamus.pacts.crowd import ChangeRequestOutcome, UserDTO
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.party import MAX_COMPANIONS
+from ludamus.pacts.user import ChangeRequestOutcome, UserDTO
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -44,7 +44,7 @@ class ProfilePageView(
     form_class = UserForm
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile")
-    template_name = "crowd/user/edit.html"
+    template_name = "user/user/edit.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         profile = self.request.services.profile
@@ -115,7 +115,7 @@ class ProfileCompanionsPageView(
     object: UserDTO
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
+    template_name = "user/user/parties.html"
     template_name_suffix = "_form"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -171,7 +171,7 @@ class ProfileCompanionUpdateActionView(
     form_class = CompanionForm
     request: AuthenticatedRootRequest
     success_url = reverse_lazy("web:crowd:profile-parties")
-    template_name = "crowd/user/parties.html"
+    template_name = "user/user/parties.html"
     template_name_suffix = "_form"
 
     def get_object(self) -> UserDTO:
@@ -272,7 +272,7 @@ class ClaimPageView(View):
         if (claimable := request.services.claims.read_claimable(token)) is None:
             return ClaimPageView._reject_invalid_link(request)
         return TemplateResponse(
-            request, "crowd/claim.html", {"claimable": claimable, "token": token}
+            request, "user/claim.html", {"claimable": claimable, "token": token}
         )
 
     @staticmethod
@@ -295,7 +295,7 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         avatar = request.services.profile.read_avatar(request.context.current_user_slug)
         return TemplateResponse(
             request,
-            "crowd/user/avatar.html",
+            "user/user/avatar.html",
             {
                 "user": avatar.user,
                 "gravatar_url": avatar.gravatar_url,
@@ -323,7 +323,7 @@ class ProfileNotificationsPageView(LoginRequiredMixin, View):
         )
         return TemplateResponse(
             request,
-            "crowd/user/notifications.html",
+            "user/user/notifications.html",
             {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
         )
 
@@ -356,7 +356,7 @@ class ProfileShadowbanPageView(LoginRequiredMixin, View):
         )
         return TemplateResponse(
             request,
-            "crowd/user/safety.html",
+            "user/user/safety.html",
             {"candidates": candidates, "profile_active_tab": "safety"},
         )
 

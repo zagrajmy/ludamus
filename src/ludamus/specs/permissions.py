@@ -2,7 +2,7 @@ from datetime import timedelta
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.multiverse import Capability, SphereAccessDTO, SphereRole
+from ludamus.pacts.sphere import Capability, SphereAccessDTO, SphereRole
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

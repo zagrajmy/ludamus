@@ -27,15 +27,14 @@ from ludamus.pacts.panel import (
     ProposalScheduleDTO,
     SourceRowIdMissingError,
 )
+from ludamus.pacts.propose import is_empty_answer
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.slugs import unique_slug
-from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from ludamus.pacts.chronology import SessionContentEditServiceProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.panel import (
         PanelColumnsContextDTO,
@@ -44,9 +43,14 @@ if TYPE_CHECKING:
         ProposalRecordRepos,
     )
     from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+    from ludamus.pacts.propose import PersonalDataFieldValueServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.sessions import SessionData, SessionDTO, SessionListItemDTO
-    from ludamus.pacts.submissions import PersonalDataFieldValueServiceProtocol
+    from ludamus.pacts.sessions import (
+        SessionContentEditServiceProtocol,
+        SessionData,
+        SessionDTO,
+        SessionListItemDTO,
+    )
 
 
 def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:

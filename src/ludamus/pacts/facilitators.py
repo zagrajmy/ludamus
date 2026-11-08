@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.submissions import (
+    from ludamus.pacts.propose import (
         FacilitatorListFilters,
         FacilitatorSessionCountsDTO,
     )

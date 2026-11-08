@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils import timezone
 
-from ludamus.pacts.chronology import PROGRAMME_DAYS, Window
+from ludamus.pacts.sessions import PROGRAMME_DAYS, Window
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.event.event_presentation import SessionData

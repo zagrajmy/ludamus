@@ -1,4 +1,4 @@
-"""Business invariants for chronology."""
+"""Business invariants for sessions."""
 
 
 def resolve_facilitator_session_edit(

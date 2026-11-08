@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ValidationError
 
 from ludamus.mills.event import require_event_in_sphere
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,
@@ -25,16 +25,13 @@ from ludamus.pacts.konwencik import (
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import (
+    from ludamus.pacts.integrations import (
         EventIntegrationDTO,
         EventIntegrationsRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import (
-        ConnectionsRepositoryProtocol,
-        DecryptorProtocol,
-    )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sheets import SheetWriterProtocol
+    from ludamus.pacts.sphere import ConnectionsRepositoryProtocol, DecryptorProtocol
     from ludamus.pacts.timetable import AgendaItemDTO
     from ludamus.pacts.tracks import TrackDTO
     from ludamus.pacts.venues import SpaceDTO

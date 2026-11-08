@@ -8,15 +8,16 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.multiverse import Capability, SphereSettingsOutcome
+from ludamus.pacts.sphere import Capability, SphereSettingsOutcome
 from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.encounter import EncounterRepositoryProtocol
     from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.multiverse import (
+    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import (
         AnnouncementData,
         AnnouncementDTO,
         AnnouncementsRepositoryProtocol,
@@ -32,8 +33,7 @@ if TYPE_CHECKING:
         SphereSettingsPatch,
         SphereUpdateData,
     )
-    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
-    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 
 def can_write_programme(
@@ -144,7 +144,7 @@ class ConnectionsService:
 
 
 class SpherePanelService:
-    """Read-side context loader for the multiverse sphere panel."""
+    """Read-side context loader for the sphere panel."""
 
     def __init__(
         self,

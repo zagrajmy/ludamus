@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import ScheduleChangeLog, SphereMembership
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import (
     EventFactory,

@@ -13,8 +13,8 @@ from ludamus.mills.konwencik import (
     KONWENCIK_COLUMNS,
     KonwencikExportService,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,

@@ -8,7 +8,7 @@ review), add it here — that's how the next agent inherits it.
 
 - **Icon-only buttons carry a label.** Every `.icon-btn` in the codebase pairs
   the `{% icon %}` with a `<span class="sr-only">{% translate "…" %}</span>`.
-  See `src/ludamus/templates/crowd/user/parties.html` (companion row
+  See `src/ludamus/templates/user/user/parties.html` (companion row
   actions) and the gallery in `src/ludamus/templates/design.html`. This is
   enforced by `rules/icon-btn-accessible-name.yml`.
 - **Let tessera collapse single-choice fields.** A required field with one

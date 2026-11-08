@@ -112,13 +112,13 @@ class EncounterCreatePageView(_EncounterFormPageView):
 
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
-            request, "notice_board/create.html", {"form": self._form()}
+            request, "encounter/create.html", {"form": self._form()}
         )
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
         form = self._form(request.POST, request.FILES)
         if not form.is_valid():
-            return TemplateResponse(request, "notice_board/create.html", {"form": form})
+            return TemplateResponse(request, "encounter/create.html", {"form": form})
 
         data = EncounterData(
             title=form.cleaned_data["title"],
@@ -143,7 +143,7 @@ class EncounterCreatePageView(_EncounterFormPageView):
             raise Http404 from exc
         except InviteLimitError:
             form.add_error("invitees", _INVITE_LIMIT_MESSAGE)
-            return TemplateResponse(request, "notice_board/create.html", {"form": form})
+            return TemplateResponse(request, "encounter/create.html", {"form": form})
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -175,7 +175,7 @@ class EncounterEditPageView(_EncounterFormPageView):
     def _rerender(self, form: EncounterForm, pk: int) -> TemplateResponse:
         return TemplateResponse(
             self.request,
-            "notice_board/edit.html",
+            "encounter/edit.html",
             {"form": form, "encounter": self._get_encounter(pk)},
         )
 
@@ -211,7 +211,7 @@ class EncounterEditPageView(_EncounterFormPageView):
             }
         )
         return TemplateResponse(
-            request, "notice_board/edit.html", {"form": form, "encounter": encounter}
+            request, "encounter/edit.html", {"form": form, "encounter": encounter}
         )
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
@@ -309,7 +309,7 @@ class EncounterDetailPageView(_EncounterGate, View):
 
         return TemplateResponse(
             request,
-            "notice_board/detail.html",
+            "encounter/detail.html",
             {
                 "encounter": result.encounter,
                 "creator": creator,

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from ludamus.mills.enrollment_seats import SeatDesk
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.mills.user import build_anonymous_user
-from ludamus.pacts.crowd import UserData, UserDTO
 from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AnonymousActivationDTO,
@@ -28,15 +27,16 @@ from ludamus.pacts.enrollment import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import UserData, UserDTO
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
         AnonymousEnrollmentRequestDTO,
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 
 class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):

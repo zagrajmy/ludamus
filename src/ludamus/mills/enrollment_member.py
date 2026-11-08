@@ -54,7 +54,6 @@ from ludamus.pacts.party import PartyConsentMode, PartyEnrolledNotification
 from ludamus.pacts.party import PartyMembershipStatus as MembershipStatus
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
         EnrollmentServiceProtocol,
         EnrollmentWindowSnapshot,
@@ -71,6 +70,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.party import PartyServiceProtocol, SelectedEnrollmentPartyDTO
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import UserDTO
 
 logger = logging.getLogger(__name__)
 

@@ -54,7 +54,7 @@ formal formal/enrollment` checks one area; `formal/programme` and
 the same way.
 
 The seat model is also run against the real enroll view:
-`tests/integration/web/chronology/test_seats_model_differential.py` drives
+`tests/integration/web/event/test_seats_model_differential.py` drives
 both with the same steps. After editing `seats.bend`, regenerate its compiled
 copy with `FORMAL_REGEN=1 mise run formal formal/enrollment`; the check
 reports `STALE` until you do. [docs/VERIFICATION.md](../../../docs/VERIFICATION.md)
@@ -92,7 +92,7 @@ taking the lock order above (plan 021):
    form's message.
 
 The Postgres tests in
-`tests/integration/web/chronology/test_enrollment_locking.py` replay 1 and 3
+`tests/integration/web/event/test_enrollment_locking.py` replay 1 and 3
 and the promotion race with two connections; they fail on the code before
 the locks.
 
@@ -181,7 +181,7 @@ Find out which before you edit anything:
    Fix the model, not the trace.
 
 **Reproducing in the real code.** The pattern that confirmed finding 2 was an
-integration test under `tests/integration/web/chronology/`. Create an OFFERED
+integration test under `tests/integration/web/event/`. Create an OFFERED
 `SessionParticipation` with a `claim_token` in one session. POST `enroll` to
 an overlapping session the user does not host. Call
 `Services().waitlist_promotion.claim_offer(token=...)`, then read both rows.

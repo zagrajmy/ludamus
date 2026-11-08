@@ -3,7 +3,7 @@ from typing import cast
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.crowd import (
+from ludamus.pacts.user import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
     UserData,

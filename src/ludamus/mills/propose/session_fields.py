@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.fields import FieldUsageSummary
-from ludamus.pacts.submissions import CFPSessionFieldServiceProtocol
+from ludamus.pacts.propose import CFPSessionFieldServiceProtocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.fields import (
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
     )
+    from ludamus.pacts.propose import RequirementSelectionDTO
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import RequirementSelectionDTO
 
 
 class CFPSessionFieldService(CFPSessionFieldServiceProtocol):

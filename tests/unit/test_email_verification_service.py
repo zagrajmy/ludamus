@@ -1,15 +1,15 @@
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills.user import EmailVerificationService
-from ludamus.pacts.crowd import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.user import (
     ChangeRequestOutcome,
     EmailTokenPayload,
     EmailVerificationAction,
     RedeemOutcome,
     VerificationRequestOutcome,
 )
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
 from tests.unit.factories import FakeTransaction, user_dto
 

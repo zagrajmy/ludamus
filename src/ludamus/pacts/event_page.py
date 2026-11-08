@@ -9,9 +9,9 @@ from ludamus.pacts.enrollment import SessionParticipationStatus
 if TYPE_CHECKING:
     from collections.abc import Collection
 
-    from ludamus.pacts.chronology import SessionCardDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.ids import EventId, SessionId, UserId
+    from ludamus.pacts.session_cards import SessionCardDTO
 
 
 class SeatStatusDTO(BaseModel):

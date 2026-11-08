@@ -4,7 +4,6 @@ from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.encounter import (
     EncounterDTO,
     EncounterInviteeDTO,
@@ -12,6 +11,7 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from tests.unit.factories import FakeTransaction, FakeUsers
 
 CREATOR_ID = 10

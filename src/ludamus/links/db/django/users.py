@@ -7,7 +7,9 @@ from django.db.models.functions import Lower
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import PartyMembership, User
-from ludamus.pacts.crowd import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.party import PartyConsentMode
+from ludamus.pacts.user import (
     EMAIL_LINK_MAX_AGE,
     AgeBand,
     ClaimableProfileDTO,
@@ -20,9 +22,7 @@ from ludamus.pacts.crowd import (
     UserRepositoryProtocol,
     UserType,
 )
-from ludamus.pacts.crowd import display_avatar_url as avatar_rule
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.party import PartyConsentMode
+from ludamus.pacts.user import display_avatar_url as avatar_rule
 
 if TYPE_CHECKING:
     from collections.abc import Collection

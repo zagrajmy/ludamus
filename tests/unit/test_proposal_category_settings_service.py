@@ -8,7 +8,7 @@ from ludamus.pacts.enrollment import PromotionMode
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,

@@ -17,7 +17,7 @@ from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest, safe_
 from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import FIELD_KEY_PREFIX
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

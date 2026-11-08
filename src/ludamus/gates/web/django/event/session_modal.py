@@ -71,7 +71,7 @@ class SessionModalComponentView(View):
         )
         return TemplateResponse(
             request,
-            "chronology/parts/session-modal.html",
+            "event/parts/session-modal.html",
             {
                 "data": data,
                 "event": event,

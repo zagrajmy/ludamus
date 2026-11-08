@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts.multiverse import Capability, SphereRole
     from ludamus.pacts.services import RequestContext, ServicesProtocol
+    from ludamus.pacts.sphere import Capability, SphereRole
 
 
 class _UserLike(Protocol):

@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.user import CompanionsService, ProfileService
-from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import CompanionDTO
 from tests.unit.factories import FakeTransaction, FakeUsers, user_dto
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.user import UserDTO
 
 
 def _user_dto(**overrides) -> UserDTO:

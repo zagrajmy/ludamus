@@ -3,14 +3,14 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.timetable import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
 )
-from ludamus.pacts.event import EventDTO
 from tests.integration.conftest import AgendaItemFactory, SpaceFactory, TimeSlotFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

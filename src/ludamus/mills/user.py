@@ -12,7 +12,10 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, assert_never
 from uuid import uuid4
 
-from ludamus.pacts.crowd import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.slugs import unique_slug
+from ludamus.pacts.user import (
     AgeBand,
     AgeBandRequiredError,
     AuthProvisionDTO,
@@ -36,16 +39,15 @@ from ludamus.pacts.crowd import (
     UserType,
     VerificationRequestOutcome,
 )
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.slugs import unique_slug
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
     EMAIL_VERIFICATION_RESEND_THROTTLE,
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import (
+    from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import (
         AvatarUrlProviderProtocol,
         ClaimableProfileDTO,
         ClaimRepositoryProtocol,
@@ -58,8 +60,6 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
-    from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
-    from ludamus.pacts.services import TransactionProtocol
 
 type _Effect = Literal["cancel", "promote", "verify"]
 

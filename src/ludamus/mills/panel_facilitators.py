@@ -28,12 +28,12 @@ from ludamus.pacts.panel import (
     FacilitatorPanelServiceProtocol,
     MergeErrorReason,
 )
-from ludamus.pacts.slugs import unique_slug
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     AccreditationType,
     FacilitatorActionError,
     OrganizerActionRefusal,
 )
+from ludamus.pacts.slugs import unique_slug
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -53,9 +53,9 @@ if TYPE_CHECKING:
         FacilitatorPanelRepos,
         PanelColumnsContextDTO,
     )
+    from ludamus.pacts.propose import FacilitatorListFilters
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sessions import ContentFieldChange
-    from ludamus.pacts.submissions import FacilitatorListFilters
 
 
 def _unique(values: list[str]) -> list[str]:

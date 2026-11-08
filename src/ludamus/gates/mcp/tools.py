@@ -31,11 +31,7 @@ from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolRegistry
 from ludamus.pacts.event import EventDTO, EventListItemDTO
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import (
-    AnnouncementData,
-    AnnouncementDTO,
-    SphereListItemDTO,
-)
+from ludamus.pacts.sphere import AnnouncementData, AnnouncementDTO, SphereListItemDTO
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import OrganizerToolProtocol, ToolProtocol

@@ -18,10 +18,14 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
+)
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import (
     SessionPositionDTO,
     SpaceColumnDTO,
     SpaceGroupDTO,
@@ -29,8 +33,6 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
-from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.venues import SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,

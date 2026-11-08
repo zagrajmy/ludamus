@@ -16,11 +16,11 @@ from ludamus.pacts.ids import SessionId
 if TYPE_CHECKING:
     from collections.abc import Collection
 
-    from ludamus.pacts.chronology import SessionCardDTO
     from ludamus.pacts.enrollment import EnrollmentWindowRepositoryProtocol
     from ludamus.pacts.event_page import EventScheduleRepositoryProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldRepositoryProtocol
     from ludamus.pacts.ids import EventId, UserId
+    from ludamus.pacts.session_cards import SessionCardDTO
 
 
 class EventScheduleService(EventScheduleServiceProtocol):

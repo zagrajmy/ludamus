@@ -1,5 +1,5 @@
 # TODO(hasparus): fold into mills/propose/ next to
-# proposal_category_settings.py (protocol into pacts/submissions.py) once
+# proposal_category_settings.py (protocol into pacts/propose.py) once
 # PRs #625/#626 release those files; top-level for now like discounts.py.
 from __future__ import annotations
 

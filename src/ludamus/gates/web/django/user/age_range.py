@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATE = "crowd/user/age_range.html"
+_TEMPLATE = "user/user/age_range.html"
 
 
 # The under-13 answer disables the account and signs it out, and only support

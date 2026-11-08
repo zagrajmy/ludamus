@@ -64,8 +64,8 @@ if TYPE_CHECKING:
         TimeSlotRepositoryProtocol,
     )
     from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
-    from ludamus.pacts.multiverse import SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.time_ranges import DateTimeRangeProtocol
     from ludamus.pacts.tracks import TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol

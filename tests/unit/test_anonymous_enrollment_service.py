@@ -6,7 +6,6 @@ from uuid import UUID
 import pytest
 
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     AnonymousCancelResultDTO,
     AnonymousEnrollmentError,
@@ -23,6 +22,7 @@ from ludamus.pacts.enrollment import (
     SessionSeatingDTO,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from tests.unit.factories import FakeTransaction
 
 _SESSION_ID = 42

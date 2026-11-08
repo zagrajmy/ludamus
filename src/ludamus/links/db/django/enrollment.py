@@ -37,7 +37,6 @@ from ludamus.links.db.django.repositories.event import session_card_stats
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,
     UNLIMITED_SLOTS,
@@ -68,18 +67,19 @@ from ludamus.pacts.enrollment_member import (
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.ids import UserId
+from ludamus.pacts.user import UserType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from django.db.models import QuerySet
 
-    from ludamus.pacts.chronology import SessionCardStatsDTO
     from ludamus.pacts.enrollment import (
         EnrollmentWindowData,
         GuestSeatData,
         HeldSeatData,
     )
+    from ludamus.pacts.session_cards import SessionCardStatsDTO
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
 

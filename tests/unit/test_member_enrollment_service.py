@@ -7,8 +7,6 @@ from ludamus.mills.enrollment_member import (
     MemberEnrollmentPeers,
     MemberEnrollmentService,
 )
-from ludamus.pacts.chronology import SessionCardStatsDTO
-from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.enrollment import (
     EnrollmentWindowSnapshot,
     SeatHoldRequest,
@@ -48,6 +46,8 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     SelectedEnrollmentPartyDTO,
 )
+from ludamus.pacts.session_cards import SessionCardStatsDTO
+from ludamus.pacts.user import CompanionDTO
 from tests.unit.factories import FakeTransaction, event_dto, user_dto
 
 Status = SessionParticipationStatus

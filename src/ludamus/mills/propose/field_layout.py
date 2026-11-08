@@ -10,7 +10,7 @@ from ludamus.mills.propose.mapping import (
     resolve_builtins,
     session_field_values,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     ImportLogStatus,
     ImportRepos,
@@ -19,7 +19,7 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sessions import SessionUpdateData
 

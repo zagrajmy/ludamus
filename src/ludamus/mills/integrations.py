@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.pacts.chronology import (
+from ludamus.pacts.enrollment import MembershipAPIError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import (
     CheckOutcome,
     CheckResult,
     EventIntegrationCreateData,
@@ -22,10 +24,8 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.enrollment import MembershipAPIError
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import DecryptionError
-from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.propose import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.sphere import DecryptionError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -33,11 +33,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from ludamus.pacts.enrollment import TicketAPIProtocol
-    from ludamus.pacts.multiverse import (
-        ConnectionsRepositoryProtocol,
-        DecryptorProtocol,
-    )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import ConnectionsRepositoryProtocol, DecryptorProtocol
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 

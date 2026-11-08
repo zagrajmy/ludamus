@@ -14,7 +14,7 @@ from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel.forms import AnnouncementForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import AnnouncementData
+from ludamus.pacts.sphere import AnnouncementData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -44,7 +44,7 @@ class AnnouncementsPageView(SphereAccessMixin, View):
         announcements = self.request.services.announcements.list_for_sphere(sphere_id)
         return TemplateResponse(
             self.request,
-            "multiverse/panel/announcements/list.html",
+            "sphere/panel/announcements/list.html",
             {
                 **sphere_settings_context(self.request, active_tab="announcements"),
                 "announcements": announcements,
@@ -58,7 +58,7 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
     def get(self, _request: PanelRequest) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/announcements/create.html",
+            "sphere/panel/announcements/create.html",
             {
                 **sphere_settings_context(self.request, active_tab="announcements"),
                 "form": AnnouncementForm(),
@@ -70,7 +70,7 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
         if not form.is_valid():
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/announcements/create.html",
+                "sphere/panel/announcements/create.html",
                 {
                     **sphere_settings_context(self.request, active_tab="announcements"),
                     "form": form,
@@ -102,7 +102,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
         )
         return TemplateResponse(
             self.request,
-            "multiverse/panel/announcements/edit.html",
+            "sphere/panel/announcements/edit.html",
             {
                 **sphere_settings_context(self.request, active_tab="announcements"),
                 "form": form,
@@ -121,7 +121,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
         if not form.is_valid():
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/announcements/edit.html",
+                "sphere/panel/announcements/edit.html",
                 {
                     **sphere_settings_context(self.request, active_tab="announcements"),
                     "form": form,
@@ -146,7 +146,7 @@ class AnnouncementDeletePageView(SphereAccessMixin, View):
 
         return TemplateResponse(
             self.request,
-            "multiverse/panel/announcements/delete.html",
+            "sphere/panel/announcements/delete.html",
             {
                 **sphere_settings_context(self.request, active_tab="announcements"),
                 "announcement": announcement,

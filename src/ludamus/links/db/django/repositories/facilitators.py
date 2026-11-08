@@ -22,10 +22,7 @@ from ludamus.pacts.facilitators import (
     FacilitatorUpdateData,
 )
 from ludamus.pacts.fields import TEXT_FIELD_KINDS
-from ludamus.pacts.submissions import (
-    FacilitatorListFilters,
-    FacilitatorSessionCountsDTO,
-)
+from ludamus.pacts.propose import FacilitatorListFilters, FacilitatorSessionCountsDTO
 from ludamus.pacts.timetable import ConfirmationCountsRow, ConfirmationFacilitatorRow
 
 if TYPE_CHECKING:

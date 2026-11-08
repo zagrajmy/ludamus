@@ -15,8 +15,6 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.chronology import SessionCardStatsDTO
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     EnrollmentWindowSnapshot,
     SeatRepositoryProtocol,
@@ -24,6 +22,8 @@ from ludamus.pacts.enrollment import (
 )
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.party import EnrollmentPartiesDTO
+from ludamus.pacts.session_cards import SessionCardStatsDTO
+from ludamus.pacts.user import UserDTO
 
 # The guests stepper's upper bound: the form offers no more, the page says so.
 MAX_GUESTS = 10

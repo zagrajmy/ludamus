@@ -5,12 +5,12 @@ from ludamus.inits.services import Services
 from ludamus.links.db.django.models import Notification, SphereSubscription, User
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.signed_tokens import DjangoSphereUnsubscribeTokenCodec
-from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     SphereEventPublishedNotification,
     SphereUnsubscribeTokenPayload,
 )
 from ludamus.pacts.party import PartyInviteNotification
+from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import UserFactory
 
 

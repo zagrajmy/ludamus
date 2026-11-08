@@ -18,12 +18,6 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
-from ludamus.pacts.crowd import (
-    MAX_AVATAR_URL_LENGTH,
-    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
-    AgeBand,
-    UserType,
-)
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
 from ludamus.pacts.enrollment import (
@@ -47,11 +41,11 @@ from ludamus.pacts.listing import (
     ListingSeeking,
     ListingStatus,
 )
-from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from ludamus.pacts.notifications import NotificationKind, SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.propose import AccreditationType, ImportLogStatus
 from ludamus.pacts.sessions import SessionStatus
-from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
+from ludamus.pacts.sphere import SphereRole, SphereVisibility
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
@@ -59,6 +53,12 @@ from ludamus.pacts.tags import (
 )
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 from ludamus.pacts.timetable import ScheduleChangeAction
+from ludamus.pacts.user import (
+    MAX_AVATAR_URL_LENGTH,
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    AgeBand,
+    UserType,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator

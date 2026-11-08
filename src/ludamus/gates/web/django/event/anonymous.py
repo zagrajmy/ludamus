@@ -197,7 +197,7 @@ class SessionEnrollmentAnonymousPageView(View):
             "enrollment_status": page.enrollment_status,
             "is_enrolled": page.is_enrolled,
         }
-        return TemplateResponse(request, "chronology/anonymous_enroll.html", context)
+        return TemplateResponse(request, "event/anonymous_enroll.html", context)
 
     @staticmethod
     def post(request: RootRequest, event_slug: str, session_id: int) -> HttpResponse:

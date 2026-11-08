@@ -13,7 +13,7 @@ from ludamus.pacts.discounts import (
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
     from ludamus.pacts.discounts import (

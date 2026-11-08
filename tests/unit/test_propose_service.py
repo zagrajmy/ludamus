@@ -4,7 +4,6 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.propose.wizard import ProposeSessionService
-from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventProposalSettingsDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
@@ -16,6 +15,7 @@ from ludamus.pacts.propose import (
     ReusableSessionRecord,
 )
 from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 from tests.unit.factories import (
     FakeTransaction,

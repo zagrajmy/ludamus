@@ -39,7 +39,7 @@ class PartiesPageView(LoginRequiredMixin, View):
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> HttpResponse:
         return TemplateResponse(
-            request, "crowd/user/parties.html", build_parties_context(request)
+            request, "user/user/parties.html", build_parties_context(request)
         )
 
 
@@ -50,7 +50,7 @@ class PartyDetailPageView(LoginRequiredMixin, View):
     def get(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         if (context := build_party_detail_context(request, pk=pk)) is None:
             raise Http404
-        return TemplateResponse(request, "crowd/user/party_detail.html", context)
+        return TemplateResponse(request, "user/user/party_detail.html", context)
 
 
 class PartyCreateActionView(LoginRequiredMixin, View):
@@ -161,7 +161,7 @@ def _reopen_companion_modal(
     context = build_party_detail_context(request, pk=pk, companion_form=companion_form)
     if context is None:
         raise Http404
-    return TemplateResponse(request, "crowd/user/party_detail.html", context)
+    return TemplateResponse(request, "user/user/party_detail.html", context)
 
 
 class PartyCompanionAddActionView(LoginRequiredMixin, View):
@@ -208,7 +208,7 @@ class PartyJoinPageView(LoginRequiredMixin, View):
         if party.already_member:
             return redirect("web:crowd:party-detail", pk=party.pk)
         return TemplateResponse(
-            request, "crowd/user/party_join.html", {"party": party, "token": token}
+            request, "user/user/party_join.html", {"party": party, "token": token}
         )
 
     @staticmethod

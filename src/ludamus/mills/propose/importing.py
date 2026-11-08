@@ -4,10 +4,10 @@ from secrets import choice
 from typing import TYPE_CHECKING
 
 from ludamus.mills.propose.engine import ImportEngine
-from ludamus.pacts.submissions import ImportRepos, ProposalImportResult
+from ludamus.pacts.propose import ImportRepos, ProposalImportResult
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 

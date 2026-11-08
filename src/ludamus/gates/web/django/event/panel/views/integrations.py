@@ -20,7 +20,8 @@ from ludamus.gates.web.django.event.panel.forms import (
 )
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.redirects import RedirectError
-from ludamus.pacts.chronology import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import (
     CheckOutcome,
     EventIntegrationCreateData,
     EventIntegrationUpdateData,
@@ -28,13 +29,12 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.panel import PanelRequest
-    from ludamus.pacts.chronology import EventIntegrationDTO
+    from ludamus.pacts.integrations import EventIntegrationDTO
 
 
 def _form_kwargs(
@@ -98,7 +98,7 @@ class IntegrationCreatePageView(EventPanelMixin, View):
         context["active_nav"] = "settings"
         context["form"] = form
         return TemplateResponse(
-            self.request, "chronology/panel/integrations/create.html", context
+            self.request, "event/panel/integrations/create.html", context
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -111,7 +111,7 @@ class IntegrationCreatePageView(EventPanelMixin, View):
             context["active_nav"] = "settings"
             context["form"] = form
             return TemplateResponse(
-                self.request, "chronology/panel/integrations/create.html", context
+                self.request, "event/panel/integrations/create.html", context
             )
 
         sphere_id = self.request.context.current_sphere_id
@@ -161,7 +161,7 @@ class IntegrationEditPageView(_IntegrationView):
         context["form"] = form
         context["integration"] = integration
         return TemplateResponse(
-            self.request, "chronology/panel/integrations/edit.html", context
+            self.request, "event/panel/integrations/edit.html", context
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -179,7 +179,7 @@ class IntegrationEditPageView(_IntegrationView):
             context["form"] = form
             context["integration"] = integration
             return TemplateResponse(
-                self.request, "chronology/panel/integrations/edit.html", context
+                self.request, "event/panel/integrations/edit.html", context
             )
 
         sphere_id = self.request.context.current_sphere_id
@@ -208,7 +208,7 @@ class IntegrationDeletePageView(_IntegrationView):
         context["active_nav"] = "settings"
         context["integration"] = integration
         return TemplateResponse(
-            self.request, "chronology/panel/integrations/delete.html", context
+            self.request, "event/panel/integrations/delete.html", context
         )
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -239,7 +239,7 @@ class IntegrationCheckActionView(EventPanelMixin, View):
         if not implementation_raw or not connection_raw:
             return TemplateResponse(
                 self.request,
-                "chronology/panel/integrations/_check_result.html",
+                "event/panel/integrations/_check_result.html",
                 {
                     "passed": False,
                     "hint": _(
@@ -255,7 +255,7 @@ class IntegrationCheckActionView(EventPanelMixin, View):
         except ValueError:
             return TemplateResponse(
                 self.request,
-                "chronology/panel/integrations/_check_result.html",
+                "event/panel/integrations/_check_result.html",
                 {
                     "passed": False,
                     "hint": (
@@ -275,13 +275,13 @@ class IntegrationCheckActionView(EventPanelMixin, View):
         except json.JSONDecodeError as exc:
             return TemplateResponse(
                 self.request,
-                "chronology/panel/integrations/_check_result.html",
+                "event/panel/integrations/_check_result.html",
                 {"passed": False, "hint": str(exc), "signature": ""},
             )
         if not isinstance(parsed_config, dict):
             return TemplateResponse(
                 self.request,
-                "chronology/panel/integrations/_check_result.html",
+                "event/panel/integrations/_check_result.html",
                 {
                     "passed": False,
                     "hint": _("Configuration must be a JSON object."),
@@ -302,6 +302,6 @@ class IntegrationCheckActionView(EventPanelMixin, View):
         signature = integration_signature(connection_id, config_raw) if passed else ""
         return TemplateResponse(
             self.request,
-            "chronology/panel/integrations/_check_result.html",
+            "event/panel/integrations/_check_result.html",
             {"passed": passed, "hint": result.hint, "signature": signature},
         )

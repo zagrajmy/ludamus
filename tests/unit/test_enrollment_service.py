@@ -7,7 +7,6 @@ from freezegun import freeze_time
 
 from ludamus.mills.enrollment import EnrollmentService, EnrollmentSettingsService
 from ludamus.mills.enrollment_windows import viewer_access
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     DomainEnrollmentConfigDTO,
     EnrollmentAccessDTO,
@@ -21,6 +20,7 @@ from ludamus.pacts.enrollment import (
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from ludamus.specs.enrollment import MEMBERSHIP_CHECK_INTERVAL_MINUTES
 from tests.unit.factories import FakeTransaction, event_dto
 

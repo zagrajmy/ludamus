@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from ludamus.mills.sphere import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     Capability,
     SiteDTO,
     SphereDTO,

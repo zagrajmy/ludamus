@@ -14,7 +14,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.dashboard import DASHBOARD_PAST_EVENTS, DashboardDTO, DashboardRole
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.enrollment import SessionParticipationStatus
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.sphere import SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,

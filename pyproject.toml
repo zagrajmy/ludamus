@@ -373,7 +373,12 @@ max-positional-args = 2
 parametrize-values-type = "tuple"
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    # NOTE: ruff cannot see that this pacts DTO is a BaseModel when a module
+    # only subclasses it; session_cards.py does.
+    "ludamus.pacts.enrollment.SessionSeatsDTO",
+]
 
 [tool.ruff.lint.flake8-unused-arguments]
 ignore-variadic-names = true

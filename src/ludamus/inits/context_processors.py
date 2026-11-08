@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 from django.conf import settings
 
 from ludamus.links.analytics import identity, redaction
-from ludamus.pacts.crowd import AgeBand
+from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
     from uuid import UUID

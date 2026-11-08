@@ -10,22 +10,6 @@ from ludamus.mills.timetable import (
     TimetableOverviewService,
     TimetableService,
 )
-from ludamus.pacts.chronology import (
-    CapacityHoursDTO,
-    ClosedRangeDTO,
-    ConflictDTO,
-    ConflictSeverity,
-    ConflictType,
-    HeatmapCellDTO,
-    HeatmapCellStatus,
-    HeatmapDayDTO,
-    HeatmapDTO,
-    HeatmapRowDTO,
-    SessionPlacement,
-    SpaceGroupDTO,
-    TimetableGridFilter,
-    TrackProgressDTO,
-)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventRepositoryProtocol,
@@ -36,12 +20,26 @@ from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
 from ludamus.pacts.timetable import (
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
+    CapacityHoursDTO,
+    ClosedRangeDTO,
+    ConflictDTO,
+    ConflictSeverity,
+    ConflictType,
+    HeatmapCellDTO,
+    HeatmapCellStatus,
+    HeatmapDayDTO,
+    HeatmapDTO,
+    HeatmapRowDTO,
     PlacementRejectedError,
     PlacementRejection,
     ScheduleChangeAction,
     ScheduleChangeLogDTO,
     ScheduleChangeLogRepositoryProtocol,
+    SessionPlacement,
+    SpaceGroupDTO,
+    TimetableGridFilter,
     TimetableRepos,
+    TrackProgressDTO,
     UnscheduledSessionFilter,
 )
 from ludamus.pacts.tracks import (

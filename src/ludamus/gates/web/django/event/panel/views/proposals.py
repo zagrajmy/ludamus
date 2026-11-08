@@ -33,14 +33,14 @@ from ludamus.gates.web.django.panel import (
     proposal_tab_urls,
 )
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.chronology import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
+from ludamus.pacts.sessions import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
+    SessionStatus,
 )
-from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
-from ludamus.pacts.sessions import SessionStatus
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -48,11 +48,10 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.chronology import ProposalStatusServiceProtocol
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
-    from ludamus.pacts.sessions import SessionListItemDTO
+    from ludamus.pacts.sessions import ProposalStatusServiceProtocol, SessionListItemDTO
 
     PersonalFieldItems = list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]

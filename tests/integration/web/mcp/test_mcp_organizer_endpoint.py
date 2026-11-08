@@ -26,7 +26,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereRole, SphereVisibility
+from ludamus.pacts.sphere import SphereRole, SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,

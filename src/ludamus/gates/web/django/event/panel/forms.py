@@ -10,17 +10,17 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 from pydantic import ValidationError
 
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.discounts import DiscountMethod
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.chronology import IntegrationImplementation
     from ludamus.pacts.event import EventDTO
-    from ludamus.pacts.multiverse import ConnectionDTO
+    from ludamus.pacts.integrations import IntegrationImplementation
+    from ludamus.pacts.sphere import ConnectionDTO
 
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
 

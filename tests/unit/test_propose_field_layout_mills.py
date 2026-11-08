@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 
 from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.mapping import dedup_ident
-from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import (
@@ -12,8 +11,8 @@ from ludamus.pacts.fields import (
     SessionFieldValueData,
     SessionFieldValueDTO,
 )
-from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.integrations import EventIntegrationDTO
+from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     EntityRef,
     ImportLogEntryDTO,
@@ -24,6 +23,7 @@ from ludamus.pacts.submissions import (
     TimeSlotSpec,
     ValueDelta,
 )
+from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
 from tests.unit.factories import FakeTransaction
 
 EVENT_ID = 4

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.event import (
         EventRepositoryProtocol,
         FacilitatorListItemDTO,
@@ -48,6 +47,7 @@ if TYPE_CHECKING:
         ScheduleChangeLogRepositoryProtocol,
     )
     from ludamus.pacts.tracks import TrackDTO, TrackRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 class SourceRowIdMissingError(Exception):

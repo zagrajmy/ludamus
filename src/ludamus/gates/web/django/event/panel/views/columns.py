@@ -35,8 +35,8 @@ from ludamus.pacts.panel import (
     PROPOSAL_BUILTIN_KEYS,
     EmptyColumnSelectionError,
 )
+from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.sessions import SessionListItemDTO
-from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence

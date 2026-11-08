@@ -26,18 +26,16 @@ from ludamus.gates.web.django.event.panel.views.columns import (
 )
 from ludamus.gates.web.django.panel import PanelRequest, timetable_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.chronology import (
-    DateSelection,
-    MultiselectOptionDTO,
-    SessionPlacement,
-    TimetableGridFilter,
-)
 from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.timetable import (
     UNSCHEDULED_LIST_LIMIT,
+    DateSelection,
+    MultiselectOptionDTO,
     PlacementRejectedError,
     PlacementRejection,
+    SessionPlacement,
+    TimetableGridFilter,
     UnscheduledSessionFilter,
 )
 

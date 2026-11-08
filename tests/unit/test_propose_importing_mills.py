@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.propose.importing import ProposalImportService
-from ludamus.pacts.chronology import EventIntegrationDTO
-from ludamus.pacts.sessions import SessionStatus
-from ludamus.pacts.submissions import (
+from ludamus.pacts.integrations import EventIntegrationDTO
+from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogStatus,
@@ -17,6 +16,7 @@ from ludamus.pacts.submissions import (
     ProposalImportResult,
     QuestionTarget,
 )
+from ludamus.pacts.sessions import SessionStatus
 from tests.unit.factories import FakeTransaction
 
 SPHERE_ID = 1

@@ -312,7 +312,7 @@ What visitors see: event details, session list, session cards.
 - **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
 - **Views:** `gates/web/django/event/page.py` — `EventPageView`, reading
   through `services.event_schedule` (`mills/event_schedule.py`)
-- **Templates:** `templates/chronology/event.html`,
+- **Templates:** `templates/event/event.html`,
   `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
 
@@ -331,7 +331,7 @@ here. The hero and session modal link into it.
 - **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView` and the
   four action views; writes check `panel_access(request).allows(PANEL_WRITE)`
   on arrival
-- **Templates:** `templates/chronology/maps.html`, `_map_card.html`,
+- **Templates:** `templates/event/maps.html`, `_map_card.html`,
   `_map_tree_node.html`, `_session_map_link.html`
 - **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
   event; builds each map's venue tree with the `?space=` filter per node;
@@ -349,7 +349,7 @@ The multi-step wizard through which facilitators submit session proposals.
 - **Views:** `gates/web/django/event/views.py` —
   `ProposeSessionPageView` and component views for each wizard step
   (category, personal data, time slots, session details, review, submit)
-- **Templates:** `templates/chronology/propose/`
+- **Templates:** `templates/event/propose/`
 - **Service:** `ProposeSessionService` — resolves field requirements per
   category, creates `Facilitator`, persists `Session` and field values,
   rate-limits by IP
@@ -369,7 +369,7 @@ proposal acceptance by organizers.
   `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
   `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
   `AnonymousResetActionView`
-- **Templates:** `templates/chronology/enroll_select.html`,
+- **Templates:** `templates/event/enroll_select.html`,
   `anonymous_enroll.html`, `anonymous_manage.html`, `accept_proposal.html`
 - **Services:** `MemberEnrollmentService` (`mills/enrollment_member.py`:
   the page's roster and moves, the pass check, the seat batch),
@@ -434,8 +434,8 @@ the event resolution `EventPanelMixin` adds.
 
 - **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
 - **Views:** `gates/web/django/sphere/panel/views/…`
-- **Templates:** `templates/multiverse/panel/`
-- **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/sphere.py`
+- **Templates:** `templates/sphere/panel/`
+- **Pacts/Mills/Specs:** `pacts/sphere.py`, `mills/sphere.py`
   (legacy module names; new cuts use `sphere`)
 - **Access:** `SphereAccessMixin` (the panel access check, scoped to the sphere)
 - **First feature:** sphere-scoped import-connections CRUD
@@ -451,8 +451,8 @@ links that add to it (`SphereInvitation`, expiring after
   landing page `/multiverse/join/<token>/` (`multiverse:join`), which stays
   open in a private sphere so an invitee can reach it
 - **Views:** `gates/web/django/sphere/team.py`
-- **Templates:** `templates/multiverse/panel/team.html`,
-  `templates/multiverse/join.html`
+- **Templates:** `templates/sphere/panel/team.html`,
+  `templates/sphere/join.html`
 - **Pacts/Mills/Links:** `pacts/team.py`, `mills/team.py`,
   `links/db/django/team.py`; lifetime in `specs/permissions.py`
 
@@ -487,7 +487,7 @@ route below.
   `EncounterDeleteActionView`, `EncounterDetailPageView`,
   `EncounterRSVPActionView`, `EncounterCancelRSVPActionView`,
   `EncounterQrView`, `EncounterIcsView`, all behind `_EncounterGate`
-- **Templates:** `templates/notice_board/`
+- **Templates:** `templates/encounter/`
 - **Service:** `EncounterService` — `build_detail()` (encounter + RSVPs +
   computed availability), `list_feed()` (what a given visitor may see:
   listed encounters plus their own and their RSVPs), `can_create()`,
@@ -541,8 +541,8 @@ user upsert on callback.
   `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
   `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
   `login_required_page`, `auth_error_page`
-- **Templates:** `templates/crowd/login_required.html`,
-  `templates/crowd/auth_error.html`
+- **Templates:** `templates/user/login_required.html`,
+  `templates/user/auth_error.html`
 - **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
   provisioning on callback, identity sync, sphere-domain checks
 - **External integration:** Auth0 PKCE/state OAuth flow
@@ -559,8 +559,8 @@ User profile management and delegate (connected) accounts.
   `ProfileConnectedUserUpdateActionView`,
   `ProfileConnectedUserDeleteActionView`,
   `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`
-- **Templates:** `templates/crowd/user/edit.html`, `avatar.html`,
-  `parties.html`, `shadowbans.html`, `crowd/claim.html`
+- **Templates:** `templates/user/user/edit.html`, `avatar.html`,
+  `parties.html`, `shadowbans.html`, `user/claim.html`
 - **Services:** `ProfileService` (self-profile reads/updates and avatar
   preferences), `CompanionsService` (connected-user
   CRUD), `ClaimService` (issue/redeem claim links), `ShadowbanService`

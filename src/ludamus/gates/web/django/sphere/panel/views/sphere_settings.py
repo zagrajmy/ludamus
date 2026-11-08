@@ -15,7 +15,7 @@ from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
-from ludamus.pacts.multiverse import SphereSettingsOutcome
+from ludamus.pacts.sphere import SphereSettingsOutcome
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -95,7 +95,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         base = sphere_settings_context(self.request, active_tab="general")
         return TemplateResponse(
             self.request,
-            "multiverse/panel/sphere-settings.html",
+            "sphere/panel/sphere-settings.html",
             base | {
                 "form": form,
                 "needs_disable_confirmation": needs_confirmation,

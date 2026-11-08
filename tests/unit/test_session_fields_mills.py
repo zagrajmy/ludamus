@@ -3,7 +3,7 @@ import pytest
 from ludamus.mills.propose.session_fields import CFPSessionFieldService
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.submissions import RequirementSelectionDTO
+from ludamus.pacts.propose import RequirementSelectionDTO
 from tests.unit.factories import FakeTransaction, category
 
 

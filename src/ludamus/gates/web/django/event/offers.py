@@ -52,7 +52,7 @@ class SessionOfferClaimView(View):
             )
             return redirect("web:index")
         return TemplateResponse(
-            request, "chronology/offer_claim.html", {"offer": offer, "token": token}
+            request, "event/offer_claim.html", {"offer": offer, "token": token}
         )
 
     @staticmethod

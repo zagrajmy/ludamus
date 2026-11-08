@@ -44,8 +44,8 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest
     from ludamus.gates.web.django.event.enroll_forms import EnrollmentForm
-    from ludamus.pacts.chronology import SessionCardStatsDTO
     from ludamus.pacts.enrollment_member import MemberEnrollOutcome, MemberEnrollPageDTO
+    from ludamus.pacts.session_cards import SessionCardStatsDTO
 
 
 def _skipped_text(reason: SkipReason, name: str) -> str:
@@ -267,7 +267,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         session = page.session
         return TemplateResponse(
             self.request,
-            "chronology/enroll_select.html",
+            "event/enroll_select.html",
             {
                 "session": session,
                 "seats": self._seats(page, session.seats),
@@ -337,7 +337,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
         return TemplateResponse(
             self.request,
-            "chronology/parts/session-enroll-actions.html",
+            "event/parts/session-enroll-actions.html",
             {
                 "event_slug": session.event.slug,
                 "session_pk": session.pk,

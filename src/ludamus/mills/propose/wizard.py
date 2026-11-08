@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorData
@@ -16,10 +15,11 @@ from ludamus.pacts.propose import (
     ProposeSessionResult,
     ProposeSessionServiceProtocol,
     ReusableSessionDTO,
+    is_empty_answer,
 )
 from ludamus.pacts.sessions import SessionData, SessionStatus
 from ludamus.pacts.slugs import unique_slug
-from ludamus.pacts.submissions import is_empty_answer
+from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.specs.proposal import (
     PROPOSAL_RATE_LIMIT_SECONDS,
     REUSABLE_SESSIONS_LIMIT,
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from ludamus.pacts.cache import CacheProtocol
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
@@ -43,6 +42,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.propose import ProposeRepos, WizardData
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tracks import TrackDTO
+    from ludamus.pacts.user import UserDTO
 
 
 logger = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from django.urls import reverse
 from ludamus.gates.web.django.event.panel.forms import integration_signature
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -154,7 +154,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
 
@@ -211,7 +211,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert not EventIntegration.objects.filter(
@@ -235,7 +235,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "config_json" in response.context["form"].errors
@@ -257,7 +257,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "config_json" in response.context["form"].errors
@@ -280,7 +280,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         form = response.context["form"]
@@ -306,7 +306,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "display_name" in response.context["form"].errors
@@ -328,7 +328,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "implementation" in response.context["form"].errors
@@ -348,7 +348,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "connection" in response.context["form"].errors
@@ -373,7 +373,7 @@ class TestIntegrationCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "display_name" in response.context["form"].errors
@@ -389,7 +389,7 @@ class TestIntegrationEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/edit.html",
+            template_name="event/panel/integrations/edit.html",
             context_data=panel_context(event) | {
                 "active_nav": "settings",
                 "form": ANY,
@@ -484,7 +484,7 @@ class TestIntegrationEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/edit.html",
+            template_name="event/panel/integrations/edit.html",
             context_data=panel_context(event) | {
                 "active_nav": "settings",
                 "form": ANY,
@@ -517,7 +517,7 @@ class TestIntegrationDeletePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/delete.html",
+            template_name="event/panel/integrations/delete.html",
             context_data=panel_context(event) | {
                 "active_nav": "settings",
                 "integration": integration_dto(integration),
@@ -595,7 +595,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": True,
                 "hint": "",
@@ -630,7 +630,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": False,
                 "hint": (
@@ -649,7 +649,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": False,
                 "hint": (
@@ -674,7 +674,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": False,
                 "hint": "Unknown implementation: not-a-real-impl",
@@ -708,7 +708,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": False,
                 "hint": (
@@ -732,7 +732,7 @@ class TestIntegrationCheckActionView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": False,
                 "hint": "Configuration must be a JSON object.",
@@ -794,7 +794,7 @@ class TestTicketingIntegration:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/create.html",
+            template_name="event/panel/integrations/create.html",
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert not EventIntegration.objects.filter(event=event).exists()
@@ -816,7 +816,7 @@ class TestTicketingIntegration:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={
                 "passed": True,
                 "hint": "",
@@ -843,6 +843,6 @@ class TestTicketingIntegration:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/integrations/_check_result.html",
+            template_name="event/panel/integrations/_check_result.html",
             context_data={"passed": False, "hint": "nope", "signature": ""},
         )

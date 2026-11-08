@@ -35,7 +35,7 @@ from ludamus.pacts.images import (
     StoredFile,
     resolve_uploaded_file_field,
 )
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

@@ -30,14 +30,13 @@ from ludamus.gates.web.django.event.panel.import_durations import (
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.panel import PanelRequest, import_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
     MAX_DURATION_MINUTES,
     InvalidDurationError,
 )
-from ludamus.pacts.slugs import slugify
-from ludamus.pacts.submissions import (
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.propose import (
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -48,13 +47,14 @@ from ludamus.pacts.submissions import (
     QuestionValue,
     TimeSlotSpec,
 )
+from ludamus.pacts.slugs import slugify
 
 if TYPE_CHECKING:
     from django.http import QueryDict
 
-    from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
     from ludamus.pacts.event import EventDTO
     from ludamus.pacts.fields import SessionFieldType
+    from ludamus.pacts.integrations import EventIntegrationDTO, SourceQuestion
 
 SESSION_COLUMNS = (
     "title",

@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from ludamus.mills.safety import EventBanService, ShadowbanService
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.safety import (
     EventBanDTO,
     SessionShadowbanWarningDTO,
@@ -11,6 +10,7 @@ from ludamus.pacts.safety import (
     ShadowbanHitDTO,
     ShadowbanSignupNotification,
 )
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from tests.unit.factories import FakeTransaction
 
 _PRESENTER_ID = 7

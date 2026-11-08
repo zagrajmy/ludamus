@@ -5,15 +5,15 @@ from typing import TYPE_CHECKING, Self
 
 from django.http import HttpRequest
 
-from ludamus.pacts.crowd import display_avatar_url
+from ludamus.pacts.user import display_avatar_url
 
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.services import (
         AuthenticatedRequestContext,
         RequestContext,
         ServicesProtocol,
     )
+    from ludamus.pacts.user import UserDTO
 
 
 @dataclass

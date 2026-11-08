@@ -9,7 +9,7 @@ from django.utils.translation.trans_real import parse_accept_lang_header
 
 from ludamus.inits.dbos_scheduler import launch_scheduler
 from ludamus.inits.services import Services
-from ludamus.pacts.crowd import UserData
+from ludamus.pacts.user import UserData
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping

@@ -4,7 +4,6 @@ from uuid import UUID
 import pytest
 
 from ludamus.mills.tracks import TracksPanelService
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
@@ -13,6 +12,7 @@ from ludamus.pacts.tracks import (
     TrackListItemDTO,
     TrackSelectionInvalidError,
 )
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import FakeTransaction
 

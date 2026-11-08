@@ -41,8 +41,8 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
-from ludamus.pacts.chronology import SessionAvailability
 from ludamus.pacts.durations import format_duration
+from ludamus.pacts.sessions import SessionAvailability
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable

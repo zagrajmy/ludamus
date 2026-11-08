@@ -25,7 +25,7 @@ from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.images import parse_uploaded_file, stored_file
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django import forms
@@ -104,7 +104,7 @@ def render_maps_page(
         )
     return TemplateResponse(
         request,
-        "chronology/maps.html",
+        "event/maps.html",
         {
             "event": event,
             "cards": cards,

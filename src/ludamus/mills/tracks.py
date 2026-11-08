@@ -16,8 +16,8 @@ from ludamus.pacts.tracks import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.multiverse import SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.tracks import TrackDTO, TrackListItemDTO, TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceRepositoryProtocol
 

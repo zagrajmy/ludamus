@@ -30,7 +30,6 @@ from ludamus.specs.listing import LISTING_OPEN_FOR
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.listing import (
         BoardFiltersDict,
         ListingBoardRowDTO,
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tags import TagDTO, TagRepositoryProtocol
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 logger = logging.getLogger(__name__)
 

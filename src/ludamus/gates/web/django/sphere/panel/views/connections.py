@@ -16,7 +16,7 @@ from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel.forms import ConnectionForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     ConnectionInUseError,
     DuplicateConnectionDisplayNameError,
 )
@@ -49,7 +49,7 @@ class ConnectionsPageView(SphereAccessMixin, View):
         connections = self.request.services.connections.list_for_sphere(sphere_id)
         return TemplateResponse(
             self.request,
-            "multiverse/panel/connections/list.html",
+            "sphere/panel/connections/list.html",
             {
                 **sphere_settings_context(self.request, active_tab="connections"),
                 "connections": connections,
@@ -65,7 +65,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
     def get(self, _request: PanelRequest) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/connections/create.html",
+            "sphere/panel/connections/create.html",
             {
                 **sphere_settings_context(self.request, active_tab="connections"),
                 "form": ConnectionForm(is_create=True),
@@ -77,7 +77,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
         if not form.is_valid():
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/connections/create.html",
+                "sphere/panel/connections/create.html",
                 {
                     **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
@@ -94,7 +94,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
             _add_duplicate_display_name_error(form)
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/connections/create.html",
+                "sphere/panel/connections/create.html",
                 {
                     **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
@@ -119,7 +119,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
         form = ConnectionForm(initial={"display_name": connection.display_name})
         return TemplateResponse(
             self.request,
-            "multiverse/panel/connections/edit.html",
+            "sphere/panel/connections/edit.html",
             {
                 **sphere_settings_context(self.request, active_tab="connections"),
                 "form": form,
@@ -138,7 +138,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
         if not form.is_valid():
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/connections/edit.html",
+                "sphere/panel/connections/edit.html",
                 {
                     **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
@@ -159,7 +159,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
             _add_duplicate_display_name_error(form)
             return TemplateResponse(
                 self.request,
-                "multiverse/panel/connections/edit.html",
+                "sphere/panel/connections/edit.html",
                 {
                     **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
@@ -184,7 +184,7 @@ class ConnectionDeletePageView(SphereAccessMixin, View):
 
         return TemplateResponse(
             self.request,
-            "multiverse/panel/connections/delete.html",
+            "sphere/panel/connections/delete.html",
             {
                 **sphere_settings_context(self.request, active_tab="connections"),
                 "connection": connection,

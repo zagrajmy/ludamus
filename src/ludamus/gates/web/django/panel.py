@@ -21,9 +21,9 @@ from django.utils.translation import gettext_lazy
 from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
 from ludamus.gates.web.django.redirects import safe_url
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.propose import RequirementSelectionDTO
 from ludamus.pacts.sessions import SessionStatus
-from ludamus.pacts.submissions import RequirementSelectionDTO
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django.http import HttpResponseRedirect, QueryDict

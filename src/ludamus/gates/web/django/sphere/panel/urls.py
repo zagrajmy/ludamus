@@ -1,4 +1,4 @@
-"""URL patterns for the multiverse panel bounded context."""
+"""URL patterns for the sphere panel."""
 
 from django.urls import include, path
 

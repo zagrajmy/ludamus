@@ -62,7 +62,7 @@ class GuildsPageView(SphereAccessMixin, View):
         )
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/list.html",
+            "sphere/panel/guilds/list.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guilds": guilds,
@@ -90,7 +90,7 @@ class GuildCreatePageView(SphereAccessMixin, View):
     def _render(self, form: GuildForm) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/create.html",
+            "sphere/panel/guilds/create.html",
             {**sphere_sidebar_context(self.request, active_nav="guilds"), "form": form},
         )
 
@@ -127,7 +127,7 @@ class GuildEditPageView(SphereAccessMixin, View):
     def _render(self, guild: GuildDTO, form: GuildForm) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/edit.html",
+            "sphere/panel/guilds/edit.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guild": guild,
@@ -147,7 +147,7 @@ class GuildDeletePageView(SphereAccessMixin, View):
     def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/delete.html",
+            "sphere/panel/guilds/delete.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guild": _read_guild(self.request, pk),

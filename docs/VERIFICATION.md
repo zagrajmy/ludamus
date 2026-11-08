@@ -9,7 +9,7 @@ that breaks it. Each layer of the code gets the tool that reaches it best.
 | Pure logic (`specs/`, pure `mills/` helpers) | Hypothesis, CrossHair as an optional backend | The real Python, on generated inputs | `tests/unit/test_*_properties.py` | `mise run test:py`, `mise run test:props:crosshair` |
 | Repositories and services on a database | Hypothesis | The real code against SQLite or Postgres | `tests/integration/**/test_*_properties.py` | `mise run test:py` |
 | Locks and transactions | Bend | A model of the code at transaction grain: proofs for every run, and traces for known races | `formal/<area>/` | `mise run formal` |
-| Model against code | Hypothesis, with Bend compiled to JS | The same steps run through the real view and the model must agree | `tests/integration/web/chronology/test_seats_model_differential.py` | `mise run test:py` |
+| Model against code | Hypothesis, with Bend compiled to JS | The same steps run through the real view and the model must agree | `tests/integration/web/event/test_seats_model_differential.py` | `mise run test:py` |
 | Pages | Bombadil | Random browsing of the seeded app, against properties of what the pages show | `tests/bombadil/` | `mise run test:bombadil` |
 
 ## Pick the tool by the question

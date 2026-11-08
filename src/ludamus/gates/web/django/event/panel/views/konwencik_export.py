@@ -16,8 +16,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelMixin,
     PanelContext,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportSettings,
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
     from ludamus.gates.web.django.panel import PanelRequest
-    from ludamus.pacts.chronology import EventIntegrationDTO
+    from ludamus.pacts.integrations import EventIntegrationDTO
     from ludamus.pacts.konwencik import (
         KonwencikLastRun,
         KonwencikNamedItemDTO,

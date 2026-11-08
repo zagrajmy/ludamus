@@ -42,14 +42,14 @@ from ludamus.specs.encounter import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterDTO,
         EncounterInviteeRepositoryProtocol,
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import SitesServiceProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 logger = logging.getLogger(__name__)

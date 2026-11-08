@@ -35,7 +35,7 @@ branches never, and asserts nothing. What the test is about stays at the call
 site: a helper that swallows the value under assertion trades duplication for a
 test that no longer says what it checks. Helpers live in the test module that
 owns them, or in a sibling `helpers.py` once a second module needs them — see
-`tests/integration/web/chronology/helpers.py` and the `_timetable_document` /
+`tests/integration/web/event/helpers.py` and the `_timetable_document` /
 `_one_hour_page` helpers in `test_event_print_page.py`.
 
 ## Unit tests

@@ -4,8 +4,8 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, SphereMembership
-from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.sphere import SphereRole
 from tests.integration.conftest import EventFactory, UserFactory
 
 

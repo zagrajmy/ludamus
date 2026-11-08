@@ -10,7 +10,7 @@ from ludamus.mills.propose.mapping import (
     locate_row,
     resolve_builtins,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     DurationSpec,
     EntityRef,
     ImportRow,

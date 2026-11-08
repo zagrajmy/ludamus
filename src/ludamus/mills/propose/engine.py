@@ -26,10 +26,7 @@ from ludamus.mills.propose.mapping import (
 from ludamus.mills.propose.personal_data_fields import log_facilitator_deletion
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import PersonalDataFieldCreateData, SessionFieldCreateData
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.sessions import SessionData, SessionStatus, SessionUpdateData
-from ludamus.pacts.slugs import slugify, unique_slug
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     FieldDefinition,
     ImportLogEntryCreateData,
     ImportLogStatus,
@@ -40,10 +37,13 @@ from ludamus.pacts.submissions import (
     ProposalImportResult,
     TimeSlotSpec,
 )
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionData, SessionStatus, SessionUpdateData
+from ludamus.pacts.slugs import slugify, unique_slug
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
     from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 

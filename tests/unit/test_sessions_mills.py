@@ -11,26 +11,24 @@ from ludamus.mills.sessions import (
     SessionContentEditService,
     SessionDeletionService,
 )
-from ludamus.pacts.chronology import (
-    AnonymousProposalAcceptedNotification,
-    ContentChangeNotLatestError,
-    ContentChangeNotRevertibleError,
-    ProposalAcceptContextDTO,
-    ProposalAcceptDeniedError,
-    ProposalAcceptedNotification,
-    ProposalScheduledError,
-    SpaceTimeConflictError,
-)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.session_cards import ProposalAcceptContextDTO
 from ludamus.pacts.sessions import (
+    AnonymousProposalAcceptedNotification,
     ContentChangeLogDTO,
+    ContentChangeNotLatestError,
+    ContentChangeNotRevertibleError,
+    ProposalAcceptDeniedError,
+    ProposalAcceptedNotification,
+    ProposalScheduledError,
     SessionContentEditData,
     SessionStatus,
+    SpaceTimeConflictError,
 )
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import AgendaItemDTO, ScheduleChangeAction
 from ludamus.pacts.venues import SpaceOptionDTO
 from tests.unit.factories import (

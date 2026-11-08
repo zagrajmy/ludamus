@@ -24,7 +24,7 @@ from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     FacilitatorActionError,
     FacilitatorSessionCountsDTO,
     OrganizerActionRefusal,

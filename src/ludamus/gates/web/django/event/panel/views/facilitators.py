@@ -58,7 +58,7 @@ from ludamus.pacts.panel import (
     FacilitatorMergeError,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     AccreditationType,
     FacilitatorActionError,
     OrganizerActionRefusal,

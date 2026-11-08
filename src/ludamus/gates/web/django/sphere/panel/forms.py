@@ -1,4 +1,4 @@
-"""Forms for the multiverse sphere panel."""
+"""Forms for the sphere panel."""
 
 from typing import Any
 

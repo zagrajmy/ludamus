@@ -116,25 +116,28 @@ from ludamus.mills.user import (
     ProfileService,
 )
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId
-from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
+from ludamus.pacts.integrations import IntegrationImplementationId
 from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     ProposalPanelRepos,
     ProposalRecordRepos,
 )
-from ludamus.pacts.propose import ProposeRepos
-from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.propose import (
+    ImportRepos,
+    ProposalCategorySettingsRepos,
+    ProposeRepos,
+)
 from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.mills.listing import ListingService
-    from ludamus.pacts.chronology import (
+    from ludamus.pacts.integrations import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
         TicketingIntegrationImplementation,

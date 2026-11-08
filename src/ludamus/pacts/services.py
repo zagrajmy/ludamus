@@ -8,30 +8,12 @@ and reached from gates: the transaction adapter and the flat
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.sphere import SphereVisibility
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
-    from ludamus.pacts.chronology import (
-        EventIntegrationsServiceProtocol,
-        PartySessionHistoryServiceProtocol,
-        ProposalAcceptanceServiceProtocol,
-        ProposalStatusServiceProtocol,
-        SessionConfirmationServiceProtocol,
-        SessionContentEditServiceProtocol,
-        SessionDeletionServiceProtocol,
-        SessionModalServiceProtocol,
-        SessionSelfEditServiceProtocol,
-    )
-    from ludamus.pacts.crowd import (
-        ClaimServiceProtocol,
-        CompanionsServiceProtocol,
-        CrowdAuthServiceProtocol,
-        EmailVerificationServiceProtocol,
-        ProfileServiceProtocol,
-    )
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
         SphereSubscriptionServiceProtocol,
@@ -60,16 +42,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.ids import SiteId, SphereId, UserId
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
-    from ludamus.pacts.multiverse import (
-        AnnouncementsServiceProtocol,
-        ConnectionsServiceProtocol,
-        SitesServiceProtocol,
-        SpherePanelServiceProtocol,
-    )
     from ludamus.pacts.notifications import (
         NotificationsServiceProtocol,
         NotificationSubscriptionsServiceProtocol,
@@ -85,9 +62,7 @@ if TYPE_CHECKING:
         PrintMaterialsServiceProtocol,
     )
     from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
-    from ludamus.pacts.propose import ProposeSessionServiceProtocol
-    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
-    from ludamus.pacts.submissions import (
+    from ludamus.pacts.propose import (
         CFPPersonalDataFieldServiceProtocol,
         CFPSessionFieldServiceProtocol,
         ImportFieldLayoutServiceProtocol,
@@ -95,6 +70,26 @@ if TYPE_CHECKING:
         PersonalDataFieldValueServiceProtocol,
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
+        ProposeSessionServiceProtocol,
+    )
+    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
+    from ludamus.pacts.session_cards import (
+        PartySessionHistoryServiceProtocol,
+        SessionModalServiceProtocol,
+    )
+    from ludamus.pacts.sessions import (
+        ProposalAcceptanceServiceProtocol,
+        ProposalStatusServiceProtocol,
+        SessionConfirmationServiceProtocol,
+        SessionContentEditServiceProtocol,
+        SessionDeletionServiceProtocol,
+        SessionSelfEditServiceProtocol,
+    )
+    from ludamus.pacts.sphere import (
+        AnnouncementsServiceProtocol,
+        ConnectionsServiceProtocol,
+        SitesServiceProtocol,
+        SpherePanelServiceProtocol,
     )
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
@@ -104,6 +99,13 @@ if TYPE_CHECKING:
         TimetableServiceProtocol,
     )
     from ludamus.pacts.tracks import TracksPanelServiceProtocol
+    from ludamus.pacts.user import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        EmailVerificationServiceProtocol,
+        ProfileServiceProtocol,
+    )
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 

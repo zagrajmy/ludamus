@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.user import UserDTO
     from ludamus.pacts.venues import SpaceDTO
 
 

@@ -7,7 +7,7 @@ from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.import_log import ImportLogService
 from ludamus.mills.propose.importing import ProposalImportService
 from ludamus.mills.propose.mapping import dedup_ident
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     DuplicateValueError,
     ImportLogEntryDTO,

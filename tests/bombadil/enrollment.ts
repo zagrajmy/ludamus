@@ -34,7 +34,7 @@ export const noHttpErrorCodes = always(
 
 type Capacity = { session: number; enrolled: number; limit: number };
 
-// The seat count a session's enroll page shows (chronology/enroll_select.html),
+// The seat count a session's enroll page shows (event/enroll_select.html),
 // found by its visible text, "enrolled/limit"; null anywhere else.
 const capacity = extract((state): Capacity | null => {
   const page = /\/session\/(\d+)\/enrollment\/$/.exec(state.window.location.pathname);

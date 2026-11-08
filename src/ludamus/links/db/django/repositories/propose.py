@@ -43,13 +43,13 @@ from ludamus.pacts.proposal_categories import (
     SessionFieldRequirementDTO,
     TimeSlotRequirementDTO,
 )
-from ludamus.pacts.sessions import SessionStatus
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+from ludamus.pacts.sessions import SessionStatus
 
 if TYPE_CHECKING:
     from ludamus.pacts.fields import PersonalFieldType, TextFieldKind
