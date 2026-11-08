@@ -106,6 +106,22 @@ MIDNIGHT = DayTurnover(0)
 PROGRAMME_DAYS = DayTurnover(PROGRAMME_DAY_STARTS_AT_HOUR)
 
 
+class SessionAvailability(StrEnum):
+    """The one state a schedule card's label and the status filter read.
+
+    The values reach the page as data-status and the filter's option values,
+    and the client reads them from the page rather than restating them.
+    """
+
+    PROPOSAL = "proposal"
+    ENDED = "ended"
+    IN_PROGRESS = "in-progress"
+    NO_ENROLLMENT = "no-enrollment"
+    UNAVAILABLE = "unavailable"
+    FULL = "full"
+    AVAILABLE = "available"
+
+
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"
