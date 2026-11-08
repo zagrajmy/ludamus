@@ -14,7 +14,7 @@ export PATH="$HOME/.local/bin:$PATH"
 # NOTE: Cloud sessions get git identity and signing from GIT_CONFIG_GLOBAL.
 if git config --global --get user.email > /dev/null 2>&1 \
   && ! grep -q '^## Git identity$' CLAUDE.local.md 2>/dev/null; then
-  printf '## Git identity\n\nGit author and commit signing are configured by the environment (%s). Commit as-is: do not set user.name/user.email, GIT_AUTHOR_*/GIT_COMMITTER_*, or --author. Add no Co-authored-by or Claude-Session trailers.\n' \
+  printf '## Git identity\n\nGit author and commit signing are configured by the environment (%s). Commit as-is: do not set user.name/user.email, GIT_AUTHOR_*/GIT_COMMITTER_*, or --author. Add no Co-authored-by or Claude-Session trailers, and no "Generated with Claude Code" footer or session link in PR descriptions.\n' \
     "${GIT_CONFIG_GLOBAL:-global git config}" >> CLAUDE.local.md
 fi
 
