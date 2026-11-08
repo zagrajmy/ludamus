@@ -89,7 +89,7 @@ class TestEventPageBookmarkCounts:
     @pytest.fixture
     def _compact_schedule(self, monkeypatch):
         monkeypatch.setattr(
-            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+            "ludamus.gates.web.django.event.page.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
 
     def test_anonymous_sees_count_badge_and_zero_count_renders_nothing(

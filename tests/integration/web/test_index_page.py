@@ -18,7 +18,7 @@ from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import PAST_FEED_LIMIT, EncounterDTO, EncounterIndexItem
 from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
-from ludamus.pacts.legacy import EventListItemDTO
+from ludamus.pacts.legacy import EventDTO, EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -35,13 +35,14 @@ from tests.integration.web.landing_context import landing_context
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
+    status = EventDTO.model_validate(event)
     item = EventListItemDTO(
         description=event.description,
         end_time=event.end_time,
-        is_ended=event.is_ended,
-        is_live=event.is_live,
-        is_proposal_active=event.is_proposal_active,
-        is_published=event.is_published,
+        is_ended=status.is_ended,
+        is_live=status.is_live,
+        is_proposal_active=status.is_proposal_active,
+        is_published=status.is_published,
         name=event.name,
         session_count=session_count,
         slug=event.slug,

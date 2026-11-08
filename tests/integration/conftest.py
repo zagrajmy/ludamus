@@ -11,6 +11,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
+from django.utils.module_loading import import_string
 from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
@@ -62,12 +63,15 @@ register(AnonymousUserFactory)
 
 @pytest.fixture(scope="session", autouse=True)
 def _urlconf_loaded():
-    # Load the whole URLconf while the clock is real. It imports the MCP tools
-    # module, which builds pydantic TypeAdapters at import time, and pydantic
+    # Load the whole URLconf and the middleware chain while the clock is real.
+    # They import modules that build pydantic models and TypeAdapters at
+    # import time (the MCP tools, the repository registry), and pydantic
     # cannot generate a schema for the datetime class freezegun swaps in. A
-    # test that freezes time before the first reverse() would otherwise fail on
+    # test that freezes time before the first request would otherwise fail on
     # whichever xdist worker happens to run it first.
     assert get_resolver().reverse_dict is not None
+    for middleware in django_settings.MIDDLEWARE:
+        import_string(middleware)
 
 
 @pytest.fixture(autouse=True)

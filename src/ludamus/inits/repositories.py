@@ -27,6 +27,7 @@ from ludamus.links.db.django.notifications import NotificationSubscriptionReposi
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository
+from ludamus.links.db.django.repositories.session_cards import EventScheduleRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
@@ -127,6 +128,10 @@ class Repositories:
     @cached_property
     def sessions(self) -> repositories.SessionRepository:
         return repositories.SessionRepository()
+
+    @cached_property
+    def event_schedule(self) -> EventScheduleRepository:
+        return EventScheduleRepository()
 
     @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
