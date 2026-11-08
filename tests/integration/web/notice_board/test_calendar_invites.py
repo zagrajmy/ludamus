@@ -530,20 +530,25 @@ def established_account_fixture(active_user):
 @pytest.mark.usefixtures("established_account")
 class TestInviteLimits:
     def test_a_new_account_gets_the_smaller_allowance(
-        self, active_user, authenticated_client, mailoutbox
+        self,
+        active_user,
+        authenticated_client,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         type(active_user).objects.filter(pk=active_user.pk).update(
             date_joined=datetime.now(UTC)
         )
 
-        response = authenticated_client.post(
-            reverse("web:notice-board:create"),
-            data={
-                "title": "Too many for a newcomer",
-                "start_time": "2031-05-01T19:00",
-                "invitees": ", ".join(f"n{n}@example.com" for n in range(11)),
-            },
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                reverse("web:notice-board:create"),
+                data={
+                    "title": "Too many for a newcomer",
+                    "start_time": "2031-05-01T19:00",
+                    "invitees": ", ".join(f"n{n}@example.com" for n in range(11)),
+                },
+            )
 
         assert_response(
             response,
@@ -646,16 +651,17 @@ class TestInviteLimits:
         assert mailoutbox == []
 
     def test_more_than_fifty_addresses_at_once_are_refused(
-        self, authenticated_client, mailoutbox
+        self, authenticated_client, mailoutbox, django_capture_on_commit_callbacks
     ):
-        response = authenticated_client.post(
-            reverse("web:notice-board:create"),
-            data={
-                "title": "Crowd night",
-                "start_time": "2031-05-01T19:00",
-                "invitees": ", ".join(f"p{n}@example.com" for n in range(51)),
-            },
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                reverse("web:notice-board:create"),
+                data={
+                    "title": "Crowd night",
+                    "start_time": "2031-05-01T19:00",
+                    "invitees": ", ".join(f"p{n}@example.com" for n in range(51)),
+                },
+            )
 
         assert_response(
             response,
@@ -727,15 +733,20 @@ class TestSignupRollsBackAsOne:
 
 class TestForeignEncounter:
     def test_editing_someone_elses_encounter_touches_no_invitees(
-        self, authenticated_client, sphere, mailoutbox
+        self,
+        authenticated_client,
+        sphere,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         encounter = EncounterFactory(sphere=sphere)
         EncounterInviteeFactory(encounter=encounter, email="ala@example.com")
 
-        response = authenticated_client.post(
-            reverse("web:notice-board:edit", kwargs={"pk": encounter.pk}),
-            data=_edit_data(encounter, invitees="mallory@example.com"),
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                reverse("web:notice-board:edit", kwargs={"pk": encounter.pk}),
+                data=_edit_data(encounter, invitees="mallory@example.com"),
+            )
 
         assert_response_404(response)
         assert list(encounter.invitees.values_list("email", flat=True)) == [

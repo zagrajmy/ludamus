@@ -168,9 +168,8 @@ def sixteen_plus_user(active_user):
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
-        django_get_or_create = ("username",)
 
-    username = Faker("user_name")
+    username = Sequence(lambda n: f"user{n}")
     email = Sequence(lambda n: f"user{n}@example.com")
     # Verified by default, mirroring production after the grandfathering
     # migration; suppression tests flip it off explicitly.
