@@ -97,7 +97,7 @@ Services take a `TransactionProtocol` plus the specific repo protocols they
 actually touch — never the full UoW, never imports of concrete repos:
 
 ```python
-# mills/chronology.py
+# mills/propose/personal_data_fields.py
 class CFPPersonalDataFieldService:
     def __init__(
         self,
@@ -124,7 +124,7 @@ Services return DTOs; views render them.
 
 `mills/{noun}.py` is promoted to a package when it crosses ~1000
 lines. Modules slice **by service** — one view-facing service per module,
-named after its area (`mills/submissions/importing.py`, `import_log.py`,
+named after its area (`mills/propose/importing.py`, `import_log.py`,
 `field_layout.py`, `personal_data_fields.py`). A service holds the methods
 used together in the same views; a method that landed somewhere only
 because it matched the service name, or had no other service to go to,
@@ -133,9 +133,9 @@ gets its own service.
 Shared code splits by kind:
 
 - **Pure functions** go to a plain-function module
-  (`mills/submissions/mapping.py` — row-cell parsing, slug generation).
+  (`mills/propose/mapping.py` — row-cell parsing, slug generation).
 - **Repo-bearing machinery** becomes a collaborator class
-  (`mills/submissions/engine.py` — `ImportEngine`) that services compose
+  (`mills/propose/engine.py` — `ImportEngine`) that services compose
   internally. It is not a service: no protocol in `ServicesProtocol`,
   never exposed on `request.services`, and it owns no transactions —
   services open `atomic()` and call engine methods inside it.
@@ -435,7 +435,7 @@ the event resolution `EventPanelMixin` adds.
 - **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
 - **Views:** `gates/web/django/multiverse/panel/views/…`
 - **Templates:** `templates/multiverse/panel/`
-- **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/multiverse.py`
+- **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/sphere.py`
   (legacy module names; new cuts use `sphere`)
 - **Access:** `SphereAccessMixin` (the panel access check, scoped to the sphere)
 - **First feature:** sphere-scoped import-connections CRUD

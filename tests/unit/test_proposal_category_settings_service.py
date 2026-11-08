@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.submissions.proposal_category_settings import (
+from ludamus.mills.propose.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.pacts.enrollment import PromotionMode

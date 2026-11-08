@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.chronology import SessionContentEditService, SessionSelfEditService
+from ludamus.mills.sessions import SessionContentEditService, SessionSelfEditService
 from ludamus.pacts.chronology import SessionEditNotAllowedError
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData

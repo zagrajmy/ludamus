@@ -8,7 +8,7 @@ from ludamus.mills.panel_columns import (
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
     log_facilitator_deletion,

@@ -1,6 +1,6 @@
 import pytest
 
-from ludamus.mills.submissions.mapping import (
+from ludamus.mills.propose.mapping import (
     ResolvedBuiltins,
     RowSkippedError,
     chosen_entities,

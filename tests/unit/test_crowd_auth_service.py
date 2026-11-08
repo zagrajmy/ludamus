@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ludamus.mills.crowd import ClaimService, CrowdAuthService
+from ludamus.mills.user import ClaimService, CrowdAuthService
 from ludamus.pacts.crowd import (
     AgeBand,
     AgeBandRequiredError,

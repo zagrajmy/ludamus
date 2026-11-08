@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.engine import ImportEngine
-from ludamus.mills.submissions.mapping import (
+from ludamus.mills.propose.engine import ImportEngine
+from ludamus.mills.propose.mapping import (
     RowSkippedError,
     build_personal_data_field_values,
     decode_response,

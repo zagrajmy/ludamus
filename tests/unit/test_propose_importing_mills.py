@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ludamus.mills.submissions.importing import ProposalImportService
+from ludamus.mills.propose.importing import ProposalImportService
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.submissions import (
@@ -131,7 +131,7 @@ class TestRunSample:
     def test_imports_exactly_the_one_row_it_drew(
         self, sessions, log_entries, monkeypatch
     ):
-        monkeypatch.setattr("ludamus.mills.submissions.importing.choice", itemgetter(1))
+        monkeypatch.setattr("ludamus.mills.propose.importing.choice", itemgetter(1))
         service = _service(_Integrations("Cats", "Dogs", "Owls"), sessions, log_entries)
 
         result = service.run_sample(

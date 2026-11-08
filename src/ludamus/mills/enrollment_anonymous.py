@@ -9,9 +9,9 @@ from __future__ import annotations
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.crowd import build_anonymous_user
 from ludamus.mills.enrollment_seats import SeatDesk
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
+from ludamus.mills.user import build_anonymous_user
 from ludamus.pacts.crowd import UserData, UserDTO
 from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,

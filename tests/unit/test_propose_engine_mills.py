@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.submissions.engine import FieldIdsByHeader, ImportEngine
-from ludamus.mills.submissions.mapping import dedup_ident
+from ludamus.mills.propose.engine import FieldIdsByHeader, ImportEngine
+from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO

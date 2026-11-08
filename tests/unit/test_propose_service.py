@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.propose import ProposeSessionService
+from ludamus.mills.propose.wizard import ProposeSessionService
 from ludamus.pacts.crowd import PROFILE_DISCORD_USERNAME_MAX_LENGTH
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventProposalSettingsDTO

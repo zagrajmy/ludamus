@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.submissions.import_log import ImportLogService
+from ludamus.mills.propose.import_log import ImportLogService
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.submissions import (

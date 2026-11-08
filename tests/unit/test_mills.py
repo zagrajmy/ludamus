@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.mills.submissions.mapping import (
+from ludamus.mills.propose.mapping import (
     RowSkippedError,
     cell,
     dedup_ident,

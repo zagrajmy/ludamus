@@ -60,7 +60,7 @@ followed.
 
 ### 2. Import re-run resurrects a deleted facilitator with no log entry
 
-`src/ludamus/mills/submissions/engine.py` — `_resolve_facilitator`
+`src/ludamus/mills/propose/engine.py` — `_resolve_facilitator`
 
 The importer calls `self._repos.facilitators.restore(matched.pk)` straight
 through the repo. `FacilitatorPanelService.restore` is the only path that also
@@ -84,9 +84,9 @@ importer wants one log write.
   protocol `FacilitatorPanelRepos` already names in `pacts/panel.py`).
 - `src/ludamus/inits/services.py` (`ImportRepos(...)` construction) — wire the
   existing `FacilitatorChangeLogRepository`.
-- `src/ludamus/mills/submissions/engine.py` — after the `restore` call, write
+- `src/ludamus/mills/propose/engine.py` — after the `restore` call, write
   the entry via `log_facilitator_changes` from
-  `mills/submissions/personal_data_fields.py` (the helper
+  `mills/propose/personal_data_fields.py` (the helper
   `FacilitatorPanelService._log_deletion` already uses), with
   `user_id=None` and the same `{"field": "deleted", "old": "yes", "new": ""}`
   change. Move the `"deleted"`/`"yes"` literals out of

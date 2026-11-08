@@ -1,4 +1,4 @@
-from ludamus.mills.chronology import diff_session_content
+from ludamus.mills.sessions import diff_session_content
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.sessions import SessionDTO
 

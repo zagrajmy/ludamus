@@ -25,16 +25,16 @@ from ludamus.links.signed_tokens import (
     DjangoEmailTokenCodec,
     DjangoSphereUnsubscribeTokenCodec,
 )
-from ludamus.mills.crowd import EmailVerificationService
 from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.listing import ListingService
-from ludamus.mills.multiverse import SitesService
 from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.printing import PrintablesReminderService
+from ludamus.mills.sphere import SitesService
+from ludamus.mills.user import EmailVerificationService
 from ludamus.pacts.konwencik import KonwencikScheduleRepos
 
 if TYPE_CHECKING:

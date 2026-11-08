@@ -3,7 +3,7 @@
 from secrets import choice
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.engine import ImportEngine
+from ludamus.mills.propose.engine import ImportEngine
 from ludamus.pacts.submissions import ImportRepos, ProposalImportResult
 
 if TYPE_CHECKING:

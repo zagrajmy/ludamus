@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.crowd import EmailVerificationService
+from ludamus.mills.user import EmailVerificationService
 from ludamus.pacts.crowd import (
     ChangeRequestOutcome,
     EmailTokenPayload,

@@ -14,8 +14,8 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.crowd import build_anonymous_user, mint_claim_token
 from ludamus.mills.enrollment_windows import viewer_access
+from ludamus.mills.user import build_anonymous_user, mint_claim_token
 from ludamus.pacts.enrollment import (
     ClaimResult,
     EnrollmentAccessDTO,

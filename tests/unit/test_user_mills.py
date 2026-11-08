@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ludamus.mills.crowd import CompanionsService, ProfileService
+from ludamus.mills.user import CompanionsService, ProfileService
 from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.errors import NotFoundError
 from tests.unit.factories import FakeTransaction, FakeUsers, user_dto

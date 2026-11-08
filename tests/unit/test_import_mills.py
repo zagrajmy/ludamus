@@ -3,10 +3,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.mapping import dedup_ident
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.submissions import (
     ApplyFieldLayoutResult,
     DuplicateValueError,

@@ -8,7 +8,7 @@ import contextlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ludamus.mills.submissions.mapping import (
+from ludamus.mills.propose.mapping import (
     DuplicateRowError,
     ResolvedBuiltins,
     RowSkippedError,
@@ -23,7 +23,7 @@ from ludamus.mills.submissions.mapping import (
     resolve_builtins,
     session_field_values,
 )
-from ludamus.mills.submissions.personal_data_fields import log_facilitator_deletion
+from ludamus.mills.propose.personal_data_fields import log_facilitator_deletion
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import PersonalDataFieldCreateData, SessionFieldCreateData
 from ludamus.pacts.services import DatabaseConstraintError

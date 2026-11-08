@@ -2,11 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.multiverse import (
-    AnnouncementsService,
-    ConnectionsService,
-    SitesService,
-)
+from ludamus.mills.sphere import AnnouncementsService, ConnectionsService, SitesService
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import (
     AnnouncementData,

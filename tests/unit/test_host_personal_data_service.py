@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
     log_facilitator_deletion,

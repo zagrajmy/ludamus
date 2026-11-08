@@ -1,8 +1,8 @@
 import json
 from datetime import UTC, datetime
 
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.mapping import dedup_ident
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.chronology import EventIntegrationDTO
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO

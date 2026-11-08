@@ -32,21 +32,6 @@ from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
-from ludamus.mills.chronology import (
-    ProposalAcceptanceService,
-    ProposalStatusService,
-    SessionConfirmationService,
-    SessionContentEditService,
-    SessionDeletionService,
-    SessionSelfEditService,
-)
-from ludamus.mills.crowd import (
-    ClaimService,
-    CompanionsService,
-    CrowdAuthService,
-    EmailVerificationService,
-    ProfileService,
-)
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
@@ -77,12 +62,6 @@ from ludamus.mills.integrations import (
 )
 from ludamus.mills.maps import EventMapsService
 from ludamus.mills.mcp import McpAuthorizationService
-from ludamus.mills.multiverse import (
-    AnnouncementsService,
-    ConnectionsService,
-    SitesService,
-    SpherePanelService,
-)
 from ludamus.mills.notifications import (
     NotificationsService,
     NotificationSubscriptionsService,
@@ -93,20 +72,34 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
-from ludamus.mills.propose import ProposeSessionService
-from ludamus.mills.safety import EventBanService, ShadowbanService
-from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
 )
-from ludamus.mills.submissions.proposal_category_settings import (
+from ludamus.mills.propose.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
+from ludamus.mills.sessions import (
+    ProposalAcceptanceService,
+    ProposalStatusService,
+    SessionConfirmationService,
+    SessionContentEditService,
+    SessionDeletionService,
+    SessionSelfEditService,
+)
+from ludamus.mills.sphere import (
+    AnnouncementsService,
+    ConnectionsService,
+    SitesService,
+    SpherePanelService,
+)
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -115,6 +108,13 @@ from ludamus.mills.timetable import (
     TimetableService,
 )
 from ludamus.mills.tracks import TracksPanelService
+from ludamus.mills.user import (
+    ClaimService,
+    CompanionsService,
+    CrowdAuthService,
+    EmailVerificationService,
+    ProfileService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.crowd import gravatar_url

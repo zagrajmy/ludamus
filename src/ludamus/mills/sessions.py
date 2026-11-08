@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from pydantic import TypeAdapter
 
 from ludamus.mills.event import require_session_in_event, require_session_in_sphere
-from ludamus.mills.multiverse import can_write_programme
+from ludamus.mills.sphere import can_write_programme
 from ludamus.pacts.chronology import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
@@ -36,7 +36,7 @@ from ludamus.pacts.sessions import (
 )
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
-from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.sessions import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
