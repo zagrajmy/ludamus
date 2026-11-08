@@ -6,9 +6,6 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    SessionUserParticipationData,
-)
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
@@ -19,9 +16,11 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.enrollment_member import SessionUserParticipationData
+from ludamus.pacts.legacy import EventDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.chronology.helpers import stored_seats
+from tests.integration.web.chronology.helpers import enroll_session, stored_seats
 
 
 def _url(agenda_item):
@@ -60,9 +59,9 @@ def _page_context(viewer, agenda_item):
         "party_choices": selection.choices,
         "selected_party": selection.selected,
         "companions": [],
-        "event": agenda_item.session.event,
+        "event": EventDTO.model_validate(agenda_item.session.event),
         "form": ANY,
-        "session": agenda_item.session,
+        "session": enroll_session(agenda_item.session),
         "seats": stored_seats(agenda_item.session),
         "shadowban_warnings": [],
         "user_data": [

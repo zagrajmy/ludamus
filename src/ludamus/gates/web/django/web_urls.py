@@ -1,7 +1,6 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
-from ludamus.adapters.web.django import views
 from ludamus.gates.web.django import dashboard as dashboard_gate
 from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
@@ -14,6 +13,7 @@ from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
 from ludamus.gates.web.django.event import maps
+from ludamus.gates.web.django.event.enroll import SessionEnrollPageView
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.page import EventPageView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
@@ -63,7 +63,7 @@ chronology_urls = [
     ),
     path(
         "event/<str:event_slug>/session/<int:session_id>/enrollment/",
-        views.SessionEnrollPageView.as_view(),
+        SessionEnrollPageView.as_view(),
         name="session-enrollment",
     ),
     path(

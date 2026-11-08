@@ -7,10 +7,6 @@ from urllib.parse import urlencode
 
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    PartyMemberFlags,
-    SessionUserParticipationData,
-)
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
@@ -32,10 +28,15 @@ from ludamus.links.db.django.repositories.chronology import event_dto, location_
 from ludamus.pacts.chronology import PROGRAMME_DAYS
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import EnrollmentAccessDTO
+from ludamus.pacts.enrollment_member import (
+    PartyMemberFlags,
+    SessionUserParticipationData,
+)
 from ludamus.pacts.legacy import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
+    EventDTO,
     LocationData,
     SessionDTO,
     SessionParticipationStatus,
@@ -304,12 +305,17 @@ def enroll_context(
         "party_choices": list(party_choices),
         "selected_party": selected_party,
         "companions": list(companions),
-        "event": session.event,
+        "event": EventDTO.model_validate(session.event),
         "form": ANY,
-        "session": session,
+        "session": enroll_session(session),
         "shadowban_warnings": list(shadowban_warnings),
         "user_data": user_data,
     }
+
+
+def enroll_session(session):
+    # The session the enroll page renders, named by what identifies it.
+    return AttributesMatcher(pk=session.pk, title=session.title)
 
 
 def stored_seats(session):
