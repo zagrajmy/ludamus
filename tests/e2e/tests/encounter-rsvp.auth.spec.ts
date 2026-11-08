@@ -25,7 +25,7 @@ const flash = (page: Page, text: string) =>
   page.getByRole("region", { name: "Notifications" }).getByText(text);
 
 const attendees = (page: Page, count: number) =>
-  page.getByRole("heading", { name: `Attending (${count})` }).locator("..");
+  page.getByRole("region", { name: `Attending (${count})` });
 
 const join = async (page: Page, shareUrl: string) => {
   await page.goto(shareUrl);

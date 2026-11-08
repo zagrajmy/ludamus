@@ -14,7 +14,10 @@ const flash = (page: Page, text: string) =>
   page.getByRole("region", { name: "Notifications" }).getByText(text);
 
 const titles = (page: Page) =>
-  page.getByRole("table").getByRole("rowgroup").nth(1).getByRole("row").getByRole("link");
+  page
+    .getByRole("row")
+    .filter({ has: page.getByRole("checkbox", { name: /^Select (?!all proposals$)/ }) })
+    .getByRole("link");
 
 const bulk = async (page: Page, action: string, picks: string[]) => {
   for (const title of picks) await page.getByRole("checkbox", { name: `Select ${title}` }).check();

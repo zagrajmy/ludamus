@@ -61,9 +61,7 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
   await first.page.goto("/");
   await first.page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
-    first.page
-      .locator("#navbar-notifications-panel")
-      .getByRole("link", { name: new RegExp(title) }),
+    first.page.getByRole("link", { name: `You're in: a spot opened in ${title}` }),
   ).toBeVisible();
 
   // One seat opened, so the second in the queue keeps waiting.

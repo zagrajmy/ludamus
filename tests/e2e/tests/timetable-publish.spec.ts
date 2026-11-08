@@ -26,10 +26,10 @@ const visitPublicPage = async (browser: Browser) => {
 };
 
 const unassign = async (page: Page) => {
-  await room(page).getByText(TITLE).click();
+  await room(page).getByRole("button", { name: TITLE }).click();
   await page.getByRole("button", { name: "Unassign" }).click();
-  await expect(toAssign(page).getByText(TITLE)).toBeVisible();
-  await expect(room(page).getByText(TITLE)).toHaveCount(0);
+  await expect(toAssign(page).getByRole("button", { name: TITLE })).toBeVisible();
+  await expect(room(page).getByRole("button", { name: TITLE })).toHaveCount(0);
 };
 
 test.use({ storageState: managerState });
@@ -37,7 +37,7 @@ test.use({ storageState: managerState });
 test.afterEach(async ({ page }) => {
   await page.goto(TIMETABLE_URL);
   await expect(room(page)).toBeVisible();
-  if ((await room(page).getByText(TITLE).count()) > 0) await unassign(page);
+  if ((await room(page).getByRole("button", { name: TITLE }).count()) > 0) await unassign(page);
 });
 
 test("placing an accepted session publishes it on the event page, and taking it off unpublishes it", async ({
@@ -49,14 +49,14 @@ test("placing an accepted session publishes it on the event page, and taking it 
   await before.context.close();
 
   await page.goto(TIMETABLE_URL);
-  await toAssign(page).getByText(TITLE).click();
+  await toAssign(page).getByRole("button", { name: TITLE }).click();
   await expect(page.getByRole("heading", { name: "Session details" })).toBeVisible();
   await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(page.getByText("Click a position on the grid")).toBeVisible();
   // The top of the column is the start of the slot.
   await room(page).click({ position: { x: 20, y: 5 } });
-  await expect(room(page).getByText(TITLE)).toBeVisible();
-  await expect(toAssign(page).getByText(TITLE)).toHaveCount(0);
+  await expect(room(page).getByRole("button", { name: TITLE })).toBeVisible();
+  await expect(toAssign(page).getByRole("button", { name: TITLE })).toHaveCount(0);
 
   const placed = await visitPublicPage(browser);
   // NOTE: the card's description sits above its stretched link, so a pointer

@@ -142,9 +142,10 @@
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
                 <div class="hidden lg:block">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}</div>
             {% endif %}
-            <div class="card">
+            <section class="card" aria-labelledby="encounter-attending">
                 <div class="card-body">
-                    <h3 class="text-xs text-foreground-secondary uppercase tracking-wide mb-3">
+                    <h3 id="encounter-attending"
+                        class="text-xs text-foreground-secondary uppercase tracking-wide mb-3">
                         {% translate "Attending" %} ({{ rsvp_count }})
                     </h3>
                     {% if attendees %}
@@ -167,7 +168,7 @@
                         </p>
                     {% endif %}
                 </div>
-            </div>
+            </section>
             {# NOTE: organizer only; invitees' addresses are not for other guests #}
             {% if is_creator and invitees %}
                 <div class="card">
