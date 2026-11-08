@@ -161,17 +161,12 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
     # act on — accepting creates an AgendaItem and a Session has only one, so a
     # pending session already on the timetable cannot be accepted there. Those
     # belong to the panel, whose status machine knows about them.
-    # The participation annotation matters as much here as on the scheduled
-    # path: without it every card re-counts its own participants, and the
-    # review queue is unbounded.
     return (
-        annotate_session_participation_counts(
-            with_session_card_relations(
-                Session.objects.filter(
-                    event_id=event_id,
-                    status=SessionStatus.PENDING,
-                    agenda_item__isnull=True,
-                )
+        with_session_card_relations(
+            Session.objects.filter(
+                event_id=event_id,
+                status=SessionStatus.PENDING,
+                agenda_item__isnull=True,
             )
         )
         .prefetch_related(
@@ -272,11 +267,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # The same queryset the schedule is built from: the modal is public and
         # unauthenticated, so re-deciding visibility here would leave a session
         # hidden from the event page readable by anyone walking session ids.
-        base = annotate_session_participation_counts(
-            public_scheduled_sessions(event_id)
-        )
         try:
-            session = with_scheduled_card_relations(base).get(pk=session_id)
+            session = with_scheduled_card_relations(
+                public_scheduled_sessions(event_id)
+            ).get(pk=session_id)
         except Session.DoesNotExist:
             return None
         return _session_modal_dto(

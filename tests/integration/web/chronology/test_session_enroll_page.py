@@ -45,6 +45,7 @@ from tests.integration.web.chronology.helpers import (
     participation_row,
     party_context,
     party_member,
+    stored_seats,
 )
 
 
@@ -94,6 +95,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -133,6 +135,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -210,6 +213,7 @@ class TestSessionEnrollPageView:
                     }
                 ),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -516,6 +520,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -589,6 +594,7 @@ class TestSessionEnrollPageView:
                 **party_context(),
                 "companions": [],
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "shadowban_warnings": [],
                 "user_data": [
@@ -815,6 +821,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1097,6 +1104,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -1141,6 +1149,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -1182,6 +1191,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -1236,6 +1246,7 @@ class TestSessionEnrollPageView:
                 **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1477,6 +1488,7 @@ class TestSessionEnrollPageView:
                 **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "shadowban_warnings": [],
                 "user_data": [
@@ -1675,6 +1687,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1729,6 +1742,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1785,6 +1799,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1866,6 +1881,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -1916,6 +1932,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -1993,6 +2010,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -2055,6 +2073,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -2103,6 +2122,7 @@ class TestSessionEnrollPageView:
             context_data={
                 **party_context(),
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "companions": [],
                 "shadowban_warnings": [],
@@ -2160,6 +2180,7 @@ class TestSessionEnrollPageView:
                 "event": agenda_item.space.event,
                 "form": ANY,
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "shadowban_warnings": [],
                 "user_data": [
                     SessionUserParticipationData(
@@ -2224,6 +2245,7 @@ class TestSessionEnrollPageView:
                 **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "shadowban_warnings": [],
                 "user_data": [
@@ -2267,6 +2289,7 @@ class TestSessionEnrollPageView:
                 **party_context(),
                 "companions": [],
                 "session": agenda_item.session,
+                "seats": stored_seats(agenda_item.session),
                 "event": event,
                 "shadowban_warnings": [],
                 "user_data": [

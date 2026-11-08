@@ -1,6 +1,6 @@
 ---
 name: verify-enrollment-seats
-description: Check the Bend proofs about enrollment seats before and after changing how a seat is taken, held, offered, claimed, dropped or promoted. Use when a change touches `_process_enrollments` / `_check_and_create_enrollment` / `_is_capacity_invalid` / `_hold_member_seats` in `adapters/web/django/views.py`, `WaitlistPromotionService` in `mills/enrollment.py`, `AnonymousEnrollmentService.enroll` / `cancel` in `mills/enrollment_anonymous.py`, `select_promotable_parties` in `specs/enrollment.py`, `ParticipationPromotionRepository` / `AnonymousEnrollmentRepository` in `links/db/django/enrollment.py`, `conflicted_user_ids` / `has_conflicts` / `seats_left` / `enrolled_count` on `Session` in `links/db/django/models.py`, `OCCUPYING_PARTICIPATION_STATUSES`, or any `select_for_update` on the enrollment path. Also use for "can this double-book someone", "can this overbook a session", or a race between two signups.
+description: Check the Bend proofs about enrollment seats before and after changing how a seat is taken, held, offered, claimed, dropped or promoted. Use when a change touches `_process_enrollments` / `_check_and_create_enrollment` / `_is_capacity_invalid` / `_hold_member_seats` in `adapters/web/django/views.py`, `WaitlistPromotionService` in `mills/enrollment.py`, `AnonymousEnrollmentService.enroll` / `cancel` in `mills/enrollment_anonymous.py`, `select_promotable_parties` in `specs/enrollment.py`, `ParticipationPromotionRepository` / `AnonymousEnrollmentRepository` in `links/db/django/enrollment.py`, `conflicted_user_ids` / `has_conflicts` on `SessionManager` in `links/db/django/models.py`, `SessionSeatsDTO` / `seat_cap` in `pacts/enrollment.py`, `OCCUPYING_PARTICIPATION_STATUSES`, or any `select_for_update` on the enrollment path. Also use for "can this double-book someone", "can this overbook a session", or a race between two signups.
 ---
 
 # Verify enrollment seats
@@ -108,7 +108,7 @@ Each op names the code it stands for in its comment.
 | `Commit` | the writes and COMMIT of any check |
 | `seats.Free`, `schedule.Cancel` / `Drop` | `_handle_cancellation`, anonymous `cancel`, `decline_offer` / `expire_offer` → `drop` |
 | `Claim` | `claim_offer` / `claim_member_offer` → `_read_locked_party` (Session row, `lock_seat_holders` on the party and the waiters, the OFFERED rows) → `_claim` → `conflicted_user_ids`, then `drop` or `mark_claimed` |
-| `seats.fits` | `Session.seats_left` |
+| `seats.fits` | `SessionSeatsDTO.seats_left` (`pacts/enrollment.py`) |
 | `schedule.has_conflict` | `SessionManager.conflicted_user_ids` |
 | `held`, `lock_a` / `lock_b` | `select_for_update` on the `Session` row |
 | `schedule.lock_p`, `allowance.owner_free` | `lock_seat_holders`: the `User` rows of the people decided and their pass owners |

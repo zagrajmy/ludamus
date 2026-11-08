@@ -26,7 +26,7 @@ from ludamus.adapters.web.django.forms import (
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import fake_full_session
+from ludamus.adapters.web.django.safety_presentation import fake_full_seats
 from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
@@ -68,7 +68,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.chronology import eligible_window_ids
+from ludamus.links.db.django.repositories.chronology import session_card_stats
 from ludamus.links.db.django.repositories.session_cards import (
     proposal_cards,
     scheduled_session_cards,
@@ -80,7 +80,11 @@ from ludamus.links.db.django.repositories.sessions import (
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts.calendar import google_calendar_url
-from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR, SessionCardDTO
+from ludamus.pacts.chronology import (
+    PROGRAMME_DAY_STARTS_AT_HOUR,
+    SessionCardDTO,
+    SessionCardStatsDTO,
+)
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     NO_ENROLLMENT_ACCESS,
@@ -700,8 +704,6 @@ def _get_session_or_redirect(
             reverse("web:index"), error=_("Session not found.")
         ) from None
     viewer_id = request.context.current_user_id
-    if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
-        fake_full_session(session)
     has_agenda_item = AgendaItem.objects.filter(session_id=session.pk).exists()
     has_participation = session.session_participations.filter(
         user_id=viewer_id
@@ -791,6 +793,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> dict[str, Any]:
         return {
             "session": session,
+            "seats": self._seats(session),
             "event": session.event,
             "party_choices": selection.choices,
             "selected_party": selection.selected,
@@ -806,6 +809,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             ),
             "form": form,
         }
+
+    def _seats(self, session: Session) -> SessionCardStatsDTO:
+        # A viewer the presenter shadowbanned sees the session full, and is
+        # never told why.
+        seats = session_card_stats(session)
+        banning = self.request.services.shadowban.banning_owner_ids(
+            self.request.context.current_user_id
+        )
+        return fake_full_seats(seats) if session.presenter_id in banning else seats
 
     def _guest_count(self, session: Session) -> int | None:
         # None when the organizer has not opened anonymous enrollment for this
@@ -970,13 +982,14 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             event=EventDTO.model_validate(session.event),
             viewer_slug=self.request.context.current_user_slug,
         )
+        seats = self._seats(session)
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=True,
-            participants_limit=session.participants_limit,
-            is_enrollment_available=access.seats(eligible_window_ids(session)),
+            participants_limit=seats.participants_limit,
+            is_enrollment_available=access.seats(seats.enrollment_window_ids),
             is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
-            is_full=session.is_full,
+            is_full=seats.is_full,
             user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
             user_waiting=SessionParticipationStatus.WAITING in statuses,
         )
@@ -1226,9 +1239,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _spots(
         enrollment_policy: EnrollmentPolicy, session: Session, *, freed: int
     ) -> int:
+        occupied = SessionParticipation.objects.filter(
+            session=session, status__in=OCCUPYING_PARTICIPATION_STATUSES
+        ).count()
         return enrollment_policy.available_slots(
             participants_limit=session.participants_limit,
-            enrolled_count=session.enrolled_count - freed,
+            enrolled_count=occupied - freed,
         )
 
     def _available_slots(self, session: Session, *, freed: int = 0) -> int:

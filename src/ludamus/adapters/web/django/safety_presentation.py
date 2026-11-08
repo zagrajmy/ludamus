@@ -3,13 +3,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ludamus.links.db.django.models import Session
+    from ludamus.pacts.chronology import SessionCardStatsDTO
 
 _SIMULACRA_FILL = 8
 
 
-def fake_full_session(session: Session) -> None:
-    if session.participants_limit == 0:
-        session.participants_limit = _SIMULACRA_FILL
-    session.__dict__["enrolled_count_cached"] = session.effective_participants_limit
-    session.__dict__["waiting_count_cached"] = 0
+def fake_full_seats(seats: SessionCardStatsDTO) -> SessionCardStatsDTO:
+    # Every seat taken, nobody waiting. Left at a limit of 0 the session would
+    # read as taking no enrollment instead of the "Full" the mask exists for.
+    fill = seats.effective_participants_limit or _SIMULACRA_FILL
+    return seats.model_copy(
+        update={
+            "participants_limit": fill,
+            "seating_percentage": None,
+            "enrolled_count": fill,
+            "waiting_count": 0,
+        }
+    )

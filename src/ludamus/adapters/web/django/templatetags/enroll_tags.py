@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.enrollment_presentation import (
         SessionUserParticipationData,
     )
-    from ludamus.links.db.django.models import Session
 
 register = template.Library()
 
@@ -135,10 +134,3 @@ def enroll_row_state(
 @register.filter
 def badge_classes(variant: str) -> str:
     return _BADGE_CLASSES.get(variant, _BADGE_CLASSES["muted"])
-
-
-@register.simple_tag
-def enroll_seats_left(session: Session) -> int:
-    # Bound once with `as` so the page's three readings share one evaluation of
-    # the counting properties behind it.
-    return session.seats_left

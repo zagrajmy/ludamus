@@ -38,7 +38,7 @@ def taken(s: Seats) -> Nat:
     case Seats{t, h}:
       t
 
-# Session.seats_left >= want, as `taken + want <= limit`.
+# SessionSeatsDTO.seats_left >= want, as `taken + want <= limit`.
 def fits(+limit: Nat, +taken: Nat, +want: Nat) -> Bool:
   Nat.is_le(Nat.add(taken, want), limit)
 
