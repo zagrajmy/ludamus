@@ -127,7 +127,9 @@ jobs:
           retention-days: 7
 
   test-e2e:
-    runs-on: ubuntu-latest
+    # NOTE: Playwright 1.64's WebKit links Ubuntu 24.04's ICU 74 and libxml2.so.2;
+    # ubuntu-latest moved past them. Unpin once Playwright builds for the new one.
+    runs-on: ubuntu-24.04
     # A stuck `playwright install` has no timeout of its own and rode the 6h
     # job default; cap it so a hang fails in minutes instead of hours.
     timeout-minutes: 30
