@@ -10,10 +10,8 @@ from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
     read_accreditation_filter,
 )
 from ludamus.gates.web.django.forms import (
@@ -21,7 +19,7 @@ from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     DiscountForm,
 )
-from ludamus.gates.web.django.panel import PanelNavContext, safe_next_url
+from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, safe_next_url
 from ludamus.pacts.discounts import DiscountData, DiscountKind
 from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.panel import FacilitatorListQuery
@@ -158,35 +156,29 @@ def _discounts_context(
     }
 
 
-class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
+class DiscountsPageView(EventPanelMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context.update(
             _discounts_context(
-                request=self.request, slug=slug, event_pk=current_event.pk
+                request=self.request, slug=slug, event_pk=self.current_event.pk
             )
         )
         return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
 
-class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
+class DiscountCreatePageView(EventPanelMixin, View):
     request: PanelRequest
 
     def get(
         self, _request: PanelRequest, *, slug: str, facilitator_id: int
     ) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         facilitator = _scoped_facilitator(
             request=self.request,
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             facilitator_id=facilitator_id,
         )
         if facilitator is None:
@@ -199,13 +191,11 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
     def post(
         self, _request: PanelRequest, *, slug: str, facilitator_id: int
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         facilitator = _scoped_facilitator(
             request=self.request,
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             facilitator_id=facilitator_id,
         )
         if facilitator is None:
@@ -218,7 +208,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 _discounts_context(
                     request=self.request,
                     slug=slug,
-                    event_pk=current_event.pk,
+                    event_pk=self.current_event.pk,
                     assign_facilitator_id=facilitator_id,
                     assign_form=form,
                 )
@@ -226,22 +216,20 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
         self.request.services.discounts.create(
-            current_event.pk, _form_data(form, facilitator_id)
+            self.current_event.pk, _form_data(form, facilitator_id)
         )
         messages.success(self.request, _("Discount assigned successfully."))
         return redirect(_back_to_discounts(self.request, slug))
 
 
-class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
+class DiscountEditPageView(EventPanelMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         discount = _scoped_discount(
-            request=self.request, event_pk=current_event.pk, pk=pk
+            request=self.request, event_pk=self.current_event.pk, pk=pk
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
@@ -260,12 +248,10 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/discounts/edit.html", context)
 
     def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         discount = _scoped_discount(
-            request=self.request, event_pk=current_event.pk, pk=pk
+            request=self.request, event_pk=self.current_event.pk, pk=pk
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
@@ -286,16 +272,12 @@ class DiscountEditPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect(_back_to_discounts(self.request, slug))
 
 
-class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class DiscountDeleteActionView(EventPanelMixin, View):
     request: PanelRequest
 
     def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         discount = _scoped_discount(
-            request=self.request, event_pk=current_event.pk, pk=pk
+            request=self.request, event_pk=self.current_event.pk, pk=pk
         )
         if discount is None:
             messages.error(self.request, _("Discount not found."))
@@ -306,19 +288,15 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect(_back_to_discounts(self.request, slug))
 
 
-class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
+class DiscountSyncActionView(EventPanelMixin, View):
     """Re-derive creator accreditation and rule discounts from the agenda."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         result = self.request.services.discounts.apply_from_agenda(
-            event_pk=current_event.pk, user_id=self.request.context.current_user_id
+            event_pk=self.current_event.pk, user_id=self.request.context.current_user_id
         )
         messages.success(
             self.request,

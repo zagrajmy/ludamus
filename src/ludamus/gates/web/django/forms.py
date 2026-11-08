@@ -25,7 +25,13 @@ from ludamus.pacts.durations import (
     duration_choices,
 )
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
+from ludamus.pacts.images import (
+    IMAGE_ACCEPT,
+    LOGO_ACCEPT,
+    CoverCrop,
+    StoredFile,
+    resolve_uploaded_file_field,
+)
 from ludamus.pacts.legacy import EventVisibility, PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
@@ -35,7 +41,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.legacy import SessionFieldRequirementDTO
+    from ludamus.pacts.legacy import SessionFieldRequirementDTO, SessionUpdateData
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -829,6 +835,26 @@ class SessionEditForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+    def update_data(self) -> SessionUpdateData:
+        # The presenter's own edit and the organizer's share this form, so they
+        # share the write it makes: the panel's subclass adds `category_id`.
+        cleaned = self.cleaned_data
+        update: SessionUpdateData = {
+            "title": cleaned.get("title") or "",
+            "facilitator_name": cleaned.get("facilitator_name") or "",
+            "description": cleaned.get("description") or "",
+            "contact_email": cleaned.get("contact_email") or "",
+            "participants_limit": cleaned.get("participants_limit") or 0,
+            "min_age": cleaned.get("min_age") or 0,
+            "duration": cleaned.get("duration") or "",
+        }
+        if category_id := cleaned.get("category_id"):
+            update["category_id"] = int(category_id)
+        cover = resolve_uploaded_file_field(cleaned.get("cover_image"))
+        if cover is not None:
+            update["cover_image"] = cover
+        return update
 
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.

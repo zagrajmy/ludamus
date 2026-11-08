@@ -185,7 +185,7 @@ class TestProposalPanelService:
             event_id=1,
             query=ProposalListQuery(
                 search="dragons",
-                category="5",
+                category_pk=5,
                 status="scheduled",
                 track_pk=3,
                 multi_tracks=True,
@@ -226,7 +226,7 @@ class TestProposalPanelService:
 
     def test_real_status_excludes_scheduled_sessions(self, service, sessions):
         result = service.list_context(
-            event_id=1, query=ProposalListQuery(category="7", status="accepted")
+            event_id=1, query=ProposalListQuery(category_pk=7, status="accepted")
         )
 
         filters = sessions.list_sessions_by_event.call_args[0][1]

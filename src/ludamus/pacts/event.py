@@ -104,7 +104,9 @@ class EventPanelContextDTO(BaseModel):
 
 
 class EventPanelServiceProtocol(Protocol):
-    def load_context(self, sphere_id: int, slug: str) -> EventPanelContextDTO: ...
+    def load_context(
+        self, *, sphere_id: int, current_event: EventDTO
+    ) -> EventPanelContextDTO: ...
 
 
 class ConfirmationOrganizerRowDTO(BaseModel):

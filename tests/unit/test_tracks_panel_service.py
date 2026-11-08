@@ -264,6 +264,16 @@ class FakeTracks:
     def list_space_pks_by_event(self, event_pk):
         return {track.pk: spaces for track, spaces, _m in self._tracks_of(event_pk)}
 
+    def list_by_event(self, event_pk):
+        return [track for track, _s, _m in self._tracks_of(event_pk)]
+
+    def list_by_manager(self, user_pk, event_pk=None):
+        return [
+            track
+            for track, _s, managers in self._tracks_of(event_pk)
+            if user_pk in managers
+        ]
+
     def list_by_event_with_assignments(self, event_pk):
         return [
             TrackListItemDTO(
@@ -402,3 +412,46 @@ class TestTracksPanelServiceOutcomes:
             track,
         )
         assert (edit.selected_space_pks, edit.selected_manager_pks) == ([1, 2], [8])
+
+
+class TestTrackFilter:
+    @staticmethod
+    def _tracks(*rows):
+        tracks = FakeTracks()
+        for name, managers in rows:
+            tracks.create(_form(name=name, manager_pks=managers, space_pks=()))
+        return tracks
+
+    @staticmethod
+    def _filter(tracks, *, requested_pk=None, auto_select=False):
+        return _service(tracks).track_filter(
+            event_pk=EVENT_PK,
+            manager_id=7,
+            requested_pk=requested_pk,
+            auto_select=auto_select,
+        )
+
+    def test_the_organizers_own_tracks_come_first(self):
+        tracks = self._tracks(("Alpha", ()), ("Zulu", (7,)), ("Beta", (7,)))
+
+        result = self._filter(tracks)
+
+        assert [t.name for t in result.tracks] == ["Beta", "Zulu", "Alpha"]
+        assert (result.managed_pks, result.selected_pk) == ({2, 3}, None)
+
+    def test_a_sole_managed_track_is_picked_when_nothing_was_asked(self):
+        tracks = self._tracks(("Alpha", ()), ("Beta", (7,)))
+        beta = tracks.find_by_event_and_name(EVENT_PK, "Beta")
+
+        assert self._filter(tracks, auto_select=True).selected_pk == beta.pk
+
+    def test_a_requested_track_of_the_event_is_picked(self):
+        tracks = self._tracks(("Alpha", ()), ("Beta", (7,)))
+
+        assert self._filter(tracks, requested_pk=1).selected_pk == 1
+
+    def test_a_track_of_another_event_is_not_found(self):
+        tracks = self._tracks(("Alpha", ()))
+
+        with pytest.raises(NotFoundError):
+            self._filter(tracks, requested_pk=99)

@@ -8,38 +8,31 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.pacts.ids import EventBanId, EventId
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.panel import PanelRequest
 
-class BansPageView(PanelAccessMixin, EventContextMixin, View):
+
+class BansPageView(EventPanelMixin, View):
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
         context["active_nav"] = "bans"
         context["bans"] = self.request.services.event_bans.list_for_event(
-            current_event.pk
+            self.current_event.pk
         )
         return TemplateResponse(self.request, "panel/bans.html", context)
 
     def post(self, request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
         identifier = request.POST.get("identifier", "")
         reason = request.POST.get("reason", "")
         if request.services.event_bans.ban(
-            event_id=current_event.pk, identifier=identifier, reason=reason
+            event_id=self.current_event.pk, identifier=identifier, reason=reason
         ):
             messages.success(request, _("User banned from the event."))
         else:
@@ -47,15 +40,12 @@ class BansPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:bans", slug=slug)
 
 
-class BanDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class BanDeleteActionView(EventPanelMixin, View):
     request: PanelRequest
 
     def post(self, request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
         request.services.event_bans.unban(
-            event_id=EventId(current_event.pk), ban_id=EventBanId(pk)
+            event_id=EventId(self.current_event.pk), ban_id=EventBanId(pk)
         )
         messages.success(request, _("Ban removed."))
         return redirect("panel:bans", slug=slug)

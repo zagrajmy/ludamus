@@ -8,11 +8,8 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -38,20 +35,18 @@ class PanelIndexRedirectView(PanelAccessMixin, View):
         return redirect("panel:event-index", slug=events[0].slug)
 
 
-class EventIndexPageView(PanelAccessMixin, EventContextMixin, View):
+class EventIndexPageView(EventPanelMixin, View):
     """Dashboard/index page for a specific event."""
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         """Display dashboard for a specific event.
 
         Returns:
             TemplateResponse with the dashboard or redirect if event not found.
         """
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "index"
         return TemplateResponse(self.request, "panel/index.html", context)

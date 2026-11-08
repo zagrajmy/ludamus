@@ -12,10 +12,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.guild import (
@@ -30,6 +27,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.guild import GuildDTO, GuildWriteData
 
 
@@ -39,7 +37,7 @@ def _guild_not_found() -> RedirectError:
     )
 
 
-def _read_guild(request: MultiverseRequest, pk: int) -> GuildDTO:
+def _read_guild(request: PanelRequest, pk: int) -> GuildDTO:
     guild = request.services.guilds.read(
         sphere_id=request.context.current_sphere_id, guild_pk=pk
     )
@@ -57,9 +55,9 @@ def _write_data(form: GuildForm) -> GuildWriteData:
 
 
 class GuildsPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         guilds = self.request.services.guilds.list_for_sphere(
             sphere_id=self.request.context.current_sphere_id
         )
@@ -74,12 +72,12 @@ class GuildsPageView(SphereAccessMixin, View):
 
 
 class GuildCreatePageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         return self._render(GuildForm())
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         form = GuildForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
             return self._render(form)
@@ -103,9 +101,9 @@ class GuildCreatePageView(SphereAccessMixin, View):
 
 
 class GuildEditPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         guild = _read_guild(self.request, pk)
         return self._render(
             guild,
@@ -117,7 +115,7 @@ class GuildEditPageView(SphereAccessMixin, View):
             ),
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         guild = _read_guild(self.request, pk)
         form = GuildForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
@@ -149,9 +147,9 @@ class GuildEditPageView(SphereAccessMixin, View):
 
 
 class GuildDeletePageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         return TemplateResponse(
             self.request,
             "multiverse/panel/guilds/delete.html",
@@ -161,7 +159,7 @@ class GuildDeletePageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         # Read first so a foreign pk 404s here rather than reporting a
         # successful delete of nothing.
         _read_guild(self.request, pk)
@@ -204,7 +202,7 @@ _ASSIGN_MESSAGES = {
 }
 
 
-def _add_member_return(request: MultiverseRequest, guild_pk: int) -> str:
+def _add_member_return(request: PanelRequest, guild_pk: int) -> str:
     # The guild page is where a manager assigns from normally. The Facilitators
     # list posts here too and wants its own filters back, so it sends `next`.
     fallback = reverse("multiverse:panel:guild-edit", kwargs={"pk": guild_pk})
@@ -217,9 +215,9 @@ def _add_member_return(request: MultiverseRequest, guild_pk: int) -> str:
 
 
 class GuildMemberAddActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         _read_guild(self.request, pk)
         form = GuildMemberForm(self.request.POST)
         if not form.is_valid():
@@ -272,7 +270,7 @@ def _roster(guild: GuildDTO) -> list[RosterRow]:
 
 
 def _roster_remove_result(
-    request: MultiverseRequest, *, pk: int, removed: bool
+    request: PanelRequest, *, pk: int, removed: bool
 ) -> HttpResponse:
     if removed:
         messages.success(request, _("Presenter removed."))
@@ -282,10 +280,10 @@ def _roster_remove_result(
 
 
 class GuildMemberRemoveActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
     def post(
-        self, _request: MultiverseRequest, *, pk: int, membership_pk: int
+        self, _request: PanelRequest, *, pk: int, membership_pk: int
     ) -> HttpResponse:
         _read_guild(self.request, pk)
         removed = self.request.services.guilds.remove_member(
@@ -297,10 +295,10 @@ class GuildMemberRemoveActionView(SphereAccessMixin, View):
 
 
 class GuildFacilitatorRemoveActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
     def post(
-        self, _request: MultiverseRequest, *, pk: int, facilitator_pk: int
+        self, _request: PanelRequest, *, pk: int, facilitator_pk: int
     ) -> HttpResponse:
         _read_guild(self.request, pk)
         removed = self.request.services.guilds.clear_facilitator(

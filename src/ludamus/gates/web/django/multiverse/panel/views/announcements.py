@@ -9,10 +9,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.multiverse.panel.forms import AnnouncementForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.legacy import NotFoundError, RedirectError
@@ -20,6 +17,8 @@ from ludamus.pacts.multiverse import AnnouncementData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.gates.web.django.panel import PanelRequest
 
 
 def _announcement_not_found() -> RedirectError:
@@ -37,9 +36,9 @@ def _form_data(form: AnnouncementForm) -> AnnouncementData:
 
 
 class AnnouncementsPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         announcements = self.request.services.announcements.list_for_sphere(sphere_id)
         return TemplateResponse(
@@ -53,9 +52,9 @@ class AnnouncementsPageView(SphereAccessMixin, View):
 
 
 class AnnouncementCreatePageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         return TemplateResponse(
             self.request,
             "multiverse/panel/announcements/create.html",
@@ -65,7 +64,7 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         form = AnnouncementForm(self.request.POST)
         if not form.is_valid():
             return TemplateResponse(
@@ -84,9 +83,9 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
 
 
 class AnnouncementEditPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             announcement = self.request.services.announcements.get(sphere_id, pk)
@@ -110,7 +109,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             announcement = self.request.services.announcements.get(sphere_id, pk)
@@ -135,9 +134,9 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
 
 
 class AnnouncementDeletePageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             announcement = self.request.services.announcements.get(sphere_id, pk)
@@ -153,7 +152,7 @@ class AnnouncementDeletePageView(SphereAccessMixin, View):
             },
         )
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         try:
             self.request.services.announcements.delete(sphere_id, pk)

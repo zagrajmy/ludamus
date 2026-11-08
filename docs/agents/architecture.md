@@ -435,8 +435,8 @@ depends only on Sphere (no Event coupling).
 #### Pages: Panel (sphere-scoped)
 
 Sphere-scoped backoffice for sphere managers. Parallel to the event panel
-and uses its own access mixin keyed off `current_sphere_id` without an
-`EventContextMixin`.
+and shares the panel access mixin (`gates/web/django/panel.py`) without
+the event resolution `EventPanelMixin` adds.
 
 - **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
 - **Views:** `gates/web/django/multiverse/panel/views/…`

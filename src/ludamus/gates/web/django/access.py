@@ -48,10 +48,32 @@ class PanelAccess:
         return self.is_superuser or capability in self.capabilities
 
 
+@dataclass(frozen=True)
+class _AccessMemo:
+    key: tuple[bool, str | None, int]
+    access: PanelAccess
+
+
+# NOTE: the role lookup is an uncached query, and one panel request asks it from
+# the page check, the refusal and the sidebar's context processor.
+_MEMO_ATTR = "_ludamus_panel_access"
+
+
 def panel_access(request: _RequestWithServices) -> PanelAccess:
-    # The role lookup is an uncached query and a panel request asks more than
-    # once (page access, then the write capability), so it is resolved into
-    # one value the callers branch on.
+    key = (
+        request.user.is_authenticated,
+        request.context.current_user_slug,
+        request.context.current_sphere_id,
+    )
+    memo = getattr(request, _MEMO_ATTR, None)
+    if isinstance(memo, _AccessMemo) and memo.key == key:
+        return memo.access
+    access = _resolve_panel_access(request)
+    setattr(request, _MEMO_ATTR, _AccessMemo(key=key, access=access))
+    return access
+
+
+def _resolve_panel_access(request: _RequestWithServices) -> PanelAccess:
     sphere_access = None
     if request.user.is_authenticated and (
         user_slug := request.context.current_user_slug
