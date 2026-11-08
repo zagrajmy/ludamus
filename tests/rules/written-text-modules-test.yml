@@ -19,5 +19,7 @@ invalid:
   - 'label = pgettext("admin", "Send")'
   - 'label = npgettext("admin", "seat", "seats", n)'
   - "from django.utils.translation import gettext as tr"
+  - "from ludamus.links.db.django.models import _ as tr"
+  - "tr = models._"
   - "from django.utils import translation"
   - "import django.utils.translation as t"

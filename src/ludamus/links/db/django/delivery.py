@@ -36,7 +36,7 @@ class Bell:
     payload: Mapping[str, str | int] = field(default_factory=dict)
 
 
-def _row(bell: Bell, recipient_id: int) -> Notification:
+def _bell_row(bell: Bell, recipient_id: int) -> Notification:
     return Notification(
         recipient_id=recipient_id,
         kind=bell.kind.value,
@@ -50,7 +50,7 @@ def _row(bell: Bell, recipient_id: int) -> Notification:
 def ring(recipient: Recipient, bell: Bell) -> None:
     """Create the bell row for the account the copy was written for."""
     recipient.confirm()
-    _row(bell, recipient.user_id).save()
+    _bell_row(bell, recipient.user_id).save()
 
 
 def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:
@@ -65,7 +65,8 @@ def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:
         How many bells rang.
     """
     rows = Notification.objects.bulk_create(
-        [_row(bell, recipient_id) for recipient_id in recipient_ids], batch_size=500
+        [_bell_row(bell, recipient_id) for recipient_id in recipient_ids],
+        batch_size=500,
     )
     return len(rows)
 

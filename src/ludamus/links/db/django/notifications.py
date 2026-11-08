@@ -356,7 +356,6 @@ class DjangoUserNotifier:
                         reverse("web:crowd:profile-parties"),
                         domain=settings.ROOT_DOMAIN,
                     ),
-                    payload={},
                 ),
             )
 
@@ -446,7 +445,6 @@ class DjangoUserNotifier:
                     title=title,
                     body=body,
                     url=url,
-                    payload={},
                 ),
             )
 

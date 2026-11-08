@@ -62,8 +62,18 @@ class _Reader:
         }
 
     @property
+    def held_seat(self):
+        return {
+            "recipient_user_id": self.user_id,
+            "session_id": self.session.pk,
+            "session_title": self.session.title,
+            "claim_token": "tok",
+            "offer_expires_at": _EXPIRES,
+        }
+
+    @property
     def held(self):
-        return self.seat | {"claim_token": "tok", "offer_expires_at": _EXPIRES}
+        return self.held_seat | {"event_slug": self.session.event.slug}
 
     @property
     def listing(self):
@@ -123,9 +133,7 @@ _SAMPLES = {
         lambda r: PartyEnrolledNotification(**r.seat, actor_name="Kasia")
     ],
     "notify_seat_held": [
-        lambda r: HeldSeatNotification(
-            **{k: v for k, v in r.held.items() if k != "event_slug"}, actor_name="Kasia"
-        )
+        lambda r: HeldSeatNotification(**r.held_seat, actor_name="Kasia")
     ],
     "notify_email_verification": [
         lambda r: EmailVerificationNotification(
@@ -202,6 +210,10 @@ _NOTIFIERS = [
     if method.startswith("notify_")
     for index, sample in enumerate(_SAMPLES.get(method) or _unsampled(method))
 ]
+
+
+def test_every_sample_names_a_notifier():
+    assert set(_SAMPLES) <= {param.values[1] for param in _NOTIFIERS}
 
 
 @pytest.mark.usefixtures("polish_catalog")

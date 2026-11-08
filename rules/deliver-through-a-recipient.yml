@@ -22,6 +22,8 @@ rule:
       has:
         field: name
         regex: (^|\.)Notification$
+    - kind: identifier
+      regex: ^_bell_row$
     - pattern: EmailMessage($$$)
     - pattern: $M.EmailMessage($$$)
     - pattern: EmailMultiAlternatives($$$)

@@ -9,6 +9,11 @@ rule:
     - kind: identifier
       regex: ^n?p?gettext\w*$
     - pattern: _($$$)
+    - pattern: $M._
+    - kind: aliased_import
+      has:
+        field: name
+        regex: ^_$
     - pattern: from django.utils.translation import $$$
     - pattern: from django.utils import translation
     - pattern: from django.utils import translation as $A

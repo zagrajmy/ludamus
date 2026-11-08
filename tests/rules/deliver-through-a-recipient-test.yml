@@ -25,6 +25,8 @@ invalid:
   - "import django.core.mail as m"
   - "from django.core import mail as m"
   - "from ludamus.links.db.django.models import Notification as Bell"
+  - "from ludamus.links.db.django.delivery import _bell_row"
+  - "delivery._bell_row(bell, user_id).save()"
   - "EmailMessage(subject=subject, body=body, to=[email]).send()"
   - "mail.EmailMultiAlternatives(subject=subject, body=body, to=[email])"
   - 'send_mail("Hi", body, None, [email])'
