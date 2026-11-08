@@ -7,6 +7,8 @@ from django import template
 from django.forms import ChoiceField
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.chronology.enrollment_presentation import EnrollmentChoice
+
 if TYPE_CHECKING:
     from django import forms
 
@@ -80,11 +82,7 @@ def enroll_row_state(
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
     choices = (
-        {
-            value
-            for value in ("enroll", "waitlist", "cancel")
-            if field.valid_value(value)
-        }
+        {choice for choice in EnrollmentChoice if field.valid_value(choice)}
         if isinstance(field, ChoiceField)
         else set()
     )
@@ -92,8 +90,10 @@ def enroll_row_state(
     in_or_holding = (
         data.user_enrolled or data.user_waiting or data.seat_held or data.offer_pending
     )
-    can_cancel = "cancel" in choices
-    includable = "enroll" in choices or "waitlist" in choices
+    can_cancel = EnrollmentChoice.CANCEL in choices
+    includable = (
+        EnrollmentChoice.ENROLL in choices or EnrollmentChoice.WAITLIST in choices
+    )
     badge = _badge(data)
     field_name = f"user_{data.user.pk}"
 

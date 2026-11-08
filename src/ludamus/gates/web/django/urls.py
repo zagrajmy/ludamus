@@ -29,10 +29,10 @@ if TYPE_CHECKING:
 
 
 handler404 = (  # pylint: disable=invalid-name
-    "ludamus.adapters.web.django.error_views.custom_404"
+    "ludamus.gates.web.django.error_views.custom_404"
 )
 handler500 = (  # pylint: disable=invalid-name
-    "ludamus.adapters.web.django.error_views.custom_500"
+    "ludamus.gates.web.django.error_views.custom_500"
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def healthz(_request: HttpRequest) -> JsonResponse:
 
 urlpatterns: list[URLResolver | URLPattern] = [
     path("healthz/", healthz),
-    path("", include("ludamus.adapters.web.django.urls", namespace="web")),
+    path("", include("ludamus.gates.web.django.web_urls", namespace="web")),
     path(
         "panel/",
         include("ludamus.gates.web.django.event.panel.urls", namespace="panel"),
@@ -140,7 +140,7 @@ if settings.DEBUG:
     def _trigger_500(_: HttpRequest) -> HttpResponse:
         raise ValueError
 
-    from ludamus.adapters.web.django.error_views import (  # pylint: disable=ungrouped-imports
+    from ludamus.gates.web.django.error_views import (  # pylint: disable=ungrouped-imports
         custom_404,
         custom_500,
     )

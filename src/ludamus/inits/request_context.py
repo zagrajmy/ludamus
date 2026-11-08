@@ -6,6 +6,7 @@ from django.http import HttpRequest, HttpResponseBase, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
+from ludamus.inits.repositories import Repositories
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.legacy import (
     AuthenticatedRequestContext,
@@ -15,13 +16,11 @@ from ludamus.pacts.legacy import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import DependencyInjectorProtocol
     from ludamus.pacts.services import ServicesProtocol
 
 
-class RootRepositoryRequest(HttpRequest):
+class ContextRequest(HttpRequest):
     context: RequestContext
-    di: DependencyInjectorProtocol
     services: ServicesProtocol
 
 
@@ -33,11 +32,11 @@ class RequestContextMiddleware:
     def __init__(self, get_response: _GetResponseCallable) -> None:
         self.get_response = get_response
 
-    def __call__(self, request: RootRepositoryRequest) -> HttpResponseBase:
+    def __call__(self, request: ContextRequest) -> HttpResponseBase:
         if request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
             return self.get_response(request)
 
-        sphere_repository = request.di.uow.spheres
+        sphere_repository = Repositories().spheres
         root_sphere = sphere_repository.read_by_domain(settings.ROOT_DOMAIN)
         try:
             # On the root domain (the common case) the current sphere IS the
