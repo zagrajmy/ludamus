@@ -70,12 +70,27 @@ class EncounterData(TypedDict, total=False):
     title: str
 
 
+def spots_remaining(*, limit: int, taken: int) -> int | None:
+    # A limit of 0 means no limit, so there is nothing to count down.
+    return max(0, limit - taken) if limit > 0 else None
+
+
 @dataclass
 class EncounterIndexItem:
     encounter: EncounterDTO
     rsvp_count: int
     is_mine: bool
     organizer_name: str
+    # Invitees without an account who accepted from their calendar: they
+    # hold a spot though they are not among the signups.
+    accepted_guest_count: int = 0
+
+    @property
+    def spots_remaining(self) -> int | None:
+        return spots_remaining(
+            limit=self.encounter.max_participants,
+            taken=self.rsvp_count + self.accepted_guest_count,
+        )
 
 
 @dataclass
@@ -181,9 +196,10 @@ class EncounterDetailContextDTO(BaseModel):
     # the two can't drift apart.
     @property
     def spots_remaining(self) -> int | None:
-        limit = self.encounter.max_participants
-        taken = self.rsvp_count + self.accepted_guest_count
-        return max(0, limit - taken) if limit > 0 else None
+        return spots_remaining(
+            limit=self.encounter.max_participants,
+            taken=self.rsvp_count + self.accepted_guest_count,
+        )
 
     @property
     def is_full(self) -> bool:
@@ -237,7 +253,12 @@ class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
     def read_status(encounter_id: int, email: str) -> InviteeStatus | None: ...
     @staticmethod
-    def count_accepted_without_signup(encounter_id: int) -> int: ...
+    def count_accepted_without_signup(encounter_ids: list[int]) -> dict[int, int]:
+        """Count, per encounter, the accepted invitees who never signed up.
+
+        Encounters without one are left out.
+        """
+
     @staticmethod
     def emails_invited_by_creator_since(
         creator_id: int, since: datetime

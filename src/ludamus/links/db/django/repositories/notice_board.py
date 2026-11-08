@@ -230,17 +230,19 @@ class EncounterInviteeRepository(EncounterInviteeRepositoryProtocol):
         return InviteeStatus(status) if status else None
 
     @staticmethod
-    def count_accepted_without_signup(encounter_id: int) -> int:
+    def count_accepted_without_signup(encounter_ids: list[int]) -> dict[int, int]:
         signups = EncounterRSVP.objects.filter(
             encounter_id=OuterRef("encounter_id"), user__email__iexact=OuterRef("email")
         )
-        return (
+        rows = (
             EncounterInvitee.objects.filter(
-                encounter_id=encounter_id, status=InviteeStatus.ACCEPTED
+                encounter_id__in=encounter_ids, status=InviteeStatus.ACCEPTED
             )
             .exclude(Exists(signups))
-            .count()
+            .values("encounter_id")
+            .annotate(total=Count("pk"))
         )
+        return {row["encounter_id"]: row["total"] for row in rows}
 
     @staticmethod
     def emails_invited_by_creator_since(creator_id: int, since: datetime) -> set[str]:
