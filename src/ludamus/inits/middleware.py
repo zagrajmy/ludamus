@@ -1,5 +1,6 @@
 import logging
 from contextlib import suppress
+from itertools import takewhile
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from django.conf import settings
@@ -117,7 +118,8 @@ def _stated_language(request: LanguageRequestProtocol) -> str | None:
     """Pick the first supported language the cookie, then Accept-Language, names."""
     cookie = request.COOKIES.get(settings.LANGUAGE_COOKIE_NAME, "")
     accepted = parse_accept_lang_header(request.headers.get("accept-language", ""))
-    for code in (cookie, *(code for code, _ in accepted)):
+    named = takewhile(lambda code: code != "*", (code for code, _ in accepted))
+    for code in (cookie, *named):
         with suppress(LookupError):
             return get_supported_language_variant(code)
     return None
