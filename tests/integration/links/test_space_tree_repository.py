@@ -3,10 +3,7 @@ from django.core.exceptions import ValidationError
 
 from ludamus.links.db.django.models import SPACE_UNDELETABLE_REASON, Space, Track
 from ludamus.links.db.django.repositories import SpaceTreeRepository
-from ludamus.links.db.django.repositories.chronology import (
-    EventRepository,
-    location_data,
-)
+from ludamus.links.db.django.repositories.event import EventRepository, location_data
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
 from ludamus.pacts.errors import NotFoundError

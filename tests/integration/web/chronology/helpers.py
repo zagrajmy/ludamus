@@ -24,7 +24,7 @@ from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import LinkPreview, markdown_summary
 from ludamus.links.db.django.enrollment import SeatHolderLocks
 from ludamus.links.db.django.models import SessionParticipation
-from ludamus.links.db.django.repositories.chronology import event_dto, location_data
+from ludamus.links.db.django.repositories.event import event_dto, location_data
 from ludamus.pacts.chronology import PROGRAMME_DAYS
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (

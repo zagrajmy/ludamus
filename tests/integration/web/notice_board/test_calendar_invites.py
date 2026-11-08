@@ -718,7 +718,7 @@ class TestSignupRollsBackAsOne:
     ):
         with (
             patch(
-                "ludamus.links.db.django.repositories.notice_board."
+                "ludamus.links.db.django.repositories.encounter."
                 "EncounterInviteeRepository.set_status",
                 side_effect=RuntimeError,
             ),

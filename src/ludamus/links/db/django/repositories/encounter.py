@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, Now
 
-from ludamus.links.db.django.crowd import accounts_at
 from ludamus.links.db.django.models import (
     Encounter,
     EncounterInvitee,
@@ -15,6 +14,7 @@ from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
 )
+from ludamus.links.db.django.users import accounts_at
 from ludamus.pacts.encounter import (
     EncounterData,
     EncounterDTO,

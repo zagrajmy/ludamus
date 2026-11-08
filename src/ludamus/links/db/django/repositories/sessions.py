@@ -17,7 +17,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.links.db.django.repositories.chronology import (
+from ludamus.links.db.django.repositories.event import (
     event_dto,
     location_data,
     public_scheduled_sessions,

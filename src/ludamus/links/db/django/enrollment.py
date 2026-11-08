@@ -33,7 +33,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.links.db.django.repositories.chronology import session_card_stats
+from ludamus.links.db.django.repositories.event import session_card_stats
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.links.db.django.users import user_dto

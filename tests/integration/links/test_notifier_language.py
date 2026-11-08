@@ -5,7 +5,7 @@ import pytest
 from django.utils import translation
 
 from ludamus.links.db.django import notifications
-from ludamus.links.db.django.crowd import ClaimRepository
+from ludamus.links.db.django.users import ClaimRepository
 from ludamus.links.db.django.delivery import compose_mail
 from ludamus.links.db.django.models import (
     Notification,

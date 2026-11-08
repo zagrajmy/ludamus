@@ -25,7 +25,7 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.links.db.django.repositories.chronology import (
+from ludamus.links.db.django.repositories.event import (
     card_stats,
     location_data,
     location_from_chain,

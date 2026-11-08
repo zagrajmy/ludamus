@@ -145,7 +145,7 @@ same). Fix in passing — the call site is one line.
 
 ### 4. `has_sessions` counts deleted sessions, `_live_session_count` does not
 
-`src/ludamus/links/db/django/repositories/submissions.py` —
+`src/ludamus/links/db/django/repositories/propose.py` —
 `FacilitatorRepository.has_sessions` vs the module-level `_live_session_count`
 
 `has_sessions` filters `sessions__isnull=False` through `all_objects`, counting

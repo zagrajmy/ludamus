@@ -27,7 +27,7 @@ from ludamus.links.db.django.models import (
     Track,
     UserEnrollmentConfig,
 )
-from ludamus.links.db.django.repositories.chronology import location_data
+from ludamus.links.db.django.repositories.event import location_data
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.fields import SessionFieldValueDTO

@@ -1,10 +1,34 @@
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.crowd import UserDTO
+from django.contrib.auth.hashers import make_password
+from django.db import connection
+from django.db.models import OuterRef, Q
+from django.db.models.functions import Lower
+
+from ludamus.links.db.django.companions import active_companions, sponsor_of
+from ludamus.links.db.django.models import PartyMembership, User
+from ludamus.pacts.crowd import (
+    EMAIL_LINK_MAX_AGE,
+    AgeBand,
+    ClaimableProfileDTO,
+    ClaimRepositoryProtocol,
+    CompanionDTO,
+    CompanionRepositoryProtocol,
+    EmailVerificationReminderRepositoryProtocol,
+    UserData,
+    UserDTO,
+    UserRepositoryProtocol,
+    UserType,
+)
 from ludamus.pacts.crowd import display_avatar_url as avatar_rule
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
-    from ludamus.links.db.django.models import User
+    from collections.abc import Collection
+    from datetime import datetime, timedelta
+
+    from django.db.models import QuerySet
 
 
 def display_avatar_url(user: User) -> str:
@@ -17,3 +41,285 @@ def user_dto(user: User) -> UserDTO:
     return UserDTO.model_validate(user).model_copy(
         update={"avatar_url": display_avatar_url(user)}
     )
+
+
+def accounts_at(addresses: Collection[str] | OuterRef) -> QuerySet[User]:
+    """Active accounts at `addresses`, matched case-insensitively.
+
+    How an address someone typed finds its account. Leaving out blank
+    emails matches the partial unique index on lower(email), so the
+    lookup can use it.
+    """
+    accounts = (
+        User.objects.filter(user_type=UserType.ACTIVE)
+        .exclude(email="")
+        .annotate(address=Lower("email"))
+    )
+    if isinstance(addresses, OuterRef):
+        return accounts.filter(address=Lower(addresses))
+    return accounts.filter(address__in={address.lower() for address in addresses})
+
+
+class UserRepository(UserRepositoryProtocol):
+    def __init__(self, user_type: UserType) -> None:
+        self._user_type = user_type
+
+    @staticmethod
+    def create(user_data: UserData) -> None:
+        User.objects.create(**user_data)
+
+    def read(self, slug: str) -> UserDTO:
+        try:
+            user = User.objects.get(slug=slug, user_type=self._user_type)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+
+        return UserDTO.model_validate(user)
+
+    def read_by_id(self, pk: int) -> UserDTO:
+        try:
+            user = User.objects.get(pk=pk, user_type=self._user_type)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return UserDTO.model_validate(user)
+
+    def read_by_ids(self, pks: list[int]) -> list[UserDTO]:
+        return [
+            UserDTO.model_validate(user)
+            for user in User.objects.filter(
+                pk__in=pks, user_type=self._user_type
+            ).order_by("pk")
+        ]
+
+    def read_by_username(self, username: str) -> UserDTO:
+        try:
+            user = User.objects.get(username=username, user_type=self._user_type)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return UserDTO.model_validate(user)
+
+    @staticmethod
+    def lock_username(username: str) -> None:
+        # SAFETY: row locks cannot serialize an identity before its row exists.
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
+                    ["ludamus.signup-identity", username],
+                )
+
+    def read_by_email(self, email: str) -> UserDTO:
+        user = (
+            User.objects.filter(email__iexact=email, user_type=self._user_type)
+            .order_by("pk")
+            .first()
+        )
+        if user is None:
+            raise NotFoundError
+        return UserDTO.model_validate(user)
+
+    @staticmethod
+    def update(user_slug: str, user_data: UserData) -> None:
+        User.objects.filter(slug=user_slug).update(**user_data)
+
+    @staticmethod
+    def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand:
+        user = User.objects.select_for_update().get(slug=user_slug)
+        previous_band = AgeBand(user.age_band)
+        user.age_band = age_band
+        user.save(update_fields=["age_band"])
+        return previous_band
+
+    @staticmethod
+    def fill_discord_username(user_slug: str, discord_username: str) -> bool:
+        # Conditional in the query, so a handle set meanwhile is never replaced.
+        return bool(
+            User.objects.filter(slug=user_slug, discord_username="").update(
+                discord_username=discord_username
+            )
+        )
+
+    @staticmethod
+    def claim_verification_send(
+        *, user_slug: str, now: datetime, throttle: timedelta
+    ) -> bool:
+        """Stamp the send column, reporting whether this caller won the slot.
+
+        The check and the stamp are one conditional UPDATE, so a double-clicked
+        resend racing the reminder sweep mails the link once.
+        """
+        cutoff = now - throttle
+        return (
+            User.objects.filter(slug=user_slug)
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lte=cutoff)
+            )
+            .update(email_verification_sent_at=now)
+            == 1
+        )
+
+    @staticmethod
+    def email_unavailable(
+        *, email: str, now: datetime, exclude_slug: str | None = None
+    ) -> bool:
+        """Report an address as taken by, or reserved for, another account."""
+        if not email:
+            return False
+
+        # A pending address reserves the email only while its confirm link is
+        # still provable; the reservation expires with the link, so a typo'd
+        # change never blocks the address's real owner for good.
+        still_provable = now - EMAIL_LINK_MAX_AGE
+        query = User.objects.filter(
+            Q(email__iexact=email)
+            | Q(
+                pending_email__iexact=email,
+                email_verification_sent_at__gte=still_provable,
+            )
+        )
+        if exclude_slug:
+            query = query.exclude(slug=exclude_slug)
+
+        return query.exists()
+
+    @staticmethod
+    def slug_exists(slug: str) -> bool:
+        # NOTE: the slug is unique table-wide, so this ignores user_type; a
+        # CONNECTED or ANONYMOUS row can own a slug an ACTIVE insert wants.
+        return User.objects.filter(slug=slug).exists()
+
+
+class EmailVerificationReminderRepository(EmailVerificationReminderRepositoryProtocol):
+    @staticmethod
+    def _due(*, now: datetime, interval: timedelta) -> QuerySet[User]:
+        # An unproven address is an unverified `email` or a `pending_email`;
+        # a row with neither is skipped rather than left to the notifier's
+        # empty check, because stamping it would lose the nag for good once
+        # the user finally adds an address.
+        cutoff = now - interval
+        unproven = (Q(email_verified=False) & ~Q(email="")) | ~Q(pending_email="")
+        return (
+            User.objects.filter(user_type=UserType.ACTIVE)
+            .filter(unproven)
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lt=cutoff)
+            )
+        )
+
+    @staticmethod
+    def count_due(*, now: datetime, interval: timedelta) -> int:
+        return EmailVerificationReminderRepository._due(
+            now=now, interval=interval
+        ).count()
+
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[UserDTO]:
+        # Whole rows, not slugs: the sweep needs the address and the last-sent
+        # stamp anyway, and a slug list would make it re-read every user.
+        return [
+            UserDTO.model_validate(user)
+            for user in EmailVerificationReminderRepository._due(
+                now=now, interval=interval
+            ).order_by("pk")
+        ]
+
+
+class CompanionRepository(CompanionRepositoryProtocol):
+    @staticmethod
+    def read_all(manager_slug: str) -> list[CompanionDTO]:
+        if not User.objects.filter(
+            user_type=UserType.ACTIVE, slug=manager_slug
+        ).exists():
+            raise NotFoundError
+
+        return [
+            CompanionDTO.model_validate(companion)
+            for companion in active_companions(manager_slug).order_by("pk")
+        ]
+
+    @staticmethod
+    def create(manager_slug: str, user_data: UserData) -> None:
+        manager = User.objects.get(user_type=UserType.ACTIVE, slug=manager_slug)
+        User.objects.create(**user_data, manager=manager)
+
+    @staticmethod
+    def read(manager_slug: str, user_slug: str) -> CompanionDTO:
+        companion = active_companions(manager_slug).filter(slug=user_slug).first()
+        if companion is None:
+            raise NotFoundError
+        return CompanionDTO.model_validate(companion)
+
+    @staticmethod
+    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None:
+        User.objects.filter(
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
+        ).update(**user_data)
+
+    @staticmethod
+    def delete(manager_slug: str, user_slug: str) -> None:
+        # The person's row before the cascade reaches their participation
+        # rows: the seat lock order (docs/agents/architecture.md) takes the
+        # User row first, so taking it last here could close a cycle.
+        companions = active_companions(manager_slug).select_for_update(of=("self",))
+        if (user := companions.filter(slug=user_slug).first()) is None:
+            raise NotFoundError
+        user.delete()
+
+
+class ClaimRepository(ClaimRepositoryProtocol):
+    @staticmethod
+    def issue_token(*, manager_slug: str, user_slug: str, token: str) -> bool:
+        updated = User.objects.filter(
+            pk__in=active_companions(manager_slug).filter(slug=user_slug)
+        ).update(claim_token=token)
+        return bool(updated)
+
+    @staticmethod
+    def read_claimable(token: str) -> ClaimableProfileDTO | None:
+        if not token:
+            return None
+        user = User.objects.filter(
+            claim_token=token, user_type=UserType.CONNECTED
+        ).first()
+        if user is None:
+            return None
+        sponsor = sponsor_of(user)
+        return ClaimableProfileDTO(
+            name=user.name, slug=user.slug, manager_name=sponsor.name if sponsor else ""
+        )
+
+    @staticmethod
+    def username_exists(username: str) -> bool:
+        return User.objects.filter(username=username).exists()
+
+    @staticmethod
+    def convert(*, token: str, username: str) -> str | None:
+        # Email/avatar from the provider are applied afterwards by the login
+        # callback's _apply_user_updates (with its own collision handling), so
+        # this stays a pure identity flip and never duplicates that rule.
+        # A single conditional UPDATE (like issue_token) keeps redemption
+        # atomic: of two concurrent redeems, exactly one matches the token.
+        # Guard the sentinel: every non-claimed row carries claim_token="",
+        # so an empty token must never reach the filter below.
+        if not token:
+            return None
+        updated = User.objects.filter(
+            claim_token=token, user_type=UserType.CONNECTED
+        ).update(
+            username=username,
+            user_type=UserType.ACTIVE,
+            manager=None,
+            password=make_password(None),
+            claim_token="",
+        )
+        if not updated:
+            return None
+        user = User.objects.get(username=username)
+        # The claimed member keeps their seat in the party but now has a login
+        # and a say: further enrollments by the leader need their accept (O-9).
+        PartyMembership.objects.filter(member=user).update(
+            consent_mode=PartyConsentMode.ACCEPT_INVITES
+        )
+        return user.slug
