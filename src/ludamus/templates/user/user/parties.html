@@ -5,7 +5,6 @@
     {% translate "Parties" %}
 {% endblock title %}
 {% block profile_content %}
-    {# Section: parties #}
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div>
             <h5 class="font-semibold">{% translate "Your parties" %}</h5>
@@ -39,7 +38,6 @@
             </div>
         </form>
     </dialog>
-    {# Pending invitations #}
     {% if invites %}
         <div class="rounded-lg bg-bg-secondary p-4 mb-6">
             <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
@@ -73,7 +71,6 @@
             </ul>
         </div>
     {% endif %}
-    {# Party rows #}
     <div class="flex flex-col gap-3">
         {% for entry in parties %}
             <div class="card">
@@ -225,7 +222,6 @@
             </div>
         {% endfor %}
     </div>
-    {# Section: companions #}
     <div class="border-t border-border mt-6 pt-4">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
             <div>

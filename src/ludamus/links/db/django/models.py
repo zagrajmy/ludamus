@@ -692,9 +692,7 @@ class GuildMembership(models.Model):
 
 
 class Event(models.Model):
-    # Owner
     sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="events")
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
@@ -708,17 +706,14 @@ class Event(models.Model):
     logo_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
-    # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    # Publication time
     publication_time = models.DateTimeField(blank=True, null=True)
     visibility = models.CharField(
         max_length=20,
         choices=[(v.value, v.name.title()) for v in EventVisibility],
         default=EventVisibility.PUBLIC,
     )
-    # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
     # Printables reminder: when an organizer first opened a print-ready page, and
@@ -952,12 +947,9 @@ class DomainEnrollmentConfig(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        # Normalize domain to lowercase
         if self.domain:
             self.domain = self.domain.lower().strip()
-            # Remove @ prefix if present
             self.domain = self.domain.removeprefix("@")
-            # Basic domain validation
             if "." not in self.domain:
                 raise ValidationError(
                     "Please enter a valid domain (e.g. 'company.com')"
@@ -973,19 +965,15 @@ class Space(models.Model):
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
-    # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
     # Free-form metadata: building address, room number, floor, etc. Keeps the
     # description clean of structural location info.
     location = models.CharField(max_length=255, blank=True, default="")
-    # Ordering
     order = models.PositiveIntegerField(default=0)
     programme_order = models.PositiveIntegerField(default=0)
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 
@@ -1068,11 +1056,9 @@ class Space(models.Model):
 
 
 class TimeSlot(models.Model):
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="time_slots"
     )
-    # Time
     end_time = models.DateTimeField()
     start_time = models.DateTimeField()
 
@@ -1256,7 +1242,6 @@ class EventMapPage(models.Model):
 class Session(SoftDeleteModel):
     """Session model."""
 
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="event_sessions"
     )
@@ -1282,7 +1267,6 @@ class Session(SoftDeleteModel):
         blank=True,
         related_name="sessions",
     )
-    # ID
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     # Import idempotency key (hash of the source row's unique-key values).
@@ -1301,9 +1285,7 @@ class Session(SoftDeleteModel):
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
-    # Preferences
     time_slots = models.ManyToManyField(TimeSlot, blank=True)
-    # Status
     status = models.CharField(
         max_length=15,
         choices=[(item.value, item.name) for item in SessionStatus],
@@ -1312,10 +1294,8 @@ class Session(SoftDeleteModel):
     # The facilitator agreed to the placed time and room. Mirrors
     # AgendaItem.session_confirmed until that column is dropped.
     schedule_confirmed = models.BooleanField(default=False)
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
-    # Participants
     participants_limit = models.PositiveIntegerField()
     min_age = models.PositiveIntegerField(
         default=0, help_text="Minimum age requirement (0 = no restriction)"
@@ -1398,18 +1378,14 @@ class AgendaItem(models.Model):
 
 
 class ProposalCategory(models.Model):
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="proposal_categories"
     )
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(blank=True, default="")
-    # Time
     start_time = models.DateTimeField(blank=True, null=True)
     end_time = models.DateTimeField(blank=True, null=True)
-    # Settings
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
     durations = models.JSONField(
@@ -1444,7 +1420,6 @@ class ProposalCategory(models.Model):
 
 
 class SessionParticipation(models.Model):
-    # Owner
     session = models.ForeignKey(
         Session, models.CASCADE, related_name="session_participations"
     )
@@ -1466,10 +1441,8 @@ class SessionParticipation(models.Model):
     enrolled_by = models.ForeignKey(
         User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
-    # Status
     status = models.CharField(
         max_length=15,
         choices=[(item.value, item.name) for item in SessionParticipationStatus],
@@ -1964,16 +1937,12 @@ class EventPanelSettings(models.Model):
 class Track(models.Model):
     """Thematic track for organizing sessions within an event."""
 
-    # Owner
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="tracks")
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
-    # Settings
     is_public = models.BooleanField(default=True)
     spaces = models.ManyToManyField(Space, blank=True, related_name="tracks")
     managers = models.ManyToManyField(User, blank=True, related_name="managed_tracks")
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

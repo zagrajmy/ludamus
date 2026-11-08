@@ -67,7 +67,6 @@ def _error_message(code: AnonymousEnrollmentErrorCode) -> str:
         case AnonymousEnrollmentErrorCode.NAME_REQUIRED:
             return _("Name is required.")
         case AnonymousEnrollmentErrorCode.NO_ENROLLMENTS:
-            # Missing from the table this replaced; used to KeyError here.
             return _("No enrollments found for this code.")
         case _:
             return _target_error_message(code)
@@ -294,7 +293,6 @@ class AnonymousLoadActionView(View):
 
 
 def _referer_redirect(request: RootRequest) -> HttpResponse:
-    # Try to send the visitor back to the event page they came from.
     referer = request.META.get("HTTP_REFERER", "")
     if "event" in referer:
         return redirect(referer)

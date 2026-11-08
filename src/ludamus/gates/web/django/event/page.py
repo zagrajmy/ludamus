@@ -474,7 +474,6 @@ class EventPageView(TemplateView):
                 continue
             session_start = session_data.agenda_item.start_time
 
-            # Calculate if session is ongoing (has already started) or fully over
             session_data.is_ongoing = session_start <= current_time
             session_data.is_ended = session_data.agenda_item.end_time <= current_time
 
@@ -483,7 +482,6 @@ class EventPageView(TemplateView):
             if limits_to_end_time and session_data.is_ongoing:
                 session_data.should_show_as_inactive = True
 
-        # Set user participation data for authenticated users and anonymous users
         self._set_user_participations(sessions_data)
         attach_guild_marks(
             sessions_data,

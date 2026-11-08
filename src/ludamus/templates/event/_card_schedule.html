@@ -21,7 +21,6 @@
                          role="group"
                          aria-labelledby="{{ day.panel_id }}-slot-{{ forloop.counter }}"
                          {% if slot.is_ended %}data-ended{% endif %}>
-                        <!-- Time Slot Header -->
                         {# No rule here: the day heading above is the one divider between #}
                         {# the day and its times. #}
                         <div class="flex min-h-8 items-center gap-4 mb-3 px-2">
@@ -48,7 +47,6 @@
                                 </a>
                             {% endif %}
                         </div>
-                        <!-- Sessions in this time slot -->
                         {# The grouping pass never emits an empty slot, so no empty state here. #}
                         <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 print:grid-cols-2 print:gap-3">
                             {% for data in slot.sessions %}

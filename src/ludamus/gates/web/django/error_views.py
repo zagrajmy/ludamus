@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.conf import settings
 from django.contrib import messages
-from django.http import (  # Django
+from django.http import (
     HttpRequest,
     HttpResponse,
     HttpResponsePermanentRedirect,
@@ -94,7 +94,6 @@ def custom_404(
         return recovered
 
     error_messages = [
-        # D&D/Fantasy themed
         {
             "title": _("Critical Failure!"),
             "message": _("You rolled a nat 1 on your Navigation check!"),
@@ -137,7 +136,6 @@ def custom_404(
             "subtitle": _("The page you seek exists on another plane of existence."),
             "icon": "compass",
         },
-        # Sci-fi/Cyberpunk themed
         {
             "title": _("404: Neural Link Severed"),
             "message": _("Connection to the requested node has been terminated"),
@@ -168,7 +166,6 @@ def custom_404(
             "subtitle": _("Rerouting through proxy nodes..."),
             "icon": "router",
         },
-        # Horror/Cthulhu themed
         {
             "title": _("The Page That Should Not Be"),
             "message": _(
@@ -220,7 +217,6 @@ def custom_404(
 
 def custom_500(request: HttpRequest) -> TemplateResponse:
     error_messages = [
-        # D&D/Fantasy themed
         {
             "title": _("Total Server Kill!"),
             "message": _("Everyone needs to roll new characters"),
@@ -256,7 +252,6 @@ def custom_500(request: HttpRequest) -> TemplateResponse:
             "subtitle": _("Our brave IT knights are working to resolve the situation."),
             "icon": "fire",
         },
-        # Sci-fi/Cyberpunk themed
         {
             "title": _("System Core Meltdown"),
             "message": _("Critical failure in the quantum processors"),
@@ -291,7 +286,6 @@ def custom_500(request: HttpRequest) -> TemplateResponse:
             "subtitle": _("Attempting to reload from last stable checkpoint..."),
             "icon": "arrow-clockwise",
         },
-        # Horror/Cthulhu themed
         {
             "title": _("The Stars Are Wrong"),
             "message": _("Cosmic alignment has disrupted our servers"),

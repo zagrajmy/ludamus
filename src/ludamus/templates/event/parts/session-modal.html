@@ -6,7 +6,6 @@
         data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
         data-login-url="{% url 'web:crowd:auth0:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
-    <!-- Header -->
     <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
         <h3 id="session-{{ data.session.pk }}-title"
             class="text-lg font-semibold text-foreground"
@@ -21,7 +20,6 @@
     <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
     <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
          data-session-tabs="{{ data.session.pk }}">
-        <!-- Tabs -->
         {# With no roster to show the bar would be a tab strip over a single #}
         {# panel, so it goes — and the panel below drops its tab semantics with it. #}
         {% if show_roster %}
@@ -52,15 +50,12 @@
                 </button>
             </div>
         {% endif %}
-        <!-- Tab Content -->
         <div class="tab-content flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] text-foreground">
-            <!-- Information Tab -->
             <div id="info-{{ data.session.pk }}"
                  {% if show_roster %}role="tabpanel"{% endif %}
                  class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
                  data-active>
                 {% include "event/parts/_session_info_view.html" %}
-                <!-- Enrollment Status for Authenticated Users -->
                 {# Only when the footer has no state badge of its own (past #}
                 {# sessions), so the two never repeat the same sentence. #}
                 {% if not enroll_actions and current_user %}
@@ -71,7 +66,6 @@
                     {% endif %}
                 {% endif %}
             </div>
-            <!-- Participants Tab -->
             {% if show_roster %}
                 {% include "event/parts/_session_participants_panel.html" %}
             {% endif %}
@@ -84,7 +78,6 @@
              hidden></div>
     {% endif %}
     {% if enroll_actions or data.can_edit or enroll_opens_at %}
-        <!-- Footer -->
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
         {# with the container snapshot, so the enroll controls stay crisp and #}

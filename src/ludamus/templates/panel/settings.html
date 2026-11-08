@@ -24,7 +24,6 @@
                   class="max-w-2xl">
                 {% csrf_token %}
                 <div class="space-y-6">
-                    <!-- Basic Info -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Basic Information" %}</h3>
@@ -47,7 +46,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Visibility: who can open the event, and from when it is listed -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Visibility" %}</h3>
@@ -57,7 +55,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Event Dates -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Event Dates" %}</h3>
@@ -67,28 +64,24 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Facilitator self-edit -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator permissions" %}</h3>
                             {% tessera_field form.allow_facilitator_session_edit %}
                         </div>
                     </div>
-                    <!-- Schedule confirmation -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
                             {% tessera_field form.auto_confirm_sessions %}
                         </div>
                     </div>
-                    <!-- Session cards -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session cards" %}</h3>
                             {% tessera_field form.use_session_cover_placeholders %}
                         </div>
                     </div>
-                    <!-- Attendee label -->
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Attendee label" %}</h3>

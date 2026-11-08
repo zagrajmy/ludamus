@@ -516,7 +516,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// Escape key
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && armed) {
     exitAssignMode();

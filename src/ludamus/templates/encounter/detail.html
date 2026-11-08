@@ -95,7 +95,6 @@
                         </div>
                     </div>
                 {% endif %}
-                {# Fix 4 — Spots with visual weight #}
                 <div class="flex items-center gap-2.5 p-3 rounded-lg {% if is_full %}bg-danger-bg{% elif spots_remaining == 1 %}bg-warning-bg{% else %}bg-bg-tertiary{% endif %}">
                     <span class="{% if is_full %}text-danger{% elif spots_remaining == 1 %}text-warning-text{% else %}text-primary{% endif %}">
                         {% icon "users" class="h-5 w-5" %}
@@ -118,18 +117,15 @@
                     </div>
                 </div>
             </div>
-            {# RSVP form or organizer actions — mobile only #}
             <div class="lg:hidden">
                 {% include "encounter/_rsvp_inline.html" with calendar_menu_id="rsvp-calendar-menu-mobile" %}
                 {% if is_creator %}
                     {% include "encounter/_organizer_actions.html" with share_menu_id="share-menu-mobile" %}
                 {% endif %}
             </div>
-            {# Calendar button — mobile only, for authenticated non-attendees and creators #}
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
                 <div class="lg:hidden">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}</div>
             {% endif %}
-            {# Description #}
             {% if description_html %}
                 <hr class="border-border">
                 <div class="prose prose-sm dark:prose-invert max-w-none">{{ description_html|safe }}</div>
@@ -137,18 +133,15 @@
         </div>
         {# ── RIGHT COLUMN: "what do I do" ── #}
         <div class="space-y-4">
-            {# RSVP form or organizer actions — desktop only, top of sidebar #}
             <div class="hidden lg:block">
                 {% include "encounter/_rsvp_inline.html" with calendar_menu_id="rsvp-calendar-menu-desktop" %}
                 {% if is_creator %}
                     {% include "encounter/_organizer_actions.html" with share_menu_id="share-menu-desktop" %}
                 {% endif %}
             </div>
-            {# Calendar button — desktop only, for authenticated non-attendees and creators #}
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
                 <div class="hidden lg:block">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}</div>
             {% endif %}
-            {# Participants list #}
             <div class="card">
                 <div class="card-body">
                     <h3 class="text-xs text-foreground-secondary uppercase tracking-wide mb-3">
@@ -204,7 +197,6 @@
                     </div>
                 </div>
             {% endif %}
-            {# Organizer info #}
             <div class="card">
                 <div class="card-body">
                     <h3 class="text-xs text-foreground-secondary uppercase tracking-wide mb-3">{% translate "Organized by" %}</h3>
@@ -222,7 +214,6 @@
                     </div>
                 </div>
             </div>
-            {# Countdown — bottom, quiet #}
             <div class="card">
                 <div class="card-body text-center py-4">
                     <div class="text-xs text-foreground-secondary uppercase tracking-wide mb-2">
@@ -253,7 +244,6 @@
                     </div>
                 </div>
             </div>
-            {# QR modal + share data (organizer only) #}
             {% if is_creator %}
                 <dialog id="qr-modal" class="modal rounded-2xl p-6" data-qr-dialog>
                     <img src="{% url 'web:notice-board:encounter-qr' share_code=encounter.share_code %}"

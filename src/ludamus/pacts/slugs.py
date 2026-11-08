@@ -33,7 +33,7 @@ class SlugCollisionError(Exception):
 
 
 def slugify(value: str, *, max_length: int = SLUG_MAX_LENGTH) -> str:
-    # ASCII slug mirroring the live TS preview (simov/slugify with locale="pl").
+    # NOTE: the live TS preview (import-recipe.ts) only approximates this one.
     # Unidecode transliterates the full Unicode range (Polish ł/Ł, German ß,
     # CJK, etc.) rather than relying on NFKD decomposition, which silently
     # drops non-decomposable characters like ł. Capped at max_length to fit the

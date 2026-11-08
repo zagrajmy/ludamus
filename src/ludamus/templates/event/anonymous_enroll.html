@@ -12,13 +12,11 @@
 {% endblock description %}
 {% block body %}
     <div class="max-w-3xl mx-auto">
-        {# Anonymous Code Display #}
         <div class="mb-4">
             <h2 class="font-semibold mb-1">{% translate "Your Anonymous Code" %}</h2>
             <p class="text-2xl font-semibold">{{ anonymous_code }}</p>
             <p class="text-sm text-foreground-muted">{% translate "Save this code to manage your enrollment later" %}</p>
         </div>
-        {# Session Details Card #}
         <div class="card mb-4">
             <div class="card-header bg-primary text-white flex items-center gap-2">
                 {% icon "calendar" class="w-5 h-5" %}
@@ -64,7 +62,6 @@
                 {% endif %}
             </div>
         </div>
-        {# Enrollment Form #}
         <div class="card">
             <div class="card-header {% if is_enrolled %}bg-warning text-white{% else %}bg-success text-white{% endif %} flex items-center gap-2">
                 {% if is_enrolled %}

@@ -179,8 +179,6 @@ class ProposeSessionResult:
     title: str
 
 
-# --- Proposal import (mapping recipe stored as the integration's settings) ---
-
 _DUPLICATE_HEADER_SUFFIX = re.compile(r" \([0-9]+\)")
 
 
@@ -493,9 +491,6 @@ class ImportFieldLayoutServiceProtocol(Protocol):
     def apply_field_layout(
         self, event_id: int, integration_pk: int
     ) -> ApplyFieldLayoutResult: ...
-
-
-# --- CFP (personal-data field management) ---
 
 
 @dataclass

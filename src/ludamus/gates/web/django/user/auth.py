@@ -98,10 +98,8 @@ class Auth0LoginActionView(View):
             url = f"{login_url}?{urlencode(params)}" if params else login_url
             raise RedirectError(url)
 
-        # Generate a secure state token
         state_token = token_urlsafe(32)
 
-        # Store state data in cache with 10 minute timeout
         state_data = {
             "redirect_to": next_path,
             "created_at": datetime.now(UTC).isoformat(),
@@ -554,14 +552,12 @@ class Auth0LogoutRedirectActionView(RedirectView):
                 messages.warning(self.request, _("Invalid domain for redirect."))
                 return redirect_url
 
-            # Also allow subdomains of ROOT_DOMAIN if configured
             if (
                 last_domain.endswith(f".{settings.ROOT_DOMAIN}")
                 or last_domain == settings.ROOT_DOMAIN
             ):
                 return f"{self.request.scheme}://{last_domain}{redirect_url}"
 
-            # Check against explicitly allowed domains
             if self.request.services.crowd_auth.is_known_sphere_domain(last_domain):
                 return f"{self.request.scheme}://{last_domain}{redirect_url}"
 

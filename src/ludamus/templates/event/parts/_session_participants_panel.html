@@ -6,7 +6,6 @@
      role="tabpanel"
      class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
      inert>
-    <!-- Enrolled Participants -->
     {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
         {% if data.enrolled_count %}
             <h3 class="font-semibold mb-3 text-foreground-secondary">
@@ -41,7 +40,6 @@
             </div>
         {% endif %}
     {% endwith %}
-    <!-- Waiting List -->
     {% if data.waiting_count > 0 %}
         <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
         <div class="space-y-2">

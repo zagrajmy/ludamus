@@ -68,7 +68,6 @@
                             {{ event.description|render_markdown }}
                         </div>
                     {% endif %}
-                    <!-- Event meta -->
                     <div class="flex flex-col items-start gap-2 text-sm sm:gap-3 lg:col-start-2 lg:row-start-1 lg:row-span-3">
                         {% translate "Add to calendar" as t_add_to_calendar %}
                         {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
@@ -170,7 +169,6 @@
             <span>{{ notice|linebreaksbr }}</span>
         </p>
     {% endfor %}
-    <!-- Enrollment Summary Banner -->
     {% if current_user and user_enrolled_sessions %}
         <div class="mb-6 bg-gradient-to-r from-coral-400 to-coral-500 rounded-2xl p-[2px] print:hidden">
             <div class="rounded-2xl p-5 bg-bg-secondary">
@@ -205,7 +203,6 @@
             </div>
         </div>
     {% endif %}
-    <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
         <div class="mb-4 print:hidden">
             <h2 class="font-semibold mb-2">{% translate "Anonymous Mode Active" %}</h2>
@@ -227,7 +224,6 @@
                 </a>
             </div>
         </div>
-        <!-- Anonymous Code Entry Modal -->
         <dialog id="anonymousCodeModal"
                 class="modal p-0"
                 aria-labelledby="anonymousCodeModal-title">
@@ -261,13 +257,11 @@
             </form>
         </dialog>
     {% endif %}
-    <!-- Sessions by Time Slot -->
     {# The whole section is one htmx swap target: the view tabs below carry #}
     {# hx-boost, so switching between List and Rooms replaces the count, the #}
     {# filter toolbar and the schedule in one go, leaving no control #}
     {# describing a session set that is no longer on screen. #}
     <div id="schedule-region" class="scroll-mt-24">
-        <!-- Section Header -->
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
                 <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
@@ -283,7 +277,6 @@
             {% endif %}
         </div>
         {% if hour_data %}
-            <!-- Filter Controls -->
             {% translate "Only with enrollment" as t_enrollment_only %}
             {% translate "Hide ended" as t_hide_ended %}
             <div class="mb-3 print:hidden">
@@ -528,11 +521,9 @@
             {% endif %}
         {% endif %}
     </div>
-    <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
         {% include "event/_proposal_section.html" with cards=own_pending_proposals is_own=True extra_class="print:hidden" %}
     {% endif %}
-    <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center print:hidden">
             <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
@@ -562,7 +553,6 @@
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     {# A link-only event is in no list, so a way "back" to one would lead nowhere it was. #}
     {% if event.visibility != "unlisted" %}
-        <!-- Back to Events List -->
         <div class="mt-8 print:hidden">
             <a href="{% url 'web:index' %}" class="btn btn-secondary">
                 {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}

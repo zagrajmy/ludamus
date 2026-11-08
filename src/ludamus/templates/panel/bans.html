@@ -18,7 +18,6 @@
 {% endblock page_subtitle %}
 {% block content %}
     <div class="panel-bleed flex flex-col gap-6">
-        {# Add a ban #}
         <div class="card card-body">
             <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
                 {% icon "no-symbol" class="w-4 h-4" %}
@@ -42,7 +41,6 @@
                 </div>
             </form>
         </div>
-        {# List of bans #}
         {% if bans %}
             {% tessera_table %}
                 <thead class="bg-bg-tertiary">
