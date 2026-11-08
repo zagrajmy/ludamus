@@ -39,6 +39,8 @@ heroicons = { version = "~2.14.0", extras = ["django"] }
 lxml = "~6.1.1"
 odfpy = "~1.4.1"
 nh3 = "~0.3.7"
+opentelemetry-exporter-otlp-proto-http = "~1.45.2"
+opentelemetry-sdk = "~1.45.2"
 pillow = "~13.0.0"
 posthog = "~7.80.3"
 psycopg = "~3.3.7"
@@ -339,6 +341,9 @@ allowed-confusables = ["–", "×"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
+# NOTE: OpenTelemetry Python keeps its logs signal under `_logs` while the
+# spec marks it experimental; that private path is the only one it documents.
+"*/links/analytics/log_shipping.py" = ["import-private-name"]
 # Standalone Django seed script: imports must follow django.setup(), and it
 # prints a summary line when run directly.
 "tests/e2e/scripts/*.py" = [
@@ -562,6 +567,9 @@ ignore_names = [
     "client_patterns",
     # Named by dotted path in LOGGING in settings.py, which is excluded above
     "JsonFormatter",
+    "posthog_handler",
+    # logging.Handler.flush, called by logging.shutdown and by callers
+    "flush",
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
