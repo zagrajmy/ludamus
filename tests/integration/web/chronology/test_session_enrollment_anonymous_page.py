@@ -18,8 +18,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
-    AnonymousEnrollmentWindowSnapshot,
     AnonymousSessionContextDTO,
+    EnrollmentWindowSnapshot,
 )
 from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES, NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
@@ -46,9 +46,7 @@ def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
 
 def _expected_session_dto(agenda_item, enrollment_config) -> AnonymousSessionContextDTO:
     session = agenda_item.session
-    eligible_windows = [
-        AnonymousEnrollmentWindowSnapshot.model_validate(enrollment_config)
-    ]
+    eligible_windows = [EnrollmentWindowSnapshot.model_validate(enrollment_config)]
     participants_limit = session.participants_limit
     return AnonymousSessionContextDTO(
         session_id=session.id,
