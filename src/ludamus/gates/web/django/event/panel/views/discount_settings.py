@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import Promise
 
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
 
 _SETTINGS_URL = "panel:event-discount-settings"
 _FORM_TEMPLATE = "panel/discount-rule-form.html"

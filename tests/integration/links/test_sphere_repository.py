@@ -3,8 +3,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ludamus.links.db.django.models import SphereMembership
 from ludamus.links.db.django.repositories import SphereRepository
-from ludamus.pacts import NotFoundError, SiteDTO, SphereDTO
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import NotFoundError, SiteDTO, SphereDTO
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import PNG_BYTES, UserFactory
 

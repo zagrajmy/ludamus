@@ -24,14 +24,9 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.services import TransactionProtocol
 
-# TODO(hasparus): fold-back plan for the legacy strangler, blocked while
-# open PRs hold mills/legacy.py:
-#   1. delete PanelService.validate_time_slot from mills/legacy.py (its logic
-#      moved to _validate_time_slot below) and drop its vulture entry,
-#   2. delete PanelService.delete_time_slot and its vulture entry,
-#   3. fold this module into the event noun module so pacts/event.py and
-#      mills/event.py mirror each other and the name stops colliding with
-#      mills/timeslots.py.
+# TODO(hasparus): fold this module into the event noun module so
+# pacts/event.py and mills/event.py mirror each other and the name stops
+# colliding with mills/timeslots.py.
 
 
 def _validate_time_slot(

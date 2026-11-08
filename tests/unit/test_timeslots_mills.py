@@ -9,7 +9,7 @@ from ludamus.mills.timeslots import (
     DayTurnover,
     slot_windows_by_local_date,
 )
-from ludamus.pacts import TimeSlotDTO
+from ludamus.pacts.legacy import TimeSlotDTO
 
 _TZ = ZoneInfo("Europe/Warsaw")
 # Zones on either side of UTC whose date differs from the server's at these

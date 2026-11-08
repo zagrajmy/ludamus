@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
@@ -23,7 +22,7 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.legacy import MembershipAPIError
+from ludamus.pacts.legacy import MembershipAPIError, NotFoundError
 from ludamus.pacts.multiverse import DecryptionError
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 

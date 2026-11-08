@@ -11,7 +11,7 @@ from ludamus.pacts.crowd import UserData
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ludamus.pacts import RootRequestProtocol
+    from ludamus.pacts.legacy import RootRequestProtocol
 
     class SessionProtocol(Protocol):
         """The slice of the Django session this middleware touches."""

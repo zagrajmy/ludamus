@@ -11,8 +11,8 @@ from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
 from ludamus.mills.field_values import split_imported_answers
-from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.durations import normalize_duration
+from ludamus.pacts.legacy import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,

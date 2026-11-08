@@ -2,15 +2,18 @@
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.legacy import FieldUsageSummary
 from ludamus.pacts.submissions import CFPSessionFieldServiceProtocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts import (
-        OrganizerFieldDTO,
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.legacy import (
+        ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldCreateData,
         SessionFieldRepositoryProtocol,
+        SessionFieldUpdateData,
     )
-    from ludamus.pacts.legacy import SessionFieldCreateData, SessionFieldUpdateData
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import RequirementSelectionDTO
 
@@ -26,6 +29,36 @@ class CFPSessionFieldService(CFPSessionFieldServiceProtocol):
         self._transaction = transaction
         self._fields = fields
         self._categories = categories
+
+    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
+        usage = self._fields.get_usage_counts(event_pk)
+        return [
+            FieldUsageSummary(
+                field=field,
+                required_count=usage.get(field.pk, {}).get("required", 0),
+                optional_count=usage.get(field.pk, {}).get("optional", 0),
+            )
+            for field in self._fields.list_by_event(event_pk)
+        ]
+
+    def list_categories(self, event_pk: int) -> list[ProposalCategoryDTO]:
+        return self._categories.list_by_event(event_pk)
+
+    def read(
+        self, event_pk: int, field_slug: str
+    ) -> tuple[OrganizerFieldDTO, dict[int, bool]]:
+        field = self._fields.read_by_slug(event_pk, field_slug)
+        return field, self._categories.get_session_field_categories(field.pk)
+
+    def delete(self, event_pk: int, field_slug: str) -> bool:
+        # False while a category asks for the field: its proposals would lose
+        # the question. NotFoundError on a slug outside the event.
+        with self._transaction.atomic():
+            field = self._fields.read_by_slug(event_pk, field_slug)
+            if self._fields.has_requirements(field.pk):
+                return False
+            self._fields.delete(field.pk)
+        return True
 
     def create(
         self,

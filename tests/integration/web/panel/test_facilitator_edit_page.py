@@ -14,13 +14,9 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import (
-    FacilitatorDTO,
-    FieldAnswer,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-)
+from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
+from ludamus.pacts.legacy import FacilitatorDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,

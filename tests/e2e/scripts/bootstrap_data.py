@@ -55,7 +55,7 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.mills.timeslots import PROGRAMME_DAYS
-from ludamus.pacts import SessionStatus
+from ludamus.pacts.legacy import SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import AgeBand, UserType
 from ludamus.pacts.encounter import EncountersPolicy

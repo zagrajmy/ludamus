@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EncounterIndexItem
+    from ludamus.pacts.encounter import EncounterIndexItem
 
 
 # Two shapes rather than one with a discriminator and two Nones: a feed entry

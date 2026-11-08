@@ -6,7 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
-from ludamus.pacts import (
+from ludamus.pacts.durations import normalize_duration
+from ludamus.pacts.legacy import (
     FacilitatorData,
     NotFoundError,
     PersonalDataFieldValueData,
@@ -15,7 +16,6 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
-from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import (
     FACILITATOR_NAME_FIELD,
     AccountAnswersDTO,
@@ -33,21 +33,20 @@ from ludamus.specs.proposal import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-    from ludamus.pacts import (
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.legacy import (
         CacheProtocol,
         EventDTO,
         EventProposalSettingsDTO,
         FacilitatorDTO,
-        OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
         TrackDTO,
-        UploadedFileProtocol,
         WizardData,
     )
-    from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.fields import FieldValue
     from ludamus.pacts.propose import ProposeRepos
     from ludamus.pacts.services import TransactionProtocol
 

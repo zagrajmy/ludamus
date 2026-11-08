@@ -1,4 +1,4 @@
-from ludamus.mills.qr import qr_svg
+from ludamus.gates.web.django.qr import qr_svg
 
 
 def test_renders_inline_svg_with_the_requested_colour_and_declaration():

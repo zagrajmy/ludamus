@@ -19,18 +19,18 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
-from ludamus.pacts import (
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
+from ludamus.pacts.discounts import DiscountKind, DiscountMethod
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.legacy import (
     OCCUPYING_PARTICIPATION_STATUSES,
+    EventVisibility,
     NotificationKind,
     PromotionMode,
     SessionParticipationStatus,
     SessionStatus,
 )
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
-from ludamus.pacts.discounts import DiscountKind, DiscountMethod
-from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.listing import (
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,

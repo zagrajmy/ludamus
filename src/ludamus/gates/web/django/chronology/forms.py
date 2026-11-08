@@ -12,8 +12,8 @@ from django.utils.translation import gettext_lazy as _
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import TimeSlotDTO
     from ludamus.pacts.chronology import ProposalAcceptContextDTO
+    from ludamus.pacts.legacy import TimeSlotDTO
 
 # What this module hands ChoiceField: a pk (or "" for the placeholder) under a
 # label already translated, flat or inside an optgroup.

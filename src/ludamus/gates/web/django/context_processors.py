@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
-    from ludamus.pacts import SiteDTO, SphereDTO
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.legacy import SiteDTO, SphereDTO
     from ludamus.pacts.notifications import NavbarNotificationsDTO
 
 

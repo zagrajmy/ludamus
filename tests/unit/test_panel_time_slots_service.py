@@ -4,12 +4,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
-from ludamus.pacts import NotFoundError, TimeSlotDTO
 from ludamus.pacts.event import (
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
+from ludamus.pacts.legacy import NotFoundError, TimeSlotDTO
 from tests.unit.factories import event_dto
 
 _EVENT_ID = 42

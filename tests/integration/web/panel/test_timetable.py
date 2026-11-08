@@ -8,9 +8,8 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Facilitator, Space, Track
-from ludamus.pacts import EventDTO, ProposalCategoryDTO, TrackDTO
 from ludamus.pacts.chronology import ClosedRangeDTO, MultiselectOptionDTO, SpaceGroupDTO
-from ludamus.pacts.legacy import SpaceDTO
+from ludamus.pacts.legacy import EventDTO, ProposalCategoryDTO, SpaceDTO, TrackDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,

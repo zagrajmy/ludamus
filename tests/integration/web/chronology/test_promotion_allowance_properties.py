@@ -20,8 +20,8 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
 from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.legacy import EventDTO, VirtualEnrollmentConfig
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 
 households = st.fixed_dictionaries(

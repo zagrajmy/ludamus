@@ -11,12 +11,8 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldValue,
 )
-from ludamus.pacts import (
-    OrganizerFieldDTO,
-    ProposalCategoryDTO,
-    SessionListItemDTO,
-    SessionStatus,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import ProposalCategoryDTO, SessionListItemDTO, SessionStatus
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import PROPOSAL_FILTER_CONTEXT, panel_context

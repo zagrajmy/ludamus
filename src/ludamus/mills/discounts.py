@@ -3,7 +3,6 @@ from collections import defaultdict
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountKind,
@@ -13,6 +12,7 @@ from ludamus.pacts.discounts import (
     DiscountSyncResultDTO,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:

@@ -8,7 +8,7 @@ from django.urls import reverse
 from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import EventMap, EventMapPage
-from ludamus.pacts import EventDTO
+from ludamus.pacts.legacy import EventDTO
 from ludamus.pacts.maps import EventMapDTO, EventMapPageDTO, MapTreeNodeDTO
 from tests.integration.conftest import PNG_BYTES, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response, assert_response_404

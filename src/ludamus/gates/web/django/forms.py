@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import SessionFieldRequirementDTO
+    from ludamus.pacts.legacy import SessionFieldRequirementDTO
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]

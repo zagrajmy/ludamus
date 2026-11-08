@@ -13,9 +13,9 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Track,
 )
-from ludamus.pacts import (
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
+from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts.legacy import (
     ProposalCategoryDTO,
     SessionDTO,
     SessionFieldValueDTO,
@@ -23,7 +23,6 @@ from ludamus.pacts import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
