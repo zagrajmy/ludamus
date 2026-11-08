@@ -5,8 +5,14 @@ import pytest
 from django.utils import translation
 
 from ludamus.links.db.django import notifications
+from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.links.db.django.delivery import compose_mail
-from ludamus.links.db.django.models import Notification, Session, SphereSubscription
+from ludamus.links.db.django.models import (
+    Notification,
+    Session,
+    SphereSubscription,
+    User,
+)
 from ludamus.links.db.django.recipients import (
     NoAddressError,
     NotSpeakingError,
@@ -22,6 +28,7 @@ from ludamus.pacts.crowd import (
     EmailChangeCompletedNotification,
     EmailChangeRequestedNotification,
     EmailVerificationNotification,
+    UserType,
 )
 from ludamus.pacts.dashboard import SphereEventPublishedNotification
 from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
@@ -272,11 +279,46 @@ class TestRecipient:
             assert translation.get_language() == "pl"
             assert recipient.mail_to() == user.email
 
-    def test_an_account_never_seen_reads_the_site_default(self, settings):
+    def test_an_account_never_seen_reads_english_whatever_the_site_default(
+        self, settings
+    ):
         settings.LANGUAGE_CODE = "pl"
         user = UserFactory(language="")
 
         with speaking_to(user.pk):
+            assert translation.get_language() == "en"
+
+    def test_an_account_gone_before_delivery_reads_english_and_is_not_mailed(
+        self, settings
+    ):
+        settings.LANGUAGE_CODE = "pl"
+        user = UserFactory(language="pl")
+        user_id = user.pk
+        user.delete()
+
+        with speaking_to(user_id) as recipient:
+            assert translation.get_language() == "en"
+            assert not recipient.can_mail
+
+    def test_a_companion_reads_its_managers_language(self):
+        manager = UserFactory(language="pl")
+        companion = UserFactory(
+            user_type=UserType.CONNECTED, manager=manager, language=""
+        )
+
+        with speaking_to(companion.pk):
+            assert translation.get_language() == "pl"
+
+    def test_a_claimed_companion_reads_its_own_language(self):
+        companion = UserFactory(
+            user_type=UserType.CONNECTED,
+            manager=UserFactory(language="en"),
+            claim_token="tok",
+        )
+        ClaimRepository.convert(token="tok", username="ola")
+        User.objects.filter(pk=companion.pk).update(language="pl")
+
+        with speaking_to(companion.pk):
             assert translation.get_language() == "pl"
 
     def test_an_unproven_address_is_never_mailed(self):
