@@ -26,6 +26,26 @@ if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
       "$role" "${human_email%@*}" "$role" "$human_email" >> "$CLAUDE_ENV_FILE"
   done
 fi
+# Sign those commits with the human's own key when their environment carries
+# one as GPG_SIGNING_KEY (a base64-encoded secret key). The platform writes
+# ~/.gitconfig with its own SSH signer, which GitHub cannot match to the
+# human's account, so the commit reads as Unverified. Git reads .git/config
+# after ~/.gitconfig, so settings here win. The environment's setup script
+# cannot do this: it runs without the environment's variables.
+if [ -n "${GPG_SIGNING_KEY:-}" ]; then
+  # Piped, never held in a variable: bash drops the NUL bytes of a binary key.
+  signing_key() { printf '%s' "$GPG_SIGNING_KEY" | base64 -d; }
+  fingerprint=$(signing_key 2>/dev/null \
+    | gpg --batch --with-colons --import-options show-only --import 2>/dev/null \
+    | awk -F: '/^fpr/ { print $10; exit }' || true)
+  if [ -n "$fingerprint" ] && signing_key | gpg --batch --quiet --import 2>/dev/null; then
+    git config --local gpg.format openpgp
+    git config --local user.signingkey "$fingerprint"
+    git config --local commit.gpgsign true
+  else
+    echo "WARN: GPG_SIGNING_KEY did not import; commits keep the platform's SSH signature"
+  fi
+fi
 if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
   if [ -n "$human_email" ]; then
     printf '@CLAUDE.md\n\n## Commits\n\nCommits are authored as %s (session-start sets GIT_AUTHOR_*). Co-author Claude. End commits with:\n\n    Co-authored-by: Claude <noreply@anthropic.com>\n' \

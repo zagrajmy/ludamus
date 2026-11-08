@@ -69,3 +69,11 @@ here activates without `MISE_ENV=sandbox`. If a session ever looks
 half-provisioned, re-run `mise install` (MISE_ENV is exported session-wide).
 When adding a new GitHub-release tool to `mise.toml`, add a matching alias or
 substitute here, or sandbox sessions will wedge on its install.
+
+Commit signing: the platform writes `~/.gitconfig` with its own SSH signer,
+which GitHub cannot match to the human's account, so those commits read as
+Unverified. When the environment carries `GPG_SIGNING_KEY` (a base64-encoded
+secret key whose public half is on the human's GitHub account), the hook
+imports it and sets `gpg.format`, `user.signingkey` and `commit.gpgsign` in
+`.git/config`, which git reads after `~/.gitconfig`. An environment setup
+script cannot do this: it runs without the environment's variables.
