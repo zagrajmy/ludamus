@@ -11,6 +11,13 @@ cd "$CLAUDE_PROJECT_DIR"
 
 export PATH="$HOME/.local/bin:$PATH"
 
+# NOTE: Cloud sessions get git identity and signing from GIT_CONFIG_GLOBAL.
+if git config --global --get user.email > /dev/null 2>&1 \
+  && ! grep -q '^## Git identity$' CLAUDE.local.md 2>/dev/null; then
+  printf '## Git identity\n\nGit author and commit signing are configured by the environment (%s). Commit as-is: do not set user.name/user.email, GIT_AUTHOR_*/GIT_COMMITTER_*, or --author.\n' \
+    "${GIT_CONFIG_GLOBAL:-global git config}" >> CLAUDE.local.md
+fi
+
 # The sandbox egress proxy 403s every GitHub download, so activate the
 # `sandbox` mise config environment: mise.sandbox.toml swaps each
 # GitHub-release tool for the same version from a reachable registry.
