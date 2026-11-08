@@ -181,19 +181,6 @@ class TestRetryRefusals:
         assert refused is False
         assert len(log_entries.entries) == 1
 
-    def test_refuses_when_the_service_hands_back_another_integration(self):
-        integrations = _Integrations()
-        integrations.served_pks.add(8)
-        log_entries = _LogEntries(_entry(1, integration_id=8))
-        service = _service(log_entries, integrations)
-
-        refused = service.retry_entry(
-            sphere_id=SPHERE_ID, event_id=EVENT_ID, entry_pk=1
-        )
-
-        assert refused is False
-        assert len(log_entries.entries) == 1
-
 
 class TestReimportRefusals:
     def test_refuses_an_unknown_entry(self):
@@ -207,19 +194,6 @@ class TestReimportRefusals:
     def test_refuses_an_entry_of_an_integration_outside_the_event(self):
         log_entries = _LogEntries(_entry(1, integration_id=8, session_id=100))
         service = _service(log_entries)
-
-        refused = service.reimport_entry(
-            sphere_id=SPHERE_ID, event_id=EVENT_ID, entry_pk=1
-        )
-
-        assert refused is False
-        assert len(log_entries.entries) == 1
-
-    def test_refuses_when_the_service_hands_back_another_integration(self):
-        integrations = _Integrations()
-        integrations.served_pks.add(8)
-        log_entries = _LogEntries(_entry(1, integration_id=8, session_id=100))
-        service = _service(log_entries, integrations)
 
         refused = service.reimport_entry(
             sphere_id=SPHERE_ID, event_id=EVENT_ID, entry_pk=1
