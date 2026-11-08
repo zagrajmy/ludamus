@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.legacy import NotFoundError
@@ -12,6 +13,7 @@ from ludamus.pacts.venues import (
 )
 
 if TYPE_CHECKING:
+    from ludamus.pacts.legacy import EventRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import (
         ProgrammeSpaceRowDTO,
@@ -20,6 +22,15 @@ if TYPE_CHECKING:
         SpaceTreeNodeDTO,
         SpaceTreeRepositoryProtocol,
     )
+
+
+def copy_name(name: str) -> str:
+    # Bump an existing "(Copy)" / "(Copy N)" suffix instead of stacking them.
+    if match := re.match(r"^(.+?) \(Copy(?: (\d+))?\)$", name):
+        base = match.group(1)
+        num = int(match.group(2) or 1) + 1
+        return f"{base} (Copy {num})"
+    return f"{name} (Copy)"
 
 
 def _leaf_pks(node: SpaceTreeNodeDTO) -> list[int]:
@@ -79,10 +90,15 @@ class VenuesService(VenuesServiceProtocol):
 
 class SpaceTreeService(SpaceTreeServiceProtocol):
     def __init__(
-        self, transaction: TransactionProtocol, spaces: SpaceTreeRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        spaces: SpaceTreeRepositoryProtocol,
+        events: EventRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._spaces = spaces
+        self._events = events
 
     def list_tree(self, event_pk: int) -> list[SpaceTreeNodeDTO]:
         return self._spaces.list_tree(event_pk)
@@ -90,28 +106,18 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
     def list_programme_spaces(self, event_id: int) -> list[ProgrammeSpaceRowDTO]:
         return self._spaces.list_programme_spaces(event_id)
 
-    def read(self, pk: int) -> SpaceRecordDTO:
-        return self._spaces.read(pk)
+    def read(self, *, event_id: int, pk: int) -> SpaceRecordDTO:
+        return self._spaces.read_in_event(event_id, pk)
 
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO:
         with self._transaction.atomic():
             if parent_id is not None:
-                parent = self._spaces.read(parent_id)
-                if parent.event_id != event_id:
-                    raise NotFoundError
+                self._spaces.read_in_event(event_id, parent_id)
             return self._spaces.create(
                 event_id=event_id, parent_id=parent_id, data=data
             )
-
-    # TODO(hasparus): unscoped, like `read`, `duplicate` and `delete_space`;
-    # the panel venues view checks the event itself. Move it onto
-    # `patch_space`-style event-scoped methods and drop these.
-    def update(
-        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceRecordDTO:
-        return self._spaces.update(pk=pk, parent_id=parent_id, data=data)
 
     def patch_space(
         self, *, event_id: int, pk: int, changes: SpacePatch
@@ -182,17 +188,27 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
                 ),
             )
 
-    def duplicate(self, *, pk: int, new_name: str) -> SpaceRecordDTO:
-        return self._spaces.duplicate(pk, new_name)
+    def duplicate(self, *, event_id: int, pk: int) -> SpaceRecordDTO:
+        with self._transaction.atomic():
+            source = self._spaces.read_in_event(event_id, pk)
+            return self._spaces.duplicate(source.pk, copy_name(source.name))
 
-    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceRecordDTO:
-        return self._spaces.copy_to_event(pk, target_event_id)
+    def copy_to_event(
+        self, *, event_id: int, pk: int, target_event_id: int
+    ) -> SpaceRecordDTO:
+        with self._transaction.atomic():
+            source = self._spaces.read_in_event(event_id, pk)
+            target = self._events.read(target_event_id)
+            if target.sphere_id != self._events.read(event_id).sphere_id:
+                raise NotFoundError
+            return self._spaces.copy_to_event(source.pk, target.pk)
 
-    def delete_space(self, pk: int) -> bool:
+    def delete_space(self, *, event_id: int, pk: int) -> bool:
         # Leaf or branch: a subtree holding any scheduled session is undeletable;
         # otherwise the FK cascade removes the whole subtree.
         with self._transaction.atomic():
-            if self._spaces.subtree_has_sessions(pk):
+            space = self._spaces.read_in_event(event_id, pk)
+            if self._spaces.subtree_has_sessions(space.pk):
                 return False
-            self._spaces.delete(pk)
+            self._spaces.delete(space.pk)
             return True
