@@ -6,21 +6,27 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
+    Notification,
     Session,
     SessionField,
     SessionFieldOption,
     SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.mills.sessions import SessionSelfEditService
 from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.images import StoredFile
+from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.sessions import SessionDTO, SessionEditNotAllowedError
 from tests.integration.conftest import (
     PNG_BYTES,
+    AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
+    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import (
@@ -349,6 +355,46 @@ class TestSessionEditViewPost:
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_raising_the_limit_promotes_a_waiter(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        waiter,
+        django_capture_on_commit_callbacks,
+    ):
+        # The presenter's own edit frees seats the way the organizer's does.
+        owned_session.participants_limit = 1
+        owned_session.save(update_fields=["participants_limit"])
+        AgendaItemFactory(session=owned_session, space=SpaceFactory(event=event))
+        SessionParticipation.objects.create(
+            session=owned_session,
+            user=UserFactory(username="filler", email="filler@example.com"),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        waiting = SessionParticipation.objects.create(
+            session=owned_session,
+            user=waiter,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _url(event, owned_session), data=self._data(participants_limit=2)
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
+        )
+        waiting.refresh_from_db()
+        assert waiting.status == SessionParticipationStatus.CONFIRMED
+        assert Notification.objects.filter(
+            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
 
     def test_post_update_not_allowed_returns_404(
         self, authenticated_client, event, owned_session

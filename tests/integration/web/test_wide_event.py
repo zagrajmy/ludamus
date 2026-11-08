@@ -150,7 +150,7 @@ class TestJsonFormatter:
     @pytest.mark.parametrize(
         ("logger", "expected"),
         (
-            ("ludamus.gates.web.django.crowd.auth", "crowd.auth"),
+            ("ludamus.gates.web.django.user.auth", "user.auth"),
             ("ludamus.links.analytics.apps", "analytics.apps"),
             ("django.request", "django.request"),
             ("wide_event", "wide_event"),
