@@ -10,12 +10,11 @@ the ticket API.
 from __future__ import annotations
 
 import logging
-import secrets
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
-from ludamus.mills.crowd import build_anonymous_user
+from ludamus.mills.crowd import build_anonymous_user, claim_token
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.enrollment import (
     ClaimResult,
@@ -75,10 +74,6 @@ if TYPE_CHECKING:
 
 def _now() -> datetime:
     return datetime.now(UTC)
-
-
-def _token() -> str:
-    return secrets.token_urlsafe(48)
 
 
 def _party_recipients(party: list[WaitingParticipantDTO]) -> list[int]:
@@ -237,7 +232,7 @@ class WaitlistPromotionService:
     ) -> None:
         for party in parties:
             ids = [p.participation_id for p in party]
-            token = _token()
+            token = claim_token()
             self._participations.offer(
                 ids,
                 offered_at=offered_at,
@@ -269,7 +264,7 @@ class WaitlistPromotionService:
             expires_at = now + self._participations.read_offer_claim_window(
                 hold.session_id
             )
-            token = _token()
+            token = claim_token()
             participation_id = self._participations.create_offered(
                 HeldSeatData(
                     session_id=hold.session_id,
@@ -424,7 +419,14 @@ def _refresh_user_config_from_api(
 ) -> UserEnrollmentConfigDTO | None:
     try:
         membership_count = ticket_api.fetch_membership_count(user_config.user_email)
-    except MembershipAPIError:
+    except MembershipAPIError as exception:
+        # The passes stored at the last check stand until the API answers.
+        logger.warning(
+            "Membership API gave no answer for window %s (%s); kept %s stored passes",
+            user_config.enrollment_config_id,
+            type(exception).__name__,
+            user_config.allowed_slots,
+        )
         return user_config
 
     current_time = datetime.now(tz=UTC)
@@ -450,7 +452,13 @@ def _create_user_config_from_api(
 ) -> UserEnrollmentConfigDTO | None:
     try:
         membership_count = ticket_api.fetch_membership_count(user_email)
-    except MembershipAPIError:
+    except MembershipAPIError as exception:
+        # No answer is no passes for now; the next read asks again.
+        logger.warning(
+            "Membership API gave no answer for window %s (%s); no passes granted",
+            enrollment_config.pk,
+            type(exception).__name__,
+        )
         return None
 
     current_time = datetime.now(tz=UTC)

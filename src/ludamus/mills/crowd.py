@@ -64,7 +64,9 @@ if TYPE_CHECKING:
 type _Effect = Literal["cancel", "promote", "verify"]
 
 
-def _token() -> str:
+def claim_token() -> str:
+    # The single-use bearer token every claim link carries: a profile claim,
+    # an offered seat, a held seat.
     return secrets.token_urlsafe(48)
 
 
@@ -90,7 +92,7 @@ class ClaimService(ClaimServiceProtocol):
         self._claims = claims
 
     def issue(self, *, manager_slug: str, user_slug: str) -> str | None:
-        token = _token()
+        token = claim_token()
         with self._transaction.atomic():
             if not self._claims.issue_token(
                 manager_slug=manager_slug, user_slug=user_slug, token=token
