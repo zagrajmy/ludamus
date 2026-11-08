@@ -19,16 +19,20 @@ const wire = (root: HTMLElement): void => {
   if (!search || !list || !empty) return;
 
   const url = list.dataset.multiselectUrl;
+  // Search-first: an empty query shows only the ticked rows, for a list too
+  // long to show whole (a proposal's facilitators), and says nothing about
+  // matches until something was typed.
+  const searchFirst = Object.hasOwn(root.dataset, "multiselectSearchFirst");
 
   const filterInPlace = (): void => {
     const query = search.value.toLowerCase().trim();
     let matches = 0;
-    for (const row of list.querySelectorAll<HTMLElement>(".multiselect-option")) {
-      const matched = !query || (row.dataset.search ?? "").includes(query);
+    for (const row of list.querySelectorAll<HTMLElement>("[data-search]")) {
+      const matched = query ? (row.dataset.search ?? "").includes(query) : !searchFirst;
       if (matched) matches++;
       row.hidden = !matched && !row.querySelector("input")?.checked;
     }
-    empty.hidden = matches > 0;
+    empty.hidden = matches > 0 || (searchFirst && !query);
   };
 
   const fetchOptions = (): void => {
