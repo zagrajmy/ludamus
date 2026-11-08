@@ -135,8 +135,8 @@ class ImportWorld:  # pylint: disable=too-many-instance-attributes
         return sorted(self.log_entries.values(), key=lambda e: e.row_index)
 
     def only_session(self) -> StoredSession:
-        (session,) = self.sessions.values()
-        return session
+        assert len(self.sessions) == 1, self.sessions
+        return next(iter(self.sessions.values()))
 
     def time_slot_windows(self, pks: list[int]) -> list[tuple[datetime, datetime]]:
         return [self.time_slots[pk][1:] for pk in pks]
