@@ -11,25 +11,14 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+type Field = str | int | float | bool | None
 
 # The attributes every LogRecord is born with. Anything else on a record came
 # from `extra=` and is a field the caller meant to query by.
-_BUILTIN_ATTRIBUTES = frozenset(
+BUILTIN_ATTRIBUTES = frozenset(
     vars(logging.LogRecord("", logging.NOTSET, "", 0, "", (), None))
 ) | {"message", "asctime"}
-
-
-def extra_fields(record: logging.LogRecord) -> Iterator[tuple[str, object]]:
-    """Yield the fields a call passed through `extra=`, in the order it set them."""
-    return (
-        (key, value)
-        for key, value in vars(record).items()
-        if key not in _BUILTIN_ATTRIBUTES
-    )
 
 
 def short_name(logger: str) -> str:
@@ -43,7 +32,7 @@ def short_name(logger: str) -> str:
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, object] = {
+        payload: dict[str, Field] = {
             "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": short_name(record.name),
@@ -51,5 +40,9 @@ class JsonFormatter(logging.Formatter):
         }
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
-        payload.update(extra_fields(record))
+        payload.update(
+            (key, value)
+            for key, value in vars(record).items()
+            if key not in BUILTIN_ATTRIBUTES
+        )
         return json.dumps(payload, default=repr, ensure_ascii=False)

@@ -18,7 +18,7 @@ from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
 from ludamus.links.analytics import identity, redaction
-from ludamus.links.analytics.log_format import extra_fields, short_name
+from ludamus.links.analytics.log_format import BUILTIN_ATTRIBUTES, short_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -119,8 +119,8 @@ def _body(record: logging.LogRecord) -> str:
 def _attributes(record: logging.LogRecord) -> dict[str, Attribute]:
     attributes: dict[str, Attribute] = {
         key: value
-        for key, value in extra_fields(record)
-        if isinstance(value, str | int | float | bool)
+        for key, value in vars(record).items()
+        if key not in BUILTIN_ATTRIBUTES and isinstance(value, str | int | float | bool)
     }
     if record.exc_info and (exception_type := record.exc_info[0]) is not None:
         attributes["exception.type"] = exception_type.__name__
