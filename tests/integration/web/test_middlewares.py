@@ -316,20 +316,27 @@ class TestUserLanguageMiddleware:
         active_user.refresh_from_db()
         assert active_user.language == "en"
 
-    def test_a_browser_naming_no_language_leaves_it_unrecorded(
-        self, authenticated_client, active_user, settings
+    @pytest.mark.parametrize("headers", ({}, {"accept-language": "uk, ru;q=0.8, *"}))
+    def test_a_browser_naming_no_supported_language_leaves_it_unrecorded(
+        self, authenticated_client, active_user, headers
     ):
         active_user.language = ""
         active_user.save()
 
-        authenticated_client.get(self.URL)
+        authenticated_client.get(self.URL, headers=headers)
+
         active_user.refresh_from_db()
         assert not active_user.language
 
-        authenticated_client.cookies[settings.LANGUAGE_COOKIE_NAME] = "pl"
-        authenticated_client.get(self.URL)
+    def test_the_language_cookie_outranks_the_header(
+        self, authenticated_client, active_user, settings
+    ):
+        authenticated_client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
+
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+
         active_user.refresh_from_db()
-        assert active_user.language == "pl"
+        assert active_user.language == "en"
 
     def test_follows_the_user_back_to_a_device_seen_before(self, active_user):
         phone, laptop = Client(), Client()

@@ -1,8 +1,10 @@
 import logging
+from contextlib import suppress
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
 from django.conf import settings
-from django.utils.translation import get_language
+from django.utils.translation import get_supported_language_variant
+from django.utils.translation.trans_real import parse_accept_lang_header
 
 from ludamus.inits.dbos_scheduler import launch_scheduler
 from ludamus.inits.services import Services
@@ -79,10 +81,11 @@ def _subscribe_visit(request: SessionRequestProtocol) -> None:
 
 
 class UserLanguageMiddleware[Response]:
-    """Remember the language a signed-in user browses in.
+    """Remember the language a signed-in user's browser asks for.
 
-    Notifications to them are written in it, whoever raises them. Ordered
-    after LocaleMiddleware, which picked the language, and after the
+    Notifications to them are written in it, whoever raises them. A browser
+    that names no supported language leaves it unrecorded, rather than
+    recording LocaleMiddleware's LANGUAGE_CODE fallback. Ordered after the
     authentication and service middlewares. Compared against the user row
     the request already loaded, so it writes only when the language changes.
     """
@@ -102,21 +105,22 @@ class UserLanguageMiddleware[Response]:
 def _remember_language(request: LanguageRequestProtocol) -> None:
     user = request.user
     if (
-        not user.is_authenticated
-        or not _names_a_language(request)
-        or user.language == (language := get_language())
+        user.is_authenticated
+        and (language := _stated_language(request))
+        and language != user.language
     ):
-        return
-    logger.debug("User %s now browses in %s", user.slug, language)
-    request.services.profile.update(user.slug, UserData(language=language))
+        logger.debug("User %s now browses in %s", user.slug, language)
+        request.services.profile.update(user.slug, UserData(language=language))
 
 
-def _names_a_language(request: LanguageRequestProtocol) -> bool:
-    """Without a cookie or header, LocaleMiddleware fell back to LANGUAGE_CODE."""
-    return (
-        settings.LANGUAGE_COOKIE_NAME in request.COOKIES
-        or "accept-language" in request.headers
-    )
+def _stated_language(request: LanguageRequestProtocol) -> str | None:
+    """Pick the first supported language the cookie, then Accept-Language, names."""
+    cookie = request.COOKIES.get(settings.LANGUAGE_COOKIE_NAME, "")
+    accepted = parse_accept_lang_header(request.headers.get("accept-language", ""))
+    for code in (cookie, *(code for code, _ in accepted)):
+        with suppress(LookupError):
+            return get_supported_language_variant(code)
+    return None
 
 
 class ServiceInjectionMiddleware[Response]:
