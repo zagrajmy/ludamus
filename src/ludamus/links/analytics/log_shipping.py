@@ -118,13 +118,13 @@ def _body(record: logging.LogRecord) -> str:
 
 def _attributes(record: logging.LogRecord) -> dict[str, Attribute]:
     attributes: dict[str, Attribute] = {
-        key: value
+        key: redaction.safe_path(value) if isinstance(value, str) else value
         for key, value in vars(record).items()
         if key not in BUILTIN_ATTRIBUTES and isinstance(value, str | int | float | bool)
     }
     if record.exc_info and (exception_type := record.exc_info[0]) is not None:
         attributes["exception.type"] = exception_type.__name__
-        attributes["exception.stacktrace"] = "".join(
-            traceback.format_exception(*record.exc_info)
+        attributes["exception.stacktrace"] = redaction.safe_path(
+            "".join(traceback.format_exception(*record.exc_info))
         )
     return attributes

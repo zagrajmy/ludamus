@@ -31,20 +31,22 @@ next discriminating check. Never turn an event gap into a root-cause claim.
 ## Origin logs
 
 App log lines (INFO+) are in PostHog Logs, service `ludamus`. The request line
-is logger `wide_event`; its `ray_id` is Cloudflare's `CF-Ray`. Find a request
-with `query-logs`:
+is logger `wide_event`; its `ray_id` is Cloudflare's `CF-Ray`, which carries a
+location suffix the user's error page may omit, so match by prefix. Its
+traceback, on the `django.request` line, has no `ray_id`: find it by path and
+time. Find a request with `query-logs`:
 
 ```json
 {"query": {"serviceNames": ["ludamus"], "dateRange": {"date_from": "-1d"},
  "filterGroup": [{"key": "ray_id", "type": "log_attribute",
-                  "operator": "exact", "value": "9c1a0b2d3e4f5a6b-WAW"}]}}
+                  "operator": "starts_with", "value": "9c1a0b2d3e4f5a6b"}]}}
 ```
 
 ## Coolify, with a human
 
-Only when PostHog has no lines (ingestion down, crash at boot, failed deploy).
-Its log API needs `read:sensitive`, which also reads secrets, so a maintainer
-runs it with a short-lived token:
+When PostHog lacks the lines you need (ingestion down, crash at boot, failed
+deploy). Its log API needs `read:sensitive`, which also reads secrets, so a
+maintainer runs it with a short-lived token:
 
 ```text
 coolify --context zagrajmy-production app logs \

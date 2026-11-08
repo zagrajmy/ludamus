@@ -77,6 +77,11 @@ def _fail():
     raise ValueError("bad row")
 
 
+def _fail_at(url):
+    message = f"no claim at {url}"
+    raise ValueError(message)
+
+
 class TestPosthogHandler:
     def test_without_a_project_key_nothing_is_shipped(self, settings):
         settings.POSTHOG_API_KEY = ""
@@ -114,6 +119,20 @@ class TestPosthogHandler:
         assert _value(record.body) == "Sync failed"
         assert attributes["exception.type"] == "ValueError"
         assert attributes["exception.stacktrace"].startswith("Traceback")
+
+    def test_a_bearer_token_in_a_field_or_traceback_is_redacted(self, ship):
+        url = f"/claim/{TOKEN_SEGMENT}/"
+        try:
+            _fail_at(url)
+        except ValueError:
+            logging.getLogger("ludamus.gates.crowd").exception(
+                "Claim failed", extra={"next": url}
+            )
+
+        (record,) = _from(ship(), "gates.crowd")
+        attributes = _attributes(record.attributes)
+        assert attributes["next"] == "/claim/:token/"
+        assert TOKEN_SEGMENT not in attributes["exception.stacktrace"]
 
     def test_the_exporter_s_own_lines_are_not_shipped_back(self, ship):
         logging.getLogger("opentelemetry.exporter.otlp").warning("export failed")
