@@ -27,6 +27,9 @@ type TextFieldKind = Literal["text", "discord"]
 TEXT_FIELD_KINDS: frozenset[str] = frozenset({"text", "discord"})
 _SESSION_FIELD_TYPES: frozenset[str] = frozenset({"text", "select", "checkbox"})
 _PERSONAL_FIELD_TYPES: frozenset[str] = _SESSION_FIELD_TYPES | TEXT_FIELD_KINDS
+# A required checkbox would only accept a tick, so it is never required: not by
+# the organiser's flag, and not by a category asking for it.
+UNREQUIRABLE_FIELD_TYPES: frozenset[str] = frozenset({"checkbox"})
 
 
 def is_session_field_type(value: str) -> TypeIs[SessionFieldType]:
@@ -88,6 +91,10 @@ class OrganizerFieldDTO(BaseModel):
     # What the field looks like once configured. The form builds its widgets
     # from these and the tag renders from the same answers, so a select can't
     # validate against one option list and offer another.
+
+    @property
+    def can_be_required(self) -> bool:
+        return self.field_type not in UNREQUIRABLE_FIELD_TYPES
 
     @property
     def offers_custom_input(self) -> bool:
