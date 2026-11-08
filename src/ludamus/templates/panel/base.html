@@ -238,10 +238,7 @@ floating UI for the same corner.{% endcomment %}
             </header>
             <!-- Messages -->
             {% if messages %}
-                <div class="flash-region"
-                     role="region"
-                     aria-live="polite"
-                     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+                {% include "components/flash-region.html" %}
             {% endif %}
             {% comment %}A tab shell put straight in here is flush with the
             panel chrome, so its own border would double the chrome's edge.
