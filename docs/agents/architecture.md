@@ -16,7 +16,6 @@ steps in [LOCAL_DEV.md](../LOCAL_DEV.md)) and are enforced by `importlinter`.
 | gates    | `gates/`          | Views, forms, URLs, templatetags                      |
 | inits    | `inits/`          | DI container, middleware wiring                       |
 | edges    | `edges/`          | settings, wsgi/asgi — outside GLIMPSE                 |
-| adapters | `adapters/`       | Legacy — new code goes into GLIMPSE layers            |
 
 ## Repository Pattern
 
@@ -249,21 +248,24 @@ and `allowance_windows`. Links supply only those facts;
 
 **Seat lock order.** Every transaction that decides a seat takes, before
 it reads what it decides on, the steps below. Most lock `User` rows
-themselves: `_process_enrollments` (enroll, waitlist, cancel, held seats,
-guests), `lock_and_read_state` for promotion, `_read_locked_party` (behind
+themselves: the member enroll batch (`MemberEnrollmentService.submit`:
+enroll, waitlist, cancel, held seats, guests) and anonymous `enroll` and
+`cancel`, both through `SeatDesk` (`mills/enrollment_seats.py`),
+`lock_and_read_state` for promotion, `_read_locked_party` (behind
 `_claim`, `decline_offer` and `expire_offer`, before it locks the offer's
-participation rows), and anonymous `enroll` and `cancel`. The proposal edit
+participation rows). The proposal edit
 and the timetable move take only the `Session` row and leave the `User`
 rows to the refill they end with.
 
-1. the `Session` row (`select_for_update`), and no other `Session` row;
+1. the `Session` row (`select_for_update`, `SeatDesk.lock_session` on the
+   enroll paths), and no other `Session` row;
 2. `lock_seat_holders` in `links/db/django/enrollment.py`: one
    `SELECT … FOR NO KEY UPDATE OF` on `User`, ordered by pk, covering the people
    whose seats it decides, their pass owners (the manager of a login-less
    companion), and, when it may refill the session in the same transaction,
    the session's waiters and their owners;
-3. then the checks (`has_conflicts`, the pass allowance, capacity) and the
-   writes.
+3. then the checks (`conflicted_user_ids`, the pass allowance, capacity)
+   and the writes (`SeatRepositoryProtocol.seat` / `release`).
 
 Production runs `ATOMIC_REQUESTS`, so a refill after a cancel or a claim
 (`fill_freed_seats`) runs in the request's transaction: that is why the
@@ -362,15 +364,18 @@ proposal acceptance by organizers.
 
 - **URLs:** `/chronology/session/<id>/enrollment/`,
   `/chronology/session/<id>/accept/`, `/chronology/anonymous/`
-- **Views:** `adapters/web/django/views.py` — `SessionEnrollPageView`,
+- **Views:** `gates/web/django/event/enroll.py` — `SessionEnrollPageView`
+  (form in `enroll_forms.py`); `gates/web/django/chronology/` —
   `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
   `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
   `AnonymousResetActionView`
 - **Templates:** `templates/chronology/enroll_select.html`,
   `anonymous_enroll.html`, `anonymous_manage.html`, `accept_proposal.html`
-- **Services:** `AcceptProposalService` (transitions session → ACCEPTED,
-  creates `AgendaItem`), `AnonymousEnrollmentService` (code-based
-  anonymous user lookup)
+- **Services:** `MemberEnrollmentService` (`mills/enrollment_member.py`:
+  the page's roster and moves, the pass check, the seat batch),
+  `AcceptProposalService` (transitions session → ACCEPTED, creates
+  `AgendaItem`), `AnonymousEnrollmentService` (code-based enrollment); both
+  enrollment services take seats through `SeatDesk`
 - **DTOs:** `EnrollmentConfigDTO`, `UserEnrollmentConfigDTO`,
   `VirtualEnrollmentConfig`, `AgendaItemDTO`
 

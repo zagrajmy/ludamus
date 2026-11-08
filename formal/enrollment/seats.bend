@@ -15,14 +15,15 @@ type Seats is Data:
 
 type Op is Data:
   # Lock the Session row, then check the seats left before writing `want`
-  # occupying rows: _process_enrollments (_is_capacity_invalid; enroll, held
-  # seats, guests, a whole batch), AnonymousEnrollmentService.enroll
-  # (lock_seating, is_full), fill_freed_seats (lock_and_read_state,
-  # select_promotable_parties against seats_left).
+  # occupying rows: MemberEnrollmentService.submit (_check_capacity; enroll,
+  # held seats, guests, a whole batch), AnonymousEnrollmentService.enroll
+  # (SeatDesk.lock_session, SeatDesk.room), fill_freed_seats
+  # (lock_and_read_state, select_promotable_parties against seats_left).
   Check{want: Nat}
   # The lock holder's writes and COMMIT.
   Commit{}
-  # One occupying row deleted: _handle_cancellation, anonymous cancel,
+  # One occupying row deleted: MemberEnrollmentService._cancel, anonymous
+  # cancel,
   # decline_offer / expire_offer -> drop (a party is one Free per member).
   Free{}
   # claim_offer -> mark_claimed: OFFERED becomes CONFIRMED, still one seat.
