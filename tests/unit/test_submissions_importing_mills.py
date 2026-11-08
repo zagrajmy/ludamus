@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from datetime import UTC, datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING
@@ -18,6 +17,7 @@ from ludamus.pacts.submissions import (
     ProposalImportResult,
     QuestionTarget,
 )
+from tests.unit.factories import FakeTransaction
 
 SPHERE_ID = 1
 EVENT_ID = 4
@@ -27,16 +27,6 @@ _SETTINGS = ImportSettings(questions={"Title": QuestionTarget(to="session.title"
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import SessionData
-
-
-class _Transaction:
-    @staticmethod
-    def atomic():
-        return nullcontext()
-
-    @staticmethod
-    def savepoint():
-        return nullcontext()
 
 
 class _Integrations:
@@ -93,7 +83,7 @@ def _service(
     integrations: _Integrations, sessions: _Sessions, log_entries: _LogEntries
 ) -> ProposalImportService:
     return ProposalImportService(
-        transaction=_Transaction(),
+        transaction=FakeTransaction(),
         event_integrations=integrations,
         repos=ImportRepos(
             sessions=sessions,

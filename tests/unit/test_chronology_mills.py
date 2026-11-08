@@ -37,6 +37,7 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.multiverse import SphereRole
 from tests.unit.factories import (
     FakeTransaction,
+    FakeUsers,
     event_dto,
     session_dto,
     track_dto,
@@ -870,14 +871,6 @@ class _FakeSessionFields:
         return [field for field in self.rows if field.event_id == event_id]
 
 
-class _FakeUsers:
-    def __init__(self, *users):
-        self.rows = {user.slug: user for user in users}
-
-    def read(self, slug):
-        return self.rows[slug]
-
-
 class _FakeSpheres:
     def __init__(self, *, managers=()):
         self.managers = set(managers)
@@ -1438,7 +1431,7 @@ class TestProposalAcceptanceWithFakes:
             transaction=FakeTransaction(),
             sessions=sessions,
             agenda_items=agenda_items,
-            active_users=_FakeUsers(_user_dto(slug="manager")),
+            active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
             notifier=notifier or _RecordingNotifier(),
         )

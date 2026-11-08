@@ -5,7 +5,7 @@ import pytest
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.legacy import NotFoundError
-from tests.unit.factories import FakeTransaction, user_dto
+from tests.unit.factories import FakeTransaction, FakeUsers, user_dto
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
@@ -13,21 +13,6 @@ if TYPE_CHECKING:
 
 def _user_dto(**overrides) -> UserDTO:
     return user_dto(**{"slug": "auth0user", **overrides})
-
-
-class FakeUsers:
-    def __init__(self, *, users=()):
-        self._users = {user.slug: user for user in users}
-
-    def read(self, slug):
-        if slug not in self._users:
-            raise NotFoundError
-        return self._users[slug]
-
-    def update(self, user_slug, user_data):
-        self._users[user_slug] = self._users[user_slug].model_copy(
-            update=dict(user_data)
-        )
 
 
 class FakeCompanions:
@@ -68,7 +53,7 @@ def _profile_service(users, avatar_url=None):
 
 class TestProfileService:
     def test_read_returns_the_user(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(_user_dto())
 
         assert _profile_service(users).read("auth0user").slug == "auth0user"
 
@@ -77,7 +62,7 @@ class TestProfileService:
             _profile_service(FakeUsers()).read("nobody")
 
     def test_update_writes_the_data(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(_user_dto())
 
         _profile_service(users).update("auth0user", {"name": "Renamed"})
 
@@ -85,7 +70,7 @@ class TestProfileService:
 
     def test_read_avatar_with_provider_picture(self):
         users = FakeUsers(
-            users=[_user_dto(email="me@example.com", avatar_url="https://cdn/pic")]
+            _user_dto(email="me@example.com", avatar_url="https://cdn/pic")
         )
 
         page = _profile_service(users).read_avatar("auth0user")
@@ -95,7 +80,7 @@ class TestProfileService:
         assert page.has_auth0_avatar is True
 
     def test_read_avatar_without_provider_picture_or_gravatar(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(_user_dto())
 
         page = _profile_service(users, avatar_url=lambda _email: None).read_avatar(
             "auth0user"
@@ -105,7 +90,7 @@ class TestProfileService:
         assert page.has_auth0_avatar is False
 
     def test_set_avatar_preference(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(_user_dto())
 
         _profile_service(users).set_avatar_preference("auth0user", use_gravatar=True)
 
