@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 # of the route being a path() rather than a re_path() the walk skips.
 # The claim and offer tokens are token_urlsafe(48), invariably 64 characters.
 # The longest competing segment is a slug: SlugField defaults to 50 and
-# mills.slugs caps a base at 45 before a retry suffix, so a convention name
+# pacts.slugs caps a base at 45 before a retry suffix, so a convention name
 # like `ogolnopolski-konwent-fantastyki-i-gier-bachanalia` has to survive —
 # /event/<slug>/ is the most visited page there is. 56 sits between them.
 # The party invite token does not reach it: models.Party.invite_token defaults
