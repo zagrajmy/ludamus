@@ -1,5 +1,4 @@
 import json
-from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -26,6 +25,7 @@ from ludamus.pacts.submissions import (
     TimeSlotSpec,
     ValueDelta,
 )
+from tests.unit.factories import FakeTransaction
 
 EVENT_ID = 4
 INTEGRATION_PK = 3
@@ -63,12 +63,6 @@ _FULL_ROW = {
     "Phone": "123",
     "City": "Gdańsk",
 }
-
-
-class _Transaction:
-    @staticmethod
-    def atomic():
-        return nullcontext()
 
 
 class _Integrations:
@@ -269,7 +263,7 @@ def _repos(**overrides) -> ImportRepos:
 
 def _apply(repos: ImportRepos):
     service = ImportFieldLayoutService(
-        transaction=_Transaction(), event_integrations=_Integrations(), repos=repos
+        transaction=FakeTransaction(), event_integrations=_Integrations(), repos=repos
     )
     return service.apply_field_layout(EVENT_ID, INTEGRATION_PK)
 

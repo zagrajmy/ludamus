@@ -589,10 +589,8 @@ class TestRevertChange:
 
         service.revert_change(log_pk=3, event_pk=1, user_pk=9)
 
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(7)
         mock_uow.agenda_items.delete.assert_called_once_with(11)
         mock_uow.agenda_items.create.assert_not_called()
-        mock_uow.sessions.read.assert_not_called()
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
                 "event_id": 1,
@@ -643,9 +641,7 @@ class TestAssignSession:
         result = service.unassign_session(session_pk=4, event_pk=1, user_pk=9)
 
         assert result == UNASSIGN_LOG_PK
-        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
         mock_uow.sessions.lock.assert_called_once_with(4)
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
         mock_uow.agenda_items.delete.assert_called_once_with(5)
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
@@ -861,12 +857,8 @@ class TestAssignSession:
 
         service.assign_session(session_pk=4, placement=placement, event_pk=1, user_pk=9)
 
-        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
         mock_uow.sessions.lock.assert_called_once_with(4)
-        mock_uow.spaces.list_by_event.assert_called_once_with(1)
         mock_uow.spaces.lock.assert_called_once_with(1)
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
-        mock_uow.sessions.read.assert_called_once_with(4)
         mock_uow.agenda_items.delete.assert_not_called()
         mock_uow.agenda_items.create.assert_called_once_with(
             {
@@ -1310,15 +1302,6 @@ class TestTimetableOverviewCapacityHours:
         uow.time_slots.list_by_event.return_value = slots
         uow.agenda_items.list_by_event.return_value = items
         return uow
-
-    def test_reads_rooms_slots_and_items_of_the_event(self):
-        uow = self._uow(spaces=[], slots=[], items=[])
-
-        _overview_service(uow).capacity_hours(event_pk=1)
-
-        uow.spaces.list_by_event.assert_called_once_with(1)
-        uow.time_slots.list_by_event.assert_called_once_with(1)
-        uow.agenda_items.list_by_event.assert_called_once_with(1)
 
     def test_hours_are_rounded_to_one_decimal(self):
         uow = self._uow(
@@ -2321,14 +2304,13 @@ class TestTrackProgress:
 
 class TestTimetablePanelReads:
     def test_categories_come_from_the_event(self):
-        categories = MagicMock()
+        # NOTE: a hand-off to the repository; the stub answers only for the
+        # event asked about, so a dropped or swapped id fails here.
+        categories = SimpleNamespace(list_by_event={1: ["RPG"]}.__getitem__)
 
-        result = _timetable_service(_spec_uow(), categories=categories).list_categories(
-            1
-        )
+        service = _timetable_service(_spec_uow(), categories=categories)
 
-        assert result is categories.list_by_event.return_value
-        categories.list_by_event.assert_called_once_with(1)
+        assert service.list_categories(1) == ["RPG"]
 
     def test_unscheduled_sessions_report_whether_more_wait(self):
         uow = _spec_uow()

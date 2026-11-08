@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
@@ -13,7 +12,7 @@ from ludamus.mills.printing import (
 )
 from ludamus.pacts.legacy import AgendaItemDTO, SpaceDTO, TrackDTO
 from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
-from tests.unit.factories import event_dto
+from tests.unit.factories import FakeTransaction, event_dto
 
 
 def _event():
@@ -717,12 +716,6 @@ class _Notifier:
         self.notifications.append(notification)
 
 
-class _Transaction:
-    @staticmethod
-    def atomic():
-        return nullcontext()
-
-
 class TestPrintablesReminderService:
     def test_marks_each_event_sent_and_notifies_every_recipient(self):
         now = datetime(2026, 5, 30, 9, 0, tzinfo=UTC)
@@ -745,7 +738,7 @@ class TestPrintablesReminderService:
         reminders = _Reminders(due)
         notifier = _Notifier()
         service = PrintablesReminderService(
-            transaction=_Transaction(), reminders=reminders, notifier=notifier
+            transaction=FakeTransaction(), reminders=reminders, notifier=notifier
         )
 
         sent = service.send_due_reminders(now=now)
@@ -760,7 +753,7 @@ class TestPrintablesReminderService:
     def test_mark_printed_records_the_event(self):
         reminders = _Reminders([])
         service = PrintablesReminderService(
-            transaction=_Transaction(), reminders=reminders, notifier=_Notifier()
+            transaction=FakeTransaction(), reminders=reminders, notifier=_Notifier()
         )
 
         service.mark_printed(7)

@@ -1,4 +1,3 @@
-from contextlib import nullcontext
 from datetime import UTC, datetime
 
 import pytest
@@ -33,6 +32,7 @@ from ludamus.pacts.submissions import (
     QuestionTarget,
     TimeSlotSpec,
 )
+from tests.unit.factories import FakeTransaction
 
 EVENT_ID = 4
 INTEGRATION_PK = 3
@@ -46,12 +46,6 @@ _SUN = TimeSlotSpec(
     end_time=datetime(2026, 5, 3, 14, tzinfo=UTC),
 )
 _RPG = EntityRef(name="RPG", slug="rpg")
-
-
-class _Transaction:
-    @staticmethod
-    def savepoint():
-        return nullcontext()
 
 
 class _Integrations:
@@ -305,7 +299,7 @@ def _import(
         integration_pk=INTEGRATION_PK,
         settings=settings,
         indexed_rows=list(enumerate(ImportRow(raw) for raw in rows)),
-        transaction=_Transaction(),
+        transaction=FakeTransaction(),
     )
 
 

@@ -12,7 +12,7 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
 )
 from ludamus.pacts.legacy import NotFoundError
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import FakeTransaction, FakeUsers
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -73,26 +73,6 @@ class FakeSites:
 
     def read(self, sphere_id):
         return self.rows[sphere_id]
-
-
-class FakeUsers:
-    def __init__(self, users=()):
-        self.users = {user.pk: user for user in users}
-
-    def read_by_id(self, pk):
-        try:
-            return self.users[pk]
-        except KeyError:
-            raise NotFoundError from None
-
-    def read_by_ids(self, pks):
-        return [self.users[pk] for pk in pks if pk in self.users]
-
-    def read_by_email(self, email):
-        for user in self.users.values():
-            if user.email == email:
-                return user
-        raise NotFoundError
 
 
 class FakeSpheres:
@@ -362,9 +342,11 @@ class EncounterWorld:
         self.encounters = FakeEncounters(encounters)
         self.rsvps = FakeRSVPs(signups, recent_ips=recent_ips)
         self.users = FakeUsers(
-            users
-            if users is not None
-            else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            *(
+                users
+                if users is not None
+                else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            )
         )
         self.invitees = FakeInvitees(
             invitees,

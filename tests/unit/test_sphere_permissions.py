@@ -9,7 +9,7 @@ from ludamus.pacts.multiverse import (
     SphereSettingsOutcome,
     SphereVisibility,
 )
-from tests.unit.factories import FakeTransaction, event_dto, user_dto
+from tests.unit.factories import FakeTransaction, FakeUsers, event_dto, user_dto
 
 SPHERE_PK = 3
 OTHER_SPHERE_PK = 4
@@ -65,14 +65,6 @@ class FakeEncounters:
 
     def exists_for_sphere(self, sphere_id):
         return self._exists and sphere_id == SPHERE_PK
-
-
-class FakeUsers:
-    def __init__(self, *users):
-        self._users = {user.slug: user for user in users}
-
-    def read(self, slug):
-        return self._users[slug]
 
 
 def _service(*, spheres=None, encounters=None, users=None):
