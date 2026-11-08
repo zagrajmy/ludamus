@@ -3,6 +3,7 @@ valid:
   - "message = compose_mail(voice, subject=subject, body=body)"
   - "send(message)"
   - "contact_email = form.cleaned_data['email']"
+  - "from django.db.transaction import get_connection"
 invalid:
   - "from django.core.mail import EmailMessage as Mail"
   - "from django.core import mail"

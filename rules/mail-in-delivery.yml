@@ -13,7 +13,7 @@ rule:
     - pattern: import django.core.mail
     - pattern: import django.core.mail as $A
     - kind: identifier
-      regex: ^(EmailMessage|EmailMultiAlternatives|send_mail|send_mass_mail|mail_admins|mail_managers|mailers|get_connection)$
+      regex: ^(EmailMessage|EmailMultiAlternatives|send_mail|send_mass_mail|mail_admins|mail_managers)$
     - pattern: $M.send_messages($$$)
 message: |
   Mail is written in its reader's language, not the sender's. Compose it

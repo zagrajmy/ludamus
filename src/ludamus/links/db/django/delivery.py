@@ -3,8 +3,8 @@
 Each primitive takes the `Voice` or `Recipient` its message was composed
 under and confirms that language is still in force, so copy written in the
 sender's language cannot reach a reader. ast-grep rules (`bell-row-writes`,
-`mail-in-delivery`) keep Notification rows and Django mail out of every
-other module.
+`notification-model-owners`, `mail-in-delivery`) keep Notification rows and
+Django mail out of every other module.
 """
 
 from __future__ import annotations
