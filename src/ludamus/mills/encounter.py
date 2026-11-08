@@ -22,8 +22,9 @@ from ludamus.pacts.encounter import (
     RSVPOutcome,
 )
 from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import Capability
 from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
+from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -89,8 +90,10 @@ class EncounterService(EncounterServiceProtocol):
             return True
         if policy is EncountersPolicy.MANAGERS:
             user = self._users.read_by_id(user_id)
-            role = self._spheres.manager_role(sphere_id, user.slug)
-            return role is SphereRole.MANAGER
+            return sphere_access(
+                self._spheres.manager_role(sphere_id, user.slug),
+                is_superuser=user.is_superuser,
+            ).allows(Capability.PANEL_WRITE)
         return False
 
     def list_feed(self, *, sphere_id: int, user_id: int | None) -> EncounterFeed:

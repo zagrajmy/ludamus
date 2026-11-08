@@ -8,8 +8,8 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.multiverse import SphereAccessDTO, SphereRole, SphereSettingsOutcome
-from ludamus.specs.permissions import ROLE_CAPABILITIES
+from ludamus.pacts.multiverse import Capability, SphereSettingsOutcome
+from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
@@ -29,8 +29,10 @@ if TYPE_CHECKING:
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
+        SphereAccessDTO,
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
+        SphereRole,
         SphereSettingsPatch,
     )
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
@@ -44,11 +46,10 @@ def can_write_programme(
     sphere_id: int,
     user_slug: str,
 ) -> bool:
-    # A comms member's read-only role reads the panel but never writes it.
-    return (
-        users.read(user_slug).is_superuser
-        or spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
-    )
+    return sphere_access(
+        spheres.manager_role(sphere_id, user_slug),
+        is_superuser=users.read(user_slug).is_superuser,
+    ).allows(Capability.PANEL_WRITE)
 
 
 class AnnouncementsService:
@@ -173,10 +174,11 @@ class SpherePanelService:
             user_slug=user_slug,
         )
 
-    def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO:
-        role = self._spheres.manager_role(sphere_id, user_slug)
-        return SphereAccessDTO(
-            role=role, capabilities=ROLE_CAPABILITIES[role] if role else frozenset()
+    def access(
+        self, sphere_id: int, user_slug: str, *, is_superuser: bool
+    ) -> SphereAccessDTO:
+        return sphere_access(
+            self._spheres.manager_role(sphere_id, user_slug), is_superuser=is_superuser
         )
 
     def list_events(self, sphere_id: int) -> list[EventDTO]:
