@@ -1,13 +1,6 @@
 """Ship log records to PostHog Logs over OTLP/HTTP.
 
-PostHog is where triage starts (exceptions, replay, and now the origin's
-lines), so an agent can read production without a Coolify token, whose
-`read:sensitive` scope would also hand it every secret. stdout keeps the
-same lines, so Coolify stays the fallback when ingestion is down.
-
-Each `extra=` field becomes an attribute PostHog filters on: the wide event
-needs no adapter. A `None` or non-scalar field is left out rather than sent,
-since OTLP has no null and the SDK warns on every record that carries one.
+Each `extra=` field becomes an attribute; None and non-scalars are dropped.
 """
 
 from __future__ import annotations
@@ -37,14 +30,10 @@ type Attribute = str | int | float | bool
 
 logger = logging.getLogger(__name__)
 
-# The batch processor reports a failed export through `opentelemetry.*`, and
-# this module reports a record it could not ship. Shipping either would answer
-# a failure with another record bound for the same failure.
+# Shipping these would answer a failed export with another export.
 _OWN_LOGGERS = ("opentelemetry", __name__)
 
-# The exporter at work on this thread, if any. Whatever logs meanwhile
-# (urllib3 opening the connection, a retry warning) would otherwise be queued
-# for the next export, which logs again: a loop that never drains.
+# Set during an export: what urllib3 logs then would feed the next export.
 _exporting: ContextVar[OTLPLogExporter | None] = ContextVar("exporting", default=None)
 
 _SEVERITIES = (
@@ -66,7 +55,6 @@ def posthog_handler() -> logging.Handler:
         headers={"Authorization": f"Bearer {settings.POSTHOG_API_KEY}"},
         timeout=_EXPORT_TIMEOUT_SECONDS,
     )
-    # Batched on a background thread, so a slow PostHog never holds a request.
     handler = OtlpHandler(BatchLogRecordProcessor(exporter))
     handler.setLevel(logging.INFO)
     return handler
@@ -107,7 +95,6 @@ class OtlpHandler(logging.Handler):
                 attributes=_attributes(record),
             )
         except Exception:
-            # A malformed log call must not fail the request that made it.
             logger.exception("Could not ship a %s record", record.name)
 
     def flush(self) -> None:
@@ -123,9 +110,7 @@ def _severity(level: int) -> SeverityNumber:
 
 def _body(record: logging.LogRecord) -> str:
     message = record.getMessage()
-    # django.request and django.security name the path in the message; a
-    # claim or offer path is a bearer credential. Only that exact string is
-    # rewritten, never the message as a whole.
+    # django.request names the path; a claim or offer path is a credential.
     if isinstance(path := getattr(getattr(record, "request", None), "path", None), str):
         message = message.replace(path, redaction.safe_path(path))
     return message
