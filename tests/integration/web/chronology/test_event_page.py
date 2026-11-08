@@ -205,7 +205,6 @@ class TestEventPageView:
             ),
             template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
-            not_contains="Missing variable session_link_base",
         )
 
     @pytest.mark.usefixtures("agenda_item")

@@ -391,13 +391,7 @@ DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 # the integration suite could have killed, so mutating `src` wholesale reports
 # noise instead of gaps.
 source_paths = ["src/ludamus/mills", "src/ludamus/specs"]
-# NOTE: mutmut runs the suite twice in one process (stats pass, then clean
-# pass); DBOS refuses to register the same workflow twice, so its smoke test
-# stays out.
-pytest_add_cli_args_test_selection = [
-    "tests/unit",
-    "--ignore=tests/unit/test_dbos_smoke.py",
-]
+pytest_add_cli_args_test_selection = ["tests/unit"]
 # NOTE: mutmut runs the suite from a copy of the tree, so everything the unit
 # suite imports or loads has to be copied beside the mutants. Out: the mutated
 # packages themselves, `client` (a TypeScript app, never imported from Python)
