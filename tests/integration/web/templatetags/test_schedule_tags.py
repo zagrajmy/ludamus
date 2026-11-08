@@ -6,7 +6,7 @@ import pytest
 from django.template import Context, Template
 from django.utils import timezone, translation
 
-from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
+from ludamus.gates.web.django.event.schedule import RoomLaneTile, ScheduleTile
 from ludamus.gates.web.django.templatetags.schedule_tags import space_sort_path_json
 from ludamus.pacts.durations import format_duration
 from ludamus.pacts.fields import SessionFieldValueDTO

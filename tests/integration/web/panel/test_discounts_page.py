@@ -13,7 +13,7 @@ from odf import teletype
 from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 
-from ludamus.gates.web.django.chronology.panel.views.export import ODS_CONTENT_TYPE
+from ludamus.gates.web.django.event.panel.views.export import ODS_CONTENT_TYPE
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AgendaItem,

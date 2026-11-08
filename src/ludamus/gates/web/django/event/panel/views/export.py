@@ -18,7 +18,12 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.columns import (
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    format_field_value,
+    read_track_filter,
+)
+from ludamus.gates.web.django.event.panel.views.columns import (
     FACILITATOR_COLUMN_SET,
     FACILITATOR_COLUMNS,
     PROPOSAL_COLUMN_SET,
@@ -29,20 +34,11 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_values,
     column_views,
 )
-from ludamus.gates.web.django.chronology.panel.views.discounts import (
-    read_discount_query,
-)
-from ludamus.gates.web.django.chronology.panel.views.facilitators import (
+from ludamus.gates.web.django.event.panel.views.discounts import read_discount_query
+from ludamus.gates.web.django.event.panel.views.facilitators import (
     read_facilitator_query,
 )
-from ludamus.gates.web.django.chronology.panel.views.proposals import (
-    read_proposal_query,
-)
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventPanelMixin,
-    format_field_value,
-    read_track_filter,
-)
+from ludamus.gates.web.django.event.panel.views.proposals import read_proposal_query
 from ludamus.gates.web.django.forms import DISCOUNT_KIND_LABELS
 from ludamus.gates.web.django.ods import spreadsheet_bytes
 from ludamus.gates.web.django.panel import PROPOSAL_STATUS_LABELS

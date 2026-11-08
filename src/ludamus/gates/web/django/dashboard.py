@@ -24,7 +24,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.offers import flash_claim_result
+from ludamus.gates.web.django.event.offers import flash_claim_result
 from ludamus.pacts.dashboard import SubscriptionAgeRestrictedError
 from ludamus.pacts.errors import NotFoundError
 

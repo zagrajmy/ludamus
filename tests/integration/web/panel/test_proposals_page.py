@@ -5,7 +5,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,

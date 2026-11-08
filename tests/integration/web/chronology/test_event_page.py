@@ -11,12 +11,14 @@ from django.urls import resolve, reverse
 from django.utils import timezone
 from freezegun import freeze_time
 
-from ludamus.gates.web.django.chronology.event_presentation import (
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
 )
-from ludamus.gates.web.django.chronology.schedule import (
+from ludamus.gates.web.django.event.page import EventPageView
+from ludamus.gates.web.django.event.schedule import (
     RoomLane,
     RoomLaneRow,
     RoomLanes,
@@ -25,8 +27,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleHour,
     ScheduleTile,
 )
-from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.event.page import EventPageView
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.gates.web.django.meta import LinkPreview
 from ludamus.links.db.django.models import (

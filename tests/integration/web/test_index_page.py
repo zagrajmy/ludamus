@@ -11,7 +11,7 @@ from django.test import override_settings
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.gates.web.django.chronology.event_presentation import EventInfo
+from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track

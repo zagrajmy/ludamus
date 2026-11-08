@@ -346,7 +346,7 @@ here. The hero and session modal link into it.
 The multi-step wizard through which facilitators submit session proposals.
 
 - **URLs:** `/chronology/session/propose/` (namespace `session`)
-- **Views:** `gates/web/django/chronology/views.py` —
+- **Views:** `gates/web/django/event/views.py` —
   `ProposeSessionPageView` and component views for each wizard step
   (category, personal data, time slots, session details, review, submit)
 - **Templates:** `templates/chronology/propose/`
@@ -365,7 +365,7 @@ proposal acceptance by organizers.
 - **URLs:** `/chronology/session/<id>/enrollment/`,
   `/chronology/session/<id>/accept/`, `/chronology/anonymous/`
 - **Views:** `gates/web/django/event/enroll.py` — `SessionEnrollPageView`
-  (form in `enroll_forms.py`); `gates/web/django/chronology/` —
+  (form in `enroll_forms.py`); `gates/web/django/event/` —
   `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
   `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
   `AnonymousResetActionView`
@@ -387,9 +387,8 @@ group, no ownership split.
 
 - **URLs:** `/panel/event/<slug>/…` (namespace `panel`), configured in
   `gates/web/django/event/panel/urls.py`
-- **Views:** new pages live in `gates/web/django/event/panel/views/`; remaining
-  pages under `gates/web/django/chronology/panel/views/` move there
-  opportunistically. Each module owns one page or closely related page group.
+- **Views:** `gates/web/django/event/panel/views/`. Each module owns one page or
+  closely related page group.
 - **Templates:** `templates/panel/`
 - **Services:** `EventPanelService` loads the shared event-scoped navigation
   context through repository protocols; focused page services own page reads and
@@ -405,17 +404,17 @@ group, no ownership split.
 
 | Area                 | Views                                                                   | Templates                                                   |
 | -------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Proposal categories  | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html`                                                |
+| Proposal categories  | `panel/views/cfp.py`, `panel/views/proposal_category_settings.py`       | `cfp-*.html`                                                |
 | Proposals / sessions | `panel/views/proposals.py`                                              | `proposal-*.html`                                           |
 | Personal data fields | `panel/views/personal_data_fields.py`                                   | `personal-data-field-*.html`                                |
 | Session fields       | `panel/views/session_fields.py`                                         | `session-field-*.html`                                      |
 | Facilitators         | `panel/views/facilitators.py`                                           | `facilitator-*.html`                                        |
-| Event settings       | `chronology/panel/views/event_settings.py`                              | `settings.html`                                             |
-| Enrollment settings  | `event/panel/views/enrollment_settings.py`                              | `enrollment-*.html`                                         |
+| Event settings       | `panel/views/event_settings.py`                                         | `settings.html`                                             |
+| Enrollment settings  | `panel/views/enrollment_settings.py`                                    | `enrollment-*.html`                                         |
 | Time slots           | `panel/views/time_slots.py`                                             | `time-slot*.html`                                           |
 | Tracks               | `panel/views/tracks.py`                                                 | `track-*.html`                                              |
 | Venues (Space tree)  | `panel/views/venues.py`                                                 | `spaces.html`, `_space_tree_node.html`, `space-*.html`      |
-| Confirmations        | `event/panel/views/confirmations.py`                                    | `timetable-confirmations.html`, `parts/confirmation-*.html` |
+| Confirmations        | `panel/views/confirmations.py`                                          | `timetable-confirmations.html`, `parts/confirmation-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 

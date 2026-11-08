@@ -6,9 +6,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
-    PersonalDataCard,
-)
+from ludamus.gates.web.django.event.panel.views.proposal_edit import PersonalDataCard
 from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,

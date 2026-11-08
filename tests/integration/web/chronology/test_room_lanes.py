@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.utils import timezone
 
-from ludamus.gates.web.django.chronology.schedule import (
+from ludamus.gates.web.django.event.schedule import (
     build_room_lanes,
     build_schedule_days,
 )
@@ -21,8 +21,8 @@ from tests.integration.web.chronology.helpers import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
-    from ludamus.gates.web.django.chronology.schedule import RoomLanes
+    from ludamus.gates.web.django.event.event_presentation import SessionData
+    from ludamus.gates.web.django.event.schedule import RoomLanes
 
 _HOUR_SECONDS = 3600
 _REPEATED_HOUR = 2

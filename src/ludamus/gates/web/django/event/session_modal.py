@@ -7,8 +7,8 @@ from django.http import Http404
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
+from ludamus.gates.web.django.event.event_presentation import present_session_modal
 from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId

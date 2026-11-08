@@ -6,12 +6,12 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.event_presentation import (
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
+from ludamus.gates.web.django.event.event_presentation import (
     ParticipationInfo,
     SessionData,
 )
-from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
     EventMap,

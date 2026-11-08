@@ -48,9 +48,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
     from datetime import date, datetime, tzinfo
 
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
-    from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
     from ludamus.gates.web.django.entities import UserInfo
+    from ludamus.gates.web.django.event.event_presentation import SessionData
+    from ludamus.gates.web.django.event.schedule import RoomLaneTile, ScheduleTile
     from ludamus.pacts.guild import GuildMarkDTO
     from ludamus.pacts.venues import LocationData
 

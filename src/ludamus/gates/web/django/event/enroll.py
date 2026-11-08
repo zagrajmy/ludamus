@@ -18,12 +18,12 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.event_presentation import fake_full_seats
 from ludamus.gates.web.django.event.enroll_forms import (
     allowance_message,
     build_enroll_form,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
+from ludamus.gates.web.django.event.event_presentation import fake_full_seats
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.enrollment_member import (

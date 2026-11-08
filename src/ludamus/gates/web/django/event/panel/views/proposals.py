@@ -12,17 +12,17 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.columns import (
-    PROPOSAL_COLUMNS,
-    column_values,
-    column_views,
-)
 from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelMixin,
     back_to_proposals,
     proposal_detail_url,
     read_field_filters,
     read_track_filter,
+)
+from ludamus.gates.web.django.event.panel.views.columns import (
+    PROPOSAL_COLUMNS,
+    column_values,
+    column_views,
 )
 from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.gates.web.django.panel import (

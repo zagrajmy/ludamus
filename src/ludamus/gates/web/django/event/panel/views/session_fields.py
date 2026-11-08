@@ -11,11 +11,11 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 from heroicons import IconDoesNotExist
 
-from ludamus.gates.web.django.chronology.panel.views.fields import (
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.event.panel.views.fields import (
     parse_session_field_form_data,
     undeletable_field_reasons,
 )
-from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.gates.web.django.panel import (
     PanelAccessMixin,

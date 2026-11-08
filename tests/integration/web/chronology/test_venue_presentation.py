@@ -1,4 +1,4 @@
-from ludamus.gates.web.django.chronology.panel.views.venues import build_track_tone_map
+from ludamus.gates.web.django.event.panel.views.venues import build_track_tone_map
 
 
 def test_track_badge_colors_are_distinct_and_stable_for_thirteen_tracks():

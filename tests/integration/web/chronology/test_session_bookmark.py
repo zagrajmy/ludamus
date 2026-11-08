@@ -5,7 +5,7 @@ import pytest
 from django.urls import reverse
 from django.utils.timezone import localtime
 
-from ludamus.gates.web.django.chronology.schedule import (
+from ludamus.gates.web.django.event.schedule import (
     RoomLane,
     RoomLaneRow,
     RoomLanes,

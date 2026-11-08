@@ -14,17 +14,17 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.columns import (
-    FACILITATOR_COLUMNS,
-    column_views,
-    facilitator_column_values,
-)
 from ludamus.gates.web.django.dynamic_fields import answered_value
 from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelMixin,
     format_field_value,
     read_accreditation_filter,
     read_field_filters,
+)
+from ludamus.gates.web.django.event.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_views,
+    facilitator_column_values,
 )
 from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
     ORGANIZER_REFUSALS,

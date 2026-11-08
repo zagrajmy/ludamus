@@ -10,11 +10,11 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.fields import (
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.event.panel.views.fields import (
     parse_field_form_data,
     parse_personal_field_form_data,
 )
-from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import (
     PersonalDataFieldEditForm,
     PersonalDataFieldForm,

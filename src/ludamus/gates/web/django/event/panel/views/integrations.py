@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.forms import (
+from ludamus.gates.web.django.event.panel.forms import (
     EventIntegrationForm,
     IntegrationFormContext,
     integration_signature,

@@ -15,14 +15,14 @@ from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.columns import (
-    FACILITATOR_COLUMNS,
-    column_views,
-    facilitator_column_values,
-)
 from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelMixin,
     read_track_filter,
+)
+from ludamus.gates.web.django.event.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_views,
+    facilitator_column_values,
 )
 from ludamus.gates.web.django.panel import PanelRequest, timetable_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids

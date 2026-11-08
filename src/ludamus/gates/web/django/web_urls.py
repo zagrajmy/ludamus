@@ -6,17 +6,18 @@ from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
-from ludamus.gates.web.django.chronology import offers
-from ludamus.gates.web.django.chronology import views as chronology_views
-from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
-from ludamus.gates.web.django.event import maps
+from ludamus.gates.web.django.event import maps, offers
+from ludamus.gates.web.django.event import views as chronology_views
 from ludamus.gates.web.django.event.enroll import SessionEnrollPageView
 from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.page import EventPageView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
+from ludamus.gates.web.django.event.urls import (
+    session_urlpatterns as chronology_gate_urls,
+)
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.landing import (
     index_page,

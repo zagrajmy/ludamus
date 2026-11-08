@@ -106,7 +106,7 @@ DI wiring. Manually: delete a facilitator, re-run the pull, open History.
 
 ### 3. Bulk `_apply`'s catch-all `else` means "restore"
 
-`src/ludamus/gates/web/django/chronology/panel/views/facilitators.py` —
+`src/ludamus/gates/web/django/event/panel/views/facilitators.py` —
 `FacilitatorBulkActionView._apply`
 
 `_apply` is `if mark-guest / elif delete / else restore`. That only holds
@@ -132,7 +132,7 @@ same). Fix in passing — the call site is one line.
 
 **Files.**
 
-- `src/ludamus/gates/web/django/chronology/panel/views/facilitators.py`
+- `src/ludamus/gates/web/django/event/panel/views/facilitators.py`
 - `tests/integration/web/panel/test_facilitator_bulk_action.py` — a case
   asserting every entry in `_BULK_FACILITATOR_ACTIONS` is handled (parametrize
   over the tuple, `merge` expecting the redirect to the merge basket). That is

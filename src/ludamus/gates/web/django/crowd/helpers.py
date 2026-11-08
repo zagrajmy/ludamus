@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.gates.web.django.chronology.event_presentation import present_party_history
 from ludamus.gates.web.django.crowd.forms import (
     CompanionForm,
     PartyCompanionForm,
     PartyInviteForm,
     PartyNameForm,
 )
+from ludamus.gates.web.django.event.event_presentation import present_party_history
 from ludamus.pacts.party import MAX_COMPANIONS, PartyMembershipStatus
 
 if TYPE_CHECKING:

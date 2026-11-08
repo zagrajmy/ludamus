@@ -7,11 +7,12 @@ from urllib.parse import urlencode
 
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.gates.web.django.chronology.event_presentation import (
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.event_presentation import (
     ParticipationInfo,
     SessionData,
 )
-from ludamus.gates.web.django.chronology.schedule import (
+from ludamus.gates.web.django.event.schedule import (
     RoomLanes,
     RoomLaneTile,
     ScheduleDay,
@@ -19,7 +20,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleTile,
     build_card_days,
 )
-from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import LinkPreview, markdown_summary
 from ludamus.links.db.django.enrollment import SeatHolderLocks

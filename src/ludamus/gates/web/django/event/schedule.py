@@ -11,7 +11,7 @@ from django.utils import timezone
 from ludamus.pacts.chronology import PROGRAMME_DAYS, Window
 
 if TYPE_CHECKING:
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
+    from ludamus.gates.web.django.event.event_presentation import SessionData
 
 # A stretch of a day in which nothing starts or ends, this long or longer,
 # folds into one thin row of the rooms grid. Shorter lulls stay whole: an idle

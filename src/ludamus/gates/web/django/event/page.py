@@ -15,7 +15,8 @@ from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access, panel_access
-from ludamus.gates.web.django.chronology.event_presentation import (
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
@@ -23,14 +24,13 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     filterable_tag_fields,
     mask_session_card,
 )
-from ludamus.gates.web.django.chronology.schedule import (
+from ludamus.gates.web.django.event.ics import event_calendar_entry
+from ludamus.gates.web.django.event.schedule import (
     CardDay,
     build_card_days,
     build_room_lanes,
     build_schedule_days,
 )
-from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import (
     LinkPreview,

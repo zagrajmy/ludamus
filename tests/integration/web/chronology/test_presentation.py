@@ -4,16 +4,13 @@ from unittest.mock import MagicMock
 import pytest
 from django.utils import timezone
 
-from ludamus.gates.web.django.chronology.event_presentation import (
+from ludamus.gates.web.django.event.event_presentation import (
     CloudPill,
     SessionData,
     build_display_field_row,
     flatten_cloud_overflow,
 )
-from ludamus.gates.web.django.chronology.schedule import (
-    build_card_days,
-    build_schedule_days,
-)
+from ludamus.gates.web.django.event.schedule import build_card_days, build_schedule_days
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.timetable import AgendaItemDTO
 from tests.integration.web.chronology.helpers import make_session_data
