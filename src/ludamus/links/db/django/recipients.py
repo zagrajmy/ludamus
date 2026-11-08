@@ -7,7 +7,7 @@ no language on record reads English, never the sender's language.
 
 Every delivery in `delivery` takes a `Voice` (an address-only mail) or a
 `Recipient` (an account's bell row and mail). Only `speaking_to(user_id)`
-makes a Recipient, from the account's stored language and proven address,
+makes a Recipient, from the account's language and proven address,
 and either token confirms only inside its block, so a message cannot go out
 composed in anyone's language but its reader's.
 """
@@ -50,7 +50,9 @@ class Voice:
     __slots__ = ("_active", "_address", "_language", "_override")
 
     def __init__(self, language: str, *, address: str) -> None:
-        self._language = _language(language)
+        # NOTE: not the site's Polish default: a reader we know nothing
+        # about is likelier to read English.
+        self._language = language or _UNRECORDED_LANGUAGE
         self._address = address
         self._override: translation.override | None = None
         self._active: str | None = None
@@ -112,12 +114,15 @@ def _account_reader(user_id: int, *, mail_to: str | None) -> _AccountReader:
         .only("language", "email", "email_verified", "manager__language")
         .first()
     )
-    proven = user.email if user is not None and user.email_verified else ""
-    # A companion never browses, so it has no language of its own to store.
-    speaker = (user.manager or user) if user is not None else None
+    if user is None:
+        return _AccountReader(
+            user_id=user_id, language="", deliverable_email=mail_to or ""
+        )
+    proven = user.email if user.email_verified else ""
+    # A companion never browses, so it speaks its manager's language.
     return _AccountReader(
         user_id=user_id,
-        language=_language(speaker.language if speaker is not None else ""),
+        language=(user.manager or user).language,
         deliverable_email=proven if mail_to is None else mail_to,
     )
 
@@ -165,7 +170,7 @@ class Recipient:
 
 @contextmanager
 def speaking_to(user_id: int, *, mail_to: str | None = None) -> Generator[Recipient]:
-    """Compose for this account, in its stored language, to its proven address.
+    """Compose for this account, in its language, to its proven address.
 
     Loads the account once and resolves both rules here rather than at each
     producer, so a new notification cannot opt out of either by accident.
@@ -177,16 +182,10 @@ def speaking_to(user_id: int, *, mail_to: str | None = None) -> Generator[Recipi
         yield Recipient(reader, voice)
 
 
-def _language(stored: str) -> str:
-    # NOTE: the site itself defaults to Polish, but a reader we know nothing
-    # about is likelier to read English than Polish.
-    return stored or _UNRECORDED_LANGUAGE
-
-
 def address_languages(emails: Collection[str]) -> dict[str, str]:
-    """Each address in the language of its account, else English."""
+    """Each address in the language of its account; empty when it has none."""
     languages = {
         email.lower(): language
         for email, language in accounts_at(emails).values_list("email", "language")
     }
-    return {email: _language(languages.get(email.lower(), "")) for email in emails}
+    return {email: languages.get(email.lower(), "") for email in emails}

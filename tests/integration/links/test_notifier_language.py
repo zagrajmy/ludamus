@@ -4,8 +4,14 @@ import pytest
 from django.utils import translation
 
 from ludamus.links.db.django import notifications
+from ludamus.links.db.django.crowd import ClaimRepository
 from ludamus.links.db.django.delivery import compose_mail
-from ludamus.links.db.django.models import Notification, Session, SphereSubscription
+from ludamus.links.db.django.models import (
+    Notification,
+    Session,
+    SphereSubscription,
+    User,
+)
 from ludamus.links.db.django.recipients import (
     NoAddressError,
     NotSpeakingError,
@@ -196,11 +202,23 @@ class TestRecipient:
     def test_a_companion_reads_its_managers_language(self):
         manager = UserFactory(language="pl")
         companion = UserFactory(
-            user_type=UserType.CONNECTED, manager=manager, language="en"
+            user_type=UserType.CONNECTED, manager=manager, language=""
         )
 
         with speaking_to(companion.pk):
             assert translation.get_language() == "pl"
+
+    def test_a_claimed_companion_reads_its_own_language(self):
+        companion = UserFactory(
+            user_type=UserType.CONNECTED,
+            manager=UserFactory(language="pl"),
+            claim_token="tok",
+        )
+        ClaimRepository.convert(token="tok", username="ola")
+        User.objects.filter(pk=companion.pk).update(language="en")
+
+        with speaking_to(companion.pk):
+            assert translation.get_language() == "en"
 
     def test_an_unproven_address_is_never_mailed(self):
         user = UserFactory(language="pl", email_verified=False)
