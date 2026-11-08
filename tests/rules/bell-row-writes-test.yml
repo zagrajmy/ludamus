@@ -1,0 +1,18 @@
+id: bell-row-writes
+valid:
+  - "Notification.objects.filter(recipient_id=user_id).count()"
+  - "notification.save(update_fields=['read_at'])"
+  - "class Notification(models.Model):\n    title = models.CharField()"
+  - "from ludamus.links.db.django.models import Notification"
+  - "user.notifications.filter(read_at__isnull=True).count()"
+invalid:
+  - "Notification(recipient_id=user_id, title=title)"
+  - "models.Notification(recipient_id=user_id, title=title).save()"
+  - "Notification.objects.create(recipient_id=1, title=title)"
+  - "Notification.objects.bulk_create(rows)"
+  - "Notification.objects.get_or_create(recipient_id=1, kind=kind)"
+  - "m.Notification._default_manager.create(recipient_id=1, title=title)"
+  - "user.notifications.create(kind=kind, title=title)"
+  - "await user.notifications.acreate(kind=kind, title=title)"
+  - "request.user.notifications.bulk_create(rows)"
+  - "from ludamus.links.db.django.models import Notification as NotificationRow"

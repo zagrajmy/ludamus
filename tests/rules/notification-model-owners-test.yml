@@ -1,4 +1,4 @@
-id: bell-rows-in-delivery
+id: notification-model-owners
 valid:
   - "ring(recipient, Bell(kind=kind, title=title, body=body, url=url))"
   - "class Notification(models.Model):\n    title = models.CharField()"
@@ -18,8 +18,6 @@ invalid:
   - "from ludamus.links.db.django.models import Notification"
   - "from ludamus.links.db.django.models import Notification as Bell"
   - "Model = Notification"
-  - "user.notifications.create(kind=kind, title=title)"
-  - "request.user.notifications.bulk_create(rows)"
   - |
     class Notifier:
         def notify(self):
