@@ -1,6 +1,5 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib import messages
@@ -26,6 +25,7 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response, input_tag
 from tests.integration.web.chronology.helpers import (
+    commit_before_seat_lock,
     enroll_context,
     participation_row,
     party_context,
@@ -432,35 +432,27 @@ class TestHeldSeatUnavailable:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_race_on_a_member_who_enrolled_themselves_skips(
-        self, authenticated_client, active_user, agenda_item
+        self, monkeypatch, authenticated_client, active_user, agenda_item
     ):
-        # The form rejects "enroll" for a member with a participation, so the
-        # in-processing guard only fires when a competing request seated the
-        # member between form validation and processing — simulated here by
-        # forcing the cleaned data through, as the conflict-race test does.
+        # The form offers the hold because the member has no seat when it is
+        # built; a competing request seats the member before this one takes
+        # the seat locks.
         _, member = _led_party_with_member(
             active_user, consent=PartyConsentMode.ACCEPT_INVITES
         )
         _reassign_presenter(agenda_item)
-        SessionParticipation.objects.create(
-            session=agenda_item.session,
-            user=member,
-            status=SessionParticipationStatus.CONFIRMED,
+        commit_before_seat_lock(
+            monkeypatch,
+            lambda: SessionParticipation.objects.create(
+                session=agenda_item.session,
+                user=member,
+                status=SessionParticipationStatus.CONFIRMED,
+            ),
         )
 
-        with patch(
-            "ludamus.adapters.web.django.views.create_enrollment_form"
-        ) as mock_form_factory:
-            mock_form_class = Mock()
-            mock_form_instance = Mock()
-            mock_form_instance.is_valid.return_value = True
-            mock_form_instance.cleaned_data = {f"user_{member.pk}": "enroll"}
-            mock_form_class.return_value = mock_form_instance
-            mock_form_factory.return_value = mock_form_class
-
-            response = authenticated_client.post(
-                _url(agenda_item), data={f"user_{member.pk}": "enroll"}
-            )
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
 
         assert_response(
             response,

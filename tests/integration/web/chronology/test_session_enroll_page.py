@@ -2,7 +2,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
@@ -41,7 +41,9 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import FormFieldsMatcher, assert_response, input_tag
 from tests.integration.web.chronology.helpers import (
+    commit_before_seat_lock,
     enroll_context,
+    enroll_page_context,
     participation_row,
     party_context,
     party_member,
@@ -424,36 +426,29 @@ class TestSessionEnrollPageView:
         ).exists()
 
     def test_post_enroll_when_no_enrollment_config(
-        self, agenda_item, authenticated_client, event, active_user
+        self, agenda_item, authenticated_client, active_user
     ):
-        # The form already disables "enroll" with zero configs, so force the
-        # cleaned data through (as the race tests do) to pin the view-level
-        # rejection: unlike cancels, enrolls still require a config.
-        with patch(
-            "ludamus.adapters.web.django.views.create_enrollment_form"
-        ) as mock_form_factory:
-            mock_form_class = Mock()
-            mock_form_instance = Mock()
-            mock_form_instance.is_valid.return_value = True
-            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "enroll"}
-            mock_form_class.return_value = mock_form_instance
-            mock_form_factory.return_value = mock_form_class
-
-            response = authenticated_client.post(
-                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
-                data={f"user_{active_user.id}": "enroll"},
-            )
+        # Unlike cancels, enrolls still require a config: with none open the
+        # form offers no "enroll", so a posted one is refused before any seat.
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
+        )
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
+            HTTPStatus.OK,
             messages=[
                 (
                     messages.ERROR,
-                    "No enrollment configuration is available for this session.",
-                )
+                    f"{active_user.name} cannot enroll: enrollment not available",
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
             ],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            context_data=enroll_page_context(
+                viewer=active_user, agenda_item=agenda_item
+            ),
+            template_name="chronology/enroll_select.html",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
@@ -663,26 +658,21 @@ class TestSessionEnrollPageView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_cancel_without_enrollment_skips(
-        self, active_user, agenda_item, authenticated_client, event
+        self, monkeypatch, active_user, agenda_item, authenticated_client, event
     ):
-        # A cancel choice for a user with no participation is only reachable
-        # when a concurrent request deleted the row first; the form would
-        # otherwise reject "cancel". Mock the form to simulate that race and
-        # assert we skip gracefully instead of raising StopIteration.
-        with patch(
-            "ludamus.adapters.web.django.views.create_enrollment_form"
-        ) as mock_form_factory:
-            mock_form_class = Mock()
-            mock_form_instance = Mock()
-            mock_form_instance.is_valid.return_value = True
-            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "cancel"}
-            mock_form_class.return_value = mock_form_instance
-            mock_form_factory.return_value = mock_form_class
+        # The form offers "cancel" because the row is there when it is built;
+        # a competing request deletes it before this one takes the seat locks.
+        participation = SessionParticipation.objects.create(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        commit_before_seat_lock(monkeypatch, participation.delete)
 
-            response = authenticated_client.post(
-                self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
-                data={f"user_{active_user.id}": "cancel"},
-            )
+        response = authenticated_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
 
         assert_response(
             response,
@@ -987,7 +977,12 @@ class TestSessionEnrollPageView:
 
     @pytest.mark.usefixtures("enrollment_config")
     @staticmethod
-    def test_post_time_conflict_skipped(authenticated_client, active_user, event):
+    def test_post_time_conflict_skipped(
+        monkeypatch, authenticated_client, active_user, event
+    ):
+        # The form offers "enroll" because nothing overlaps when it is built; a
+        # competing request seats the user in an overlapping session before
+        # this one takes the seat locks.
         space1 = SpaceFactory(event=event)
         space2 = SpaceFactory(event=event)
         time_slot = TimeSlotFactory(event=event)
@@ -999,11 +994,6 @@ class TestSessionEnrollPageView:
             start_time=time_slot.start_time,
             end_time=time_slot.end_time,
         )
-        SessionParticipation.objects.create(
-            user=active_user,
-            session=session1,
-            status=SessionParticipationStatus.CONFIRMED,
-        )
 
         session2 = SessionFactory(event=event)
         AgendaItemFactory(
@@ -1013,26 +1003,22 @@ class TestSessionEnrollPageView:
             end_time=time_slot.end_time,
         )
 
-        with patch(
-            "ludamus.adapters.web.django.views.create_enrollment_form"
-        ) as mock_form_factory:
-            mock_form_class = Mock()
-            mock_form_instance = Mock()
-            mock_form_instance.is_valid.return_value = True
-            mock_form_instance.cleaned_data = {f"user_{active_user.id}": "enroll"}
-            mock_form_class.return_value = mock_form_instance
-            mock_form_factory.return_value = mock_form_class
+        commit_before_seat_lock(
+            monkeypatch,
+            lambda: SessionParticipation.objects.create(
+                user=active_user,
+                session=session1,
+                status=SessionParticipationStatus.CONFIRMED,
+            ),
+        )
 
-            response = authenticated_client.post(
-                reverse(
-                    "web:chronology:session-enrollment",
-                    kwargs={
-                        "event_slug": session2.event.slug,
-                        "session_id": session2.id,
-                    },
-                ),
-                data={f"user_{active_user.id}": "enroll"},
-            )
+        response = authenticated_client.post(
+            reverse(
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": session2.event.slug, "session_id": session2.id},
+            ),
+            data={f"user_{active_user.id}": "enroll"},
+        )
 
         assert_response(
             response,
