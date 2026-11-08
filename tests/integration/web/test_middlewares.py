@@ -312,9 +312,7 @@ class TestUserLanguageMiddleware:
         active_user.refresh_from_db()
         assert active_user.language == "pl"
 
-        authenticated_client.get(
-            self.URL, headers={"accept-language": "en-US,en;q=0.9"}
-        )
+        authenticated_client.get(self.URL, headers={"accept-language": "en-US"})
         active_user.refresh_from_db()
         assert active_user.language == "en"
 
@@ -326,16 +324,15 @@ class TestUserLanguageMiddleware:
             {"accept-language": "uk, *, pl;q=0.1"},
         ),
     )
-    def test_a_browser_naming_no_supported_language_keeps_the_recorded_one(
-        self, authenticated_client, active_user, headers
+    def test_a_browser_naming_no_supported_language_leaves_it_unrecorded(
+        self, authenticated_client, active_user, headers, settings
     ):
-        active_user.language = "en"
-        active_user.save()
+        settings.LANGUAGE_CODE = "pl"
 
         authenticated_client.get(self.URL, headers=headers)
 
         active_user.refresh_from_db()
-        assert active_user.language == "en"
+        assert not active_user.language
 
     def test_the_language_cookie_outranks_the_header(
         self, authenticated_client, active_user, settings
