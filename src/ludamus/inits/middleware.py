@@ -117,15 +117,15 @@ def _remember_language(request: LanguageRequestProtocol) -> None:
 def _stated_language(request: LanguageRequestProtocol) -> str | None:
     """Pick Django's request language, minus its LANGUAGE_CODE fallback.
 
-    As `get_language_from_request`: the cookie, then Accept-Language by
-    quality up to `*`.
+    Same order as `get_language_from_request`: the cookie, then
+    Accept-Language by quality, stopping at `*`.
     """
     cookie = request.COOKIES.get(settings.LANGUAGE_COOKIE_NAME, "")
     accepted = parse_accept_lang_header(request.headers.get("accept-language", ""))
     named = takewhile(lambda code: code != "*", (code for code, _ in accepted))
     for code in (cookie, *named):
         with suppress(LookupError):
-            return get_supported_language_variant(code)
+            return get_supported_language_variant(code).lower()
     return None
 
 
