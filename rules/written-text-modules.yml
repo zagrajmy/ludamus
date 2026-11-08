@@ -7,7 +7,8 @@ files:
 rule:
   any:
     - kind: identifier
-      regex: ^(_|gettext\w*|ngettext\w*|pgettext\w*|npgettext\w*)$
+      regex: ^n?p?gettext\w*$
+    - pattern: _($$$)
     - pattern: from django.utils.translation import $$$
     - pattern: from django.utils import translation
     - pattern: from django.utils import translation as $A
