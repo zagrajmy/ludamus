@@ -298,10 +298,8 @@ class TestCreatingInvitesEveryone:
 
 @pytest.mark.usefixtures("polish_catalog")
 class TestInvitesSpeakTheGuestsLanguage:
-    @pytest.mark.parametrize(
-        ("inviter_language", "site_language"), (("en", "pl"), ("pl", "en"))
-    )
-    def test_each_guest_reads_their_own_language_and_a_guest_the_site_default(
+    @pytest.mark.parametrize("inviter_language", ("en", "pl"))
+    def test_each_guest_reads_their_own_language_and_a_guest_english(
         self,
         authenticated_client,
         user,
@@ -309,9 +307,8 @@ class TestInvitesSpeakTheGuestsLanguage:
         mailoutbox,
         django_capture_on_commit_callbacks,
         inviter_language,
-        site_language,
     ):
-        settings.LANGUAGE_CODE = site_language
+        settings.LANGUAGE_CODE = "pl"
         UserFactory(email="ola@example.com", language="pl")
         UserFactory(email="ann@example.com", language="en")
 
@@ -333,7 +330,7 @@ class TestInvitesSpeakTheGuestsLanguage:
             user.email: polish if inviter_language == "pl" else english,
             "ola@example.com": polish,
             "ann@example.com": english,
-            "guest@example.com": polish if site_language == "pl" else english,
+            "guest@example.com": english,
         }
 
     def test_an_address_typed_in_another_case_reads_its_accounts_language(

@@ -2,12 +2,12 @@
 
 Whoever triggers a message (an organizer, a party leader, an encounter
 creator, a scheduled job) browses in their own language; the reader may not
-share it. A reader never seen signed in, or with no account at all, reads
-the site default, never the sender's language.
+share it. A companion account reads its manager's language. A reader with
+no language on record reads English, never the sender's language.
 
 Every delivery in `delivery` takes a `Voice` (an address-only mail) or a
 `Recipient` (an account's bell row and mail). Only `speaking_to(user_id)`
-makes a Recipient, from the account's stored language and proven address,
+makes a Recipient, from the account's language and proven address,
 and either token confirms only inside its block, so a message cannot go out
 composed in anyone's language but its reader's.
 """
@@ -18,7 +18,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self
 
-from django.conf import settings
 from django.utils import translation
 
 from ludamus.links.db.django.crowd import accounts_at
@@ -27,6 +26,9 @@ from ludamus.links.db.django.models import User
 if TYPE_CHECKING:
     from collections.abc import Collection, Generator
     from types import TracebackType
+
+
+_UNRECORDED_LANGUAGE = "en"
 
 
 class NotSpeakingError(RuntimeError):
@@ -42,13 +44,15 @@ class Voice:
 
     For mail to an address alone (an encounter guest, an anonymous
     proposer); an account's goes through `speaking_to`. An empty language
-    (none stored) is the site default. One block at a time.
+    (none on record) is English. One block at a time.
     """
 
     __slots__ = ("_active", "_address", "_language", "_override")
 
     def __init__(self, language: str, *, address: str) -> None:
-        self._language = _language(language)
+        # NOTE: not settings.LANGUAGE_CODE: a reader we know nothing about
+        # is likelier to read English than the site's own language.
+        self._language = language or _UNRECORDED_LANGUAGE
         self._address = address
         self._override: translation.override | None = None
         self._active: str | None = None
@@ -106,13 +110,18 @@ class _AccountReader:
 def _account_reader(user_id: int, *, mail_to: str | None) -> _AccountReader:
     user = (
         User.objects.filter(pk=user_id)
-        .only("language", "email", "email_verified")
+        .select_related("manager")
+        .only("language", "email", "email_verified", "manager__language")
         .first()
     )
-    proven = user.email if user is not None and user.email_verified else ""
+    if user is None:
+        return _AccountReader(
+            user_id=user_id, language="", deliverable_email=mail_to or ""
+        )
+    proven = user.email if user.email_verified else ""
     return _AccountReader(
         user_id=user_id,
-        language=_language(user.language if user is not None else ""),
+        language=(user.manager or user).language,
         deliverable_email=proven if mail_to is None else mail_to,
     )
 
@@ -160,7 +169,7 @@ class Recipient:
 
 @contextmanager
 def speaking_to(user_id: int, *, mail_to: str | None = None) -> Generator[Recipient]:
-    """Compose for this account, in its stored language, to its proven address.
+    """Compose for this account, in its language, to its proven address.
 
     Loads the account once and resolves both rules here rather than at each
     producer, so a new notification cannot opt out of either by accident.
@@ -172,14 +181,10 @@ def speaking_to(user_id: int, *, mail_to: str | None = None) -> Generator[Recipi
         yield Recipient(reader, voice)
 
 
-def _language(stored: str) -> str:
-    return stored or settings.LANGUAGE_CODE
-
-
 def address_languages(emails: Collection[str]) -> dict[str, str]:
-    """Each address in the language of its account, else the site default."""
+    """Each address in the language of its account; empty when it has none."""
     languages = {
         email.lower(): language
         for email, language in accounts_at(emails).values_list("email", "language")
     }
-    return {email: _language(languages.get(email.lower(), "")) for email in emails}
+    return {email: languages.get(email.lower(), "") for email in emails}
