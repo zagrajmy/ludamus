@@ -282,6 +282,7 @@ class ProposalAcceptanceService:
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
+        schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         notifier: ProposalAcceptedNotifierProtocol,
@@ -289,6 +290,7 @@ class ProposalAcceptanceService:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda_items = agenda_items
+        self._schedule_change_logs = schedule_change_logs
         self._active_users = active_users
         self._spheres = spheres
         self._notifier = notifier
@@ -375,6 +377,18 @@ class ProposalAcceptanceService:
                     "end_time": time_slot.end_time,
                 }
             )
+            # NOTE: errata are read from these logs, so a placement made here must
+            # leave the same trace as one made on the timetable.
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": session_id,
+                "user_id": self._active_users.read(user_slug).pk,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": space_id,
+                "new_start_time": time_slot.start_time,
+                "new_end_time": time_slot.end_time,
+            }
+            self._schedule_change_logs.create(log_data)
             if session.status != SessionStatus.ACCEPTED:
                 _announce_acceptance(
                     sessions=self._sessions,

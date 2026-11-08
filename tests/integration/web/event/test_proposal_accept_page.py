@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from ludamus.links.db.django.models import (
     AgendaItem,
     Notification,
+    ScheduleChangeLog,
     Session,
     SessionField,
     SessionFieldValue,
@@ -22,6 +23,7 @@ from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.event import EventDTO, TimeSlotDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.sessions import SessionDTO
+from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,
@@ -456,6 +458,36 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.start_time == time_slot.start_time
         assert session.agenda_item.end_time == time_slot.end_time
 
+    def test_post_logs_the_placement_for_errata(
+        self, manager_user, event, pending_session, space, manager_client, time_slot
+    ):
+        manager_client.post(
+            self._get_url(pending_session.id, pending_session.event.slug),
+            data={"space": space.id, "time_slot": time_slot.id},
+        )
+
+        assert list(
+            ScheduleChangeLog.objects.filter(session=pending_session).values(
+                "event_id",
+                "user_id",
+                "action",
+                "old_space_id",
+                "new_space_id",
+                "new_start_time",
+                "new_end_time",
+            )
+        ) == [
+            {
+                "event_id": event.pk,
+                "user_id": manager_user.pk,
+                "action": ScheduleChangeAction.ASSIGN,
+                "old_space_id": None,
+                "new_space_id": space.pk,
+                "new_start_time": time_slot.start_time,
+                "new_end_time": time_slot.end_time,
+            }
+        ]
+
     def test_post_tells_the_proposer_the_session_is_on_the_agenda(
         self,
         active_user,
@@ -634,6 +666,7 @@ class TestProposalAcceptPageView:
             start_time=time_slot.start_time,
             end_time=time_slot.end_time,
         )
+        assert not ScheduleChangeLog.objects.filter(session=pending_session).exists()
 
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),

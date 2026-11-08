@@ -465,6 +465,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
             notifier=DjangoUserNotifier(),
