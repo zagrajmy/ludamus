@@ -129,10 +129,10 @@
                         <p class="text-sm text-foreground-muted mb-6">
                             {% translate "Choose what happens when a seat becomes available for someone on the waiting list." %}
                         </p>
-                        <div class="space-y-6" data-promotion-settings>
+                        <div class="space-y-6">
                             {% tessera_field form.promotion_mode %}
-                            <div data-offer-claim-window
-                                 {% if form.promotion_mode.value != "offer_claim" %}hidden{% endif %}>
+                            <div data-show-when="promotion_mode={{ form.OFFER_CLAIM }}"
+                                 {% if form.promotion_mode.value != form.OFFER_CLAIM %}hidden{% endif %}>
                                 {% tessera_field form.offer_claim_window_minutes %}
                             </div>
                         </div>
@@ -685,6 +685,6 @@
                 </script>
             </form>
         </div>
-        {% vite_asset 'src/proposal-category-settings.ts' %}
+        {% vite_asset 'src/show-when.ts' %}
     {% endif %}
 {% endblock content %}

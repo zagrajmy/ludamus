@@ -80,7 +80,6 @@ export default defineConfig({
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
         "programme-space-order": resolve(rootDir, "src/programme-space-order.ts"),
         prologue: resolve(rootDir, "src/prologue.ts"),
-        "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "propose-copy": resolve(rootDir, "src/propose-copy.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "schedule-fold": resolve(rootDir, "src/schedule-fold.ts"),
