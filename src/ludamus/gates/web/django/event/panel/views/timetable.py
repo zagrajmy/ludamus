@@ -468,23 +468,8 @@ class TimetableAssignView(EventPanelMixin, View):
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        try:
-            conflicts = self.request.services.timetable_conflicts.detect_for_assignment(
-                event_pk=self.current_event.pk, session_pk=session_pk
-            )
-        except NotFoundError:
-            # A concurrent unassign can remove the placement between the
-            # committed write and this advisory sweep; that is not a failure
-            # of the assignment, so report no conflicts.
-            conflicts = []
-
-        trigger_data: dict[str, object] = {"timetableChanged": {}}
-        if conflicts:
-            trigger_data["timetableConflicts"] = {
-                "conflicts": [c.model_dump(mode="json") for c in conflicts]
-            }
         response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps(trigger_data)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
         return response
 
 

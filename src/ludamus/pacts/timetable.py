@@ -106,9 +106,6 @@ class TimetableServiceProtocol(Protocol):
 
 
 class ConflictDetectionServiceProtocol(Protocol):
-    def detect_for_assignment(
-        self, event_pk: int, session_pk: int
-    ) -> list[ConflictDTO]: ...
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
     ) -> list[ConflictDTO]: ...
