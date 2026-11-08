@@ -18,244 +18,6 @@ msgstr ""
 "(n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && "
 "n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
 
-#: src/ludamus/adapters/web/django/forms.py
-#, python-format
-msgid ""
-"%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
-"of %(allowed)s unique people (each person can enroll in multiple sessions). "
-"Only %(available)s slots remaining for new people."
-msgstr ""
-"%(name)s: nie można zapisać więcej osób. Masz już zapisane %(used)s z "
-"%(allowed)s różnych osób (każda osoba może zapisać się na wiele punktów "
-"programu). Zostało %(available)s miejsc dla nowych osób."
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "No change"
-msgstr "Bez zmian"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Cancel enrollment"
-msgstr "Anuluj zapis"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Move to waiting list"
-msgstr "Przenieś na listę oczekujących"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Enroll (if spots available)"
-msgstr "Zapisz się (jeśli są miejsca)"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/chronology/offer_claim.html
-msgid "Decline offer"
-msgstr "Odrzuć ofertę"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "No change (time conflict)"
-msgstr "Bez zmian (konflikt czasowy)"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/gates/web/django/event/enroll_presentation.py
-msgid "Join waiting list"
-msgstr "Dołącz do listy oczekujących"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Time conflict detected"
-msgstr "Konflikt czasowy"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/gates/web/django/event/enroll_presentation.py
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid "Enroll"
-msgstr "Zapisz się"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "No enrollment options (email required)"
-msgstr "Brak opcji zapisu (wymagany email)"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Email address required for enrollment"
-msgstr "Do zapisu wymagany jest adres email"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "No enrollment options (access required)"
-msgstr "Brak opcji zapisu (wymagany dostęp)"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Enrollment access permission required"
-msgstr "Wymagane są uprawnienia dostępu do zapisów"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "No enrollment options available"
-msgstr "Brak dostępnych opcji zapisu"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/panel/parts/_change-log-table.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "User"
-msgstr "Nazwa użytkownika"
-
-#: src/ludamus/adapters/web/django/forms.py
-#, python-format
-msgid "Invalid choice for %(user)s: %(value)s"
-msgstr "Nieprawidłowy wybór dla %(user)s: %(value)s"
-
-#: src/ludamus/adapters/web/django/forms.py
-#, python-format
-msgid "%(user)s cannot enroll: email address required"
-msgstr "%(user)s nie może się zapisać: wymagany adres email"
-
-#: src/ludamus/adapters/web/django/forms.py
-#, python-format
-msgid "%(user)s cannot enroll: enrollment access permission required"
-msgstr "%(user)s nie może się zapisać: wymagane uprawnienie dostępu do zapisów"
-
-#: src/ludamus/adapters/web/django/forms.py
-#, python-format
-msgid "%(user)s cannot enroll: enrollment not available"
-msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Withdraw held seat"
-msgstr "Wycofaj rezerwację miejsca"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Withdrawing releases the seat before they claim it"
-msgstr "Wycofanie zwalnia miejsce, zanim zostanie odebrane"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
-msgid "They manage their own enrollment"
-msgstr "Ta osoba zarządza swoimi zapisami samodzielnie"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Hold a seat — needs their approval"
-msgstr "Zarezerwuj miejsce — wymaga ich zgody"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "The seat is released if they do not claim it in time"
-msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Guests without an account"
-msgstr "Goście bez konta"
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "yourself"
-msgstr "siebie"
-
-#: src/ludamus/adapters/web/django/views.py
-#: src/ludamus/gates/web/django/chronology/anonymous.py
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Session not found."
-msgstr "Punkt programu nie został znaleziony."
-
-#: src/ludamus/adapters/web/django/views.py
-#: src/ludamus/gates/web/django/chronology/anonymous.py
-msgid "No enrollment configuration is available for this session."
-msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Choose one of your parties or enroll by yourself."
-msgstr "Wybierz jedną ze swoich drużyn lub zapisz się samodzielnie."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Please review the enrollment options below."
-msgstr "Proszę przejrzeć opcje zapisu poniżej."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Email address is required for enrollment in this session."
-msgstr "Do zapisu na ten punkt programu wymagany jest adres email."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"Enrollment access permission is required for this session. Please contact "
-"the organizers to obtain access."
-msgstr ""
-"Do zapisu na ten punkt programu wymagane jest uprawnienie dostępu. "
-"Skontaktuj się z organizatorami, aby uzyskać dostęp."
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "%(name)s (no enrollment to cancel)"
-msgstr "%(name)s (brak zapisu do anulowania)"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "%(name)s (session host)"
-msgstr "%(name)s (twórca programu)"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "%(name)s (not available)"
-msgstr "%(name)s (niedostępne)"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "%(name)s (time conflict)"
-msgstr "%(name)s (konflikt czasowy)"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-format
-msgid "%(name)s (manages their own enrollment)"
-msgstr "%(name)s (zarządza swoimi zapisami)"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Enrolled: {}"
-msgstr "Zapisani: {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Added to waiting list: {}"
-msgstr "Dodani do listy oczekujących: {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Seat held (awaiting their approval): {}"
-msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Cancelled: {}"
-msgstr "Anulowani: {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Skipped (already enrolled or conflicts): {}"
-msgstr "Pominięci (już zapisani lub konflikty): {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Guests you bring: {}"
-msgstr "Goście, których zabierasz: {}"
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid ""
-"Not enough spots available. {} spots requested, {} available. Bring fewer "
-"guests or use the waiting list for account holders."
-msgstr ""
-"Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
-"Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid ""
-"Not enough spots available. {} spots requested, {} available. Please use "
-"waiting list for some users."
-msgstr ""
-"Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
-"Użyj listy oczekujących dla niektórych użytkowników."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "No changes."
-msgstr "Brak zmian."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Please select at least one user to enroll."
-msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
-
 #: src/ludamus/gates/uploads.py
 msgid "Image too large. Maximum size is 8 MB."
 msgstr "Obraz jest za duży. Maksymalny rozmiar to 8 MB."
@@ -532,8 +294,19 @@ msgid "Anonymous enrollment is not available for this event."
 msgstr "Anonimowy zapis nie jest dostępny dla tego wydarzenia."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
+#: src/ludamus/gates/web/django/chronology/views.py
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "Session not found."
+msgstr "Punkt programu nie został znaleziony."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not available for this session."
 msgstr "Anonimowy zapis nie jest dostępny dla tego punktu programu."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "No enrollment configuration is available for this session."
+msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment for this session is closed."
@@ -2506,6 +2279,229 @@ msgstr "Szaleństwo rozprzestrzenia się przez każdy obwód..."
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Our best people are on it."
 msgstr "Nasi najlepsi ludzie pracują nad tym."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-format
+msgid "%(name)s (no enrollment to cancel)"
+msgstr "%(name)s (brak zapisu do anulowania)"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-format
+msgid "%(name)s (session host)"
+msgstr "%(name)s (twórca programu)"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-format
+msgid "%(name)s (not available)"
+msgstr "%(name)s (niedostępne)"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-format
+msgid "%(name)s (time conflict)"
+msgstr "%(name)s (konflikt czasowy)"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-format
+msgid "%(name)s (manages their own enrollment)"
+msgstr "%(name)s (zarządza swoimi zapisami)"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "Choose one of your parties or enroll by yourself."
+msgstr "Wybierz jedną ze swoich drużyn lub zapisz się samodzielnie."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "No changes."
+msgstr "Brak zmian."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "Please select at least one user to enroll."
+msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid ""
+"Not enough spots available. {} spots requested, {} available. Bring fewer "
+"guests or use the waiting list for account holders."
+msgstr ""
+"Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
+"Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid ""
+"Not enough spots available. {} spots requested, {} available. Please use "
+"waiting list for some users."
+msgstr ""
+"Brak wystarczającej liczby miejsc. {} miejsc potrzebnych, {} dostępnych. "
+"Użyj listy oczekujących dla niektórych użytkowników."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Enrolled: {}"
+msgstr "Zapisani: {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Added to waiting list: {}"
+msgstr "Dodani do listy oczekujących: {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Seat held (awaiting their approval): {}"
+msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Cancelled: {}"
+msgstr "Anulowani: {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Skipped (already enrolled or conflicts): {}"
+msgstr "Pominięci (już zapisani lub konflikty): {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+#, python-brace-format
+msgid "Guests you bring: {}"
+msgstr "Goście, których zabierasz: {}"
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "Email address is required for enrollment in this session."
+msgstr "Do zapisu na ten punkt programu wymagany jest adres email."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid ""
+"Enrollment access permission is required for this session. Please contact "
+"the organizers to obtain access."
+msgstr ""
+"Do zapisu na ten punkt programu wymagane jest uprawnienie dostępu. "
+"Skontaktuj się z organizatorami, aby uzyskać dostęp."
+
+#: src/ludamus/gates/web/django/event/enroll.py
+msgid "Please review the enrollment options below."
+msgstr "Proszę przejrzeć opcje zapisu poniżej."
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "No change"
+msgstr "Bez zmian"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "No change (time conflict)"
+msgstr "Bez zmian (konflikt czasowy)"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Cancel enrollment"
+msgstr "Anuluj zapis"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Move to waiting list"
+msgstr "Przenieś na listę oczekujących"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Enroll (if spots available)"
+msgstr "Zapisz się (jeśli są miejsca)"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/templates/chronology/offer_claim.html
+msgid "Decline offer"
+msgstr "Odrzuć ofertę"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+msgid "Enroll"
+msgstr "Zapisz się"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/gates/web/django/event/enroll_presentation.py
+msgid "Join waiting list"
+msgstr "Dołącz do listy oczekujących"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "No enrollment options (email required)"
+msgstr "Brak opcji zapisu (wymagany email)"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "No enrollment options (access required)"
+msgstr "Brak opcji zapisu (wymagany dostęp)"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Withdraw held seat"
+msgstr "Wycofaj rezerwację miejsca"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Hold a seat — needs their approval"
+msgstr "Zarezerwuj miejsce — wymaga ich zgody"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Time conflict detected"
+msgstr "Konflikt czasowy"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Email address required for enrollment"
+msgstr "Do zapisu wymagany jest adres email"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Enrollment access permission required"
+msgstr "Wymagane są uprawnienia dostępu do zapisów"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "No enrollment options available"
+msgstr "Brak dostępnych opcji zapisu"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Withdrawing releases the seat before they claim it"
+msgstr "Wycofanie zwalnia miejsce, zanim zostanie odebrane"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
+msgid "They manage their own enrollment"
+msgstr "Ta osoba zarządza swoimi zapisami samodzielnie"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "The seat is released if they do not claim it in time"
+msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid ""
+"%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
+"of %(allowed)s unique people (each person can enroll in multiple sessions). "
+"Only %(available)s slots remaining for new people."
+msgstr ""
+"%(name)s: nie można zapisać więcej osób. Masz już zapisane %(used)s z "
+"%(allowed)s różnych osób (każda osoba może zapisać się na wiele punktów "
+"programu). Zostało %(available)s miejsc dla nowych osób."
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "User"
+msgstr "Nazwa użytkownika"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "%(user)s cannot enroll: email address required"
+msgstr "%(user)s nie może się zapisać: wymagany adres email"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "%(user)s cannot enroll: enrollment access permission required"
+msgstr "%(user)s nie może się zapisać: wymagane uprawnienie dostępu do zapisów"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "%(user)s cannot enroll: enrollment not available"
+msgstr "%(user)s nie może się zapisać: zapisy niedostępne"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "Invalid choice for %(user)s: %(value)s"
+msgstr "Nieprawidłowy wybór dla %(user)s: %(value)s"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+msgid "Guests without an account"
+msgstr "Goście bez konta"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid ""
@@ -13457,6 +13453,9 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#~ msgid "yourself"
+#~ msgstr "siebie"
 
 #, python-format
 #~ msgid ""

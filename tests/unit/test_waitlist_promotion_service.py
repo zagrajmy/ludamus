@@ -35,7 +35,7 @@ pytestmark = pytest.mark.usefixtures("_frozen")
 @pytest.fixture
 def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._now", lambda: _NOW)
-    monkeypatch.setattr("ludamus.mills.enrollment.claim_token", lambda: "tok-xyz")
+    monkeypatch.setattr("ludamus.mills.enrollment.mint_claim_token", lambda: "tok-xyz")
 
 
 class FakeRepo:

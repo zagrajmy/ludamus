@@ -244,7 +244,7 @@ fullness, from the stored limit, the open windows' share and the seats
 taken), `seat_cap`, and the window rules `window_is_open` (`[start, end)`)
 and `allowance_windows`. Links supply only those facts;
 `EnrollmentPolicy` (mills) answers the per-actor question with the same
-`seat_cap`. `SessionManager.has_conflicts` still sits on the model.
+`seat_cap`. `SessionManager.conflicted_user_ids` still sits on the model.
 
 **Seat lock order.** Every transaction that decides a seat takes, before
 it reads what it decides on, the steps below. Most lock `User` rows
