@@ -9,7 +9,7 @@ from ludamus.inits.services import Services
 from ludamus.pacts.crowd import UserData
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from ludamus.pacts import RootRequestProtocol
 
@@ -31,6 +31,8 @@ if TYPE_CHECKING:
 
     class LanguageRequestProtocol(RootRequestProtocol, Protocol):
         user: LanguageUserProtocol
+        COOKIES: Mapping[str, str]
+        headers: Mapping[str, str]
 
 
 Response = TypeVar("Response")
@@ -99,10 +101,22 @@ class UserLanguageMiddleware[Response]:
 
 def _remember_language(request: LanguageRequestProtocol) -> None:
     user = request.user
-    if not user.is_authenticated or user.language == (language := get_language()):
+    if (
+        not user.is_authenticated
+        or not _names_a_language(request)
+        or user.language == (language := get_language())
+    ):
         return
     logger.debug("User %s now browses in %s", user.slug, language)
     request.services.profile.update(user.slug, UserData(language=language))
+
+
+def _names_a_language(request: LanguageRequestProtocol) -> bool:
+    """Without a cookie or header, LocaleMiddleware fell back to LANGUAGE_CODE."""
+    return (
+        settings.LANGUAGE_COOKIE_NAME in request.COOKIES
+        or "accept-language" in request.headers
+    )
 
 
 class ServiceInjectionMiddleware[Response]:

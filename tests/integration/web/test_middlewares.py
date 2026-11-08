@@ -316,6 +316,21 @@ class TestUserLanguageMiddleware:
         active_user.refresh_from_db()
         assert active_user.language == "en"
 
+    def test_a_browser_naming_no_language_leaves_it_unrecorded(
+        self, authenticated_client, active_user, settings
+    ):
+        active_user.language = ""
+        active_user.save()
+
+        authenticated_client.get(self.URL)
+        active_user.refresh_from_db()
+        assert not active_user.language
+
+        authenticated_client.cookies[settings.LANGUAGE_COOKIE_NAME] = "pl"
+        authenticated_client.get(self.URL)
+        active_user.refresh_from_db()
+        assert active_user.language == "pl"
+
     def test_follows_the_user_back_to_a_device_seen_before(self, active_user):
         phone, laptop = Client(), Client()
         for device in (phone, laptop):
