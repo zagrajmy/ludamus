@@ -1,8 +1,9 @@
 {% load i18n %}
+{% load empty_state_tags %}
 {% load django_vite %}
 {% load tessera %}
 {% if programme_spaces %}
-    {% translate "Could not save the programme order. Reloading the page." as t_programme_order_error %}
+    {% translate "Could not save the programme order. Reload the page to see the saved one." as t_programme_order_error %}
     <div>
         {% if programme_spaces|length > 1 %}
             <p class="mb-4 text-sm text-foreground-muted">
@@ -56,10 +57,7 @@
         {% vite_asset 'src/programme-space-order.ts' %}
     {% endif %}
 {% else %}
-    <div class="py-8 text-center">
-        <div class="mb-4">{% icon "calendar-days" class="mx-auto size-12 text-foreground-muted" %}</div>
-        <p class="text-foreground-muted">
-            {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." %}
-        </p>
-    </div>
+    {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." as t_empty_title %}
+{% empty_state icon="calendar-days" title=t_empty_title %}
+{% end_empty_state %}
 {% endif %}

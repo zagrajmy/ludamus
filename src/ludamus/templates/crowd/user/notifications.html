@@ -1,5 +1,6 @@
 {% extends "crowd/user/profile_base.html" %}
 {% load i18n tessera %}
+{% load empty_state_tags %}
 {% block title %}
     {% translate "Notifications" %}
 {% endblock title %}
@@ -35,13 +36,10 @@
                 </form>
             </div>
         {% empty %}
-            <div class="text-center py-8">
-                {% icon "bell" class="w-10 h-10 mx-auto text-foreground-muted" %}
-                <p class="font-medium text-foreground-muted my-2">{% translate "No subscriptions yet" %}</p>
-                <p class="text-sm text-foreground-muted max-w-100 mx-auto">
-                    {% translate "Subscriptions appear here when you visit a sphere." %}
-                </p>
-            </div>
-        {% endfor %}
-    </div>
+            {% translate "No subscriptions yet" as t_empty_title %}
+            {% translate "Subscriptions appear here when you visit a sphere." as t_empty_text %}
+        {% empty_state icon="bell" title=t_empty_title text=t_empty_text %}
+        {% end_empty_state %}
+{% endfor %}
+</div>
 {% endblock profile_content %}
