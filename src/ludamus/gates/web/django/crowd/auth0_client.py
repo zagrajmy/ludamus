@@ -12,11 +12,10 @@ class ClientKwargs(TypedDict):
 
 oauth.register(
     "auth0",
-    client_id=settings.AUTH0_CLIENT_ID,  # type: ignore [misc]
-    client_secret=settings.AUTH0_CLIENT_SECRET,  # type: ignore [misc]
+    client_id=settings.AUTH0_CLIENT_ID,
+    client_secret=settings.AUTH0_CLIENT_SECRET,
     client_kwargs=ClientKwargs(scope="openid profile email"),
     server_metadata_url=(
-        f"https://{settings.AUTH0_DOMAIN}/"  # type: ignore [misc]
-        ".well-known/openid-configuration"
+        f"https://{settings.AUTH0_DOMAIN}/.well-known/openid-configuration"
     ),
 )
