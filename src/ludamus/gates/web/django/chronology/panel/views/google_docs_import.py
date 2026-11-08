@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from django.http import QueryDict
 
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
+    from ludamus.pacts.fields import SessionFieldType
     from ludamus.pacts.legacy import EventDTO
 
 SESSION_COLUMNS = (
@@ -64,7 +65,6 @@ SESSION_COLUMNS = (
 )
 TIME_SLOTS_TARGET = "session.time_slots"
 ENTITY_TARGETS = ("track", "category")
-FieldType = Literal["text", "select", "checkbox"]
 LOCAL_DT_FORMAT = "%Y-%m-%dT%H:%M"
 # NOTE: `int` refuses a string over 4300 digits (CPython's int_max_str_digits);
 # no form has a row index anywhere near this long.
@@ -423,7 +423,7 @@ def _overrides_from_post(post: QueryDict, index: int) -> dict[str, str]:
     return overrides
 
 
-def _field_type_from_post(post: QueryDict, index: int) -> FieldType:
+def _field_type_from_post(post: QueryDict, index: int) -> SessionFieldType:
     match (post.get(f"fieldtype_{index}") or "text").strip():
         case "select":
             return "select"
