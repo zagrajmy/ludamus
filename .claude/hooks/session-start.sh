@@ -26,15 +26,11 @@ if [ -n "$human_email" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
       "$role" "${human_email%@*}" "$role" "$human_email" >> "$CLAUDE_ENV_FILE"
   done
 fi
-# Sign those commits with the human's own key when their environment carries
-# one as GPG_SIGNING_KEY (a base64-encoded secret key). The platform writes
-# ~/.gitconfig with its own SSH signer, which GitHub cannot match to the
-# human's account, so the commit reads as Unverified. Git reads .git/config
-# after ~/.gitconfig, so settings here win. The environment's setup script
-# cannot do this: it runs without the environment's variables.
+# Sign with the human's GPG_SIGNING_KEY (base64). .git/config overrides the
+# platform's SSH signer in ~/.gitconfig, which GitHub shows as Unverified.
 if [ -n "${GPG_SIGNING_KEY:-}" ]; then
-  # Piped, never held in a variable: bash drops the NUL bytes of a binary key.
-  signing_key() { printf '%s' "$GPG_SIGNING_KEY" | base64 -d; }
+  # Piped: bash drops a binary key's NUL bytes.
+  signing_key(){ printf '%s' "$GPG_SIGNING_KEY" | base64 -d; }
   fingerprint=$(signing_key 2>/dev/null \
     | gpg --batch --with-colons --import-options show-only --import 2>/dev/null \
     | awk -F: '/^fpr/ { print $10; exit }' || true)
