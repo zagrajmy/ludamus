@@ -12,7 +12,7 @@ from ludamus.pacts.discounts import (
     DiscountSyncResultDTO,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         FacilitatorScheduleRow,
         ScheduledProgramRepositoryProtocol,
     )
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogData,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,

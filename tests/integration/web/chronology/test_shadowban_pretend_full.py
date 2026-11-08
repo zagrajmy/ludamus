@@ -6,7 +6,7 @@ from zeal import zeal_ignore
 
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
 from ludamus.links.db.django.models import SessionParticipation
-from ludamus.pacts.legacy import EventDTO
+from ludamus.pacts.event import EventDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import AttributesMatcher, assert_response
 from tests.integration.web.chronology.helpers import (

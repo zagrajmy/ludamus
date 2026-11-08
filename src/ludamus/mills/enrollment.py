@@ -24,18 +24,16 @@ from ludamus.pacts.enrollment import (
     GuestSeatData,
     HeldSeatData,
     InvalidEnrollmentWindowError,
+    MembershipAPIError,
     OfferNotification,
+    PromotionMode,
     PromotionNotification,
     PromotionResult,
+    UserEnrollmentConfigData,
+    VirtualEnrollmentConfig,
     distinct_recipients,
     email_domain,
     open_windows,
-)
-from ludamus.pacts.legacy import (
-    MembershipAPIError,
-    PromotionMode,
-    UserEnrollmentConfigData,
-    VirtualEnrollmentConfig,
 )
 from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import (
@@ -49,6 +47,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import (
+        EnrollmentConfigRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
         EnrollmentWindowDTO,
@@ -58,17 +57,14 @@ if TYPE_CHECKING:
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         SeatHoldRequest,
+        TicketAPIProtocol,
         TicketApiResolverProtocol,
+        UserEnrollmentConfigDTO,
         UserNotifierProtocol,
         WaitingParticipantDTO,
     )
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.ids import HasPk
-    from ludamus.pacts.legacy import (
-        EnrollmentConfigRepositoryProtocol,
-        EventDTO,
-        TicketAPIProtocol,
-        UserEnrollmentConfigDTO,
-    )
     from ludamus.pacts.services import TransactionProtocol
 
 

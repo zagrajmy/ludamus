@@ -34,8 +34,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
 from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import SubscriptionDTO
+from ludamus.pacts.notifications import NotificationKind, SubscriptionDTO
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.recipients import Recipient

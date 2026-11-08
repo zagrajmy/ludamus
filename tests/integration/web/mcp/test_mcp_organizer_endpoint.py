@@ -24,7 +24,7 @@ from ludamus.links.db.django.models import (
     SphereMembership,
     Track,
 )
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
 from tests.integration.conftest import (

@@ -10,7 +10,7 @@ from ludamus.mills.submissions.mapping import (
     extract_identity,
     locate_row,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,

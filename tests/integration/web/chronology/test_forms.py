@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from ludamus.gates.web.django.chronology.forms import slot_choices, slot_label
-from ludamus.pacts.legacy import TimeSlotDTO
+from ludamus.pacts.event import TimeSlotDTO
 
 
 def _slot(pk: int, hour: int) -> TimeSlotDTO:

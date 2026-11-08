@@ -16,19 +16,21 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
     EventPublicationInvalidError,
     EventSlugConflictError,
+    EventUpdateData,
+    EventVisibility,
 )
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import EventUpdateData, EventVisibility, NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.event_settings import ProposalSettingsUpdateData
-    from ludamus.pacts.legacy import EventDTO
 
 
 def _override_to_choice(*, value: bool | None) -> str:

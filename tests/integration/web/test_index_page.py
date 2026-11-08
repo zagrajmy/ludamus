@@ -22,8 +22,12 @@ from ludamus.pacts.encounter import (
     EncounterIndexItem,
     InviteeStatus,
 )
-from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
-from ludamus.pacts.legacy import EventDTO, EventListItemDTO
+from ludamus.pacts.event import (
+    EventDTO,
+    EventListItemDTO,
+    LandingConventionDTO,
+    LandingStatsDTO,
+)
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,

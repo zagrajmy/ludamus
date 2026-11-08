@@ -12,7 +12,7 @@ from ludamus.pacts.crowd import (
     ClaimOutcome,
     ClaimResultDTO,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, user_dto
 

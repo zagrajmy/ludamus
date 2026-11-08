@@ -4,13 +4,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPageService
-from ludamus.pacts.legacy import NotFoundError, SessionContentEditData
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import (
     ProposalAssignmentsDTO,
     ProposalEdit,
     ProposalPanelRepos,
     ProposalRecordRepos,
 )
+from ludamus.pacts.sessions import SessionContentEditData
 from tests.unit.factories import FakeTransaction, session_dto
 
 _EVENT_ID = 1

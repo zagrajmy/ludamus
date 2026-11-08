@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.guild import (
@@ -20,7 +21,6 @@ from ludamus.pacts.guild import (
     GuildMembershipMemberDTO,
 )
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

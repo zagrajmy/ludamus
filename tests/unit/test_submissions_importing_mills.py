@@ -6,7 +6,7 @@ import pytest
 
 from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.pacts.chronology import EventIntegrationDTO
-from ludamus.pacts.legacy import SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -26,7 +26,7 @@ _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 _SETTINGS = ImportSettings(questions={"Title": QuestionTarget(to="session.title")})
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import SessionData
+    from ludamus.pacts.sessions import SessionData
 
 
 class _Integrations:

@@ -21,7 +21,8 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.legacy import EventDTO, VirtualEnrollmentConfig
+from ludamus.pacts.enrollment import VirtualEnrollmentConfig
+from ludamus.pacts.event import EventDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 
 households = st.fixed_dictionaries(

@@ -25,7 +25,7 @@ from ludamus.pacts.encounter import (
     EncounterRSVPRepositoryProtocol,
     InviteeStatus,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 
 class EncounterRepository(EncounterRepositoryProtocol):

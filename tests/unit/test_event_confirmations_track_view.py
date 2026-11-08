@@ -3,15 +3,12 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event import EventConfirmationsService
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import ConfirmationSessionDTO
-from ludamus.pacts.legacy import (
-    ConfirmationFacilitatorRow,
-    ConfirmationSessionRow,
-    FacilitatorDTO,
-    NotFoundError,
-    SessionStatus,
-    TrackDTO,
-)
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import ConfirmationFacilitatorRow, ConfirmationSessionRow
+from ludamus.pacts.tracks import TrackDTO
 
 _EVENT = 1
 _OTHER_EVENT = 2

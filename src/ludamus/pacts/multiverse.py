@@ -13,10 +13,13 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.ids import SiteId, SphereId
+
 if TYPE_CHECKING:
-    from ludamus.pacts.encounter import EncountersPolicy
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.legacy import EventDTO, SphereDTO
 
 
 class SphereVisibility(StrEnum):
@@ -216,3 +219,46 @@ class SpherePanelServiceProtocol(Protocol):
 class SitesServiceProtocol(Protocol):
     def read(self, sphere_id: int) -> SphereDTO: ...
     def list_spheres(self) -> list[SphereListItemDTO]: ...
+
+
+class SiteDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    domain: str
+    name: str
+    pk: SiteId
+
+
+class SphereDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allow_facilitator_session_edit: bool = True
+    event_cover_buttons_at_bottom: bool = False
+    visibility: SphereVisibility = SphereVisibility.PUBLIC
+    encounters_policy: EncountersPolicy = EncountersPolicy.NONE
+    name: str
+    pk: SphereId
+    site: SiteDTO
+    logo_url: str = ""
+    logo_original_name: str = ""
+
+
+class SphereUpdateData(TypedDict, total=False):
+    allow_facilitator_session_edit: bool
+    event_cover_buttons_at_bottom: bool
+    visibility: SphereVisibility
+    encounters_policy: str
+    logo: UploadedFileProtocol | str
+
+
+class SphereRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_by_domain(domain: str) -> SphereDTO: ...
+    @staticmethod
+    def read(pk: int) -> SphereDTO: ...
+    @staticmethod
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None: ...
+    @staticmethod
+    def list_managers(sphere_id: int) -> list[UserDTO]: ...
+    @staticmethod
+    def update(sphere_id: int, data: SphereUpdateData) -> None: ...

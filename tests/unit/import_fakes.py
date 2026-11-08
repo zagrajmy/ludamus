@@ -18,15 +18,11 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.legacy import (
-    FacilitatorDTO,
-    NotFoundError,
-    PersonalDataFieldValueData,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionStatus,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueDTO
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.submissions import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,

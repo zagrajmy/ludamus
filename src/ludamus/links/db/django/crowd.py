@@ -20,7 +20,7 @@ from ludamus.pacts.crowd import (
     UserRepositoryProtocol,
     UserType,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:

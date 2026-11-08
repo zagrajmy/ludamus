@@ -27,21 +27,16 @@ from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import event_dto, location_data
 from ludamus.pacts.chronology import PROGRAMME_DAYS
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.enrollment import EnrollmentAccessDTO
+from ludamus.pacts.enrollment import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    EnrollmentAccessDTO,
+    SessionParticipationStatus,
+)
 from ludamus.pacts.enrollment_member import (
     PartyMemberFlags,
     SessionUserParticipationData,
 )
-from ludamus.pacts.legacy import (
-    NO_LOCATION,
-    OCCUPYING_PARTICIPATION_STATUSES,
-    AgendaItemDTO,
-    EventDTO,
-    LocationData,
-    SessionDTO,
-    SessionParticipationStatus,
-    TimeSlotDTO,
-)
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
@@ -49,6 +44,9 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     SelectedEnrollmentPartyDTO,
 )
+from ludamus.pacts.sessions import SessionDTO
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import NO_LOCATION, LocationData
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,

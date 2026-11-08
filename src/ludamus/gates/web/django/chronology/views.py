@@ -17,11 +17,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.chronology import SessionEditNotAllowedError, SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
-from ludamus.pacts.legacy import RedirectError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 
 from .forms import create_proposal_acceptance_form
 
@@ -33,8 +35,8 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts.chronology import ProposalAcceptContextDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import AuthenticatedRequestContext, SessionSelfEditContext
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import AuthenticatedRequestContext, ServicesProtocol
+    from ludamus.pacts.sessions import SessionSelfEditContext
 
 
 class SessionEditRequest(HttpRequest):

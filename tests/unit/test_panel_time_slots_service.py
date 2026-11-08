@@ -3,12 +3,13 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event import PanelTimeSlotsService
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
+    TimeSlotDTO,
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
-from ludamus.pacts.legacy import NotFoundError, TimeSlotDTO
 from tests.unit.factories import FakeTransaction, event_dto
 
 _EVENT_ID = 42

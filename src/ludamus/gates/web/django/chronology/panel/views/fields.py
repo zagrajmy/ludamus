@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING
 
 from django.utils.translation import gettext as _
 
-from ludamus.pacts.fields import is_personal_field_type, is_session_field_type
-from ludamus.pacts.legacy import (
+from ludamus.pacts.fields import (
     OrganizerFieldFormData,
     PersonalDataFieldCreateData,
     SessionFieldCreateData,
+    is_personal_field_type,
+    is_session_field_type,
 )
 
 if TYPE_CHECKING:
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 
     from django import forms
 
-    from ludamus.pacts.legacy import FieldUsageSummary
+    from ludamus.pacts.fields import FieldUsageSummary
 
 
 def parse_personal_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:

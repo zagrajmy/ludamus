@@ -15,7 +15,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest, safe_next_url
 from ludamus.gates.web.django.request_ids import parse_id
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import FIELD_KEY_PREFIX
 from ludamus.pacts.submissions import AccreditationType
 
@@ -24,8 +24,7 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest, HttpResponseBase
 
-    from ludamus.pacts.event import EventPanelContextDTO
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO, EventPanelContextDTO
     from ludamus.pacts.tracks import TrackFilterDTO
 
 

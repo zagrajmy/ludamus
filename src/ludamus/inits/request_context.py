@@ -7,13 +7,9 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 
 from ludamus.inits.repositories import Repositories
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import UserId
-from ludamus.pacts.legacy import (
-    AuthenticatedRequestContext,
-    NotFoundError,
-    RedirectError,
-    RequestContext,
-)
+from ludamus.pacts.services import AuthenticatedRequestContext, RequestContext
 
 if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
@@ -77,24 +73,3 @@ class RequestContextMiddleware:
             )
 
         return self.get_response(request)
-
-
-class RedirectErrorMiddleware:
-    def __init__(self, get_response: _GetResponseCallable) -> None:
-        self.get_response = get_response
-
-    def __call__(self, request: HttpRequest) -> HttpResponseBase:
-        return self.get_response(request)
-
-    @staticmethod
-    def process_exception(  # pylint: disable=no-self-use
-        request: HttpRequest, exception: Exception  # pylint: disable=unused-argument
-    ) -> HttpResponseBase | None:
-        if isinstance(exception, RedirectError):
-            if exception.error:
-                messages.error(request, exception.error)
-            if exception.warning:
-                messages.warning(request, exception.warning)
-            return HttpResponseRedirect(exception.url)
-
-        return None

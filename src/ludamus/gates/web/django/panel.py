@@ -21,16 +21,15 @@ from django.utils.translation import gettext_lazy
 from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
 from ludamus.gates.web.django.redirects import safe_url
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.legacy import SessionStatus
 from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.submissions import RequirementSelectionDTO
 
 if TYPE_CHECKING:
     from django.http import HttpResponseRedirect, QueryDict
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.legacy import AuthenticatedRequestContext
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import AuthenticatedRequestContext, ServicesProtocol
 
 # Every value `active_nav` can take — one per `{% sidebar_link %}` in the panel
 # sidebar (`panel/base.html`), list row or header button. A value outside this

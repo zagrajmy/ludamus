@@ -33,15 +33,16 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
 )
 from ludamus.pacts.durations import duration_minutes
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.timetable import (
     UNSCHEDULED_LIST_LIMIT,
-    NotFoundError,
+    PlacementRejectedError,
+    PlacementRejection,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import TrackDTO
+    from ludamus.pacts.tracks import TrackDTO
 
 
 _BACK_URL_KEYS = (

@@ -9,8 +9,11 @@ from ludamus.pacts.crowd import display_avatar_url
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.legacy import AuthenticatedRequestContext, RequestContext
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import (
+        AuthenticatedRequestContext,
+        RequestContext,
+        ServicesProtocol,
+    )
 
 
 @dataclass

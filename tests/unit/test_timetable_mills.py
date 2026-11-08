@@ -26,30 +26,30 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
+    EventRepositoryProtocol,
+    TimeSlotDTO,
+    TimeSlotRepositoryProtocol,
+)
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.timetable import (
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
-    EventRepositoryProtocol,
-    NotFoundError,
+    PlacementRejectedError,
+    PlacementRejection,
     ScheduleChangeAction,
     ScheduleChangeLogDTO,
     ScheduleChangeLogRepositoryProtocol,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SpaceDTO,
-    SpaceRepositoryProtocol,
-    TimeSlotDTO,
-    TimeSlotRepositoryProtocol,
+    TimetableRepos,
+    UnscheduledSessionFilter,
+)
+from ludamus.pacts.tracks import (
     TrackDTO,
     TrackRepositoryProtocol,
     TrackSessionCountsDTO,
-    UnscheduledSessionFilter,
 )
-from ludamus.pacts.timetable import (
-    PlacementRejectedError,
-    PlacementRejection,
-    TimetableRepos,
-)
+from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
 from tests.unit.factories import event_dto, session_dto, track_dto
 
 UNASSIGN_LOG_PK = 77

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from datetime import date, tzinfo
 
     from ludamus.pacts.chronology import Window
-    from ludamus.pacts.legacy import TimeSlotDTO
+    from ludamus.pacts.event import TimeSlotDTO
 
 
 def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[Window]:

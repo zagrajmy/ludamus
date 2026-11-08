@@ -8,8 +8,9 @@ from ludamus.pacts.event import (
     ConfirmationFacilitatorDTO,
     ConfirmationSessionDTO,
     ConfirmationStatusGroupDTO,
+    EventDTO,
 )
-from ludamus.pacts.legacy import EventDTO, SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,

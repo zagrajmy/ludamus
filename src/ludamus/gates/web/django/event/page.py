@@ -41,16 +41,16 @@ from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.pacts.calendar import google_calendar_url
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.enrollment import NO_ENROLLMENT_ACCESS
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import EventId, SessionId
-from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.chronology import SessionCardDTO
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import EnrollmentAccessDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.ids import UserId
-    from ludamus.pacts.legacy import EventDTO
 
 # Above this many scheduled sessions, the card grid becomes unwieldy and the
 # event page switches to the compact schedule (a dense chronological list with

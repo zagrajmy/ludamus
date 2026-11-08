@@ -21,20 +21,18 @@ from ludamus.pacts.chronology import (
     ProposalScheduledError,
     SpaceTimeConflictError,
 )
-from ludamus.pacts.legacy import (
-    AgendaItemDTO,
-    ContentChangeLogDTO,
-    FacilitatorDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    SessionContentEditData,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
-    SessionStatus,
-    SpaceOptionDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sessions import (
+    ContentChangeLogDTO,
+    SessionContentEditData,
+    SessionStatus,
+)
+from ludamus.pacts.timetable import AgendaItemDTO, ScheduleChangeAction
+from ludamus.pacts.venues import SpaceOptionDTO
 from tests.unit.factories import (
     FakeTransaction,
     FakeUsers,

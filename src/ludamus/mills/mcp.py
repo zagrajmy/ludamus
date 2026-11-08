@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from urllib.parse import SplitResult
 
     from ludamus.pacts.crowd import UserRepositoryProtocol
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.mcp import (
         AuthorizationCodeStoreProtocol,
         ClientMetadataDocument,

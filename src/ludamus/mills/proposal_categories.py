@@ -11,8 +11,10 @@ from ludamus.pacts.proposal_categories import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import ProposalCategoryDTO
-    from ludamus.pacts.proposal_categories import ProposalCategoriesRepositoryProtocol
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoriesRepositoryProtocol,
+        ProposalCategoryDTO,
+    )
     from ludamus.pacts.services import TransactionProtocol
 
 

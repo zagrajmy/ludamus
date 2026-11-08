@@ -160,7 +160,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "ludamus.gates.web.django.middlewares.AppMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.inits.request_context.RedirectErrorMiddleware",
+    "ludamus.gates.web.django.middlewares.RedirectErrorMiddleware",
 ]
 
 # Run in this order by AppMiddleware, and only for paths outside

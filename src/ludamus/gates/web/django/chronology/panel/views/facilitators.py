@@ -49,7 +49,7 @@ from ludamus.gates.web.django.panel import (
 )
 from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import (
     MIN_MERGE_FACILITATORS,
     FacilitatorCreateData,

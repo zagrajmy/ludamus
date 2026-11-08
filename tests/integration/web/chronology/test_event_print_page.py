@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts.legacy import EventDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.printing import (
     AreaScheduleDocumentDTO,
     AreaScheduleSessionDTO,

@@ -6,12 +6,12 @@ from ludamus.links.db.django.change_log_base import (
     latest_log_pks_by_session,
 )
 from ludamus.links.db.django.models import ContentChangeLog
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import (
     ContentChangeLogData,
     ContentChangeLogDTO,
     ContentChangeLogRepositoryProtocol,
     ContentFieldChange,
-    NotFoundError,
 )
 
 _SELECT_RELATED = ("session", "user")

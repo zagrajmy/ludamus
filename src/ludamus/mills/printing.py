@@ -42,19 +42,15 @@ from ludamus.pacts.time_ranges import overlaps
 if TYPE_CHECKING:
     from datetime import date, datetime
 
-    from ludamus.pacts.legacy import (
-        AgendaItemDTO,
-        AgendaItemRepositoryProtocol,
-        EventRepositoryProtocol,
-        SpaceDTO,
-        SpaceRepositoryProtocol,
-        TrackRepositoryProtocol,
-    )
+    from ludamus.pacts.event import EventRepositoryProtocol
     from ludamus.pacts.printing import (
         PrintablesNotifierProtocol,
         PrintablesReminderRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import AgendaItemDTO, AgendaItemRepositoryProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
+    from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4

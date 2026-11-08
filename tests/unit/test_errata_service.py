@@ -6,11 +6,8 @@ import pytest
 
 from ludamus.mills.errata import ErrataService
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
-from ludamus.pacts.legacy import (
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogDTO,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogDTO
 
 _EVENT_PK = 7
 _PUBLISHED = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
 

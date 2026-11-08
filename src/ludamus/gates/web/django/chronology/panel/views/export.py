@@ -49,12 +49,12 @@ from ludamus.gates.web.django.panel import PROPOSAL_STATUS_LABELS
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.pacts.durations import MINUTES_PER_HOUR
 from ludamus.pacts.event import FacilitatorListItemDTO
-from ludamus.pacts.legacy import SessionListItemDTO
 from ludamus.pacts.panel import (
     FacilitatorListQuery,
     PanelColumnDTO,
     PanelColumnsContextDTO,
 )
+from ludamus.pacts.sessions import SessionListItemDTO
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence

@@ -54,7 +54,7 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.pacts.legacy import SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.chronology import (
     PROGRAMME_DAYS,
     IntegrationImplementationId,
@@ -62,11 +62,9 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.crowd import AgeBand, UserType
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import (
-    EventVisibility,
-    NotificationKind,
-    SessionParticipationStatus,
-)
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.notifications import NotificationKind
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:

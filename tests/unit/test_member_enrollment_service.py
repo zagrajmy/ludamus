@@ -12,7 +12,9 @@ from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.enrollment import (
     EnrollmentWindowSnapshot,
     SeatHoldRequest,
+    SessionParticipationStatus,
     SessionSeatingDTO,
+    VirtualEnrollmentConfig,
 )
 from ludamus.pacts.enrollment_member import (
     INCLUDE_VALUE,
@@ -37,11 +39,7 @@ from ludamus.pacts.enrollment_member import (
     SkippedPerson,
     SkipReason,
 )
-from ludamus.pacts.legacy import (
-    NotFoundError,
-    SessionParticipationStatus,
-    VirtualEnrollmentConfig,
-)
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.party import (
     EnrollmentPartiesDTO,
     EnrollmentPartyMemberDTO,

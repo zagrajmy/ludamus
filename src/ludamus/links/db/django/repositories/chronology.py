@@ -36,31 +36,32 @@ from ludamus.pacts.chronology import (
     SessionCardStatsDTO,
     SessionSeatDTO,
 )
-from ludamus.pacts.ids import EventId, HasPk
-from ludamus.pacts.legacy import (
+from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,
-    AgendaItemDTO,
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
     EnrollmentConfigRepositoryProtocol,
+    SessionParticipationStatus,
+    UserEnrollmentConfigData,
+    UserEnrollmentConfigDTO,
+)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
     EventDTO,
     EventListItemDTO,
     EventRepositoryProtocol,
     EventStatsData,
     EventUpdateData,
-    LocationData,
-    NotFoundError,
-    SessionDTO,
-    SessionParticipationStatus,
-    SessionStatus,
-    UserEnrollmentConfigData,
-    UserEnrollmentConfigDTO,
 )
+from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import LocationData
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Sequence

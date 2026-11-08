@@ -1,6 +1,7 @@
 """Contracts for proposing a session: the wizard's ports and its service face."""
 
-from typing import TYPE_CHECKING, NamedTuple, Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NamedTuple, Protocol, TypedDict
 
 from pydantic import BaseModel
 
@@ -8,27 +9,28 @@ from ludamus.pacts.fields import FieldValue
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.event import (
         EventDTO,
         EventProposalSettingsDTO,
         EventProposalSettingsRepositoryProtocol,
         EventRepositoryProtocol,
-        FacilitatorRepositoryProtocol,
+    )
+    from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+    )
+    from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
-        ProposeSessionResult,
-        SessionFieldRepositoryProtocol,
         SessionFieldRequirementDTO,
-        SessionRepositoryProtocol,
         TimeSlotRequirementDTO,
-        TrackDTO,
-        TrackRepositoryProtocol,
-        WizardData,
     )
+    from ludamus.pacts.sessions import SessionRepositoryProtocol
+    from ludamus.pacts.tracks import TrackDTO, TrackRepositoryProtocol
 
 
 # NOTE: the wizard stores the presenter name under this key; the gate writes
@@ -136,3 +138,18 @@ class ProposeSessionServiceProtocol(Protocol):
         user_slug: str | None = None,
         language: str,
     ) -> ProposeSessionResult: ...
+
+
+class WizardData(TypedDict, total=False):
+    category_id: int
+    contact_email: str
+    personal_data: dict[str, str]
+    session_data: dict[str, FieldValue | int]
+    time_slot_ids: list[int]
+    track_pks: list[int]
+
+
+@dataclass
+class ProposeSessionResult:
+    session_id: int
+    title: str

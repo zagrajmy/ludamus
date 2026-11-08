@@ -2,11 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    PromotionMode,
     PromotionStateDTO,
     SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)

@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     ProposalDraft,
@@ -13,6 +14,7 @@ from ludamus.pacts.panel import (
     SourceRowIdMissingError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionStatus
 from tests.unit.factories import FakeTransaction
 
 _EXISTING_SESSION_ID = 99

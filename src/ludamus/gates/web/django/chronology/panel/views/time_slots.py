@@ -18,13 +18,13 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import TimeSlotForm
 from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, cfp_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
-from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts.legacy import EventDTO, TimeSlotDTO
+    from ludamus.pacts.event import EventDTO, TimeSlotDTO
 
 
 class _TimeSlotsContext(PanelNavContext):

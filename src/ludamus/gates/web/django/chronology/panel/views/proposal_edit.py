@@ -36,20 +36,15 @@ from ludamus.gates.web.django.forms import (
     SessionEditForm,
     create_proposal_form,
 )
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.images import parse_uploaded_file, stored_file
-from ludamus.pacts.legacy import (
-    NotFoundError,
-    PersonalDataFieldValueData,
-    RedirectError,
-    SessionContentEditData,
-    SessionData,
-    SessionFieldValueData,
-    SessionStatus,
-)
 from ludamus.pacts.panel import ProposalDraft, ProposalEdit
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionContentEditData, SessionData, SessionStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -58,13 +53,13 @@ if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
     from ludamus.gates.web.django.panel import PanelRequest
+    from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.fields import FieldDescriptor, OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        FacilitatorDTO,
+    from ludamus.pacts.panel import ProposalFormDTO, ProposalFormFieldsDTO
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
     )
-    from ludamus.pacts.panel import ProposalFormDTO, ProposalFormFieldsDTO
 
 
 @dataclass(frozen=True)

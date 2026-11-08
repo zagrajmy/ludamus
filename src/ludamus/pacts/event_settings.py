@@ -14,15 +14,14 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.event import (
         EventProposalSettingsDTO,
         EventProposalSettingsRepositoryProtocol,
         EventRepositoryProtocol,
         EventUpdateData,
-        ProposalCategoryRepositoryProtocol,
-        SessionFieldRepositoryProtocol,
     )
+    from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldRepositoryProtocol
+    from ludamus.pacts.proposal_categories import ProposalCategoryRepositoryProtocol
 
 
 @dataclass

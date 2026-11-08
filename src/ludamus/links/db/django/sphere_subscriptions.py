@@ -20,7 +20,7 @@ from ludamus.pacts.dashboard import (
     SphereSubscriptionRepositoryProtocol,
     SubscriptionRecipientDTO,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:

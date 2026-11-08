@@ -5,14 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.enrollment import open_windows
+from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
 from ludamus.pacts.event_page import (
     EnrollmentNoticesDTO,
     EventScheduleServiceProtocol,
     ViewerSeatsDTO,
 )
 from ludamus.pacts.ids import SessionId
-from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -20,9 +19,8 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import SessionCardDTO
     from ludamus.pacts.enrollment import EnrollmentWindowRepositoryProtocol
     from ludamus.pacts.event_page import EventScheduleRepositoryProtocol
-    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldRepositoryProtocol
     from ludamus.pacts.ids import EventId, UserId
-    from ludamus.pacts.legacy import SessionFieldRepositoryProtocol
 
 
 class EventScheduleService(EventScheduleServiceProtocol):

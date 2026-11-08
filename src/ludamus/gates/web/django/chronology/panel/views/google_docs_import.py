@@ -53,8 +53,8 @@ if TYPE_CHECKING:
     from django.http import QueryDict
 
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.fields import SessionFieldType
-    from ludamus.pacts.legacy import EventDTO
 
 SESSION_COLUMNS = (
     "title",

@@ -4,16 +4,15 @@ from datetime import UTC, datetime
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.mapping import dedup_ident
 from ludamus.pacts.chronology import EventIntegrationDTO
-from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import (
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import (
+    OrganizerFieldDTO,
     PersonalDataFieldValueData,
-    SessionDTO,
     SessionFieldValueData,
     SessionFieldValueDTO,
-    SessionUpdateData,
 )
+from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
 from ludamus.pacts.submissions import (
     ApplyFieldLayoutResult,
     EntityRef,

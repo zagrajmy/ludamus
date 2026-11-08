@@ -38,25 +38,23 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
     Window,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventPublicationInvalidError
-from ludamus.pacts.legacy import (
-    AgendaItemDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogData,
-    SessionStatus,
-    TrackSessionCountsDTO,
-)
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.timetable import (
+    AgendaItemDTO,
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
     PlacementRejection,
+    ScheduleChangeAction,
+    ScheduleChangeLogData,
     TimetableChangeLogDTO,
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
     TimetableSessionDetailDTO,
     UnscheduledSessionsDTO,
 )
+from ludamus.pacts.tracks import TrackSessionCountsDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -66,17 +64,15 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.legacy import (
-        EventDTO,
-        FacilitatorDTO,
+    from ludamus.pacts.event import EventDTO, TimeSlotDTO
+    from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
-        SpaceDTO,
-        TimeSlotDTO,
-        UnscheduledSessionFilter,
     )
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.timetable import TimetableRepos
+    from ludamus.pacts.timetable import TimetableRepos, UnscheduledSessionFilter
+    from ludamus.pacts.venues import SpaceDTO
 
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:

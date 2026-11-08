@@ -40,17 +40,13 @@ from ludamus.links.db.django.repositories.sessions import (
 )
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
-from ludamus.pacts.enrollment import open_windows
+from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
-from ludamus.pacts.legacy import (
-    NO_LOCATION,
-    AgendaItemDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionParticipationStatus,
-    SessionStatus,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import SessionFieldValueDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import NO_LOCATION
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -59,7 +55,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.ids import EventId, UserId
-    from ludamus.pacts.legacy import LocationData
+    from ludamus.pacts.venues import LocationData
 
 
 class _SessionRow(BaseModel):

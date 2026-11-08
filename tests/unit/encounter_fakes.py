@@ -11,7 +11,7 @@ from ludamus.pacts.encounter import (
     EncountersPolicy,
     InviteeStatus,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from tests.unit.factories import FakeTransaction, FakeUsers
 
 CREATOR_ID = 10

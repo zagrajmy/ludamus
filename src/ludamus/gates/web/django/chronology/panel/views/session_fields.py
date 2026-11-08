@@ -23,7 +23,8 @@ from ludamus.gates.web.django.panel import (
     cfp_tab_urls,
     parse_requirement_selection,
 )
-from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import DEFAULT_FIELD_MAX_LENGTH
 
 
 class SessionFieldsPageView(EventPanelMixin, View):

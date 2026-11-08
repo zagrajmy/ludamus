@@ -12,7 +12,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_room_lanes,
     build_schedule_days,
 )
-from ludamus.pacts.legacy import AgendaItemDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from tests.integration.web.chronology.helpers import (
     loc_dict,
     make_session_data,

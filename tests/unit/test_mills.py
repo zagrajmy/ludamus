@@ -11,7 +11,8 @@ from ludamus.mills.submissions.mapping import (
     resolve_builtins,
     session_field_values,
 )
-from ludamus.pacts.legacy import EventDTO, SessionFieldValueData
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.submissions import (
     FieldDefinition,
     FieldDefinitions,

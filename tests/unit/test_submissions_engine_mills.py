@@ -5,18 +5,16 @@ import pytest
 from ludamus.mills.submissions.engine import FieldIdsByHeader, ImportEngine
 from ludamus.mills.submissions.mapping import dedup_ident
 from ludamus.pacts.chronology import EventIntegrationDTO
-from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import (
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import (
+    OrganizerFieldDTO,
     PersonalDataFieldValueData,
-    SessionData,
-    SessionDTO,
     SessionFieldValueData,
     SessionFieldValueDTO,
-    SessionUpdateData,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionData, SessionDTO, SessionUpdateData
 from ludamus.pacts.submissions import (
     EntityRef,
     FieldDefinition,

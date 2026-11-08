@@ -10,11 +10,8 @@ from django.utils.translation import ngettext
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts.chronology import SessionAvailability
-from ludamus.pacts.legacy import (
-    EventListItemDTO,
-    SessionParticipationStatus,
-    TimeSlotDTO,
-)
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.event import EventListItemDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
@@ -27,15 +24,12 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.enrollment import EnrollmentAccessDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldValueDTO
     from ludamus.pacts.guild import GuildMarkDTO
     from ludamus.pacts.ids import EventId, UserId
-    from ludamus.pacts.legacy import (
-        AgendaItemDTO,
-        LocationData,
-        SessionDTO,
-        SessionFieldValueDTO,
-    )
+    from ludamus.pacts.sessions import SessionDTO
+    from ludamus.pacts.timetable import AgendaItemDTO
+    from ludamus.pacts.venues import LocationData
 
 
 @dataclass(frozen=True)

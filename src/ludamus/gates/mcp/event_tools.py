@@ -27,8 +27,8 @@ from ludamus.pacts.event import (
     EventDatesInvalidError,
     EventPublicationInvalidError,
     EventSlugConflictError,
+    EventVisibility,
 )
-from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.mcp import ToolScope
 
 # What `Event.address` holds.
@@ -36,7 +36,7 @@ ADDRESS_MAX_LENGTH = 255
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import OrganizerToolProtocol
-    from ludamus.pacts.legacy import EventUpdateData
+    from ludamus.pacts.event import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 

@@ -6,7 +6,10 @@ from ludamus.mills.enrollment_member_options import (
     skip_reason,
 )
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
-from ludamus.pacts.enrollment import EnrollmentWindowSnapshot
+from ludamus.pacts.enrollment import (
+    EnrollmentWindowSnapshot,
+    SessionParticipationStatus,
+)
 from ludamus.pacts.enrollment_member import (
     EnrollHelp,
     EnrollmentChoice,
@@ -14,7 +17,6 @@ from ludamus.pacts.enrollment_member import (
     RosterMember,
     SkipReason,
 )
-from ludamus.pacts.legacy import SessionParticipationStatus
 from tests.unit.factories import user_dto
 
 Label = EnrollOptionLabel

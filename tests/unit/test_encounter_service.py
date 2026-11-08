@@ -13,7 +13,7 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     RSVPOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,

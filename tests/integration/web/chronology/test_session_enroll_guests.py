@@ -17,7 +17,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment_member import SessionUserParticipationData
-from ludamus.pacts.legacy import EventDTO
+from ludamus.pacts.event import EventDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import enroll_session, stored_seats

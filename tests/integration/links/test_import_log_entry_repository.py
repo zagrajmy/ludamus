@@ -7,7 +7,8 @@ import pytest
 from ludamus.links.db.django.models import Connection, EventIntegration, Session
 from ludamus.links.db.django.repositories import ImportLogEntryRepository
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.legacy import NotFoundError, SessionStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.submissions import ImportLogEntryCreateData, ImportLogStatus
 from tests.integration.conftest import EventFactory, SphereFactory
 

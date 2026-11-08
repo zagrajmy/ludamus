@@ -9,23 +9,17 @@ unit-testable with fakes.
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol, Self
+from enum import StrEnum, auto
+from typing import TYPE_CHECKING, Literal, Protocol, Self, TypedDict
 
 from pydantic import BaseModel, ConfigDict
-
-from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.legacy import (
-        EnrollmentConfigRepositoryProtocol,
-        EventDTO,
-        TicketAPIProtocol,
-        VirtualEnrollmentConfig,
-    )
+    from ludamus.pacts.event import EventDTO
+    from ludamus.pacts.ids import HasPk
     from ludamus.pacts.party import HeldSeatNotification
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
@@ -757,3 +751,103 @@ class AnonymousEnrollmentServiceProtocol(Protocol):
     def load_by_code(self, *, code: str) -> AnonymousLoadDTO: ...
 
     def event_slug_by_id(self, event_id: int) -> str | None: ...
+
+
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class SessionParticipationStatus(StrEnum):
+    CONFIRMED = auto()
+    WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class EnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allow_anonymous_enrollment: bool
+    banner_text: str
+    end_time: datetime
+    event_id: int
+    limit_to_end_time: bool
+    max_waitlist_sessions: int
+    percentage_slots: int
+    pk: int
+    restrict_to_configured_users: bool
+    start_time: datetime
+
+
+class UserEnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allowed_slots: int
+    enrollment_config_id: int
+    fetched_from_api: bool
+    last_check: datetime | None
+    pk: int
+    user_email: str
+
+
+class DomainEnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    enrollment_config_id: int
+    domain: str
+    allowed_slots_per_user: int
+
+
+class EnrollmentConfigRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_list(event_id: int) -> list[EnrollmentConfigDTO]: ...
+    @staticmethod
+    def create_user_config(
+        user_enrollment_config: UserEnrollmentConfigData,
+    ) -> UserEnrollmentConfigDTO: ...
+    @staticmethod
+    def read_user_config(
+        config: HasPk, user_email: str
+    ) -> UserEnrollmentConfigDTO | None: ...
+    @staticmethod
+    def update_user_config(user_enrollment_config: UserEnrollmentConfigDTO) -> None: ...
+    @staticmethod
+    def read_domain_config(
+        enrollment_config: HasPk, domain: str
+    ) -> DomainEnrollmentConfigDTO | None: ...
+
+
+class TicketAPIProtocol(Protocol):
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
+
+
+@dataclass
+class VirtualEnrollmentConfig:
+    user_slots: int = 0
+    domain_slots: int = 0
+    domain: str = ""
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
+
+
+class MembershipAPIError(Exception):
+    pass
+
+
+class UserEnrollmentConfigData(TypedDict):
+    allowed_slots: int
+    enrollment_config_id: int
+    fetched_from_api: bool
+    last_check: datetime | None
+    user_email: str

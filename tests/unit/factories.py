@@ -3,14 +3,11 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
-from ludamus.pacts.legacy import (
-    EventDTO,
-    NotFoundError,
-    ProposalCategoryDTO,
-    SessionDTO,
-    SessionStatus,
-    TrackDTO,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.tracks import TrackDTO
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)

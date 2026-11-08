@@ -14,14 +14,8 @@ from ludamus.specs.permissions import sphere_access
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.encounter import EncounterRepositoryProtocol
+    from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.legacy import (
-        EventDTO,
-        EventRepositoryProtocol,
-        SphereDTO,
-        SphereRepositoryProtocol,
-        SphereUpdateData,
-    )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
         AnnouncementDTO,
@@ -31,9 +25,12 @@ if TYPE_CHECKING:
         EncryptorProtocol,
         SphereAccessDTO,
         SphereDirectoryRepositoryProtocol,
+        SphereDTO,
         SphereListItemDTO,
+        SphereRepositoryProtocol,
         SphereRole,
         SphereSettingsPatch,
+        SphereUpdateData,
     )
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
     from ludamus.pacts.services import TransactionProtocol

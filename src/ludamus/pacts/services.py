@@ -5,7 +5,10 @@ and reached from gates: the transaction adapter and the flat
 `request.services` namespace.
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
+
+from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -56,6 +59,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
+    from ludamus.pacts.ids import SiteId, SphereId, UserId
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
@@ -260,3 +264,26 @@ class ServicesProtocol(Protocol):
     def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+
+
+@dataclass
+class RequestContext:
+    current_site_id: SiteId
+    current_sphere_id: SphereId
+    root_site_id: SiteId
+    root_sphere_id: SphereId
+    current_user_slug: str | None = None
+    current_user_id: UserId | None = None
+    current_sphere_visibility: SphereVisibility = SphereVisibility.PUBLIC
+
+
+@dataclass
+class AuthenticatedRequestContext(RequestContext):
+    current_user_slug: str
+    current_user_id: UserId
+
+
+class RootRequestProtocol(Protocol):
+    path: str
+    services: ServicesProtocol
+    context: RequestContext

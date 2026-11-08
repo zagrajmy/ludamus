@@ -13,11 +13,9 @@ from ludamus.mills.submissions.personal_data_fields import (
     log_facilitator_changes,
     log_facilitator_deletion,
 )
-from ludamus.pacts.legacy import (
-    FacilitatorData,
-    NotFoundError,
-    PersonalDataFieldValueData,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorData
+from ludamus.pacts.fields import PersonalDataFieldValueData
 from ludamus.pacts.panel import (
     FACILITATOR_BUILTIN_KEYS,
     MIN_MERGE_FACILITATORS,
@@ -41,14 +39,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        ContentFieldChange,
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogData,
         FacilitatorChangeLogDTO,
         FacilitatorDTO,
         FacilitatorUpdateData,
     )
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.panel import (
         FacilitatorCreateData,
         FacilitatorListQuery,
@@ -57,6 +54,7 @@ if TYPE_CHECKING:
         PanelColumnsContextDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sessions import ContentFieldChange
     from ludamus.pacts.submissions import FacilitatorListFilters
 
 

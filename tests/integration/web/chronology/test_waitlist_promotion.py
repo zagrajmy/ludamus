@@ -18,8 +18,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.enrollment import OfferDTO
-from ludamus.pacts.legacy import NotificationKind, PromotionMode
+from ludamus.pacts.enrollment import OfferDTO, PromotionMode
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,

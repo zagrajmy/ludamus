@@ -15,7 +15,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (
     AgendaItemFactory,

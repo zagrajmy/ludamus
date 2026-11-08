@@ -20,8 +20,12 @@ from ludamus.gates.web.django.forms import (
     PersonalDataFieldForm,
 )
 from ludamus.gates.web.django.panel import PanelRequest, cfp_tab_urls
-from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
-from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import (
+    DEFAULT_FIELD_MAX_LENGTH,
+    FieldTypeSwitchError,
+    is_text_field_kind,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

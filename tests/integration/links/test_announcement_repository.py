@@ -2,7 +2,7 @@ import pytest
 
 from ludamus.links.db.django.models import Announcement
 from ludamus.links.db.django.repositories import AnnouncementsRepository
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import AnnouncementData, AnnouncementDTO
 
 

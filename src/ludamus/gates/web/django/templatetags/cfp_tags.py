@@ -13,11 +13,9 @@ from ludamus.pacts.durations import HOUR_UNIT, MINUTE_UNIT, format_duration
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.legacy import (
-        ProposalCategoryDTO,
-        SessionDTO,
-        SessionFieldValueDTO,
-    )
+    from ludamus.pacts.fields import SessionFieldValueDTO
+    from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+    from ludamus.pacts.sessions import SessionDTO
 
 register = template.Library()
 

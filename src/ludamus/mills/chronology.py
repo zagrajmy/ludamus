@@ -26,18 +26,16 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
-from ludamus.pacts.legacy import (
-    EventDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogData,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
+from ludamus.pacts.sessions import (
     SessionContentEditData,
     SessionDTO,
-    SessionFieldValueData,
     SessionSelfEditContext,
     SessionStatus,
 )
 from ludamus.pacts.submissions import is_empty_answer
+from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
@@ -48,22 +46,26 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import ProposalAcceptedNotifierProtocol
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
-    from ludamus.pacts.legacy import (
-        AgendaItemRepositoryProtocol,
+    from ludamus.pacts.event import EventDTO, TimeSlotDTO
+    from ludamus.pacts.fields import (
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.multiverse import SphereRepositoryProtocol
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sessions import (
         ContentChangeLogData,
         ContentChangeLogDTO,
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
-        ScheduleChangeLogRepositoryProtocol,
-        SessionFieldRepositoryProtocol,
-        SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
-        SphereRepositoryProtocol,
-        TimeSlotDTO,
     )
-    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import (
+        AgendaItemRepositoryProtocol,
+        ScheduleChangeLogRepositoryProtocol,
+    )
 
 
 def _announce_acceptance(

@@ -24,6 +24,8 @@ from ludamus.gates.web.django.event.enroll_forms import (
     build_enroll_form,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
+from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.enrollment_member import (
     AccessProblem,
     AllowanceSpentError,
@@ -36,7 +38,6 @@ from ludamus.pacts.enrollment_member import (
     SkipReason,
 )
 from ludamus.pacts.ids import SessionId, UserId
-from ludamus.pacts.legacy import RedirectError, SessionParticipationStatus
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

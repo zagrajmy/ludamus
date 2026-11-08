@@ -16,7 +16,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TrackForm
 from ludamus.gates.web.django.request_ids import parse_ids
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
     TrackFormData,

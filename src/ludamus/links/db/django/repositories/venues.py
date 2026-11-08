@@ -20,23 +20,22 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories import slugs
 from ludamus.links.db.django.repositories.constraints import violates_constraint
-from ludamus.pacts.legacy import (
-    NotFoundError,
-    SpaceDTO,
-    SpaceRepositoryProtocol,
-    TimeSlotDTO,
-    TimeSlotRepositoryProtocol,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO, TimeSlotRepositoryProtocol
+from ludamus.pacts.tracks import (
+    DuplicateTrackNameError,
     TrackCreateData,
     TrackDTO,
+    TrackFormData,
     TrackListItemDTO,
     TrackRepositoryProtocol,
-    TrackUpdateData,
 )
-from ludamus.pacts.tracks import DuplicateTrackNameError
 from ludamus.pacts.venues import (
     ProgrammeSpaceRowDTO,
+    SpaceDTO,
     SpaceInputDTO,
     SpaceRecordDTO,
+    SpaceRepositoryProtocol,
     SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
     SpaceValidationError,
@@ -533,7 +532,7 @@ class TrackRepository(TrackRepositoryProtocol):
         return Track.objects.create(event_id=event_id, slug=slug, name=name).pk
 
     @transaction.atomic
-    def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:
+    def update(self, pk: int, data: TrackFormData) -> TrackDTO:
         try:
             track = Track.objects.select_for_update().get(pk=pk)
             Event.objects.select_for_update().get(pk=track.event_id)

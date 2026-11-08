@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.ids import HasPk
-from ludamus.pacts.legacy import ProposalCategoryData
+from ludamus.pacts.proposal_categories import ProposalCategoryData
 from ludamus.pacts.submissions import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,

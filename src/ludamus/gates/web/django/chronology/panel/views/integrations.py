@@ -19,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.forms import (
     integration_signature,
 )
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.chronology import (
     CheckOutcome,
     EventIntegrationCreateData,
@@ -27,7 +28,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.legacy import NotFoundError, RedirectError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

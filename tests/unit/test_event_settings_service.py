@@ -3,20 +3,18 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event_settings import EventSettingsService
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
+    EventDTO,
+    EventProposalSettingsDTO,
     EventPublicationInvalidError,
     EventSlugConflictError,
+    EventUpdateData,
 )
 from ludamus.pacts.event_settings import EventSettingsRepos, ProposalSettingsUpdateData
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import (
-    EventDTO,
-    EventProposalSettingsDTO,
-    EventUpdateData,
-    NotFoundError,
-    ProposalCategoryDTO,
-)
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, event_dto
 

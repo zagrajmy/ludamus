@@ -13,29 +13,27 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.enrollment import SessionSeatsDTO
-from ludamus.pacts.fields import SessionFieldType
-from ludamus.pacts.ids import EventId
-from ludamus.pacts.legacy import (
-    AgendaItemDTO,
-    ContentChangeLogDTO,
-    EventDTO,
-    LocationData,
-    SessionContentEditData,
-    SessionDTO,
+from ludamus.pacts.enrollment import SessionParticipationStatus, SessionSeatsDTO
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.fields import (
+    SessionFieldType,
     SessionFieldValueData,
     SessionFieldValueDTO,
-    SessionParticipationStatus,
-    SessionSelfEditContext,
-    SpaceDTO,
-    SpaceOptionDTO,
-    TimeSlotDTO,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.party import PartyDTO
+from ludamus.pacts.sessions import (
+    ContentChangeLogDTO,
+    SessionContentEditData,
+    SessionDTO,
+    SessionSelfEditContext,
+)
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import LocationData, SpaceDTO, SpaceOptionDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
-    from ludamus.pacts.legacy import SessionUpdateData
+    from ludamus.pacts.sessions import SessionUpdateData
     from ludamus.pacts.submissions import ImportRow
 
 

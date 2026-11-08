@@ -20,7 +20,7 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
     ReplyOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter_calendar import EncounterGuests

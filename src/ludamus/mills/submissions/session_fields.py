@@ -2,17 +2,19 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import FieldUsageSummary
+from ludamus.pacts.fields import FieldUsageSummary
 from ludamus.pacts.submissions import CFPSessionFieldServiceProtocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        ProposalCategoryDTO,
-        ProposalCategoryRepositoryProtocol,
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
         SessionFieldCreateData,
         SessionFieldRepositoryProtocol,
         SessionFieldUpdateData,
+    )
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoryDTO,
+        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import RequirementSelectionDTO

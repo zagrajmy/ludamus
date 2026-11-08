@@ -27,8 +27,8 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     RSVPOutcome,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import NotFoundError
 
 from .forms import EncounterForm
 

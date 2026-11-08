@@ -6,39 +6,48 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
-
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.guild import GuildRepositoryProtocol
-    from ludamus.pacts.legacy import (
-        AgendaItemDTO,
-        AgendaItemRepositoryProtocol,
+    from ludamus.pacts.event import (
+        EventRepositoryProtocol,
+        FacilitatorListItemDTO,
+        TimeSlotDTO,
+        TimeSlotRepositoryProtocol,
+    )
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
+        FacilitatorRepositoryProtocol,
+    )
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.guild import GuildRepositoryProtocol
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
-        ScheduleChangeLogDTO,
-        ScheduleChangeLogRepositoryProtocol,
+        SessionFieldRequirementDTO,
+    )
+    from ludamus.pacts.sessions import (
         SessionContentEditData,
         SessionData,
         SessionDTO,
-        SessionFieldRepositoryProtocol,
-        SessionFieldRequirementDTO,
-        SessionFieldValueDTO,
         SessionListItemDTO,
         SessionRepositoryProtocol,
-        TimeSlotDTO,
-        TimeSlotRepositoryProtocol,
-        TrackDTO,
-        TrackRepositoryProtocol,
     )
+    from ludamus.pacts.timetable import (
+        AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
+        ScheduleChangeLogDTO,
+        ScheduleChangeLogRepositoryProtocol,
+    )
+    from ludamus.pacts.tracks import TrackDTO, TrackRepositoryProtocol
 
 
 class SourceRowIdMissingError(Exception):
@@ -326,16 +335,11 @@ class ProposalPageServiceProtocol(Protocol):
     ) -> None: ...
 
 
-class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):
-    @staticmethod
-    def lock(event_id: int) -> None: ...
-
-
 @dataclass
 class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
-    events: FacilitatorPanelEventRepositoryProtocol
+    events: EventRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol

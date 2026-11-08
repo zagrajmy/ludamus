@@ -14,6 +14,7 @@ from ludamus.mills.konwencik import (
     KonwencikExportService,
 )
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,
@@ -24,8 +25,9 @@ from ludamus.pacts.konwencik import (
     KonwencikSettingsContext,
     KonwencikSkipReason,
 )
-from ludamus.pacts.legacy import AgendaItemDTO, NotFoundError, SpaceDTO
 from ludamus.pacts.sheets import SheetExportError
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import track_dto
 
 WARSAW = ZoneInfo("Europe/Warsaw")

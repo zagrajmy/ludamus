@@ -35,30 +35,29 @@ from ludamus.pacts.chronology import (
     SessionSeatDTO,
 )
 from ludamus.pacts.durations import duration_minutes
-from ludamus.pacts.legacy import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    UNSCHEDULED_LIST_LIMIT,
-    AgendaItemDTO,
-    ConfirmationSessionRow,
-    EventDTO,
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
+from ludamus.pacts.sessions import (
     SessionData,
     SessionDTO,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
     SessionListFilters,
     SessionListItemDTO,
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
-    SpaceOptionDTO,
-    TimeSlotDTO,
-    TrackDTO,
-    TrackSessionCountsDTO,
+)
+from ludamus.pacts.timetable import (
+    UNSCHEDULED_LIST_LIMIT,
+    AgendaItemDTO,
+    ConfirmationSessionRow,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.tracks import TrackDTO, TrackSessionCountsDTO
+from ludamus.pacts.venues import SpaceOptionDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

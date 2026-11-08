@@ -29,13 +29,11 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.guild import GuildMarkDTO
-from ludamus.pacts.legacy import (
-    AgendaItemDTO,
-    EventDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
+from ludamus.pacts.sessions import SessionDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,

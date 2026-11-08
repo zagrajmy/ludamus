@@ -18,10 +18,11 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     AnonymousSessionContextDTO,
     EnrollmentWindowSnapshot,
 )
-from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES, NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
 

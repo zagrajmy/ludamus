@@ -8,15 +8,13 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        AgendaItemRepositoryProtocol,
-        EventRepositoryProtocol,
-        ProposalCategoryRepositoryProtocol,
-        SessionFieldRepositoryProtocol,
-        SessionRepositoryProtocol,
-        SpaceRepositoryProtocol,
-        TrackRepositoryProtocol,
-    )
+    from ludamus.pacts.event import EventRepositoryProtocol
+    from ludamus.pacts.fields import SessionFieldRepositoryProtocol
+    from ludamus.pacts.proposal_categories import ProposalCategoryRepositoryProtocol
+    from ludamus.pacts.sessions import SessionRepositoryProtocol
+    from ludamus.pacts.timetable import AgendaItemRepositoryProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
 
 
 @dataclass(frozen=True)

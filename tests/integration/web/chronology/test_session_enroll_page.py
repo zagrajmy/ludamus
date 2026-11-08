@@ -28,7 +28,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO
 from ludamus.pacts.enrollment_member import SessionUserParticipationData
-from ludamus.pacts.legacy import EventDTO, NotificationKind
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.enrollment_member import (
     EnrollField,
     EnrollHelp,
@@ -16,7 +17,6 @@ from ludamus.pacts.enrollment_member import (
     EnrollOptionLabel,
     SkipReason,
 )
-from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from ludamus.mills.enrollment_windows import EnrollmentPolicy

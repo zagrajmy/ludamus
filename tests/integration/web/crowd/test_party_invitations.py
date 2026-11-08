@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, Party, PartyMembership
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.party import (
     InvitablePartyDTO,
     PartyConsentMode,

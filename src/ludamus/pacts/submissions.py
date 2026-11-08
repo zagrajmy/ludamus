@@ -12,32 +12,36 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldType, TextFieldKind
-from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.ids import HasPk
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.event import TimeSlotRepositoryProtocol
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
+    )
+    from ludamus.pacts.fields import (
         FieldUsageSummary,
         PersonalDataFieldCreateData,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
-        ProposalCategoryRepositoryProtocol,
         SessionFieldCreateData,
         SessionFieldRepositoryProtocol,
         SessionFieldUpdateData,
-        SessionRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
-        TrackRepositoryProtocol,
     )
+    from ludamus.pacts.ids import HasPk
+    from ludamus.pacts.proposal_categories import ProposalCategoryRepositoryProtocol
+    from ludamus.pacts.sessions import SessionRepositoryProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
 
 
 # --- Proposal import (mapping recipe stored as the integration's settings) ---

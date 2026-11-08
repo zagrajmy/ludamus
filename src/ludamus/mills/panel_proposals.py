@@ -8,7 +8,8 @@ from ludamus.mills.panel_columns import (
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
     FIELD_KEY_PREFIX,
     PROPOSAL_BUILTIN_KEYS,
@@ -27,6 +28,7 @@ from ludamus.pacts.panel import (
     SourceRowIdMissingError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.slugs import unique_slug
 from ludamus.pacts.submissions import is_empty_answer
 
@@ -35,19 +37,15 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.chronology import SessionContentEditServiceProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        ProposalCategoryDTO,
-        SessionData,
-        SessionDTO,
-        SessionListItemDTO,
-    )
     from ludamus.pacts.panel import (
         PanelColumnsContextDTO,
         ProposalEdit,
         ProposalListQuery,
         ProposalRecordRepos,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoryDTO
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sessions import SessionData, SessionDTO, SessionListItemDTO
     from ludamus.pacts.submissions import PersonalDataFieldValueServiceProtocol
 
 

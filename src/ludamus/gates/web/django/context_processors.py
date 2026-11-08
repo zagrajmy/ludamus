@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.legacy import SiteDTO, SphereDTO
+    from ludamus.pacts.multiverse import SiteDTO, SphereDTO
     from ludamus.pacts.notifications import NavbarNotificationsDTO
 
 

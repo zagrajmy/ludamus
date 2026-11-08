@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from unidecode import unidecode
 
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import (
     BoardCategoryFacetDTO,
     BoardSearchDTO,

@@ -29,6 +29,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.gates.web.django.crowd.auth0_client import oauth
 from ludamus.gates.web.django.crowd.forms import SignupAgeForm
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.crowd import (
     MAX_AVATAR_URL_LENGTH,
     MIN_ACCOUNT_AGE,
@@ -36,7 +37,6 @@ from ludamus.pacts.crowd import (
     ClaimOutcome,
     UserData,
 )
-from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

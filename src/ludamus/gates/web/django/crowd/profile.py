@@ -25,7 +25,7 @@ from ludamus.gates.web.django.crowd.helpers import (
     companion_edit_auto_id,
 )
 from ludamus.pacts.crowd import ChangeRequestOutcome, UserDTO
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:

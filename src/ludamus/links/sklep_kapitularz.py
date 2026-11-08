@@ -15,7 +15,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.legacy import MembershipAPIError
+from ludamus.pacts.enrollment import MembershipAPIError
 
 logger = logging.getLogger(__name__)
 

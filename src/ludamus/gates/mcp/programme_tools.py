@@ -19,16 +19,14 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
-from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
     EventDTO,
-    NotFoundError,
-    ProposalCategoryDTO,
-    SessionListItemDTO,
+    FacilitatorListItemDTO,
     TimeSlotDTO,
-    TrackListItemDTO,
+    TimeSlotRejectedError,
 )
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.panel import (
     FacilitatorCreateData,
@@ -37,10 +35,12 @@ from ludamus.pacts.panel import (
     ProposalListQuery,
     SourceRowIdMissingError,
 )
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionListItemDTO
 from ludamus.pacts.submissions import AccreditationType
 from ludamus.pacts.timetable import PlacementRejectedError
-from ludamus.pacts.tracks import TrackSelectionInvalidError
+from ludamus.pacts.tracks import TrackListItemDTO, TrackSelectionInvalidError
 from ludamus.pacts.venues import (
     SpaceInputDTO,
     SpacePatch,

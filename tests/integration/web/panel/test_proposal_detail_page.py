@@ -20,17 +20,16 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.submissions import ImportLogEntryDTO
+from ludamus.pacts.timetable import (
     AgendaItemDTO,
-    FacilitatorDTO,
     ScheduleChangeAction,
     ScheduleChangeLogDTO,
-    SessionDTO,
-    SessionStatus,
-    TimeSlotDTO,
-    TrackDTO,
 )
-from ludamus.pacts.submissions import ImportLogEntryDTO
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,

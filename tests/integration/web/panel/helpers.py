@@ -29,8 +29,9 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.event import FacilitatorListItemDTO
-from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionStatus, SpaceDTO
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.venues import SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,

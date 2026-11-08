@@ -9,8 +9,9 @@ from django.utils import timezone, translation
 from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
 from ludamus.gates.web.django.templatetags.schedule_tags import space_sort_path_json
 from ludamus.pacts.durations import format_duration
+from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.guild import GuildMarkDTO
-from ludamus.pacts.legacy import LocationData, SessionFieldValueDTO
+from ludamus.pacts.venues import LocationData
 from tests.integration.conftest import AgendaItemFactory, SessionFactory
 from tests.integration.web.chronology.helpers import proposal_card, session_card
 

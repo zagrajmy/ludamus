@@ -15,10 +15,10 @@ from django.urls import Resolver404, resolve, reverse
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.url_recovery import strip_trailing_junk
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import RootRequestProtocol
+    from ludamus.pacts.services import RootRequestProtocol
 
 _EVENT_VIEW_NAME = "web:chronology:event"
 

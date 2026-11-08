@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from django.http import QueryDict
 
     from ludamus.pacts.fields import FieldDescriptor, FieldValue, OrganizerFieldDTO
-    from ludamus.pacts.legacy import SessionFieldRequirementDTO
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
 
 type FieldPairs = Sequence[tuple[OrganizerFieldDTO, bool]]
 type WizardData = dict[str, FieldValue | int]

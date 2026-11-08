@@ -39,6 +39,7 @@ from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     UNLIMITED_SLOTS,
     AnonymousEnrollmentRepositoryProtocol,
     AnonymousEventDTO,
@@ -49,8 +50,10 @@ from ludamus.pacts.enrollment import (
     EnrollmentWindowRepositoryProtocol,
     EnrollmentWindowSnapshot,
     OfferDTO,
+    PromotionMode,
     PromotionStateDTO,
     SeatRepositoryProtocol,
+    SessionParticipationStatus,
     SessionSeatingDTO,
     WaitingParticipantDTO,
     allowance_windows,
@@ -62,14 +65,9 @@ from ludamus.pacts.enrollment_member import (
     EnrollSessionDTO,
     MemberEnrollmentRepositoryProtocol,
 )
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.ids import UserId
-from ludamus.pacts.legacy import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    EventDTO,
-    NotFoundError,
-    PromotionMode,
-    SessionParticipationStatus,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

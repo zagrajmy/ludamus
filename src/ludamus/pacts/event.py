@@ -1,18 +1,15 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.guild import GuildMarkDTO
-from ludamus.pacts.legacy import (
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    PanelStatsDTO,
-    SessionStatus,
-    TimeSlotDTO,
-)
+from ludamus.pacts.ids import EventId, SphereId
+from ludamus.pacts.sessions import SessionStatus
+
+if TYPE_CHECKING:
+    from ludamus.pacts.images import UploadedFileProtocol
 
 
 class EventCreateData(TypedDict):
@@ -35,6 +32,212 @@ class EventDatesInvalidError(Exception):
 
 class EventPublicationInvalidError(Exception):
     pass
+
+
+class TimeSlotDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    end_time: datetime
+    pk: int
+    start_time: datetime
+
+
+class EventVisibility(StrEnum):
+    # PUBLIC follows publication_time: hidden before it, listed after it.
+    # UNLISTED opens to anyone with the link whatever the publication time,
+    # and is never listed or announced.
+    PUBLIC = "public"
+    UNLISTED = "unlisted"
+
+
+class EventDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    address: str = ""
+    allow_facilitator_session_edit: bool | None = None
+    auto_confirm_sessions: bool = False
+    description: str
+    end_time: datetime
+    name: str
+    pk: EventId
+    proposal_end_time: datetime | None
+    proposal_start_time: datetime | None
+    publication_time: datetime | None
+    slug: str
+    sphere_id: SphereId
+    start_time: datetime
+    use_session_cover_placeholders: bool = False
+    use_participants_label: bool = False
+    visibility: EventVisibility = EventVisibility.PUBLIC
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
+    logo_url: str = ""
+    logo_original_name: str = ""
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
+
+    @property
+    def is_live(self) -> bool:
+        return self.start_time < datetime.now(tz=UTC) < self.end_time
+
+    @property
+    def is_ended(self) -> bool:
+        return self.end_time < datetime.now(tz=UTC)
+
+    @property
+    def is_published(self) -> bool:
+        return (
+            self.publication_time is not None
+            and self.publication_time <= datetime.now(tz=UTC)
+        )
+
+    @property
+    def is_open(self) -> bool:
+        """Whether anyone with the link may open the event's pages."""
+        return self.is_published or self.visibility is EventVisibility.UNLISTED
+
+    @property
+    def is_proposal_window_open(self) -> bool:
+        """Whether the call for proposals' own dates have come, open or not."""
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
+
+    # Proposals only open on an event with a public page — without one there
+    # is nowhere to send a facilitator.
+    @property
+    def is_proposal_active(self) -> bool:
+        return self.is_open and self.is_proposal_window_open
+
+
+class EventListItemDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    cover_image_url: str = ""
+    description: str
+    end_time: datetime
+    is_ended: bool
+    is_live: bool
+    is_proposal_active: bool
+    is_published: bool
+    name: str
+    session_count: int
+    slug: str
+    start_time: datetime
+    visibility: EventVisibility = EventVisibility.PUBLIC
+
+
+class EventProposalSettingsDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allow_anonymous_proposals: bool
+    description: str
+    pk: int
+
+
+class EventUpdateData(TypedDict, total=False):
+    """Write shape for updating event fields."""
+
+    name: str
+    slug: str
+    description: str
+    address: str
+    logo: UploadedFileProtocol | str
+    cover_image: UploadedFileProtocol | str
+    start_time: datetime
+    end_time: datetime
+    publication_time: datetime | None
+    visibility: EventVisibility
+    proposal_start_time: datetime | None
+    proposal_end_time: datetime | None
+    allow_facilitator_session_edit: bool | None
+    auto_confirm_sessions: bool
+    use_session_cover_placeholders: bool
+    use_participants_label: bool
+
+
+class EventStatsData(BaseModel):
+    """Raw statistics data from the repository."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    pending_proposals: int
+    scheduled_sessions: int
+    total_proposals: int
+    hosts_count: int
+    rooms_count: int
+
+
+class PanelStatsDTO(EventStatsData):
+    """Statistics for the backoffice panel dashboard."""
+
+    total_sessions: int
+
+
+class EventRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
+    @staticmethod
+    def list_for_events_page(
+        sphere_id: int, *, include_hidden: bool
+    ) -> list[EventListItemDTO]: ...
+    @staticmethod
+    def read(pk: int) -> EventDTO: ...
+    @staticmethod
+    def read_by_slug(slug: str, sphere_id: int) -> EventDTO: ...
+    @staticmethod
+    def get_stats_data(event_id: int) -> EventStatsData: ...
+    @staticmethod
+    def update(event_id: int, data: EventUpdateData) -> None: ...
+    @staticmethod
+    def lock(event_id: int) -> None: ...
+
+
+class TimeSlotRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(
+        event_id: int, start_time: datetime, end_time: datetime
+    ) -> TimeSlotDTO: ...
+    @staticmethod
+    def get_or_create(
+        event_id: int, start_time: datetime, end_time: datetime
+    ) -> int: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def has_proposals(pk: int) -> bool: ...
+    @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
+    @staticmethod
+    def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
+    @staticmethod
+    def read(pk: int) -> TimeSlotDTO: ...
+    @staticmethod
+    def read_by_event(event_id: int, pk: int) -> TimeSlotDTO: ...
+    @staticmethod
+    def update(pk: int, start_time: datetime, end_time: datetime) -> TimeSlotDTO: ...
+
+
+class EventProposalSettingsRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
+    def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):

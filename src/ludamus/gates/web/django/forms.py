@@ -25,6 +25,8 @@ from ludamus.pacts.durations import (
     duration_choices,
 )
 from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import EventVisibility
 from ludamus.pacts.fields import UNREQUIRABLE_FIELD_TYPES
 from ludamus.pacts.images import (
     IMAGE_ACCEPT,
@@ -33,7 +35,6 @@ from ludamus.pacts.images import (
     StoredFile,
     resolve_uploaded_file_field,
 )
-from ludamus.pacts.legacy import EventVisibility, PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -42,7 +43,8 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.legacy import SessionFieldRequirementDTO, SessionUpdateData
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
+    from ludamus.pacts.sessions import SessionUpdateData
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]

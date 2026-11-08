@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from django.db.backends.utils import CursorWrapper
     from django.http import HttpRequest, HttpResponseBase
 
-    from ludamus.pacts.legacy import RequestContext
+    from ludamus.pacts.services import RequestContext
 
 type Field = str | int | float | bool | None
 type WideEvent = dict[str, Field]

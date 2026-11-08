@@ -10,8 +10,10 @@ from ludamus.mills.printing import (
     PrintablesReminderService,
     PrintMaterialsService,
 )
-from ludamus.pacts.legacy import AgendaItemDTO, SpaceDTO, TrackDTO
 from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.tracks import TrackDTO
+from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import FakeTransaction, event_dto
 
 

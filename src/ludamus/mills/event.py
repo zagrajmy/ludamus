@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -19,56 +20,54 @@ from ludamus.pacts.event import (
     EventConfirmationsServiceProtocol,
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
+    EventListItemDTO,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventRepositoryProtocol,
     EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    EventStatsData,
     LandingConventionDTO,
     LandingServiceProtocol,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
+    PanelStatsDTO,
     PanelTimeSlotsServiceProtocol,
     TimeSlotRejectedError,
     TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.slugs import SlugCollisionError, unique_slug
+from ludamus.pacts.time_ranges import overlaps
+from ludamus.pacts.timetable import (
     AgendaItemRepositoryProtocol,
     ConfirmationCountsRow,
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    EventStatsData,
-    FacilitatorRepositoryProtocol,
-    NotFoundError,
-    PanelStatsDTO,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SphereRepositoryProtocol,
-    TrackRepositoryProtocol,
 )
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.slugs import SlugCollisionError, unique_slug
-from ludamus.pacts.time_ranges import overlaps
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_GROUP, STATUS_ORDER
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from datetime import datetime
 
-    from ludamus.pacts.legacy import (
-        CacheProtocol,
-        DateTimeRangeProtocol,
+    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.event import (
         EventUpdateData,
         TimeSlotDTO,
         TimeSlotRepositoryProtocol,
     )
+    from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
+    from ludamus.pacts.multiverse import SphereRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.time_ranges import DateTimeRangeProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
 logger = logging.getLogger(__name__)

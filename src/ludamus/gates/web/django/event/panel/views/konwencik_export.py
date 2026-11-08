@@ -17,12 +17,12 @@ from ludamus.gates.web.django.event.panel.views.base import (
     PanelContext,
 )
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportSettings,
     KonwencikSkipReason,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:

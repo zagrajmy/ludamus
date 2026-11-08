@@ -19,9 +19,10 @@ from ludamus.pacts.enrollment import (
     AnonymousSessionContextDTO,
     AnonymousSessionDTO,
     EnrollmentWindowSnapshot,
+    SessionParticipationStatus,
     SessionSeatingDTO,
 )
-from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
+from ludamus.pacts.errors import NotFoundError
 from tests.unit.factories import FakeTransaction
 
 _SESSION_ID = 42

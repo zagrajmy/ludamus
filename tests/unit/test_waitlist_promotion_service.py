@@ -11,6 +11,7 @@ from ludamus.pacts.enrollment import (
     ClaimResult,
     HeldSeatData,
     OfferDTO,
+    PromotionMode,
     PromotionNotification,
     PromotionResult,
     PromotionStateDTO,
@@ -18,7 +19,6 @@ from ludamus.pacts.enrollment import (
     SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from tests.unit.factories import FakeTransaction
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)

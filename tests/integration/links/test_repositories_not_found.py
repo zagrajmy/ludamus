@@ -16,7 +16,8 @@ from ludamus.links.db.django.repositories import (
     SessionRepository,
     SphereRepository,
 )
-from ludamus.pacts.legacy import EventUpdateData, NotFoundError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventUpdateData
 
 MISSING_ID = 99_999_999
 

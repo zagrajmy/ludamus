@@ -8,14 +8,12 @@ from django.http import HttpResponseRedirect
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.gates.web.django.middlewares import AppMiddleware
+from ludamus.gates.web.django.middlewares import AppMiddleware, RedirectErrorMiddleware
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
-from ludamus.inits.request_context import (
-    RedirectErrorMiddleware,
-    RequestContextMiddleware,
-)
+from ludamus.inits.request_context import RequestContextMiddleware
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
-from ludamus.pacts.legacy import RedirectError, RequestContext
+from ludamus.pacts.services import RequestContext
 
 
 @pytest.fixture(name="get_response_mock")

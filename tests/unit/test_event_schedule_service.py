@@ -9,11 +9,10 @@ offered as a filter; a read scoped to another event than the page's.
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills.event_schedule import EventScheduleService
-from ludamus.pacts.enrollment import EnrollmentWindowDTO
+from ludamus.pacts.enrollment import EnrollmentWindowDTO, SessionParticipationStatus
 from ludamus.pacts.event_page import SeatStatusDTO, ViewerSeatsDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.ids import EventId, SessionId, UserId
-from ludamus.pacts.legacy import SessionParticipationStatus
 
 _EVENT = EventId(7)
 _NOW = datetime.now(UTC)

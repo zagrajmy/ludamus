@@ -9,16 +9,14 @@ from ludamus.mills.enrollment import EnrollmentService, EnrollmentSettingsServic
 from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 from ludamus.pacts.enrollment import (
+    DomainEnrollmentConfigDTO,
     EnrollmentAccessDTO,
+    EnrollmentConfigDTO,
     EnrollmentRepos,
     EnrollmentWindowData,
     EnrollmentWindowDTO,
     GuestSeatData,
     InvalidEnrollmentWindowError,
-)
-from ludamus.pacts.legacy import (
-    DomainEnrollmentConfigDTO,
-    EnrollmentConfigDTO,
     MembershipAPIError,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,

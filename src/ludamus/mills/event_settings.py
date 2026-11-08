@@ -4,22 +4,22 @@ import logging
 from typing import TYPE_CHECKING
 
 from ludamus.mills.event import check_event_dates
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventSlugConflictError
 from ludamus.pacts.event_settings import (
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.event_settings import (
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
-    from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
 
 

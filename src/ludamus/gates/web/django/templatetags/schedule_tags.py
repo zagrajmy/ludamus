@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
     from ludamus.gates.web.django.entities import UserInfo
     from ludamus.pacts.guild import GuildMarkDTO
-    from ludamus.pacts.legacy import LocationData
+    from ludamus.pacts.venues import LocationData
 
 register = template.Library()
 

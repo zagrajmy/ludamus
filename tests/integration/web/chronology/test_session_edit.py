@@ -16,7 +16,7 @@ from ludamus.mills.chronology import SessionSelfEditService
 from ludamus.pacts.chronology import SessionEditNotAllowedError
 from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.images import StoredFile
-from ludamus.pacts.legacy import SessionDTO
+from ludamus.pacts.sessions import SessionDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,

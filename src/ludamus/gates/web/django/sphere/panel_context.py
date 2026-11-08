@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.gates.web.django.panel import PanelNav, PanelRequest
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
 class SphereSidebar(PanelNavContext):

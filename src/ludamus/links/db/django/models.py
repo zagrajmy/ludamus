@@ -26,19 +26,19 @@ from ludamus.pacts.crowd import (
 )
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
-from ludamus.pacts.enrollment import open_windows
-from ludamus.pacts.fields import PersonalFieldType, SessionFieldType
-from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.legacy import (
-    DEFAULT_FIELD_MAX_LENGTH,
+from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,
-    EventVisibility,
-    NotificationKind,
     PromotionMode,
-    ScheduleChangeAction,
     SessionParticipationStatus,
-    SessionStatus,
+    open_windows,
 )
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.fields import (
+    DEFAULT_FIELD_MAX_LENGTH,
+    PersonalFieldType,
+    SessionFieldType,
+)
+from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.listing import (
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
@@ -48,8 +48,9 @@ from ludamus.pacts.listing import (
     ListingStatus,
 )
 from ludamus.pacts.multiverse import SphereRole, SphereVisibility
-from ludamus.pacts.notifications import SubscriptionSource
+from ludamus.pacts.notifications import NotificationKind, SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
@@ -57,6 +58,7 @@ from ludamus.pacts.tags import (
     TAG_SLUG_MAX_LENGTH,
 )
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
+from ludamus.pacts.timetable import ScheduleChangeAction
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator

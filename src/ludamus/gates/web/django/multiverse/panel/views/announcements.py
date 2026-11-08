@@ -11,8 +11,9 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
 from ludamus.gates.web.django.multiverse.panel.forms import AnnouncementForm
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts.legacy import NotFoundError, RedirectError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import AnnouncementData
 
 if TYPE_CHECKING:

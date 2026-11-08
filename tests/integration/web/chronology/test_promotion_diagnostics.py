@@ -10,7 +10,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.enrollment import PromotionMode
 from tests.integration.conftest import ProposalCategoryFactory
 
 

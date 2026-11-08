@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from ludamus.links.db.django.recipients import Recipient, Voice
-    from ludamus.pacts.legacy import NotificationKind
+    from ludamus.pacts.notifications import NotificationKind
 
 type Mail = EmailMessage
 

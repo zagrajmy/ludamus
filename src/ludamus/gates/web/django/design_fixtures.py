@@ -13,15 +13,11 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.pacts.legacy import (
-    NO_LOCATION,
-    AgendaItemDTO,
-    LocationData,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionStatus,
-    TimeSlotDTO,
-)
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.fields import SessionFieldValueDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import NO_LOCATION, LocationData
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 

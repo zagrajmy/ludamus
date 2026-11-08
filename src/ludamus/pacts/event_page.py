@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
-from ludamus.pacts.legacy import SessionParticipationStatus
+from ludamus.pacts.enrollment import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection

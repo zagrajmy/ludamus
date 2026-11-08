@@ -7,11 +7,13 @@ from ludamus.mills.multiverse import (
     ConnectionsService,
     SitesService,
 )
-from ludamus.pacts.legacy import NotFoundError, SiteDTO, SphereDTO
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
     ConnectionDTO,
+    SiteDTO,
+    SphereDTO,
     SphereListItemDTO,
 )
 from tests.unit.factories import FakeTransaction

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
@@ -144,3 +145,59 @@ class SpaceTreeServiceProtocol(Protocol):
 class VenuesServiceProtocol(Protocol):
     def list_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]: ...
     def resolve_scope(self, event_pk: int, scope_pk: int | None) -> PrintScopeDTO: ...
+
+
+class LocationData(TypedDict):
+    space_id: int
+    parent_id: int
+    space_name: str
+    parent_name: str
+    path: str
+    sort_path: tuple[tuple[int, str, int], ...]
+    programme_order: int
+
+
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_id": 0,
+    "parent_id": 0,
+    "space_name": "",
+    "parent_name": "",
+    "path": "",
+    "sort_path": (),
+    "programme_order": 0,
+}
+
+
+class SpaceDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    parent_id: int | None = None
+    capacity: int | None
+    creation_time: datetime
+    modification_time: datetime
+    name: str
+    order: int
+    programme_order: int = 0
+    pk: int
+    slug: str
+
+
+class SpaceOptionDTO(BaseModel):
+    # A bookable leaf space as a form choice: its pk, display name, and the
+    # immediate-parent name it groups under (empty for a root-level leaf).
+    pk: int
+    name: str
+    group: str
+
+
+class SpaceRepositoryProtocol(Protocol):
+    @staticmethod
+    def read(pk: int) -> SpaceDTO: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
+    @staticmethod
+    def lock(pk: int) -> None: ...

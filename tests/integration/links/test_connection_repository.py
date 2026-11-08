@@ -10,7 +10,7 @@ from django.db import IntegrityError
 
 from ludamus.links.db.django.models import Connection
 from ludamus.links.db.django.repositories import ConnectionsRepository
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import ConnectionDTO
 
 

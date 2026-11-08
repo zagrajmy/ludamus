@@ -36,7 +36,7 @@ from ludamus.pacts.crowd import (
     UserType,
     VerificationRequestOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.slugs import unique_slug
 from ludamus.specs.email_verification import (

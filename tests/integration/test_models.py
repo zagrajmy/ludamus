@@ -21,8 +21,10 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
-from ludamus.pacts.legacy import EventDTO, NotificationKind, ScheduleChangeAction
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import EventFactory
 
 

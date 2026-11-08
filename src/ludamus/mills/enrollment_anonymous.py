@@ -14,6 +14,7 @@ from ludamus.mills.enrollment_seats import SeatDesk
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.pacts.crowd import UserData, UserDTO
 from ludamus.pacts.enrollment import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     AnonymousActivationDTO,
     AnonymousCancelResultDTO,
     AnonymousEnrollmentError,
@@ -24,12 +25,9 @@ from ludamus.pacts.enrollment import (
     AnonymousEnrollResultDTO,
     AnonymousLoadDTO,
     AnonymousSessionContextDTO,
-)
-from ludamus.pacts.legacy import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    NotFoundError,
     SessionParticipationStatus,
 )
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol

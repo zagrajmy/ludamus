@@ -13,7 +13,7 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalCategoryForm
 from ludamus.gates.web.django.panel import PanelRequest, cfp_tab_urls
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

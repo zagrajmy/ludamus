@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.venues import (
     PrintScopeDTO,
     PrintScopeOptionDTO,
@@ -13,7 +13,7 @@ from ludamus.pacts.venues import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import EventRepositoryProtocol
+    from ludamus.pacts.event import EventRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import (
         ProgrammeSpaceRowDTO,

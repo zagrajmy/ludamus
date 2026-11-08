@@ -12,8 +12,9 @@ from ludamus.links.db.django.models import (
     Shadowban,
 )
 from ludamus.links.db.django.users import display_avatar_url, user_dto
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
-from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
 from ludamus.pacts.safety import (
     EventBanDTO,
     EventBanRepositoryProtocol,

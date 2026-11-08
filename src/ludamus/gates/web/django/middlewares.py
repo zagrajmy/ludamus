@@ -1,9 +1,12 @@
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from django.contrib import messages
 from django.core.handlers.exception import convert_exception_to_response
-from django.http import HttpResponseBase
+from django.http import HttpResponseBase, HttpResponseRedirect
 from django.utils.module_loading import import_string
+
+from ludamus.gates.web.django.redirects import RedirectError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -47,3 +50,24 @@ class AppMiddleware:
             msg = "APP_MIDDLEWARE must be synchronous, as the WSGI handler is."
             raise TypeError(msg)
         return response
+
+
+class RedirectErrorMiddleware:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponseBase]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponseBase:
+        return self.get_response(request)
+
+    @staticmethod
+    def process_exception(  # pylint: disable=no-self-use
+        request: HttpRequest, exception: Exception  # pylint: disable=unused-argument
+    ) -> HttpResponseBase | None:
+        if isinstance(exception, RedirectError):
+            if exception.error:
+                messages.error(request, exception.error)
+            if exception.warning:
+                messages.warning(request, exception.warning)
+            return HttpResponseRedirect(exception.url)
+
+        return None

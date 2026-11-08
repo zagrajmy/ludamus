@@ -22,7 +22,8 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.legacy import MembershipAPIError, NotFoundError
+from ludamus.pacts.enrollment import MembershipAPIError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.multiverse import DecryptionError
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 
     from pydantic import BaseModel
 
-    from ludamus.pacts.legacy import TicketAPIProtocol
+    from ludamus.pacts.enrollment import TicketAPIProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,

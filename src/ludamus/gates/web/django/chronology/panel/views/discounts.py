@@ -21,7 +21,7 @@ from ludamus.gates.web.django.forms import (
 )
 from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, safe_next_url
 from ludamus.pacts.discounts import DiscountData, DiscountKind
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.panel import FacilitatorListQuery
 from ludamus.pacts.submissions import AccreditationType
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.discounts import DiscountDTO
     from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.legacy import FacilitatorDTO
+    from ludamus.pacts.facilitators import FacilitatorDTO
 
 
 class _DiscountAssignment(TypedDict):

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 
 from ludamus.mills.event import require_event_in_sphere
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,
@@ -21,7 +22,6 @@ from ludamus.pacts.konwencik import (
     KonwencikSheetConfig,
     KonwencikSkipReason,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
@@ -29,13 +29,15 @@ if TYPE_CHECKING:
         EventIntegrationDTO,
         EventIntegrationsRepositoryProtocol,
     )
-    from ludamus.pacts.legacy import AgendaItemDTO, SpaceDTO, TrackDTO
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sheets import SheetWriterProtocol
+    from ludamus.pacts.timetable import AgendaItemDTO
+    from ludamus.pacts.tracks import TrackDTO
+    from ludamus.pacts.venues import SpaceDTO
 
 logger = logging.getLogger(__name__)
 

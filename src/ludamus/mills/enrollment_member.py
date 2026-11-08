@@ -21,7 +21,12 @@ from ludamus.mills.enrollment_member_options import (
 )
 from ludamus.mills.enrollment_seats import SeatDesk
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
-from ludamus.pacts.enrollment import SeatHoldRequest, SessionSeatingDTO
+from ludamus.pacts.enrollment import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    SeatHoldRequest,
+    SessionParticipationStatus,
+    SessionSeatingDTO,
+)
 from ludamus.pacts.enrollment_member import (
     INCLUDE_VALUE,
     AccessProblem,
@@ -43,12 +48,8 @@ from ludamus.pacts.enrollment_member import (
     SkippedPerson,
     SkipReason,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import EventId, SessionId, UserId
-from ludamus.pacts.legacy import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    NotFoundError,
-    SessionParticipationStatus,
-)
 from ludamus.pacts.party import PartyConsentMode, PartyEnrolledNotification
 from ludamus.pacts.party import PartyMembershipStatus as MembershipStatus
 
@@ -57,6 +58,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         EnrollmentServiceProtocol,
         EnrollmentWindowSnapshot,
+        VirtualEnrollmentConfig,
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.enrollment_member import (
@@ -65,7 +67,7 @@ if TYPE_CHECKING:
         MemberEnrollQuery,
         MemberEnrollSubmission,
     )
-    from ludamus.pacts.legacy import EventDTO, VirtualEnrollmentConfig
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.party import PartyServiceProtocol, SelectedEnrollmentPartyDTO
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.services import TransactionProtocol

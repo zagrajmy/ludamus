@@ -21,7 +21,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from ludamus.links.db.django.models import AgendaItem, SessionParticipation
-from ludamus.pacts.legacy import OCCUPYING_PARTICIPATION_STATUSES
+from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
 from tests.integration.conftest import SessionFactory, UserFactory, sponsor_user
 
 _REPLAY = Path(__file__).parents[4] / "formal" / "enrollment" / "replay_seats.mjs"

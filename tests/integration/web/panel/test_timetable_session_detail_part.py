@@ -3,7 +3,9 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.pacts.legacy import AgendaItemDTO, EventDTO, SessionDTO
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.sessions import SessionDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

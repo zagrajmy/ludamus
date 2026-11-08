@@ -7,11 +7,11 @@ from ludamus.mills.submissions.personal_data_fields import (
     PersonalDataFieldValueService,
     log_facilitator_deletion,
 )
-from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO
-from ludamus.pacts.legacy import (
-    FacilitatorChangeLogDTO,
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorChangeLogDTO, FacilitatorDTO
+from ludamus.pacts.fields import (
+    FieldTypeSwitchError,
+    OrganizerFieldDTO,
     PersonalDataFieldValueData,
 )
 from ludamus.pacts.slugs import slugify

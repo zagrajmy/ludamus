@@ -30,12 +30,12 @@ from ludamus.gates.web.django.panel import (
     proposal_tab_urls,
 )
 from ludamus.pacts.event import FacilitatorListItemDTO
-from ludamus.pacts.legacy import SessionListItemDTO
 from ludamus.pacts.panel import (
     FACILITATOR_BUILTIN_KEYS,
     PROPOSAL_BUILTIN_KEYS,
     EmptyColumnSelectionError,
 )
+from ludamus.pacts.sessions import SessionListItemDTO
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:

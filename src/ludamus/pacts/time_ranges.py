@@ -1,11 +1,16 @@
 """The one overlap rule for half-open [start, end) spans."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.legacy import DateTimeRangeProtocol
+
+class DateTimeRangeProtocol(Protocol):
+    """Protocol for objects with start_time and end_time datetime fields."""
+
+    start_time: datetime
+    end_time: datetime
 
 
 def overlaps(*, span: DateTimeRangeProtocol, start: datetime, end: datetime) -> bool:

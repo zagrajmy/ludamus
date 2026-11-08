@@ -19,7 +19,9 @@ from ludamus.links.db.django.models import (
     TimeSlot,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.fields import SessionFieldValueDTO
+from ludamus.pacts.sessions import SessionDTO
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,

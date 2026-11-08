@@ -3,15 +3,12 @@
 import logging
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import (
     FieldTypeSwitchError,
     OrganizerFieldDTO,
-    is_text_field_kind,
-)
-from ludamus.pacts.legacy import (
-    FacilitatorUpdateData,
-    NotFoundError,
     PersonalDataFieldValueRepositoryProtocol,
+    is_text_field_kind,
 )
 from ludamus.pacts.submissions import (
     CFPPersonalDataFieldServiceProtocol,
@@ -20,19 +17,22 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.fields import TextFieldKind
-    from ludamus.pacts.legacy import (
-        ContentFieldChange,
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogData,
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
+        FacilitatorUpdateData,
+    )
+    from ludamus.pacts.fields import (
         PersonalDataFieldCreateData,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         PersonalDataFieldValueData,
+        TextFieldKind,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sessions import ContentFieldChange
 
 
 logger = logging.getLogger(__name__)

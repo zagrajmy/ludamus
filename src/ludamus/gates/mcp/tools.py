@@ -29,7 +29,7 @@ from ludamus.gates.mcp.konwencik_tools import (
 from ludamus.gates.mcp.organizer_context import MaintainerTool, actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolRegistry
-from ludamus.pacts.legacy import EventDTO, EventListItemDTO
+from ludamus.pacts.event import EventDTO, EventListItemDTO
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import (
     AnnouncementData,

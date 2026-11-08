@@ -36,7 +36,8 @@ from ludamus.pacts.dashboard import (
     DashboardRole,
     DashboardSphereDTO,
 )
-from ludamus.pacts.legacy import EncountersPolicy, SessionParticipationStatus
+from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.multiverse import SphereVisibility
 
 if TYPE_CHECKING:

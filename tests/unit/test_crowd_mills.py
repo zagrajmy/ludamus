@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts.crowd import CompanionDTO
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from tests.unit.factories import FakeTransaction, FakeUsers, user_dto
 
 if TYPE_CHECKING:

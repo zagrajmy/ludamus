@@ -28,7 +28,7 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     spots_remaining,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
     CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY,
