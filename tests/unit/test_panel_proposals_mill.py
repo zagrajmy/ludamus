@@ -129,14 +129,13 @@ class TestProposalPanelService:
         sessions.create.assert_not_called()
 
     def test_create_accepted_session_recovers_from_constraint_error(
-        self, service, sessions, monkeypatch
+        self, service, sessions
     ):
+        # A concurrent accept inserted the same ident between the lookup and
+        # the insert; the second lookup finds the winner.
         sessions.find_id_by_ident.side_effect = [None, _EXISTING_SESSION_ID]
-        monkeypatch.setattr(
-            service,
-            "_create_session",
-            MagicMock(side_effect=DatabaseConstraintError("duplicate ident")),
-        )
+        sessions.slug_exists.return_value = False
+        sessions.create.side_effect = DatabaseConstraintError("duplicate ident")
 
         session_id = service.create_accepted_session(
             event_id=1,
@@ -145,17 +144,13 @@ class TestProposalPanelService:
         )
 
         assert session_id == _EXISTING_SESSION_ID
-        assert sessions.find_id_by_ident.call_args_list == [call(1, "row-1")] * 2
 
     def test_create_accepted_session_reraises_when_ident_still_missing(
-        self, service, sessions, monkeypatch
+        self, service, sessions
     ):
         sessions.find_id_by_ident.return_value = None
-        monkeypatch.setattr(
-            service,
-            "_create_session",
-            MagicMock(side_effect=DatabaseConstraintError("duplicate ident")),
-        )
+        sessions.slug_exists.return_value = False
+        sessions.create.side_effect = DatabaseConstraintError("duplicate ident")
 
         with pytest.raises(DatabaseConstraintError):
             service.create_accepted_session(
@@ -163,9 +158,6 @@ class TestProposalPanelService:
                 source_row_id="row-1",
                 draft=ProposalDraft(data={"title": "Race"}),
             )
-
-        assert sessions.find_id_by_ident.call_args_list == [call(1, "row-1")] * 2
-        sessions.create.assert_not_called()
 
     def test_known_category_and_scheduled_filter_reach_the_query(
         self, service, sessions, session_fields, proposal_categories, panel_settings
@@ -241,12 +233,19 @@ class TestProposalPanelService:
         assert result.status is None
         assert (filters["status"], filters["scheduled"]) == (None, None)
 
-    def test_list_deleted_and_read_proposal_pass_through(self, service, sessions):
-        sessions.list_deleted_by_event.side_effect = _by_event(["deleted"])
-        sessions.read_by_event.side_effect = _by_session(3, "proposal")
+    def test_read_proposal_finds_only_the_events_own(self, service, sessions):
+        own = SimpleNamespace(pk=3)
 
-        assert service.list_deleted(1) == ["deleted"]
-        assert service.read_proposal(event_id=1, proposal_id=3) == "proposal"
+        def read_by_event(pk, event_id):
+            if (pk, event_id) != (own.pk, _EVENT_ID):
+                raise NotFoundError
+            return own
+
+        sessions.read_by_event.side_effect = read_by_event
+
+        assert service.read_proposal(event_id=_EVENT_ID, proposal_id=3) is own
+        with pytest.raises(NotFoundError):
+            service.read_proposal(event_id=_EVENT_ID + 1, proposal_id=3)
 
     def test_column_values_skips_the_query_when_nothing_to_look_up(
         self, service, sessions

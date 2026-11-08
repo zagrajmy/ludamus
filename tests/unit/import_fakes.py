@@ -8,9 +8,10 @@ the world back when a savepoint or atomic block raises, as the database would.
 
 import copy
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import count
+from types import SimpleNamespace
 
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
@@ -41,23 +42,28 @@ ATTEMPTED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 _TITLE_MAX_LENGTH = 255
 
 
-@dataclass
-class StoredSession:  # pylint: disable=too-many-instance-attributes
-    event_id: int
-    title: str
-    slug: str
-    status: SessionStatus = SessionStatus.PENDING
-    description: str = ""
-    facilitator_name: str = ""
-    participants_limit: int = 0
-    contact_email: str = ""
-    duration: str = ""
-    category_id: int | None = None
-    ident: str = ""
-    time_slot_ids: list[int] = field(default_factory=list)
-    track_ids: list[int] = field(default_factory=list)
-    facilitator_ids: list[int] = field(default_factory=list)
-    field_values: dict[int, object] = field(default_factory=dict)
+class StoredSession(SimpleNamespace):
+    """A session row with its links; unset columns default as the model's do."""
+
+    def __init__(self, **values) -> None:
+        defaults = {
+            "event_id": EVENT_ID,
+            "title": "",
+            "slug": "",
+            "status": SessionStatus.PENDING,
+            "description": "",
+            "facilitator_name": "",
+            "participants_limit": 0,
+            "contact_email": "",
+            "duration": "",
+            "category_id": None,
+            "ident": "",
+            "time_slot_ids": [],
+            "track_ids": [],
+            "facilitator_ids": [],
+            "field_values": {},
+        }
+        super().__init__(**(defaults | values))
 
 
 @dataclass
@@ -67,33 +73,36 @@ class StoredField:
     data: dict
 
 
-@dataclass
-class ImportWorld:  # pylint: disable=too-many-instance-attributes
-    settings: dict = field(default_factory=dict)
-    responses: list[dict[str, str]] = field(default_factory=list)
-    sessions: dict[int, StoredSession] = field(default_factory=dict)
-    session_fields: dict[int, StoredField] = field(default_factory=dict)
-    personal_fields: dict[int, StoredField] = field(default_factory=dict)
-    personal_values: dict[tuple[int, int, int], object] = field(default_factory=dict)
-    time_slots: dict[int, tuple[int, datetime, datetime]] = field(default_factory=dict)
-    tracks: dict[int, tuple[int, str, str]] = field(default_factory=dict)
-    categories: dict[int, tuple[int, str, str]] = field(default_factory=dict)
-    facilitators: dict[int, FacilitatorDTO] = field(default_factory=dict)
-    facilitator_change_logs: list[dict] = field(default_factory=list)
-    log_entries: dict[int, ImportLogEntryDTO] = field(default_factory=dict)
-    # NOTE: idents another transaction commits after this one looked them
-    # up: invisible to the lookups, still enforced as unique, kept on rollback.
-    idents_claimed_concurrently: set[str] = field(default_factory=set)
-    _pks: dict[str, count] = field(default_factory=dict)
+class ImportWorld(SimpleNamespace):
+    """Every table the importer reads or writes, each keyed by pk."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            settings={},
+            responses=[],
+            sessions={},
+            session_fields={},
+            personal_fields={},
+            personal_values={},
+            time_slots={},
+            tracks={},
+            categories={},
+            facilitators={},
+            facilitator_change_logs=[],
+            log_entries={},
+            # NOTE: idents another transaction commits after this one looked
+            # them up: invisible to lookups, enforced as unique, kept on
+            # rollback.
+            idents_claimed_concurrently=set(),
+            pks={},
+        )
 
     def next_pk(self, table: str) -> int:
-        return next(self._pks.setdefault(table, count(1)))
+        return next(self.pks.setdefault(table, count(1)))
 
     def add_session(self, **values) -> int:
         pk = self.next_pk("sessions")
-        values.setdefault("event_id", EVENT_ID)
         values.setdefault("slug", f"session-{pk}")
-        values.setdefault("title", "")
         self.sessions[pk] = StoredSession(**values)
         return pk
 
@@ -166,7 +175,7 @@ class ImportWorld:  # pylint: disable=too-many-instance-attributes
             {
                 name: value
                 for name, value in vars(self).items()
-                if name not in {"_pks", "idents_claimed_concurrently"}
+                if name not in {"pks", "idents_claimed_concurrently"}
             }
         )
 

@@ -205,16 +205,21 @@ def _tree_service(repo, events=None):
 
 
 class TestSpaceTreeService:
-    def test_reads_pass_through_the_repository(self):
-        repo = FakeSpaces(
-            [_record(pk=1, name="Sala"), _record(pk=2, name="Inna", event_id=9)],
-            tree=_tree(),
-        )
+    def test_a_created_space_is_read_and_listed_in_its_event_only(self):
+        repo = FakeSpaces([_record(pk=1, name="Inna", event_id=9)], tree=_tree())
         service = _tree_service(repo)
 
+        created = service.create(
+            event_id=EVENT_PK,
+            parent_id=None,
+            data=SpaceInputDTO(name="Sala", capacity=None, location=""),
+        )
+
+        assert service.read(event_id=EVENT_PK, pk=created.pk) == created
+        assert [r.name for r in service.list_programme_spaces(EVENT_PK)] == ["Sala"]
+        # NOTE: the tree is built by the repository; the service only hands
+        # it on, so this line is here for the mills coverage gate alone.
         assert service.list_tree(EVENT_PK) == _tree()
-        assert [r.pk for r in service.list_programme_spaces(EVENT_PK)] == [1]
-        assert service.read(event_id=EVENT_PK, pk=1).name == "Sala"
 
     def test_read_refuses_a_space_of_another_event(self):
         repo = FakeSpaces([_record(pk=2, name="Inna", event_id=9)])
