@@ -3,7 +3,12 @@ from typing import cast
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.crowd import AgeBand, UserData, UserType
+from ludamus.pacts.crowd import (
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    AgeBand,
+    UserData,
+    UserType,
+)
 
 # Not an AgeBand: nobody under the minimum age holds an account, so this answer
 # is never stored, only acted on.
@@ -53,7 +58,7 @@ class UserForm(BaseUserForm):
     discord_username = forms.CharField(
         label=_("Discord username"),
         required=False,
-        max_length=150,
+        max_length=PROFILE_DISCORD_USERNAME_MAX_LENGTH,
         help_text=_("Your Discord username for session coordination"),
     )
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast, get_args
 from uuid import uuid4
 
 from django.conf import settings
@@ -19,15 +19,23 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
+from ludamus.pacts.crowd import (
+    MAX_AVATAR_URL_LENGTH,
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    AgeBand,
+    UserType,
+)
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
-from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
+from ludamus.pacts.fields import PersonalFieldType, SessionFieldType
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import (
+    DEFAULT_FIELD_MAX_LENGTH,
     OCCUPYING_PARTICIPATION_STATUSES,
     EventVisibility,
     NotificationKind,
     PromotionMode,
+    ScheduleChangeAction,
     SessionParticipationStatus,
     SessionStatus,
 )
@@ -56,8 +64,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
 
 
-MAX_SLUG_RETRIES = 10
-RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
 # The one sentence for the leaf-parent rule: raised by Space.clean, carried to
@@ -162,7 +168,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     discord_username = models.CharField(
         _("Discord username"),
-        max_length=150,
+        max_length=PROFILE_DISCORD_USERNAME_MAX_LENGTH,
         blank=True,
         help_text=_("Your Discord username for session coordination"),
     )
@@ -1691,11 +1697,16 @@ class NotificationSubscription(models.Model):
         return f"{self.user_id} follows {self.sphere}"
 
 
-class PersonalDataFieldType(models.TextChoices):
-    TEXT = "text", "Text"
-    SELECT = "select", "Select"
-    CHECKBOX = "checkbox", "Checkbox"
-    DISCORD = "discord", "Discord username"
+_FIELD_TYPE_LABELS = {
+    "text": "Text",
+    "select": "Select",
+    "checkbox": "Checkbox",
+    "discord": "Discord username",
+}
+
+
+def _field_type_choices(kinds: tuple[str, ...]) -> list[tuple[str, str]]:
+    return [(kind, _FIELD_TYPE_LABELS[kind]) for kind in kinds]
 
 
 class PersonalDataField(models.Model):
@@ -1709,12 +1720,12 @@ class PersonalDataField(models.Model):
     slug = models.SlugField()
     field_type = models.CharField(
         max_length=20,
-        choices=PersonalDataFieldType.choices,
-        default=PersonalDataFieldType.TEXT,
+        choices=_field_type_choices(get_args(PersonalFieldType.__value__)),
+        default="text",
     )
     is_multiple = models.BooleanField(default=False)
     allow_custom = models.BooleanField(default=False)
-    max_length = models.PositiveIntegerField(default=50)
+    max_length = models.PositiveIntegerField(default=DEFAULT_FIELD_MAX_LENGTH)
     order = models.PositiveIntegerField(default=0)
     help_text = models.TextField(blank=True, default="")
     is_public = models.BooleanField(default=False)
@@ -1731,9 +1742,7 @@ class PersonalDataField(models.Model):
             # A required checkbox forces "yes", so the database refuses the
             # pair however the row gets written.
             models.CheckConstraint(
-                condition=~Q(
-                    field_type=PersonalDataFieldType.CHECKBOX, is_required=True
-                ),
+                condition=~Q(field_type="checkbox", is_required=True),
                 name="personal_data_field_checkbox_not_required",
             ),
         )
@@ -1795,12 +1804,6 @@ class PersonalDataFieldValue(models.Model):
         return f"{self.field.name}: {value_preview}"
 
 
-class SessionFieldType(models.TextChoices):
-    TEXT = "text", "Text"
-    SELECT = "select", "Select"
-    CHECKBOX = "checkbox", "Checkbox"
-
-
 class SessionField(models.Model):
     """Defines a session field for an event (e.g., RPG System, Genre)."""
 
@@ -1811,11 +1814,13 @@ class SessionField(models.Model):
     question = models.CharField(max_length=500)
     slug = models.SlugField()
     field_type = models.CharField(
-        max_length=20, choices=SessionFieldType.choices, default=SessionFieldType.TEXT
+        max_length=20,
+        choices=_field_type_choices(get_args(SessionFieldType.__value__)),
+        default="text",
     )
     is_multiple = models.BooleanField(default=False)
     allow_custom = models.BooleanField(default=False)
-    max_length = models.PositiveIntegerField(default=50)
+    max_length = models.PositiveIntegerField(default=DEFAULT_FIELD_MAX_LENGTH)
     order = models.PositiveIntegerField(default=0)
     help_text = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=50, blank=True)
@@ -1996,13 +2001,15 @@ class EncounterRSVP(models.Model):
         return str(self.user)
 
 
-class EncounterInvitee(models.Model):
-    class Status(models.TextChoices):
-        INVITED = "invited", _("Invited")
-        ACCEPTED = "accepted", _("Accepted")
-        DECLINED = "declined", _("Declined")
-        REMOVED = "removed", _("Removed")
+_INVITEE_STATUS_LABELS = {
+    InviteeStatus.INVITED: _("Invited"),
+    InviteeStatus.ACCEPTED: _("Accepted"),
+    InviteeStatus.DECLINED: _("Declined"),
+    InviteeStatus.REMOVED: _("Removed"),
+}
 
+
+class EncounterInvitee(models.Model):
     # NOTE: kept when the encounter is deleted, keyed to who sent it, so the
     # creator's daily invite limit survives deleting and recreating.
     encounter = models.ForeignKey(
@@ -2013,7 +2020,9 @@ class EncounterInvitee(models.Model):
     )
     email = models.EmailField()
     status = models.CharField(
-        max_length=8, choices=Status.choices, default=Status.INVITED
+        max_length=8,
+        choices=[(s.value, _INVITEE_STATUS_LABELS[s]) for s in InviteeStatus],
+        default=InviteeStatus.INVITED.value,
     )
     creation_time = models.DateTimeField(auto_now_add=True)
 
@@ -2108,12 +2117,6 @@ class Track(models.Model):
         return self.name
 
 
-class ScheduleChangeAction(models.TextChoices):
-    ASSIGN = "assign", "Assign"
-    UNASSIGN = "unassign", "Unassign"
-    REVERT = "revert", "Revert"
-
-
 class ScheduleChangeLog(models.Model):
     """Audit trail for timetable assignment changes."""
 
@@ -2124,7 +2127,9 @@ class ScheduleChangeLog(models.Model):
         Session, on_delete=models.CASCADE, related_name="schedule_change_logs"
     )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    action = models.CharField(max_length=16, choices=ScheduleChangeAction.choices)
+    action = models.CharField(
+        max_length=16, choices=[(a.value, a.name.title()) for a in ScheduleChangeAction]
+    )
     old_space = models.ForeignKey(
         Space,
         on_delete=models.SET_NULL,

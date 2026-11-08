@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from hashlib import blake2b
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Literal, Never
+from typing import TYPE_CHECKING, Never
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -25,10 +25,12 @@ from ludamus.pacts.submissions import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from ludamus.pacts.fields import SessionFieldType
+
 
 def field_setup(
     definition: FieldDefinition | None,
-) -> tuple[Literal["text", "select", "checkbox"], list[str] | None, bool, bool]:
+) -> tuple[SessionFieldType, list[str] | None, bool, bool]:
     # Map a new-field definition to the (field_type, options, is_multiple,
     # allow_custom) a repo `create` expects; default to a plain text field.
     if definition is None:
