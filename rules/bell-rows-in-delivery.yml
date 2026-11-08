@@ -1,0 +1,27 @@
+id: bell-rows-in-delivery
+language: python
+severity: error
+files:
+  - src/**/*.py
+ignores:
+  - src/ludamus/links/db/django/delivery.py
+  - src/ludamus/links/db/django/notification_inbox.py
+  - src/ludamus/links/db/django/migrations/**
+rule:
+  any:
+    # Any use of the model's name but its own class statement.
+    - kind: identifier
+      regex: ^Notification$
+      not:
+        inside:
+          kind: class_definition
+          field: name
+    - pattern: $X.notifications.$METHOD($$$)
+constraints:
+  METHOD:
+    regex: ^(create|bulk_create|get_or_create|update_or_create)$
+message: |
+  A bell row is written in its reader's language, not the sender's.
+  Compose inside `speaking_to(user_id)` and deliver with `ring` from
+  links/db/django/delivery.py; the bell's reads live in
+  links/db/django/notification_inbox.py.

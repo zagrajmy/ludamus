@@ -1,0 +1,22 @@
+id: mail-in-delivery
+language: python
+severity: error
+files:
+  - src/**/*.py
+ignores:
+  - src/ludamus/links/db/django/delivery.py
+rule:
+  any:
+    - pattern: from django.core.mail import $$$
+    - pattern: from django.core import mail
+    - pattern: from django.core import mail as $A
+    - pattern: import django.core.mail
+    - pattern: import django.core.mail as $A
+    - kind: identifier
+      regex: ^(EmailMessage|EmailMultiAlternatives|send_mail|send_mass_mail|mail_admins|mail_managers|mailers|get_connection)$
+    - pattern: $M.send_messages($$$)
+message: |
+  Mail is written in its reader's language, not the sender's. Compose it
+  inside `speaking_to(user_id)` (an account) or `with Voice(language,
+  address=...)` (an address alone), and build and send it with
+  `compose_mail` / `send` from links/db/django/delivery.py.

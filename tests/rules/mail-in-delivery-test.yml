@@ -1,0 +1,18 @@
+id: mail-in-delivery
+valid:
+  - "message = compose_mail(voice, subject=subject, body=body)"
+  - "send(message)"
+  - "contact_email = form.cleaned_data['email']"
+invalid:
+  - "from django.core.mail import EmailMessage as Mail"
+  - "from django.core import mail"
+  - "import django.core.mail"
+  - "import django.core.mail as m"
+  - "from django.core import mail as m"
+  - "EmailMessage(subject=subject, body=body, to=[email]).send()"
+  - "mail.EmailMultiAlternatives(subject=subject, body=body, to=[email])"
+  - 'send_mail("Hi", body, None, [email])'
+  - "mail.send_mass_mail(messages)"
+  - "cls = core.mail.EmailMessage"
+  - "core.mail.mail_managers(subject, body)"
+  - "connection.send_messages(messages)"

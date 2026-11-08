@@ -24,19 +24,14 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.delivery import (
-    Bell,
-    already_rang,
-    compose_mail,
-    ring,
-    send,
-)
+from ludamus.links.db.django.delivery import Bell, compose_mail, ring, send
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
     NotificationSubscription,
     Session,
     SphereSubscription,
 )
+from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
 from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
 from ludamus.pacts.legacy import NotificationKind
@@ -642,8 +637,8 @@ class DjangoUserNotifier:
         # Once per session and person: accepting again, or after a rejection
         # nobody was told about, is no news to them.
         with speaking_to(notification.recipient_user_id) as recipient:
-            if already_rang(
-                recipient,
+            if already_told(
+                notification.recipient_user_id,
                 kind=NotificationKind.PROPOSAL_ACCEPTED,
                 session_id=notification.session_id,
             ):

@@ -2,9 +2,9 @@
 
 Each primitive takes the `Voice` or `Recipient` its message was composed
 under and confirms that language is still in force, so copy written in the
-sender's language cannot reach a reader. An ast-grep rule
-(`deliver-through-a-recipient`) keeps Notification rows and Django mail out
-of every other module.
+sender's language cannot reach a reader. Two ast-grep rules
+(`bell-rows-in-delivery`, `mail-in-delivery`) keep Notification rows and
+Django mail out of every other module.
 """
 
 from __future__ import annotations
@@ -51,15 +51,6 @@ def ring(recipient: Recipient, bell: Bell) -> None:
     """Create the bell row for the account the copy was written for."""
     recipient.confirm()
     _bell_row(bell, recipient.user_id).save()
-
-
-def already_rang(
-    recipient: Recipient, *, kind: NotificationKind, session_id: int
-) -> bool:
-    """Whether this account's bell already carries this kind for the session."""
-    return Notification.objects.filter(
-        recipient_id=recipient.user_id, kind=kind.value, payload__session_id=session_id
-    ).exists()
 
 
 def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:

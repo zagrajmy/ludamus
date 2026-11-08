@@ -12,11 +12,9 @@ valid:
   - |
     for _, row in pairs:
         keep(row)
+  - "seats = [0 for _ in range(n)]"
+  - "skip = lambda _: None"
 invalid:
-  - |
-    title = _("Event cancelled: %(event)s") % {"event": name}
-    ring_as_written(recipient_ids=ids, bell=Bell(kind=kind, title=title, body="", url=""))
-  - 'ring_as_written(recipient_ids=ids, bell=Bell(kind=kind, title=_("Closed"), body="", url=""))'
   - 'body = ngettext("one seat", "%(n)d seats", n)'
   - 'label = gettext_lazy("Send")'
   - 'label = pgettext("admin", "Send")'
@@ -24,7 +22,6 @@ invalid:
   - "from django.utils.translation import gettext as tr"
   - "from ludamus.links.db.django.models import _ as tr"
   - "tr = models._"
-  - "tr = _"
   - "from ludamus.links.db.django.models import _"
   - "from django.utils import translation"
   - "import django.utils.translation as t"

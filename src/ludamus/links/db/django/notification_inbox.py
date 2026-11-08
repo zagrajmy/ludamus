@@ -1,9 +1,22 @@
 """The bell's own reads: what a user has been told, and marking it read."""
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.models import Notification
 from ludamus.pacts.notifications import NotificationDTO
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import NotificationKind
+
+
+def already_told(user_id: int, *, kind: NotificationKind, session_id: int) -> bool:
+    """Whether this account's bell already carries this kind for the session."""
+    return Notification.objects.filter(
+        recipient_id=user_id, kind=kind.value, payload__session_id=session_id
+    ).exists()
 
 
 class NotificationReadRepository:

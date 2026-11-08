@@ -1,0 +1,9 @@
+id: inbox-reads-only
+valid:
+  - "Notification.objects.filter(recipient_id=user_id).count()"
+  - "Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(read_at=now)"
+  - "notification.save(update_fields=['read_at'])"
+invalid:
+  - "Notification(recipient_id=user_id, title=title)"
+  - "Notification.objects.create(recipient_id=user_id, title=title)"
+  - "Notification.objects.bulk_create(rows)"

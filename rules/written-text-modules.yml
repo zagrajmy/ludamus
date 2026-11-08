@@ -8,17 +8,17 @@ rule:
   any:
     - kind: identifier
       regex: ^n?p?gettext\w*$
-    # Any `_` but a throwaway: `obj, _ = ...` or `for _ in ...`.
-    - all:
-        - kind: identifier
-          regex: ^_$
-        - not:
-            inside:
-              kind: pattern_list
-        - not:
-            inside:
-              kind: for_statement
-              field: left
+    # `_` imported (as is or renamed) or read off a module; a bare `_`
+    # nobody imported is ruff's undefined name, and a throwaway is fine.
+    - kind: identifier
+      regex: ^_$
+      any:
+        - inside:
+            kind: import_from_statement
+            stopBy: end
+        - inside:
+            kind: attribute
+            field: attribute
     - pattern: from django.utils.translation import $$$
     - pattern: from django.utils import translation
     - pattern: from django.utils import translation as $A
