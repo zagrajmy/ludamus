@@ -199,6 +199,18 @@ class TestRecipient:
         with speaking_to(user.pk):
             assert translation.get_language() == "en"
 
+    def test_an_account_gone_before_delivery_reads_english_and_is_not_mailed(
+        self, settings
+    ):
+        settings.LANGUAGE_CODE = "pl"
+        user = UserFactory(language="pl")
+        user_id = user.pk
+        user.delete()
+
+        with speaking_to(user_id) as recipient:
+            assert translation.get_language() == "en"
+            assert not recipient.can_mail
+
     def test_a_companion_reads_its_managers_language(self):
         manager = UserFactory(language="pl")
         companion = UserFactory(
