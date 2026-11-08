@@ -521,6 +521,7 @@ msgstr "Ogłoszenie wznowione."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/panel/views/integrations.py
+#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Event not found."
