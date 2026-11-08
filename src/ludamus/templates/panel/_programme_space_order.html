@@ -57,7 +57,10 @@
         {% vite_asset 'src/programme-space-order.ts' %}
     {% endif %}
 {% else %}
-    {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." as t_empty_title %}
-{% empty_state icon="calendar-days" title=t_empty_title %}
-{% end_empty_state %}
+    <div class="py-8 text-center">
+        <div class="mb-4">{% icon "calendar-days" class="mx-auto size-12 text-foreground-muted" %}</div>
+        <p class="text-foreground-muted">
+            {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." %}
+        </p>
+    </div>
 {% endif %}

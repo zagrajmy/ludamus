@@ -85,9 +85,10 @@
                 </tbody>
             {% end_tessera_table %}
         {% else %}
-            {% translate "Nobody is banned from this event" as t_empty_title %}
-        {% empty_state icon="no-symbol" title=t_empty_title %}
-        {% end_empty_state %}
-{% endif %}
-</div>
+            <div class="text-center py-8">
+                {% icon "no-symbol" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                <h5 class="text-foreground-muted font-medium">{% translate "Nobody is banned from this event" %}</h5>
+            </div>
+        {% endif %}
+    </div>
 {% endblock content %}

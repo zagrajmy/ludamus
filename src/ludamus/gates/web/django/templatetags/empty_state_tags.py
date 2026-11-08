@@ -13,20 +13,10 @@ if TYPE_CHECKING:
 register = template.Library()
 
 
-# The block holds the actions (a button, a link), if any. `framed` boxes it for
-# a page whose list would have sat in a card; a list inside one already
-# leaves it bare.
+# The block holds the actions (a button, a link), if any.
 @register.simple_block_tag(end_name="end_empty_state")
-def empty_state(
-    content: SafeString, *, icon: str, title: str, text: str = "", framed: bool = False
-) -> str:
+def empty_state(content: SafeString, *, icon: str, title: str, text: str = "") -> str:
     return render_to_string(
         "components/empty_state.html",
-        {
-            "icon": icon,
-            "title": title,
-            "text": text,
-            "framed": framed,
-            "actions": content.strip(),
-        },
+        {"icon": icon, "title": title, "text": text, "actions": content.strip()},
     )

@@ -17,16 +17,16 @@
             {% url 'panel:timetable' slug=current_event.slug as timetable_url %}
             {% translate "All Sessions" as t_sessions %}
             {% blocktranslate asvar t_sessions_note with scheduled=stats.scheduled_sessions pending=stats.pending_proposals %}{{ scheduled }} scheduled, {{ pending }} pending{% endblocktranslate %}
-            {% include "components/stat_card.html" with value=stats.total_sessions label=t_sessions href=timetable_url icon="calendar" tone="blue" note=t_sessions_note only %}
+            {% include "components/dashboard_card.html" with value=stats.total_sessions label=t_sessions href=timetable_url icon="calendar" tone="blue" note=t_sessions_note only %}
             {% url 'panel:facilitators' slug=current_event.slug as facilitators_url %}
             {% translate "Facilitators" as t_facilitators %}
-            {% include "components/stat_card.html" with value=stats.hosts_count label=t_facilitators href=facilitators_url icon="users" tone="purple" only %}
+            {% include "components/dashboard_card.html" with value=stats.hosts_count label=t_facilitators href=facilitators_url icon="users" tone="purple" only %}
             {% url 'panel:venues' slug=current_event.slug as venues_url %}
             {% translate "Rooms" as t_rooms %}
-            {% include "components/stat_card.html" with value=stats.rooms_count label=t_rooms href=venues_url icon="building-office" tone="green" only %}
+            {% include "components/dashboard_card.html" with value=stats.rooms_count label=t_rooms href=venues_url icon="building-office" tone="green" only %}
             {% url 'panel:proposals' slug=current_event.slug as proposals_url %}
             {% translate "Proposals" as t_proposals %}
-            {% include "components/stat_card.html" with value=stats.total_proposals label=t_proposals href=proposals_url icon="document-text" tone="yellow" only %}
+            {% include "components/dashboard_card.html" with value=stats.total_proposals label=t_proposals href=proposals_url icon="document-text" tone="yellow" only %}
         </div>
     </div>
 {% endblock content %}

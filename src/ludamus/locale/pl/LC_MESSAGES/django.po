@@ -11731,7 +11731,7 @@ msgstr "Wszystkie punkty programu"
 #: src/ludamus/templates/panel/index.html
 #, python-format
 msgid "%(scheduled)s scheduled, %(pending)s pending"
-msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+msgstr "%(scheduled)s zaplanowanych, %(pending)s oczekujących"
 
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""
