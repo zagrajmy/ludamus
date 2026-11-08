@@ -1,3 +1,5 @@
+import type { Locator } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 import { DENSE_EVENT_URL } from "./helpers/urls";
 
@@ -29,6 +31,24 @@ test("keeps multiple picks when the touch keyboard releases focus", async ({ pag
   await expect(track).toHaveValue("Cosplay");
 });
 
+// NOTE: Playwright 1.65's Firefox (159) crashes the page on locator.dispatchEvent
+// of these pointer events; the page dispatching the same events does not.
+type Touch = { pointerType: string; isPrimary: boolean; clientX?: number; clientY?: number };
+
+const firePointer = (target: Locator, type: string, init: Touch) =>
+  target.evaluate(
+    (element, event: { type: string; init: Touch }) =>
+      element.dispatchEvent(
+        new PointerEvent(event.type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          ...event.init,
+        }),
+      ),
+    { type, init },
+  );
+
 test("a swipe that starts on an option picks nothing, and a tap still does", async ({ page }) => {
   await page.goto(DENSE_EVENT_URL);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
@@ -43,15 +63,15 @@ test("a swipe that starts on an option picks nothing, and a tap still does", asy
   const touch = { pointerType: "touch", isPrimary: true };
   // A finger landing on the row and leaving for a scroll: the browser takes
   // the gesture and cancels the pointer, so no click ever arrives.
-  await first.dispatchEvent("pointerdown", { ...touch, ...finger });
-  await first.dispatchEvent("pointercancel", touch);
+  await firePointer(first, "pointerdown", { ...touch, ...finger });
+  await firePointer(first, "pointercancel", touch);
   await expect(first).toHaveAttribute("aria-selected", "false");
   await expect(host).toHaveValue("");
   // The same swipe with nothing left to scroll still lifts the finger from
   // the row it landed on (a touch pointer is captured by it), 60px away.
-  await first.dispatchEvent("pointerdown", { ...touch, ...finger });
-  await first.dispatchEvent("pointermove", { ...touch, ...finger, clientY: finger.clientY - 60 });
-  await first.dispatchEvent("pointerup", { ...touch, ...finger, clientY: finger.clientY - 60 });
+  await firePointer(first, "pointerdown", { ...touch, ...finger });
+  await firePointer(first, "pointermove", { ...touch, ...finger, clientY: finger.clientY - 60 });
+  await firePointer(first, "pointerup", { ...touch, ...finger, clientY: finger.clientY - 60 });
   await expect(first).toHaveAttribute("aria-selected", "false");
   await expect(host).toHaveValue("");
   await expect(host).toHaveAttribute("aria-expanded", "true");
