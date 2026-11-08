@@ -195,6 +195,14 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
                 integration.questions_snapshot_json
             )
         except ValidationError:
+            # An empty snapshot is "[]"; an unreadable one is a broken row, so
+            # it reads as empty but must not look like an empty form.
+            logger.warning(
+                "Integration %s of event %s has an unreadable questions snapshot",
+                pk,
+                event_id,
+                exc_info=True,
+            )
             return []
 
     def populate_questions_snapshot(

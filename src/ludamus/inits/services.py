@@ -30,7 +30,6 @@ from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
-from ludamus.links.gravatar import gravatar_url
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
@@ -113,6 +112,7 @@ from ludamus.mills.timetable import (
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.crowd import gravatar_url
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import (

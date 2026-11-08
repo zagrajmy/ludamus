@@ -1,5 +1,6 @@
 """URL configuration for gates/web/django views."""
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -34,6 +35,8 @@ handler500 = (  # pylint: disable=invalid-name
     "ludamus.adapters.web.django.error_views.custom_500"
 )
 
+logger = logging.getLogger(__name__)
+
 _HEALTHZ_INTERVAL = 5
 
 
@@ -58,7 +61,9 @@ def healthz(_request: HttpRequest) -> JsonResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         _healthz_cache.time, _healthz_cache.ok = now, True
-    except Exception:  # ruff:ignore[blind-except]
+    except Exception:
+        # NOTE: at most once per interval, the cache answers the rest.
+        logger.exception("Health check failed: database unreachable")
         _healthz_cache.time, _healthz_cache.ok = now, False
         return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})

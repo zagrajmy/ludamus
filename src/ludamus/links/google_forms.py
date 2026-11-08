@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
+import logging
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
@@ -37,6 +37,24 @@ GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/forms.body.readonly",
 )
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
+
+logger = logging.getLogger(__name__)
+
+
+def _get(
+    session: AuthorizedSession, url: str, *, what: str, timeout: int = 10
+) -> requests.Response | None:
+    # A broken integration must not read as "the form has no questions": the
+    # caller still falls back to empty, but the cause lands in the log.
+    try:
+        response = session.get(url, timeout=timeout)
+    except requests.RequestException, GoogleAuthError:
+        logger.warning("Google %s request failed", what, exc_info=True)
+        return None
+    if not response.ok:
+        logger.warning("Google %s request refused: HTTP %s", what, response.status_code)
+        return None
+    return response
 
 
 def _disambiguate(titles: list[str]) -> list[str]:
@@ -157,16 +175,12 @@ class GoogleDocsProposalImporter(ImportIntegrationImplementation):
     ) -> list[SourceQuestion]:
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
-        try:
-            session = self._session(secret)
-        except CredentialsError:
+        if (session := self._session_or_none(secret)) is None:
             return []
-        response: requests.Response | None = None
-        with suppress(requests.RequestException, GoogleAuthError):
-            response = session.get(
-                FORMS_API_URL.format(form_id=config.form_id), timeout=10
-            )
-        if response is None or not response.ok:
+        response = _get(
+            session, FORMS_API_URL.format(form_id=config.form_id), what="form"
+        )
+        if response is None:
             return []
         schema = _FormSchema.model_validate(response.json())
         questions = [
@@ -211,9 +225,7 @@ class GoogleDocsProposalImporter(ImportIntegrationImplementation):
     ) -> list[str]:
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
-        try:
-            session = self._session(secret)
-        except CredentialsError:
+        if (session := self._session_or_none(secret)) is None:
             return []
         return self._fetch_sheet_headers(
             session=session, sheet_id=config.sheet_id, header_row=header_row
@@ -236,15 +248,14 @@ class GoogleDocsProposalImporter(ImportIntegrationImplementation):
         if not (title := self._responses_tab_title(session, sheet_id)):
             return []
         row_range = f"{title}!{header_row}:{header_row}"
-        response: requests.Response | None = None
-        with suppress(requests.RequestException, GoogleAuthError):
-            response = session.get(
-                SHEETS_VALUES_URL.format(
-                    sheet_id=sheet_id, range=quote(row_range, safe="")
-                ),
-                timeout=10,
-            )
-        if response is None or not response.ok:
+        response = _get(
+            session,
+            SHEETS_VALUES_URL.format(
+                sheet_id=sheet_id, range=quote(row_range, safe="")
+            ),
+            what="sheet header row",
+        )
+        if response is None:
             return []
         if not (values := response.json().get("values") or []):
             return []
@@ -258,23 +269,21 @@ class GoogleDocsProposalImporter(ImportIntegrationImplementation):
         # in the browser; the first data row is `header_row + 1`.
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
-        try:
-            session = self._session(secret)
-        except CredentialsError:
+        if (session := self._session_or_none(secret)) is None:
             return []
         if not (title := self._responses_tab_title(session, config.sheet_id)):
             return []
-        response: requests.Response | None = None
-        with suppress(requests.RequestException, GoogleAuthError):
-            # A bare tab name (no A1 column bounds) returns the tab's whole data
-            # region — every column and row — so a wide form is not capped at Z.
-            response = session.get(
-                SHEETS_VALUES_URL.format(
-                    sheet_id=config.sheet_id, range=quote(title, safe="")
-                ),
-                timeout=30,
-            )
-        if response is None or not response.ok:
+        # A bare tab name (no A1 column bounds) returns the tab's whole data
+        # region — every column and row — so a wide form is not capped at Z.
+        response = _get(
+            session,
+            SHEETS_VALUES_URL.format(
+                sheet_id=config.sheet_id, range=quote(title, safe="")
+            ),
+            what="sheet responses",
+            timeout=30,
+        )
+        if response is None:
             return []
         if not (values := response.json().get("values") or []):
             return []
@@ -287,15 +296,20 @@ class GoogleDocsProposalImporter(ImportIntegrationImplementation):
     def _responses_tab_title(session: AuthorizedSession, sheet_id: str) -> str:
         # Responses live on the spreadsheet's first tab (a form-linked sheet has
         # only that one); read its title so the values request can name it.
-        response: requests.Response | None = None
-        with suppress(requests.RequestException, GoogleAuthError):
-            response = session.get(
-                SHEETS_META_URL.format(sheet_id=sheet_id), timeout=10
-            )
-        if response is None or not response.ok:
+        response = _get(
+            session, SHEETS_META_URL.format(sheet_id=sheet_id), what="spreadsheet"
+        )
+        if response is None:
             return ""
         meta = SpreadsheetMeta.model_validate(response.json())
         return meta.sheets[0].properties.title if meta.sheets else ""
 
     def _session(self, secret: bytes) -> AuthorizedSession:
         return build_session(secret, self._scopes)
+
+    def _session_or_none(self, secret: bytes) -> AuthorizedSession | None:
+        try:
+            return self._session(secret)
+        except CredentialsError:
+            logger.warning("Google Forms credentials refused", exc_info=True)
+            return None

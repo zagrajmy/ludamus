@@ -10,6 +10,7 @@ from ludamus.pacts.event import (
     TimeSlotSavedDTO,
     TimeSlotValidationError,
 )
+from ludamus.pacts.time_ranges import overlaps
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -37,7 +38,7 @@ def _validate_time_slot(
     if start >= end:
         errors.append(TimeSlotValidationError.START_NOT_BEFORE_END)
 
-    if any(start < slot.end_time and end > slot.start_time for slot in existing_slots):
+    if any(overlaps(span=slot, start=start, end=end) for slot in existing_slots):
         errors.append(TimeSlotValidationError.OVERLAPS_EXISTING_SLOT)
 
     return errors

@@ -1142,17 +1142,11 @@ msgid "Invalid time slot selection."
 msgstr "Nieprawidłowy wybór przedziału czasowego."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
-msgid "This offer is no longer available or has expired."
-msgstr "Ta oferta jest już niedostępna lub wygasła."
-
-#: src/ludamus/gates/web/django/chronology/offers.py
-#: src/ludamus/gates/web/django/dashboard.py
 msgid "Spot claimed — you are now confirmed for this session."
 msgstr ""
 "Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
-#: src/ludamus/gates/web/django/dashboard.py
 msgid ""
 "This spot overlaps a session you already have a seat in, so it was released."
 msgstr ""
@@ -1160,9 +1154,12 @@ msgstr ""
 "miejsce, więc zostało zwolnione."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
-#: src/ludamus/gates/web/django/dashboard.py
 msgid "This offer has expired or was already claimed."
 msgstr "Ta oferta wygasła lub została już zajęta."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+msgid "This offer is no longer available or has expired."
+msgstr "Ta oferta jest już niedostępna lub wygasła."
 
 #: src/ludamus/gates/web/django/chronology/offers.py
 msgid "Offer declined — the seat was released."

@@ -75,6 +75,21 @@ def require_session_in_event(
     return event
 
 
+def check_event_dates(
+    *, start_time: datetime, end_time: datetime, publication_time: datetime | None
+) -> None:
+    """Refuse dates the event table's check constraints would refuse.
+
+    Raises:
+        EventDatesInvalidError: the end is not after the start.
+        EventPublicationInvalidError: the event would publish after it starts.
+    """
+    if end_time <= start_time:
+        raise EventDatesInvalidError
+    if publication_time is not None and publication_time > start_time:
+        raise EventPublicationInvalidError
+
+
 def require_event_in_sphere(
     *, events: EventRepositoryProtocol, event_pk: int, sphere_id: int
 ) -> EventDTO:
@@ -563,11 +578,11 @@ class EventsService(EventsServiceProtocol):
     def create(
         self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
     ) -> EventDTO:
-        if data["end_time"] <= data["start_time"]:
-            raise EventDatesInvalidError
-        publication_time = data["publication_time"]
-        if publication_time is not None and publication_time > data["start_time"]:
-            raise EventPublicationInvalidError
+        check_event_dates(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            publication_time=data["publication_time"],
+        )
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
             source = (

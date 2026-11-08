@@ -1,16 +1,16 @@
 from typing import TYPE_CHECKING
 
-from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.crowd import display_avatar_url as avatar_rule
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.models import User
 
 
 def display_avatar_url(user: User) -> str:
-    if user.use_gravatar:
-        return gravatar_url(user.email) or ""
-    return user.avatar_url or gravatar_url(user.email) or ""
+    return avatar_rule(
+        email=user.email, avatar_url=user.avatar_url, use_gravatar=user.use_gravatar
+    )
 
 
 def user_dto(user: User) -> UserDTO:

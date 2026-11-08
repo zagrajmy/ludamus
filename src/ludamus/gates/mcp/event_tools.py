@@ -23,8 +23,11 @@ from ludamus.gates.mcp.inputs import (
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
-from ludamus.pacts.event_settings import EventSlugTakenError
+from ludamus.pacts.event import (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+)
 from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.mcp import ToolScope
 
@@ -144,6 +147,28 @@ class _SetEventImageInput(ImageUploadInput):
     )
 
 
+type EventRefusal = (
+    EventDatesInvalidError | EventPublicationInvalidError | EventSlugConflictError
+)
+EVENT_REFUSALS = (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+)
+
+
+def event_refusal(error: EventRefusal, *, slug: str | None) -> ToolError:
+    # `create_event` and `update_event` refuse in the same words: a caller
+    # should not have to learn a second vocabulary to edit what it just made.
+    match error:
+        case EventDatesInvalidError():
+            return ToolError("end_time must be after start_time")
+        case EventPublicationInvalidError():
+            return ToolError("publication_time must not be after start_time")
+        case EventSlugConflictError():
+            return ToolError(f"Slug already taken: {slug}")
+
+
 def _apply_event_update(
     *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
 ) -> str:
@@ -251,23 +276,12 @@ class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
     def handle(call: ToolCall[_UpdateEventInput]) -> str:
         if not (data := _event_update_data(call.data)):
             raise ToolError("Provide at least one field to update")
-        # The same three refusals `create_event` gives, in the same words: a
-        # caller should not have to learn a second vocabulary to edit what it
-        # just made.
         try:
             return _apply_event_update(
                 services=call.services, actor=call.actor, data=data
             )
-        except EventDatesInvalidError as error:
-            raise ToolError("end_time must be after start_time") from error
-        except EventPublicationInvalidError as error:
-            raise ToolError("publication_time must not be after start_time") from error
-        except EventSlugTakenError as error:
-            message = (
-                f"Another event in this sphere already uses the slug "
-                f"{call.data.slug!r}."
-            )
-            raise ToolError(message) from error
+        except EVENT_REFUSALS as error:
+            raise event_refusal(error, slug=call.data.slug) from error
 
 
 class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):

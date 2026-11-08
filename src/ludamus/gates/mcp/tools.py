@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
+from ludamus.gates.mcp.event_tools import EVENT_REFUSALS, event_refusal
 from ludamus.gates.mcp.inputs import (
     SLUG_MAX_LENGTH,
     EmptyInput,
@@ -27,12 +28,7 @@ from ludamus.gates.mcp.konwencik_tools import (
 )
 from ludamus.gates.mcp.organizer_context import MaintainerTool, actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
-from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
-from ludamus.pacts.event import (
-    EventDatesInvalidError,
-    EventPublicationInvalidError,
-    EventSlugConflictError,
-)
+from ludamus.gates.mcp.registry import Tool, ToolCall, ToolRegistry
 from ludamus.pacts.legacy import EventDTO, EventListItemDTO
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import (
@@ -310,13 +306,8 @@ class OrganizerCreateEventTool(Tool[_CreateEventBody]):
                     "auto_confirm_sessions": body.auto_confirm_sessions,
                 },
             )
-        except EventDatesInvalidError as error:
-            raise ToolError("end_time must be after start_time") from error
-        except EventPublicationInvalidError as error:
-            raise ToolError("publication_time must not be after start_time") from error
-        except EventSlugConflictError as error:
-            message = f"Slug already taken: {body.slug}"
-            raise ToolError(message) from error
+        except EVENT_REFUSALS as error:
+            raise event_refusal(error, slug=body.slug) from error
         return event.model_dump_json(indent=2)
 
 

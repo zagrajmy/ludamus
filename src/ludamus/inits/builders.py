@@ -19,10 +19,12 @@ from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
-from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
+from ludamus.links.signed_tokens import (
+    DjangoEmailTokenCodec,
+    DjangoSphereUnsubscribeTokenCodec,
+)
 from ludamus.mills.crowd import EmailVerificationService
 from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.encounter import EncounterService
