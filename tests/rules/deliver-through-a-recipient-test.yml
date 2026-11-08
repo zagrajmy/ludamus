@@ -1,6 +1,6 @@
 id: deliver-through-a-recipient
 valid:
-  - "ring(recipient, kind=kind, title=title, body=body, url=url, payload={})"
+  - "ring(recipient, Bell(kind=kind, title=title, body=body, url=url))"
   - "PromotionNotification(recipient_user_id=1, session_id=2)"
   - "Notification.objects.filter(recipient_id=user_id).count()"
   - "request.services.notifications.mark_read(user_id, pk)"

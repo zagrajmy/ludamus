@@ -9,6 +9,7 @@ of every other module.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from django.core.mail import EmailMessage, EmailMultiAlternatives, mailers
@@ -24,36 +25,35 @@ if TYPE_CHECKING:
 type Mail = EmailMessage
 
 
-def ring(
-    recipient: Recipient,
-    *,
-    kind: NotificationKind,
-    title: str,
-    body: str,
-    url: str,
-    payload: Mapping[str, str | int],
-) -> None:
-    """Create the bell row for the account the copy was written for."""
-    recipient.confirm()
-    Notification.objects.create(
-        recipient_id=recipient.user_id,
-        kind=kind.value,
-        title=title,
-        body=body,
-        url=url,
-        payload=dict(payload),
+@dataclass(frozen=True, kw_only=True)
+class Bell:
+    """What one bell row says, and where it leads (empty url: the overlay)."""
+
+    kind: NotificationKind
+    title: str
+    body: str
+    url: str
+    payload: Mapping[str, str | int] = field(default_factory=dict)
+
+
+def _row(bell: Bell, recipient_id: int) -> Notification:
+    return Notification(
+        recipient_id=recipient_id,
+        kind=bell.kind.value,
+        title=bell.title,
+        body=bell.body,
+        url=bell.url,
+        payload=dict(bell.payload),
     )
 
 
-def ring_as_written(
-    *,
-    recipient_ids: Iterable[int],
-    kind: NotificationKind,
-    title: str,
-    body: str,
-    url: str,
-    payload: Mapping[str, str | int],
-) -> int:
+def ring(recipient: Recipient, bell: Bell) -> None:
+    """Create the bell row for the account the copy was written for."""
+    recipient.confirm()
+    _row(bell, recipient.user_id).save()
+
+
+def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:
     """Ring each recipient's bell with text a person wrote, as they wrote it.
 
     The one delivery that takes no `Recipient`: an organizer's announcement
@@ -65,18 +65,7 @@ def ring_as_written(
         How many bells rang.
     """
     rows = Notification.objects.bulk_create(
-        [
-            Notification(
-                recipient_id=recipient_id,
-                kind=kind.value,
-                title=title,
-                body=body,
-                url=url,
-                payload=dict(payload),
-            )
-            for recipient_id in recipient_ids
-        ],
-        batch_size=500,
+        [_row(bell, recipient_id) for recipient_id in recipient_ids], batch_size=500
     )
     return len(rows)
 
