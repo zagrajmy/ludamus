@@ -9,11 +9,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from cryptography.hazmat.primitives import serialization
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
@@ -719,6 +721,32 @@ LOGGING = {
 # Parley
 PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST")
 PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+# NOTE: this pair is committed so laptops and e2e sign passes with no setup.
+# Anyone can read it, so a deployment that signs with it is refused.
+_PARLEY_DEV_KEY = BASE_DIR.parent.parent / "workers" / "parley" / "dev-signing-key.pem"
+_PARLEY_DEV_KEY_FINGERPRINT = (
+    "ea6891a6b117bb28a671edec882ab38b8a26a404ad2a8832fb247bcb7f35ab4e"
+)
+_PARLEY_DEV_ENVS = {"development", "test"}
+if (
+    not PARLEY_SIGNING_PRIVATE_KEY
+    and ENV in _PARLEY_DEV_ENVS
+    and _PARLEY_DEV_KEY.exists()
+):
+    PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
+    _parley_key = serialization.load_pem_private_key(
+        PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
+    )
+    _parley_fingerprint = hashlib.sha256(
+        _parley_key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    ).hexdigest()
+    if _parley_fingerprint == _PARLEY_DEV_KEY_FINGERPRINT:
+        raise ImproperlyConfigured(
+            "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
+        )
 if PARLEY_AGENT_HOST:
     PARLEY_IS_LOCAL = PARLEY_AGENT_HOST.startswith(("localhost", "127.0.0.1"))
     PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"

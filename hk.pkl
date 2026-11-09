@@ -26,7 +26,10 @@ local linters = new Mapping<String, Step> {
     exclude = List("poetry.lock", "src/ludamus/locale/*/LC_MESSAGES/django.po")
   }
   ["check-merge-conflict"] = Builtins.check_merge_conflict
-  ["detect-private-key"] = Builtins.detect_private_key
+  // The chat's dev signing key is committed on purpose; deployments refuse it.
+  ["detect-private-key"] = (Builtins.detect_private_key) {
+    exclude = List("workers/parley/dev-signing-key.pem")
+  }
   ["end-of-file-fixer"] = Builtins.newlines
   ["trailing-whitespace"] = Builtins.trailing_whitespace
 

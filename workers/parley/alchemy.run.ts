@@ -3,6 +3,7 @@ import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import { createPublicKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 type WranglerConfig = {
@@ -33,6 +34,20 @@ const observability = {
   logs: { enabled: true, invocationLogs: false },
 };
 
+// The committed dev pair's private half is public, so a Worker that trusts
+// its public half would accept passes anyone can sign.
+const devPublicKey = createPublicKey(
+  readFileSync(new URL("./dev-signing-key.pem", import.meta.url), "utf8"),
+).export({ format: "der", type: "spki" });
+
+function refuseDevKey(pem: string): string {
+  const key = createPublicKey(pem.replaceAll("\\n", "\n"));
+  if (key.export({ format: "der", type: "spki" }).equals(devPublicKey)) {
+    throw new Error("PARLEY_PUBLIC_KEY is the committed development key");
+  }
+  return pem;
+}
+
 export default Alchemy.Stack(
   "Parley",
   { providers: Cloudflare.providers(), state: Cloudflare.state() },
@@ -61,7 +76,7 @@ export default Alchemy.Stack(
         ...durableObjects,
         ...testedRuntime.vars,
         ALLOWED_ORIGINS: Config.String("PARLEY_ALLOWED_ORIGINS"),
-        PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY"),
+        PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY").pipe(Config.map(refuseDevKey)),
       },
     });
     return { url: parley.url };
