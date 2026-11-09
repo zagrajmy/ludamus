@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 from django.http import Http404
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control
 from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
@@ -59,7 +58,7 @@ if TYPE_CHECKING:
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
+@method_decorator(vary_cookie, name="get")
 class EventPageView(TemplateView):
     template_name = "event/event.html"
     request: RootRequest

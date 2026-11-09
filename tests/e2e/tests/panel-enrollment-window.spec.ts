@@ -1,4 +1,4 @@
-import { type Browser, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
@@ -22,18 +22,16 @@ const localInput = (offsetDays: number) =>
 const flash = (page: Page, text: string) =>
   page.getByRole("region", { name: "Notifications" }).getByText(text);
 
-// NOTE: the event page is cached in the browser for three minutes, so each
-// look is a fresh visit, the way a member arriving after the change sees it.
-const spiceRoute = async (browser: Browser) => {
-  const context = await browser.newContext({ storageState: memberState });
-  const page = await context.newPage();
+// The same member's browser looks each time, so a page it kept from an
+// earlier visit would show here.
+const spiceRoute = async (page: Page) => {
   await page.goto(EVENT_URL);
   // NOTE: the card's description sits above its stretched link, so a pointer
   // click lands on the text; the keyboard reaches the link itself.
   await page.getByRole("link", { name: "Open details for Spice Route" }).press("Enter");
   const dialog = page.getByRole("dialog", { name: "Spice Route" });
   await expect(dialog).toBeVisible();
-  return { context, page, dialog };
+  return dialog;
 };
 
 const deleteWindows = async (page: Page) => {
@@ -57,10 +55,12 @@ test("an organizer opens enrollment, members are offered a seat, and deleting th
   page,
   browser,
 }, testInfo) => {
-  const before = await spiceRoute(browser);
-  await expect(before.dialog.getByRole("button", { name: "Enroll", exact: true })).toHaveCount(0);
-  await expect(before.page.getByText(NOTICE)).toHaveCount(0);
-  await before.context.close();
+  const member = await browser.newContext({ storageState: memberState });
+  const memberPage = await member.newPage();
+
+  const before = await spiceRoute(memberPage);
+  await expect(before.getByRole("button", { name: "Enroll", exact: true })).toHaveCount(0);
+  await expect(memberPage.getByText(NOTICE)).toHaveCount(0);
 
   await page.goto(SETTINGS_URL);
   await expect(page.getByRole("heading", { name: "Enrollment is closed" })).toBeVisible();
@@ -81,21 +81,20 @@ test("an organizer opens enrollment, members are offered a seat, and deleting th
   await expect(page).toHaveURL(new RegExp(`${SETTINGS_URL}$`));
   await expect(page.getByRole("row").filter({ hasText: "Active" })).toHaveCount(1);
 
-  const open = await spiceRoute(browser);
-  await expect(open.page.getByText("Enrollment Open", { exact: true })).toBeVisible();
-  await expect(open.page.getByText(NOTICE)).toBeVisible();
-  await expect(open.dialog.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
+  const open = await spiceRoute(memberPage);
+  await expect(memberPage.getByText("Enrollment Open", { exact: true })).toBeVisible();
+  await expect(memberPage.getByText(NOTICE)).toBeVisible();
+  await expect(open.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
   await attachArtifacts(testInfo, {
     name: "panel-enrollment-window-open",
-    region: open.page.getByRole("main"),
+    region: memberPage.getByRole("main"),
     facts: { notice: NOTICE, offered: "Enroll" },
   });
-  await open.context.close();
 
   await deleteWindows(page);
-  const closed = await spiceRoute(browser);
-  await expect(closed.dialog.getByRole("button", { name: "Enroll", exact: true })).toHaveCount(0);
-  await expect(closed.page.getByText("Enrollment Open", { exact: true })).toHaveCount(0);
-  await expect(closed.page.getByText(NOTICE)).toHaveCount(0);
-  await closed.context.close();
+  const closed = await spiceRoute(memberPage);
+  await expect(closed.getByRole("button", { name: "Enroll", exact: true })).toHaveCount(0);
+  await expect(memberPage.getByText("Enrollment Open", { exact: true })).toHaveCount(0);
+  await expect(memberPage.getByText(NOTICE)).toHaveCount(0);
+  await member.close();
 });

@@ -1251,6 +1251,7 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/event/event_presentation.py
 #: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-list.html
 #, python-format
 msgid "%(counter)s seat"
 msgid_plural "%(counter)s seats"
@@ -6730,23 +6731,6 @@ msgid "Copy details"
 msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/encounter/_rsvp_inline.html
-msgid "Join"
-msgstr "Dołącz"
-
-#: src/ludamus/templates/encounter/_rsvp_inline.html
-msgid "Join with account"
-msgstr "Dołącz z kontem"
-
-#: src/ludamus/templates/encounter/_rsvp_inline.html
-#: src/ludamus/templates/event/accept_proposal.html
-msgid "or"
-msgstr "lub"
-
-#: src/ludamus/templates/encounter/_rsvp_inline.html
-msgid "Don't want to log in? Save the date instead:"
-msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "You're signed up!"
 msgstr "Jesteś zapisany/a!"
 
@@ -6762,6 +6746,23 @@ msgstr "Zapisano"
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Cancel signup"
 msgstr "Wypisz się"
+
+#: src/ludamus/templates/encounter/_rsvp_inline.html
+msgid "Join"
+msgstr "Dołącz"
+
+#: src/ludamus/templates/encounter/_rsvp_inline.html
+msgid "Join with account"
+msgstr "Dołącz z kontem"
+
+#: src/ludamus/templates/encounter/_rsvp_inline.html
+#: src/ludamus/templates/event/accept_proposal.html
+msgid "or"
+msgstr "lub"
+
+#: src/ludamus/templates/encounter/_rsvp_inline.html
+msgid "Don't want to log in? Save the date instead:"
+msgstr "Nie chcesz się logować? Zapisz datę:"
 
 #: src/ludamus/templates/encounter/detail.html
 msgid "Your encounter"

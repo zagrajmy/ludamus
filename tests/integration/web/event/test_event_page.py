@@ -146,9 +146,9 @@ class TestEventPageView:
             HTTPStatus.OK,
             context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["event/event.html"],
-            contains="Upcoming",
-            not_contains="Enrollment Open",
-            cache_control={"private", "max-age=180"},
+            # NOTE: enrollment opens and closes under the reader; a browser-cached
+            # copy would keep offering a window that is gone.
+            headers={"Cache-Control": None},
         )
         assert "Cookie" in response.headers.get("Vary", "")
 
