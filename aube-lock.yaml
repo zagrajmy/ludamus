@@ -5,24 +5,24 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@faker-js/faker@>=9.0.0 <10.5.0': 10.5.0
+  '@faker-js/faker@>=9.0.0 <10.5.0': 10.6.0
   body-parser@>=2.0.0 <2.4.0: 2.4.0
-  brace-expansion@>=1.0.0 <1.1.20: 1.1.20
-  brace-expansion@>=5.0.0 <5.0.11: 5.0.11
+  brace-expansion@>=1.0.0 <1.1.20: 1.1.21
+  brace-expansion@>=5.0.0 <5.0.11: 5.0.12
   dompurify@>=3.0.0 <3.4.17: 3.4.17
   fast-uri@>=3.0.0 <3.1.9: 3.1.9
   follow-redirects@>=1.0.0 <1.16.2: 1.16.2
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
   minimatch@>=10.0.0 <10.2.6: 10.2.6
-  nanoid@>=3.0.0 <3.3.18: 3.3.18
-  next@>=16.0.0 <16.4.1: 16.4.1
+  nanoid@>=3.0.0 <3.3.18: 3.3.20
+  next@>=16.0.0 <16.4.1: 16.4.5
   proxy-addr@>=2.0.0 <2.0.8: 2.0.8
   sharp@>=0.35.0 <0.35.5: 0.35.5
   source-map-js@>=1.0.0 <1.2.2: 1.2.2
   synckit: 0.11.13
   tinypool@>=2.0.0 <2.1.2: 2.1.2
   vite@>=8.0.0 <8.1.6: 8.1.6
-  zod@>=3.0.0 <4.6.6: 4.6.6
+  zod@>=3.0.0 <4.6.6: 4.6.7
 
 importers:
 
@@ -48,7 +48,10 @@ importers:
         version: 0.56.0
       oxlint:
         specifier: 1.70.0
-        version: 1.70.0
+        version: 1.70.0(oxlint-tsgolint@7.0.2005)
+      oxlint-tsgolint:
+        specifier: 7.0.2005
+        version: 7.0.2005
       portless:
         specifier: 0.13.0
         version: 0.13.0
@@ -74,21 +77,21 @@ importers:
         specifier: 1.410.5
         version: 1.410.5
       slugify:
-        specifier: 1.6.6
-        version: 1.6.6
+        specifier: 1.6.9
+        version: 1.6.9
       yace:
         specifier: 1.1.1
         version: 1.1.1
     devDependencies:
       '@hasparus/oxlint-config':
-        specifier: ^0.1.1
-        version: 0.1.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0)(supports-color@7.2.0)(tailwindcss@4.1.16)(typescript@5.9.3)
+        specifier: ^0.3.0
+        version: 0.3.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint-tsgolint@7.0.2005)(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(supports-color@7.2.0)(tailwindcss@4.1.16)(typescript@5.9.3)
       '@hasparus/tailwind':
         specifier: 1.1.8
         version: 1.1.8(tailwindcss@4.1.16)
       '@tailwindcss/typography':
-        specifier: 0.5.19
-        version: 0.5.19(tailwindcss@4.1.16)
+        specifier: 0.5.20
+        version: 0.5.20(tailwindcss@4.1.16)
       '@tailwindcss/vite':
         specifier: 4.2.4
         version: 4.2.4(vite@8.1.6(@types/node@24.10.1)(jiti@2.7.0)(yaml@2.9.0))
@@ -103,7 +106,7 @@ importers:
         version: 0.56.0
       oxlint:
         specifier: 1.70.0
-        version: 1.70.0
+        version: 1.70.0(oxlint-tsgolint@7.0.2005)
       postcss-nested:
         specifier: 7.0.2
         version: 7.0.2(postcss@8.5.26)
@@ -268,10 +271,11 @@ packages:
     resolution: {integrity: sha512-JUOtgFW6k9u4Y+xeIaEiLr3+cjoUPiAuLXoyKOJSia6Duzb7pq+A76P9ZdPDoAoxHdHzq6gE9/jKBGXlZT8FbA==}
     engines: {node: '>=6'}
 
-  '@hasparus/oxlint-config@0.1.1':
-    resolution: {integrity: sha512-4iS45wZ5Vb6lWunKlWLXWLgVmxWNLcP1u/nKPLJ3pRiY9Yrc9VIzKoXj5BvQr7m1zjEWkU83SgHGggRHtEeDqQ==}
+  '@hasparus/oxlint-config@0.3.1':
+    resolution: {integrity: sha512-mCKwmWiNCN9Vn0gIyh42L7jL4ilAsSnvDxRKRf7xgAKiQO6GBCL+2wkP94Ji7E6satel5eRuqlQA1wErEKLadQ==}
     peerDependencies:
       oxlint: ^1.70.0
+      oxlint-tsgolint: '>=0.22.1'
 
   '@hasparus/tailwind@1.1.8':
     resolution: {integrity: sha512-8xiV+xjZvOPC9nVPemOWRx+rgAKujjO64x2JbKxv8yhq98eJp147qg5vnXm6BC1VlBM2kjN2rUJCuRLq6OZsZA==}
@@ -666,6 +670,36 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@oxlint-tsgolint/darwin-arm64@7.0.2005':
+    resolution: {integrity: sha512-VqDZxcZVjlonNLuuvraVNgDQt+1ndwa4yJo8OqsK4HYh/61ba9IlMStCVfi/aaIqRoDhNbAKC8gdcTrXqnb+Ug==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@oxlint-tsgolint/darwin-x64@7.0.2005':
+    resolution: {integrity: sha512-4kUfLRNYoVpv0Tm3jPYrvxyfOc/LmdvFC3pKZ4tL6K7lA7K/VS81SAtmxRzbYXYSyb3SBWhwsuX+df4neqzxxA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@oxlint-tsgolint/linux-arm64@7.0.2005':
+    resolution: {integrity: sha512-rhUNcPsBlKvhXtrbhbBUidtRBRdJ8fbEHN9H5Q5N59gby18ruGuDA7KUxl7oRnUzp797uykYQhkBDm+0KpfK/Q==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@oxlint-tsgolint/linux-x64@7.0.2005':
+    resolution: {integrity: sha512-tKs9yinDQZOHygM0e8EJnjTU3mzJtdfkOZP6Udu82iLMePUSHOhTJ9zzU/mSd1hQxURI4LTRRiFhfzC+PzwdNA==}
+    cpu: [x64]
+    os: [linux]
+
+  '@oxlint-tsgolint/win32-arm64@7.0.2005':
+    resolution: {integrity: sha512-VYPnu1gjfbSv+ROhuyNfMs382D4zQU2ZRc8Uc3nuEZo1k2kf+1KfTrg4hrlWh73h9GI+dUWyo+DYCQzUBlPwcQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@oxlint-tsgolint/win32-x64@7.0.2005':
+    resolution: {integrity: sha512-ekU89cTGy9fpQzuvxIsFHrnoP8XoFjGIRgPEW6eqgY2NYjGy9pwpjF79o04WXRMJFKRrcaVqkZXUUBdLsqpQDw==}
+    cpu: [x64]
+    os: [win32]
+
   '@oxlint/binding-android-arm-eabi@1.70.0':
     resolution: {integrity: sha512-zFh0P4cswmRvw6nkyb89dr18rRanuaCPAsEXsFDoQY8WdaquI8Pt4NWFjaMJg6L23cy5NeN8J9cBnREbWzZhaw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -989,10 +1023,10 @@ packages:
     resolution: {integrity: sha512-9El/iI069DKDSXwTvB9J4BwdO5JhRrOweGaK25taBAvBXyXqJAX+Jqdvs8r8gKpsI/1m0LeJLyQYTf/WLrBT1Q==}
     engines: {node: '>= 20'}
 
-  '@tailwindcss/typography@0.5.19':
-    resolution: {integrity: sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg==}
+  '@tailwindcss/typography@0.5.20':
+    resolution: {integrity: sha512-hwbzQuNUfcPvbegQFatVPl/MY/tcM9KLl963hQ5laJKPh81TEZ1+dNG9PirGvcaDBkp+BCshExAyKVPW91dozw==}
     peerDependencies:
-      tailwindcss: '>=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1'
+      tailwindcss: '>=3.0.0 || >=4.0.0 || insiders'
 
   '@tailwindcss/vite@4.2.4':
     resolution: {integrity: sha512-pCvohwOCspk3ZFn6eJzrrX3g4n2JY73H6MmYC87XfGPyTty4YsCjYTMArRZm/zOI8dIt3+EcrLHAFPe5A4bgtw==}
@@ -1833,6 +1867,10 @@ packages:
       vite-plus:
         optional: true
 
+  oxlint-tsgolint@7.0.2005:
+    resolution: {integrity: sha512-6ccPGu4u4J9bwYPHXBFPee3RZrX3BboRdU7k14zRDDB1lvN3O7J/vPRFdaEfa1+CWx4xnQQOp4ctoaF66oO0uw==}
+    hasBin: true
+
   oxlint@1.70.0:
     resolution: {integrity: sha512-D6JgHtzkhRwvEC+A0Nw5AEc5bk8x5i1pHzvZIEf/a0C4hOzmAACNGtkDGPyFaxxX3ZVGxCPeig3P3rMM8XU3/g==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2013,8 +2051,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  slugify@1.6.6:
-    resolution: {integrity: sha512-h+z7HKHYXj6wJU+AnS/+IH8Uh9fdcX1Lrhg1/VMdf9PwoBQXFcXiAdsy2tSK0P6gKwJLXp02r90ahUCqHk9rrw==}
+  slugify@1.6.9:
+    resolution: {integrity: sha512-vZ7rfeehZui7wQs438JXBckYLkIIdfHOXsaVEUMyS5fHo1483l1bMdo0EDSWYclY0yZKFOipDy4KHuKs6ssvdg==}
     engines: {node: '>=8.0.0'}
 
   source-map-js@1.2.2:
@@ -2379,12 +2417,13 @@ snapshots:
 
   '@fortawesome/fontawesome-free@6.7.2': {}
 
-  '@hasparus/oxlint-config@0.1.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0)(supports-color@7.2.0)(tailwindcss@4.1.16)(typescript@5.9.3)':
+  '@hasparus/oxlint-config@0.3.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint-tsgolint@7.0.2005)(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(supports-color@7.2.0)(tailwindcss@4.1.16)(typescript@5.9.3)':
     dependencies:
-      eslint-plugin-better-tailwindcss: 4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0)(tailwindcss@4.1.16)(typescript@5.9.3)
+      eslint-plugin-better-tailwindcss: 4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3)
       eslint-plugin-perfectionist: 5.4.0(eslint@10.8.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
       eslint-plugin-sonarjs: 3.0.6(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))
-      oxlint: 1.70.0
+      oxlint: 1.70.0(oxlint-tsgolint@7.0.2005)
+      oxlint-tsgolint: 7.0.2005
     transitivePeerDependencies:
       - '@eslint/css'
       - eslint
@@ -2632,6 +2671,24 @@ snapshots:
   '@oxfmt/binding-win32-x64-msvc@0.56.0':
     optional: true
 
+  '@oxlint-tsgolint/darwin-arm64@7.0.2005':
+    optional: true
+
+  '@oxlint-tsgolint/darwin-x64@7.0.2005':
+    optional: true
+
+  '@oxlint-tsgolint/linux-arm64@7.0.2005':
+    optional: true
+
+  '@oxlint-tsgolint/linux-x64@7.0.2005':
+    optional: true
+
+  '@oxlint-tsgolint/win32-arm64@7.0.2005':
+    optional: true
+
+  '@oxlint-tsgolint/win32-x64@7.0.2005':
+    optional: true
+
   '@oxlint/binding-android-arm-eabi@1.70.0':
     optional: true
 
@@ -2830,7 +2887,7 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.2.4
       '@tailwindcss/oxide-win32-x64-msvc': 4.2.4
 
-  '@tailwindcss/typography@0.5.19(tailwindcss@4.1.16)':
+  '@tailwindcss/typography@0.5.20(tailwindcss@4.1.16)':
     dependencies:
       postcss-selector-parser: 6.0.10
       tailwindcss: 4.1.16
@@ -3159,13 +3216,13 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-plugin-better-tailwindcss@4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0)(tailwindcss@4.1.16)(typescript@5.9.3):
+  eslint-plugin-better-tailwindcss@4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3):
     dependencies:
       '@eslint/css-tree': 3.6.9
       '@valibot/to-json-schema': 1.7.1(valibot@1.4.2(typescript@5.9.3))
       enhanced-resolve: 5.24.5
       jiti: 2.7.0
-      oxlint: 1.70.0
+      oxlint: 1.70.0(oxlint-tsgolint@7.0.2005)
       synckit: 0.11.13
       tailwind-csstree: 0.1.5
       tailwindcss: 4.1.16
@@ -3652,7 +3709,16 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.56.0
       '@oxfmt/binding-win32-x64-msvc': 0.56.0
 
-  oxlint@1.70.0:
+  oxlint-tsgolint@7.0.2005:
+    optionalDependencies:
+      '@oxlint-tsgolint/darwin-arm64': 7.0.2005
+      '@oxlint-tsgolint/darwin-x64': 7.0.2005
+      '@oxlint-tsgolint/linux-arm64': 7.0.2005
+      '@oxlint-tsgolint/linux-x64': 7.0.2005
+      '@oxlint-tsgolint/win32-arm64': 7.0.2005
+      '@oxlint-tsgolint/win32-x64': 7.0.2005
+
+  oxlint@1.70.0(oxlint-tsgolint@7.0.2005):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.70.0
       '@oxlint/binding-android-arm64': 1.70.0
@@ -3673,6 +3739,7 @@ snapshots:
       '@oxlint/binding-win32-arm64-msvc': 1.70.0
       '@oxlint/binding-win32-ia32-msvc': 1.70.0
       '@oxlint/binding-win32-x64-msvc': 1.70.0
+      oxlint-tsgolint: 7.0.2005
 
   p-limit@3.1.0:
     dependencies:
@@ -3861,7 +3928,7 @@ snapshots:
   signal-exit@4.1.0:
     optional: true
 
-  slugify@1.6.6: {}
+  slugify@1.6.9: {}
 
   source-map-js@1.2.2: {}
 
