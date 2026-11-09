@@ -106,6 +106,24 @@ test("guests join, save the date, give a spot back, and the full encounter turns
   await expect(juniper.page.getByText("You're signed up!")).toHaveCount(0);
   await expect(juniper.page.getByRole("button", { name: "Join" })).toHaveCount(0);
 
+  // Full is a fact about the spots left, not about the people already in.
+  await sage.page.reload();
+  await expect(sage.page.getByText("No spots left").first()).toBeVisible();
+  await expect(
+    sage.page.getByText("You're signed up!").filter({ visible: true }).first(),
+  ).toBeVisible();
+  await expect(
+    sage.page.getByRole("button", { name: "Add to calendar" }).filter({ visible: true }).first(),
+  ).toBeVisible();
+  await expect(
+    sage.page.getByRole("button", { name: "Cancel signup" }).filter({ visible: true }).first(),
+  ).toBeVisible();
+  await attachArtifacts(testInfo, {
+    name: "encounter-rsvp-full-signed-up",
+    region: sage.page.getByRole("main"),
+    facts: { spotsLeft: 0, viewer: "Sage Guest", offered: ["Add to calendar", "Cancel signup"] },
+  });
+
   await page.reload();
   const roster = attendees(page, 2);
   await expect(roster.getByRole("listitem")).toContainText(["Rowan Guest", "Sage Guest"]);

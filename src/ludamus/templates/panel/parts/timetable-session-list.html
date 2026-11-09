@@ -24,7 +24,7 @@
                     <span class="text-xs text-foreground-muted">{{ session.duration_minutes }} min</span>
                     {% if session.participants_limit %}
                         <span class="text-xs text-neutral-400">·</span>
-                        <span class="text-xs text-foreground-muted">{{ session.participants_limit }} os.</span>
+                        <span class="text-xs text-foreground-muted">{% blocktranslate count counter=session.participants_limit %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}</span>
                     {% endif %}
                     {% if session.category_name %}
                         <span class="text-xs text-neutral-400">·</span>
