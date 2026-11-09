@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.crowd import CompanionsService, ProfileService
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import CompanionDTO
+from ludamus.pacts.legacy import NotFoundError
 from tests.unit.factories import FakeTransaction, user_dto
 
 if TYPE_CHECKING:

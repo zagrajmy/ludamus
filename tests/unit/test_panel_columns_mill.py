@@ -1,5 +1,5 @@
 from ludamus.mills.panel_columns import FACILITATOR_BUILTIN_KEYS, resolve_columns
-from ludamus.pacts import OrganizerFieldDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.panel import PanelColumnDTO
 
 

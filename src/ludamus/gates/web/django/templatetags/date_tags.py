@@ -10,7 +10,7 @@ from django.utils.translation import gettext as _
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts import DateTimeRangeProtocol
+    from ludamus.pacts.legacy import DateTimeRangeProtocol
 
 register = template.Library()
 

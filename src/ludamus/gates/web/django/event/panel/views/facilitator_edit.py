@@ -20,7 +20,7 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     stored_descriptors,
 )
 from ludamus.gates.web.django.forms import FacilitatorEditForm
-from ludamus.pacts import FacilitatorUpdateData, NotFoundError
+from ludamus.pacts.legacy import FacilitatorUpdateData, NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

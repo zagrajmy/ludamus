@@ -12,8 +12,8 @@ from ludamus.links.sklep_kapitularz import (
     SklepKapitularzConfig,
     SklepKapitularzIntegration,
 )
-from ludamus.pacts import MembershipAPIError
 from ludamus.pacts.chronology import CheckOutcome
+from ludamus.pacts.legacy import MembershipAPIError
 
 BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
 TOKEN = "membership-test-token"

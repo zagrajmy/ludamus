@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
-from ludamus.pacts import FieldAnswer
+from ludamus.pacts.fields import FieldAnswer
 
 from ._registry import register
 
 if TYPE_CHECKING:
-    from ludamus.pacts import FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
 
 
 def _selected(value: FieldValue) -> list[str]:

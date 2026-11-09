@@ -26,7 +26,7 @@ from ludamus.gates.web.django.forms import (
     SpaceForm,
     create_space_copy_form,
 )
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 
 if TYPE_CHECKING:

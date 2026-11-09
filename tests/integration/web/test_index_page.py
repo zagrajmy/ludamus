@@ -15,10 +15,10 @@ from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
-from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.dashboard import DashboardDTO
-from ludamus.pacts.encounter import PAST_FEED_LIMIT
+from ludamus.pacts.encounter import PAST_FEED_LIMIT, EncounterDTO, EncounterIndexItem
 from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
+from ludamus.pacts.legacy import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,

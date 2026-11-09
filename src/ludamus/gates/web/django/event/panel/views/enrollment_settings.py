@@ -23,7 +23,7 @@ from ludamus.pacts.legacy import RedirectError
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
 
 _SETTINGS_URL = "panel:event-enrollment-settings"
 

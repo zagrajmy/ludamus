@@ -26,7 +26,6 @@ from django.views.generic.base import RedirectView, View
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from ludamus.gates.web.django.crowd.forms import SignupAgeForm
-from ludamus.pacts import RedirectError
 from ludamus.pacts.crowd import (
     MIN_ACCOUNT_AGE,
     AgeBand,
@@ -34,6 +33,7 @@ from ludamus.pacts.crowd import (
     ClaimOutcome,
     IdentityRejectedError,
 )
+from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

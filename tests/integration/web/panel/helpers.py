@@ -17,13 +17,6 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorListItemDTO,
-    SessionDTO,
-    SessionStatus,
-    SpaceDTO,
-)
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -36,6 +29,8 @@ from ludamus.pacts.chronology import (
     TimetableGridDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.legacy import EventDTO, SessionDTO, SessionStatus, SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,

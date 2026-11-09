@@ -7,7 +7,6 @@ from django.db.models.functions import Lower
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import PartyMembership
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     EMAIL_LINK_MAX_AGE,
     AgeBand,
@@ -21,6 +20,7 @@ from ludamus.pacts.crowd import (
     UserRepositoryProtocol,
     UserType,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:

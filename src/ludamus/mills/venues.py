@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.venues import (
     PrintScopeDTO,
     PrintScopeOptionDTO,

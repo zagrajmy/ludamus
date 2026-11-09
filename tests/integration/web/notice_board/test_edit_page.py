@@ -7,7 +7,7 @@ from django.contrib.messages import constants
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.pacts import EncounterDTO
+from ludamus.pacts.encounter import EncounterDTO
 from tests.integration.conftest import PNG_BYTES, EncounterFactory
 from tests.integration.utils import (
     FormInitialMatcher,

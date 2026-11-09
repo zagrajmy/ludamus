@@ -17,7 +17,7 @@ from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AuthenticatedRequestContext
+    from ludamus.pacts.legacy import AuthenticatedRequestContext
     from ludamus.pacts.services import ServicesProtocol
 
 

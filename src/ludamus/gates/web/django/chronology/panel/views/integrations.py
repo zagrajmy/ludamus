@@ -22,7 +22,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import (
     CheckOutcome,
     EventIntegrationCreateData,
@@ -31,12 +30,13 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO
+    from ludamus.pacts.legacy import EventDTO
 
 
 class _PanelViewLike(Protocol):

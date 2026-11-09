@@ -5,8 +5,11 @@ import pytest
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
-from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
-from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
+from ludamus.pacts.legacy import (
+    UNSCHEDULED_LIST_LIMIT,
+    ProposalCategoryDTO,
+    UnscheduledSessionDTO,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,

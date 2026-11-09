@@ -26,16 +26,16 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_views,
     facilitator_column_values,
 )
-from ludamus.pacts import (
-    UNSCHEDULED_LIST_LIMIT,
-    NotFoundError,
-    UnscheduledSessionFilter,
-)
 from ludamus.pacts.chronology import (
     DateSelection,
     MultiselectOptionDTO,
     SessionPlacement,
     TimetableGridFilter,
+)
+from ludamus.pacts.legacy import (
+    UNSCHEDULED_LIST_LIMIT,
+    NotFoundError,
+    UnscheduledSessionFilter,
 )
 from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 

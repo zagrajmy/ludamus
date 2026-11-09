@@ -8,19 +8,15 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.mills.field_values import merge_custom, split_stored
-from ludamus.pacts import FieldAnswer
+from ludamus.pacts.fields import FieldAnswer
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from django.http import QueryDict
 
-    from ludamus.pacts import (
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts.fields import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.legacy import SessionFieldRequirementDTO
 
 type FieldPairs = Sequence[tuple[OrganizerFieldDTO, bool]]
 type WizardData = dict[str, FieldValue | int]

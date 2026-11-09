@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.mills.crowd import ClaimService, CrowdAuthService, LegacyAccountLinker
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     EMAIL_LINK_MAX_AGE,
     MAX_AVATAR_URL_LENGTH,
@@ -18,6 +17,7 @@ from ludamus.pacts.crowd import (
     IdentityDTO,
     UserDTO,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
 

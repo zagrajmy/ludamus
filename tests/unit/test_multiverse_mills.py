@@ -7,8 +7,7 @@ from ludamus.mills.multiverse import (
     ConnectionsService,
     SitesService,
 )
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.legacy import SiteDTO, SphereDTO
+from ludamus.pacts.legacy import NotFoundError, SiteDTO, SphereDTO
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,

@@ -13,7 +13,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.pacts import (
+from ludamus.pacts.legacy import (
     NO_LOCATION,
     AgendaItemDTO,
     LocationData,
