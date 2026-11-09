@@ -473,6 +473,13 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
         statuses = self._repository.read_statuses(
             session_id=session_id, user_ids=[req.user.pk for req in requests]
         )
+        # A request read before an earlier submit seated the same person asks
+        # for what is already true. Counting them again would refuse the
+        # second click for the seat the first one took.
+        asked = requests
+        requests = [req for req in requests if not _already_so(req, statuses)]
+        if asked and not requests and not (guests_in or guests_out):
+            raise NothingToChangeError(quiet=True)
         self._check_capacity(
             page,
             seating,
@@ -725,6 +732,14 @@ def _is_new_seat(value: str, *, seated: bool) -> bool:
     # An explicit "enroll" always spends a pass; a ticked box only when it
     # brings in someone holding nothing on the session yet.
     return value == EnrollmentChoice.ENROLL or (value == INCLUDE_VALUE and not seated)
+
+
+def _already_so(req: _Request, statuses: dict[int, str]) -> bool:
+    # A held seat is never "already so": skip_reason says why it is skipped.
+    if req.needs_accept:
+        return False
+    status = _STATUS_BY_CHOICE.get(req.choice)
+    return status is not None and statuses.get(req.user.pk) == status
 
 
 def _cancels_first(req: _Request) -> bool:

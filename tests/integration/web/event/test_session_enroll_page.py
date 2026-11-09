@@ -3060,6 +3060,36 @@ class TestDesiredStateEdgeCases:
             status=SessionParticipationStatus.CONFIRMED,
         ).exists()
 
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_a_second_click_after_the_first_seated_them_is_no_change(
+        self, staff_user, agenda_item, staff_client, monkeypatch
+    ):
+        # The first click took the last seat; the second was read before that
+        # commit and asks for the same seat. It is already theirs.
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        commit_before_seat_lock(
+            monkeypatch,
+            lambda: SessionParticipation.objects.create(
+                user=staff_user,
+                session=session,
+                status=SessionParticipationStatus.CONFIRMED,
+            ),
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._url(session.pk, session.event.slug),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+
     def test_full_session_include_without_waitlist_allowance_is_skipped(
         self, staff_user, agenda_item, staff_client, enrollment_config
     ):

@@ -563,6 +563,25 @@ class TestSubmitRefusals:
         assert excinfo.value.quiet is quiet
         assert ("lock_session", _SESSION_ID) not in repo.log
 
+    @pytest.mark.parametrize(
+        ("choice", "desired"), (("include", True), ("enroll", False))
+    )
+    def test_a_seat_the_first_click_took_is_no_change_not_a_shortage(
+        self, choice, desired
+    ):
+        # The page was read before an earlier submit seated the viewer and
+        # filled the session; under the lock the ask is already true.
+        repo = FakeSeats(session=_session(limit=1))
+        repo.on_lock = lambda seats: seats.statuses.update(
+            {_VIEWER.pk: Status.CONFIRMED}
+        )
+
+        with pytest.raises(NothingToChangeError) as excinfo:
+            _submit(repo, _peers(), {_VIEWER.pk: choice}, desired=desired)
+
+        assert excinfo.value.quiet
+        assert [entry for entry in repo.log if entry[0] == "seat"] == []
+
     def test_more_account_holders_than_seats(self):
         peers = _peers(parties=_led_party())
         repo = FakeSeats(session=_session(limit=1))
