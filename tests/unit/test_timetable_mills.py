@@ -1936,62 +1936,6 @@ class TestRevertChangeOutcomes:
         assert uow.schedule_change_logs.created == []
 
 
-class TestDetectForAssignment:
-    @pytest.fixture
-    def uow(self):
-        uow = _spec_uow(
-            agenda_items=_FakeAgendaItems(
-                _make_item(pk=1, session_id=10, space_id=1, session_title="Mine"),
-                _make_item(pk=2, session_id=20, space_id=1, session_title="Theirs"),
-            )
-        )
-        uow.spaces.list_by_event.return_value = [_space(1)]
-        _stub_warning_reads(uow)
-        return uow
-
-    def test_reports_the_placed_sessions_clashes(self, uow):
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert [(c.type, c.subject_session_pk, c.session_pk) for c in conflicts] == [
-            (ConflictType.SPACE_OVERLAP, 10, 20)
-        ]
-
-    def test_reports_a_room_too_small_for_the_session(self, uow):
-        uow.agenda_items.rows = {
-            1: _make_item(
-                pk=1,
-                session_id=10,
-                space_id=1,
-                session_participants_limit=_SESSION_LIMIT,
-            )
-        }
-        uow.spaces.list_by_event.return_value = [_space(1, capacity=_ROOM_CAPACITY)]
-
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert [(c.type, c.space_capacity, c.session_limit) for c in conflicts] == [
-            (ConflictType.CAPACITY_EXCEEDED, _ROOM_CAPACITY, _SESSION_LIMIT)
-        ]
-
-    def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self, uow):
-        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
-        uow.spaces.list_by_event.return_value = [_space(1, capacity=0)]
-
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert not conflicts
-
-    def test_an_unscheduled_session_is_not_found(self, uow):
-        with pytest.raises(NotFoundError):
-            _conflict_service(uow).detect_for_assignment(event_pk=1, session_pk=30)
-
-
 class TestTrackAttribution:
     @pytest.fixture
     def uow(self):

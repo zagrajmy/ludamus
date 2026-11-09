@@ -768,21 +768,6 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
     def __init__(self, repos: TimetableRepos) -> None:
         self._repos = repos
 
-    def detect_for_assignment(
-        self, event_pk: int, session_pk: int
-    ) -> list[ConflictDTO]:
-        # Runs after the assignment commits, so the session's own agenda item
-        # is already in the event context — detect on the real row through the
-        # same in-memory engine as the full listing, so every conflict shape
-        # has exactly one definition.
-        context = self._load_event_context(event_pk)
-        subject = next(
-            (item for item in context.items if item.session_id == session_pk), None
-        )
-        if subject is None:
-            raise NotFoundError
-        return self._detect(subject, context)
-
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
     ) -> list[ConflictDTO]:
