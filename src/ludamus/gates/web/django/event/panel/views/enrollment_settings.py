@@ -16,8 +16,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
     PanelContext,
 )
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.enrollment import EnrollmentWindowData, EnrollmentWindowDTO
-from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

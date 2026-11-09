@@ -12,13 +12,13 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import MIDNIGHT
+from ludamus.pacts.sessions import MIDNIGHT
 
 if TYPE_CHECKING:
     from datetime import date, tzinfo
 
-    from ludamus.pacts.chronology import Window
-    from ludamus.pacts.legacy import TimeSlotDTO
+    from ludamus.pacts.event import TimeSlotDTO
+    from ludamus.pacts.sessions import Window
 
 
 def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[Window]:

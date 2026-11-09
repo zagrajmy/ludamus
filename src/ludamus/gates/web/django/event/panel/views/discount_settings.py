@@ -22,8 +22,8 @@ from ludamus.gates.web.django.panel import (
     PanelRequest,
     settings_tab_urls,
 )
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.discounts import DiscountRuleData, DiscountRuleDTO
-from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

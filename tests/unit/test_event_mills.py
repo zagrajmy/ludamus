@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,24 +14,24 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
     EventPublicationInvalidError,
     EventSlugConflictError,
-    LandingConventionDTO,
-    LandingStatsDTO,
-)
-from ludamus.pacts.legacy import (
-    EventDTO,
     EventStatsData,
     EventUpdateData,
-    NotFoundError,
+    LandingConventionDTO,
+    LandingStatsDTO,
     PanelStatsDTO,
-    TrackDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, event_dto, track_dto
+
+if TYPE_CHECKING:
+    from ludamus.pacts.tracks import TrackDTO
 
 SPHERE = 10
 OTHER_SPHERE = 11

@@ -7,7 +7,7 @@ from ludamus.pacts.discounts import (
     DiscountRuleDTO,
     DiscountRuleRepositoryProtocol,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 
 class DiscountRepository(DiscountRepositoryProtocol):

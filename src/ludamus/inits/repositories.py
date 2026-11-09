@@ -5,16 +5,11 @@ from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.announcements import AnnouncementFanoutRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
-from ludamus.links.db.django.crowd import (
-    ClaimRepository,
-    CompanionRepository,
-    EmailVerificationReminderRepository,
-    UserRepository,
-)
 from ludamus.links.db.django.enrollment import (
     AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
     EnrollmentWindowRepository,
+    MemberEnrollmentRepository,
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.facilitator_change_log import (
@@ -26,13 +21,20 @@ from ludamus.links.db.django.notification_inbox import NotificationReadRepositor
 from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
-from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository
+from ludamus.links.db.django.repositories.encounter import EncounterInviteeRepository
+from ludamus.links.db.django.repositories.session_cards import EventScheduleRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
 from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
-from ludamus.pacts.crowd import UserType
+from ludamus.links.db.django.users import (
+    ClaimRepository,
+    CompanionRepository,
+    EmailVerificationReminderRepository,
+    UserRepository,
+)
+from ludamus.pacts.user import UserType
 
 
 class Repositories:
@@ -129,6 +131,10 @@ class Repositories:
         return repositories.SessionRepository()
 
     @cached_property
+    def event_schedule(self) -> EventScheduleRepository:
+        return EventScheduleRepository()
+
+    @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
         return repositories.SessionFieldRepository()
 
@@ -139,6 +145,10 @@ class Repositories:
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
         return AnonymousEnrollmentRepository()
+
+    @cached_property
+    def member_enrollment(self) -> MemberEnrollmentRepository:
+        return MemberEnrollmentRepository()
 
     @cached_property
     def enrollment_participations(self) -> EnrollmentParticipationRepository:

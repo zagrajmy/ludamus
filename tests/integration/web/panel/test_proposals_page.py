@@ -5,7 +5,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
@@ -14,16 +14,15 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Track,
 )
-from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
-from ludamus.pacts.legacy import (
-    ProposalCategoryDTO,
-    SessionDTO,
+from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.fields import (
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     SessionFieldValueDTO,
-    SessionListItemDTO,
-    SessionStatus,
-    TrackDTO,
 )
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -1787,7 +1786,7 @@ class TestProposalDetailPageView:
                     )
                 ],
                 "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
+                "presenter": user_dto(active_user),
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,

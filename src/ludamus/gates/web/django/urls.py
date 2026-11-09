@@ -1,5 +1,6 @@
 """URL configuration for gates/web/django views."""
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -20,6 +21,7 @@ from ludamus.gates.web.django.mcp.oauth import (
 )
 from ludamus.gates.web.django.mcp.views import McpEndpointView, McpOrganizerEndpointView
 from ludamus.gates.web.django.pages import PAGES, content_page
+from ludamus.gates.web.django.sphere.urls import multiverse_urlpatterns
 from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
@@ -28,11 +30,13 @@ if TYPE_CHECKING:
 
 
 handler404 = (  # pylint: disable=invalid-name
-    "ludamus.adapters.web.django.error_views.custom_404"
+    "ludamus.gates.web.django.error_views.custom_404"
 )
 handler500 = (  # pylint: disable=invalid-name
-    "ludamus.adapters.web.django.error_views.custom_500"
+    "ludamus.gates.web.django.error_views.custom_500"
 )
+
+logger = logging.getLogger(__name__)
 
 _HEALTHZ_INTERVAL = 5
 
@@ -58,7 +62,9 @@ def healthz(_request: HttpRequest) -> JsonResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         _healthz_cache.time, _healthz_cache.ok = now, True
-    except Exception:  # ruff:ignore[blind-except]
+    except Exception:
+        # NOTE: at most once per interval, the cache answers the rest.
+        logger.exception("Health check failed: database unreachable")
         _healthz_cache.time, _healthz_cache.ok = now, False
         return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})
@@ -66,14 +72,14 @@ def healthz(_request: HttpRequest) -> JsonResponse:
 
 urlpatterns: list[URLResolver | URLPattern] = [
     path("healthz/", healthz),
-    path("", include("ludamus.adapters.web.django.urls", namespace="web")),
+    path("", include("ludamus.gates.web.django.web_urls", namespace="web")),
     path(
         "panel/",
         include("ludamus.gates.web.django.event.panel.urls", namespace="panel"),
     ),
     path(
         "multiverse/",
-        include("ludamus.gates.web.django.multiverse.urls", namespace="multiverse"),
+        include((multiverse_urlpatterns, "multiverse"), namespace="multiverse"),
     ),
     # Same "crowd/" prefix as the legacy namespace on purpose: URLs keep their
     # shape while pages migrate from web:crowd:* to user:* one at a time.
@@ -135,7 +141,7 @@ if settings.DEBUG:
     def _trigger_500(_: HttpRequest) -> HttpResponse:
         raise ValueError
 
-    from ludamus.adapters.web.django.error_views import (  # pylint: disable=ungrouped-imports
+    from ludamus.gates.web.django.error_views import (  # pylint: disable=ungrouped-imports
         custom_404,
         custom_500,
     )

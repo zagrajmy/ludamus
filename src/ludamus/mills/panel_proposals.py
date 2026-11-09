@@ -8,8 +8,8 @@ from ludamus.mills.panel_columns import (
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.mills.slugs import unique_slug
-from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
     FIELD_KEY_PREFIX,
     PROPOSAL_BUILTIN_KEYS,
@@ -27,28 +27,30 @@ from ludamus.pacts.panel import (
     ProposalScheduleDTO,
     SourceRowIdMissingError,
 )
+from ludamus.pacts.propose import is_empty_answer
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.submissions import is_empty_answer
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.slugs import unique_slug
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from ludamus.pacts.chronology import SessionContentEditServiceProtocol
     from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        ProposalCategoryDTO,
-        SessionData,
-        SessionDTO,
-        SessionListItemDTO,
-    )
     from ludamus.pacts.panel import (
         PanelColumnsContextDTO,
         ProposalEdit,
         ProposalListQuery,
         ProposalRecordRepos,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+    from ludamus.pacts.propose import PersonalDataFieldValueServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import PersonalDataFieldValueServiceProtocol
+    from ludamus.pacts.sessions import (
+        SessionContentEditServiceProtocol,
+        SessionData,
+        SessionDTO,
+        SessionListItemDTO,
+    )
 
 
 def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
@@ -280,9 +282,9 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     ) -> int:
         self._validate_create_draft(event_id=event_id, draft=draft)
         slug = unique_slug(
-            base=draft.base_slug,
-            default="session",
+            draft.data.get("title", ""),
             exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
+            fallback="session",
         )
         payload: SessionData = {
             **draft.data,

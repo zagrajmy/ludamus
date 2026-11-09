@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -20,44 +20,54 @@ from ludamus.pacts.event import (
     EventConfirmationsServiceProtocol,
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
+    EventListItemDTO,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventRepositoryProtocol,
     EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    EventStatsData,
     LandingConventionDTO,
     LandingServiceProtocol,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
+    PanelStatsDTO,
+    PanelTimeSlotsServiceProtocol,
+    TimeSlotRejectedError,
+    TimeSlotSavedDTO,
+    TimeSlotValidationError,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.slugs import SlugCollisionError, unique_slug
+from ludamus.pacts.time_ranges import overlaps
+from ludamus.pacts.timetable import (
     AgendaItemRepositoryProtocol,
     ConfirmationCountsRow,
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    EventStatsData,
-    FacilitatorRepositoryProtocol,
-    NotFoundError,
-    PanelStatsDTO,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SphereRepositoryProtocol,
-    TrackRepositoryProtocol,
 )
-from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_GROUP, STATUS_ORDER
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
     from datetime import datetime
 
-    from ludamus.pacts.legacy import CacheProtocol, EventUpdateData
+    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.event import (
+        EventUpdateData,
+        TimeSlotDTO,
+        TimeSlotRepositoryProtocol,
+    )
+    from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
+    from ludamus.pacts.time_ranges import DateTimeRangeProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
 logger = logging.getLogger(__name__)
@@ -71,6 +81,36 @@ def require_session_in_event(
     *, sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
 ) -> EventDTO:
     if (event := sessions.read_event(session_pk)).pk != event_pk:
+        raise NotFoundError
+    return event
+
+
+def check_event_dates(
+    *, start_time: datetime, end_time: datetime, publication_time: datetime | None
+) -> None:
+    """Refuse dates the event table's check constraints would refuse.
+
+    Raises:
+        EventDatesInvalidError: the end is not after the start.
+        EventPublicationInvalidError: the event would publish after it starts.
+    """
+    if end_time <= start_time:
+        raise EventDatesInvalidError
+    if publication_time is not None and publication_time > start_time:
+        raise EventPublicationInvalidError
+
+
+def require_event_in_sphere(
+    *, events: EventRepositoryProtocol, event_pk: int, sphere_id: int
+) -> EventDTO:
+    event = events.read(event_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused event %s of sphere %s to a request from sphere %s",
+            event_pk,
+            event.sphere_id,
+            sphere_id,
+        )
         raise NotFoundError
     return event
 
@@ -548,11 +588,11 @@ class EventsService(EventsServiceProtocol):
     def create(
         self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
     ) -> EventDTO:
-        if data["end_time"] <= data["start_time"]:
-            raise EventDatesInvalidError
-        publication_time = data["publication_time"]
-        if publication_time is not None and publication_time > data["start_time"]:
-            raise EventPublicationInvalidError
+        check_event_dates(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            publication_time=data["publication_time"],
+        )
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
             source = (
@@ -561,9 +601,11 @@ class EventsService(EventsServiceProtocol):
                 else self._events.read_in_sphere(based_on_id, sphere_id)
             )
             try:
-                slug = data["slug"] or generate_unique_slug(
+                slug = data["slug"] or unique_slug(
                     data["name"],
-                    lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                    exists=lambda candidate: self._events.slug_exists(
+                        sphere_id, candidate
+                    ),
                     fallback="event",
                 )
             except SlugCollisionError as error:
@@ -594,3 +636,108 @@ class EventsService(EventsServiceProtocol):
                 based_on_id,
             )
             return self._events.read_in_sphere(event.pk, sphere_id)
+
+
+def _validate_time_slot(
+    *, start: datetime, end: datetime, existing_slots: Sequence[DateTimeRangeProtocol]
+) -> list[TimeSlotValidationError]:
+    errors: list[TimeSlotValidationError] = []
+
+    if start >= end:
+        errors.append(TimeSlotValidationError.START_NOT_BEFORE_END)
+
+    if any(overlaps(span=slot, start=start, end=end) for slot in existing_slots):
+        errors.append(TimeSlotValidationError.OVERLAPS_EXISTING_SLOT)
+
+    return errors
+
+
+class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        time_slots: TimeSlotRepositoryProtocol,
+        events: EventRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._time_slots = time_slots
+        self._events = events
+
+    def list_for_event(self, event_id: int) -> list[TimeSlotDTO]:
+        return self._time_slots.list_by_event(event_id)
+
+    def undeletable_pks(self, event_id: int) -> frozenset[int]:
+        """Slots `delete` would refuse, so the list can say so up front.
+
+        Returns:
+            The pks of slots a proposal already asked for.
+        """
+        return self._time_slots.pks_with_proposals(event_id)
+
+    def read(self, *, event_id: int, pk: int) -> TimeSlotDTO:
+        return self._time_slots.read_by_event(event_id, pk)
+
+    def _widen_event_dates(
+        self, *, event_pk: int, start: datetime, end: datetime
+    ) -> bool:
+        try:
+            return widen_event_dates(
+                events=self._events, event_pk=event_pk, start=start, end=end
+            )
+        except EventPublicationInvalidError as error:
+            raise TimeSlotRejectedError(
+                [TimeSlotValidationError.STARTS_BEFORE_PUBLICATION]
+            ) from error
+
+    def create(
+        self, *, event: EventDTO, start_time: datetime, end_time: datetime
+    ) -> TimeSlotSavedDTO:
+        # atomic() keeps the write consistent but does not serialize the
+        # check-then-insert: two concurrent requests can both read the same
+        # slots, both pass validation, and insert overlapping slots. Full
+        # enforcement needs a DB exclusion constraint on the slot range.
+        with self._transaction.atomic():
+            existing = self._time_slots.list_by_event(event.pk)
+            errors = _validate_time_slot(
+                start=start_time, end=end_time, existing_slots=existing
+            )
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
+            )
+            slot = self._time_slots.create(event.pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
+
+    def update(
+        self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
+    ) -> TimeSlotSavedDTO:
+        # Same unserialized check-then-write race as in create().
+        with self._transaction.atomic():
+            # Scope the pk to the panel's event before writing; a foreign pk
+            # raises NotFoundError with no side effects.
+            self._time_slots.read_by_event(event.pk, pk)
+            existing = [
+                slot
+                for slot in self._time_slots.list_by_event(event.pk)
+                if slot.pk != pk
+            ]
+            errors = _validate_time_slot(
+                start=start_time, end=end_time, existing_slots=existing
+            )
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
+            )
+            slot = self._time_slots.update(pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
+
+    def delete(self, *, event_id: int, pk: int) -> bool:
+        with self._transaction.atomic():
+            self._time_slots.read_by_event(event_id, pk)
+            if self._time_slots.has_proposals(pk):
+                return False
+            self._time_slots.delete(pk)
+            return True

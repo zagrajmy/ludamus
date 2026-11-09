@@ -47,13 +47,11 @@ floating UI for the same corner.{% endcomment %}
 {% endblock body_class %}
 {% block main_region %}
     <div class="flex flex-1">
-        <!-- Mobile Sidebar Overlay -->
         <button type="button"
                 id="sidebarOverlay"
                 class="transition-opacity duration-300 ease-in-out fixed inset-0 bg-black/50 z-40 lg:hidden hidden w-full h-full cursor-default"
                 aria-label="{% translate "Close navigation" %}"
                 data-action="toggle-sidebar"></button>
-        <!-- Sidebar -->
         <aside id="sidebar"
                class="transition-transform duration-300 ease-in-out scrollbar-none w-64 lg:folded:w-16 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
             <div class="sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 lg:folded:flex-col lg:folded:pt-2 lg:folded:justify-center bg-bg-tertiary p-2 dark:bg-bg-secondary">
@@ -157,7 +155,6 @@ floating UI for the same corner.{% endcomment %}
                 {% endblock sidebar_nav %}
             </nav>
         </aside>
-        <!-- Main Content -->
         {% comment %}The shell's bar reserves 12px around the tabs so a raised
         tab clears a rounded, bordered card edge. The panel strips that edge —
         rounded-t-none at every width — so the top 12px is a
@@ -178,10 +175,8 @@ floating UI for the same corner.{% endcomment %}
         organizer's own analytics consent does not cover.{% endcomment %}
         <main data-ph-mask
               class="flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
-            <!-- Top Bar -->
             <header class="btn-strip-compact bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
                     <button type="button"
                             data-action="toggle-sidebar"
@@ -236,12 +231,8 @@ floating UI for the same corner.{% endcomment %}
                     {% endblock header_actions %}
                 </div>
             </header>
-            <!-- Messages -->
             {% if messages %}
-                <div class="flash-region"
-                     role="region"
-                     aria-live="polite"
-                     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+                {% include "components/flash-region.html" %}
             {% endif %}
             {% comment %}A tab shell put straight in here is flush with the
             panel chrome, so its own border would double the chrome's edge.
@@ -256,14 +247,4 @@ floating UI for the same corner.{% endcomment %}
     {% vite_asset 'src/info-popover.ts' %}
     {% vite_asset 'src/nav-progress.ts' %}
     {% vite_asset 'src/panel-chrome.ts' %}
-    <script type="module" {% nonce %}>
-        document.addEventListener('keydown', e => {
-            if (e.key !== 'Escape') return;
-            const overlay = document.getElementById('sidebarOverlay');
-            const sidebar = document.getElementById('sidebar');
-            if (!overlay || overlay.classList.contains('hidden')) return;
-            overlay.classList.add('hidden');
-            sidebar.classList.add('-translate-x-full');
-        });
-    </script>
 {% endblock main_region %}

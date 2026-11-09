@@ -257,9 +257,9 @@ How the landed claim flow sits in the layers, following
   untouched; its party grouping already works.
 - **gates/** — keep the three `ProfileConnectedUser*` views
   (`adapters/web/django/views.py:604`); add a claim action. Re-skin
-  `crowd/user/connected.html` to the drużyna vocabulary with the `tessera`
+  `user/user/connected.html` to the drużyna vocabulary with the `tessera`
   design system. Add the +N stepper to the enroll screen
-  (`chronology/enroll_select.html`) only if anonymous enrollment doesn't already
+  (`event/enroll_select.html`) only if anonymous enrollment doesn't already
   cover it.
 - Tests follow the layer: claim logic → unit; views/templates → integration with
   `assert_response` (`docs/TESTING_STRATEGY.md`,

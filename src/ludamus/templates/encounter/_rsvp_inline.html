@@ -1,0 +1,74 @@
+{% load i18n tessera %}
+{% if not is_creator and not is_full and not user_has_rsvpd %}
+    <div class="card">
+        <div class="card-body p-5">
+            {% if user.is_authenticated %}
+                <form method="post"
+                      action="{% url 'web:notice-board:encounter-rsvp' share_code=encounter.share_code %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-full">{% translate "Join" %}</button>
+                </form>
+            {% else %}
+                <div class="space-y-3">
+                    <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.path|urlencode }}"
+                       class="btn btn-primary w-full text-center">{% translate "Join with account" %}</a>
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-border"></div>
+                        </div>
+                        <div class="relative flex justify-center text-xs">
+                            <span class="px-2 text-foreground-secondary bg-bg-secondary">{% translate "or" %}</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-foreground-secondary text-center">
+                        {% translate "Don't want to log in? Save the date instead:" %}
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% include "encounter/_calendar_inline.html" with menu_id=calendar_menu_id %}
+                        {% include "encounter/_rsvp_copy_details.html" %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% elif is_full and not is_creator %}
+    <div class="card">
+        <div class="card-body text-center">
+            <p class="text-sm font-medium text-danger">{% translate "No spots left" %}</p>
+        </div>
+    </div>
+{% elif not is_creator and user_has_rsvpd %}
+    <div class="card" data-rsvp-save>
+        <div class="card-body py-4">
+            <div class="flex items-center justify-center gap-2 text-success">
+                {% icon "check-circle" class="h-5 w-5" %}
+                <span class="font-medium text-sm">{% translate "You're signed up!" %}</span>
+            </div>
+            <div class="mt-3" data-rsvp-save-prompt>
+                <p class="text-xs text-foreground-secondary text-center mb-2">{% translate "Save the date so you don't forget:" %}</p>
+                <div class="grid grid-cols-2 gap-2">
+                    {% include "encounter/_calendar_inline.html" with menu_id=calendar_menu_id %}
+                    {% include "encounter/_rsvp_copy_details.html" %}
+                </div>
+            </div>
+            <div class="hidden mt-3" data-rsvp-save-done>
+                <button type="button"
+                        data-rsvp-restore-prompt
+                        class="w-full text-xs text-success text-center flex items-center justify-center gap-1 hover:text-success-text transition-colors cursor-pointer underline decoration-dotted">
+                    {% icon "check" class="h-3.5 w-3.5" variant="mini" %}
+                    {% translate "Saved" %}
+                </button>
+            </div>
+            <div class="text-center mt-3 pt-3 border-t border-border">
+                <form method="post"
+                      action="{% url 'web:notice-board:encounter-cancel-rsvp' share_code=encounter.share_code %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-xs text-foreground-secondary hover:text-danger transition-colors">
+                        {% translate "Cancel signup" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endif %}

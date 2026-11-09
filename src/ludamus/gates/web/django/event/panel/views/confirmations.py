@@ -12,7 +12,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.panel import PanelRequest, timetable_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 _SCOPES = ("session", "email", "facilitator")
 

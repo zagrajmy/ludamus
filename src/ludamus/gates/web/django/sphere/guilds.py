@@ -7,12 +7,12 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.multiverse.access import SphereAccessMixin
+from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.guild import (
@@ -21,7 +21,6 @@ from ludamus.pacts.guild import (
     GuildMembershipMemberDTO,
 )
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -63,7 +62,7 @@ class GuildsPageView(SphereAccessMixin, View):
         )
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/list.html",
+            "sphere/panel/guilds/list.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guilds": guilds,
@@ -82,12 +81,8 @@ class GuildCreatePageView(SphereAccessMixin, View):
         if not form.is_valid():
             return self._render(form)
 
-        name = form.cleaned_data["name"]
         self.request.services.guilds.create(
-            sphere_id=self.request.context.current_sphere_id,
-            # The gate slugifies; the service uniquifies against the sphere.
-            base_slug=slugify(name),
-            data=_write_data(form),
+            sphere_id=self.request.context.current_sphere_id, data=_write_data(form)
         )
         messages.success(self.request, _("Guild created."))
         return redirect("multiverse:panel:guilds")
@@ -95,7 +90,7 @@ class GuildCreatePageView(SphereAccessMixin, View):
     def _render(self, form: GuildForm) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/create.html",
+            "sphere/panel/guilds/create.html",
             {**sphere_sidebar_context(self.request, active_nav="guilds"), "form": form},
         )
 
@@ -132,7 +127,7 @@ class GuildEditPageView(SphereAccessMixin, View):
     def _render(self, guild: GuildDTO, form: GuildForm) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/edit.html",
+            "sphere/panel/guilds/edit.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guild": guild,
@@ -152,7 +147,7 @@ class GuildDeletePageView(SphereAccessMixin, View):
     def get(self, _request: PanelRequest, pk: int) -> HttpResponse:
         return TemplateResponse(
             self.request,
-            "multiverse/panel/guilds/delete.html",
+            "sphere/panel/guilds/delete.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guild": _read_guild(self.request, pk),

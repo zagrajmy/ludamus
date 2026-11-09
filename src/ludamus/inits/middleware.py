@@ -9,12 +9,12 @@ from django.utils.translation.trans_real import parse_accept_lang_header
 
 from ludamus.inits.dbos_scheduler import launch_scheduler
 from ludamus.inits.services import Services
-from ludamus.pacts.crowd import UserData
+from ludamus.pacts.user import UserData
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-    from ludamus.pacts.legacy import RootRequestProtocol
+    from ludamus.pacts.services import RootRequestProtocol
 
     class SessionProtocol(Protocol):
         """The slice of the Django session this middleware touches."""
@@ -127,12 +127,7 @@ def _stated_language(request: LanguageRequestProtocol) -> str | None:
 
 
 class ServiceInjectionMiddleware[Response]:
-    """Attach `request.services` — the gate-facing service namespace.
-
-    Runs in parallel with RepositoryInjectionMiddleware during the strangler-fig
-    migration. A view either uses `request.di.uow.*` (legacy) or
-    `request.services.*` (migrated) — never both shapes in the same view.
-    """
+    """Attach `request.services` — the gate-facing service namespace."""
 
     def __init__(self, get_response: Callable[[RootRequestProtocol], Response]) -> None:
         self.get_response: Callable[[RootRequestProtocol], Response] = get_response

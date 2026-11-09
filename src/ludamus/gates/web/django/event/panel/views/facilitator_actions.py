@@ -13,8 +13,8 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.panel import PanelRequest, safe_next_url
 from ludamus.gates.web.django.sphere.forms import FacilitatorAssignGuildForm
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.propose import FacilitatorActionError, OrganizerActionRefusal
 
 if TYPE_CHECKING:
     from django.http import HttpResponse

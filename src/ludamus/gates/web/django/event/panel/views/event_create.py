@@ -10,18 +10,18 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.forms import event_create_form
 from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
     EventSlugConflictError,
 )
-from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse
 
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
 class EventCreatePageView(PanelAccessMixin, View):

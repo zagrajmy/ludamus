@@ -17,15 +17,15 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.qr import qr_svg
 from ludamus.gates.web.django.request_ids import parse_id
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.printing import PrintQueryDTO
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.printing import (
         AreaScheduleDocumentDTO,
         DoorCardsDocumentDTO,
@@ -167,7 +167,7 @@ def _resolve_material(
 
 class PublicEventPrintView(View):
     request: RootRequest
-    template_name = "chronology/print.html"
+    template_name = "event/print.html"
     DEFAULT_RANGE_HOURS = 6
     MAX_RANGE_HOURS = 72
 

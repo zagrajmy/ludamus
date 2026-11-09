@@ -1,8 +1,5 @@
-# Sidebar and tab context shared by every sphere-panel page. The pages
-# themselves still live under `multiverse/` and are reached as
-# `multiverse:panel:*`; this helper moved ahead of them because the guild pages
-# in this package need it too, and it is sphere infrastructure, not
-# multiverse-specific.
+# Sidebar and tab context shared by every sphere-panel page, reached as
+# `multiverse:panel:*`.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
@@ -22,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.gates.web.django.panel import PanelNav, PanelRequest
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
 class SphereSidebar(PanelNavContext):

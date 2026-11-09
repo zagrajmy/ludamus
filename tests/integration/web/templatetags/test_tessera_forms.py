@@ -5,21 +5,21 @@ from datetime import UTC, datetime
 from django import forms
 from django.forms.widgets import CheckboxSelectMultiple, RadioSelect, Select
 
-from ludamus.adapters.web.django.templatetags.tessera.checkbox import (
+from ludamus.gates.web.django.templatetags.tessera.checkbox import (
     render_multi_choice_field,
 )
-from ludamus.adapters.web.django.templatetags.tessera.errors import (
+from ludamus.gates.web.django.templatetags.tessera.errors import (
     render_errors,
     render_help_text,
 )
-from ludamus.adapters.web.django.templatetags.tessera.form import (
+from ludamus.gates.web.django.templatetags.tessera.form import (
     tessera_button,
     tessera_errors,
     tessera_field,
     tessera_form,
     tessera_sole_choice,
 )
-from ludamus.adapters.web.django.templatetags.tessera.label import render_label
+from ludamus.gates.web.django.templatetags.tessera.label import render_label
 from ludamus.pacts.images import StoredFile
 
 

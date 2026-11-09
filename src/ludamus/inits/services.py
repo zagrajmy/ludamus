@@ -30,24 +30,8 @@ from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
-from ludamus.links.gravatar import gravatar_url
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
-from ludamus.mills.chronology import (
-    ProposalAcceptanceService,
-    ProposalStatusService,
-    SessionConfirmationService,
-    SessionContentEditService,
-    SessionDeletionService,
-    SessionSelfEditService,
-)
-from ludamus.mills.crowd import (
-    ClaimService,
-    CompanionsService,
-    CrowdAuthService,
-    EmailVerificationService,
-    ProfileService,
-)
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
@@ -57,13 +41,19 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
+from ludamus.mills.enrollment_member import (
+    MemberEnrollmentPeers,
+    MemberEnrollmentService,
+)
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
     EventConfirmationsService,
     EventPanelService,
     EventsService,
     LandingService,
+    PanelTimeSlotsService,
 )
+from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import (
@@ -72,37 +62,44 @@ from ludamus.mills.integrations import (
 )
 from ludamus.mills.maps import EventMapsService
 from ludamus.mills.mcp import McpAuthorizationService
-from ludamus.mills.multiverse import (
-    AnnouncementsService,
-    ConnectionsService,
-    SitesService,
-    SpherePanelService,
-)
 from ludamus.mills.notifications import (
     NotificationsService,
     NotificationSubscriptionsService,
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
-from ludamus.mills.propose import ProposeSessionService
-from ludamus.mills.safety import EventBanService, ShadowbanService
-from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
 )
-from ludamus.mills.submissions.proposal_category_settings import (
+from ludamus.mills.propose.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
+from ludamus.mills.sessions import (
+    ProposalAcceptanceService,
+    ProposalStatusService,
+    SessionConfirmationService,
+    SessionContentEditService,
+    SessionDeletionService,
+    SessionSelfEditService,
+)
+from ludamus.mills.sphere import (
+    AnnouncementsService,
+    ConnectionsService,
+    SitesService,
+    SpherePanelService,
+)
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -111,25 +108,36 @@ from ludamus.mills.timetable import (
     TimetableService,
 )
 from ludamus.mills.tracks import TracksPanelService
+from ludamus.mills.user import (
+    ClaimService,
+    CompanionsService,
+    CrowdAuthService,
+    EmailVerificationService,
+    ProfileService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
+from ludamus.pacts.integrations import IntegrationImplementationId
 from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     ProposalPanelRepos,
     ProposalRecordRepos,
 )
-from ludamus.pacts.propose import ProposeRepos
-from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.propose import (
+    ImportRepos,
+    ProposalCategorySettingsRepos,
+    ProposeRepos,
+)
 from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.mills.listing import ListingService
-    from ludamus.pacts.chronology import (
+    from ludamus.pacts.integrations import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
         TicketingIntegrationImplementation,
@@ -245,6 +253,14 @@ class Services:
         )
 
     @cached_property
+    def event_schedule(self) -> EventScheduleService:
+        return EventScheduleService(
+            schedule=self._repos.event_schedule,
+            windows=self._repos.enrollment_windows,
+            session_fields=self._repos.session_fields,
+        )
+
+    @cached_property
     def session_modal(self) -> SessionModalService:
         return SessionModalService(
             transaction=self._transaction, sessions=self._repos.sessions
@@ -327,7 +343,11 @@ class Services:
 
     @cached_property
     def space_tree(self) -> SpaceTreeService:
-        return SpaceTreeService(self._transaction, self._repos.space_tree)
+        return SpaceTreeService(
+            transaction=self._transaction,
+            spaces=self._repos.space_tree,
+            events=self._repos.events,
+        )
 
     @cached_property
     def event_maps(self) -> EventMapsService:
@@ -511,6 +531,20 @@ class Services:
                 participations=self._repos.enrollment_participations,
                 ticket_api_resolver=self.event_integrations,
                 windows=self._repos.enrollment_windows,
+            ),
+        )
+
+    @cached_property
+    def member_enrollment(self) -> MemberEnrollmentService:
+        return MemberEnrollmentService(
+            transaction=self._transaction,
+            repository=self._repos.member_enrollment,
+            peers=MemberEnrollmentPeers(
+                enrollment=self.enrollment,
+                waitlist_promotion=self.waitlist_promotion,
+                shadowban=self.shadowban,
+                parties=self.parties,
+                event_bans=self.event_bans,
             ),
         )
 

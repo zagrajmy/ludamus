@@ -8,17 +8,14 @@ from ludamus.mills.panel_columns import (
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.mills.slugs import unique_slug
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
     log_facilitator_deletion,
 )
-from ludamus.pacts.legacy import (
-    FacilitatorData,
-    NotFoundError,
-    PersonalDataFieldValueData,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorData
+from ludamus.pacts.fields import PersonalDataFieldValueData
 from ludamus.pacts.panel import (
     FACILITATOR_BUILTIN_KEYS,
     MIN_MERGE_FACILITATORS,
@@ -31,24 +28,24 @@ from ludamus.pacts.panel import (
     FacilitatorPanelServiceProtocol,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     AccreditationType,
     FacilitatorActionError,
     OrganizerActionRefusal,
 )
+from ludamus.pacts.slugs import unique_slug
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.legacy import (
-        ContentFieldChange,
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogData,
         FacilitatorChangeLogDTO,
         FacilitatorDTO,
         FacilitatorUpdateData,
     )
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.panel import (
         FacilitatorCreateData,
         FacilitatorListQuery,
@@ -56,8 +53,9 @@ if TYPE_CHECKING:
         FacilitatorPanelRepos,
         PanelColumnsContextDTO,
     )
+    from ludamus.pacts.propose import FacilitatorListFilters
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import FacilitatorListFilters
+    from ludamus.pacts.sessions import ContentFieldChange
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -448,9 +446,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     ) -> FacilitatorDTO:
         with self._transaction.atomic():
             slug = unique_slug(
-                base=data.base_slug,
-                default="facilitator",
+                data.display_name,
                 exists=lambda s: self._repos.facilitators.slug_exists(event_id, s),
+                fallback="facilitator",
             )
             facilitator = self._repos.facilitators.create(
                 FacilitatorData(

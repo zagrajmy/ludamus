@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,8 +11,9 @@ from ludamus.mills.panel_facilitators import (
     merge_target,
     name_reconcile,
 )
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     EventPanelSettingsDTO,
@@ -23,7 +24,7 @@ from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     FacilitatorActionError,
     FacilitatorSessionCountsDTO,
     OrganizerActionRefusal,
@@ -40,6 +41,10 @@ def _field(pk, field_type="select"):
         question="",
         slug=f"field-{pk}",
     )
+
+
+def _facilitator_row(pk, slug):
+    return SimpleNamespace(pk=pk, slug=slug)
 
 
 def _lookup(rows):
@@ -115,51 +120,109 @@ class TestListContextFieldFilters:
         assert not context.field_filters
 
 
+class FakeSearchableFacilitators:
+    """Answers the panel's list queries the way the repository filters them."""
+
+    def __init__(self, *rows, deleted=()):
+        self.rows = {1: list(rows)}
+        self.deleted = {1: list(deleted)}
+
+    def list_by_event(self, event_id, filters):
+        rows = self.rows.get(event_id, [])
+        if "pks" in filters:
+            rows = [row for row in rows if row.pk in filters["pks"]]
+        if "search" in filters:
+            rows = [row for row in rows if filters["search"] in row.slug]
+        return rows[: filters.get("limit")]
+
+    def list_by_slugs(self, event_id, slugs):
+        by_slug = {row.slug: row for row in self.rows.get(event_id, [])}
+        return [by_slug[slug] for slug in slugs if slug in by_slug]
+
+    def list_deleted_by_event(self, event_id):
+        return self.deleted.get(event_id, [])
+
+
+_ALICE = _facilitator_row(1, "alice")
+_ALAN = _facilitator_row(2, "alan")
+_ALBA = _facilitator_row(3, "alba")
+_ALMA = _facilitator_row(4, "alma")
+
+
+def _search_service(*rows, columns=(), deleted=()):
+    return _service(
+        facilitators=FakeSearchableFacilitators(*rows, deleted=deleted),
+        panel_settings=FakeSettingsRepo(columns),
+        personal_data_fields=FakeFieldsRepo([_field(1)]),
+    )
+
+
 class TestFilterOptions:
-    @staticmethod
-    def _search_service(rows_per_call):
-        facilitators_repo = MagicMock()
-        facilitators_repo.list_by_event.side_effect = rows_per_call
-        return _service_and_repos(facilitators=facilitators_repo)
+    def test_a_plain_page_load_renders_nothing(self):
+        options = _search_service(_ALICE).filter_options(
+            event_id=1, search="", pinned=set(), limit=5
+        )
+
+        assert (options.facilitators, options.columns, options.has_more) == (
+            [],
+            [],
+            False,
+        )
 
     def test_pinned_rows_come_first_and_one_extra_match_means_more(self):
-        pinned, fresh = _facilitator(1, "alice"), [
-            _facilitator(2, "alan"),
-            _facilitator(3, "alba"),
-            _facilitator(4, "alma"),
-        ]
-        service, repos = self._search_service([[pinned], [pinned, *fresh]])
+        found = _search_service(
+            _ALICE, _ALAN, _ALBA, _ALMA, columns=["guild"]
+        ).filter_options(event_id=1, search="al", pinned={1}, limit=2)
 
-        found = service.filter_options(event_id=1, search="al", pinned={1}, limit=2)
+        assert found.facilitators == [_ALICE, _ALAN, _ALBA]
+        assert found.has_more is True
+        assert [c.key for c in found.columns] == ["guild"]
 
-        assert repos.facilitators.list_by_event.call_args_list == [
-            call(1, {"pks": {1}}),
-            call(1, {"search": "al", "limit": 4}),
-        ]
-        assert found.facilitators == [pinned, *fresh[:2]]
+    def test_a_pinned_match_does_not_hide_the_one_extra_match(self):
+        # Alice is pinned and matches; Alma is the one match past the limit.
+        found = _search_service(_ALICE, _ALAN, _ALBA, _ALMA).filter_options(
+            event_id=1, search="al", pinned={1}, limit=2
+        )
+
         assert found.has_more is True
 
     def test_exactly_the_limit_of_matches_means_no_more(self):
-        fresh = [_facilitator(2, "alan"), _facilitator(3, "alba")]
-        service, repos = self._search_service([fresh])
-
-        found = service.filter_options(event_id=1, search="al", pinned=set(), limit=2)
-
-        repos.facilitators.list_by_event.assert_called_once_with(
-            1, {"search": "al", "limit": 3}
+        found = _search_service(_ALAN, _ALBA).filter_options(
+            event_id=1, search="al", pinned=set(), limit=2
         )
-        assert found.facilitators == fresh
+
+        assert found.facilitators == [_ALAN, _ALBA]
         assert found.has_more is False
 
     def test_nothing_typed_still_lists_the_pinned_rows(self):
-        pinned = _facilitator(1, "alice")
-        service, repos = self._search_service([[pinned]])
+        found = _search_service(_ALICE, _ALAN).filter_options(
+            event_id=1, search="", pinned={1}, limit=2
+        )
 
-        found = service.filter_options(event_id=1, search="", pinned={1}, limit=2)
-
-        repos.facilitators.list_by_event.assert_called_once_with(1, {"pks": {1}})
-        assert found.facilitators == [pinned]
+        assert found.facilitators == [_ALICE]
         assert found.has_more is False
+
+
+class TestLookups:
+    def test_merge_basket_resolves_each_known_slug_once(self):
+        basket = _search_service(_ALICE, _ALAN).merge_basket(
+            event_id=1, slugs=["alan", "gone", "alan", "alice"]
+        )
+
+        assert basket == [_ALAN, _ALICE]
+
+    def test_search_candidates_need_something_typed(self):
+        service = _search_service(_ALICE, _ALAN, _facilitator_row(5, "bob"))
+
+        assert service.search_candidates(event_id=1, search="") == []
+        assert service.search_candidates(event_id=1, search="al") == [_ALICE, _ALAN]
+
+    def test_lists_are_the_events_own(self):
+        service = _search_service(_ALICE, deleted=[_ALMA])
+
+        assert service.list_deleted(1) == [_ALMA]
+        assert service.list_deleted(2) == []
+        assert [f.pk for f in service.list_fields(1)] == [1]
 
 
 _BOB_PK = 2
@@ -406,9 +469,7 @@ class TestCreateFacilitator:
 
         result = service.find_or_create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result is existing
@@ -420,9 +481,7 @@ class TestCreateFacilitator:
 
         result = service.find_or_create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result.pk == _CREATED_PK
@@ -448,23 +507,20 @@ class TestCreateFacilitator:
 
         result = service.create_facilitator(
             event_id=10,
-            data=FacilitatorCreateData(
-                display_name="Alice", base_slug="alice", accreditation_type="none"
-            ),
+            data=FacilitatorCreateData(display_name="Alice", accreditation_type="none"),
         )
 
         assert result.slug != "alice"
         assert result.slug.startswith("alice-")
         assert repos.facilitators.create.call_args[0][0]["slug"] == result.slug
 
-    def test_blank_base_slug_falls_back_and_the_organizer_is_kept(self):
+    def test_unsluggable_name_falls_back_and_the_organizer_is_kept(self):
         service, repos = self._create_service()
 
         service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="",
+                display_name="!!!",
                 accreditation_type="guest",
                 is_collective=True,
                 organizer_id=_MINE,
@@ -474,7 +530,7 @@ class TestCreateFacilitator:
         repos.facilitators.create.assert_called_once_with(
             {
                 "accreditation_type": "guest",
-                "display_name": "Alice",
+                "display_name": "!!!",
                 "event_id": 10,
                 "is_collective": True,
                 "organizer_id": _MINE,
@@ -490,10 +546,7 @@ class TestCreateFacilitator:
         service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "yes"},
+                display_name="Alice", accreditation_type="none", values={5: "yes"}
             ),
             user_id=_USER_ID,
         )
@@ -787,56 +840,6 @@ class TestListContext:
 
 
 class TestReadPaths:
-    def test_pass_throughs_scope_to_the_event(self):
-        service, repos = _mock_service([_field(1)])
-        repos.facilitators.list_deleted_by_event.side_effect = _lookup(
-            {(1,): [_row(1)]}
-        )
-        repos.facilitators.list_by_slugs.return_value = [_row(2)]
-        repos.facilitators.list_by_event.return_value = [_row(3)]
-
-        assert service.list_deleted(1) == [_row(1)]
-        assert service.merge_basket(event_id=1, slugs=["a", "b", "a"]) == [_row(2)]
-        assert service.search_candidates(event_id=1, search="") == []
-        assert service.search_candidates(event_id=1, search="x") == [_row(3)]
-        assert service.list_fields(1) == [_field(1)]
-        repos.facilitators.list_by_slugs.assert_called_once_with(1, ["a", "b"])
-        repos.facilitators.list_by_event.assert_called_once_with(1, {"search": "x"})
-
-    def test_filter_options_plain_page_load_renders_nothing(self):
-        service, repos = _mock_service()
-
-        options = service.filter_options(event_id=1, search="", pinned=set(), limit=5)
-
-        assert (options.facilitators, options.columns, options.has_more) == (
-            [],
-            [],
-            False,
-        )
-        repos.facilitators.list_by_event.assert_not_called()
-
-    def test_filter_options_keep_pinned_rows_and_report_more_matches(self):
-        service, repos = _mock_service(columns=["guild"])
-        repos.facilitators.list_by_event.side_effect = lambda _event_id, filters: (
-            [_row(1)] if "pks" in filters else [_row(1), _row(2), _row(3)]
-        )
-
-        options = service.filter_options(event_id=1, search="a", pinned={1}, limit=1)
-
-        assert [f.pk for f in options.facilitators] == [1, 2]
-        assert options.has_more is True
-        assert [c.key for c in options.columns] == ["guild"]
-
-    def test_filter_options_without_search_return_only_pinned(self):
-        service, repos = _mock_service()
-        repos.facilitators.list_by_event.return_value = [_row(1)]
-
-        options = service.filter_options(event_id=1, search="", pinned={1}, limit=5)
-
-        assert [f.pk for f in options.facilitators] == [1]
-        assert options.has_more is False
-        assert repos.facilitators.list_by_event.call_count == 1
-
     @pytest.mark.parametrize(
         ("include_deleted", "user_id", "user_lookup", "linked"),
         (
@@ -980,10 +983,7 @@ class TestCreateWithAnswers:
         result = service.create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "Vegan"},
+                display_name="Alice", accreditation_type="none", values={5: "Vegan"}
             ),
             user_id=_ACTOR,
         )
@@ -1014,10 +1014,7 @@ class TestCreateWithAnswers:
         result = service.find_or_create_facilitator(
             event_id=10,
             data=FacilitatorCreateData(
-                display_name="Alice",
-                base_slug="alice",
-                accreditation_type="none",
-                values={5: "Vegan"},
+                display_name="Alice", accreditation_type="none", values={5: "Vegan"}
             ),
             user_id=_ACTOR,
         )

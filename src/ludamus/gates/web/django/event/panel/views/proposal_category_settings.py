@@ -13,9 +13,11 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalCategoryForm
 from ludamus.gates.web.django.panel import PanelRequest, parse_requirement_selection
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.legacy import NotFoundError, PromotionMode, RedirectError
-from ludamus.pacts.submissions import (
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.propose import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
 )

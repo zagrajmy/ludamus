@@ -22,7 +22,7 @@ BUILTIN_ATTRIBUTES = frozenset(
 
 
 def short_name(logger: str) -> str:
-    """`ludamus.gates.web.django.crowd.auth` reads as `crowd.auth`.
+    """`ludamus.gates.web.django.user.auth` reads as `user.auth`.
 
     The root and the layer repeat on every line; the tail is what tells one
     emitter from another.

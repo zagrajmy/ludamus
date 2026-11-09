@@ -1,5 +1,4 @@
 {% load i18n %}
-<!-- Session count -->
 <div class="text-xs text-foreground-muted mb-2">
     {% if has_more %}
         {% blocktranslate with limit=limit %}Showing first {{ limit }} — narrow with search or filters{% endblocktranslate %}
@@ -7,7 +6,6 @@
         {% blocktranslate count count=sessions|length %}{{ count }} session{% plural %}{{ count }} sessions{% endblocktranslate %}
     {% endif %}
 </div>
-<!-- Session cards -->
 {% if sessions %}
     <div class="space-y-2">
         {% for session in sessions %}

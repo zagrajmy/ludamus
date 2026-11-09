@@ -107,3 +107,24 @@ class AnnouncementFanoutServiceProtocol(Protocol):
 
 class AnnouncementFanoutSchedulerProtocol(Protocol):
     def schedule_fanout(self, *, announcement_id: int) -> None: ...
+
+
+class NotificationKind(StrEnum):
+    WAITLIST_PROMOTED = auto()
+    WAITLIST_OFFER = auto()
+    OFFER_EXPIRED = auto()
+    SHADOWBANNED_SIGNUP = auto()
+    PARTY_INVITE = auto()
+    PARTY_ENROLLED = auto()
+    PARTY_SEAT_HELD = auto()
+    PRINTABLES_READY = auto()
+    EMAIL_VERIFICATION = auto()
+    EMAIL_CHANGE_REQUESTED = auto()
+    EMAIL_CHANGE_COMPLETED = auto()
+    ANNOUNCEMENT = auto()
+    SPHERE_EVENT_PUBLISHED = auto()
+    LISTING_INTERESTED = auto()
+    LISTING_DECLINED = auto()
+    LISTING_NOT_CHOSEN = auto()
+    LISTING_CHANGED = auto()
+    PROPOSAL_ACCEPTED = auto()

@@ -13,8 +13,8 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.gates.web.django.panel import PanelRequest, safe_next_url
 from ludamus.gates.web.django.request_ids import parse_ids
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -13,9 +13,6 @@ if TYPE_CHECKING:
 
 
 class DjangoTransaction:
-    # atomic()/savepoint() over Django's transaction API. Shared by the unit of
-    # work (request.di.uow) and the services layer's TransactionProtocol impl so
-    # both open savepoints the same way.
 
     @staticmethod
     def atomic() -> AbstractContextManager[None]:

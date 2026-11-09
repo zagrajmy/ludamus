@@ -11,7 +11,8 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.mills.timetable import ConflictDetectionService
-from ludamus.pacts.legacy import NotFoundError, NotificationKind
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

@@ -1,11 +1,14 @@
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import PartyDetailDTO, PartySessionHistoryServiceProtocol
+from ludamus.pacts.session_cards import (
+    PartyDetailDTO,
+    PartySessionHistoryServiceProtocol,
+)
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import PartySessionHistoryRepositoryProtocol
     from ludamus.pacts.party import PartyRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.session_cards import PartySessionHistoryRepositoryProtocol
 
 
 class PartySessionHistoryService(PartySessionHistoryServiceProtocol):

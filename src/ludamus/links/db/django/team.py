@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.models import Sphere, SphereInvitation, SphereMembership
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.team import (
     InvitationPreviewDTO,
     SphereInvitationDTO,

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import NotFoundError, TrackCreateData, TrackUpdateData
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
+    TrackCreateData,
     TrackEditContextDTO,
     TrackEditFormContextDTO,
     TrackFilterDTO,
@@ -15,14 +16,10 @@ from ludamus.pacts.tracks import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        SpaceRepositoryProtocol,
-        SphereRepositoryProtocol,
-        TrackDTO,
-        TrackListItemDTO,
-        TrackRepositoryProtocol,
-    )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
+    from ludamus.pacts.tracks import TrackDTO, TrackListItemDTO, TrackRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
 
 
 class TracksPanelService(TracksPanelServiceProtocol):
@@ -144,7 +141,7 @@ class TracksPanelService(TracksPanelServiceProtocol):
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
             self._tracks.update(
                 track.pk,
-                TrackUpdateData(
+                TrackFormData(
                     name=scoped["name"],
                     is_public=scoped["is_public"],
                     space_pks=scoped["space_pks"],

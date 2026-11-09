@@ -10,8 +10,8 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.crowd.auth import sign_out_to_guardian_page
-from ludamus.gates.web.django.crowd.forms import AgeRangeForm
+from ludamus.gates.web.django.user.auth import sign_out_to_guardian_page
+from ludamus.gates.web.django.user.forms import AgeRangeForm
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATE = "crowd/user/age_range.html"
+_TEMPLATE = "user/user/age_range.html"
 
 
 # The under-13 answer disables the account and signs it out, and only support

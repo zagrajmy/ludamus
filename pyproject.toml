@@ -252,8 +252,8 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "ludamus.links.db.django.*",
-    "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.inits.request_context",
     "ludamus.inits.wide_event",
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
@@ -267,7 +267,6 @@ disallow_any_expr = false
 
 [[tool.mypy.overrides]]
 module = [
-    "ludamus.adapters.web.django.*",
     "ludamus.gates.web.django.*",
     "ludamus.gates.cli.django.management.commands.export_konwencik",
     "ludamus.inits.wide_event",
@@ -374,7 +373,12 @@ max-positional-args = 2
 parametrize-values-type = "tuple"
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    # NOTE: ruff cannot see that this pacts DTO is a BaseModel when a module
+    # only subclasses it; session_cards.py does.
+    "ludamus.pacts.enrollment.SessionSeatsDTO",
+]
 
 [tool.ruff.lint.flake8-unused-arguments]
 ignore-variadic-names = true
@@ -397,13 +401,7 @@ DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 # the integration suite could have killed, so mutating `src` wholesale reports
 # noise instead of gaps.
 source_paths = ["src/ludamus/mills", "src/ludamus/specs"]
-# NOTE: mutmut runs the suite twice in one process (stats pass, then clean
-# pass); DBOS refuses to register the same workflow twice, so its smoke test
-# stays out.
-pytest_add_cli_args_test_selection = [
-    "tests/unit",
-    "--ignore=tests/unit/test_dbos_smoke.py",
-]
+pytest_add_cli_args_test_selection = ["tests/unit"]
 # NOTE: mutmut runs the suite from a copy of the tree, so everything the unit
 # suite imports or loads has to be copied beside the mutants. Out: the mutated
 # packages themselves, `client` (a TypeScript app, never imported from Python)
@@ -412,7 +410,6 @@ pytest_add_cli_args_test_selection = [
 also_copy = [
     "scripts",
     "src/ludamus/__init__.py",
-    "src/ludamus/adapters",
     "src/ludamus/content",
     "src/ludamus/edges",
     "src/ludamus/gates",
@@ -439,12 +436,10 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# TODO: mills is still reached through adapters.web.django.error_views
-# (mills.url_recovery) from gates.web.django.urls.
 forbidden_modules = [
     "ludamus.links",
     "ludamus.inits",
-    # "ludamus.mills",
+    "ludamus.mills",
     "ludamus.specs",
     "ludamus.edges",
 ]

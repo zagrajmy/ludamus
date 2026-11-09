@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n tessera %}
+{% load empty_state_tags %}
 {% block title %}
     {% translate "My listings" %}
 {% endblock title %}
@@ -25,13 +26,10 @@
                 {% endfor %}
             </ul>
         {% else %}
-            <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
-                {% icon "megaphone" class="w-8 h-8 mx-auto text-foreground-muted" %}
-                <p class="mt-3 font-medium text-foreground-primary">{% translate "You have no listings yet" %}</p>
-                <p class="mt-1 text-sm text-foreground-secondary">
-                    {% translate "Add one, and people looking for the same thing will find you on the board." %}
-                </p>
-            </div>
-        {% endif %}
-    </div>
+            {% translate "You have no listings yet" as t_empty_title %}
+            {% translate "Add one, and people looking for the same thing will find you on the board." as t_empty_text %}
+        {% empty_state icon="megaphone" title=t_empty_title text=t_empty_text %}
+        {% end_empty_state %}
+{% endif %}
+</div>
 {% endblock body %}

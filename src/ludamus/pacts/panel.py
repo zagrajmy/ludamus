@@ -6,39 +6,48 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
-
 if TYPE_CHECKING:
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.guild import GuildRepositoryProtocol
-    from ludamus.pacts.legacy import (
-        AgendaItemDTO,
-        AgendaItemRepositoryProtocol,
+    from ludamus.pacts.event import (
+        EventRepositoryProtocol,
+        FacilitatorListItemDTO,
+        TimeSlotDTO,
+        TimeSlotRepositoryProtocol,
+    )
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
+        FacilitatorRepositoryProtocol,
+    )
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.guild import GuildRepositoryProtocol
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
-        ScheduleChangeLogDTO,
-        ScheduleChangeLogRepositoryProtocol,
+        SessionFieldRequirementDTO,
+    )
+    from ludamus.pacts.sessions import (
         SessionContentEditData,
         SessionData,
         SessionDTO,
-        SessionFieldRepositoryProtocol,
-        SessionFieldRequirementDTO,
-        SessionFieldValueDTO,
         SessionListItemDTO,
         SessionRepositoryProtocol,
-        TimeSlotDTO,
-        TimeSlotRepositoryProtocol,
-        TrackDTO,
-        TrackRepositoryProtocol,
     )
+    from ludamus.pacts.timetable import (
+        AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
+        ScheduleChangeLogDTO,
+        ScheduleChangeLogRepositoryProtocol,
+    )
+    from ludamus.pacts.tracks import TrackDTO, TrackRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 class SourceRowIdMissingError(Exception):
@@ -156,13 +165,12 @@ class ProposalListQuery:
 class ProposalDraft:
     """A new proposal as the create form spelled it.
 
-    `base_slug` is the slugified title — the service uniquifies it.
+    The service slugs and uniquifies `data["title"]`.
     `field_values` holds parsed session-field answers keyed by field pk; the
     service attaches the session id once the row exists.
     """
 
     data: SessionData
-    base_slug: str
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
     track_ids: list[int] = field(default_factory=list)
@@ -327,16 +335,11 @@ class ProposalPageServiceProtocol(Protocol):
     ) -> None: ...
 
 
-class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):
-    @staticmethod
-    def lock(event_id: int) -> None: ...
-
-
 @dataclass
 class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
-    events: FacilitatorPanelEventRepositoryProtocol
+    events: EventRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -388,12 +391,11 @@ class FacilitatorFilterOptionsDTO:
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
-    `values` holds parsed personal-data answers keyed by field pk;
-    `base_slug` is the slugified display name — the service uniquifies it.
+    `values` holds parsed personal-data answers keyed by field pk. The service
+    slugs `display_name` itself.
     """
 
     display_name: str
-    base_slug: str
     accreditation_type: str
     is_collective: bool = False
     organizer_id: int | None = None

@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import RequestContext
-    from ludamus.pacts.multiverse import Capability, SphereRole
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import RequestContext, ServicesProtocol
+    from ludamus.pacts.sphere import Capability, SphereRole
 
 
 class _UserLike(Protocol):
@@ -43,9 +42,7 @@ class PanelAccess:
         return self.role is not None or self.is_superuser
 
     def allows(self, capability: Capability) -> bool:
-        # Superusers before roles: a superuser who also holds a narrow sphere
-        # role must not be demoted by it.
-        return self.is_superuser or capability in self.capabilities
+        return capability in self.capabilities
 
 
 @dataclass(frozen=True)
@@ -79,7 +76,9 @@ def _resolve_panel_access(request: _RequestWithServices) -> PanelAccess:
         user_slug := request.context.current_user_slug
     ):
         sphere_access = request.services.sphere_panel.access(
-            request.context.current_sphere_id, user_slug
+            request.context.current_sphere_id,
+            user_slug,
+            is_superuser=request.user.is_superuser,
         )
     return PanelAccess(
         role=sphere_access.role if sphere_access else None,

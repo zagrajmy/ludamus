@@ -17,7 +17,7 @@ from ludamus.gates.mcp.registry import (
     ToolError,
     UnknownToolError,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolRegistry

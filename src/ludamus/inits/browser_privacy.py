@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from django.conf import settings
 
-from ludamus.pacts.crowd import AgeBand
+from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
     from collections.abc import Callable
