@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Self
 
 from django.utils import translation
 
-from ludamus.links.db.django.crowd import accounts_at
 from ludamus.links.db.django.models import User
+from ludamus.links.db.django.users import accounts_at
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Generator

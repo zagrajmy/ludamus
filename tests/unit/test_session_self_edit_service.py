@@ -3,17 +3,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.chronology import (
-    SessionContentEditService,
-    SessionEditNotAllowedError,
-    SessionSelfEditService,
-)
-from ludamus.pacts.legacy import (
-    NotFoundError,
-    SessionFieldValueData,
-    SiteDTO,
-    SphereDTO,
-)
+from ludamus.mills.sessions import SessionContentEditService, SessionSelfEditService
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
+from ludamus.pacts.sessions import SessionEditNotAllowedError
+from ludamus.pacts.sphere import SiteDTO, SphereDTO
 from tests.unit.factories import FakeTransaction, event_dto, session_dto
 
 _SESSION_PK = 5
@@ -96,9 +90,24 @@ class _FakeContentChangeLogs:
         self.created.append(data)
 
 
-def _build(*, presenter_id, event_override, sphere_default, duration=""):
+class _FakePromotion:
+    def __init__(self):
+        self.filled: list[int] = []
+
+    def fill_freed_seats(self, *, session_id):
+        self.filled.append(session_id)
+
+
+def _build(
+    *, presenter_id, event_override, sphere_default, duration="", participants_limit=0
+):
     sessions = _FakeSessions(
-        session_dto(pk=_SESSION_PK, presenter_id=presenter_id, duration=duration),
+        session_dto(
+            pk=_SESSION_PK,
+            presenter_id=presenter_id,
+            duration=duration,
+            participants_limit=participants_limit,
+        ),
         event_dto(
             pk=_EVENT_PK,
             sphere_id=_SPHERE_PK,
@@ -116,6 +125,7 @@ def _build(*, presenter_id, event_override, sphere_default, duration=""):
         session_fields=_FakeSessionFields(),
         agenda_items=_FakeAgendaItems(),
         logs=_FakeContentChangeLogs(),
+        promotion=_FakePromotion(),
     )
     content_edit = SessionContentEditService(
         transaction=FakeTransaction(),
@@ -123,6 +133,7 @@ def _build(*, presenter_id, event_override, sphere_default, duration=""):
         session_fields=world.session_fields,
         content_change_logs=world.logs,
         agenda_items=world.agenda_items,
+        waitlist_promotion=world.promotion,
     )
     world.service = SessionSelfEditService(
         sessions, world.session_fields, _FakeSpheres(sphere), content_edit
@@ -148,10 +159,10 @@ class TestUpdate:
         )
 
         world.service.update(
-            _SESSION_PK,
-            _USER_PK,
-            {"title": "T", "facilitator_name": "D", "duration": "PT2H"},
-            [],
+            session_id=_SESSION_PK,
+            user_id=_USER_PK,
+            data={"title": "T", "facilitator_name": "D", "duration": "PT2H"},
+            field_values=[],
         )
 
         assert world.sessions.updates[_SESSION_PK]["duration"] == "PT2H"
@@ -166,9 +177,9 @@ class TestUpdate:
         )
 
         world.service.update(
-            _SESSION_PK,
-            _USER_PK,
-            {
+            session_id=_SESSION_PK,
+            user_id=_USER_PK,
+            data={
                 "title": "T",
                 "facilitator_name": "D",
                 "description": "About",
@@ -177,7 +188,7 @@ class TestUpdate:
                 "min_age": 12,
                 "duration": "PT2H",
             },
-            [answer],
+            field_values=[answer],
         )
 
         assert world.sessions.updates == {
@@ -231,47 +242,78 @@ class TestUpdate:
             }
         ]
 
-    def test_values_missing_from_the_form_are_stored_as_empty(self):
-        world = _build(presenter_id=_USER_PK, event_override=None, sphere_default=True)
-
-        world.service.update(_SESSION_PK, _USER_PK, {"title": "T"}, None)
-
-        assert world.sessions.updates == {
-            _SESSION_PK: {
-                "title": "T",
-                "facilitator_name": "",
-                "description": "",
-                "contact_email": "",
-                "participants_limit": 0,
-                "min_age": 0,
-                "duration": "",
-            }
-        }
-        assert not world.sessions.saved_field_values
-
-    def test_an_uploaded_cover_replaces_the_stored_one(self):
-        world = _build(presenter_id=_USER_PK, event_override=True, sphere_default=False)
-        upload = SimpleNamespace(name="cover.png", read=lambda _size=-1: b"")
-
-        world.service.update(
-            _SESSION_PK, _USER_PK, {"title": "T", "cover_image": upload}, None
+    def test_raising_the_limit_seats_waiters(self):
+        # The organizer's edit always did; the presenter's own edit of the same
+        # field must not leave the freed seats empty.
+        world = _build(
+            presenter_id=_USER_PK,
+            event_override=None,
+            sphere_default=True,
+            participants_limit=4,
         )
 
-        assert world.sessions.updates[_SESSION_PK]["cover_image"] is upload
+        world.service.update(
+            session_id=_SESSION_PK,
+            user_id=_USER_PK,
+            data={"title": "T", "participants_limit": 6},
+            field_values=None,
+        )
+
+        assert world.promotion.filled == [_SESSION_PK]
+
+    def test_lowering_the_limit_seats_nobody(self):
+        world = _build(
+            presenter_id=_USER_PK,
+            event_override=None,
+            sphere_default=True,
+            participants_limit=4,
+        )
+
+        world.service.update(
+            session_id=_SESSION_PK,
+            user_id=_USER_PK,
+            data={"title": "T", "participants_limit": 3},
+            field_values=None,
+        )
+
+        assert not world.promotion.filled
+
+    def test_a_presenter_cannot_move_their_session_to_another_category(self):
+        world = _build(presenter_id=_USER_PK, event_override=None, sphere_default=True)
+
+        world.service.update(
+            session_id=_SESSION_PK,
+            user_id=_USER_PK,
+            data={"title": "T", "category_id": 99},
+            field_values=None,
+        )
+
+        assert world.sessions.updates == {_SESSION_PK: {"title": "T"}}
 
     def test_a_stranger_may_not_edit(self):
         world = _build(presenter_id=_USER_PK, event_override=True, sphere_default=False)
 
         with pytest.raises(SessionEditNotAllowedError):
-            world.service.update(_SESSION_PK, _USER_PK + 1, {"title": "T"}, None)
+            world.service.update(
+                session_id=_SESSION_PK,
+                user_id=_USER_PK + 1,
+                data={"title": "T"},
+                field_values=None,
+            )
 
         assert not world.sessions.updates
+        assert not world.promotion.filled
 
     def test_event_may_switch_self_edit_off(self):
         world = _build(presenter_id=_USER_PK, event_override=False, sphere_default=True)
 
         with pytest.raises(SessionEditNotAllowedError):
-            world.service.update(_SESSION_PK, _USER_PK, {"title": "T"}, None)
+            world.service.update(
+                session_id=_SESSION_PK,
+                user_id=_USER_PK,
+                data={"title": "T"},
+                field_values=None,
+            )
 
         assert not world.sessions.updates
 

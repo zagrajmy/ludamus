@@ -13,8 +13,8 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     RSVPOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import SphereRole
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
     INVITEE_RETENTION_AFTER_END,
@@ -49,7 +49,7 @@ def _service(
     spheres=None,
 ):
     rsvps = rsvps or FakeRSVPs()
-    users = users or FakeUsers([make_user(CREATOR_ID), make_user(OTHER_USER_ID)])
+    users = users or FakeUsers(make_user(CREATOR_ID), make_user(OTHER_USER_ID))
     sites = FakeSites(policy)
     return EncounterService(
         transaction=FakeTransaction(),
@@ -110,6 +110,14 @@ class TestEncounterPolicy:
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
+    def test_a_superuser_may_create_under_the_managers_policy(self):
+        service = _service(
+            policy=EncountersPolicy.MANAGERS,
+            users=FakeUsers(make_user(CREATOR_ID, is_superuser=True)),
+        )
+
+        assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
 
 class TestEncounterFeed:
     def test_a_sphere_with_encounters_off_has_an_empty_feed(self):
@@ -134,11 +142,9 @@ class TestEncounterFeed:
             ),
             rsvps=FakeRSVPs([(1, OTHER_USER_ID), (1, 30), (2, CREATOR_ID)]),
             users=FakeUsers(
-                [
-                    make_user(CREATOR_ID),
-                    make_user(30, name="Ola", full_name="Ola Nowak"),
-                    make_user(40, username="gm40"),
-                ]
+                make_user(CREATOR_ID),
+                make_user(30, name="Ola", full_name="Ola Nowak"),
+                make_user(40, username="gm40"),
             ),
         )
 

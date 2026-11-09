@@ -12,7 +12,7 @@ from django.utils.timezone import localtime
 from ludamus.gates.web.django.markdown import render_markdown
 
 if TYPE_CHECKING:
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
+    from ludamus.gates.web.django.event.event_presentation import SessionData
     from ludamus.pacts.encounter import EncounterDTO
 
 SUMMARY_WORDS = 20

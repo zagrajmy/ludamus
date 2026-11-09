@@ -1,33 +1,19 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.crowd import EmailVerificationService
-from ludamus.pacts.crowd import (
+from ludamus.mills.user import EmailVerificationService
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.user import (
     ChangeRequestOutcome,
     EmailTokenPayload,
     EmailVerificationAction,
     RedeemOutcome,
     VerificationRequestOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
-from tests.unit.factories import user_dto
+from tests.unit.factories import FakeTransaction, user_dto
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def atomic(self):
-        return _atomic()
-
-    def savepoint(self):
-        return _atomic()
 
 
 class FakeUsers:

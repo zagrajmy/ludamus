@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.pacts.legacy import EventDTO
+from ludamus.pacts.event import EventDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,

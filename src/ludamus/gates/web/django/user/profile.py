@@ -1,0 +1,385 @@
+from __future__ import annotations
+
+from secrets import token_urlsafe
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
+
+from django import forms
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404, HttpResponseRedirect
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
+from django.utils.translation import gettext as _
+from django.views.generic.base import ContextMixin, View
+from django.views.generic.detail import SingleObjectTemplateResponseMixin
+from django.views.generic.edit import FormMixin, ProcessFormView
+
+from ludamus.gates.web.django.user.forms import CompanionForm, UserForm
+from ludamus.gates.web.django.user.helpers import (
+    COMPANION_CREATE_AUTO_ID,
+    build_parties_context,
+    companion_edit_auto_id,
+)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.party import MAX_COMPANIONS
+from ludamus.pacts.user import ChangeRequestOutcome, UserDTO
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest, HttpResponse
+
+    from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
+
+
+class ProfilePageView(
+    LoginRequiredMixin,
+    SingleObjectTemplateResponseMixin,
+    FormMixin,  # type: ignore [type-arg]
+    ContextMixin,
+    ProcessFormView,
+):
+    form_class = UserForm
+    request: AuthenticatedRootRequest
+    success_url = reverse_lazy("web:crowd:profile")
+    template_name = "user/user/edit.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        profile = self.request.services.profile
+        kwargs["user"] = profile.read(self.request.context.current_user_slug)
+        kwargs["object"] = profile.read(self.request.context.current_user_slug)
+        kwargs["profile_active_tab"] = "profile"
+        return super().get_context_data(**kwargs)
+
+    def form_valid(self, form: UserForm) -> HttpResponse:
+        data = form.user_data
+        email = data.pop("email", "").strip()
+        outcome = self.request.services.email_verification.request_change(
+            user_slug=self.request.context.current_user_slug, new_address=email
+        )
+        if outcome == ChangeRequestOutcome.TAKEN:
+            form.add_error(
+                "email",
+                _(
+                    "This email address is already in use. "
+                    "Please use a different email address."
+                ),
+            )
+            return self.form_invalid(form)
+
+        self.request.services.profile.update(
+            self.request.context.current_user_slug, data
+        )
+        if outcome == ChangeRequestOutcome.REQUESTED:
+            messages.success(
+                self.request,
+                _(
+                    "Profile updated. We sent a confirmation link to %(email)s — "
+                    "the address changes once you confirm it."
+                )
+                % {"email": email},
+            )
+        else:
+            messages.success(self.request, _("Profile updated successfully!"))
+        return super().form_valid(form)
+
+    def form_invalid(self, form: forms.Form) -> HttpResponse:
+        messages.warning(self.request, _("Please correct the errors below."))
+        return super().form_invalid(form)
+
+    def get_success_url(self) -> str:
+        next_url = self.request.GET.get("next")
+        if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts=None):
+            return next_url
+        return str(self.success_url)
+
+    def get_initial(self) -> dict[str, Any]:
+        user = self.request.services.profile.read(
+            self.request.context.current_user_slug
+        )
+        # A blank field would save as "clear my address" and drop the pending
+        # one, so the field shows the address the user last asked for.
+        return user.model_dump() | {"email": user.pending_email or user.email}
+
+
+class ProfileCompanionsPageView(
+    LoginRequiredMixin,
+    SingleObjectTemplateResponseMixin,
+    FormMixin,  # type: ignore [type-arg]
+    ContextMixin,
+    ProcessFormView,
+):
+    form_class = CompanionForm
+    object: UserDTO
+    request: AuthenticatedRootRequest
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "user/user/parties.html"
+    template_name_suffix = "_form"
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        _ = (request, args, kwargs)
+        return redirect(self.get_success_url())
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {"auto_id": COMPANION_CREATE_AUTO_ID}
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = build_parties_context(self.request, create_form=kwargs.get("form"))
+        context.update(kwargs)
+        return super().get_context_data(**context)
+
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
+
+        companion_count = len(
+            self.request.services.companions.list_companions(
+                self.request.context.current_user_slug
+            )
+        )
+        if companion_count >= MAX_COMPANIONS:
+            messages.error(
+                self.request,
+                _("You can only have up to %(max)s companions.") % {
+                    "max": MAX_COMPANIONS
+                },
+            )
+            return self.form_invalid(form)
+
+        user_data = form.user_data
+        user_data["username"] = f"connected|{token_urlsafe(50)}"
+        user_data["slug"] = slugify(user_data["username"][:50])
+        result = super().form_valid(form)
+        self.request.services.companions.create(
+            manager_slug=self.request.context.current_user_slug, user_data=user_data
+        )
+        messages.success(self.request, _("Companion added successfully!"))
+        return result
+
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
+        messages.warning(self.request, _("Please correct the errors below."))
+        return super().form_invalid(form)
+
+
+class ProfileCompanionUpdateActionView(
+    LoginRequiredMixin,
+    SingleObjectTemplateResponseMixin,
+    FormMixin,  # type: ignore [type-arg]
+    ContextMixin,
+    ProcessFormView,
+):
+    form_class = CompanionForm
+    request: AuthenticatedRootRequest
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name = "user/user/parties.html"
+    template_name_suffix = "_form"
+
+    def get_object(self) -> UserDTO:
+        return self.request.services.companions.read(
+            manager_slug=self.request.context.current_user_slug,
+            user_slug=self.kwargs["slug"],
+        )
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        return super().get_form_kwargs() | {
+            "auto_id": companion_edit_auto_id(self.kwargs["slug"])
+        }
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = build_parties_context(
+            self.request, edit_slug=self.kwargs["slug"], edit_form=kwargs.get("form")
+        )
+        context.update(kwargs)
+        return super().get_context_data(**context)
+
+    def form_valid(self, form: CompanionForm) -> HttpResponse:
+        self.request.services.companions.update(
+            manager_slug=self.request.context.current_user_slug,
+            user_slug=self.kwargs["slug"],
+            user_data=form.user_data,
+        )
+        messages.success(self.request, _("Companion updated successfully!"))
+        return super().form_valid(form)
+
+    def form_invalid(self, form: CompanionForm) -> HttpResponse:
+        messages.warning(self.request, _("Please correct the errors below."))
+        return super().form_invalid(form)
+
+
+class ProfileCompanionDeleteActionView(
+    LoginRequiredMixin,
+    SingleObjectTemplateResponseMixin,
+    FormMixin,  # type: ignore [type-arg]
+    ContextMixin,
+    ProcessFormView,
+):
+    context_object_name = None
+    form_class = forms.Form
+    model = UserDTO
+    pk_url_kwarg = "pk"
+    query_pk_and_slug = False
+    queryset = None
+    request: AuthenticatedRootRequest
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+    success_url = reverse_lazy("web:crowd:profile-parties")
+    template_name_suffix = "_confirm_delete"
+
+    def form_valid(self, _form: forms.Form) -> HttpResponseRedirect:
+        success_url = self.get_success_url()
+        self.request.services.companions.delete(
+            manager_slug=self.request.context.current_user_slug,
+            user_slug=self.kwargs["slug"],
+        )
+        messages.success(self.request, _("Companion deleted successfully."))
+        return HttpResponseRedirect(success_url)
+
+
+class ProfileCompanionClaimLinkActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, slug: str) -> HttpResponse:
+        token = request.services.claims.issue(
+            manager_slug=request.context.current_user_slug, user_slug=slug
+        )
+        if token is None:
+            messages.error(request, _("Could not create a claim link for this person."))
+        else:
+            messages.success(request, _("Claim link created."))
+        return redirect("web:crowd:profile-parties")
+
+
+class ClaimPageView(View):
+    @staticmethod
+    def _reject_invalid_link(request: RootRequest) -> HttpResponse:
+        messages.error(
+            request, _("This claim link is invalid or has already been used.")
+        )
+        return redirect("web:index")
+
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            messages.info(
+                request,
+                _(
+                    "You're already signed in. Log out first to claim this "
+                    "profile into a new account."
+                ),
+            )
+            return redirect("web:index")
+        if (claimable := request.services.claims.read_claimable(token)) is None:
+            return ClaimPageView._reject_invalid_link(request)
+        return TemplateResponse(
+            request, "user/claim.html", {"claimable": claimable, "token": token}
+        )
+
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        if request.context.current_user_slug:
+            return redirect("web:index")
+        if request.services.claims.read_claimable(token) is None:
+            return ClaimPageView._reject_invalid_link(request)
+        request.session["pending_claim_token"] = token
+        login_url = reverse("web:crowd:auth:login")
+        next_url = reverse("web:crowd:profile")
+        return redirect(f"{login_url}?{urlencode({'next': next_url})}")
+
+
+class ProfileAvatarPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        avatar = request.services.profile.read_avatar(request.context.current_user_slug)
+        return TemplateResponse(
+            request,
+            "user/user/avatar.html",
+            {
+                "user": avatar.user,
+                "gravatar_url": avatar.gravatar_url,
+                "has_provider_avatar": avatar.has_provider_avatar,
+                "profile_active_tab": "avatar",
+            },
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        use_gravatar = request.POST.get("use_gravatar") == "true"
+        request.services.profile.set_avatar_preference(
+            request.context.current_user_slug, use_gravatar=use_gravatar
+        )
+        return redirect("web:crowd:profile-avatar")
+
+
+class ProfileNotificationsPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        subscriptions = request.services.notification_subscriptions.list_for_user(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request,
+            "user/user/notifications.html",
+            {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
+        )
+
+
+class ProfileNotificationsMuteActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        muted = request.POST.get("muted") == "true"
+        try:
+            request.services.notification_subscriptions.set_muted(
+                user_id=request.context.current_user_id, pk=pk, muted=muted
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        messages.success(
+            request, _("Subscription muted.") if muted else _("Subscription unmuted.")
+        )
+        return redirect("web:crowd:profile-notifications")
+
+
+class ProfileShadowbanPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        candidates = request.services.shadowban.list_candidates(
+            request.context.current_user_id
+        )
+        return TemplateResponse(
+            request,
+            "user/user/safety.html",
+            {"candidates": candidates, "profile_active_tab": "safety"},
+        )
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        if identifier := request.POST.get("identifier", "").strip():
+            request.services.shadowban.add_by_identifier(
+                owner_id=request.context.current_user_id, identifier=identifier
+            )
+            messages.success(
+                request, _("If a matching player exists, they have been shadowbanned.")
+            )
+            return redirect("web:crowd:profile-safety")
+
+        if slug := request.POST.get("slug", ""):
+            banned = request.POST.get("banned") == "true"
+            request.services.shadowban.set_shadowban(
+                owner_id=request.context.current_user_id,
+                target_slug=slug,
+                banned=banned,
+            )
+            messages.success(
+                request,
+                _("Player shadowbanned.") if banned else _("Shadowban removed."),
+            )
+        return redirect("web:crowd:profile-safety")

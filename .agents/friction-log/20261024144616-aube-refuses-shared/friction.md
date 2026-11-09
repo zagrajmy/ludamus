@@ -17,3 +17,10 @@ Run mise run ts-check or mise run lint-client from /tmp/ludamus-followups/modal-
 
 ## Context
 Isolated follow-up branch; shared environment must not be modified. Direct installed TypeScript binary succeeds.
+
+2026-11-08: recurred in a `.claude/worktrees/` agent worktree. With
+`tests/e2e/node_modules` and `src/ludamus/client/node_modules` symlinked from
+the main checkout, `mise run test:e2e:prep` stopped at its `aube install` step
+("refusing to use a modules directory that is not inside the project").
+Removing the symlinks and letting `aube install` populate the worktree from
+the lockfile worked.

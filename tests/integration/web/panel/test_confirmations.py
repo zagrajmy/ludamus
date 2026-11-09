@@ -13,8 +13,10 @@ from ludamus.pacts.event import (
     ConfirmationStatusGroupDTO,
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
+    EventDTO,
 )
-from ludamus.pacts.legacy import EventDTO, SessionStatus, TrackDTO
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import timetable_tab_urls

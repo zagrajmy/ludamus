@@ -16,15 +16,16 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.qr import qr_svg
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.gates.web.django.request_ids import parse_id
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.printing import PrintQueryDTO
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.printing import (
         AreaScheduleDocumentDTO,
         DoorCardsDocumentDTO,
@@ -103,15 +104,6 @@ def _available_materials(*, tracks_available: bool) -> tuple[MaterialSpec, ...]:
     )
 
 
-def _scope_pk(raw: str | None) -> int | None:
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
-
-
 class _PrintScope(NamedTuple):
     space_pks: frozenset[int] | None
     track_pk: int | None
@@ -175,7 +167,7 @@ def _resolve_material(
 
 class PublicEventPrintView(View):
     request: RootRequest
-    template_name = "chronology/print.html"
+    template_name = "event/print.html"
     DEFAULT_RANGE_HOURS = 6
     MAX_RANGE_HOURS = 72
 
@@ -195,7 +187,7 @@ class PublicEventPrintView(View):
         if not event.is_open and not panel_user:
             raise Http404
 
-        scope_pk = _scope_pk(request.GET.get("scope"))
+        scope_pk = parse_id(request.GET.get("scope"))
         try:
             scope = request.services.venues.resolve_scope(event.pk, scope_pk)
         except NotFoundError as exc:

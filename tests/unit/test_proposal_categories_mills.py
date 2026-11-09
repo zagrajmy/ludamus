@@ -1,7 +1,8 @@
 import pytest
 
 from ludamus.mills.proposal_categories import ProposalCategoriesService
-from ludamus.pacts.legacy import NotFoundError, ProposalCategoryDTO
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 1

@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from django.conf import settings
 
-from ludamus.pacts.crowd import AgeBand
+from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         slug: str
 
     class BrowserPrivacyRequest(Protocol):
-        path: str
         method: str
         COOKIES: dict[str, str]
         user: BrowserPrivacyUser
@@ -38,8 +37,6 @@ class BrowserPrivacyMiddleware:
 
     def __call__(self, request: BrowserPrivacyRequest) -> HttpResponseBase:
         response = self.get_response(request)
-        if request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
-            return response
         revision = "off"
         if request.user.is_authenticated:
             user = (

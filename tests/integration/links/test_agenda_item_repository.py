@@ -4,12 +4,9 @@ import pytest
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import AgendaItem, Facilitator, Track
-from ludamus.pacts.legacy import (
-    AgendaItemData,
-    AgendaItemUpdateData,
-    NotFoundError,
-    SessionStatus,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import AgendaItemData, AgendaItemUpdateData
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

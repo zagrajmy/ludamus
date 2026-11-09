@@ -4,7 +4,8 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ContentChangeLog, ProposalCategory, Session
-from ludamus.pacts.legacy import ContentChangeLogDTO, EventDTO
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.sessions import ContentChangeLogDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."

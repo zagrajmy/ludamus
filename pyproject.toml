@@ -251,24 +251,24 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "ludamus.links.db.django.*",
-    "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
+    "ludamus.inits.request_context",
+    "ludamus.inits.wide_event",
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
     "ludamus.links.google_auth",
     "ludamus.links.google_forms",
     "ludamus.links.google_sheets",
-    "ludamus.links.ods",
     "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
 
 [[tool.mypy.overrides]]
 module = [
-    "ludamus.adapters.web.django.*",
     "ludamus.gates.web.django.*",
     "ludamus.gates.cli.django.management.commands.export_konwencik",
+    "ludamus.inits.wide_event",
 ]
 disallow_any_explicit = false
 
@@ -334,10 +334,13 @@ allowed-confusables = ["–", "×"]
     "private-member-access",
 ]
 # DI registries are intentionally wide: their whole job is to expose one leaf
-# per repository/service. Bucketing them (see the class docstrings) is a
-# separate refactor, not a per-leaf concern. `pacts/services.py` is the protocol
+# per repository/service. `pacts/services.py` is the protocol
 # mirror of the services registry, so it carries the same width by definition.
 "*/inits/repositories.py" = ["PLR0904"]
+# Django loads the models only after every AppConfig module is imported, and
+# the wiring InitsConfig.ready() hands out imports them; its documented home
+# for such imports is ready() itself.
+"*/inits/apps.py" = ["PLC0415"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
@@ -369,7 +372,12 @@ max-positional-args = 2
 parametrize-values-type = "tuple"
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    # NOTE: ruff cannot see that this pacts DTO is a BaseModel when a module
+    # only subclasses it; session_cards.py does.
+    "ludamus.pacts.enrollment.SessionSeatsDTO",
+]
 
 [tool.ruff.lint.flake8-unused-arguments]
 ignore-variadic-names = true
@@ -392,13 +400,7 @@ DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 # the integration suite could have killed, so mutating `src` wholesale reports
 # noise instead of gaps.
 source_paths = ["src/ludamus/mills", "src/ludamus/specs"]
-# NOTE: mutmut runs the suite twice in one process (stats pass, then clean
-# pass); DBOS refuses to register the same workflow twice, so its smoke test
-# stays out.
-pytest_add_cli_args_test_selection = [
-    "tests/unit",
-    "--ignore=tests/unit/test_dbos_smoke.py",
-]
+pytest_add_cli_args_test_selection = ["tests/unit"]
 # NOTE: mutmut runs the suite from a copy of the tree, so everything the unit
 # suite imports or loads has to be copied beside the mutants. Out: the mutated
 # packages themselves, `client` (a TypeScript app, never imported from Python)
@@ -407,7 +409,6 @@ pytest_add_cli_args_test_selection = [
 also_copy = [
     "scripts",
     "src/ludamus/__init__.py",
-    "src/ludamus/adapters",
     "src/ludamus/content",
     "src/ludamus/edges",
     "src/ludamus/gates",
@@ -434,15 +435,11 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-# The specs rule breaks only transitively, through mills (e.g.
-# gates.web.django.chronology.views -> mills.chronology -> specs.chronology).
-# import-linter has no direct-imports-only mode for `forbidden`, so it stays off
-# until mills stops re-exporting specs. The others break directly.
 forbidden_modules = [
-    # "ludamus.links",
-    # "ludamus.inits",
-    # "ludamus.mills",
-    # "ludamus.specs",
+    "ludamus.links",
+    "ludamus.inits",
+    "ludamus.mills",
+    "ludamus.specs",
     "ludamus.edges",
 ]
 
@@ -462,11 +459,9 @@ forbidden_modules = [
 name = "inits"
 type = "forbidden"
 source_modules = ["ludamus.inits"]
-# The specs rule breaks only transitively, through mills — see the gates note.
-forbidden_modules = [
-    # "ludamus.specs",
-    "ludamus.edges",
-]
+# inits builds the mills, which read specs; only a direct import is a breach.
+allow_indirect_imports = true
+forbidden_modules = ["ludamus.specs", "ludamus.edges"]
 
 
 [[tool.importlinter.contracts]]

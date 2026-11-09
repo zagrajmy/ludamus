@@ -1,0 +1,479 @@
+from __future__ import annotations
+
+import json
+import logging
+import re
+from datetime import UTC, datetime, timedelta
+from secrets import token_urlsafe
+from typing import TYPE_CHECKING, Any, TypedDict
+from urllib.parse import urlencode, urlparse
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth import login as django_login
+from django.contrib.auth import logout as django_logout
+from django.core import signing
+from django.core.cache import cache
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.crypto import constant_time_compare
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
+from django.views.generic.base import RedirectView, View
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
+from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.gates.web.django.user.forms import SignupAgeForm
+from ludamus.pacts.user import (
+    MIN_ACCOUNT_AGE,
+    AgeBand,
+    AuthenticationDTO,
+    ClaimOutcome,
+    IdentityRejectedError,
+)
+
+if TYPE_CHECKING:
+    from django.http import HttpResponse
+
+    from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts.user import LoginDTO
+
+logger = logging.getLogger(__name__)
+
+CACHE_TIMEOUT = 600  # 10 minutes
+PENDING_SIGNUP_SESSION_KEY = "pending_signup"
+PENDING_SIGNUP_MAX_AGE = timedelta(hours=1)
+AGE_CONFIRMATION_SALT = "crowd.age-confirmation"
+# The AuthKit session behind this login, needed to end it at logout.
+SESSION_ID_KEY = "workos_session_id"
+LOGOUT_TARGET_COOKIE = "logout_target"
+LOGOUT_TARGET_MAX_AGE = 300
+
+# A bare hostname: dot-separated DNS labels, no scheme, path, port, credentials,
+# or fragment. Rejects the `evil.com#x.ROOT_DOMAIN` suffix-match bypass, where a
+# browser would parse the host as `evil.com` once embedded in a URL.
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+)
+
+
+def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) -> bool:
+    host = urlparse(url).netloc
+    allowed = {root_domain}
+    if host and (host == root_domain or host.endswith(f".{root_domain}")):
+        allowed.add(host)
+    return url_has_allowed_host_and_scheme(
+        url, allowed_hosts=allowed, require_https=require_https
+    )
+
+
+def _login_user(request: RootRequest, user_slug: str) -> None:
+    django_login(request, get_user_model().objects.get(slug=user_slug))
+
+
+class LoginActionView(View):
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        root_domain = request.services.sites.read(
+            request.context.root_sphere_id
+        ).site.domain
+        next_path = request.GET.get("next")
+        if next_path and not _is_safe_login_redirect(
+            next_path, root_domain, require_https=request.is_secure()
+        ):
+            next_path = None
+        # AuthKit opens the sign-up screen instead of sign-in when asked to.
+        wants_signup = request.GET.get("screen_hint") == "signup"
+        hint = {"screen_hint": "signup"} if wants_signup else {}
+        if request.get_host() != root_domain:
+            if next_path:
+                next_path = request.build_absolute_uri(next_path)
+            login_url = (
+                f"{request.scheme}://{root_domain}{reverse('web:crowd:auth:login')}"
+            )
+            params = {"next": next_path, **hint} if next_path else hint
+            url = f"{login_url}?{urlencode(params)}" if params else login_url
+            raise RedirectError(url)
+
+        # Generate a secure state token
+        state_token = token_urlsafe(32)
+
+        # Store state data in cache with 10 minute timeout
+        state_data = {
+            "redirect_to": next_path,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        cache_key = f"oauth_state:{state_token}"
+        cache.set(cache_key, json.dumps(state_data), timeout=CACHE_TIMEOUT)
+
+        return HttpResponseRedirect(
+            request.services.crowd_auth.login_url(
+                redirect_uri=request.build_absolute_uri(
+                    reverse("web:crowd:auth:login-callback")
+                ),
+                state=state_token,
+                sign_up=wants_signup,
+            )
+        )
+
+
+class LoginCallbackActionView(RedirectView):
+    request: RootRequest
+
+    def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
+        default_redirect = super().get_redirect_url(*args, **kwargs)
+        index_url = self.request.build_absolute_uri(reverse("web:index"))
+
+        if (redirect_to := self._resolve_oauth_state(default_redirect)) is None:
+            return index_url
+
+        root_domain = self.request.services.sites.read(
+            self.request.context.root_sphere_id
+        ).site.domain
+        if redirect_to and not _is_safe_login_redirect(
+            redirect_to, root_domain, require_https=self.request.is_secure()
+        ):
+            redirect_to = ""
+
+        if self.request.context.current_user_slug:
+            return redirect_to or index_url
+
+        authentication = self._authenticate()
+        claim_token = self.request.session.pop("pending_claim_token", "")
+        if not self.request.services.crowd_auth.has_account(authentication.identity):
+            self.request.session[PENDING_SIGNUP_SESSION_KEY] = _PendingSignup(
+                authentication=authentication,
+                claim_token=claim_token,
+                redirect_to=redirect_to,
+                started_at=datetime.now(UTC),
+            ).model_dump(mode="json")
+            return self.request.build_absolute_uri(reverse("web:crowd:auth:signup-age"))
+        return _finish_login(
+            self.request,
+            authentication=authentication,
+            redirect_to=redirect_to,
+            age_band=AgeBand.UNKNOWN,
+            claim_token=claim_token,
+        )
+
+    def _resolve_oauth_state(self, default_redirect: str | None) -> str | None:
+        if not (state_token := self.request.GET.get("state")):
+            messages.error(
+                self.request,
+                _("Invalid authentication request: missing state parameter"),
+            )
+            return None
+
+        cache_key = f"oauth_state:{state_token}"
+        if not (state_data_json := cache.get(cache_key)):
+            messages.error(
+                self.request, _("Authentication session expired. Please try again.")
+            )
+            return None
+
+        cache.delete(cache_key)
+
+        try:
+            state_data = json.loads(state_data_json)
+            redirect_to = state_data.get("redirect_to") or default_redirect or ""
+
+            created_at = datetime.fromisoformat(state_data["created_at"])
+            if datetime.now(UTC) - created_at > timedelta(minutes=10):
+                messages.error(
+                    self.request, _("Authentication session expired. Please try again.")
+                )
+                return None
+
+        # HACK: the parens are load-bearing. black's preview mode strips them
+        # from a bare `except (A, B):` here and emits Python 2 syntax that
+        # breaks the import, so the tuple must be bound with `as`.
+        except (KeyError, ValueError) as exc:
+            logger.warning("Invalid login state payload: %s", exc)
+            messages.error(self.request, _("Invalid authentication state"))
+            return None
+
+        return redirect_to
+
+    def _authenticate(self) -> AuthenticationDTO:
+        if error := self.request.GET.get("error"):
+            # AuthKit reports a failed or cancelled sign-in on the callback.
+            error_page = f"{reverse('web:auth-error')}?{urlencode({'error': error})}"
+            raise RedirectError(error_page)
+        try:
+            return self.request.services.crowd_auth.authenticate(
+                self.request.GET.get("code", "")
+            )
+        except IdentityRejectedError as exc:
+            raise RedirectError(
+                reverse("web:index"), error=_("Authentication failed")
+            ) from exc
+
+
+def _finish_login(
+    request: RootRequest,
+    *,
+    authentication: AuthenticationDTO,
+    redirect_to: str,
+    age_band: AgeBand,
+    claim_token: str,
+) -> str:
+    """Create or find the account and log in. `age_band` only reaches a new one."""
+    index_url = request.build_absolute_uri(reverse("web:index"))
+    request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+    login = request.services.crowd_auth.complete_login(
+        authentication=authentication, claim_token=claim_token, age_band=age_band
+    )
+    _announce_login_outcome(request, login)
+    user = login.user
+    if not user.is_active:
+        messages.error(
+            request, _("This account is inactive. Contact support for help.")
+        )
+        return index_url
+
+    _login_user(request, user.slug)
+    request.session[SESSION_ID_KEY] = login.session_id
+    if request.session.get("anonymous_enrollment_active"):
+        request.session.pop("anonymous_user_code", None)
+        request.session.pop("anonymous_enrollment_active", None)
+        request.session.pop("anonymous_event_id", None)
+    logger.info("Login completed: user=%s", user.slug)
+
+    if not (user.name or "").strip():
+        messages.success(request, _("Please complete your profile."))
+        profile_path = reverse("web:crowd:profile")
+        onboarding = f"{profile_path}?{urlencode({'next': reverse('web:index')})}"
+        if redirect_to:
+            parsed = urlparse(redirect_to)
+            return f"{parsed.scheme}://{parsed.netloc}{onboarding}"
+        return request.build_absolute_uri(onboarding)
+
+    return redirect_to or index_url
+
+
+def _announce_login_outcome(request: RootRequest, login: LoginDTO) -> None:
+    if login.claim_outcome == ClaimOutcome.CONVERTED:
+        messages.success(request, _("Profile claimed — it is now your own account."))
+    elif login.claim_outcome == ClaimOutcome.ALREADY_AUTHENTICATED:
+        messages.info(
+            request,
+            _(
+                "You already have an account, so this profile can't be moved "
+                "into it. Ask the person who invited you to enroll you directly."
+            ),
+        )
+    if login.email_conflict:
+        messages.warning(
+            request,
+            _(
+                "That email address already belongs to another account, "
+                "so it was not set. Set a different one in your profile."
+            ),
+        )
+
+
+class _PendingSignup(BaseModel):
+    authentication: AuthenticationDTO
+    claim_token: str = ""
+    redirect_to: str = ""
+    confirmation_token: str = ""
+    started_at: datetime
+
+
+def _read_pending_signup(request: RootRequest) -> _PendingSignup | None:
+    if request.context.current_user_slug:
+        return None
+    try:
+        pending = _PendingSignup.model_validate(
+            request.session.get(PENDING_SIGNUP_SESSION_KEY)
+        )
+    except ValidationError:
+        return None
+    # The session outlives the sign-in by weeks; without a bound, anyone at
+    # this browser later could finish the abandoned signup as its owner.
+    if datetime.now(UTC) - pending.started_at > PENDING_SIGNUP_MAX_AGE:
+        request.session.pop(PENDING_SIGNUP_SESSION_KEY, None)
+        messages.info(request, _("Your sign-in timed out. Sign in again."))
+        return None
+    return pending
+
+
+def _valid_signup_confirmation(request: RootRequest, expected: str) -> bool:
+    token = request.POST.get("confirmation_token", "")
+    try:
+        signing.loads(token, salt=AGE_CONFIRMATION_SALT, max_age=CACHE_TIMEOUT)
+    except signing.BadSignature:
+        return False
+    return constant_time_compare(token, expected)
+
+
+def sign_out_to_guardian_page(
+    request: RootRequest, *, session_id: str
+) -> TemplateResponse:
+    """Sign out and point an under-13 to the guardian-managed route."""
+    # NOTE: logout flushes the session, pending signup and claim token included.
+    django_logout(request)
+    root_domain = request.services.sites.read(
+        request.context.root_sphere_id
+    ).site.domain
+    login_url = f"{request.scheme}://{root_domain}{reverse('web:crowd:auth:login')}"
+    return TemplateResponse(
+        request,
+        "user/signup_guardian.html",
+        {
+            "min_age": MIN_ACCOUNT_AGE,
+            # SAFETY: ending the AuthKit session first keeps the next sign-in
+            # from silently resuming the account that was just refused.
+            "guardian_login_url": (
+                request.services.crowd_auth.logout_url(
+                    session_id=session_id, return_to=login_url
+                )
+                if session_id
+                else login_url
+            ),
+        },
+    )
+
+
+class SignupAgePageView(View):
+    """A first sign-in stops here before its account exists."""
+
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        if (pending := _read_pending_signup(request)) is None:
+            return redirect("web:index")
+        token = signing.dumps({"nonce": token_urlsafe(16)}, salt=AGE_CONFIRMATION_SALT)
+        request.session[PENDING_SIGNUP_SESSION_KEY] = pending.model_copy(
+            update={"confirmation_token": token}
+        ).model_dump(mode="json")
+        return TemplateResponse(
+            request,
+            "user/signup_age.html",
+            {"form": SignupAgeForm(initial={"confirmation_token": token})},
+        )
+
+    @staticmethod
+    def post(request: RootRequest) -> HttpResponse:
+        if (pending := _read_pending_signup(request)) is None:
+            return redirect("web:index")
+        if not _valid_signup_confirmation(request, pending.confirmation_token):
+            messages.error(
+                request,
+                _("This age confirmation has expired. Choose your age range again."),
+            )
+            return redirect("web:crowd:auth:signup-age")
+        form = SignupAgeForm(request.POST)
+        if not form.is_valid():
+            return TemplateResponse(request, "user/signup_age.html", {"form": form})
+        if (age_band := form.cleaned_data["age_band"]) is None:
+            request.services.crowd_auth.reject_signup(pending.authentication.identity)
+            logger.info("Independent signup declined: below minimum age")
+            return sign_out_to_guardian_page(
+                request, session_id=pending.authentication.session_id
+            )
+        logger.info("Signup age range confirmed")
+        destination = _finish_login(
+            request,
+            authentication=pending.authentication,
+            redirect_to=pending.redirect_to,
+            age_band=age_band,
+            claim_token=pending.claim_token,
+        )
+        # NOTE: CSP form-action stops a form POST from redirecting to another
+        # sphere's host, so a cross-host destination is reached from a page.
+        if (host := urlparse(destination).netloc) and host != request.get_host():
+            return TemplateResponse(
+                request, "user/signup_continue.html", {"redirect_to": destination}
+            )
+        return redirect(destination)
+
+
+class LogoutActionView(View):
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        session_id = request.session.get(SESSION_ID_KEY, "")
+        django_logout(request)
+        last_domain = request.services.sites.read(
+            request.context.current_sphere_id
+        ).site.domain
+        if not session_id:
+            # No AuthKit session to end (it predates WorkOS), so skip the hop.
+            return HttpResponseRedirect(
+                f"{request.scheme}://{last_domain}{reverse('web:index')}"
+            )
+        root_domain = request.services.sites.read(
+            request.context.root_sphere_id
+        ).site.domain
+        # NOTE: WorkOS refuses sign-out redirect URIs that carry a query in
+        # production, so the domain to land on rides in a cookie instead.
+        response = HttpResponseRedirect(
+            request.services.crowd_auth.logout_url(
+                session_id=session_id,
+                return_to=(
+                    f"{request.scheme}://{root_domain}"
+                    f"{reverse('web:crowd:auth:logout-redirect')}"
+                ),
+            )
+        )
+        response.set_cookie(
+            LOGOUT_TARGET_COOKIE,
+            signing.dumps({"last_domain": last_domain}, salt=LOGOUT_TARGET_COOKIE),
+            max_age=LOGOUT_TARGET_MAX_AGE,
+            domain=settings.SESSION_COOKIE_DOMAIN,
+            secure=request.is_secure(),
+            httponly=True,
+            samesite="Lax",
+        )
+        return response
+
+
+class _LogoutTarget(TypedDict):
+    last_domain: str
+
+
+_LOGOUT_TARGET = TypeAdapter(_LogoutTarget)
+
+
+class LogoutRedirectActionView(View):
+    """Where AuthKit returns after sign-out: back to the sphere left from."""
+
+    @staticmethod
+    def get(request: RootRequest) -> HttpResponse:
+        index = reverse("web:index")
+        destination = index
+        if last_domain := _logout_domain(request):
+            if _may_land_on(request, last_domain):
+                destination = f"{request.scheme}://{last_domain}{index}"
+            else:
+                messages.warning(request, _("Invalid domain for redirect."))
+        response = HttpResponseRedirect(destination)
+        response.delete_cookie(
+            LOGOUT_TARGET_COOKIE, domain=settings.SESSION_COOKIE_DOMAIN
+        )
+        return response
+
+
+def _logout_domain(request: RootRequest) -> str:
+    try:
+        raw = signing.loads(
+            request.COOKIES.get(LOGOUT_TARGET_COOKIE, ""),
+            salt=LOGOUT_TARGET_COOKIE,
+            max_age=LOGOUT_TARGET_MAX_AGE,
+        )
+        return _LOGOUT_TARGET.validate_python(raw)["last_domain"]
+    except signing.BadSignature, ValidationError:
+        return ""
+
+
+def _may_land_on(request: RootRequest, domain: str) -> bool:
+    # A bare hostname only, so `evil.com#x.ROOT_DOMAIN` can't pass the
+    # suffix match below. The cookie is signed; this is defence in depth.
+    if not _HOSTNAME_RE.match(domain):
+        return False
+    if domain == settings.ROOT_DOMAIN or domain.endswith(f".{settings.ROOT_DOMAIN}"):
+        return True
+    return request.services.crowd_auth.is_known_sphere_domain(domain)

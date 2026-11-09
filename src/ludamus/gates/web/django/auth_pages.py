@@ -25,7 +25,7 @@ def _vetted_token(request: RootRequest, param: str) -> str:
 
 def login_required_page(request: RootRequest) -> TemplateResponse:
     context = {"next": request.GET.get("next", "")}
-    return TemplateResponse(request, "crowd/login_required.html", context)
+    return TemplateResponse(request, "user/login_required.html", context)
 
 
 def auth_error_page(request: RootRequest) -> TemplateResponse:
@@ -37,4 +37,4 @@ def auth_error_page(request: RootRequest) -> TemplateResponse:
             error_code or "-",
             tracking or "-",
         )
-    return TemplateResponse(request, "crowd/auth_error.html", {"tracking": tracking})
+    return TemplateResponse(request, "user/auth_error.html", {"tracking": tracking})

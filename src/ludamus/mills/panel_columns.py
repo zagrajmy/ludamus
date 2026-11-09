@@ -4,26 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.panel import PanelColumnDTO, PanelColumnsContextDTO
+from ludamus.pacts.panel import FIELD_KEY_PREFIX, PanelColumnDTO, PanelColumnsContextDTO
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.pacts.panel import PanelFieldProtocol
-
-FIELD_KEY_PREFIX = "field_"
-
-# Which built-in columns each list offers, in their default order. The gates
-# layer decides what they are called and how their cells render.
-FACILITATOR_BUILTIN_KEYS = (
-    "name",
-    "linked",
-    "guild",
-    "sessions",
-    "accreditation",
-    "organizer",
-)
-PROPOSAL_BUILTIN_KEYS = ("title", "host", "category", "status", "created")
 
 
 def _column_order(field: PanelFieldProtocol) -> tuple[int, str]:

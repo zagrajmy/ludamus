@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, TypedDict
 from pydantic import TypeAdapter, ValidationError
 from workos import WorkOSClient, WorkOSError
 
-from ludamus.pacts.crowd import (
+from ludamus.pacts.user import (
     AuthenticationDTO,
     IdentityDTO,
     IdentityProviderProtocol,

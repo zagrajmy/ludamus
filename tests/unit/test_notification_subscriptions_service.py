@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import pytest
 
 from ludamus.mills.notifications import NotificationSubscriptionsService
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.notifications import SubscriptionDTO, SubscriptionSource
 
 

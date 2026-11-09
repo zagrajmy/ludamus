@@ -1,10 +1,10 @@
 import pytest
 from django.contrib.auth.hashers import make_password
 
-from ludamus.links.db.django.crowd import UserRepository
 from ludamus.links.db.django.models import User
-from ludamus.pacts.crowd import UserType
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.links.db.django.users import UserRepository
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import UserType
 from tests.integration.conftest import UserFactory
 
 REPO = UserRepository(UserType.ACTIVE)

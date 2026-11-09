@@ -4,8 +4,8 @@ import pytest
 from workos import AuthenticationError
 
 from ludamus.links.workos import WorkOSIdentityProvider
-from ludamus.pacts.crowd import AuthenticationDTO, IdentityDTO, IdentityRejectedError
-from tests.integration.web.crowd.workos_responses import (
+from ludamus.pacts.user import AuthenticationDTO, IdentityDTO, IdentityRejectedError
+from tests.integration.web.user.workos_responses import (
     AUTHENTICATE,
     SESSION_ID,
     authenticate_response,

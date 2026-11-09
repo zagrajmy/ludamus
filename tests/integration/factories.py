@@ -3,8 +3,8 @@ from django.contrib.auth.hashers import make_password
 from factory.django import DjangoModelFactory
 
 from ludamus.links.db.django.models import User
-from ludamus.pacts.crowd import UserType
 from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts.user import UserType
 
 
 class CompleteUserFactory(DjangoModelFactory):

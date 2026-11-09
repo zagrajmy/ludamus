@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_credentials_decryptor,
+    build_credentials_encryptor,
     build_email_verification,
     build_encounter_guests,
     build_encounters,
@@ -17,40 +19,20 @@ from ludamus.inits.builders import (
     build_waitlist_promotion,
 )
 from ludamus.inits.dbos_scheduler import (
-    DBOSAnnouncementFanoutScheduler,
-    DBOSOfferExpiryScheduler,
+    announcement_fanout_scheduler,
+    offer_expiry_scheduler,
 )
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
-from ludamus.links.gravatar import gravatar_url
-from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.links.workos import WorkOSIdentityProvider
 from ludamus.mills.bookmarks import BookmarkService
-from ludamus.mills.chronology import (
-    ProposalAcceptanceService,
-    ProposalStatusService,
-    SessionConfirmationService,
-    SessionContentEditService,
-    SessionDeletionService,
-    SessionSelfEditService,
-)
-from ludamus.mills.crowd import (
-    ClaimService,
-    CompanionsService,
-    CrowdAuthService,
-    EmailVerificationService,
-    LegacyAccountLinker,
-    ProfileService,
-)
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
 from ludamus.mills.encounter_replies import EncounterReplyService
@@ -60,13 +42,19 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
+from ludamus.mills.enrollment_member import (
+    MemberEnrollmentPeers,
+    MemberEnrollmentService,
+)
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
     EventConfirmationsService,
     EventPanelService,
     EventsService,
     LandingService,
+    PanelTimeSlotsService,
 )
+from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import (
@@ -75,37 +63,44 @@ from ludamus.mills.integrations import (
 )
 from ludamus.mills.maps import EventMapsService
 from ludamus.mills.mcp import McpAuthorizationService
-from ludamus.mills.multiverse import (
-    AnnouncementsService,
-    ConnectionsService,
-    SitesService,
-    SpherePanelService,
-)
 from ludamus.mills.notifications import (
     NotificationsService,
     NotificationSubscriptionsService,
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
-from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
+from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
-from ludamus.mills.propose import ProposeSessionService
-from ludamus.mills.safety import EventBanService, ShadowbanService
-from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import (
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
 )
-from ludamus.mills.submissions.proposal_category_settings import (
+from ludamus.mills.propose.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
+from ludamus.mills.sessions import (
+    ProposalAcceptanceService,
+    ProposalStatusService,
+    SessionConfirmationService,
+    SessionContentEditService,
+    SessionDeletionService,
+    SessionSelfEditService,
+)
+from ludamus.mills.sphere import (
+    AnnouncementsService,
+    ConnectionsService,
+    SitesService,
+    SpherePanelService,
+)
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -114,33 +109,45 @@ from ludamus.mills.timetable import (
     TimetableService,
 )
 from ludamus.mills.tracks import TracksPanelService
+from ludamus.mills.user import (
+    ClaimService,
+    CompanionsService,
+    CrowdAuthService,
+    EmailVerificationService,
+    LegacyAccountLinker,
+    ProfileService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
-from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
-from ludamus.pacts.propose import ProposeRepos
-from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.integrations import IntegrationImplementationId
+from ludamus.pacts.panel import (
+    FacilitatorPanelRepos,
+    ProposalPanelRepos,
+    ProposalRecordRepos,
+)
+from ludamus.pacts.propose import (
+    ImportRepos,
+    ProposalCategorySettingsRepos,
+    ProposeRepos,
+)
 from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter import EncounterService
+    from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.mills.listing import ListingService
-    from ludamus.pacts.chronology import (
+    from ludamus.pacts.integrations import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
-    from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
-    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
 
 
 class Services:
-    """Lazy flat service namespace exposed on `request.services`.
-
-    Buckets will appear when the leaf count grows past ~12.
-    """
+    """Lazy flat service namespace exposed on `request.services`."""
 
     def __init__(self) -> None:
         self._repos = Repositories()
@@ -189,9 +196,8 @@ class Services:
 
     @cached_property
     def connections(self) -> ConnectionsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return ConnectionsService(
-            self._transaction, self._repos.connections, FernetEncryptor(key)
+            self._transaction, self._repos.connections, build_credentials_encryptor()
         )
 
     @cached_property
@@ -256,6 +262,14 @@ class Services:
         )
 
     @cached_property
+    def event_schedule(self) -> EventScheduleService:
+        return EventScheduleService(
+            schedule=self._repos.event_schedule,
+            windows=self._repos.enrollment_windows,
+            session_fields=self._repos.session_fields,
+        )
+
+    @cached_property
     def session_modal(self) -> SessionModalService:
         return SessionModalService(
             transaction=self._transaction, sessions=self._repos.sessions
@@ -266,16 +280,7 @@ class Services:
         return AnnouncementsService(
             self._transaction,
             self._repos.announcements,
-            self._announcement_fanout_scheduler(),
-        )
-
-    @staticmethod
-    def _announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
-        scheduler_mode: str = settings.SCHEDULER_MODE
-        return (
-            DBOSAnnouncementFanoutScheduler()
-            if scheduler_mode == "dbos"
-            else CronSweepAnnouncementFanout()
+            announcement_fanout_scheduler(),
         )
 
     @cached_property
@@ -347,7 +352,11 @@ class Services:
 
     @cached_property
     def space_tree(self) -> SpaceTreeService:
-        return SpaceTreeService(self._transaction, self._repos.space_tree)
+        return SpaceTreeService(
+            transaction=self._transaction,
+            spaces=self._repos.space_tree,
+            events=self._repos.events,
+        )
 
     @cached_property
     def event_maps(self) -> EventMapsService:
@@ -401,6 +410,7 @@ class Services:
             session_fields=self._repos.session_fields,
             content_change_logs=self._repos.content_change_logs,
             agenda_items=self._repos.agenda_items,
+            waitlist_promotion=self.waitlist_promotion,
         )
 
     @cached_property
@@ -415,22 +425,38 @@ class Services:
             self._transaction,
             self._repos.sessions,
             self._repos.agenda_items,
-            ScheduleChangeLogRepository(),
+            self._repos.schedule_change_logs,
         )
 
     @cached_property
     def proposal_panel(self) -> ProposalPanelService:
-        return ProposalPanelService(
-            self._transaction,
-            ProposalPanelRepos(
-                sessions=self._repos.sessions,
-                session_fields=self._repos.session_fields,
-                proposal_categories=self._repos.proposal_categories,
-                panel_settings=self._repos.event_panel_settings,
-                facilitators=self._repos.facilitators,
-                tracks=self._repos.tracks,
-                time_slots=self._repos.time_slots,
+        return ProposalPanelService(self._transaction, self._proposal_panel_repos)
+
+    @cached_property
+    def proposal_page(self) -> ProposalPageService:
+        return ProposalPageService(
+            transaction=self._transaction,
+            repos=self._proposal_panel_repos,
+            records=ProposalRecordRepos(
+                agenda_items=self._repos.agenda_items,
+                schedule_change_logs=self._repos.schedule_change_logs,
+                personal_data_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
             ),
+            content_edit=self.session_content_edit,
+            personal_data=self.personal_data_field_values,
+        )
+
+    @cached_property
+    def _proposal_panel_repos(self) -> ProposalPanelRepos:
+        return ProposalPanelRepos(
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            proposal_categories=self._repos.proposal_categories,
+            panel_settings=self._repos.event_panel_settings,
+            facilitators=self._repos.facilitators,
+            tracks=self._repos.tracks,
+            time_slots=self._repos.time_slots,
         )
 
     @cached_property
@@ -448,6 +474,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
             notifier=DjangoUserNotifier(),
@@ -464,7 +491,7 @@ class Services:
 
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
-        return build_waitlist_promotion(self._offer_expiry_scheduler())
+        return build_waitlist_promotion(offer_expiry_scheduler())
 
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentService:
@@ -473,15 +500,6 @@ class Services:
             user_repository=self._repos.anonymous_users,
             enrollment_repository=self._repos.anonymous_enrollment,
             waitlist_promotion=self.waitlist_promotion,
-        )
-
-    @staticmethod
-    def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
-        scheduler_mode: str = settings.SCHEDULER_MODE
-        return (
-            DBOSOfferExpiryScheduler()
-            if scheduler_mode == "dbos"
-            else CronSweepOfferScheduler()
         )
 
     @cached_property
@@ -527,6 +545,20 @@ class Services:
         )
 
     @cached_property
+    def member_enrollment(self) -> MemberEnrollmentService:
+        return MemberEnrollmentService(
+            transaction=self._transaction,
+            repository=self._repos.member_enrollment,
+            peers=MemberEnrollmentPeers(
+                enrollment=self.enrollment,
+                waitlist_promotion=self.waitlist_promotion,
+                shadowban=self.shadowban,
+                parties=self.parties,
+                event_bans=self.event_bans,
+            ),
+        )
+
+    @cached_property
     def shadowban(self) -> ShadowbanService:
         return ShadowbanService(
             self._transaction, self._repos.shadowban, DjangoUserNotifier()
@@ -558,11 +590,6 @@ class Services:
         )
 
     @cached_property
-    def _decryptor(self) -> FernetDecryptor:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        return FernetDecryptor(key)
-
-    @cached_property
     def tags(self) -> TagService:
         return TagService(self._transaction, self._repos.tags)
 
@@ -576,7 +603,11 @@ class Services:
 
     @cached_property
     def encounters(self) -> EncounterService:
-        return build_encounters(self.sites)
+        return build_encounters(self.sites, self._encounter_guests)
+
+    @cached_property
+    def _encounter_guests(self) -> EncounterGuests:
+        return build_encounter_guests(self.sites)
 
     @cached_property
     def encounter_replies(self) -> EncounterReplyService:
@@ -585,7 +616,7 @@ class Services:
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
-            guests=build_encounter_guests(self.sites),
+            guests=self._encounter_guests,
             reply_addresses=SignedReplyAddress(),
             sites=self.sites,
         )
@@ -622,7 +653,7 @@ class Services:
             transaction=self._transaction,
             integrations=self._repos.event_integrations,
             connections=self._repos.connections,
-            decryptor=self._decryptor,
+            decryptor=build_credentials_decryptor(),
             implementations=IntegrationImplementations(
                 imports=self._import_implementations,
                 ticketing=self._ticketing_implementations,
@@ -707,7 +738,11 @@ class Services:
 
     @cached_property
     def timetable(self) -> TimetableService:
-        return TimetableService(self._transaction, self._timetable_repos)
+        return TimetableService(
+            self._transaction,
+            self._timetable_repos,
+            categories=self._repos.proposal_categories,
+        )
 
     @cached_property
     def timetable_conflicts(self) -> ConflictDetectionService:

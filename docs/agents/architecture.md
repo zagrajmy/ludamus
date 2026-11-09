@@ -16,7 +16,6 @@ steps in [LOCAL_DEV.md](../LOCAL_DEV.md)) and are enforced by `importlinter`.
 | gates    | `gates/`          | Views, forms, URLs, templatetags                      |
 | inits    | `inits/`          | DI container, middleware wiring                       |
 | edges    | `edges/`          | settings, wsgi/asgi — outside GLIMPSE                 |
-| adapters | `adapters/`       | Legacy — new code goes into GLIMPSE layers            |
 
 ## Repository Pattern
 
@@ -98,7 +97,7 @@ Services take a `TransactionProtocol` plus the specific repo protocols they
 actually touch — never the full UoW, never imports of concrete repos:
 
 ```python
-# mills/chronology.py
+# mills/propose/personal_data_fields.py
 class CFPPersonalDataFieldService:
     def __init__(
         self,
@@ -125,7 +124,7 @@ Services return DTOs; views render them.
 
 `mills/{noun}.py` is promoted to a package when it crosses ~1000
 lines. Modules slice **by service** — one view-facing service per module,
-named after its area (`mills/submissions/importing.py`, `import_log.py`,
+named after its area (`mills/propose/importing.py`, `import_log.py`,
 `field_layout.py`, `personal_data_fields.py`). A service holds the methods
 used together in the same views; a method that landed somewhere only
 because it matched the service name, or had no other service to go to,
@@ -134,9 +133,9 @@ gets its own service.
 Shared code splits by kind:
 
 - **Pure functions** go to a plain-function module
-  (`mills/submissions/mapping.py` — row-cell parsing, slug generation).
+  (`mills/propose/mapping.py` — row-cell parsing, slug generation).
 - **Repo-bearing machinery** becomes a collaborator class
-  (`mills/submissions/engine.py` — `ImportEngine`) that services compose
+  (`mills/propose/engine.py` — `ImportEngine`) that services compose
   internally. It is not a service: no protocol in `ServicesProtocol`,
   never exposed on `request.services`, and it owns no transactions —
   services open `atomic()` and call engine methods inside it.
@@ -179,20 +178,6 @@ def get(self, request: PanelRequest, slug: str) -> TemplateResponse:
         request, "panel/personal-data-fields.html", {"fields": fields}
     )
 ```
-
-## Strangler-fig migration
-
-Two middleware run in parallel: the legacy `RepositoryInjectionMiddleware`
-(attaches `request.di.uow`) and the new `ServiceInjectionMiddleware`
-(attaches `request.services`). New code uses `request.services`. A single
-view file picks one shape; never both in the same view.
-
-Migration is per view file. The recipe lives in
-[services-migration.md](services-migration.md). Once the last view migrates,
-`RepositoryInjectionMiddleware` and `request.di.uow` are removed.
-
-New code must use `request.services`. Do not extend the `request.di.uow`
-surface — write a new mills service instead.
 
 ## Specs
 
@@ -253,28 +238,34 @@ grows: `propose` (CFP config, proposals, facilitators), `enroll`,
 `schedule` (venues, time slots, tracks, timetable), `present` (public
 pages, printing).
 
-Enrollment behaviour currently bolted onto the `Session` model
-(`enrolled_count`, `is_full`, `effective_participants_limit`,
-`is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
-`enroll` mills/specs, not on the model.
+Seat arithmetic lives in `pacts/enrollment.py`, the one module links,
+mills and gates all read: `SessionSeatsDTO` (a session's cap, seats left and
+fullness, from the stored limit, the open windows' share and the seats
+taken), `seat_cap`, and the window rules `window_is_open` (`[start, end)`)
+and `allowance_windows`. Links supply only those facts;
+`EnrollmentPolicy` (mills) answers the per-actor question with the same
+`seat_cap`. `SessionManager.conflicted_user_ids` still sits on the model.
 
 **Seat lock order.** Every transaction that decides a seat takes, before
 it reads what it decides on, the steps below. Most lock `User` rows
-themselves: `_process_enrollments` (enroll, waitlist, cancel, held seats,
-guests), `lock_and_read_state` for promotion, `_read_locked_party` (behind
+themselves: the member enroll batch (`MemberEnrollmentService.submit`:
+enroll, waitlist, cancel, held seats, guests) and anonymous `enroll` and
+`cancel`, both through `SeatDesk` (`mills/enrollment_seats.py`),
+`lock_and_read_state` for promotion, `_read_locked_party` (behind
 `_claim`, `decline_offer` and `expire_offer`, before it locks the offer's
-participation rows), and anonymous `enroll` and `cancel`. The proposal edit
+participation rows). The proposal edit
 and the timetable move take only the `Session` row and leave the `User`
 rows to the refill they end with.
 
-1. the `Session` row (`select_for_update`), and no other `Session` row;
+1. the `Session` row (`select_for_update`, `SeatDesk.lock_session` on the
+   enroll paths), and no other `Session` row;
 2. `lock_seat_holders` in `links/db/django/enrollment.py`: one
    `SELECT … FOR NO KEY UPDATE OF` on `User`, ordered by pk, covering the people
    whose seats it decides, their pass owners (the manager of a login-less
    companion), and, when it may refill the session in the same transaction,
    the session's waiters and their owners;
-3. then the checks (`has_conflicts`, the pass allowance, capacity) and the
-   writes.
+3. then the checks (`conflicted_user_ids`, the pass allowance, capacity)
+   and the writes (`SeatRepositoryProtocol.seat` / `release`).
 
 Production runs `ATOMIC_REQUESTS`, so a refill after a cancel or a claim
 (`fill_freed_seats`) runs in the request's transaction: that is why the
@@ -319,8 +310,9 @@ the past. `/` redirects here.
 What visitors see: event details, session list, session cards.
 
 - **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
-- **Views:** `adapters/web/django/views.py` — `EventPageView`
-- **Templates:** `templates/chronology/event.html`,
+- **Views:** `gates/web/django/event/page.py` — `EventPageView`, reading
+  through `services.event_schedule` (`mills/event_schedule.py`)
+- **Templates:** `templates/event/event.html`,
   `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
 
@@ -339,7 +331,7 @@ here. The hero and session modal link into it.
 - **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView` and the
   four action views; writes check `panel_access(request).allows(PANEL_WRITE)`
   on arrival
-- **Templates:** `templates/chronology/maps.html`, `_map_card.html`,
+- **Templates:** `templates/event/maps.html`, `_map_card.html`,
   `_map_tree_node.html`, `_session_map_link.html`
 - **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
   event; builds each map's venue tree with the `?space=` filter per node;
@@ -354,10 +346,10 @@ here. The hero and session modal link into it.
 The multi-step wizard through which facilitators submit session proposals.
 
 - **URLs:** `/chronology/session/propose/` (namespace `session`)
-- **Views:** `gates/web/django/chronology/views.py` —
+- **Views:** `gates/web/django/event/views.py` —
   `ProposeSessionPageView` and component views for each wizard step
   (category, personal data, time slots, session details, review, submit)
-- **Templates:** `templates/chronology/propose/`
+- **Templates:** `templates/event/propose/`
 - **Service:** `ProposeSessionService` — resolves field requirements per
   category, creates `Facilitator`, persists `Session` and field values,
   rate-limits by IP
@@ -372,15 +364,18 @@ proposal acceptance by organizers.
 
 - **URLs:** `/chronology/session/<id>/enrollment/`,
   `/chronology/session/<id>/accept/`, `/chronology/anonymous/`
-- **Views:** `adapters/web/django/views.py` — `SessionEnrollPageView`,
+- **Views:** `gates/web/django/event/enroll.py` — `SessionEnrollPageView`
+  (form in `enroll_forms.py`); `gates/web/django/event/` —
   `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
   `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
   `AnonymousResetActionView`
-- **Templates:** `templates/chronology/enroll_select.html`,
+- **Templates:** `templates/event/enroll_select.html`,
   `anonymous_enroll.html`, `anonymous_manage.html`, `accept_proposal.html`
-- **Services:** `AcceptProposalService` (transitions session → ACCEPTED,
-  creates `AgendaItem`), `AnonymousEnrollmentService` (code-based
-  anonymous user lookup)
+- **Services:** `MemberEnrollmentService` (`mills/enrollment_member.py`:
+  the page's roster and moves, the pass check, the seat batch),
+  `AcceptProposalService` (transitions session → ACCEPTED, creates
+  `AgendaItem`), `AnonymousEnrollmentService` (code-based enrollment); both
+  enrollment services take seats through `SeatDesk`
 - **DTOs:** `EnrollmentConfigDTO`, `UserEnrollmentConfigDTO`,
   `VirtualEnrollmentConfig`, `AgendaItemDTO`
 
@@ -392,9 +387,8 @@ group, no ownership split.
 
 - **URLs:** `/panel/event/<slug>/…` (namespace `panel`), configured in
   `gates/web/django/event/panel/urls.py`
-- **Views:** new pages live in `gates/web/django/event/panel/views/`; remaining
-  pages under `gates/web/django/chronology/panel/views/` move there
-  opportunistically. Each module owns one page or closely related page group.
+- **Views:** `gates/web/django/event/panel/views/`. Each module owns one page or
+  closely related page group.
 - **Templates:** `templates/panel/`
 - **Services:** `EventPanelService` loads the shared event-scoped navigation
   context through repository protocols; focused page services own page reads and
@@ -410,17 +404,17 @@ group, no ownership split.
 
 | Area                 | Views                                                                   | Templates                                                   |
 | -------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Proposal categories  | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html`                                                |
+| Proposal categories  | `panel/views/cfp.py`, `panel/views/proposal_category_settings.py`       | `cfp-*.html`                                                |
 | Proposals / sessions | `panel/views/proposals.py`                                              | `proposal-*.html`                                           |
 | Personal data fields | `panel/views/personal_data_fields.py`                                   | `personal-data-field-*.html`                                |
 | Session fields       | `panel/views/session_fields.py`                                         | `session-field-*.html`                                      |
 | Facilitators         | `panel/views/facilitators.py`                                           | `facilitator-*.html`                                        |
-| Event settings       | `chronology/panel/views/event_settings.py`                              | `settings.html`                                             |
-| Enrollment settings  | `event/panel/views/enrollment_settings.py`                              | `enrollment-*.html`                                         |
+| Event settings       | `panel/views/event_settings.py`                                         | `settings.html`                                             |
+| Enrollment settings  | `panel/views/enrollment_settings.py`                                    | `enrollment-*.html`                                         |
 | Time slots           | `panel/views/time_slots.py`                                             | `time-slot*.html`                                           |
 | Tracks               | `panel/views/tracks.py`                                                 | `track-*.html`                                              |
 | Venues (Space tree)  | `panel/views/venues.py`                                                 | `spaces.html`, `_space_tree_node.html`, `space-*.html`      |
-| Confirmations        | `event/panel/views/confirmations.py`                                    | `timetable-confirmations.html`, `parts/confirmation-*.html` |
+| Confirmations        | `panel/views/confirmations.py`                                          | `timetable-confirmations.html`, `parts/confirmation-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -435,16 +429,15 @@ depends only on Sphere (no Event coupling).
 #### Pages: Panel (sphere-scoped)
 
 Sphere-scoped backoffice for sphere managers. Parallel to the event panel
-and uses its own access mixin keyed off `current_sphere_id` without an
-`EventContextMixin`.
+and shares the panel access mixin (`gates/web/django/panel.py`) without
+the event resolution `EventPanelMixin` adds.
 
 - **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
-- **Views:** `gates/web/django/multiverse/panel/views/…`
-- **Templates:** `templates/multiverse/panel/`
-- **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/multiverse.py`
+- **Views:** `gates/web/django/sphere/panel/views/…`
+- **Templates:** `templates/sphere/panel/`
+- **Pacts/Mills/Specs:** `pacts/sphere.py`, `mills/sphere.py`
   (legacy module names; new cuts use `sphere`)
-- **Access:** `SphereAccessMixin` (sphere-manager check via
-  `request.di.uow.spheres.is_manager`)
+- **Access:** `SphereAccessMixin` (the panel access check, scoped to the sphere)
 - **First feature:** sphere-scoped import-connections CRUD
   ("Połączenia importu" subpage)
 
@@ -458,8 +451,8 @@ links that add to it (`SphereInvitation`, expiring after
   landing page `/multiverse/join/<token>/` (`multiverse:join`), which stays
   open in a private sphere so an invitee can reach it
 - **Views:** `gates/web/django/sphere/team.py`
-- **Templates:** `templates/multiverse/panel/team.html`,
-  `templates/multiverse/join.html`
+- **Templates:** `templates/sphere/panel/team.html`,
+  `templates/sphere/join.html`
 - **Pacts/Mills/Links:** `pacts/team.py`, `mills/team.py`,
   `links/db/django/team.py`; lifetime in `specs/permissions.py`
 
@@ -489,12 +482,12 @@ route below.
 - **URLs:** `/encounters/create/`, `/encounters/<pk>/edit/` (authenticated),
   `/e/<share_code>/` (public, namespace `notice-board`). `/encounters/`
   itself redirects to the events feed.
-- **Views:** `gates/web/django/notice_board/views.py` —
+- **Views:** `gates/web/django/encounter/views.py` —
   `EncounterCreatePageView`, `EncounterEditPageView`,
   `EncounterDeleteActionView`, `EncounterDetailPageView`,
   `EncounterRSVPActionView`, `EncounterCancelRSVPActionView`,
   `EncounterQrView`, `EncounterIcsView`, all behind `_EncounterGate`
-- **Templates:** `templates/notice_board/`
+- **Templates:** `templates/encounter/`
 - **Service:** `EncounterService` — `build_detail()` (encounter + RSVPs +
   computed availability), `list_feed()` (what a given visitor may see:
   listed encounters plus their own and their RSVPs), `can_create()`,
@@ -544,12 +537,12 @@ callback, linking Auth0-era accounts on first login.
 
 - **URLs:** `/crowd/auth/` (namespace `auth`), `/crowd/login-required/`,
   `/auth-error/` (AuthKit errors on the callback land here)
-- **Views:** `gates/web/django/crowd/auth.py` — `LoginActionView`,
+- **Views:** `gates/web/django/user/auth.py` — `LoginActionView`,
   `LoginCallbackActionView`, `LogoutActionView`,
   `LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
   `login_required_page`, `auth_error_page`
-- **Templates:** `templates/crowd/login_required.html`,
-  `templates/crowd/auth_error.html`
+- **Templates:** `templates/user/login_required.html`,
+  `templates/user/auth_error.html`
 - **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — login
   and logout URLs, completing a login (provisioning, legacy linking,
   identity sync), sphere-domain checks
@@ -561,14 +554,14 @@ User profile management and delegate (connected) accounts.
 
 - **URLs:** `/crowd/profile/`, `/crowd/profile/connected-users/` and
   `/crowd/claim/<token>/`
-- **Views:** `gates/web/django/crowd/profile.py` — `ProfilePageView`,
+- **Views:** `gates/web/django/user/profile.py` — `ProfilePageView`,
   `ProfileAvatarPageView`, `ProfileShadowbanPageView`,
   `ProfileConnectedUsersPageView`,
   `ProfileConnectedUserUpdateActionView`,
   `ProfileConnectedUserDeleteActionView`,
   `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`
-- **Templates:** `templates/crowd/user/edit.html`, `avatar.html`,
-  `parties.html`, `shadowbans.html`, `crowd/claim.html`
+- **Templates:** `templates/user/user/edit.html`, `avatar.html`,
+  `parties.html`, `shadowbans.html`, `user/claim.html`
 - **Services:** `ProfileService` (self-profile reads/updates and avatar
   preferences), `CompanionsService` (connected-user
   CRUD), `ClaimService` (issue/redeem claim links), `ShadowbanService`
