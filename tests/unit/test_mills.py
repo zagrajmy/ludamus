@@ -2,13 +2,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
 
-from ludamus.mills import (
-    generate_ics_content,
-    google_calendar_url,
-    outlook_calendar_url,
-)
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
     SlugCollisionError,
@@ -22,13 +16,8 @@ from ludamus.mills.submissions.mapping import (
     slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
-from ludamus.pacts import (
-    EncounterDTO,
-    EventDTO,
-    NotFoundError,
-    OrganizerFieldDTO,
-    SessionFieldValueData,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import EventDTO, NotFoundError, SessionFieldValueData
 from ludamus.pacts.submissions import (
     FieldDefinition,
     FieldDefinitions,
@@ -219,75 +208,6 @@ class TestIsProposalActive:
         event = EventDTO(**base_event_data)
 
         assert event.is_proposal_active is False
-
-
-class TestLegacyCalendarWrappers:
-    @staticmethod
-    def _encounter(**overrides):
-        start = datetime(2026, 8, 15, 12, 30, tzinfo=UTC)
-        values = {
-            "creation_time": start - timedelta(days=7),
-            "creator_id": 1,
-            "description": "A great session",
-            "end_time": start + timedelta(hours=3),
-            "game": "D&D",
-            "max_participants": 6,
-            "pk": 1,
-            "place": "Room 42",
-            "share_code": "ABC123",
-            "sphere_id": 1,
-            "start_time": start,
-            "title": "My Encounter",
-        }
-        return EncounterDTO(**(values | overrides))
-
-    @freeze_time("2026-08-01 09:00:00")
-    def test_ics_content_uids_the_encounter_by_its_share_code(self):
-        result = generate_ics_content(self._encounter(), "https://example.com/s/ABC123")
-
-        assert result == (
-            "BEGIN:VCALENDAR\r\n"
-            "VERSION:2.0\r\n"
-            "PRODID:-//Zagrajmy//Ludamus//PL\r\n"
-            "BEGIN:VEVENT\r\n"
-            "UID:ABC123@ludamus\r\n"
-            "DTSTAMP:20260801T090000Z\r\n"
-            "DTSTART:20260815T123000Z\r\n"
-            "DTEND:20260815T153000Z\r\n"
-            "SUMMARY:My Encounter\r\n"
-            "LOCATION:Room 42\r\n"
-            "DESCRIPTION:A great session\r\n"
-            "URL:https://example.com/s/ABC123\r\n"
-            "END:VEVENT\r\n"
-            "END:VCALENDAR\r\n"
-        )
-
-    def test_google_url_gives_an_open_ended_encounter_the_default_duration(self):
-        encounter = self._encounter(end_time=None)
-
-        result = google_calendar_url(encounter, "https://example.com/s/ABC123")
-
-        assert result == (
-            "https://calendar.google.com/calendar/render?action=TEMPLATE"
-            "&text=My+Encounter"
-            "&dates=20260815T123000Z%2F20260815T143000Z"
-            "&details=A+great+session%0A%0Ahttps%3A%2F%2Fexample.com%2Fs%2FABC123"
-            "&location=Room+42"
-        )
-
-    def test_outlook_url_gives_an_open_ended_encounter_the_default_duration(self):
-        encounter = self._encounter(end_time=None)
-
-        result = outlook_calendar_url(encounter, "https://example.com/s/ABC123")
-
-        assert result == (
-            "https://outlook.live.com/calendar/0/action/compose?rru=addevent"
-            "&subject=My+Encounter"
-            "&startdt=2026-08-15T12%3A30%3A00%2B00%3A00"
-            "&enddt=2026-08-15T14%3A30%3A00%2B00%3A00"
-            "&body=A+great+session%0A%0Ahttps%3A%2F%2Fexample.com%2Fs%2FABC123"
-            "&location=Room+42"
-        )
 
 
 class TestMappingHelpers:

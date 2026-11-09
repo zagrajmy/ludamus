@@ -54,8 +54,8 @@ from ludamus.pacts.submissions import (
 if TYPE_CHECKING:
     from django.http import QueryDict
 
-    from ludamus.pacts import EventDTO
     from ludamus.pacts.chronology import EventIntegrationDTO, SourceQuestion
+    from ludamus.pacts.legacy import EventDTO
 
 SESSION_COLUMNS = (
     "title",

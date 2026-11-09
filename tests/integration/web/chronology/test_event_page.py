@@ -42,14 +42,9 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import (
-    AgendaItemDTO,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SessionDTO, SessionFieldValueDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,

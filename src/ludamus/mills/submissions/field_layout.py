@@ -19,8 +19,8 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import SessionUpdateData
     from ludamus.pacts.chronology import EventIntegrationsServiceProtocol
+    from ludamus.pacts.legacy import SessionUpdateData
     from ludamus.pacts.services import TransactionProtocol
 
 

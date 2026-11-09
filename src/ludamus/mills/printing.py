@@ -41,7 +41,7 @@ from ludamus.pacts.printing import (
 if TYPE_CHECKING:
     from datetime import date, datetime
 
-    from ludamus.pacts import (
+    from ludamus.pacts.legacy import (
         AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         EventRepositoryProtocol,

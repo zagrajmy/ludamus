@@ -158,7 +158,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "ludamus.inits.RepositoryInjectionMiddleware",
+    "ludamus.inits.legacy.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
     "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
@@ -681,13 +681,22 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "json" if IS_PRODUCTION else "verbose",
-        }
+        },
+        # PostHog Logs, over OTLP/HTTP, INFO and up; off without POSTHOG_API_KEY.
+        "posthog": {"()": "ludamus.links.analytics.log_shipping.posthog_handler"},
     },
-    "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
+    "root": {
+        "handlers": ["console", "posthog"],
+        "level": "INFO" if IS_PRODUCTION else "DEBUG",
+    },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django": {
+            "handlers": ["console", "posthog"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "django.security": {
-            "handlers": ["console"],
+            "handlers": ["console", "posthog"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },

@@ -21,13 +21,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_session_field_form_data,
-    read_field_or_redirect,
     undeletable_field_reasons,
 )
 from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
-from ludamus.mills import PanelService
-from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, FieldUsageSummary, NotFoundError
+from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
 
 class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -48,18 +46,9 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "cfp"
         context["active_tab"] = "session"
         context["tab_urls"] = cfp_tab_urls(slug)
-        fields = self.request.di.uow.session_fields.list_by_event(current_event.pk)
-        usage_counts = self.request.di.uow.session_fields.get_usage_counts(
+        summaries = self.request.services.session_fields.list_summaries(
             current_event.pk
         )
-        summaries = [
-            FieldUsageSummary(
-                field=f,
-                required_count=usage_counts.get(f.pk, {}).get("required", 0),
-                optional_count=usage_counts.get(f.pk, {}).get("optional", 0),
-            )
-            for f in fields
-        ]
         context["fields"] = summaries
         context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
         return TemplateResponse(self.request, "panel/session-fields.html", context)
@@ -84,7 +73,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
         context["form"] = SessionFieldForm(
             initial={"max_length": DEFAULT_FIELD_MAX_LENGTH}
         )
-        context["categories"] = self.request.di.uow.proposal_categories.list_by_event(
+        context["categories"] = self.request.services.session_fields.list_categories(
             current_event.pk
         )
         context["required_category_pks"] = set()
@@ -108,7 +97,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             context["active_nav"] = "cfp"
             context["form"] = form
             context["categories"] = (
-                self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
+                self.request.services.session_fields.list_categories(current_event.pk)
             )
             cat_reqs = parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
@@ -151,14 +140,11 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            field = read_field_or_redirect(
-                self.request,
-                self.request.di.uow.session_fields,
-                current_event.pk,
-                field_slug,
-                _("Session field not found."),
+            field, field_cats = self.request.services.session_fields.read(
+                current_event.pk, field_slug
             )
         except NotFoundError:
+            messages.error(self.request, _("Session field not found."))
             return redirect("panel:session-fields", slug=slug)
 
         context["active_nav"] = "cfp"
@@ -176,13 +162,8 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             initial["is_multiple"] = field.is_multiple
             initial["allow_custom"] = field.allow_custom
         context["form"] = SessionFieldForm(initial=initial)
-        context["categories"] = self.request.di.uow.proposal_categories.list_by_event(
+        context["categories"] = self.request.services.session_fields.list_categories(
             current_event.pk
-        )
-        field_cats = (
-            self.request.di.uow.proposal_categories.get_session_field_categories(
-                field.pk
-            )
         )
         context["required_category_pks"] = {
             pk for pk, is_req in field_cats.items() if is_req
@@ -203,14 +184,11 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            field = read_field_or_redirect(
-                self.request,
-                self.request.di.uow.session_fields,
-                current_event.pk,
-                field_slug,
-                _("Session field not found."),
-            )
+            field = self.request.services.session_fields.read(
+                current_event.pk, field_slug
+            )[0]
         except NotFoundError:
+            messages.error(self.request, _("Session field not found."))
             return redirect("panel:session-fields", slug=slug)
 
         # The edit page renders no type control; the options check needs one.
@@ -222,7 +200,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["field"] = field
             context["form"] = form
             context["categories"] = (
-                self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
+                self.request.services.session_fields.list_categories(current_event.pk)
             )
             cat_reqs = parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
@@ -285,18 +263,13 @@ class SessionFieldDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            field = read_field_or_redirect(
-                self.request,
-                self.request.di.uow.session_fields,
-                current_event.pk,
-                field_slug,
-                _("Session field not found."),
+            deleted = self.request.services.session_fields.delete(
+                current_event.pk, field_slug
             )
         except NotFoundError:
+            messages.error(self.request, _("Session field not found."))
             return redirect("panel:session-fields", slug=slug)
-
-        service = PanelService(self.request.di.uow)
-        if not service.delete_session_field(field.pk):
+        if not deleted:
             messages.error(
                 self.request, _("Cannot delete field that is used in categories.")
             )

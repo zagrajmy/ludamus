@@ -1,9 +1,9 @@
 id: ring-as-written-call-sites
 valid:
-  - "ring(recipient, kind=kind, title=title, body=body, url=url, payload={})"
+  - "ring(recipient, Bell(kind=kind, title=title, body=body, url=url))"
   - "rang_as_written = 1"
 invalid:
-  - 'ring_as_written(recipient_ids=ids, kind=kind, title=title, body=body, url="")'
-  - 'delivery.ring_as_written(recipient_ids=ids, kind=kind, title=t, body=b, url="")'
+  - 'ring_as_written(recipient_ids=ids, bell=bell)'
+  - 'delivery.ring_as_written(recipient_ids=ids, bell=bell)'
   - "from ludamus.links.db.django.delivery import ring_as_written as ring_all"
   - "bell = delivery.ring_as_written"

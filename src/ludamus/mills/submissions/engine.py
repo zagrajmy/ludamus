@@ -27,7 +27,7 @@ from ludamus.mills.submissions.mapping import (
     slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import log_facilitator_deletion
-from ludamus.pacts import (
+from ludamus.pacts.legacy import (
     FacilitatorDTO,
     NotFoundError,
     PersonalDataFieldCreateData,

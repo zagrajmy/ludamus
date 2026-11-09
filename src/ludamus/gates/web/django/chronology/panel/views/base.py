@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest
 
-    from ludamus.pacts import DependencyInjectorProtocol
+    from ludamus.pacts.legacy import DependencyInjectorProtocol
 
 
 def back_to_proposals(request: HttpRequest, slug: str) -> str:

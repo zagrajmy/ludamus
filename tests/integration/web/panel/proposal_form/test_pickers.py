@@ -10,7 +10,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import EventDTO, TimeSlotDTO, TrackDTO
+from ludamus.pacts.legacy import EventDTO, TimeSlotDTO, TrackDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import facilitator_list_item_dto

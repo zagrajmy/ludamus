@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 
 if TYPE_CHECKING:
-    from ludamus.pacts import TimeSlotDTO
+    from ludamus.pacts.legacy import TimeSlotDTO
 
 type Window = tuple[datetime, datetime]
 

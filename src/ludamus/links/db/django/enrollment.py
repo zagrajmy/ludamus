@@ -34,7 +34,6 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
-from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
@@ -54,6 +53,7 @@ from ludamus.pacts.enrollment import (
 )
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.legacy import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     NotFoundError,
     PromotionMode,
     SessionParticipationStatus,

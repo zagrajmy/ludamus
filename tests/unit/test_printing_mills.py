@@ -11,7 +11,7 @@ from ludamus.mills.printing import (
     PrintablesReminderService,
     PrintMaterialsService,
 )
-from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SpaceDTO, TrackDTO
 from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
 from tests.unit.factories import event_dto
 

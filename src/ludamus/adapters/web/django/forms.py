@@ -15,7 +15,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.mills.enrollment_windows import EnrollmentPolicy
-from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
+from ludamus.pacts.legacy import EventDTO, VirtualEnrollmentConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable

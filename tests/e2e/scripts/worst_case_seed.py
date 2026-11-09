@@ -32,7 +32,7 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.pacts import SessionStatus
+from ludamus.pacts.legacy import SessionStatus
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -8,8 +8,8 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
-from ludamus.pacts import ProposalCategoryDTO
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
+from ludamus.pacts.legacy import ProposalCategoryDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (

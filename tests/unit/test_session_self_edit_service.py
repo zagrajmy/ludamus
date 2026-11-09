@@ -8,7 +8,12 @@ from ludamus.mills.chronology import (
     SessionEditNotAllowedError,
     SessionSelfEditService,
 )
-from ludamus.pacts import NotFoundError, SessionFieldValueData, SiteDTO, SphereDTO
+from ludamus.pacts.legacy import (
+    NotFoundError,
+    SessionFieldValueData,
+    SiteDTO,
+    SphereDTO,
+)
 from tests.unit.factories import FakeTransaction, event_dto, session_dto
 
 _SESSION_PK = 5

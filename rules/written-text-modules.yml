@@ -7,7 +7,18 @@ files:
 rule:
   any:
     - kind: identifier
-      regex: ^(_|gettext\w*|ngettext\w*|pgettext\w*|npgettext\w*)$
+      regex: ^n?p?gettext\w*$
+    # `_` imported (as is or renamed) or read off a module; a bare `_`
+    # nobody imported is ruff's undefined name, and a throwaway is fine.
+    - kind: identifier
+      regex: ^_$
+      any:
+        - inside:
+            kind: import_from_statement
+            stopBy: end
+        - inside:
+            kind: attribute
+            field: attribute
     - pattern: from django.utils.translation import $$$
     - pattern: from django.utils import translation
     - pattern: from django.utils import translation as $A

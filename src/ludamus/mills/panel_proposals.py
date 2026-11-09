@@ -11,7 +11,7 @@ from ludamus.mills.panel_columns import (
     sanitize_column_keys,
 )
 from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
@@ -27,12 +27,8 @@ from ludamus.pacts.submissions import is_empty_answer
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import (
-        OrganizerFieldDTO,
-        SessionData,
-        SessionDTO,
-        SessionListItemDTO,
-    )
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.legacy import SessionData, SessionDTO, SessionListItemDTO
     from ludamus.pacts.panel import PanelColumnsContextDTO, ProposalListQuery
     from ludamus.pacts.services import TransactionProtocol
 

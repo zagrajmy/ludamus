@@ -18,16 +18,17 @@ from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.ids import HasPk
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
+        FieldUsageSummary,
         PersonalDataFieldCreateData,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryRepositoryProtocol,
         SessionFieldCreateData,
@@ -452,6 +453,12 @@ class ProposalCategorySettingsServiceProtocol(Protocol):
 
 
 class CFPSessionFieldServiceProtocol(Protocol):
+    def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
+    def list_categories(self, event_pk: int) -> list[ProposalCategoryDTO]: ...
+    def read(
+        self, event_pk: int, field_slug: str
+    ) -> tuple[OrganizerFieldDTO, dict[int, bool]]: ...
+    def delete(self, event_pk: int, field_slug: str) -> bool: ...
     def create(
         self,
         *,

@@ -8,7 +8,6 @@ from ludamus.mills.integrations import (
     IntegrationImplementationNotFoundError,
     IntegrationImplementations,
 )
-from ludamus.pacts import MembershipAPIError, NotFoundError
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
@@ -20,6 +19,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     SourceQuestion,
 )
+from ludamus.pacts.legacy import MembershipAPIError, NotFoundError
 from ludamus.pacts.multiverse import DecryptionError
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from tests.unit.factories import FakeTransaction

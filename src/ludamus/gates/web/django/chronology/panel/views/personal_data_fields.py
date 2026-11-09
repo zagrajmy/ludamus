@@ -24,8 +24,8 @@ from ludamus.gates.web.django.forms import (
     PersonalDataFieldEditForm,
     PersonalDataFieldForm,
 )
-from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 from ludamus.pacts.fields import FieldTypeSwitchError, is_text_field_kind
+from ludamus.pacts.legacy import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

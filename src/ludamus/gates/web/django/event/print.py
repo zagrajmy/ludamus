@@ -15,8 +15,8 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
-from ludamus.mills.qr import qr_svg
-from ludamus.pacts import NotFoundError
+from ludamus.gates.web.django.qr import qr_svg
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.printing import PrintQueryDTO
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.printing import (
         AreaScheduleDocumentDTO,
         DoorCardsDocumentDTO,

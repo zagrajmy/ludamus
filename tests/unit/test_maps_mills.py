@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.maps import EventMapsService
-from ludamus.pacts import NotFoundError, SpaceDTO
+from ludamus.pacts.legacy import NotFoundError, SpaceDTO
 from ludamus.pacts.maps import (
     EventMapDTO,
     EventMapPageDTO,

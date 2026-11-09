@@ -20,8 +20,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import EventDTO
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.legacy import EventDTO, NotificationKind
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,

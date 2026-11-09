@@ -1,8 +1,14 @@
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from ludamus.mills.calendar import google_calendar_url, outlook_calendar_url
-from ludamus.pacts.calendar import CalendarEntry, ics_document, ics_escape, ics_utc
+from ludamus.pacts.calendar import (
+    CalendarEntry,
+    google_calendar_url,
+    ics_document,
+    ics_escape,
+    ics_utc,
+    outlook_calendar_url,
+)
 
 _WARSAW = ZoneInfo("Europe/Warsaw")
 _START = datetime(2026, 8, 15, 12, 30, tzinfo=_WARSAW)

@@ -22,10 +22,8 @@ from ludamus.links.db.django.facilitator_change_log import (
 )
 from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
-from ludamus.links.db.django.notifications import (
-    NotificationReadRepository,
-    NotificationSubscriptionRepository,
-)
+from ludamus.links.db.django.notification_inbox import NotificationReadRepository
+from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.repositories.notice_board import EncounterInviteeRepository

@@ -13,7 +13,6 @@ from ludamus.mills.konwencik import (
     KONWENCIK_COLUMNS,
     KonwencikExportService,
 )
-from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
@@ -25,6 +24,7 @@ from ludamus.pacts.konwencik import (
     KonwencikSettingsContext,
     KonwencikSkipReason,
 )
+from ludamus.pacts.legacy import AgendaItemDTO, NotFoundError, SpaceDTO
 from ludamus.pacts.sheets import SheetExportError
 from tests.unit.factories import track_dto
 

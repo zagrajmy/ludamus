@@ -13,14 +13,10 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
 )
-from ludamus.pacts import (
-    FacilitatorDTO,
-    OrganizerFieldDTO,
-    SessionListItemDTO,
-    SessionStatus,
-)
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.guild import GuildMarkDTO
+from ludamus.pacts.legacy import FacilitatorDTO, SessionListItemDTO, SessionStatus
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
