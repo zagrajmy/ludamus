@@ -617,7 +617,7 @@ class FieldUsageSummary:
     def is_used(self) -> bool:
         """Whether any category asks for this field.
 
-        The same question `delete_session_field` answers with
+        The same question `CFPSessionFieldService.delete` answers with
         `has_requirements`, from counts the page already has — so the list can
         say Delete is unavailable without another query.
 

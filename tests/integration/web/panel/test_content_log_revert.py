@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ContentChangeLog, SessionFieldValue
-from ludamus.pacts import ContentChangeLogDTO
+from ludamus.pacts.legacy import ContentChangeLogDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,

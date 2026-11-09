@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.crowd import ClaimService, CrowdAuthService
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AgeBand,
     AgeBandRequiredError,
@@ -13,6 +12,7 @@ from ludamus.pacts.crowd import (
     ClaimOutcome,
     ClaimResultDTO,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, user_dto
 

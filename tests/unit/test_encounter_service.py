@@ -4,7 +4,6 @@ import pytest
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterData,
@@ -14,6 +13,7 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     RSVPOutcome,
 )
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
@@ -36,6 +36,8 @@ from tests.unit.encounter_fakes import (
     make_user,
 )
 from tests.unit.factories import FakeTransaction
+
+SHARE_CODE_LENGTH = 6
 
 
 def _service(
@@ -199,7 +201,10 @@ class TestEncounterDetail:
         )
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=OTHER_USER_ID
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=OTHER_USER_ID,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert detail.creator.pk == CREATOR_ID
@@ -212,7 +217,10 @@ class TestEncounterDetail:
         service = _service(encounters=FakeEncounters([make_encounter(1)]))
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=None
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=None,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert not detail.user_has_rsvpd
@@ -222,7 +230,10 @@ class TestEncounterDetail:
         service = _service(encounters=FakeEncounters([make_encounter(1)]))
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=CREATOR_ID
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=CREATOR_ID,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert detail.is_creator
@@ -240,7 +251,10 @@ class TestEncounterDetail:
 
         details = [
             world.service().build_detail(
-                share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=user_id
+                share_code="CODE1",
+                sphere_id=SPHERE_ID,
+                current_user_id=user_id,
+                page_url="https://example.test/e/CODE1",
             )
             for user_id in (CREATOR_ID, OTHER_USER_ID)
         ]
@@ -278,6 +292,8 @@ class TestEncounterOwnership:
 
         assert created.title == "New night"
         assert encounters.rows == {created.pk: created}
+        assert len(created.share_code) == SHARE_CODE_LENGTH
+        assert created.share_code.isalnum()
 
     def test_a_manager_creates_under_the_managers_policy(self):
         encounters = FakeEncounters()

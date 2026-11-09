@@ -16,7 +16,7 @@ from ludamus.links.db.django.models import (
     Space,
     Track,
 )
-from ludamus.pacts import EventDTO
+from ludamus.pacts.legacy import EventDTO
 from ludamus.pacts.venues import ProgrammeSpaceRowDTO, SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response

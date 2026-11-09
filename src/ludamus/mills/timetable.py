@@ -12,14 +12,6 @@ from ludamus.mills.event import (
     widen_event_dates,
 )
 from ludamus.mills.timeslots import Window, slot_windows_by_local_date
-from ludamus.pacts import (
-    AgendaItemDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogData,
-    SessionStatus,
-    TrackSessionCountsDTO,
-)
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ClosedRangeDTO,
@@ -46,6 +38,14 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
 )
 from ludamus.pacts.event import EventPublicationInvalidError
+from ludamus.pacts.legacy import (
+    AgendaItemDTO,
+    NotFoundError,
+    ScheduleChangeAction,
+    ScheduleChangeLogData,
+    SessionStatus,
+    TrackSessionCountsDTO,
+)
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
@@ -62,7 +62,7 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts.legacy import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.timetable import TimetableRepos
 

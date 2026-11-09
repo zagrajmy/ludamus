@@ -2,39 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
-from django.contrib import messages
 from django.utils.translation import gettext as _
 
-from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
 from ludamus.pacts.fields import is_personal_field_type, is_session_field_type
-from ludamus.pacts.legacy import OrganizerFieldFormData, SessionFieldCreateData
+from ludamus.pacts.legacy import (
+    OrganizerFieldFormData,
+    PersonalDataFieldCreateData,
+    SessionFieldCreateData,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from django import forms
 
-    from ludamus.gates.web.django.chronology.panel.views.base import PanelRequest
     from ludamus.pacts.legacy import FieldUsageSummary
-
-
-class _FieldDTO(Protocol):
-    """Protocol for field DTOs with common attributes."""
-
-    help_text: str
-    is_public: bool
-    max_length: int
-    pk: int
-    name: str
-    question: str
-
-
-class _FieldRepositoryProtocol[T: _FieldDTO](Protocol):
-    """Protocol for field repositories used by helper functions."""
-
-    def read_by_slug(self, event_pk: int, slug: str) -> T: ...
 
 
 def parse_personal_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
@@ -69,21 +53,6 @@ def parse_field_form_data(form: forms.Form) -> OrganizerFieldFormData:
         help_text=form.cleaned_data.get("help_text") or "",
         is_public=form.cleaned_data.get("is_public") or False,
     )
-
-
-def read_field_or_redirect[T: _FieldDTO](
-    request: PanelRequest,
-    repository: _FieldRepositoryProtocol[T],
-    event_pk: int,
-    field_slug: str,
-    error_message: str,
-) -> T:
-    try:
-        field = repository.read_by_slug(event_pk, field_slug)
-    except NotFoundError:
-        messages.error(request, error_message)
-        raise
-    return field
 
 
 def undeletable_field_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str]:

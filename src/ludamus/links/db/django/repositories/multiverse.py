@@ -9,13 +9,13 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.links.db.django.repositories.storage import save_replacing_files
-from ludamus.pacts import (
+from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
+from ludamus.pacts.legacy import (
     NotFoundError,
     SphereDTO,
     SphereRepositoryProtocol,
     SphereUpdateData,
 )
-from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,

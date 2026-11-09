@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.pacts import OrganizerFieldDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 from ludamus.pacts.submissions import (
     ProposalCategoryEditContextDTO,

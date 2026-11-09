@@ -7,14 +7,13 @@ from ludamus.mills.submissions.personal_data_fields import (
     PersonalDataFieldValueService,
     log_facilitator_deletion,
 )
-from ludamus.pacts import (
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO
+from ludamus.pacts.legacy import (
+    FacilitatorChangeLogDTO,
     FacilitatorDTO,
     NotFoundError,
-    OrganizerFieldDTO,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.fields import FieldTypeSwitchError
-from ludamus.pacts.legacy import FacilitatorChangeLogDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_ID = 10

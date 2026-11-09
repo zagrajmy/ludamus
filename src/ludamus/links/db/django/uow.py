@@ -4,8 +4,8 @@ from ludamus.links.db.django import crowd, repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.pacts import UnitOfWorkProtocol
 from ludamus.pacts.crowd import UserType
+from ludamus.pacts.legacy import UnitOfWorkProtocol
 
 
 class UnitOfWork(DjangoTransaction, UnitOfWorkProtocol):

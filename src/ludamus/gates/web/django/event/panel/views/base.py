@@ -16,7 +16,7 @@ from ludamus.pacts.multiverse import Capability
 if TYPE_CHECKING:
     from django.http import HttpResponseRedirect
 
-    from ludamus.pacts import AuthenticatedRequestContext, EventDTO
+    from ludamus.pacts.legacy import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
 
 

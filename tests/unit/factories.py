@@ -2,14 +2,14 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime
 from uuid import UUID
 
-from ludamus.pacts import (
+from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
+from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
     SessionDTO,
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
