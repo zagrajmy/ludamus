@@ -9,11 +9,11 @@ from ludamus.adapters.web.django.middlewares import (
     RedirectErrorMiddleware,
     RequestContextMiddleware,
 )
-from ludamus.inits import DependencyInjector, RepositoryInjectionMiddleware
+from ludamus.inits.legacy import DependencyInjector, RepositoryInjectionMiddleware
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
 from ludamus.links.db.django.uow import UnitOfWork
-from ludamus.pacts import RedirectError, RequestContext
+from ludamus.pacts.legacy import RedirectError, RequestContext
 
 
 @pytest.fixture(name="get_response_mock")

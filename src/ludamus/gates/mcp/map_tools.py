@@ -11,7 +11,7 @@ from ludamus.gates.mcp.inputs import EventIdInput, ImageUploadInput, NonBlankNam
 from ludamus.gates.mcp.organizer_context import require_event, token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_raster
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.maps import EventMapDTO, EventMapRecordDTO
 from ludamus.pacts.mcp import ToolScope
 

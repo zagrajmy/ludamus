@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import AgendaItem, Facilitator, Track
-from ludamus.pacts import (
+from ludamus.pacts.legacy import (
     AgendaItemData,
     AgendaItemUpdateData,
     NotFoundError,

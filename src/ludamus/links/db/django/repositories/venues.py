@@ -21,7 +21,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories import slugs
 from ludamus.links.db.django.repositories.constraints import violates_constraint
-from ludamus.pacts import (
+from ludamus.pacts.legacy import (
     NotFoundError,
     SpaceDTO,
     SpaceRepositoryProtocol,

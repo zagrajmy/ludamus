@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.legacy import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     ProposalDraft,

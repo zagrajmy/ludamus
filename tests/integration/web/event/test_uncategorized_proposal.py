@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ludamus.links.db.django.models import EventProposalSettings, Session
-from ludamus.pacts import EventDTO, EventProposalSettingsDTO, SessionStatus
+from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, SessionStatus
 from tests.integration.utils import assert_response
 
 

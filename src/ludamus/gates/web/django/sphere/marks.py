@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
-    from ludamus.pacts import FacilitatorListItemDTO
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.guild import GuildServiceProtocol
 
 

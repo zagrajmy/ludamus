@@ -18,13 +18,13 @@ from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, tok
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
 from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.legacy import (
     EventDTO,
+    NotFoundError,
     ProposalCategoryDTO,
     SessionListItemDTO,
     TimeSlotDTO,

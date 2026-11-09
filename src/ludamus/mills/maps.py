@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.maps import EventMapDTO, EventMapsServiceProtocol, MapTreeNodeDTO
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import SpaceDTO, SpaceRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.legacy import SpaceDTO, SpaceRepositoryProtocol
     from ludamus.pacts.maps import EventMapRecordDTO, EventMapRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 

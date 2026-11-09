@@ -4,12 +4,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.markdown import render_markdown
 from ludamus.gates.web.django.meta import encounter_description
 from ludamus.links.db.django.models import EncounterInvitee, EncounterRSVP
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
-from ludamus.pacts import EncounterDTO
-from ludamus.pacts.encounter import EncounterInviteeDTO, InviteeStatus
+from ludamus.mills.encounter_calendar import encounter_calendar_links
+from ludamus.pacts.encounter import EncounterDTO, EncounterInviteeDTO, InviteeStatus
 from tests.integration.conftest import (
     PNG_BYTES,
     EncounterFactory,
@@ -68,8 +68,12 @@ def _detail_context(
         "share_url": share_url,
         "user_has_rsvpd": user_has_rsvpd,
         "invitees": list(invitees),
-        "google_calendar_url": google_calendar_url(encounter_dto, share_url),
-        "outlook_calendar_url": outlook_calendar_url(encounter_dto, share_url),
+        "google_calendar_url": (
+            encounter_calendar_links(encounter_dto, share_url).google
+        ),
+        "outlook_calendar_url": (
+            encounter_calendar_links(encounter_dto, share_url).outlook
+        ),
     }
 
 

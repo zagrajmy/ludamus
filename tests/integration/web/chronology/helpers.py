@@ -30,7 +30,9 @@ from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
 from ludamus.mills.timeslots import PROGRAMME_DAYS
-from ludamus.pacts import (
+from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import EnrollmentAccessDTO
+from ludamus.pacts.legacy import (
     NO_LOCATION,
     AgendaItemDTO,
     LocationData,
@@ -38,8 +40,6 @@ from ludamus.pacts import (
     SessionParticipationStatus,
     TimeSlotDTO,
 )
-from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,

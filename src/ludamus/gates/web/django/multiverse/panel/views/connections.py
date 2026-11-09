@@ -17,7 +17,7 @@ from ludamus.gates.web.django.multiverse.access import (
 )
 from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.legacy import NotFoundError, RedirectError
 from ludamus.pacts.multiverse import (
     ConnectionInUseError,
     DuplicateConnectionDisplayNameError,

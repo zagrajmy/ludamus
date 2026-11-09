@@ -13,13 +13,9 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
-from ludamus.pacts import (
-    FieldAnswer,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-    SessionDTO,
-)
+from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.images import StoredFile
+from ludamus.pacts.legacy import SessionDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,

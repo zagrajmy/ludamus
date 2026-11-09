@@ -78,14 +78,8 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
 )
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
-from ludamus.mills.calendar import google_calendar_url
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
-from ludamus.pacts import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    EventDTO,
-    NotFoundError,
-    RedirectError,
-)
+from ludamus.pacts.calendar import google_calendar_url
 from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR, SessionCardDTO
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
@@ -94,6 +88,12 @@ from ludamus.pacts.enrollment import (
     SeatHoldRequest,
 )
 from ludamus.pacts.ids import EventId, SessionId, UserId
+from ludamus.pacts.legacy import (
+    OCCUPYING_PARTICIPATION_STATUSES,
+    EventDTO,
+    NotFoundError,
+    RedirectError,
+)
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,

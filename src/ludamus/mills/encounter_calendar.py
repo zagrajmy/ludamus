@@ -13,8 +13,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.calendar import PartStat
+from ludamus.pacts.calendar import (
+    CalendarEntry,
+    PartStat,
+    google_calendar_url,
+    ics_document,
+    outlook_calendar_url,
+)
 from ludamus.pacts.encounter import (
+    EncounterCalendarLinks,
     EncounterInvite,
     EncounterInviteReason,
     InviteeStatus,
@@ -59,6 +66,37 @@ _INVITEE_PARTSTAT = {
 
 def encounter_calendar_uid(share_code: str) -> str:
     return f"{share_code}{_UID_DOMAIN}"
+
+
+def encounter_end(encounter: EncounterDTO) -> datetime:
+    return encounter.end_time or encounter.start_time + ENCOUNTER_DEFAULT_DURATION
+
+
+def _calendar_entry(encounter: EncounterDTO, page_url: str) -> CalendarEntry:
+    return CalendarEntry(
+        uid=encounter_calendar_uid(encounter.share_code),
+        title=encounter.title,
+        start=encounter.start_time,
+        end=encounter_end(encounter),
+        url=page_url,
+        location=encounter.place or "",
+        description=encounter.description or "",
+    )
+
+
+def encounter_ics(encounter: EncounterDTO, page_url: str) -> str:
+    return ics_document(
+        _calendar_entry(encounter, page_url), stamped_at=datetime.now(tz=UTC)
+    )
+
+
+def encounter_calendar_links(
+    encounter: EncounterDTO, page_url: str
+) -> EncounterCalendarLinks:
+    entry = _calendar_entry(encounter, page_url)
+    return EncounterCalendarLinks(
+        google=google_calendar_url(entry), outlook=outlook_calendar_url(entry)
+    )
 
 
 def encounter_share_code(uid: str) -> str:
@@ -274,8 +312,7 @@ class EncounterGuests:
                     uid=encounter_calendar_uid(encounter.share_code),
                     sequence=sequence,
                     encounter=encounter,
-                    end_time=encounter.end_time
-                    or encounter.start_time + ENCOUNTER_DEFAULT_DURATION,
+                    end_time=encounter_end(encounter),
                     organizer_name=(creator.name if creator else "") or sphere.name,
                     attendee_name=guest.name,
                     attendee_email=guest.email,

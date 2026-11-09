@@ -20,11 +20,8 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import (
-    FacilitatorListItemDTO,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-)
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import (
     EventFactory,

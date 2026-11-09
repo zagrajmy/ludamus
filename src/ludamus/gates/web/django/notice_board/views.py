@@ -17,18 +17,18 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
+from ludamus.gates.web.django.markdown import render_markdown
 from ludamus.gates.web.django.meta import encounter_description
-from ludamus.mills import (
-    generate_ics_content,
-    generate_share_code,
-    google_calendar_url,
-    outlook_calendar_url,
-    render_markdown,
+from ludamus.gates.web.django.qr import qr_svg
+from ludamus.pacts.encounter import (
+    EncounterData,
+    EncounterDTO,
+    InviteeStatus,
+    InviteLimitError,
+    RSVPOutcome,
 )
-from ludamus.mills.qr import qr_svg
-from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
-from ludamus.pacts.encounter import InviteeStatus, InviteLimitError, RSVPOutcome
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
+from ludamus.pacts.legacy import NotFoundError
 
 from .forms import EncounterForm
 
@@ -128,7 +128,6 @@ class EncounterCreatePageView(_EncounterFormPageView):
             end_time=form.cleaned_data.get("end_time"),
             place=form.cleaned_data.get("place", ""),
             max_participants=form.cleaned_data.get("max_participants") or 0,
-            share_code=generate_share_code(),
             sphere_id=request.context.current_sphere_id,
             creator_id=request.context.current_user_id,
         )
@@ -295,6 +294,7 @@ class EncounterDetailPageView(_EncounterGate, View):
                 share_code=share_code,
                 sphere_id=request.context.current_sphere_id,
                 current_user_id=current_user_id,
+                page_url=share_url,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -326,10 +326,8 @@ class EncounterDetailPageView(_EncounterGate, View):
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
                 "invitees": result.invitees,
-                "google_calendar_url": google_calendar_url(result.encounter, share_url),
-                "outlook_calendar_url": outlook_calendar_url(
-                    result.encounter, share_url
-                ),
+                "google_calendar_url": result.calendar_links.google,
+                "outlook_calendar_url": result.calendar_links.outlook,
             },
         )
 
@@ -412,21 +410,20 @@ class EncounterIcsView(_EncounterGate, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
-        try:
-            encounter = self.request.services.encounters.read_by_share_code(
-                share_code=share_code, sphere_id=request.context.current_sphere_id
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-
-        url = request.build_absolute_uri(
+        page_url = request.build_absolute_uri(
             reverse(
                 "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
             )
         )
-        content = generate_ics_content(encounter, url)
+        try:
+            content = self.request.services.encounters.ics(
+                share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
+                page_url=page_url,
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+
         response = HttpResponse(content, content_type="text/calendar; charset=utf-8")
-        response["Content-Disposition"] = (
-            f'attachment; filename="{encounter.share_code}.ics"'
-        )
+        response["Content-Disposition"] = f'attachment; filename="{share_code}.ics"'
         return response
