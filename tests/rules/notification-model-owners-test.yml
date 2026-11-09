@@ -1,0 +1,24 @@
+id: notification-model-owners
+valid:
+  - "ring(recipient, Bell(kind=kind, title=title, body=body, url=url))"
+  - "class Notification(models.Model):\n    title = models.CharField()"
+  - "PromotionNotification(recipient_user_id=1, session_id=2)"
+  - "request.services.notifications.mark_read(user_id, pk)"
+  - "user.notifications.filter(read_at__isnull=True).count()"
+  - "from ludamus.links.db.django.models import NotificationSubscription"
+  - "from ludamus.pacts.enrollment import PromotionNotification as Promoted"
+invalid:
+  - "Notification(recipient=user, title=title)"
+  - "models.Notification(recipient=user, title=title)"
+  - "Notification.objects.create(recipient_id=1, title=title)"
+  - "Notification.objects.bulk_create(rows)"
+  - "Notification.objects.all().create(recipient_id=1)"
+  - "Notification.objects.filter(pk=pk).update(title=title)"
+  - "m.Notification._default_manager.create(recipient_id=1, title=title)"
+  - "from ludamus.links.db.django.models import Notification"
+  - "from ludamus.links.db.django.models import Notification as Bell"
+  - "Model = Notification"
+  - |
+    class Notifier:
+        def notify(self):
+            Notification.objects.create(recipient_id=1)

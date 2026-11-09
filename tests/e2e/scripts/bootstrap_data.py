@@ -1283,6 +1283,53 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_orphan_answers_event(sphere: Sphere, *, tester: User) -> None:
+    # A proposal holding an answer its category no longer asks for, and a
+    # second category that does ask it, so switching on the edit form turns
+    # the read-only row back into an input.
+    event = _create_event(
+        sphere,
+        name="Revised Questions Meet",
+        slug="revised-questions",
+        description="A proposal outliving the question it answered.",
+        start_offset=timedelta(days=22),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    current = ProposalCategory.objects.create(
+        event=event, name="Current Format", slug="current-format"
+    )
+    former = ProposalCategory.objects.create(
+        event=event, name="Former Format", slug="former-format"
+    )
+    field = SessionField.objects.create(
+        event=event,
+        name="Legacy",
+        question="Legacy question?",
+        slug="legacy",
+        field_type="text",
+        order=0,
+    )
+    SessionFieldRequirement.objects.create(
+        category=former, field=field, is_required=False, order=0
+    )
+    session = Session.objects.create(
+        event=event,
+        presenter=tester,
+        facilitator_name=tester.name,
+        contact_email=tester.email,
+        category=current,
+        title="Revised Proposal",
+        slug="revised-proposal",
+        description="Answered a question nobody asks any more.",
+        duration="PT1H",
+        participants_limit=4,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+    SessionFieldValue.objects.create(session=session, field=field, value="Old answer")
+
+
 # A live event whose slots are in every state a card schedule can show: one
 # over yesterday, and tomorrow a 10:00 holding a talk that takes no sign-up
 # beside a workshop whose window has not opened, then a sign-up-free 14:00.
@@ -1964,6 +2011,7 @@ def main() -> None:
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
     _create_slot_states_event(sphere)
 
