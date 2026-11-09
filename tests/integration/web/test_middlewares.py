@@ -308,13 +308,51 @@ class TestUserLanguageMiddleware:
     def test_remembers_the_language_a_user_browses_in(
         self, authenticated_client, active_user
     ):
-        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+        authenticated_client.get(self.URL, headers={"accept-language": "uk, pl;q=0.9"})
         active_user.refresh_from_db()
         assert active_user.language == "pl"
 
-        authenticated_client.get(self.URL, headers={"accept-language": "en"})
+        authenticated_client.get(self.URL, headers={"accept-language": "en-US"})
         active_user.refresh_from_db()
         assert active_user.language == "en"
+
+    @pytest.mark.parametrize(
+        "headers",
+        (
+            {},
+            {"accept-language": "uk, ru;q=0.8"},
+            {"accept-language": "uk, *, pl;q=0.1"},
+        ),
+    )
+    def test_a_browser_naming_no_supported_language_leaves_it_unrecorded(
+        self, authenticated_client, active_user, headers, settings
+    ):
+        settings.LANGUAGE_CODE = "pl"
+
+        authenticated_client.get(self.URL, headers=headers)
+
+        active_user.refresh_from_db()
+        assert not active_user.language
+
+    def test_the_language_cookie_outranks_the_header(
+        self, authenticated_client, active_user, settings
+    ):
+        authenticated_client.cookies[settings.LANGUAGE_COOKIE_NAME] = "en"
+
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+
+        active_user.refresh_from_db()
+        assert active_user.language == "en"
+
+    def test_an_unsupported_cookie_defers_to_the_header(
+        self, authenticated_client, active_user, settings
+    ):
+        authenticated_client.cookies[settings.LANGUAGE_COOKIE_NAME] = "xx"
+
+        authenticated_client.get(self.URL, headers={"accept-language": "pl"})
+
+        active_user.refresh_from_db()
+        assert active_user.language == "pl"
 
     def test_follows_the_user_back_to_a_device_seen_before(self, active_user):
         phone, laptop = Client(), Client()

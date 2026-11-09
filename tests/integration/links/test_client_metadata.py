@@ -1,4 +1,5 @@
 import socket
+from types import SimpleNamespace
 
 import pytest
 from urllib3.exceptions import NewConnectionError
@@ -76,7 +77,8 @@ class TestHttpClientMetadataFetcher:
         server.serve(PATH, body=b" " * 3000)
         ticks = iter([0.0, 1.0, 99.0, 99.0, 99.0])
         monkeypatch.setattr(
-            "ludamus.links.client_metadata.time.monotonic", lambda: next(ticks)
+            "ludamus.links.client_metadata.time",
+            SimpleNamespace(monotonic=lambda: next(ticks)),
         )
 
         assert _rejection() == ClientRejection.UNREACHABLE

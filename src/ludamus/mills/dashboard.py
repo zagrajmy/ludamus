@@ -119,7 +119,6 @@ class SphereSubscriptionService(SphereSubscriptionServiceProtocol):
                         SphereEventPublishedNotification(
                             subscription_id=recipient.subscription_id,
                             recipient_user_id=recipient.user_id,
-                            recipient_email=recipient.email,
                             event_name=announcement.event_name,
                             event_slug=announcement.event_slug,
                             sphere_name=announcement.sphere_name,
