@@ -3,8 +3,8 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.links.db.django.models import EventBan, ParleyReport, Session, Sphere, User
-from ludamus.pacts import SessionParticipationStatus, SessionStatus
 from ludamus.pacts.crowd import UserType
+from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
     ParleyReportData,

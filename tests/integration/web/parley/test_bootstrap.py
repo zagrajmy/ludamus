@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
-from ludamus.pacts import SessionParticipationStatus, SessionStatus
+from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,
