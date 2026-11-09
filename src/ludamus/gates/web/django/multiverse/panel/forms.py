@@ -62,9 +62,10 @@ class SphereSettingsForm(forms.Form):
     )
     parley_enabled = forms.BooleanField(
         required=False,
-        label=_("Enable Parley conversations"),
+        label=_("Enable chat"),
         help_text=_(
-            "Show the sphere room and eligible program-item rooms to active users."
+            "Signed-in people can talk in a room for the whole sphere and in the "
+            "rooms of the programme points they take part in."
         ),
     )
     event_cover_buttons_at_bottom = forms.BooleanField(

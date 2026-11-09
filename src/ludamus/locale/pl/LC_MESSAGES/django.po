@@ -3901,13 +3901,16 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
-msgid "Enable Parley conversations"
-msgstr "Włącz rozmowy Parley"
+msgid "Enable chat"
+msgstr "Włącz czat"
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
-msgid "Show the sphere room and eligible program-item rooms to active users."
+msgid ""
+"Signed-in people can talk in a room for the whole sphere and in the rooms of "
+"the programme points they take part in."
 msgstr ""
-"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
+"Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
+"programu, w których biorą udział."
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Place event cover buttons at the bottom right"
@@ -4102,20 +4105,20 @@ msgstr[2] "%(count)s nieprzeczytanych rozmów"
 msgstr[3] "%(count)s nieprzeczytanej rozmowy"
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Parley"
-msgstr "Parley"
+msgid "Chat"
+msgstr "Czat"
 
 #: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
-msgid "Close Parley"
-msgstr "Zamknij Parley"
+msgid "Close chat"
+msgstr "Zamknij czat"
 
 #: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Gathering conversations…"
 msgstr "Zbieramy rozmowy…"
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Parley lost the thread. Reconnecting…"
-msgstr "Parley zgubiło wątek. Łączymy ponownie…"
+msgid "Connection lost. Reconnecting…"
+msgstr "Utracono połączenie. Łączymy ponownie…"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Quiet in here. Say hello before someone starts a rules debate."
@@ -4190,8 +4193,8 @@ msgid "Write a message…"
 msgstr "Napisz wiadomość…"
 
 #: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
-msgid "Could not connect to Parley."
-msgstr "Nie udało się połączyć z Parley."
+msgid "Could not connect to the chat."
+msgstr "Nie udało się połączyć z czatem."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Messages can be up to 1,000 characters."
@@ -4202,8 +4205,8 @@ msgid "This conversation is archived."
 msgstr "Ta rozmowa została zarchiwizowana."
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Your Parley access expired. Reopen Parley to continue."
-msgstr "Twój dostęp do Parley wygasł. Otwórz Parley ponownie, aby kontynuować."
+msgid "Your chat session expired. Reopen the chat to continue."
+msgstr "Sesja czatu wygasła. Otwórz czat ponownie, aby kontynuować."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "You do not have permission to do that."
@@ -5752,8 +5755,8 @@ msgid "Brand"
 msgstr "Marka"
 
 #: src/ludamus/templates/base.html
-msgid "Open Parley"
-msgstr "Otwórz Parley"
+msgid "Open chat"
+msgstr "Otwórz czat"
 
 #: src/ludamus/templates/board/_back_link.html
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
@@ -13771,18 +13774,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
-#~ msgid "Displayed on the first page of the proposal form."
-#~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
-
-#~ msgid "This parley has ended, but you can still read what was said."
-#~ msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
-
-#~ msgid "people around"
-#~ msgstr "osób tutaj"
-
-#~ msgid "online"
-#~ msgstr "online"
-
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
 #~ "companion to sign you up for sessions."
@@ -14139,9 +14130,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "See open Encounters at zagrajmy.net/encounters"
 #~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
 
-#~ msgid "Enabled pages"
-#~ msgstr "Włączone strony"
-
 #~ msgid "At least one page must stay enabled."
 #~ msgstr "Przynajmniej jedna strona musi pozostać włączona."
 
@@ -14384,22 +14372,12 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
-#~ msgid "Session list"
-#~ msgstr "Lista punktów programu"
-
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
-
-#~ msgid "Player"
-#~ msgid_plural "Players"
-#~ msgstr[0] "Gracz"
-#~ msgstr[1] "Graczy"
-#~ msgstr[2] "Graczy"
-#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -15142,11 +15120,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ msgid "This event is not in this sphere."
 #~ msgstr "To wydarzenie nie należy do tej sfery."
 
-#~ msgid "Public tracks are shown to proposers in the submission wizard."
-#~ msgstr ""
-#~ "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
-#~ "propozycji."
-
 #, python-format
 #~ msgid ""
 #~ "The token expires after %(token_max_age_days)s days and works only while "
@@ -15166,15 +15139,6 @@ msgstr "Wybierz e-mail, żeby go przeczytać."
 #~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
 #~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
 #~ "%(token_max_age_days)s dni."
-
-#~ msgid ""
-#~ "Tracks let you group proposals by thematic area. Public tracks are shown "
-#~ "to proposers in the submission wizard; private tracks are for internal "
-#~ "categorization only."
-#~ msgstr ""
-#~ "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne "
-#~ "bloki są widoczne dla zgłaszających w kreatorze propozycji; prywatne "
-#~ "służą wyłącznie do wewnętrznej kategoryzacji."
 
 #~ msgid "Different address? Save your profile first."
 #~ msgstr "Inny adres? Najpierw zapisz profil."

@@ -65,6 +65,12 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
+def parley(_request: HttpRequest) -> dict[str, bool]:
+    # A deployment without the Worker would show a chat button that cannot
+    # connect, so the sphere toggle only counts where a Worker is configured.
+    return {"PARLEY_AVAILABLE": bool(settings.PARLEY_AGENT_HOST)}
+
+
 class PosthogConfig(TypedDict):
     api_key: str
     environment: str

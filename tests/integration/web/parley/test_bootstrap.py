@@ -52,7 +52,10 @@ def test_anonymous_bootstrap_is_unauthorized(client):
 
 
 @pytest.mark.usefixtures("parley_settings")
-def test_disabled_sphere_is_not_found(authenticated_client):
+def test_disabled_sphere_is_not_found(authenticated_client, sphere):
+    sphere.parley_enabled = False
+    sphere.save()
+
     response = authenticated_client.get(reverse("parley_bootstrap"))
 
     assert_response(

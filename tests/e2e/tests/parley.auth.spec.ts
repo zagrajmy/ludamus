@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import path from "node:path";
 
 import { analyzePageAccessibility } from "./helpers/a11y";
@@ -15,8 +17,8 @@ const bootstrap = {
   capabilityToken: "mock-token",
   copy: {
     backLabel: "Back to conversations",
-    closeLabel: "Close Parley",
-    connectionError: "Could not connect to Parley.",
+    closeLabel: "Close chat",
+    connectionError: "Could not connect to the chat.",
     copyLink: "Copy message link",
     deletedMessage: "Message deleted",
     deleteConfirm: "Delete this message for everyone?",
@@ -27,7 +29,7 @@ const bootstrap = {
     emptySession: "You found the table first. Leave a note for the others.",
     emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
     errorArchived: "This conversation is archived.",
-    errorExpired: "Your Parley access expired. Reopen Parley to continue.",
+    errorExpired: "Your chat session expired. Reopen the chat to continue.",
     errorForbidden: "You do not have permission to do that.",
     errorInvalid: "That message could not be sent.",
     errorMuted: "Your writing access is currently muted.",
@@ -46,7 +48,7 @@ const bootstrap = {
     muteOneDay: "Mute for 24 hours",
     muteOneHour: "Mute for 1 hour",
     muteSevenDays: "Mute for 7 days",
-    offline: "Parley lost the thread. Reconnecting…",
+    offline: "Connection lost. Reconnecting…",
     presenceFew: "%(count)s people here",
     presenceMany: "%(count)s people here",
     presenceOne: "%(count)s person here",
@@ -61,7 +63,7 @@ const bootstrap = {
     sendLabel: "Send message",
     sessionRoom: "Programme point",
     sphereRoom: "Common room",
-    title: "Parley",
+    title: "Chat",
     unread: "Unread",
     unreadCountFew: "%(count)s unread conversations",
     unreadCountMany: "%(count)s unread conversations",
@@ -86,7 +88,15 @@ const bootstrap = {
 
 test.describe.configure({ mode: "serial" });
 
-test("Parley launcher opens an accessible chat window from its room list", async ({ page }) => {
+// The chat is on by default; an organizer turns it off in sphere settings.
+async function setChat(page: Page, enabled: boolean): Promise<void> {
+  await page.goto("/multiverse/panel/");
+  await page.getByLabel("Enable chat").setChecked(enabled);
+  await page.getByRole("button", { name: "Save Settings" }).click();
+  await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+}
+
+test("The chat launcher opens an accessible chat window from its room list", async ({ page }) => {
   await page.route("**/parley/bootstrap/", (route) =>
     route.fulfill({ contentType: "application/json", json: bootstrap }),
   );
@@ -101,17 +111,12 @@ test("Parley launcher opens an accessible chat window from its room list", async
   );
 
   try {
-    await page.goto("/multiverse/panel/");
-    await page.getByLabel("Enable Parley conversations").check();
-    await page.getByRole("button", { name: "Save Settings" }).click();
-    await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
-
     await page.goto("/");
-    const launcher = page.getByRole("button", { name: "Open Parley" });
+    const launcher = page.getByRole("button", { name: "Open chat" });
     await expect(launcher).toHaveAttribute("aria-expanded", "false");
     await launcher.click();
 
-    const panel = page.getByRole("dialog", { name: "Parley" });
+    const panel = page.getByRole("dialog", { name: "Chat" });
     const rooms = panel.getByRole("navigation", { name: "Conversations" });
     await expect(rooms).toBeVisible();
     await expect(launcher).toHaveAttribute("aria-expanded", "true");
@@ -139,10 +144,11 @@ test("Parley launcher opens an accessible chat window from its room list", async
       .click();
     await expect(page.getByPlaceholder("Write a message…")).toBeVisible();
     await page.screenshot({ path: "screenshots/parley-mobile.png" });
+
+    await setChat(page, false);
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Open chat" })).toHaveCount(0);
   } finally {
-    await page.goto("/multiverse/panel/");
-    await page.getByLabel("Enable Parley conversations").uncheck();
-    await page.getByRole("button", { name: "Save Settings" }).click();
-    await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
+    await setChat(page, true);
   }
 });

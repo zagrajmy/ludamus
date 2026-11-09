@@ -385,7 +385,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
       bootstrapUrl={element.dataset.bootstrapUrl ?? "/parley/bootstrap/"}
       initialOpen={initialOpen}
       launcherLabel={
-        element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Parley"
+        element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
       }
       shell={{ closeLabel, connectionError, loading, retry }}
     />,

@@ -50,10 +50,10 @@ def _copy() -> dict[str, str]:
                 "%(count)s unread conversation", "%(count)s unread conversations", count
             ),
         ),
-        "title": _("Parley"),
-        "closeLabel": _("Close Parley"),
+        "title": _("Chat"),
+        "closeLabel": _("Close chat"),
         "loading": _("Gathering conversations…"),
-        "offline": _("Parley lost the thread. Reconnecting…"),
+        "offline": _("Connection lost. Reconnecting…"),
         "emptySphere": _(
             "Quiet in here. Say hello before someone starts a rules debate."
         ),
@@ -75,10 +75,10 @@ def _copy() -> dict[str, str]:
         "retry": _("Try again"),
         "sending": _("Sending…"),
         "writePlaceholder": _("Write a message…"),
-        "connectionError": _("Could not connect to Parley."),
+        "connectionError": _("Could not connect to the chat."),
         "messageTooLong": _("Messages can be up to 1,000 characters."),
         "errorArchived": _("This conversation is archived."),
-        "errorExpired": _("Your Parley access expired. Reopen Parley to continue."),
+        "errorExpired": _("Your chat session expired. Reopen the chat to continue."),
         "errorForbidden": _("You do not have permission to do that."),
         "errorInvalid": _("That message could not be sent."),
         "errorMuted": _("Your writing access is currently muted."),

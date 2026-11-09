@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="sphere",
             name="parley_enabled",
-            field=models.BooleanField(default=False),
+            field=models.BooleanField(default=True),
         ),
         migrations.CreateModel(
             name="ParleyReport",

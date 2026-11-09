@@ -437,7 +437,7 @@ class SphereDTO(BaseModel):
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
     name: str
-    parley_enabled: bool = False
+    parley_enabled: bool = True
     pk: SphereId
     site: SiteDTO
     logo_url: str = ""

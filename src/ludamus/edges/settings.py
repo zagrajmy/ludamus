@@ -232,6 +232,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
+                "ludamus.gates.web.django.context_processors.parley",
                 "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",

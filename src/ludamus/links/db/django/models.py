@@ -530,7 +530,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
-    parley_enabled = models.BooleanField(default=False)
+    parley_enabled = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
