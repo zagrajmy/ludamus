@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
@@ -1224,6 +1225,46 @@ class TestProposalsPageView:
                 "filter_track_pk": track.pk,
                 "filter_track_multi": False,
                 "filter_track_value": str(track.pk),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+                "categories": [],
+                "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
+                "filter_sort": "",
+                "statuses": _STATUSES,
+            },
+        )
+
+    @pytest.mark.parametrize("raw", ("²", "\u0661", "+1", "9" * 4301))
+    def test_a_track_param_that_is_not_an_id_filters_nothing(
+        self, authenticated_client, active_user, sphere, event, raw
+    ):
+        # `"²".isdigit()` is true and `int("²")` raises: an id is ASCII digits.
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="Alpha Track", slug="alpha-track", is_public=True
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"track": raw})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                **_list_chrome(event),
+                "deleted_proposals": [],
+                "proposals": [],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "managed_track_pks": set(),
+                "filter_track_pk": None,
+                "filter_track_multi": False,
+                "filter_track_value": "",
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
                 "categories": [],

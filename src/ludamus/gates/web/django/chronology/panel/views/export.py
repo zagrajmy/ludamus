@@ -12,20 +12,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
 from django.http import HttpResponse
-from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    format_field_value,
-    track_filter_context,
-)
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMN_SET,
     FACILITATOR_COLUMNS,
@@ -47,6 +39,11 @@ from ludamus.gates.web.django.chronology.panel.views.proposals import (
     PROPOSAL_STATUS_LABELS,
     read_proposal_query,
 )
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    format_field_value,
+    read_track_filter,
+)
 from ludamus.gates.web.django.forms import DISCOUNT_KIND_LABELS
 from ludamus.gates.web.django.ods import spreadsheet_bytes
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
@@ -63,6 +60,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from django.utils.functional import _StrPromise
+
+    from ludamus.gates.web.django.panel import PanelRequest
 
 
 ODS_CONTENT_TYPE = "application/vnd.oasis.opendocument.spreadsheet"
@@ -147,18 +146,14 @@ def export_columns[RowT: PanelRowProtocol](
     return [by_key[key] for key in dict.fromkeys(keys) if key in by_key]
 
 
-class PanelExportPageView[RowT: PanelRowProtocol](
-    PanelAccessMixin, EventContextMixin, View
-):
+class PanelExportPageView[RowT: PanelRowProtocol](EventPanelMixin, View):
     """Choose columns and download a panel list as a spreadsheet, for any list."""
 
     request: PanelRequest
     export_set: PanelExportSet[RowT]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         # A `columns` param, even an empty one, is the chooser's submit.
         submitted = "columns" in self.request.GET
@@ -168,12 +163,12 @@ class PanelExportPageView[RowT: PanelRowProtocol](
                 chooser=chooser,
                 context=context,
                 slug=slug,
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 error=None,
             )
         columns = export_columns(
             request=self.request,
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             export_set=self.export_set,
             keys=(
                 self.request.GET.getlist("columns")
@@ -187,7 +182,7 @@ class PanelExportPageView[RowT: PanelRowProtocol](
                     chooser=chooser,
                     context=context,
                     slug=slug,
-                    event_pk=current_event.pk,
+                    event_pk=self.current_event.pk,
                     error=_("Pick at least one column to export."),
                 )
             # No chooser, so nowhere to show the error: a `columns` param that
@@ -195,11 +190,13 @@ class PanelExportPageView[RowT: PanelRowProtocol](
             # writing a file of empty rows.
             columns = export_columns(
                 request=self.request,
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 export_set=self.export_set,
                 keys=self.export_set.default_keys,
             )
-        return self._download(slug=slug, event_pk=current_event.pk, columns=columns)
+        return self._download(
+            slug=slug, event_pk=self.current_event.pk, columns=columns
+        )
 
     def _render(
         self,
@@ -270,7 +267,7 @@ class PanelExportPageView[RowT: PanelRowProtocol](
 def _proposal_rows(
     *, request: PanelRequest, event_pk: int, columns: Sequence[PanelColumnDTO]
 ) -> ExportRows[SessionListItemDTO]:
-    _tracks, _managed, track_pk = track_filter_context(request, event_pk)
+    track_pk = read_track_filter(request, event_pk).selected_pk
     query = read_proposal_query(request, track_pk=track_pk)
     panel = request.services.proposal_panel
     proposals = panel.list_context(event_id=event_pk, query=query).proposals

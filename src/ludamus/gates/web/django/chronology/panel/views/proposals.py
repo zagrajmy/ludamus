@@ -1,5 +1,3 @@
-# pylint: disable=duplicate-code
-# TODO(fancysnake): Extract common view boilerplate
 """Proposal/session list, detail, history, columns, and action views."""
 
 from __future__ import annotations
@@ -14,22 +12,25 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    back_to_proposals,
-    proposal_detail_tab_urls,
-    proposal_detail_url,
-    proposal_tab_urls,
-    read_field_filters,
-)
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     PROPOSAL_COLUMNS,
     column_values,
     column_views,
 )
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    back_to_proposals,
+    proposal_detail_url,
+    read_field_filters,
+    read_track_filter,
+)
 from ludamus.gates.web.django.pagination import pagination_context
+from ludamus.gates.web.django.panel import (
+    PanelRequest,
+    proposal_detail_tab_urls,
+    proposal_tab_urls,
+)
+from ludamus.gates.web.django.request_ids import parse_id, parse_ids
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
@@ -85,7 +86,7 @@ def read_proposal_query(
     # through here, so a filter cannot apply to one and not the other.
     return ProposalListQuery(
         search=request.GET.get("search", "").strip(),
-        category=request.GET.get("category", "").strip(),
+        category_pk=parse_id(request.GET.get("category")),
         # Default (no status param) is the pending backlog — the queue an
         # organizer opens this page to work through. STATUS_ALL (or any
         # other unknown value) still shows everything.
@@ -97,23 +98,20 @@ def read_proposal_query(
     )
 
 
-class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
+class ProposalsPageView(EventPanelMixin, View):
     """List submitted proposals for an event."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
-        sorted_tracks, managed_pks, filter_track_pk = self.get_track_filter_context(
-            current_event.pk
-        )
+        tracks = read_track_filter(self.request, self.current_event.pk)
+        filter_track_pk = tracks.selected_pk
         query = read_proposal_query(self.request, track_pk=filter_track_pk)
         filter_track_multi = query.multi_tracks
         list_context = self.request.services.proposal_panel.list_context(
-            event_id=current_event.pk, query=query
+            event_id=self.current_event.pk, query=query
         )
         pagination = pagination_context(self.request, list_context.proposals)
         page_obj = pagination["page_obj"]
@@ -131,7 +129,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["proposals"] = list(page_obj.object_list)
         context.update(pagination)
         context["deleted_proposals"] = (
-            self.request.services.proposal_panel.list_deleted(current_event.pk)
+            self.request.services.proposal_panel.list_deleted(self.current_event.pk)
         )
         context["session_fields"] = list_context.filterable_fields
         context["filter_search"] = query.search
@@ -139,8 +137,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             field.pk: query.raw_field_filters.get(field.pk, "")
             for field in list_context.filterable_fields
         }
-        context["all_tracks"] = sorted_tracks
-        context["managed_track_pks"] = managed_pks
+        context["all_tracks"] = tracks.tracks
+        context["managed_track_pks"] = tracks.managed_pks
         context["filter_track_pk"] = filter_track_pk
         context["filter_track_multi"] = filter_track_multi
         # Value the other filter form echoes back so the track selection
@@ -166,36 +164,22 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 
-class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
+class ProposalDetailPageView(EventPanelMixin, View):
     """View proposal details."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
-            session = self.request.services.proposal_panel.read_proposal(
-                event_id=current_event.pk, proposal_id=proposal_id
+            detail = self.request.services.proposal_page.detail(
+                event_id=self.current_event.pk, proposal_id=proposal_id
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        field_values = self.request.di.uow.sessions.read_field_values(proposal_id)
-        assigned_facilitators = self.request.di.uow.sessions.read_facilitators(
-            proposal_id
-        )
-        preferred_time_slots = self.request.di.uow.sessions.read_preferred_time_slots(
-            proposal_id
-        )
-        presenter = None
-        if session.presenter_id is not None:
-            presenter = self.request.di.uow.active_users.read_by_id(
-                session.presenter_id
-            )
         import_log_entry = self.request.services.import_log.log_entry_for_session(
             proposal_id
         )
@@ -203,46 +187,25 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         if import_log_entry is not None:
             try:
                 import_log_integration = self.request.services.event_integrations.get(
-                    current_event.pk, import_log_entry.integration_id
+                    self.current_event.pk, import_log_entry.integration_id
                 )
             except NotFoundError:
                 # Defensive: the linked integration doesn't belong to this
                 # event (deleted, or stale link). Hide the back-link cleanly.
                 import_log_entry = None
 
-        category_name = None
-        if session.category_id is not None:
-            categories = self.request.di.uow.proposal_categories.list_by_event(
-                current_event.pk
-            )
-            category_name = next(
-                (c.name for c in categories if c.pk == session.category_id), None
-            )
-
-        track_ids = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
-        proposal_tracks = [
-            t
-            for t in self.request.di.uow.tracks.list_by_event(current_event.pk)
-            if t.pk in track_ids
-        ]
-
-        agenda_item = self.request.di.uow.agenda_items.read_by_session(proposal_id)
-        schedule_logs = self.request.di.uow.schedule_change_logs.list_by_session(
-            proposal_id
-        )
-
         context["active_nav"] = "proposals"
         context["active_tab"] = "details"
         context["tab_urls"] = proposal_detail_tab_urls(slug, proposal_id)
-        context["proposal"] = session
-        context["category_name"] = category_name
-        context["proposal_tracks"] = proposal_tracks
-        context["agenda_item"] = agenda_item
-        context["schedule_logs"] = schedule_logs
-        context["field_values"] = field_values
-        context["facilitators"] = assigned_facilitators
-        context["presenter"] = presenter
-        context["preferred_time_slots"] = preferred_time_slots
+        context["proposal"] = detail.proposal
+        context["category_name"] = detail.category_name
+        context["proposal_tracks"] = detail.tracks
+        context["agenda_item"] = detail.schedule.agenda_item
+        context["schedule_logs"] = detail.schedule.logs
+        context["field_values"] = detail.field_values
+        context["facilitators"] = detail.facilitators
+        context["presenter"] = detail.presenter
+        context["preferred_time_slots"] = detail.schedule.preferred_time_slots
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
         # Carries the list's filters back: the breadcrumb and the action forms
@@ -251,20 +214,18 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 
-class ProposalHistoryPageView(PanelAccessMixin, EventContextMixin, View):
+class ProposalHistoryPageView(EventPanelMixin, View):
     """Per-proposal change history tab."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         service = self.request.services.session_content_edit
         try:
             title, logs = service.session_history(
-                event_id=current_event.pk, session_id=proposal_id
+                event_id=self.current_event.pk, session_id=proposal_id
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
@@ -277,7 +238,7 @@ class ProposalHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         context["back_url"] = reverse("panel:proposals", kwargs={"slug": slug})
         context["back_label"] = _("Proposals")
         context["logs"] = logs
-        context["field_names"] = service.list_field_names(current_event.pk)
+        context["field_names"] = service.list_field_names(self.current_event.pk)
         return TemplateResponse(self.request, "panel/item-history.html", context)
 
 
@@ -309,7 +270,7 @@ _STATUS_MESSAGES: dict[str, _StrPromise] = {
 }
 
 
-class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalStatusActionView(EventPanelMixin, View):
     """Shared POST handler for proposal status transitions."""
 
     request: PanelRequest
@@ -317,10 +278,6 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
     action = ""
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         apply_status = _status_transitions(self.request.services.proposal_status)[
             self.action
         ]
@@ -328,7 +285,7 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
             request=self.request, slug=slug, proposal_id=proposal_id
         )
         try:
-            apply_status(event_pk=current_event.pk, session_pk=proposal_id)
+            apply_status(event_pk=self.current_event.pk, session_pk=proposal_id)
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect(back_to_proposals(self.request, slug))
@@ -370,17 +327,13 @@ class ProposalRejectActionView(ProposalStatusActionView):
     action = "reject"
 
 
-class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalBulkStatusActionView(EventPanelMixin, View):
     """Apply one status transition to several proposals at once (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         back = back_to_proposals(self.request, slug)
         transitions = _status_transitions(self.request.services.proposal_status)
         apply_status = transitions.get(self.request.POST.get("action", ""))
@@ -395,7 +348,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         applied = scheduled = missing = 0
         for session_pk in session_pks:
             try:
-                apply_status(event_pk=current_event.pk, session_pk=session_pk)
+                apply_status(event_pk=self.current_event.pk, session_pk=session_pk)
             except ProposalScheduledError:
                 scheduled += 1
             except NotFoundError:
@@ -407,13 +360,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect(back)
 
     def _selected_pks(self) -> list[int]:
-        pks = []
-        for raw in self.request.POST.getlist("proposal_ids"):
-            try:
-                pks.append(int(raw))
-            except ValueError:
-                continue
-        return pks
+        return parse_ids(self.request.POST.getlist("proposal_ids"))
 
     def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
         if applied:
@@ -450,19 +397,15 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             )
 
 
-class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalDeleteActionView(EventPanelMixin, View):
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         back = back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.soft_delete(
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 session_pk=proposal_id,
                 user_pk=self.request.user.pk,
             )
@@ -474,19 +417,15 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect(back)
 
 
-class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalRestoreActionView(EventPanelMixin, View):
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         back = back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.restore(
-                event_pk=current_event.pk, session_pk=proposal_id
+                event_pk=self.current_event.pk, session_pk=proposal_id
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
@@ -496,77 +435,65 @@ class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect(back)
 
 
-class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, View):
+class ProposalSetFacilitatorsActionView(EventPanelMixin, View):
     """Set facilitators on a session (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         try:
-            session = self.request.services.proposal_panel.read_proposal(
-                event_id=current_event.pk, proposal_id=proposal_id
+            self.request.services.proposal_page.set_facilitators(
+                event_id=self.current_event.pk,
+                proposal_id=proposal_id,
+                facilitator_ids=parse_ids(self.request.POST.getlist("facilitator_ids")),
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        raw_ids = self.request.POST.getlist("facilitator_ids")
-        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
-        )
-        valid_pks = {f.pk for f in all_facilitators}
-        facilitator_ids = list(submitted_ids & valid_pks)
-        self.request.di.uow.sessions.set_facilitators(session.pk, facilitator_ids)
         messages.success(self.request, _("Facilitators updated."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
-class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
+class ContentLogPageView(EventPanelMixin, View):
     """Read-only activity log of session content edits for an event."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         context["active_nav"] = "proposals"
         context["slug"] = slug
         service = self.request.services.session_content_edit
-        logs = service.list_log(current_event.pk)
+        logs = service.list_log(self.current_event.pk)
         context["logs"] = logs
-        context["field_names"] = service.list_field_names(current_event.pk)
-        context["revertible_pks"] = service.revertible_log_pks(current_event.pk, logs)
+        context["field_names"] = service.list_field_names(self.current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(
+            self.current_event.pk, logs
+        )
         facilitator_service = self.request.services.personal_data_field_values
-        context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
+        context["facilitator_logs"] = facilitator_service.list_log(
+            self.current_event.pk
+        )
         context["facilitator_field_names"] = facilitator_service.list_field_names(
-            current_event.pk
+            self.current_event.pk
         )
         return TemplateResponse(self.request, "panel/content-log.html", context)
 
 
-class ContentLogRevertActionView(PanelAccessMixin, EventContextMixin, View):
+class ContentLogRevertActionView(EventPanelMixin, View):
     """Revert a logged session content change (POST only)."""
 
     request: PanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         service = self.request.services.session_content_edit
         try:
             service.revert(
-                event_pk=current_event.pk, log_pk=pk, user_pk=self.request.user.pk
+                event_pk=self.current_event.pk, log_pk=pk, user_pk=self.request.user.pk
             )
         except NotFoundError:
             messages.error(self.request, _("Change not found."))

@@ -43,6 +43,7 @@ from ludamus.pacts.legacy import (
     TrackDTO,
     TrackRepositoryProtocol,
     TrackSessionCountsDTO,
+    UnscheduledSessionFilter,
 )
 from ludamus.pacts.timetable import (
     PlacementRejectedError,
@@ -66,10 +67,12 @@ def _timetable_repos(uow) -> TimetableRepos:
     )
 
 
-def _timetable_service(uow) -> TimetableService:
+def _timetable_service(uow, *, categories=None) -> TimetableService:
     transaction = MagicMock()
     transaction.atomic = uow.atomic
-    return TimetableService(transaction, _timetable_repos(uow))
+    return TimetableService(
+        transaction, _timetable_repos(uow), categories=categories or MagicMock()
+    )
 
 
 def _conflict_service(uow) -> ConflictDetectionService:
@@ -2314,3 +2317,54 @@ class TestTrackProgress:
                 progress_pct=33,
             )
         ]
+
+
+class TestTimetablePanelReads:
+    def test_categories_come_from_the_event(self):
+        categories = MagicMock()
+
+        result = _timetable_service(_spec_uow(), categories=categories).list_categories(
+            1
+        )
+
+        assert result is categories.list_by_event.return_value
+        categories.list_by_event.assert_called_once_with(1)
+
+    def test_unscheduled_sessions_report_whether_more_wait(self):
+        uow = _spec_uow()
+        uow.sessions.list_unscheduled_by_event.return_value = (["session"], True)
+        filters = UnscheduledSessionFilter(search="dragons")
+
+        result = _timetable_service(uow).list_unscheduled(event_pk=1, filters=filters)
+
+        assert (result.sessions, result.has_more) == (["session"], True)
+        uow.sessions.list_unscheduled_by_event.assert_called_once_with(1, filters)
+
+    def test_a_session_of_another_event_has_no_detail(self):
+        uow = _spec_uow()
+        uow.sessions.read_event.return_value = event_dto(pk=2)
+
+        with pytest.raises(NotFoundError):
+            _timetable_service(uow).session_detail(event_pk=1, session_pk=5)
+
+        uow.sessions.read.assert_not_called()
+
+    def test_a_session_detail_carries_its_placement_and_people(self):
+        uow = _spec_uow()
+        uow.sessions.read_event.return_value = event_dto(pk=1)
+
+        detail = _timetable_service(uow).session_detail(event_pk=1, session_pk=5)
+
+        assert detail.session is uow.sessions.read.return_value
+        assert detail.agenda_item is uow.agenda_items.read_by_session.return_value
+        assert detail.facilitators is uow.sessions.read_facilitators.return_value
+        assert detail.time_slots is uow.sessions.read_preferred_time_slots.return_value
+
+    def test_only_each_sessions_newest_change_is_revertible(self):
+        uow = _spec_uow()
+        uow.schedule_change_logs.latest_pks_by_session.return_value = {5: 30, 6: 31}
+
+        log = _timetable_service(uow).change_log(event_pk=1, space_pk=4)
+
+        assert log.revertible_pks == {30, 31}
+        uow.schedule_change_logs.list_by_event.assert_called_once_with(1, space_pk=4)

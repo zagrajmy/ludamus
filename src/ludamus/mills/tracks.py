@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
+from ludamus.pacts.legacy import NotFoundError, TrackCreateData, TrackUpdateData
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
     TrackEditContextDTO,
     TrackEditFormContextDTO,
+    TrackFilterDTO,
     TrackFormContextDTO,
     TrackFormData,
     TrackSelectionInvalidError,
@@ -155,3 +156,34 @@ class TracksPanelService(TracksPanelServiceProtocol):
         with self._transaction.atomic():
             track = self._tracks.read_by_slug(event_pk, track_slug)
             self._tracks.delete(track.pk)
+
+    def track_filter(
+        self,
+        *,
+        event_pk: int,
+        manager_id: int,
+        requested_pk: int | None,
+        auto_select: bool,
+    ) -> TrackFilterDTO:
+        # An organizer who manages exactly one track lands on it unless the
+        # page asked for something else. A requested track of another event is
+        # refused, not ignored, so a stale link never renders the unfiltered
+        # page as if its filter had applied.
+        tracks = self._tracks.list_by_event(event_pk)
+        managed = self._tracks.list_by_manager(manager_id, event_pk=event_pk)
+        managed_pks = {track.pk for track in managed}
+        if auto_select and len(managed) == 1:
+            selected_pk: int | None = managed[0].pk
+        elif requested_pk is None or requested_pk in {track.pk for track in tracks}:
+            selected_pk = requested_pk
+        else:
+            raise NotFoundError
+
+        def managed_first(track: TrackDTO) -> tuple[bool, str]:
+            return track.pk not in managed_pks, track.name
+
+        return TrackFilterDTO(
+            tracks=sorted(tracks, key=managed_first),
+            managed_pks=managed_pks,
+            selected_pk=selected_pk,
+        )

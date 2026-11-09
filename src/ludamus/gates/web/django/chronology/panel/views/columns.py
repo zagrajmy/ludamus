@@ -18,15 +18,17 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
-    EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
-    facilitator_tab_urls,
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
     format_field_value,
-    proposal_tab_urls,
 )
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
+from ludamus.gates.web.django.panel import (
+    PanelNav,
+    PanelRequest,
+    facilitator_tab_urls,
+    proposal_tab_urls,
+)
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import SessionListItemDTO
 from ludamus.pacts.panel import (
@@ -42,7 +44,6 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.gates.web.django.panel import PanelNav
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         PanelColumnDTO,
@@ -215,9 +216,7 @@ class PanelColumnSet[RowT: PanelRowProtocol]:
     service: Callable[[PanelRequest], PanelColumnServiceProtocol]
 
 
-class PanelColumnsPageView[RowT: PanelRowProtocol](
-    PanelAccessMixin, EventContextMixin, View
-):
+class PanelColumnsPageView[RowT: PanelRowProtocol](EventPanelMixin, View):
     """Choose which columns a panel list shows, for either list."""
 
     request: PanelRequest
@@ -240,30 +239,27 @@ class PanelColumnsPageView[RowT: PanelRowProtocol](
         return TemplateResponse(self.request, self.column_set.template, context)
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         return self._render(
-            context=context, slug=slug, event_pk=current_event.pk, error=None
+            context=context, slug=slug, event_pk=self.current_event.pk, error=None
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         # The chosen keys arrive in display order; the service drops anything
         # that isn't this event's own column.
         try:
             self.column_set.service(self.request).set_columns(
-                event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+                event_id=self.current_event.pk,
+                columns=self.request.POST.getlist("columns"),
             )
         except EmptyColumnSelectionError:
             return self._render(
                 context=context,
                 slug=slug,
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 error=_("Pick at least one column to show."),
             )
 

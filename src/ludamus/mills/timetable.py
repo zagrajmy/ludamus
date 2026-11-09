@@ -51,8 +51,11 @@ from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
     PlacementRejection,
+    TimetableChangeLogDTO,
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
+    TimetableSessionDetailDTO,
+    UnscheduledSessionsDTO,
 )
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
@@ -63,7 +66,15 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.legacy import EventDTO, FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts.legacy import (
+        EventDTO,
+        FacilitatorDTO,
+        ProposalCategoryDTO,
+        ProposalCategoryRepositoryProtocol,
+        SpaceDTO,
+        TimeSlotDTO,
+        UnscheduledSessionFilter,
+    )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.timetable import TimetableRepos
 
@@ -223,9 +234,16 @@ def _day_range(
 
 
 class TimetableService(TimetableServiceProtocol):
-    def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        repos: TimetableRepos,
+        *,
+        categories: ProposalCategoryRepositoryProtocol,
+    ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._categories = categories
         self._walked: dict[int, list[tuple[SpaceDTO, int]]] = {}
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
@@ -243,6 +261,41 @@ class TimetableService(TimetableServiceProtocol):
             MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
             for node, depth in self._tree(event_pk)
         ]
+
+    def list_categories(self, event_pk: int) -> list[ProposalCategoryDTO]:
+        return self._categories.list_by_event(event_pk)
+
+    def list_unscheduled(
+        self, *, event_pk: int, filters: UnscheduledSessionFilter
+    ) -> UnscheduledSessionsDTO:
+        sessions, has_more = self._repos.sessions.list_unscheduled_by_event(
+            event_pk, filters
+        )
+        return UnscheduledSessionsDTO(sessions=sessions, has_more=has_more)
+
+    def session_detail(
+        self, *, event_pk: int, session_pk: int
+    ) -> TimetableSessionDetailDTO:
+        sessions = self._repos.sessions
+        require_session_in_event(
+            sessions=sessions, session_pk=session_pk, event_pk=event_pk
+        )
+        return TimetableSessionDetailDTO(
+            session=sessions.read(session_pk),
+            agenda_item=self._repos.agenda_items.read_by_session(session_pk),
+            facilitators=sessions.read_facilitators(session_pk),
+            time_slots=sessions.read_preferred_time_slots(session_pk),
+        )
+
+    def change_log(
+        self, *, event_pk: int, space_pk: int | None
+    ) -> TimetableChangeLogDTO:
+        logs = self._repos.schedule_change_logs
+        return TimetableChangeLogDTO(
+            logs=logs.list_by_event(event_pk, space_pk=space_pk),
+            spaces=self._repos.spaces.list_by_event(event_pk),
+            revertible_pks=set(logs.latest_pks_by_session(event_pk).values()),
+        )
 
     def build_grid(
         self,

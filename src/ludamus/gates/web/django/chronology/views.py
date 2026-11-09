@@ -145,10 +145,10 @@ class SessionEditView(LoginRequiredMixin, View):
         )
         try:
             self.request.services.session_self_edit.update(
-                session_id,
-                self.request.context.current_user_id,
-                form.cleaned_data,
-                field_values,
+                session_id=session_id,
+                user_id=self.request.context.current_user_id,
+                data=form.update_data(),
+                field_values=field_values,
             )
         except SessionEditNotAllowedError as exc:
             raise Http404 from exc

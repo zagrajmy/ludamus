@@ -9,10 +9,7 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.forms import event_create_form
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventPanelAccessMixin,
-    EventPanelRequest,
-)
+from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
@@ -27,14 +24,14 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO
 
 
-class EventCreatePageView(EventPanelAccessMixin, View):
-    request: EventPanelRequest
+class EventCreatePageView(PanelAccessMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         events = self._events()
         return self._render(event_create_form(events)(), events=events)
 
-    def post(self, _request: EventPanelRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         events = self._events()
         form = event_create_form(events)(self.request.POST)
         if not form.is_valid():
