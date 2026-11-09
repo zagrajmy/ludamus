@@ -1,9 +1,16 @@
 import { useAgent } from "agents/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { agentUrl, type Bootstrap, type Event, type Result, type RoomActivity } from "./protocol";
+import {
+  agentUrl,
+  type Bootstrap,
+  type Event,
+  passCloseHandlers,
+  type Result,
+  type RoomActivity,
+} from "./protocol";
 
-export function useActivity(bootstrap: Bootstrap) {
+export function useActivity(bootstrap: Bootstrap, onPassClosed: () => void) {
   const url = agentUrl(bootstrap.agentHost);
   const [activity, setActivity] = useState<Record<string, RoomActivity>>({});
   const agent = useAgent({
@@ -11,6 +18,7 @@ export function useActivity(bootstrap: Bootstrap) {
     host: url.host,
     name: bootstrap.sphere.id,
     protocol: url.protocol === "https:" ? "wss" : "ws",
+    ...passCloseHandlers(onPassClosed),
   });
   useEffect(() => {
     void agent.call<Result<Record<string, RoomActivity>>>("getActivity").then((result) => {

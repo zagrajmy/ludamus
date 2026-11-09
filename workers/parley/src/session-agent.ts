@@ -24,7 +24,20 @@ export class ParleySessionAgent extends RoomAgent {
     context: ConnectionContext,
   ): Promise<void> {
     await super.onConnect(connection, context);
-    this.syncLifecycle(connection.state?.capability as Capability);
+    if (connection.state?.admitted) this.syncLifecycle(connection.state.capability);
+  }
+
+  protected async admits(capability: Capability): Promise<boolean> {
+    return (await this.sphere(capability.sphere)).admitToSession({
+      exp: capability.exp,
+      iat: capability.iat,
+      roomId: this.roomId,
+      sub: capability.sub,
+    });
+  }
+
+  private sphere(name: string) {
+    return getAgentByName<Env, ParleySphereAgent>(this.workerEnv.ParleySphereAgent, name);
   }
 
   protected writeError(
@@ -68,17 +81,9 @@ export class ParleySessionAgent extends RoomAgent {
   }): Promise<void> {
     const latestMessageId = input.message?.id ?? input.messageId;
     if (latestMessageId === undefined) return;
-    const sphere = await getAgentByName<Env, ParleySphereAgent>(
-      this.workerEnv.ParleySphereAgent,
-      input.sphere,
-    );
+    const sphere = await this.sphere(input.sphere);
     try {
-      await sphere.recordActivity({
-        latestMessageId,
-        roomId: this.roomId,
-        secret: this.workerEnv.PARLEY_INTERNAL_SECRET,
-        sphere: input.sphere,
-      });
+      await sphere.recordActivity({ latestMessageId, roomId: this.roomId });
     } catch (error) {
       // The retry keeps users whole but would otherwise hide a sphere agent
       // that rejects every call, rescheduling itself every 5s forever.

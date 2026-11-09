@@ -75,13 +75,22 @@ class FakeUsers:
         return self._users[slug]
 
 
-def _service(*, spheres=None, encounters=None, users=None):
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_sphere(self, *, sphere_id):
+        self.revoked.append(sphere_id)
+
+
+def _service(*, spheres=None, encounters=None, users=None, chat=None):
     return SpherePanelService(
         FakeTransaction(),
         spheres or FakeSpheres(),
         FakeEvents(),
         encounters or FakeEncounters(),
         users or FakeUsers(),
+        chat or FakeChat(),
     )
 
 
@@ -182,6 +191,23 @@ class TestSpherePanelServiceUpdateSettings:
                 },
             )
         ]
+
+    def test_turning_chat_off_takes_back_every_pass(self):
+        chat = FakeChat()
+        service = _service(chat=chat)
+
+        self._update(service, parley_enabled=True)
+        self._update(service, parley_enabled=False)
+
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_saving_while_chat_is_off_revokes_nothing(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        self._update(_service(spheres=spheres, chat=chat), parley_enabled=False)
+
+        assert not chat.revoked
 
     def test_empty_logo_removes_it(self):
         spheres = FakeSpheres()

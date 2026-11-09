@@ -20,6 +20,6 @@
     "ALLOWED_ORIGINS": "http://localhost:8000"
   },
   "secrets": {
-    "required": ["PARLEY_PUBLIC_KEY", "PARLEY_INTERNAL_SECRET"]
+    "required": ["PARLEY_PUBLIC_KEY"]
   }
 }

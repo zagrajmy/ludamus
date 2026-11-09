@@ -310,15 +310,15 @@ class EventBanRepository(EventBanRepositoryProtocol):
         }
 
     @staticmethod
-    def ban(*, event_id: EventId, identifier: str, reason: str) -> bool:
+    def ban(*, event_id: EventId, identifier: str, reason: str) -> UserId | None:
         if (user := _resolve_user(identifier)) is None:
-            return False
+            return None
         EventBan.objects.update_or_create(
             event_id=event_id,
             user=user,
             defaults={"reason": reason[:REASON_MAX_LENGTH]},
         )
-        return True
+        return UserId(user.pk)
 
     @staticmethod
     def unban(*, event_id: EventId, ban_id: EventBanId) -> None:

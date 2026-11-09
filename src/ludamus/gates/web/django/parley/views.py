@@ -78,7 +78,6 @@ def _copy() -> dict[str, str]:
         "connectionError": _("Could not connect to the chat."),
         "messageTooLong": _("Messages can be up to 1,000 characters."),
         "errorArchived": _("This conversation is archived."),
-        "errorExpired": _("Your chat session expired. Reopen the chat to continue."),
         "errorForbidden": _("You do not have permission to do that."),
         "errorInvalid": _("That message could not be sent."),
         "errorMuted": _("Your writing access is currently muted."),

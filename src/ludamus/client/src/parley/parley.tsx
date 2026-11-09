@@ -1,4 +1,3 @@
-import { createRoot } from "react-dom/client";
 import {
   type ReactNode,
   type Ref,
@@ -8,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createRoot } from "react-dom/client";
 
 import { Avatar } from "./avatar";
 import { Conversation } from "./conversation";
@@ -22,6 +22,7 @@ type View = { kind: "closed" } | { kind: "list" } | { kind: "room"; roomId: stri
 // template renders it translated onto Parley's root.
 type Shell = { closeLabel: string; connectionError: string; loading: string; retry: string };
 
+const PASS_REFUSED_WINDOW = 5000;
 const LAUNCHER =
   "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
 
@@ -170,16 +171,18 @@ function Connected({
   bootstrap,
   launcher,
   launcherLabel,
+  onPassClosed,
   setView,
   view,
 }: {
   bootstrap: Bootstrap;
   launcher: RefObject<HTMLButtonElement | null>;
   launcherLabel: string;
+  onPassClosed: () => void;
   setView: (view: View) => void;
   view: View;
 }) {
-  const { activity, markRead } = useActivity(bootstrap);
+  const { activity, markRead } = useActivity(bootstrap, onPassClosed);
   const [current, setCurrent] = useState<string | null>(null);
   const single = bootstrap.rooms.length === 1 ? bootstrap.rooms[0] : undefined;
   const room =
@@ -240,6 +243,7 @@ function Connected({
             bootstrap={bootstrap}
             close={close}
             key={room.id}
+            onPassClosed={onPassClosed}
             onRead={(messageId) => markRead(room.id, messageId)}
             room={room}
           />
@@ -265,11 +269,18 @@ function Parley({
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const launcher = useRef<HTMLButtonElement>(null);
+  const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
 
+  // A pass refused right after it was issued would be refused again, so that
+  // waits for the person to retry instead of looping.
+  const passClosed = useCallback(() => {
+    if (Date.now() - loadedAt.current < PASS_REFUSED_WINDOW) setFailed(true);
+    setBootstrap(null);
+  }, []);
+
   useEffect(() => {
-    if (!wanted || bootstrap !== null) return;
-    setFailed(false);
+    if (!wanted || bootstrap !== null || failed) return;
     let active = true;
     const load = async () => {
       try {
@@ -284,6 +295,7 @@ function Parley({
         });
         if (!exchange.ok) throw new Error("exchange");
         if (!active) return;
+        loadedAt.current = Date.now();
         setBootstrap(data);
         const only = data.rooms.length === 1 ? data.rooms[0] : undefined;
         if (only !== undefined)
@@ -298,7 +310,7 @@ function Parley({
     return () => {
       active = false;
     };
-  }, [attempt, bootstrap, bootstrapUrl, wanted]);
+  }, [attempt, bootstrap, bootstrapUrl, failed, wanted]);
 
   useEffect(() => {
     if (bootstrap === null) return;
@@ -319,6 +331,7 @@ function Parley({
         key={bootstrap.capabilityToken}
         launcher={launcher}
         launcherLabel={launcherLabel}
+        onPassClosed={passClosed}
         setView={setView}
         view={view}
       />
@@ -359,7 +372,10 @@ function Parley({
                 <p className="text-sm text-foreground-secondary">{shell.connectionError}</p>
                 <button
                   className="btn btn-primary text-sm"
-                  onClick={() => setAttempt((count) => count + 1)}
+                  onClick={() => {
+                    setFailed(false);
+                    setAttempt((count) => count + 1);
+                  }}
                   type="button"
                 >
                   {shell.retry}

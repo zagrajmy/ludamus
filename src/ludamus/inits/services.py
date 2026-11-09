@@ -19,6 +19,11 @@ from ludamus.inits.builders import (
 from ludamus.inits.dbos_scheduler import (
     DBOSAnnouncementFanoutScheduler,
     DBOSOfferExpiryScheduler,
+    DBOSParleyRevocationOutbox,
+)
+from ludamus.inits.parley import (
+    DisabledParleyRevocationOutbox,
+    InlineParleyRevocationOutbox,
 )
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
@@ -27,11 +32,7 @@ from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.encryption import (
-    FernetDecryptor,
-    FernetEncryptor,
-    JwtCapabilitySigner,
-)
+from ludamus.links.encryption import FernetDecryptor, FernetEncryptor, JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
@@ -90,7 +91,7 @@ from ludamus.mills.notifications import (
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
-from ludamus.mills.parley import ParleyService
+from ludamus.mills.parley import ParleyRevocationService, ParleyService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -137,6 +138,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import ParleyRevocationOutboxProtocol
 
 
 class Services:
@@ -155,9 +157,26 @@ class Services:
         agent_host: str = settings.PARLEY_AGENT_HOST
         return ParleyService(
             repository=self._repos.parley,
-            signer=JwtCapabilitySigner(signing_private_key),
+            signer=JwtSigner(signing_private_key),
             agent_host=agent_host,
         )
+
+    @cached_property
+    def parley_revocations(self) -> ParleyRevocationService:
+        return ParleyRevocationService(
+            repository=self._repos.parley, outbox=self._parley_revocation_outbox()
+        )
+
+    @staticmethod
+    def _parley_revocation_outbox() -> ParleyRevocationOutboxProtocol:
+        agent_host: str = settings.PARLEY_AGENT_HOST
+        private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        scheduler_mode: str = settings.SCHEDULER_MODE
+        if not (agent_host and private_key):
+            return DisabledParleyRevocationOutbox()
+        if scheduler_mode == "dbos":
+            return DBOSParleyRevocationOutbox()
+        return InlineParleyRevocationOutbox()
 
     @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
@@ -235,6 +254,7 @@ class Services:
             spheres=self._repos.spheres,
             claims=self.claims,
             subscriptions=self._repos.sphere_subscriptions,
+            chat=self.parley_revocations,
         )
 
     @cached_property
@@ -378,6 +398,7 @@ class Services:
             self._repos.events,
             self._repos.encounters,
             self._repos.active_users,
+            self.parley_revocations,
         )
 
     @cached_property
@@ -540,7 +561,11 @@ class Services:
 
     @cached_property
     def event_bans(self) -> EventBanService:
-        return EventBanService(self._transaction, self._repos.event_bans)
+        return EventBanService(
+            transaction=self._transaction,
+            repo=self._repos.event_bans,
+            chat=self.parley_revocations,
+        )
 
     @cached_property
     def bookmarks(self) -> BookmarkService:

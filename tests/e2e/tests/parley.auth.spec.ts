@@ -29,7 +29,6 @@ const bootstrap = {
     emptySession: "You found the table first. Leave a note for the others.",
     emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
     errorArchived: "This conversation is archived.",
-    errorExpired: "Your chat session expired. Reopen the chat to continue.",
     errorForbidden: "You do not have permission to do that.",
     errorInvalid: "That message could not be sent.",
     errorMuted: "Your writing access is currently muted.",

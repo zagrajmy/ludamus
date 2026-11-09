@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         SphereSettingsPatch,
     )
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -153,12 +154,14 @@ class SpherePanelService:
         events: EventRepositoryProtocol,
         encounters: EncounterRepositoryProtocol,
         users: UserRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._spheres = spheres
         self._events = events
         self._encounters = encounters
         self._users = users
+        self._chat = chat
 
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
         return self._spheres.manager_role(sphere_id, user_slug)
@@ -231,6 +234,8 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if not parley_enabled and self._spheres.read(sphere_id).parley_enabled:
+                self._chat.revoke_sphere(sphere_id=sphere_id)
             self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
 

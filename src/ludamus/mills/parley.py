@@ -4,13 +4,17 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.parley import (
+    REVOKE_EVERYONE,
     ParleyBootstrapDTO,
     ParleyCapabilityClaims,
-    ParleyCapabilitySignerProtocol,
     ParleyReportData,
     ParleyRepositoryProtocol,
+    ParleyRevocationClaims,
+    ParleyRevocationOutboxProtocol,
+    ParleyRevocationServiceProtocol,
     ParleyRole,
     ParleySessionGrant,
+    ParleySignerProtocol,
     ParleyTimeWindow,
 )
 from ludamus.specs.parley import (
@@ -28,7 +32,7 @@ class ParleyService:
         self,
         *,
         repository: ParleyRepositoryProtocol,
-        signer: ParleyCapabilitySignerProtocol,
+        signer: ParleySignerProtocol,
         agent_host: str,
     ) -> None:
         self._repository = repository
@@ -92,3 +96,54 @@ class ParleyService:
             retained_after=now - PARLEY_SESSION_RETENTION,
             writable_after=now - PARLEY_SESSION_READ_ONLY_DELAY,
         )
+
+
+class ParleyRevocationService(ParleyRevocationServiceProtocol):
+    """Tell the Worker to drop passes Django would no longer issue.
+
+    A pass lives for hours so the chat keeps working while Django is away,
+    which leaves taking access back to these pushes. Each one forces the
+    person to fetch a new pass, which then reflects the change.
+    """
+
+    def __init__(
+        self,
+        *,
+        repository: ParleyRepositoryProtocol,
+        outbox: ParleyRevocationOutboxProtocol,
+    ) -> None:
+        self._repository = repository
+        self._outbox = outbox
+
+    def revoke_event_user(self, *, event_id: int, user_id: int) -> None:
+        if (sphere_id := self._repository.read_event_sphere_id(event_id)) is not None:
+            self._outbox.schedule(sphere_ids=[sphere_id], subject=str(user_id))
+
+    def revoke_user(self, *, user_id: int) -> None:
+        if sphere_ids := self._repository.list_chat_sphere_ids():
+            self._outbox.schedule(sphere_ids=sphere_ids, subject=str(user_id))
+
+    def revoke_sphere(self, *, sphere_id: int) -> None:
+        self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)
+
+
+def sign_revocations(
+    *, signer: ParleySignerProtocol, sphere_ids: list[int], subject: str, now: datetime
+) -> list[str]:
+    cutoff = int(now.timestamp())
+    expires_at = int((now + PARLEY_TOKEN_LIFETIME).timestamp())
+    return [
+        signer.sign(
+            ParleyRevocationClaims(
+                iss="ludamus",
+                aud="parley-revocation",
+                sphere=str(sphere_id),
+                sub=subject,
+                revoked_before=cutoff,
+                iat=cutoff,
+                exp=expires_at,
+                jti=token_urlsafe(18),
+            )
+        )
+        for sphere_id in sphere_ids
+    ]

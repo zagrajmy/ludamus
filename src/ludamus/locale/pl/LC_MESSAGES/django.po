@@ -4205,10 +4205,6 @@ msgid "This conversation is archived."
 msgstr "Ta rozmowa została zarchiwizowana."
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Your chat session expired. Reopen the chat to continue."
-msgstr "Sesja czatu wygasła. Otwórz czat ponownie, aby kontynuować."
-
-#: src/ludamus/gates/web/django/parley/views.py
 msgid "You do not have permission to do that."
 msgstr "Nie masz uprawnień, aby to zrobić."
 

@@ -20,7 +20,25 @@ export type Capability = {
   sub: string;
 };
 
+// "Every pass this sphere issued to sub before revokedBefore is void"; sub
+// "*" covers everyone in the sphere. It matters until those passes would
+// have expired on their own, which is the revocation's own exp.
+export type Revocation = {
+  exp: number;
+  revokedBefore: number;
+  sphere: string;
+  sub: string;
+};
+
+// NOTE: application close codes the browser reads as "fetch a new pass",
+// never as a reason to retry the same one.
+export const PASS_EXPIRED = 4401;
+export const PASS_REVOKED = 4403;
+
+// Admission waits on the sphere's deny-list; until it answers the socket
+// holds a pass but hears nothing.
 export type ConnectionState = {
+  admitted: boolean;
   capability: Capability;
 };
 
@@ -52,7 +70,7 @@ export type ServerEvent =
 export type RoomActivity = { at: number; unread: boolean };
 
 export type RpcError = {
-  code: "archived" | "expired" | "forbidden" | "invalid" | "muted" | "rate_limited";
+  code: "archived" | "forbidden" | "invalid" | "muted" | "rate_limited";
   ok: false;
 };
 

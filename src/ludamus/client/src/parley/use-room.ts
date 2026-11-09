@@ -3,7 +3,14 @@ import type { AgentConnectionError, CallOptions, StreamOptions } from "agents/cl
 import { useAgent } from "agents/react";
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
 
-import { agentUrl, type Event, type Message, type Result, type Room } from "./protocol";
+import {
+  agentUrl,
+  type Event,
+  type Message,
+  passCloseHandlers,
+  type Result,
+  type Room,
+} from "./protocol";
 
 type MessageListener = (event: MessageEvent<string>) => void;
 
@@ -39,7 +46,7 @@ type UseRoomResult = {
   setMessages: Dispatch<SetStateAction<Message[]>>;
 };
 
-export function useRoom(room: Room, agentHost: string): UseRoomResult {
+export function useRoom(room: Room, agentHost: string, onPassClosed: () => void): UseRoomResult {
   const url = agentUrl(agentHost);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState(0);
@@ -50,6 +57,7 @@ export function useRoom(room: Room, agentHost: string): UseRoomResult {
     // NOTE: everything after the kind; a session room's name is "<sphere>:<session>".
     name: room.id.slice(room.id.indexOf(":") + 1),
     protocol: url.protocol === "https:" ? "wss" : "ws",
+    ...passCloseHandlers(onPassClosed),
   });
 
   const loadBefore = useCallback(

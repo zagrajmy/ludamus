@@ -74,6 +74,25 @@ class ParleyCapabilityClaims(BaseModel):
     jti: str
 
 
+# The Worker's deny-list entry: every pass of `sphere` issued to `sub` before
+# `revoked_before` is void, and "*" stands for everyone in the sphere.
+REVOKE_EVERYONE = "*"
+
+
+class ParleyRevocationClaims(BaseModel):
+    model_config = ConfigDict(serialize_by_alias=True)
+
+    iss: str
+    aud: str
+    sphere: str
+    sub: str
+    revoked_before: int = Field(serialization_alias="revokedBefore")
+    iat: int
+    # Once every pass it voids has expired on its own, the entry is moot.
+    exp: int
+    jti: str
+
+
 class ParleyReportData(BaseModel):
     sphere_id: int
     user_id: int
@@ -98,9 +117,29 @@ class ParleyRepositoryProtocol(Protocol):
         self, *, data: ParleyReportData, window: ParleyTimeWindow
     ) -> bool: ...
 
+    @staticmethod
+    def read_event_sphere_id(event_id: int) -> int | None: ...
 
-class ParleyCapabilitySignerProtocol(Protocol):
-    def sign(self, claims: ParleyCapabilityClaims) -> str: ...
+    @staticmethod
+    def list_chat_sphere_ids() -> list[int]: ...
+
+
+class ParleySignerProtocol(Protocol):
+    def sign(self, claims: ParleyCapabilityClaims | ParleyRevocationClaims) -> str: ...
+
+
+class ParleyRevocationOutboxProtocol(Protocol):
+    # Delivers once the surrounding transaction commits, so a pass issued
+    # from the state being replaced cannot postdate the cutoff.
+    def schedule(self, *, sphere_ids: list[int], subject: str) -> None: ...
+
+
+class ParleyRevocationServiceProtocol(Protocol):
+    def revoke_event_user(self, *, event_id: int, user_id: int) -> None: ...
+
+    def revoke_user(self, *, user_id: int) -> None: ...
+
+    def revoke_sphere(self, *, sphere_id: int) -> None: ...
 
 
 class ParleyServiceProtocol(Protocol):

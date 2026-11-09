@@ -92,7 +92,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
         "readOnlyAfter": 48 * 3600,
         "retainFor": 30 * 24 * 3600,
         "iat": 1_786_017_600,
-        "exp": 1_786_018_500,
+        "exp": 1_786_017_600 + 12 * 3600,
     }
     assert claims.jti
 

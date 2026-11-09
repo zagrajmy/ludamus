@@ -1,9 +1,12 @@
-import { callable } from "agents";
+import { callable, getAgentByName } from "agents";
 
-import type { Message, RoomActivity, RpcResult } from "./protocol";
+import type { Capability, Message, Revocation, RoomActivity, RpcResult } from "./protocol";
+import type { ParleySessionAgent } from "./session-agent";
 
 import { canSeeRoom } from "./access";
-import { RoomAgent } from "./room-agent";
+import { RoomAgent, type Env } from "./room-agent";
+
+type Admission = Pick<Capability, "exp" | "iat" | "sub"> & { roomId: string };
 
 export class ParleySphereAgent extends RoomAgent {
   protected readonly roomPrefix = "sphere";
@@ -22,6 +25,78 @@ export class ParleySphereAgent extends RoomAgent {
       updated_at INTEGER NOT NULL,
       PRIMARY KEY (user_id, room_id)
     )`;
+    // The deny-list for every room of the sphere. user_id '*' is everyone.
+    void this.sql`CREATE TABLE IF NOT EXISTS revocations (
+      user_id TEXT PRIMARY KEY,
+      revoked_before INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`;
+    // Which session rooms hold a socket for whom, so a revocation reaches
+    // only those instead of every room the sphere ever had.
+    void this.sql`CREATE TABLE IF NOT EXISTS admissions (
+      user_id TEXT NOT NULL,
+      room_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, room_id)
+    )`;
+  }
+
+  protected async admits(capability: Capability): Promise<boolean> {
+    return !this.isRevoked(capability);
+  }
+
+  admitToSession(admission: Admission): boolean {
+    if (!admission.roomId.startsWith(`session:${this.name}:`) || this.isRevoked(admission)) {
+      return false;
+    }
+    void this.sql`INSERT INTO admissions (user_id, room_id, expires_at)
+      VALUES (${admission.sub}, ${admission.roomId}, ${admission.exp})
+      ON CONFLICT(user_id, room_id) DO UPDATE SET expires_at = MAX(expires_at, excluded.expires_at)`;
+    return true;
+  }
+
+  async revoke(revocation: Revocation): Promise<void> {
+    if (revocation.sphere !== this.name) throw new Error("Revocation for another sphere");
+    const now = Math.floor(Date.now() / 1_000);
+    void this.sql`DELETE FROM revocations WHERE expires_at <= ${now}`;
+    void this.sql`DELETE FROM admissions WHERE expires_at <= ${now}`;
+    void this.sql`INSERT INTO revocations (user_id, revoked_before, expires_at)
+      VALUES (${revocation.sub}, ${revocation.revokedBefore}, ${revocation.exp})
+      ON CONFLICT(user_id) DO UPDATE SET
+        revoked_before = MAX(revoked_before, excluded.revoked_before),
+        expires_at = MAX(expires_at, excluded.expires_at)`;
+    this.closeRevoked(revocation);
+    const rooms =
+      revocation.sub === "*"
+        ? this.sql<{ room_id: string }>`SELECT DISTINCT room_id FROM admissions`
+        : this.sql<{
+            room_id: string;
+          }>`SELECT room_id FROM admissions WHERE user_id = ${revocation.sub}`;
+    const results = await Promise.allSettled(
+      rooms.map(async ({ room_id }) => {
+        const session = await getAgentByName<Env, ParleySessionAgent>(
+          this.workerEnv.ParleySessionAgent,
+          room_id.slice("session:".length),
+        );
+        await session.closeRevoked(revocation);
+      }),
+    );
+    const failed = results.filter((result) => result.status === "rejected");
+    // Django retries the whole revocation on an error, and every step of it
+    // repeats harmlessly.
+    if (failed.length > 0) {
+      throw new Error(
+        `Revocation reached ${rooms.length - failed.length} of ${rooms.length} rooms`,
+      );
+    }
+  }
+
+  private isRevoked(capability: Pick<Capability, "iat" | "sub">): boolean {
+    const revokedBefore = this.sql<{ revoked_before: number | null }>`
+      SELECT MAX(revoked_before) AS revoked_before FROM revocations
+      WHERE user_id IN (${capability.sub}, '*') AND expires_at > ${Math.floor(Date.now() / 1_000)}`[0]
+      ?.revoked_before;
+    return revokedBefore != null && capability.iat < revokedBefore;
   }
 
   @callable()
@@ -75,18 +150,10 @@ export class ParleySphereAgent extends RoomAgent {
     return { ok: true, value: {} };
   }
 
-  @callable()
-  recordActivity(input: {
-    latestMessageId: number;
-    roomId: string;
-    secret: string;
-    sphere: string;
-  }): void {
-    if (
-      input.secret !== this.workerEnv.PARLEY_INTERNAL_SECRET ||
-      input.sphere !== this.name ||
-      !input.roomId.startsWith(`session:${this.name}:`)
-    ) {
+  // Not @callable: only a session room reaches this, over Durable Object
+  // RPC, so a browser cannot forge activity.
+  recordActivity(input: { latestMessageId: number; roomId: string }): void {
+    if (!input.roomId.startsWith(`session:${this.name}:`)) {
       throw new Error("Invalid room activity");
     }
     void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)

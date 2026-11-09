@@ -1,8 +1,10 @@
 import { importSPKI, jwtVerify } from "jose";
 
-import type { Capability } from "./protocol";
+import type { Capability, Revocation } from "./protocol";
 
 const COOKIE_NAME = "parley_capability";
+// Its own audience, so neither kind of token can be passed off as the other.
+export const REVOCATION_AUDIENCE = "parley-revocation";
 
 type AuthEnv = {
   ALLOWED_ORIGINS: string;
@@ -45,13 +47,19 @@ function isSessionGrants(value: unknown): value is Capability["sessions"] {
   );
 }
 
-export async function verifyCapability(token: string, env: AuthEnv): Promise<Capability> {
+async function verified(token: string, env: AuthEnv, audience: string) {
   const publicKey = await importSPKI(env.PARLEY_PUBLIC_KEY.replaceAll("\\n", "\n"), "RS256");
   const { payload } = await jwtVerify(token, publicKey, {
     algorithms: ["RS256"],
-    audience: env.JWT_AUDIENCE,
+    audience,
     issuer: env.JWT_ISSUER,
+    requiredClaims: ["exp", "iat", "sub"],
   });
+  return payload;
+}
+
+export async function verifyCapability(token: string, env: AuthEnv): Promise<Capability> {
+  const payload = await verified(token, env, env.JWT_AUDIENCE);
   if (
     typeof payload.sub !== "string" ||
     typeof payload.sphere !== "string" ||
@@ -68,6 +76,55 @@ export async function verifyCapability(token: string, env: AuthEnv): Promise<Cap
   return payload as Capability;
 }
 
+export async function verifyRevocation(token: string, env: AuthEnv): Promise<Revocation> {
+  const payload = await verified(token, env, REVOCATION_AUDIENCE);
+  if (
+    typeof payload.sphere !== "string" ||
+    !/^\d+$/u.test(payload.sphere) ||
+    typeof payload.sub !== "string" ||
+    !/^(?:\d+|\*)$/u.test(payload.sub) ||
+    !isSeconds(payload.revokedBefore) ||
+    !isSeconds(payload.exp)
+  ) {
+    throw new Error("Invalid revocation");
+  }
+  return {
+    exp: payload.exp,
+    revokedBefore: payload.revokedBefore,
+    sphere: payload.sphere,
+    sub: payload.sub,
+  };
+}
+
+async function tokenFromBody(request: Request): Promise<string | null> {
+  try {
+    const body: unknown = await request.json();
+    return typeof body === "object" &&
+      body !== null &&
+      "token" in body &&
+      typeof body.token === "string"
+      ? body.token
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// Django calls this server to server, so there is no Origin to check: the
+// signature is the authority, and replaying one only repeats the same cutoff.
+export async function revocationFromRequest(
+  request: Request,
+  env: AuthEnv,
+): Promise<Revocation | Response> {
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
+  try {
+    return await verifyRevocation(token, env);
+  } catch {
+    return new Response("Invalid revocation", { status: 401 });
+  }
+}
+
 export async function capabilityFromRequest(request: Request, env: AuthEnv): Promise<Capability> {
   const token = capabilityCookie(request);
   if (token === null) throw new Error("Missing capability");
@@ -76,22 +133,10 @@ export async function capabilityFromRequest(request: Request, env: AuthEnv): Pro
 
 export async function exchangeCapability(request: Request, env: AuthEnv): Promise<Response> {
   if (!originIsAllowed(request, env)) return new Response("Forbidden", { status: 403 });
-  let body: unknown;
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
   try {
-    body = await request.json();
-  } catch {
-    return new Response("Invalid request", { status: 400 });
-  }
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("token" in body) ||
-    typeof body.token !== "string"
-  ) {
-    return new Response("Invalid request", { status: 400 });
-  }
-  try {
-    const capability = await verifyCapability(body.token, env);
+    const capability = await verifyCapability(token, env);
     const maxAge = Math.max(0, capability.exp - Math.floor(Date.now() / 1000));
     const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
     return corsResponse(
@@ -101,7 +146,7 @@ export async function exchangeCapability(request: Request, env: AuthEnv): Promis
         status: 204,
         headers: {
           "Cache-Control": "no-store",
-          "Set-Cookie": `${COOKIE_NAME}=${body.token}; HttpOnly; SameSite=Strict; Path=/agents; Max-Age=${maxAge}${secure}`,
+          "Set-Cookie": `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/agents; Max-Age=${maxAge}${secure}`,
         },
       }),
     );

@@ -33,11 +33,13 @@ import functools
 import logging
 import threading
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from dbos import DBOS
 from django.conf import settings
 from django.db import connection, transaction
+from requests import HTTPError
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
@@ -50,6 +52,7 @@ from ludamus.inits.builders import (
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
+from ludamus.inits.parley import deliver_revocations
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -223,6 +226,32 @@ def listing_close_tick(scheduled: datetime, _actual: datetime) -> None:
     _close_stale_listings_step(scheduled)
 
 
+def _worth_retrying(error: BaseException) -> bool:
+    # A refused signature or claim is refused again; the Worker being away
+    # or failing is what a retry waits out.
+    response = error.response if isinstance(error, HTTPError) else None
+    return response is None or response.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# 12 attempts doubling from 2 s keep trying for about an hour, well inside
+# the pass lifetime, past which the revocation would be moot anyway.
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+def _deliver_parley_revocation_step(sphere_id: int, subject: str) -> None:
+    deliver_revocations(sphere_ids=[sphere_id], subject=subject)
+
+
+@DBOS.workflow()
+def _parley_revocation_workflow(sphere_ids: list[int], subject: str) -> None:
+    for sphere_id in sphere_ids:
+        _deliver_parley_revocation_step(sphere_id, subject)
+
+
 CRON_WORKFLOWS = (
     (expire_offers_sweep, EXPIRE_OFFERS_SCHEDULE),
     (printables_reminders_tick, PRINTABLES_REMINDERS_SCHEDULE),
@@ -303,4 +332,15 @@ class DBOSAnnouncementFanoutScheduler:
         # in between loses only the trigger, and the sweep recovers it.
         transaction.on_commit(
             lambda: DBOS.start_workflow(_fanout_announcement_workflow, announcement_id)
+        )
+
+
+class DBOSParleyRevocationOutbox:
+    @staticmethod
+    def schedule(*, sphere_ids: list[int], subject: str) -> None:
+        _ensure_launched()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(
+                _parley_revocation_workflow, sphere_ids, subject
+            )
         )

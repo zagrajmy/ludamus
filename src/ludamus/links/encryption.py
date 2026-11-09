@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from ludamus.pacts.multiverse import DecryptionError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.parley import ParleyCapabilityClaims
+    from ludamus.pacts.parley import ParleyCapabilityClaims, ParleyRevocationClaims
 
 
 class FernetEncryptor:
@@ -43,11 +43,11 @@ class FernetDecryptor:
             raise DecryptionError from exception
 
 
-class JwtCapabilitySigner:
+class JwtSigner:
     def __init__(self, private_key: str) -> None:
         self._private_key_pem = private_key.replace("\\n", "\n").encode()
 
-    def sign(self, claims: ParleyCapabilityClaims) -> str:
+    def sign(self, claims: ParleyCapabilityClaims | ParleyRevocationClaims) -> str:
         loaded = serialization.load_pem_private_key(
             self._private_key_pem, password=None
         )

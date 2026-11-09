@@ -62,7 +62,6 @@ export default Alchemy.Stack(
         ...testedRuntime.vars,
         ALLOWED_ORIGINS: Config.String("PARLEY_ALLOWED_ORIGINS"),
         PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY"),
-        PARLEY_INTERNAL_SECRET: yield* Alchemy.makeRandom("ParleyInternalSecret"),
       },
     });
     return { url: parley.url };

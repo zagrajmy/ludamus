@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from django.db.models import Q
 
-from ludamus.links.db.django.models import EventBan, ParleyReport, Session, Sphere, User
+from ludamus.links.db.django.models import (
+    Event,
+    EventBan,
+    ParleyReport,
+    Session,
+    Sphere,
+    User,
+)
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 from ludamus.pacts.parley import (
@@ -94,3 +101,19 @@ class ParleyRepository(ParleyRepositoryProtocol):
             defaults={"reason": data.reason, "sphere_id": data.sphere_id},
         )
         return True
+
+    @staticmethod
+    def read_event_sphere_id(event_id: int) -> int | None:
+        return (
+            Event.objects.filter(pk=event_id, sphere__parley_enabled=True)
+            .values_list("sphere_id", flat=True)
+            .first()
+        )
+
+    @staticmethod
+    def list_chat_sphere_ids() -> list[int]:
+        return list(
+            Sphere.objects.filter(parley_enabled=True)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )

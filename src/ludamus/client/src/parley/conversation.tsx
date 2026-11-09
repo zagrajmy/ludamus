@@ -25,7 +25,6 @@ const COMPOSER_MAX_HEIGHT = 128;
 function errorMessage(code: string, copy: Bootstrap["copy"]): string {
   const messages: Record<string, string> = {
     archived: copy.errorArchived,
-    expired: copy.errorExpired,
     forbidden: copy.errorForbidden,
     invalid: copy.errorInvalid,
     muted: copy.errorMuted,
@@ -87,12 +86,14 @@ export function Conversation({
   back,
   bootstrap,
   close,
+  onPassClosed,
   onRead,
   room,
 }: {
   back: (() => void) | null;
   bootstrap: Bootstrap;
   close: () => void;
+  onPassClosed: () => void;
   onRead: (id: number) => void;
   room: Room;
 }) {
@@ -100,6 +101,7 @@ export function Conversation({
   const { agent, earlier, load, messages, presence, setMessages } = useRoom(
     room,
     bootstrap.agentHost,
+    onPassClosed,
   );
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -172,13 +172,22 @@ class FakeSpheres:
         return domain in self._domains
 
 
-def _service(*, users, claims=None, spheres=None, subscriptions=None):
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_user(self, *, user_id):
+        self.revoked.append(user_id)
+
+
+def _service(*, users, claims=None, spheres=None, subscriptions=None, chat=None):
     return CrowdAuthService(
         transaction=FakeTransaction(),
         users=users,
         spheres=spheres or FakeSpheres(),
         claims=claims or FakeClaims(),
         subscriptions=subscriptions or FakeSubscriptions(),
+        chat=chat or FakeChat(),
     )
 
 
@@ -653,12 +662,14 @@ class TestAgeConfirmation:
 
     def test_underage_account_cannot_keep_independent_access(self):
         users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        chat = FakeChat()
 
-        _service(users=users).disable_underage_account("auth0user")
+        _service(users=users, chat=chat).disable_underage_account("auth0user")
 
         user = users.read("auth0user")
         assert user.is_active is False
         assert user.age_band == AgeBand.UNKNOWN
+        assert chat.revoked == [user.pk]
 
     @pytest.mark.parametrize(
         "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)

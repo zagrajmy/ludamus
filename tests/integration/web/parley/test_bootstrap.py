@@ -1,10 +1,9 @@
 import base64
-import json
 from http import HTTPStatus
 
 import pytest
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
@@ -16,28 +15,12 @@ from tests.integration.conftest import (
     SphereFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.parley.helpers import decode_segment
 
 # NOTE: browsers drop a cookie whose name, value and attributes pass 4096
 # bytes, and the Worker stores the token as one; half leaves room for a long
 # name and avatar URL.
 COOKIE_BUDGET = 2048
-
-
-@pytest.fixture(name="parley_settings")
-def _parley_settings(settings):
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    settings.PARLEY_AGENT_HOST = "parley.example.com"
-    settings.PARLEY_SIGNING_PRIVATE_KEY = private_key.private_bytes(
-        serialization.Encoding.PEM,
-        serialization.PrivateFormat.PKCS8,
-        serialization.NoEncryption(),
-    ).decode()
-    return private_key.public_key()
-
-
-def _decode_segment(value: str) -> dict[str, object]:
-    padded = value + "=" * (-len(value) % 4)
-    return json.loads(base64.urlsafe_b64decode(padded))
 
 
 @pytest.mark.usefixtures("parley_settings")
@@ -122,8 +105,8 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     ]
     assert payload["agentHost"] == "parley.example.com"
     header, body, signature = payload["capabilityToken"].split(".")
-    assert _decode_segment(header) == {"alg": "RS256", "typ": "JWT"}
-    claims = _decode_segment(body)
+    assert decode_segment(header) == {"alg": "RS256", "typ": "JWT"}
+    claims = decode_segment(body)
     assert claims["iss"] == "ludamus"
     assert claims["aud"] == "parley"
     assert claims["sub"] == str(active_user.pk)
@@ -160,6 +143,6 @@ def test_manager_token_does_not_grow_with_the_sphere(
     assert len(large["rooms"]) == len(small["rooms"]) + 200
     assert len(large["capabilityToken"]) == len(small["capabilityToken"])
     assert len(large["capabilityToken"]) < COOKIE_BUDGET
-    claims = _decode_segment(large["capabilityToken"].split(".")[1])
+    claims = decode_segment(large["capabilityToken"].split(".")[1])
     assert claims["role"] == "manager"
     assert claims["sessions"] == {}
