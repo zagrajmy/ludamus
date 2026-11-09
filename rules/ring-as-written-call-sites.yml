@@ -1,0 +1,20 @@
+id: ring-as-written-call-sites
+language: python
+severity: error
+files:
+  - src/**/*.py
+ignores:
+  - src/ludamus/links/db/django/delivery.py
+  - src/ludamus/links/db/django/announcements.py
+  - src/ludamus/links/db/django/admin.py
+rule:
+  kind: identifier
+  regex: ^ring_as_written$
+message: |
+  `ring_as_written` sends one text to every reader, in whatever language it
+  was written. It is for a person's own words alone: organizer
+  announcements (announcements.py) and staff notices (admin.py). Copy the
+  app writes goes inside `speaking_to(user_id)`, delivered with `ring` /
+  `compose_mail`.
+  A new call site of hand-written text must be added to this rule's
+  ignores, in review.

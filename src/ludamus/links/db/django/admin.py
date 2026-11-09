@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.admin import helpers
 from django.shortcuts import render
 
+from ludamus.links.db.django.delivery import Bell, ring_as_written
 from ludamus.links.db.django.models import (
     AgendaItem,
     DomainEnrollmentConfig,
@@ -14,7 +15,6 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
-    Notification,
     ParleyReport,
     ProposalCategory,
     Session,
@@ -122,12 +122,16 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ) -> HttpResponse | None:
         form = SendNotificationForm(request.POST if "apply" in request.POST else None)
         if form.is_valid():
-            Notification.objects.bulk_create(
-                Notification(recipient=user, **form.cleaned_data) for user in queryset
+            sent = ring_as_written(
+                recipient_ids=queryset.values_list("pk", flat=True),
+                bell=Bell(
+                    kind=NotificationKind(form.cleaned_data["kind"]),
+                    title=form.cleaned_data["title"],
+                    body=form.cleaned_data["body"],
+                    url=form.cleaned_data["url"],
+                ),
             )
-            self.message_user(
-                request, f"Notification sent to {queryset.count()} user(s)."
-            )
+            self.message_user(request, f"Notification sent to {sent} user(s).")
             return None
         return render(
             request,

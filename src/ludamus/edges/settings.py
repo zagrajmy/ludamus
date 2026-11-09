@@ -150,6 +150,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "ludamus.gates.web.django.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
@@ -674,14 +675,31 @@ LOGGING = {
         "verbose": {
             "format": "[{levelname}] {asctime} {module} {message}",
             "style": "{",
-        }
+        },
+        "json": {"()": "ludamus.links.analytics.log_format.JsonFormatter"},
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
-    "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
+    # Production lines are read by machines (Coolify, PostHog) and queried by
+    # field; a terminal is read by a person.
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if IS_PRODUCTION else "verbose",
+        },
+        # PostHog Logs, over OTLP/HTTP, INFO and up; off without POSTHOG_API_KEY.
+        "posthog": {"()": "ludamus.links.analytics.log_shipping.posthog_handler"},
+    },
+    "root": {
+        "handlers": ["console", "posthog"],
+        "level": "INFO" if IS_PRODUCTION else "DEBUG",
+    },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django": {
+            "handlers": ["console", "posthog"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "django.security": {
-            "handlers": ["console"],
+            "handlers": ["console", "posthog"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },

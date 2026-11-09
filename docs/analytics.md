@@ -1,7 +1,8 @@
 # Analytics (PostHog)
 
 Two halves, one project. `prologue.ts` runs in browser behind consent banner.
-`links/analytics/reporting.py` reports server faults only.
+`links/analytics/reporting.py` reports server faults;
+`links/analytics/log_shipping.py` ships server log lines to PostHog Logs.
 
 Wiring documented where it lives: `edges/settings.py` for CSP and env,
 `links/analytics/identity.py` for how person named, `.env.schema` for the two

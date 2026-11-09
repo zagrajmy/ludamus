@@ -296,6 +296,64 @@ class TestCreatingInvitesEveryone:
         assert mailoutbox == []
 
 
+@pytest.mark.usefixtures("polish_catalog")
+class TestInvitesSpeakTheGuestsLanguage:
+    @pytest.mark.parametrize("inviter_language", ("en", "pl"))
+    def test_each_guest_reads_their_own_language_and_a_guest_english(
+        self,
+        authenticated_client,
+        user,
+        settings,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
+        inviter_language,
+    ):
+        settings.LANGUAGE_CODE = "pl"
+        UserFactory(email="ola@example.com", language="pl")
+        UserFactory(email="ann@example.com", language="en")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                reverse("web:notice-board:create"),
+                data={
+                    "title": "Board game night",
+                    "start_time": "2031-05-01T19:00",
+                    "invitees": "ola@example.com, ann@example.com, guest@example.com",
+                },
+                headers={"accept-language": inviter_language},
+            )
+
+        polish = "Zaproszenie: Board game night"
+        english = "Invitation: Board game night"
+        subjects = {message.to[0]: message.subject for message in mailoutbox}
+        assert subjects == {
+            user.email: polish if inviter_language == "pl" else english,
+            "ola@example.com": polish,
+            "ann@example.com": english,
+            "guest@example.com": english,
+        }
+
+    def test_an_address_typed_in_another_case_reads_its_accounts_language(
+        self, authenticated_client, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        UserFactory(email="Ola.Nowak@Example.com", language="pl")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                reverse("web:notice-board:create"),
+                data={
+                    "title": "Board game night",
+                    "start_time": "2031-05-01T19:00",
+                    "invitees": "OLA.nowak@example.COM",
+                },
+                headers={"accept-language": "en"},
+            )
+
+        message = _by_recipient(mailoutbox)["ola.nowak@example.com"]
+        assert message.subject == "Zaproszenie: Board game night"
+        assert "zaprasza cię na Board game night." in message.body
+
+
 class TestOwnerChangesReachGuests:
     def test_edit_mails_every_guest_an_update(
         self,

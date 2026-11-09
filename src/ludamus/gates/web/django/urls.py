@@ -1,6 +1,7 @@
 """URL configuration for gates/web/django views."""
 
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -34,23 +35,31 @@ handler500 = (  # pylint: disable=invalid-name
 )
 
 _HEALTHZ_INTERVAL = 5
-_healthz_cache: dict[str, object] = {"time": 0.0, "ok": True}
+
+
+@dataclass
+class _HealthzProbe:
+    time: float = 0.0
+    ok: bool = True
+
+
+_healthz_cache = _HealthzProbe()
 
 
 @never_cache
 def healthz(_request: HttpRequest) -> JsonResponse:
     now = time.monotonic()
-    if now - _healthz_cache["time"] < _HEALTHZ_INTERVAL:  # type: ignore[operator]
-        if _healthz_cache["ok"]:
+    if now - _healthz_cache.time < _HEALTHZ_INTERVAL:
+        if _healthz_cache.ok:
             return JsonResponse({"status": "ok"})
         return JsonResponse({"status": "error"}, status=503)
 
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        _healthz_cache.update(time=now, ok=True)
+        _healthz_cache.time, _healthz_cache.ok = now, True
     except Exception:  # ruff:ignore[blind-except]
-        _healthz_cache.update(time=now, ok=False)
+        _healthz_cache.time, _healthz_cache.ok = now, False
         return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})
 

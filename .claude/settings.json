@@ -1,4 +1,32 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(export *)",
+      "Bash(mise run *)",
+      "Bash(mise tasks)",
+      "Bash(timeout *)",
+      "Bash(.venv/bin/*)",
+      "Bash(python3 *)",
+      "Bash(git *)",
+      "Bash(sed *)",
+      "Bash(awk *)",
+      "Bash(ln *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(rm *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "mcp__github__create_pull_request",
+      "mcp__github__update_pull_request",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_pull_requests",
+      "mcp__github__get_job_logs",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get",
+      "mcp__github__add_issue_comment",
+      "mcp__github__add_reply_to_pull_request_comment"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
