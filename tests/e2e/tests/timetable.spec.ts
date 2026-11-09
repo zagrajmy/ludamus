@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
@@ -434,7 +435,7 @@ test.describe("Timetable", () => {
     ).toBeVisible();
   });
 
-  test("session cards are draggable and carry their duration", async ({ page }) => {
+  test("session cards are draggable and carry their duration", async ({ page }, testInfo) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
     );
@@ -448,6 +449,18 @@ test.describe("Timetable", () => {
 
     await expect(card).toHaveAttribute("draggable", "true");
     await expect(card).toHaveAttribute("data-duration", /^\d+$/);
+
+    const limited = page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator('[data-session-pk]:not([data-participants-limit="0"])')
+      .first();
+    const limit = await limited.getAttribute("data-participants-limit");
+    await expect(limited).toContainText(`${limit} seats`);
+    await attachArtifacts(testInfo, {
+      name: "timetable-session-card-seats",
+      region: page.getByRole("region", { name: "Sessions to assign" }),
+      facts: { limit, label: `${limit} seats` },
+    });
   });
 
   // --- Session Search ---
