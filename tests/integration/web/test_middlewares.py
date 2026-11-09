@@ -9,6 +9,7 @@ from ludamus.adapters.web.django.middlewares import (
     RedirectErrorMiddleware,
     RequestContextMiddleware,
 )
+from ludamus.gates.web.django.middlewares import AppMiddleware
 from ludamus.inits.legacy import DependencyInjector, RepositoryInjectionMiddleware
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
@@ -135,20 +136,23 @@ class TestRepositoryInjectionMiddleware:
         assert isinstance(request.di.uow, UnitOfWork)
         get_response_mock.assert_called_once_with(request)
 
+
+class TestAppMiddleware:
     @staticmethod
     @pytest.mark.parametrize(
         "path", ("/static/test.css", "/admin/", "/__debug__/toolbar/", "/__reload__/")
     )
-    def test_skips_uow_for_excluded_paths(
-        middleware, get_response_mock, rf, path, settings
+    def test_skips_the_app_chain_for_excluded_paths(
+        get_response_mock, rf, path, settings
     ):
-        """Middleware skips UoW creation for paths in MIDDLEWARE_SKIP_PREFIXES."""
         assert any(path.startswith(p) for p in settings.MIDDLEWARE_SKIP_PREFIXES)
         request = rf.get(path)
 
-        middleware(request)
+        AppMiddleware(get_response_mock)(request)
 
         assert not hasattr(request, "di")
+        assert not hasattr(request, "services")
+        assert not hasattr(request, "context")
         get_response_mock.assert_called_once_with(request)
 
 

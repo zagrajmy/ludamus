@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
-    FACILITATOR_BUILTIN_KEYS,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
@@ -21,6 +20,8 @@ from ludamus.pacts.legacy import (
     PersonalDataFieldValueData,
 )
 from ludamus.pacts.panel import (
+    FACILITATOR_BUILTIN_KEYS,
+    MIN_MERGE_FACILITATORS,
     EmptyColumnSelectionError,
     FacilitatorDetailContextDTO,
     FacilitatorFilterOptionsDTO,
@@ -112,7 +113,11 @@ def accreditation_reconcile(
 
 
 def field_reconcile(
-    merge_context: FacilitatorMergeContextDTO, *, target_pk: int
+    *,
+    facilitators: Sequence[FacilitatorDTO],
+    fields: Sequence[OrganizerFieldDTO],
+    values: Mapping[int, Mapping[str, _FieldValue]],
+    target_pk: int,
 ) -> tuple[
     list[tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]],
     list[tuple[int, int]],
@@ -121,11 +126,10 @@ def field_reconcile(
         tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]
     ] = []
     unanimous: list[tuple[int, int]] = []
-    for field in merge_context.fields:
+    for field in fields:
         groups: list[tuple[int, _FieldValue, list[str], list[int]]] = []
-        for facilitator in merge_context.facilitators:
-            value = merge_context.values.get(facilitator.pk, {}).get(field.slug)
-            if not value:
+        for facilitator in facilitators:
+            if not (value := values.get(facilitator.pk, {}).get(field.slug)):
                 continue
             for _pk, existing, names, holder_pks in groups:
                 if existing == value:
@@ -267,9 +271,6 @@ def _merge_update(
     ) is not None:
         update["organizer_id"] = inherited
     return update
-
-
-MIN_MERGE_FACILITATORS = 2
 
 
 @dataclass(frozen=True)
@@ -536,13 +537,20 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         )
 
     def merge_context(
-        self, *, event_id: int, facilitator_slugs: list[str]
+        self, *, event_id: int, facilitator_slugs: list[str], target_slug: str
     ) -> FacilitatorMergeContextDTO:
         facilitators = [
             self._repos.facilitators.read_by_event_and_slug(event_id, slug)
             for slug in _unique(facilitator_slugs)
         ]
-        return FacilitatorMergeContextDTO(
+        target = merge_target(facilitators, slug=target_slug)
+        name_choices, unanimous_name = name_reconcile(facilitators, target=target)
+        accreditation_choices, unanimous_accreditation = accreditation_reconcile(
+            facilitators, target=target
+        )
+        # Only the disputed fields need a control: the merge keeps a unanimous
+        # answer itself, so nothing about it round-trips through the browser.
+        field_conflicts, _unanimous_field_values = field_reconcile(
             facilitators=facilitators,
             fields=self._repos.personal_data_fields.list_by_event(event_id),
             values={
@@ -553,6 +561,16 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 )
                 for facilitator in facilitators
             },
+            target_pk=target.pk,
+        )
+        return FacilitatorMergeContextDTO(
+            facilitators=facilitators,
+            target=target,
+            name_choices=name_choices,
+            unanimous_display_name=unanimous_name,
+            accreditation_choices=accreditation_choices,
+            unanimous_accreditation=unanimous_accreditation,
+            field_conflicts=field_conflicts,
         )
 
     def merge(

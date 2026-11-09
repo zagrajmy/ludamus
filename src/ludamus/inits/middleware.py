@@ -50,8 +50,9 @@ class SphereVisitSubscriptionMiddleware[Response]:
     """Subscribe a signed-in visitor to the sphere their request landed on.
 
     Ordered after RequestContextMiddleware, which resolved the sphere from the
-    Host header (and skips the same prefixes skipped here, so `request.context`
-    and `request.services` exist whenever this middleware acts). The session
+    Host header, and run only for app requests (`AppMiddleware`), so
+    `request.context` and `request.services` exist whenever this middleware
+    acts. The session
     flag makes the warm path query-free; the insert itself never touches an
     existing row, so a muted subscription stays muted across visits and fresh
     sessions alike.
@@ -63,9 +64,7 @@ class SphereVisitSubscriptionMiddleware[Response]:
         self.get_response: Callable[[SessionRequestProtocol], Response] = get_response
 
     def __call__(self, request: SessionRequestProtocol) -> Response:
-        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
-            _subscribe_visit(request)
-
+        _subscribe_visit(request)
         return self.get_response(request)
 
 
@@ -97,9 +96,7 @@ class UserLanguageMiddleware[Response]:
         self.get_response: Callable[[LanguageRequestProtocol], Response] = get_response
 
     def __call__(self, request: LanguageRequestProtocol) -> Response:
-        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
-            _remember_language(request)
-
+        _remember_language(request)
         return self.get_response(request)
 
 
@@ -145,7 +142,5 @@ class ServiceInjectionMiddleware[Response]:
         launch_scheduler()
 
     def __call__(self, request: RootRequestProtocol) -> Response:
-        if not request.path.startswith(settings.MIDDLEWARE_SKIP_PREFIXES):
-            request.services = Services()
-
+        request.services = Services()
         return self.get_response(request)
