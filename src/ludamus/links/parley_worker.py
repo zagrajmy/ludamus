@@ -19,9 +19,17 @@ def is_local(agent_host: str) -> bool:
 class ParleyWorkerClient:
     def __init__(self, agent_host: str) -> None:
         scheme = "http" if is_local(agent_host) else "https"
-        self._revoke_url = f"{scheme}://{agent_host}/revoke"
+        self._base_url = f"{scheme}://{agent_host}"
 
     def revoke(self, token: str) -> None:
+        self._post("/revoke", token)
+
+    def sync_conversation(self, token: str) -> None:
+        self._post("/conversations", token)
+
+    def _post(self, path: str, token: str) -> None:
         body: dict[str, str] = {"token": token}
-        response = requests.post(self._revoke_url, json=body, timeout=_TIMEOUT_SECONDS)
+        response = requests.post(
+            f"{self._base_url}{path}", json=body, timeout=_TIMEOUT_SECONDS
+        )
         response.raise_for_status()

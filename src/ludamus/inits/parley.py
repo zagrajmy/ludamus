@@ -1,4 +1,4 @@
-"""Ways to get a revocation to the chat Worker once its transaction commits.
+"""Ways to get revocations and member lists to the chat Worker after commit.
 
 `SCHEDULER_MODE` picks between them the way it does for the other
 schedulers: DBOS retries delivery durably, the inline outbox tries once and
@@ -13,9 +13,11 @@ from datetime import UTC, datetime
 from django.conf import settings
 from django.db import transaction
 
+from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.parley_worker import ParleyWorkerClient
 from ludamus.mills.parley import sign_revocations
+from ludamus.mills.parley_conversations import sign_membership
 
 logger = logging.getLogger(__name__)
 
@@ -58,4 +60,46 @@ class DisabledParleyRevocationOutbox:
             "parley not configured, revocation dropped: spheres=%s subject=%s",
             sphere_ids,
             subject,
+        )
+
+
+def deliver_membership(conversation_id: int) -> None:
+    # Signed at delivery, so every attempt carries who is in it now.
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    ParleyWorkerClient(agent_host).sync_conversation(
+        sign_membership(
+            signer=JwtSigner(private_key),
+            repository=ParleyConversationRepository(),
+            conversation_id=conversation_id,
+            now=datetime.now(UTC),
+        )
+    )
+
+
+class InlineParleyMembershipOutbox:
+    @staticmethod
+    def schedule(*, conversation_ids: list[int]) -> None:
+        def deliver() -> None:
+            for conversation_id in conversation_ids:
+                try:
+                    deliver_membership(conversation_id)
+                except Exception:
+                    # The Worker keeps its last member list until the next
+                    # change reaches it; the change itself must not fail.
+                    logger.exception(
+                        "parley membership sync failed: conversation=%s",
+                        conversation_id,
+                    )
+
+        if conversation_ids:
+            transaction.on_commit(deliver)
+
+
+class DisabledParleyMembershipOutbox:
+    @staticmethod
+    def schedule(*, conversation_ids: list[int]) -> None:
+        logger.debug(
+            "parley not configured, membership sync dropped: conversations=%s",
+            conversation_ids,
         )

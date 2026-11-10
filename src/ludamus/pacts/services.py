@@ -56,7 +56,10 @@ if TYPE_CHECKING:
         ProposalPageServiceProtocol,
         ProposalPanelServiceProtocol,
     )
-    from ludamus.pacts.parley import ParleyServiceProtocol
+    from ludamus.pacts.parley import (
+        ParleyConversationServiceProtocol,
+        ParleyServiceProtocol,
+    )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -129,6 +132,8 @@ class TransactionProtocol(Protocol):
 class ServicesProtocol(Protocol):
     @property
     def parley(self) -> ParleyServiceProtocol: ...
+    @property
+    def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property

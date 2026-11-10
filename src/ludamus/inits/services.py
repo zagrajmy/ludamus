@@ -21,6 +21,7 @@ from ludamus.inits.builders import (
 from ludamus.inits.dbos_scheduler import (
     announcement_fanout_scheduler,
     offer_expiry_scheduler,
+    parley_membership_outbox,
     parley_revocation_outbox,
 )
 from ludamus.inits.repositories import Repositories
@@ -71,6 +72,7 @@ from ludamus.mills.notifications import (
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
+from ludamus.mills.parley_conversations import ParleyConversationService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -160,8 +162,17 @@ class Services:
         agent_host: str = settings.PARLEY_AGENT_HOST
         return ParleyService(
             repository=self._repos.parley,
+            conversations=self._repos.parley_conversations,
             signer=JwtSigner(signing_private_key),
             agent_host=agent_host,
+        )
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationService:
+        return ParleyConversationService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
         )
 
     @cached_property

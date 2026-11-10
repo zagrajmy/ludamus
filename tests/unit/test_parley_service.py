@@ -17,6 +17,18 @@ from ludamus.pacts.parley import (
 from ludamus.specs.parley import PARLEY_TOKEN_LIFETIME
 
 
+class NoConversations:
+    """Someone the direct and group conversations are not open to."""
+
+    @staticmethod
+    def is_eligible(_user_id):
+        return False
+
+    @staticmethod
+    def list_for(_user_id):
+        return []
+
+
 def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
     now = datetime(2026, 8, 6, 12, tzinfo=UTC)
     access = ParleyAccessDTO(
@@ -48,7 +60,10 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
     signer = Mock()
     signer.sign.return_value = "signed-token"
     service = ParleyService(
-        repository=repository, signer=signer, agent_host="parley.example.com"
+        repository=repository,
+        conversations=NoConversations(),
+        signer=signer,
+        agent_host="parley.example.com",
     )
 
     result = service.bootstrap(sphere_id=45, user_id=123, now=now)
@@ -77,6 +92,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
                 "canModerate": False,
             },
         ],
+        "conversations": [],
         "capabilityToken": "signed-token",
         "agentHost": "parley.example.com",
     }
@@ -97,6 +113,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
         "sessions": {"981": {"endsAt": 1_786_000_000, "writable": False}},
         "readOnlyAfter": 48 * 3600,
         "retainFor": 30 * 24 * 3600,
+        "direct": False,
         "iat": 1_786_017_600,
         "exp": 1_786_017_600 + 12 * 3600,
     }
@@ -137,7 +154,10 @@ def test_bootstrap_signs_a_manager_role_without_listing_rooms() -> None:
     signer = Mock()
     signer.sign.return_value = "signed-token"
     service = ParleyService(
-        repository=repository, signer=signer, agent_host="parley.example.com"
+        repository=repository,
+        conversations=NoConversations(),
+        signer=signer,
+        agent_host="parley.example.com",
     )
 
     service.bootstrap(sphere_id=45, user_id=123, now=now)
@@ -153,7 +173,10 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
     repository.read_access.return_value = None
     signer = Mock()
     service = ParleyService(
-        repository=repository, signer=signer, agent_host="parley.example.com"
+        repository=repository,
+        conversations=NoConversations(),
+        signer=signer,
+        agent_host="parley.example.com",
     )
 
     result = service.bootstrap(sphere_id=45, user_id=123, now=now)
@@ -169,7 +192,10 @@ def test_report_message_returns_what_the_repository_stored() -> None:
     repository = Mock()
     repository.create_report.return_value = False
     service = ParleyService(
-        repository=repository, signer=Mock(), agent_host="parley.example.com"
+        repository=repository,
+        conversations=NoConversations(),
+        signer=Mock(),
+        agent_host="parley.example.com",
     )
     data = ParleyReportData(
         sphere_id=45, user_id=123, room_id="sphere:45", message_id=7, reason="spam"

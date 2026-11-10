@@ -253,6 +253,85 @@ class Shadowban(models.Model):
 REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
 
 
+class ParleyConversation(models.Model):
+    """A chat between people, apart from any sphere: a direct one or a group."""
+
+    class Kind(models.TextChoices):
+        DIRECT = "direct"
+        GROUP = "group"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    title = models.CharField(max_length=80, blank=True, default="")
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    # One direct conversation per pair: "<lower pk>:<higher pk>". Groups have
+    # none, and any number of them may share members.
+    pair_key = models.CharField(max_length=41, null=True, blank=True, unique=True)
+
+    class Meta:
+        db_table = "parley_conversation"
+
+    def __str__(self) -> str:
+        return f"Parley {self.kind} conversation {self.pk}"
+
+
+class ParleyConversationMember(models.Model):
+    class State(models.TextChoices):
+        ACTIVE = "active"
+        # Reached by someone they have not talked to yet; reads, cannot write
+        # until they accept.
+        REQUEST = "request"
+        LEFT = "left"
+
+    conversation = models.ForeignKey(
+        ParleyConversation, on_delete=models.CASCADE, related_name="members"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_memberships"
+    )
+    state = models.CharField(max_length=10, choices=State.choices)
+    is_admin = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "parley_conversation_member"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("conversation", "user"),
+                name="parley_conversation_member_unique_user",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} is {self.state} in conversation {self.conversation_id}"
+
+
+class ParleyBlock(models.Model):
+    """No direct conversation between the two, and neither adds the other to a group."""
+
+    blocker = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocks"
+    )
+    blocked = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocked_by"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "parley_block"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("blocker", "blocked"), name="parley_block_unique_pair"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.blocker_id} blocks {self.blocked_id}"
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")

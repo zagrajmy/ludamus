@@ -44,8 +44,11 @@ from requests import HTTPError
 from ludamus.inits.builders import build_announcement_fanout, build_waitlist_promotion
 from ludamus.inits.config import SchedulerMode, scheduler_mode
 from ludamus.inits.parley import (
+    DisabledParleyMembershipOutbox,
     DisabledParleyRevocationOutbox,
+    InlineParleyMembershipOutbox,
     InlineParleyRevocationOutbox,
+    deliver_membership,
     deliver_revocations,
 )
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
@@ -55,7 +58,10 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
-    from ludamus.pacts.parley import ParleyRevocationOutboxProtocol
+    from ludamus.pacts.parley import (
+        ParleyMembershipOutboxProtocol,
+        ParleyRevocationOutboxProtocol,
+    )
     from ludamus.pacts.sweeps import Sweep
 
 logger = logging.getLogger(__name__)
@@ -156,6 +162,24 @@ def _deliver_parley_revocation_step(sphere_id: int, subject: str) -> None:
 def _parley_revocation_workflow(sphere_ids: list[int], subject: str) -> None:
     for sphere_id in sphere_ids:
         _deliver_parley_revocation_step(sphere_id, subject)
+
+
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+@_releases_db_connection
+def _deliver_parley_membership_step(conversation_id: int) -> None:
+    deliver_membership(conversation_id)
+
+
+@DBOS.workflow()
+def _parley_membership_workflow(conversation_ids: list[int]) -> None:
+    for conversation_id in conversation_ids:
+        _deliver_parley_membership_step(conversation_id)
 
 
 def _apply_schedules() -> None:
@@ -260,3 +284,24 @@ def parley_revocation_outbox() -> ParleyRevocationOutboxProtocol:
     if scheduler_mode() is SchedulerMode.DBOS:
         return DBOSParleyRevocationOutbox()
     return InlineParleyRevocationOutbox()
+
+
+class DBOSParleyMembershipOutbox:
+    @staticmethod
+    def schedule(*, conversation_ids: list[int]) -> None:
+        if not conversation_ids:
+            return
+        _ensure_launched()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_parley_membership_workflow, conversation_ids)
+        )
+
+
+def parley_membership_outbox() -> ParleyMembershipOutboxProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledParleyMembershipOutbox()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSParleyMembershipOutbox()
+    return InlineParleyMembershipOutbox()

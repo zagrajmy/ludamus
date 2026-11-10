@@ -7,6 +7,7 @@ from ludamus.pacts.parley import (
     REVOKE_EVERYONE,
     ParleyBootstrapDTO,
     ParleyCapabilityClaims,
+    ParleyConversationRepositoryProtocol,
     ParleyReportData,
     ParleyRepositoryProtocol,
     ParleyRevocationClaims,
@@ -32,10 +33,12 @@ class ParleyService:
         self,
         *,
         repository: ParleyRepositoryProtocol,
+        conversations: ParleyConversationRepositoryProtocol,
         signer: ParleySignerProtocol,
         agent_host: str,
     ) -> None:
         self._repository = repository
+        self._conversations = conversations
         self._signer = signer
         self._agent_host = agent_host
 
@@ -49,6 +52,7 @@ class ParleyService:
             return None
 
         issued_at = int(now.timestamp())
+        direct = self._conversations.is_eligible(user_id)
         claims = ParleyCapabilityClaims(
             iss="ludamus",
             aud="parley",
@@ -70,6 +74,7 @@ class ParleyService:
             ),
             read_only_after=int(PARLEY_SESSION_READ_ONLY_DELAY.total_seconds()),
             retain_for=int(PARLEY_SESSION_RETENTION.total_seconds()),
+            direct=direct,
             iat=issued_at,
             exp=int((now + PARLEY_TOKEN_LIFETIME).timestamp()),
             jti=token_urlsafe(18),
@@ -82,6 +87,7 @@ class ParleyService:
                 "avatarUrl": access.user_avatar_url,
             },
             rooms=access.rooms,
+            conversations=self._conversations.list_for(user_id) if direct else [],
             capability_token=self._signer.sign(claims),
             agent_host=self._agent_host,
         )
