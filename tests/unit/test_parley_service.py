@@ -1,14 +1,20 @@
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from ludamus.mills.parley import ParleyService
+from ludamus.mills.parley import (
+    ParleyRevocationService,
+    ParleyService,
+    sign_revocations,
+)
 from ludamus.pacts.parley import (
+    REVOKE_EVERYONE,
     ParleyAccessDTO,
     ParleyCapabilityClaims,
     ParleyReportData,
     ParleyRoomDTO,
     ParleyRoomKind,
 )
+from ludamus.specs.parley import PARLEY_TOKEN_LIFETIME
 
 
 def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
@@ -173,3 +179,80 @@ def test_report_message_returns_what_the_repository_stored() -> None:
 
     assert created is False
     assert repository.create_report.call_args.kwargs["window"].now == now
+
+
+class FakeChatSpheres:
+    def __init__(self, *, event_spheres=None, chat_spheres=()):
+        self._event_spheres = event_spheres or {}
+        self._chat_spheres = list(chat_spheres)
+
+    def read_event_sphere_id(self, event_id):
+        return self._event_spheres.get(event_id)
+
+    def list_chat_sphere_ids(self):
+        return self._chat_spheres
+
+
+class FakeOutbox:
+    def __init__(self):
+        self.scheduled = []
+
+    def schedule(self, *, sphere_ids, subject):
+        self.scheduled.append((sphere_ids, subject))
+
+
+def _revocations(repository):
+    outbox = FakeOutbox()
+    return ParleyRevocationService(repository=repository, outbox=outbox), outbox
+
+
+def test_a_ban_revokes_the_person_in_the_events_sphere_only_when_it_has_chat():
+    service, outbox = _revocations(FakeChatSpheres(event_spheres={7: 45}))
+
+    service.revoke_event_user(event_id=7, user_id=123)
+    service.revoke_event_user(event_id=8, user_id=123)
+
+    assert outbox.scheduled == [([45], "123")]
+
+
+def test_a_disabled_account_is_revoked_in_every_sphere_with_chat():
+    service, outbox = _revocations(FakeChatSpheres(chat_spheres=[3, 45]))
+    nowhere, quiet = _revocations(FakeChatSpheres())
+
+    service.revoke_user(user_id=123)
+    nowhere.revoke_user(user_id=123)
+
+    assert outbox.scheduled == [([3, 45], "123")]
+    assert not quiet.scheduled
+
+
+def test_turning_chat_off_revokes_everyone_in_the_sphere():
+    service, outbox = _revocations(FakeChatSpheres())
+
+    service.revoke_sphere(sphere_id=45)
+
+    assert outbox.scheduled == [([45], REVOKE_EVERYONE)]
+
+
+def test_each_sphere_gets_a_revocation_that_outlives_the_passes_it_voids():
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return f"token-{claims.sphere}"
+
+    tokens = sign_revocations(
+        signer=Signer(), sphere_ids=[3, 45], subject="123", now=now
+    )
+
+    assert tokens == ["token-3", "token-45"]
+    cutoff = int(now.timestamp())
+    for claims in signed:
+        assert claims.aud == "parley-revocation"
+        assert claims.sub == "123"
+        assert claims.revoked_before == cutoff
+        assert claims.exp == int((now + PARLEY_TOKEN_LIFETIME).timestamp())
+    assert signed[0].jti != signed[1].jti
