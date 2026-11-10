@@ -18,8 +18,7 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest
 
-    from ludamus.pacts.legacy import RequestContext
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import RequestContext, ServicesProtocol
 
     class RootHttpRequest(HttpRequest):
         context: RequestContext

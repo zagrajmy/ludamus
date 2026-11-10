@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from ludamus.gates.web.django.meta import LinkPreview, session_link_preview
-from tests.integration.web.chronology.helpers import loc_dict, make_session_data
+from tests.integration.web.event.helpers import loc_dict, make_session_data
 
 
 class TestSessionLinkPreview:

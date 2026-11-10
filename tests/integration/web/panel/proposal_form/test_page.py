@@ -20,7 +20,8 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts.legacy import EventDTO, NotificationKind
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
@@ -148,6 +149,33 @@ class TestCreate:
 
         new_session = assert_created(response, event, title="My New Session")
         assert new_session.slug != "my-new-session"
+
+    def test_post_transliterates_a_polish_title_into_the_slug(
+        self, panel_client, event
+    ):
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = panel_client.post(
+            form_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Łódzkie Łowy",
+                "facilitator_name": "Test Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
+            },
+        )
+
+        new_session = assert_created(response, event, title="Łódzkie Łowy")
+        assert new_session.slug == "lodzkie-lowy"
 
     def test_post_creates_session_with_cover_image(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -297,6 +325,7 @@ class TestEdit:
     ):
         other_event = EventFactory(sphere=sphere)
         session = make_session(other_event)
+        title = session.title
 
         response = panel_client.post(
             form_url(event, session.pk),
@@ -304,6 +333,8 @@ class TestEdit:
         )
 
         assert_proposal_not_found(response, event)
+        session.refresh_from_db()
+        assert session.title == title
 
     def test_post_updates_session_and_redirects(self, panel_client, event):
         session = make_session(event)

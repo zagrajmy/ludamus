@@ -13,10 +13,7 @@ from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access
-from ludamus.gates.web.django.chronology.event_presentation import (
-    EventInfo,
-    split_events,
-)
+from ludamus.gates.web.django.event.event_presentation import EventInfo, split_events
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
 
 if TYPE_CHECKING:

@@ -12,8 +12,10 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     TimeSlotRequirement,
 )
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.conftest import EventFactory, SessionFactory
 from tests.integration.utils import (
     FormErrorsMatcher,

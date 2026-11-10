@@ -10,8 +10,7 @@ from ludamus.links.db.django.models import (
     Sphere,
     User,
 )
-from ludamus.pacts.crowd import UserType
-from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
+from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
     ParleyReportData,
@@ -20,6 +19,8 @@ from ludamus.pacts.parley import (
     ParleyRoomKind,
     ParleyTimeWindow,
 )
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.user import UserType
 
 
 class ParleyRepository(ParleyRepositoryProtocol):

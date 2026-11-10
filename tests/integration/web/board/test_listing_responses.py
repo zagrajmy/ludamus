@@ -5,13 +5,13 @@ from django.contrib.messages import constants
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ListingResponse, Notification
-from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.listing import (
     ListingContact,
     ListingResponseDTO,
     ListingResponseStatus,
     ListingStatus,
 )
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import ListingFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,

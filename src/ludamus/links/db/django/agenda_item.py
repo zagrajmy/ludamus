@@ -9,15 +9,15 @@ from django.db.models import Count, Q
 from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
 from ludamus.pacts.discounts import FacilitatorScheduleRow
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import (
     AgendaItemData,
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
     AgendaItemUpdateData,
     ConfirmationCountsRow,
     ConfirmationTotalsRow,
-    NotFoundError,
-    SessionStatus,
 )
 
 if TYPE_CHECKING:

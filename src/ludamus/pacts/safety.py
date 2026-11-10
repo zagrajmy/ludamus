@@ -3,8 +3,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
+from ludamus.pacts.user import UserDTO
 
 
 class ShadowbanMeetSessionDTO(BaseModel):

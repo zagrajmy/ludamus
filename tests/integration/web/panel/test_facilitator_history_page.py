@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, FacilitatorChangeLog
-from ludamus.pacts.legacy import FacilitatorChangeLogDTO
+from ludamus.pacts.facilitators import FacilitatorChangeLogDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import panel_context
 

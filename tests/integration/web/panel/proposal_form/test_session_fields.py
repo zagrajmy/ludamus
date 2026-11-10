@@ -6,9 +6,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
-    OrphanFieldValue,
-)
+from ludamus.gates.web.django.event.panel.views.proposal_edit import OrphanFieldValue
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,

@@ -41,48 +41,27 @@ from django.conf import settings
 from django.db import connection, transaction
 from requests import HTTPError
 
-from ludamus.inits.builders import (
-    build_announcement_fanout,
-    build_email_verification,
-    build_encounters,
-    build_konwencik_export,
-    build_listings,
-    build_printables_reminder,
-    build_sites,
-    build_sphere_subscriptions,
-    build_waitlist_promotion,
+from ludamus.inits.builders import build_announcement_fanout, build_waitlist_promotion
+from ludamus.inits.config import SchedulerMode, scheduler_mode
+from ludamus.inits.parley import (
+    DisabledParleyRevocationOutbox,
+    InlineParleyRevocationOutbox,
+    deliver_revocations,
 )
-from ludamus.inits.parley import deliver_revocations
+from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
+
+    from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
+    from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import ParleyRevocationOutboxProtocol
+    from ludamus.pacts.sweeps import Sweep
 
 logger = logging.getLogger(__name__)
 
 _launched = threading.Event()
 _launch_lock = threading.Lock()
-
-# Cron cadences (croniter syntax). The offers sweep is the recovery floor
-# under the per-offer timers (see the module docstring); printables reminders
-# go out each morning, Polish time being UTC+1/+2.
-EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
-PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
-VERIFICATION_REMINDERS_SCHEDULE = "30 7 * * *"
-# Recovery floor for announcement fanouts whose workflow was lost between
-# commit and start; the claim on notified_at keeps a double run harmless.
-ANNOUNCEMENT_FANOUT_SCHEDULE = "*/5 * * * *"
-# One cadence for every event, not a per-event knob: the export is a full
-# rewrite, so re-running is free and nothing accumulates between ticks. The
-# sweep is already bounded by sync-on and event-not-long-finished.
-KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
-# Subscribers hear about a new programme within the hour, not the minute:
-# publishing is an editorial act, and a burst of mail on the exact tick
-# would catch the organizer's own last-second fixes.
-SPHERE_ANNOUNCEMENTS_SCHEDULE = "10 * * * *"
-# Rows only wait out the one-day invite window, so daily is enough.
-ENCOUNTER_INVITEE_PURGE_SCHEDULE = "40 3 * * *"
-# Listings stay open for days, so a day late to close one costs nothing.
-LISTING_CLOSE_SCHEDULE = "50 3 * * *"
 
 
 def _releases_db_connection[**P](step: Callable[P, None]) -> Callable[P, None]:
@@ -116,19 +95,6 @@ def _expire_offer_workflow(participation_id: int, delay_seconds: float) -> None:
 
 @DBOS.step()
 @_releases_db_connection
-def _expire_lapsed_offers_step(now: datetime) -> None:
-    service = build_waitlist_promotion(DBOSOfferExpiryScheduler())
-    expired = service.expire_lapsed_offers(now=now)
-    logger.info("expire_offers sweep: processed %s lapsed offer(s)", expired)
-
-
-@DBOS.workflow()
-def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
-    _expire_lapsed_offers_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
 def _fanout_announcement_step(announcement_id: int) -> None:
     notified = build_announcement_fanout().fanout(announcement_id)
     logger.info(
@@ -143,87 +109,27 @@ def _fanout_announcement_workflow(announcement_id: int) -> None:
     _fanout_announcement_step(announcement_id)
 
 
-@DBOS.step()
-@_releases_db_connection
-def _fanout_due_announcements_step() -> None:
-    if notified := build_announcement_fanout().fanout_due():
-        logger.info("announcement fanout sweep: notified %s subscriber(s)", notified)
+_cron_workflows: list[tuple[Callable[[datetime, None], None], Sweep]] = []
 
 
-@DBOS.workflow()
-def announcement_fanout_sweep(_scheduled: datetime, _actual: datetime) -> None:
-    _fanout_due_announcements_step()
+def _cron_workflow(sweep: Sweep) -> Callable[[datetime, None], None]:
+    @DBOS.step(name=f"{sweep.workflow}_step")
+    @_releases_db_connection
+    def step(now: datetime) -> None:
+        logger.info("%s", sweep.summary(sweep.run(now)))
+
+    @DBOS.workflow(name=sweep.workflow)
+    def workflow(scheduled: datetime, _context: None) -> None:
+        step(scheduled)
+
+    return workflow
 
 
-@DBOS.step()
-@_releases_db_connection
-def _send_printables_reminders_step(now: datetime) -> None:
-    reminded = build_printables_reminder().send_due_reminders(now=now)
-    logger.info("printables reminders: reminded %s event(s)", reminded)
-
-
-@DBOS.workflow()
-def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
-    _send_printables_reminders_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
-def _send_verification_reminders_step(now: datetime) -> None:
-    sent = build_email_verification().send_due_reminders(now=now)
-    logger.info("verification reminders: reminded %s user(s)", sent)
-
-
-@DBOS.workflow()
-def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
-    _send_verification_reminders_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
-def _announce_published_events_step(now: datetime) -> None:
-    announced = build_sphere_subscriptions().announce_published_events(now=now)
-    logger.info("sphere announcements: announced %s event(s)", announced)
-
-
-@DBOS.workflow()
-def sphere_announcements_tick(scheduled: datetime, _actual: datetime) -> None:
-    _announce_published_events_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
-def _export_konwencik_step(now: datetime) -> None:
-    exported = build_konwencik_export().run_sweep(now=now)
-    logger.info("konwencik export sweep: exported %s integration(s)", exported)
-
-
-@DBOS.workflow()
-def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
-    _export_konwencik_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
-def _purge_encounter_invitees_step(now: datetime) -> None:
-    build_encounters(build_sites()).purge_stale_invitees(now=now)
-
-
-@DBOS.workflow()
-def encounter_invitee_purge_tick(scheduled: datetime, _actual: datetime) -> None:
-    _purge_encounter_invitees_step(scheduled)
-
-
-@DBOS.step()
-@_releases_db_connection
-def _close_stale_listings_step(now: datetime) -> None:
-    closed = build_listings().close_stale(now)
-    logger.info("listing close sweep: closed %s listing(s)", closed)
-
-
-@DBOS.workflow()
-def listing_close_tick(scheduled: datetime, _actual: datetime) -> None:
-    _close_stale_listings_step(scheduled)
+def register_sweeps(sweeps: Iterable[Sweep]) -> None:
+    # Registered under the sweep's own names: DBOS recovers and schedules by
+    # name, so each workflow must exist in every process before launch, under
+    # the name the system database already holds.
+    _cron_workflows.extend((_cron_workflow(sweep), sweep) for sweep in sweeps)
 
 
 def _worth_retrying(error: BaseException) -> bool:
@@ -252,29 +158,17 @@ def _parley_revocation_workflow(sphere_ids: list[int], subject: str) -> None:
         _deliver_parley_revocation_step(sphere_id, subject)
 
 
-CRON_WORKFLOWS = (
-    (expire_offers_sweep, EXPIRE_OFFERS_SCHEDULE),
-    (printables_reminders_tick, PRINTABLES_REMINDERS_SCHEDULE),
-    (verification_reminders_tick, VERIFICATION_REMINDERS_SCHEDULE),
-    (announcement_fanout_sweep, ANNOUNCEMENT_FANOUT_SCHEDULE),
-    (sphere_announcements_tick, SPHERE_ANNOUNCEMENTS_SCHEDULE),
-    (konwencik_export_tick, KONWENCIK_EXPORT_SCHEDULE),
-    (encounter_invitee_purge_tick, ENCOUNTER_INVITEE_PURGE_SCHEDULE),
-    (listing_close_tick, LISTING_CLOSE_SCHEDULE),
-)
-
-
 def _apply_schedules() -> None:
     # Upsert by name, so every launch (and every worker) converges on the same
-    # definitions; cadence edits in this module take effect on the next launch.
+    # definitions; cadence edits in `inits.sweeps` take effect on the next launch.
     DBOS.apply_schedules(
         [
             {
-                "schedule_name": workflow.__name__,
+                "schedule_name": sweep.workflow,
                 "workflow_fn": workflow,
-                "schedule": cron,
+                "schedule": sweep.cron,
             }
-            for workflow, cron in CRON_WORKFLOWS
+            for workflow, sweep in _cron_workflows
         ]
     )
 
@@ -298,7 +192,7 @@ def _ensure_launched() -> None:
         _launched.set()
         logger.info(
             "DBOS launched; schedules active: %s",
-            [workflow.__name__ for workflow, _cron in CRON_WORKFLOWS],
+            [sweep.workflow for _workflow, sweep in _cron_workflows],
         )
 
 
@@ -309,7 +203,7 @@ def launch_scheduler() -> None:
     # failure there must not take request serving down — the thread dies loudly
     # via threading.excepthook while the management commands remain the manual
     # floor. The next schedule_expiry call retries the launch.
-    if settings.SCHEDULER_MODE != "dbos":
+    if scheduler_mode() is not SchedulerMode.DBOS:
         return
     threading.Thread(target=_ensure_launched, name="dbos-launch", daemon=True).start()
 
@@ -335,6 +229,18 @@ class DBOSAnnouncementFanoutScheduler:
         )
 
 
+def offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSOfferExpiryScheduler()
+    return CronSweepOfferScheduler()
+
+
+def announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSAnnouncementFanoutScheduler()
+    return CronSweepAnnouncementFanout()
+
+
 class DBOSParleyRevocationOutbox:
     @staticmethod
     def schedule(*, sphere_ids: list[int], subject: str) -> None:
@@ -344,3 +250,13 @@ class DBOSParleyRevocationOutbox:
                 _parley_revocation_workflow, sphere_ids, subject
             )
         )
+
+
+def parley_revocation_outbox() -> ParleyRevocationOutboxProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledParleyRevocationOutbox()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSParleyRevocationOutbox()
+    return InlineParleyRevocationOutbox()

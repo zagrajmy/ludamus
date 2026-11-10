@@ -10,15 +10,11 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
-)
-from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.panel import PanelRequest, safe_next_url
 from ludamus.gates.web.django.sphere.forms import FacilitatorAssignGuildForm
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.propose import FacilitatorActionError, OrganizerActionRefusal
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -88,8 +84,8 @@ def refusal_message(
     )
 
 
-class FacilitatorActionView(EventPanelAccessMixin, EventContextMixin, View):
-    request: EventPanelRequest
+class FacilitatorActionView(EventPanelMixin, View):
+    request: PanelRequest
     http_method_names = ("post",)
     success_message: str | _StrPromise = ""
 
@@ -97,17 +93,13 @@ class FacilitatorActionView(EventPanelAccessMixin, EventContextMixin, View):
         raise NotImplementedError
 
     def post(
-        self, _request: EventPanelRequest, slug: str, facilitator_slug: str
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
         back = safe_next_url(
             self.request, reverse("panel:facilitators", kwargs={"slug": slug})
         )
         try:
-            error = self._apply(current_event.pk, facilitator_slug)
+            error = self._apply(self.current_event.pk, facilitator_slug)
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)

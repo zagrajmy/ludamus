@@ -4,8 +4,9 @@ import pytest
 
 from ludamus.links.db.django.models import EventBan, Facilitator
 from ludamus.links.db.django.parley import ParleyRepository
-from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
+from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.parley import ParleyTimeWindow
+from ludamus.pacts.sessions import SessionStatus
 from ludamus.specs.parley import (
     PARLEY_SESSION_READ_ONLY_DELAY,
     PARLEY_SESSION_RETENTION,

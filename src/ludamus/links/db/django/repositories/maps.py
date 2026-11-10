@@ -9,7 +9,7 @@ from ludamus.links.db.django.repositories.storage import (
     delete_stored_file_on_commit,
     with_original_names,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.maps import (
     EventMapPageDTO,
     EventMapRecordDTO,

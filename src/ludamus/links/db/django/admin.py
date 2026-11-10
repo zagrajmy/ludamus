@@ -28,7 +28,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

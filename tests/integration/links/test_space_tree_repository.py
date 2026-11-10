@@ -3,10 +3,10 @@ from django.core.exceptions import ValidationError
 
 from ludamus.links.db.django.models import SPACE_UNDELETABLE_REASON, Space, Track
 from ludamus.links.db.django.repositories import SpaceTreeRepository
-from ludamus.links.db.django.repositories.chronology import location_data
+from ludamus.links.db.django.repositories.event import EventRepository, location_data
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 from tests.integration.conftest import AgendaItemFactory
 
@@ -18,7 +18,11 @@ def repo_fixture():
 
 @pytest.fixture(name="service")
 def service_fixture():
-    return SpaceTreeService(DjangoTransaction(), SpaceTreeRepository())
+    return SpaceTreeService(
+        transaction=DjangoTransaction(),
+        spaces=SpaceTreeRepository(),
+        events=EventRepository(),
+    )
 
 
 def space_input(name, capacity=None, description="", location=""):
@@ -189,9 +193,9 @@ class TestSpaceTreeRepositoryMutations:
         assert Space.objects.get(pk=b.pk).order == 0
         assert Space.objects.get(pk=a.pk).order == 1
 
-    def test_read_unknown_raises(self, repo):
+    def test_read_unknown_raises(self, event, repo):
         with pytest.raises(NotFoundError):
-            repo.read(987654)
+            repo.read_in_event(event.pk, 987654)
 
     def test_list_tree_nests_and_flags_leaves(self, event, repo):
         root = repo.create(event_id=event.pk, parent_id=None, data=space_input("Root"))
@@ -283,7 +287,7 @@ class TestSpaceTreeServiceDelete:
             event_id=event.pk, parent_id=None, data=space_input("Root")
         )
 
-        assert service.delete_space(root.pk) is True
+        assert service.delete_space(event_id=event.pk, pk=root.pk) is True
         assert not Space.objects.filter(pk=root.pk).exists()
 
     def test_delete_blocked_when_descendant_has_session(self, event, service):
@@ -295,7 +299,7 @@ class TestSpaceTreeServiceDelete:
         )
         AgendaItemFactory(space=Space.objects.get(pk=leaf.pk))
 
-        assert service.delete_space(root.pk) is False
+        assert service.delete_space(event_id=event.pk, pk=root.pk) is False
         assert Space.objects.filter(pk=root.pk).exists()
 
 

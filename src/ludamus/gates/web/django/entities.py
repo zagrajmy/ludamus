@@ -5,16 +5,15 @@ from typing import TYPE_CHECKING, Self
 
 from django.http import HttpRequest
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from ludamus.pacts.user import display_avatar_url
 
-    from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.legacy import (
+if TYPE_CHECKING:
+    from ludamus.pacts.services import (
         AuthenticatedRequestContext,
-        DependencyInjectorProtocol,
         RequestContext,
+        ServicesProtocol,
     )
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.user import UserDTO
 
 
 @dataclass
@@ -28,15 +27,14 @@ class UserInfo:
     username: str
 
     @classmethod
-    def from_user_dto(
-        cls, user_dto: UserDTO, *, gravatar_url: Callable[[str], str | None]
-    ) -> Self:
+    def from_user_dto(cls, user_dto: UserDTO) -> Self:
         return cls(
-            avatar_url=(
-                gravatar_url(user_dto.email)
-                if user_dto.use_gravatar
-                else user_dto.avatar_url or gravatar_url(user_dto.email)
-            ),
+            avatar_url=display_avatar_url(
+                email=user_dto.email,
+                avatar_url=user_dto.avatar_url,
+                use_gravatar=user_dto.use_gravatar,
+            )
+            or None,
             discord_username=user_dto.discord_username,
             full_name=user_dto.full_name,
             name=user_dto.name,
@@ -48,7 +46,6 @@ class UserInfo:
 
 class RootRequest(HttpRequest):
     context: RequestContext
-    di: DependencyInjectorProtocol
     services: ServicesProtocol
 
 

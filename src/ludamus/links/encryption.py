@@ -16,7 +16,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from ludamus.pacts.multiverse import DecryptionError
+from ludamus.pacts.sphere import DecryptionError
 
 if TYPE_CHECKING:
     from ludamus.pacts.parley import ParleyCapabilityClaims, ParleyRevocationClaims

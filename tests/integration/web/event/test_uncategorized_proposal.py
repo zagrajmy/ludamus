@@ -8,7 +8,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ludamus.links.db.django.models import EventProposalSettings, Session
-from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, SessionStatus
+from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
+from ludamus.pacts.sessions import SessionStatus
 from tests.integration.utils import assert_response
 
 
@@ -137,7 +138,7 @@ def test_proposal_without_categories_can_be_submitted(
     assert proposal.category_id is None
     assert proposal.status == SessionStatus.PENDING
     assert proposal.participants_limit == 0
-    assert list(proposal.time_slots.all()) == []
+    assert not list(proposal.time_slots.all())
     assert proposal.facilitators.get().display_name == "Host"
     assert proposal.presenter_id == (None if anonymous else active_user.pk)
     assert f"propose_{event.slug}" not in proposer.session

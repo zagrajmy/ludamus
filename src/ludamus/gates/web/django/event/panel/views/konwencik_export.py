@@ -13,17 +13,16 @@ from django.utils.translation import gettext_lazy, ngettext, ngettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
+    EventPanelMixin,
+    PanelContext,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportSettings,
     KonwencikSkipReason,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
@@ -32,8 +31,8 @@ if TYPE_CHECKING:
     from django.forms.formsets import BaseFormSet
     from django.http import HttpResponse, QueryDict
 
-    from ludamus.gates.web.django.event.panel.views.base import EventPageContext
-    from ludamus.pacts.chronology import EventIntegrationDTO
+    from ludamus.gates.web.django.panel import PanelRequest
+    from ludamus.pacts.integrations import EventIntegrationDTO
     from ludamus.pacts.konwencik import (
         KonwencikLastRun,
         KonwencikNamedItemDTO,
@@ -225,14 +224,14 @@ def _settings_from(
 
 
 class _Loaded(NamedTuple):
-    page: EventPageContext
+    page: PanelContext
     event_pk: int
     integration: EventIntegrationDTO
     settings: KonwencikSettingsContext
 
 
 def _konwencik_integrations(
-    request: EventPanelRequest, event_pk: int
+    request: PanelRequest, event_pk: int
 ) -> list[EventIntegrationDTO]:
     return [
         i
@@ -243,13 +242,13 @@ def _konwencik_integrations(
     ]
 
 
-class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, View):
+class KonwencikExportSettingsPageView(EventPanelMixin, View):
     """Per-category icons, per-track colours and the two override fields."""
 
-    request: EventPanelRequest
+    request: PanelRequest
 
     def get(
-        self, _request: EventPanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
@@ -262,7 +261,7 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
         )
 
     def post(
-        self, _request: EventPanelRequest, slug: str, pk: int | None = None
+        self, _request: PanelRequest, slug: str, pk: int | None = None
     ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
@@ -287,12 +286,9 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
 
     def _load(self, slug: str, pk: int | None) -> _Loaded | HttpResponse:
         # A response is a return value rather than an exception because both
-        # verbs answer the same three ways: no such event, no such export, or
-        # the empty state.
-        if (context := self.get_typed_event_context(slug)) is None:
-            return redirect("panel:index")
-        current_event = context["current_event"]
-        integrations = _konwencik_integrations(self.request, current_event.pk)
+        # verbs answer the same two ways: no such export, or the empty state.
+        context = self.panel_context()
+        integrations = _konwencik_integrations(self.request, self.current_event.pk)
         active = (
             next((i for i in integrations if i.pk == pk), None)
             if pk is not None
@@ -315,12 +311,12 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
             )
         settings_context = self.request.services.konwencik_export.get_settings_context(
             sphere_id=self.request.context.current_sphere_id,
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             pk=active.pk,
         )
         return _Loaded(
             page=context,
-            event_pk=current_event.pk,
+            event_pk=self.current_event.pk,
             integration=active,
             settings=settings_context,
         )
@@ -382,20 +378,16 @@ def _previews(context: KonwencikSettingsContext) -> list[_Preview]:
     ]
 
 
-class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):
+class KonwencikExportActionView(EventPanelMixin, View):
     """POST-only: rebuild the Konwencik tab from the current schedule."""
 
-    request: EventPanelRequest
+    request: PanelRequest
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         try:
             outcome = self.request.services.konwencik_export.export_now(
                 sphere_id=self.request.context.current_sphere_id,
-                event_pk=current_event.pk,
+                event_pk=self.current_event.pk,
                 pk=pk,
             )
         except NotFoundError:

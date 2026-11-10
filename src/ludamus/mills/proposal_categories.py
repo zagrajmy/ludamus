@@ -1,5 +1,5 @@
-# TODO(hasparus): fold into mills/submissions/ next to
-# proposal_category_settings.py (protocol into pacts/submissions.py) once
+# TODO(hasparus): fold into mills/propose/ next to
+# proposal_category_settings.py (protocol into pacts/propose.py) once
 # PRs #625/#626 release those files; top-level for now like discounts.py.
 from __future__ import annotations
 
@@ -11,8 +11,10 @@ from ludamus.pacts.proposal_categories import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import ProposalCategoryDTO
-    from ludamus.pacts.proposal_categories import ProposalCategoriesRepositoryProtocol
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoriesRepositoryProtocol,
+        ProposalCategoryDTO,
+    )
     from ludamus.pacts.services import TransactionProtocol
 
 

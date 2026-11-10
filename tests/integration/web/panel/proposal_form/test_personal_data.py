@@ -6,17 +6,15 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
-    PersonalDataCard,
-)
+from ludamus.gates.web.django.event.panel.views.proposal_edit import PersonalDataCard
 from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
+from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
-from ludamus.pacts.legacy import FacilitatorDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 from tests.integration.web.panel.helpers import facilitator_list_item_dto

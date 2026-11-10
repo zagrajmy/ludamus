@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Literal, TypedDict, TypeIs
+from typing import Literal, NotRequired, Protocol, TypedDict, TypeIs
 
 from pydantic import BaseModel, ConfigDict
 
@@ -27,6 +27,9 @@ type TextFieldKind = Literal["text", "discord"]
 TEXT_FIELD_KINDS: frozenset[str] = frozenset({"text", "discord"})
 _SESSION_FIELD_TYPES: frozenset[str] = frozenset({"text", "select", "checkbox"})
 _PERSONAL_FIELD_TYPES: frozenset[str] = _SESSION_FIELD_TYPES | TEXT_FIELD_KINDS
+# A required checkbox would only accept a tick, so it is never required: not by
+# the organiser's flag, and not by a category asking for it.
+UNREQUIRABLE_FIELD_TYPES: frozenset[str] = frozenset({"checkbox"})
 
 
 def is_session_field_type(value: str) -> TypeIs[SessionFieldType]:
@@ -90,6 +93,10 @@ class OrganizerFieldDTO(BaseModel):
     # validate against one option list and offer another.
 
     @property
+    def can_be_required(self) -> bool:
+        return self.field_type not in UNREQUIRABLE_FIELD_TYPES
+
+    @property
     def offers_custom_input(self) -> bool:
         # A checkbox has nothing to customise; every other type with
         # allow_custom gets the companion write-in.
@@ -116,7 +123,7 @@ class OrganizerFieldDTO(BaseModel):
     def control_required(self, *, is_required: bool) -> bool:
         # A write-in can stand in for a choice, so the control alone can no
         # longer enforce the requirement — the form checks the pair instead.
-        return is_required and not self.offers_custom_input
+        return is_required and self.can_be_required and not self.offers_custom_input
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,3 +143,169 @@ class FieldDescriptor(TypedDict):
     field: OrganizerFieldDTO
     name_prefix: str
     answer: FieldAnswer
+
+
+class SessionFieldValueDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allow_custom: bool = False
+    field_icon: str = ""
+    field_id: int = 0
+    field_name: str
+    field_question: str
+    field_slug: str = ""
+    field_order: int = 0
+    field_type: str = "text"
+    is_public: bool = False
+    show_on_cards: bool = True
+    value: str | list[str] | bool
+
+
+@dataclass
+class FieldUsageSummary:
+    """A field DTO bundled with its usage counts across categories."""
+
+    field: OrganizerFieldDTO
+    required_count: int
+    optional_count: int
+
+    @property
+    def is_used(self) -> bool:
+        """Whether any category asks for this field.
+
+        The same question `CFPSessionFieldService.delete` answers with
+        `has_requirements`, from counts the page already has — so the list can
+        say Delete is unavailable without another query.
+
+        Returns:
+            True when at least one category requires or offers the field.
+        """
+        return bool(self.required_count or self.optional_count)
+
+
+class SessionFieldValueData(TypedDict):
+    session_id: int
+    field_id: int
+    value: str | list[str] | bool
+
+
+class PersonalDataFieldValueData(TypedDict):
+    facilitator_id: int
+    event_id: int
+    field_id: int
+    value: str | list[str] | bool
+
+
+class OrganizerFieldFormData(TypedDict):
+    """What the field forms share, personal-data and session alike.
+
+    The type itself is not here: a personal-data field may be a Discord
+    username and a session field may not, so each kind declares its own.
+    """
+
+    name: str
+    slug: NotRequired[str]
+    question: str
+    options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
+    max_length: int
+    help_text: str
+    is_public: bool
+
+
+class PersonalDataFieldCreateData(OrganizerFieldFormData):
+    field_type: PersonalFieldType
+    is_required: bool
+    order: int
+
+
+class PersonalDataFieldUpdateData(OrganizerFieldFormData):
+    # No `field_type`: switching one is its own operation, so an edit leaves
+    # the stored type alone unless `set_field_type` changes it.
+    is_required: bool
+    order: int
+
+
+class SessionFieldCreateData(OrganizerFieldFormData):
+    field_type: SessionFieldType
+    icon: str
+
+
+class SessionFieldUpdateData(TypedDict):
+    name: str
+    question: str
+    max_length: int
+    help_text: str
+    icon: str
+    is_public: bool
+    options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
+
+
+class PersonalDataFieldRepositoryProtocol(Protocol):
+    def create(
+        self, event_id: int, data: PersonalDataFieldCreateData
+    ) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
+    def has_values(pk: int) -> bool: ...
+    @staticmethod
+    def count_values(event_id: int) -> dict[int, int]: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    def update(
+        self, pk: int, data: PersonalDataFieldUpdateData
+    ) -> OrganizerFieldDTO: ...
+    def set_field_type(
+        self, pk: int, field_type: TextFieldKind
+    ) -> OrganizerFieldDTO: ...
+
+
+class SessionFieldRepositoryProtocol(Protocol):
+    def create(
+        self, event_id: int, data: SessionFieldCreateData
+    ) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def delete_orphans_for_event(event_id: int) -> int: ...
+    @staticmethod
+    def has_requirements(pk: int) -> bool: ...
+    @staticmethod
+    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    @staticmethod
+    def show_on_cards_only(event_id: int, field_ids: list[int]) -> None: ...
+    def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
+
+
+class PersonalDataFieldValueRepositoryProtocol(Protocol):
+    @staticmethod
+    def save(entries: list[PersonalDataFieldValueData]) -> None: ...
+    @staticmethod
+    def read_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> dict[str, str | list[str] | bool]: ...
+    @staticmethod
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
+    @staticmethod
+    def list_field_ids_for_facilitator_event(
+        facilitator_id: int, event_id: int
+    ) -> list[int]: ...
+    @staticmethod
+    def delete_by_facilitators(facilitator_ids: list[int]) -> None: ...
+    @staticmethod
+    def delete_for_facilitator_fields(
+        facilitator_id: int, field_ids: list[int]
+    ) -> int: ...
+
+
+DEFAULT_FIELD_MAX_LENGTH = 50

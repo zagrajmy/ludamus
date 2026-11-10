@@ -3,8 +3,8 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from ludamus.links.db.django.crowd import UserRepository
-from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, UserType
+from ludamus.links.db.django.users import UserRepository
+from ludamus.pacts.user import EMAIL_LINK_MAX_AGE, UserType
 from tests.integration.conftest import UserFactory
 
 pytestmark = pytest.mark.django_db
