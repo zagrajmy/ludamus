@@ -34,8 +34,7 @@ from ludamus.pacts.mcp import (
 if TYPE_CHECKING:
     from urllib.parse import SplitResult
 
-    from ludamus.pacts.crowd import UserRepositoryProtocol
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.mcp import (
         AuthorizationCodeStoreProtocol,
         ClientMetadataDocument,
@@ -43,7 +42,8 @@ if TYPE_CHECKING:
         McpAuthorizationRequest,
         McpGrant,
     )
-    from ludamus.pacts.multiverse import SpherePanelServiceProtocol
+    from ludamus.pacts.sphere import SpherePanelServiceProtocol
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 AUTHORIZATION_CODE_TTL_SECONDS = 60
 CLIENT_NAME_MAX_LENGTH = 100

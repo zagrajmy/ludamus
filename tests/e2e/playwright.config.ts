@@ -132,6 +132,10 @@ export default defineConfig({
         /proposal-delete-restore\.spec\.ts/,
         /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
+        /anonymous-enrollment\.spec\.ts/,
+        /proposal-bulk-review\.spec\.ts/,
+        /panel-enrollment-window\.spec\.ts/,
+        /timetable-publish\.spec\.ts/,
         // Read-only but chains several full navigations of the heavy print
         // preview; Firefox's slow loads make it time out where Chromium fits
         // comfortably. print-page.spec.ts keeps Firefox coverage of the page.

@@ -8,13 +8,13 @@ review), add it here — that's how the next agent inherits it.
 
 - **Icon-only buttons carry a label.** Every `.icon-btn` in the codebase pairs
   the `{% icon %}` with a `<span class="sr-only">{% translate "…" %}</span>`.
-  See `src/ludamus/templates/crowd/user/parties.html` (companion row
+  See `src/ludamus/templates/user/user/parties.html` (companion row
   actions) and the gallery in `src/ludamus/templates/design.html`. This is
   enforced by `rules/icon-btn-accessible-name.yml`.
 - **Let tessera collapse single-choice fields.** A required field with one
   possible value renders no widget — `render_forced_choice` /
   `single_required_choice` in
-  `src/ludamus/adapters/web/django/templatetags/tessera/form_select.py`. This is
+  `src/ludamus/gates/web/django/templatetags/tessera/form_select.py`. This is
   the house answer to "don't show a form with one selectable option."
 - **Tables go through `{% tessera_table %}`.** It supplies the card chrome and
   responsive scroll wrapper, so the table is consistent and works on narrow

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import CheckOutcome, CheckResult
+from ludamus.pacts.integrations import CheckOutcome, CheckResult
 
 if TYPE_CHECKING:
     import requests

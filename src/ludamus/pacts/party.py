@@ -10,8 +10,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.ids import UserId
+from ludamus.pacts.user import CompanionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"

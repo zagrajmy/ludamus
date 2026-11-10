@@ -25,7 +25,6 @@ from ludamus.links.db.django.repositories.storage import (
     with_original_names,
 )
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.crowd import UserType
 from ludamus.pacts.guild import (
     AssignableFacilitatorRef,
     GuildDTO,
@@ -37,6 +36,7 @@ from ludamus.pacts.guild import (
     GuildSummaryDTO,
     GuildWriteData,
 )
+from ludamus.pacts.user import UserType
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

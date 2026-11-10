@@ -1,0 +1,374 @@
+"""Proposal intake: everything the propose wizard reads and the submit it writes."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+from ludamus.pacts.durations import normalize_duration
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorData
+from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueData
+from ludamus.pacts.propose import (
+    FACILITATOR_NAME_FIELD,
+    AccountAnswersDTO,
+    ProposeSessionResult,
+    ProposeSessionServiceProtocol,
+    ReusableSessionDTO,
+    is_empty_answer,
+)
+from ludamus.pacts.sessions import SessionData, SessionStatus
+from ludamus.pacts.slugs import unique_slug
+from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH
+from ludamus.specs.proposal import (
+    PROPOSAL_RATE_LIMIT_SECONDS,
+    REUSABLE_SESSIONS_LIMIT,
+    carried_answers,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
+    from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.images import UploadedFileProtocol
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
+        TimeSlotRequirementDTO,
+    )
+    from ludamus.pacts.propose import ProposeRepos, WizardData
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.tracks import TrackDTO
+    from ludamus.pacts.user import UserDTO
+
+
+logger = logging.getLogger(__name__)
+
+
+class ProposeSessionService(ProposeSessionServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: ProposeRepos,
+        cache: CacheProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._repos = repos
+        self._cache = cache
+
+    def get_event(self, slug: str, sphere_id: int) -> EventDTO:
+        return self._repos.events.read_by_slug(slug, sphere_id)
+
+    def get_proposal_settings(self, event_id: int) -> EventProposalSettingsDTO:
+        return self._repos.event_proposal_settings.read_by_event(event_id)
+
+    def get_or_create_proposal_settings(
+        self, event_id: int
+    ) -> EventProposalSettingsDTO:
+        return self._repos.event_proposal_settings.read_or_create_by_event(event_id)
+
+    def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]:
+        return self._repos.categories.list_by_event(event_id)
+
+    def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
+        return self._repos.categories.read(pk, event_id)
+
+    def get_personal_fields(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self._repos.personal_fields.list_by_event(event_id)
+
+    def get_session_requirements(
+        self, category_id: int
+    ) -> list[SessionFieldRequirementDTO]:
+        return self._repos.categories.list_session_field_requirements(category_id)
+
+    def get_timeslot_requirements(
+        self, category_id: int
+    ) -> list[TimeSlotRequirementDTO]:
+        return self._repos.categories.list_time_slot_requirements(category_id)
+
+    def get_public_tracks(self, event_id: int) -> list[TrackDTO]:
+        return self._repos.tracks.list_public_by_event(event_id)
+
+    def get_saved_personal_data(
+        self, *, event_id: int, user_id: int | None
+    ) -> dict[str, str | list[str] | bool]:
+        if user_id is None:
+            return {}
+        try:
+            facilitator = self._repos.facilitators.read_by_user_and_event(
+                user_id, event_id
+            )
+        except NotFoundError:
+            return {}
+        return self._repos.personal_data_field_values.read_for_facilitator_event(
+            facilitator.pk, event_id
+        )
+
+    def get_account_answers(
+        self, *, user_id: int | None, fields: list[OrganizerFieldDTO]
+    ) -> AccountAnswersDTO:
+        if user_id is None:
+            return AccountAnswersDTO()
+        user = self._repos.users.read_by_id(user_id)
+        handle = user.discord_username
+        return AccountAnswersDTO(
+            email=user.email,
+            personal_data={
+                f"personal_{field.slug}": handle
+                for field in fields
+                if handle and field.field_type == "discord"
+            },
+        )
+
+    def check_rate_limit(self, *, ip: str, event_id: int) -> bool:
+        """Reserve a submission slot for an IP, reporting whether it was free."""
+        key = f"proposal_rate:{event_id}:{ip}"
+        if self._cache.get(key) is not None:
+            return False
+        self._cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
+        return True
+
+    def list_reusable_sessions(
+        self, *, user_id: int | None, event: EventDTO
+    ) -> list[ReusableSessionDTO]:
+        """List the proposer's sessions from the sphere's other events."""
+        if user_id is None:
+            return []
+        records = self._repos.reusable_sessions.list_reusable(
+            user_id=user_id,
+            sphere_id=event.sphere_id,
+            exclude_event_id=event.pk,
+            limit=REUSABLE_SESSIONS_LIMIT,
+        )
+        return [
+            ReusableSessionDTO(
+                session=record.session,
+                field_values=carried_answers(
+                    public=record.public_answers,
+                    private=record.private_answers,
+                    presented=record.presented,
+                ),
+            )
+            for record in records
+        ]
+
+    def _find_or_create_facilitator(
+        self, *, event: EventDTO, display_name: str, user_id: int | None
+    ) -> FacilitatorDTO:
+        if user_id is not None:
+            try:
+                return self._repos.facilitators.read_by_user_and_event(
+                    user_id, event.pk
+                )
+            except NotFoundError:
+                pass
+        slug = unique_slug(
+            display_name,
+            exists=lambda s: self._repos.facilitators.slug_exists(event.pk, s),
+            fallback="facilitator",
+        )
+        return self._repos.facilitators.create(
+            FacilitatorData(
+                event_id=event.pk, user_id=user_id, display_name=display_name, slug=slug
+            )
+        )
+
+    def submit(
+        self,
+        event: EventDTO,
+        wizard_data: WizardData,
+        *,
+        cover_image: UploadedFileProtocol | None = None,
+        user_id: int | None = None,
+        user_slug: str | None = None,
+        language: str,
+    ) -> ProposeSessionResult:
+        session_data = wizard_data.get("session_data", {})
+        if "title" not in session_data:
+            msg = "session_data must contain 'title'"
+            raise ValueError(msg)
+        title = str(session_data["title"])
+        duration = session_data.get("duration")
+        description = str(session_data.get("description", ""))
+        raw_limit = session_data.get("participants_limit") or 0
+        participants_limit = int(str(raw_limit))
+        category_id = wizard_data.get("category_id")
+        time_slot_ids = wizard_data.get("time_slot_ids", [])
+
+        current_user = (
+            self._repos.users.read(user_slug)
+            if user_id is not None and user_slug is not None
+            else None
+        )
+        default_facilitator_name = current_user.name if current_user else ""
+        presenter_id = current_user.pk if current_user else None
+
+        facilitator_name = str(
+            session_data.get(FACILITATOR_NAME_FIELD, default_facilitator_name)
+        )
+        slug = unique_slug(
+            title,
+            exists=lambda s: self._repos.sessions.slug_exists(event.pk, s),
+            fallback="session",
+        )
+
+        with self._transaction.atomic():
+            facilitator = self._find_or_create_facilitator(
+                event=event, display_name=facilitator_name, user_id=user_id
+            )
+
+            create_data = SessionData(
+                event_id=event.pk,
+                presenter_id=presenter_id,
+                facilitator_name=facilitator_name,
+                category_id=category_id,
+                title=title,
+                slug=slug,
+                description=description,
+                duration=(
+                    normalize_duration(duration) if isinstance(duration, str) else ""
+                ),
+                participants_limit=participants_limit,
+                min_age=int(str(session_data.get("min_age") or 0)),
+                contact_email=wizard_data.get("contact_email", ""),
+                contact_language=language,
+                status=SessionStatus.PENDING,
+            )
+            if cover_image:
+                create_data["cover_image"] = cover_image
+
+            session_id = self._repos.sessions.create(
+                create_data,
+                time_slot_ids=time_slot_ids,
+                facilitator_ids=[facilitator.pk],
+            )
+
+            self._save_session_field_values(
+                session_id=session_id, event_id=event.pk, session_data=session_data
+            )
+
+            if personal_data := wizard_data.get("personal_data"):
+                answers = self._save_personal_data(
+                    event_id=event.pk,
+                    facilitator=facilitator,
+                    personal_data=personal_data,
+                )
+                if current_user:
+                    # pragma: no mutate start
+                    self._fill_profile_discord(
+                        user=current_user, event_id=event.pk, answers=answers
+                    )
+                    # pragma: no mutate end
+
+            if track_pks := wizard_data.get("track_pks"):
+                # Track ids come from wizard state, so they are trusted only
+                # after being matched against this event's own public tracks —
+                # a foreign event's track must never be attached.
+                allowed = {
+                    track.pk
+                    for track in self._repos.tracks.list_public_by_event(event.pk)
+                }
+                if scoped := [pk for pk in track_pks if pk in allowed]:
+                    self._repos.sessions.set_session_tracks(session_id, scoped)
+
+        return ProposeSessionResult(session_id=session_id, title=title)
+
+    def _save_session_field_values(
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        session_data: Mapping[str, FieldValue | int],
+    ) -> None:
+        values: list[SessionFieldValueData] = []
+        for key, value in session_data.items():
+            if not key.startswith("session_"):
+                continue
+            slug = key.removeprefix("session_")
+            if slug.endswith("_custom"):
+                continue
+            # Organizer fields are text/select/checkbox only, so an answer is
+            # never a plain int. The ints session_data also carries are builtins
+            # (participants_limit, min_age), which never wear the prefix.
+            if isinstance(value, int) and not isinstance(value, bool):
+                continue
+            # A question the submitter left blank stores no row: the proposal
+            # is new, so absence can only mean "never answered". Checked before
+            # the field lookup — a blank never needs the query.
+            if value is None or is_empty_answer(value=value):
+                continue
+            try:
+                field_dto = self._repos.session_fields.read_by_slug(event_id, slug)
+            except NotFoundError:
+                continue
+            values.append(
+                SessionFieldValueData(
+                    session_id=session_id, field_id=field_dto.pk, value=value
+                )
+            )
+        if values:
+            self._repos.sessions.save_field_values(session_id, values)
+
+    def _save_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator: FacilitatorDTO,
+        personal_data: dict[str, str],
+    ) -> list[tuple[OrganizerFieldDTO, str]]:
+        answers: list[tuple[OrganizerFieldDTO, str]] = []
+        for key, value in personal_data.items():
+            if not key.startswith("personal_"):
+                continue
+            slug = key.removeprefix("personal_")
+            if slug.endswith("_custom"):
+                continue
+            if is_empty_answer(value=value):
+                continue
+            try:
+                field = self._repos.personal_fields.read_by_slug(event_id, slug)
+            except NotFoundError:
+                continue
+            answers.append((field, value))
+        if answers:
+            self._repos.personal_data_field_values.save(
+                [
+                    PersonalDataFieldValueData(
+                        facilitator_id=facilitator.pk,
+                        event_id=event_id,
+                        field_id=field.pk,
+                        value=value,
+                    )
+                    for field, value in answers
+                ]
+            )
+        return answers
+
+    def _fill_profile_discord(
+        self,
+        *,
+        user: UserDTO,
+        event_id: int,
+        answers: list[tuple[OrganizerFieldDTO, str]],
+    ) -> None:
+        # A handle typed here saves the proposer typing it next time.
+        handle = _discord_answer(answers)
+        if handle and self._repos.users.fill_discord_username(user.slug, handle):
+            logger.info(
+                "Proposal to event %s filled user %s's Discord handle",
+                event_id,
+                user.pk,
+            )
+
+
+def _discord_answer(answers: list[tuple[OrganizerFieldDTO, str]]) -> str:
+    for field, value in answers:
+        if field.field_type == "discord" and isinstance(value, str):
+            handle = value.strip()
+            if len(handle) <= PROFILE_DISCORD_USERNAME_MAX_LENGTH:
+                return handle
+    return ""

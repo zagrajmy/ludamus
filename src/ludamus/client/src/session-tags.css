@@ -1,5 +1,5 @@
 /* The +N on a session card's tags cloud and the popover listing the tags it
-   folds away (chronology/session_tags_cloud.html). */
+   folds away (event/session_tags_cloud.html). */
 
 /* Over the card's full-bleed .session-link, so hovering it reaches the +N. */
 .session-tags-more {

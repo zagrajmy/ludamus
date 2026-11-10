@@ -17,7 +17,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import EventIntegration, SessionField, Track
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     KonwencikExportSettings,
     KonwencikLastRun,

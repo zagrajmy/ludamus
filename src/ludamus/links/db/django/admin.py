@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.contrib.admin import helpers
 from django.shortcuts import render
 
-from ludamus.links.db.django.delivery import ring_as_written
+from ludamus.links.db.django.delivery import Bell, ring_as_written
 from ludamus.links.db.django.models import (
     AgendaItem,
     DomainEnrollmentConfig,
@@ -27,7 +27,7 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -120,11 +120,12 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
         if form.is_valid():
             sent = ring_as_written(
                 recipient_ids=queryset.values_list("pk", flat=True),
-                kind=NotificationKind(form.cleaned_data["kind"]),
-                title=form.cleaned_data["title"],
-                body=form.cleaned_data["body"],
-                url=form.cleaned_data["url"],
-                payload={},
+                bell=Bell(
+                    kind=NotificationKind(form.cleaned_data["kind"]),
+                    title=form.cleaned_data["title"],
+                    body=form.cleaned_data["body"],
+                    url=form.cleaned_data["url"],
+                ),
             )
             self.message_user(request, f"Notification sent to {sent} user(s).")
             return None

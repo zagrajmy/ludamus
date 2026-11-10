@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
 from ludamus.mills.party_history import PartySessionHistoryService
-from ludamus.pacts.chronology import PartyDetailDTO, PartyEventHistoryDTO
 from ludamus.pacts.party import PartyDTO
+from ludamus.pacts.session_cards import PartyDetailDTO, PartyEventHistoryDTO
 from tests.unit.factories import FakeTransaction
 
 VIEWER_PK = 1

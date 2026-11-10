@@ -14,8 +14,9 @@ from ludamus.pacts.discounts import (
     DiscountSyncResultDTO,
     FacilitatorScheduleRow,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import FacilitatorListItemDTO
-from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 1

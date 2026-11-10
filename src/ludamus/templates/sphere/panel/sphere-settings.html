@@ -1,0 +1,83 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Sphere settings" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Sphere settings" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+{% endblock header_actions %}
+{% block content %}
+    {% tab_shell "sphere/panel/_sphere_tabs_nav.html" %}
+        {% tab_shell_body %}
+            <div class="card overflow-hidden max-w-2xl">
+                <dl class="divide-y divide-border">
+                    <div class="px-6 py-4 grid grid-cols-3 gap-4">
+                        <dt class="text-sm font-medium text-foreground-muted">{% translate "Name" %}</dt>
+                        <dd class="text-sm text-foreground col-span-2">
+                            {{ current_sphere.name }}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+            <form method="post"
+                  enctype="multipart/form-data"
+                  action="{% url 'multiverse:panel:sphere-settings' %}"
+                  class="card overflow-hidden max-w-2xl mt-6">
+                {% csrf_token %}
+                <div class="card-body">
+                    <label class="flex items-start gap-3 text-sm">
+                        <input type="checkbox"
+                               name="allow_facilitator_session_edit"
+                               value="on"
+                               {% if form.allow_facilitator_session_edit.value %}checked{% endif %}
+                               class="mt-0.5 rounded border-border">
+                        <span>
+                            <span class="font-medium text-foreground">{{ form.allow_facilitator_session_edit.label }}</span>
+                            <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
+                        </span>
+                    </label>
+                    <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Event covers" %}</h2>
+                    <div class="mt-4">{% tessera_field form.event_cover_buttons_at_bottom %}</div>
+                    <div class="mt-6">{% tessera_field form.logo %}</div>
+                    <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Encounters" %}</h2>
+                    <div class="mt-4">{% tessera_field form.encounters_policy %}</div>
+                    {% if needs_disable_confirmation %}
+                        <div class="mt-6 text-sm" role="alert">
+                            <p class="font-medium">{% translate "This sphere already has encounters." %}</p>
+                            <p class="text-foreground-muted mt-1">
+                                {% translate "Turning them off hides them from everyone. Save again to confirm." %}
+                            </p>
+                            {% if lost_logo_change %}
+                                <p class="text-foreground-muted mt-1">{% translate "Nothing was saved, so set the logo again." %}</p>
+                            {% endif %}
+                        </div>
+                        {% comment %}
+                            Literal "1", not the bound value: the POST that raised
+                            this warning left the field unchecked, so re-rendering
+                            it would hand the same unconfirmed answer back.
+                        {% endcomment %}
+                        <input type="hidden"
+                               name="{{ form.confirmed_encounters_disable.html_name }}"
+                               value="1">
+                    {% endif %}
+                    <div class="mt-6">
+                        <button type="submit" class="btn btn-primary">
+                            {% icon "check" class="w-4 h-4 mr-2" %}
+                            {% if needs_disable_confirmation %}
+                                {% translate "Save anyway" %}
+                            {% else %}
+                                {% translate "Save Settings" %}
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
+{% endblock content %}

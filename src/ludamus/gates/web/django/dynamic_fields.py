@@ -7,23 +7,21 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.mills.field_values import merge_custom, split_stored
-from ludamus.pacts import FieldAnswer
+from ludamus.pacts.fields import FieldAnswer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Collection, Mapping, Sequence
 
     from django.http import QueryDict
 
-    from ludamus.pacts import (
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts.fields import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
 
 type FieldPairs = Sequence[tuple[OrganizerFieldDTO, bool]]
 type WizardData = dict[str, FieldValue | int]
+type _StoredAnswer = str | list[str] | bool
+
+WRITE_IN_SEPARATOR = ";"
 
 
 class CustomAnswerFormMixin(forms.Form):
@@ -74,9 +72,8 @@ def build_field(
             )
 
     elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
         fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
+            label=label, help_text=help_text, required=control_required
         )
     else:
         fields[field_key] = forms.CharField(
@@ -162,6 +159,43 @@ def dynamic_fields_form(
             prefix=prefix,
         ),
     )
+
+
+def merge_custom(
+    *, chosen: _StoredAnswer | None, custom: str, is_multiple: bool
+) -> _StoredAnswer:
+    if isinstance(chosen, bool):
+        return chosen
+    if not is_multiple:
+        return chosen or custom
+    values = (
+        [value for value in chosen if isinstance(value, str)]
+        if isinstance(chosen, list)
+        else []
+    )
+    for part in (part.strip() for part in custom.split(WRITE_IN_SEPARATOR)):
+        if part and part not in values:
+            values.append(part)
+    return values
+
+
+def split_stored(
+    *, stored: _StoredAnswer | None, known: Collection[str], is_multiple: bool
+) -> tuple[str | list[str], str]:
+    if not isinstance(stored, str | list):
+        return ([] if is_multiple else ""), ""
+    values = (
+        [value for value in stored if isinstance(value, str)]
+        if isinstance(stored, list)
+        else [stored]
+    )
+    chosen = [value for value in values if value in known]
+    custom = f"{WRITE_IN_SEPARATOR} ".join(
+        value for value in values if value not in known
+    )
+    if is_multiple:
+        return chosen, custom
+    return (chosen[0] if chosen else ""), custom
 
 
 def answered_value(
