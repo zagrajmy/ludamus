@@ -24,7 +24,7 @@ type Shell = { closeLabel: string; connectionError: string; loading: string; ret
 
 const PASS_REFUSED_WINDOW = 5000;
 const LAUNCHER =
-  "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+  "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-11 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
 
 function Launcher({
   expanded,
@@ -52,10 +52,10 @@ function Launcher({
       ref={launcher}
       type="button"
     >
-      <Icon className="size-7" name="Chat" />
+      <Icon className="size-5.5" name="Chat" />
       {unreadRooms > 0 && (
         <span
-          className="absolute -top-0.5 -right-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1 text-[0.6875rem] font-bold text-white tabular-nums ring-2 ring-bg-secondary"
+          className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[0.625rem] leading-none font-bold text-white tabular-nums ring-2 ring-bg-secondary"
           id="parley-unread"
         >
           <span aria-hidden="true">{unreadRooms}</span>
@@ -74,8 +74,8 @@ function Frame({ children, label, room }: { children: ReactNode; label: string; 
       aria-label={label}
       className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg-secondary text-foreground sm:inset-auto sm:w-95 sm:border sm:border-border sm:shadow-xl ${
         room
-          ? "sm:right-24 sm:bottom-0 sm:h-[min(35rem,calc(100dvh-1.5rem))] sm:rounded-t-2xl sm:border-b-0"
-          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4.5rem)] sm:max-h-[min(30rem,calc(100dvh-7rem))] sm:rounded-2xl"
+          ? "sm:right-19 sm:bottom-0 sm:h-[min(35rem,calc(100dvh-1.5rem))] sm:rounded-t-2xl sm:border-b-0"
+          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)] sm:max-h-[min(30rem,calc(100dvh-6.25rem))] sm:rounded-2xl"
       }`}
       id="parley-panel"
       role="dialog"
@@ -271,6 +271,15 @@ function Parley({
   const launcher = useRef<HTMLButtonElement>(null);
   const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
+  // The launcher's unread badge needs the room activity before anyone opens
+  // the chat, so a visible page connects on its own; a background tab waits.
+  const [visible, setVisible] = useState(() => document.visibilityState === "visible");
+  useEffect(() => {
+    if (visible) return;
+    const shown = () => setVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", shown);
+    return () => document.removeEventListener("visibilitychange", shown);
+  }, [visible]);
 
   // A pass refused right after it was issued would be refused again, so that
   // waits for the person to retry instead of looping.
@@ -280,7 +289,7 @@ function Parley({
   }, []);
 
   useEffect(() => {
-    if (!wanted || bootstrap !== null || failed) return;
+    if (!(wanted || visible) || bootstrap !== null || failed) return;
     let active = true;
     const load = async () => {
       try {
@@ -303,14 +312,16 @@ function Parley({
             current.kind === "list" ? { kind: "room", roomId: only.id } : current,
           );
       } catch {
-        if (active) setFailed(true);
+        // NOTE: a background connect that fails stays quiet; opening the chat
+        // re-runs this effect and shows the error if it fails again.
+        if (active && wanted) setFailed(true);
       }
     };
     void load();
     return () => {
       active = false;
     };
-  }, [attempt, bootstrap, bootstrapUrl, failed, wanted]);
+  }, [attempt, bootstrap, bootstrapUrl, failed, visible, wanted]);
 
   useEffect(() => {
     if (bootstrap === null) return;

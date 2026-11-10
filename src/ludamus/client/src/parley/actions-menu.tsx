@@ -20,7 +20,11 @@ export function ActionsMenu({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [position, setPosition] = useState<{
+    left: number;
+    maxHeight: number;
+    top: number;
+  } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const items = () => [...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
@@ -32,17 +36,25 @@ export function ActionsMenu({
   };
 
   // The thread scrolls and clips, so the menu is fixed to the viewport, beside
-  // its trigger: below it when it fits, above it when the message sits low.
+  // its trigger and inside the thread's box (data-menu-bounds): below the
+  // trigger when it fits, else on the roomier side, scrolling if neither fits.
   useLayoutEffect(() => {
     if (!open || trigger.current === null || menu.current === null) return;
     const anchor = trigger.current.getBoundingClientRect();
     const { height, width } = menu.current.getBoundingClientRect();
-    const below = anchor.bottom + MENU_GAP + height <= innerHeight - EDGE;
-    const top = below ? anchor.bottom + MENU_GAP : anchor.top - MENU_GAP - height;
+    const box =
+      trigger.current.closest("[data-menu-bounds]")?.getBoundingClientRect() ??
+      new DOMRect(0, 0, innerWidth, innerHeight);
+    const below = box.bottom - EDGE - (anchor.bottom + MENU_GAP);
+    const above = anchor.top - MENU_GAP - (box.top + EDGE);
+    const down = height <= below || (height > above && below >= above);
+    const maxHeight = Math.max(0, down ? below : above);
+    const shown = Math.min(height, maxHeight);
     const left = align === "end" ? anchor.right - width : anchor.left;
     setPosition({
-      left: Math.min(Math.max(EDGE, left), innerWidth - width - EDGE),
-      top: Math.max(EDGE, top),
+      left: Math.max(box.left + EDGE, Math.min(left, box.right - EDGE - width)),
+      maxHeight,
+      top: down ? anchor.bottom + MENU_GAP : anchor.top - MENU_GAP - shown,
     });
   }, [align, open]);
 
@@ -55,19 +67,21 @@ export function ActionsMenu({
 
   useEffect(() => {
     if (!open) return;
-    const dismiss = (event: Event) => {
-      const target = event.target as Node;
+    const dismiss = (event: PointerEvent) => {
+      const { target } = event;
+      if (!(target instanceof Node)) return;
       if (!menu.current?.contains(target) && !trigger.current?.contains(target)) close(false);
     };
-    // The menu is fixed to the viewport, so it closes once its message moves.
-    const scrolled = () => close(false);
+    // The menu is fixed to the viewport, so it closes once its message moves
+    // or the window changes size.
+    const moved = () => close(false);
     document.addEventListener("pointerdown", dismiss);
-    document.addEventListener("scroll", scrolled, true);
-    addEventListener("resize", dismiss);
+    document.addEventListener("scroll", moved, true);
+    addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
-      document.removeEventListener("scroll", scrolled, true);
-      removeEventListener("resize", dismiss);
+      document.removeEventListener("scroll", moved, true);
+      removeEventListener("resize", moved);
     };
   }, [open]);
 
@@ -110,7 +124,11 @@ export function ActionsMenu({
             onKeyDown={keydown}
             ref={menu}
             role="menu"
-            style={position ?? { left: 0, top: 0, visibility: "hidden" }}
+            style={
+              position === null
+                ? { left: 0, top: 0, visibility: "hidden" }
+                : { ...position, overflowY: "auto" }
+            }
           >
             {entries.map((entry) =>
               "heading" in entry ? (

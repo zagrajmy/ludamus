@@ -2656,6 +2656,7 @@ msgid "Manage the seats you booked for others…"
 msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/board/_create_actions.html
 #: src/ludamus/templates/board/_edit_actions.html
 #: src/ludamus/templates/chronology/_map_card.html
@@ -4288,6 +4289,29 @@ msgstr "Zgłoś wiadomość"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Message reported."
 msgstr "Wiadomość została zgłoszona."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "Your writing access is muted until %(time)s."
+msgstr "Nie możesz pisać w tej rozmowie do: %(time)s."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(name)s is typing…"
+msgstr "%(name)s pisze…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(first)s and %(second)s are typing…"
+msgstr "%(first)s i %(second)s piszą…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Several people are typing…"
+msgstr "Kilka osób pisze…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Someone"
+msgstr "Ktoś"
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"

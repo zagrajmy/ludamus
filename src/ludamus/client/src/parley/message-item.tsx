@@ -2,12 +2,15 @@ import { MessageScroller } from "@shadcn/react/message-scroller";
 
 import type { Bootstrap, Message, Room } from "./protocol";
 
-import { requestConfirm } from "../confirm";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
 
 export type MuteAction = "restore" | number | null;
+
+// Asks before a destructive action: the question, the button that goes
+// ahead, and what going ahead does.
+export type Confirm = (request: { accept: string; question: string; run: () => void }) => void;
 
 const HOUR = 3_600_000;
 
@@ -43,6 +46,7 @@ function corners(own: boolean, first: boolean, last: boolean): string {
 
 export function MessageItem({
   bootstrap,
+  confirm,
   copyLink,
   first,
   last,
@@ -54,6 +58,7 @@ export function MessageItem({
   room,
 }: {
   bootstrap: Bootstrap;
+  confirm: Confirm;
   copyLink: (id: number) => void;
   first: boolean;
   last: boolean;
@@ -77,7 +82,11 @@ export function MessageItem({
                 icon: "Trash",
                 label: copy.deleteLabel,
                 onSelect: () =>
-                  requestConfirm(copy.deleteConfirm, copy.deleteLabel, () => remove(message.id)),
+                  confirm({
+                    accept: copy.deleteLabel,
+                    question: copy.deleteConfirm,
+                    run: () => remove(message.id),
+                  }),
               } as const,
             ]
           : [
@@ -93,9 +102,11 @@ export function MessageItem({
                 icon: "Trash",
                 label: copy.moderatorDelete,
                 onSelect: () =>
-                  requestConfirm(copy.deleteConfirm, copy.moderatorDelete, () =>
-                    moderate(message.id),
-                  ),
+                  confirm({
+                    accept: copy.moderatorDelete,
+                    question: copy.deleteConfirm,
+                    run: () => moderate(message.id),
+                  }),
                 tone: "danger",
               },
               { heading: copy.muteLabel },
@@ -118,9 +129,11 @@ export function MessageItem({
                 icon: "Mute",
                 label: copy.muteIndefinitely,
                 onSelect: () =>
-                  requestConfirm(copy.muteConfirm, copy.muteIndefinitely, () =>
-                    mute(message.authorId, null),
-                  ),
+                  confirm({
+                    accept: copy.muteIndefinitely,
+                    question: copy.muteConfirm,
+                    run: () => mute(message.authorId, null),
+                  }),
               },
               {
                 icon: "Retry",
@@ -153,7 +166,7 @@ export function MessageItem({
         )}
         <div className={`flex min-w-0 items-center gap-1 ${own ? "flex-row-reverse" : ""}`}>
           <p
-            className={`min-w-0 rounded-[1.125rem] px-3 py-2 text-[0.9375rem] leading-snug wrap-break-word whitespace-pre-wrap ${corners(own, first, last)} ${
+            className={`min-w-0 rounded-[1.125rem] px-3 py-2 text-[0.9375rem] leading-snug wrap-anywhere whitespace-pre-wrap ${corners(own, first, last)} ${
               deleted
                 ? "border border-border text-foreground-muted italic"
                 : own

@@ -37,20 +37,42 @@ type RoomAgent = {
 
 const PAGE = 50;
 
+const without = (record: Record<string, number>, key: string): Record<string, number> =>
+  Object.fromEntries(Object.entries(record).filter(([name]) => name !== key));
+
+// What this person knows about their own writing access: nothing yet (null),
+// or muted until a time, or with no end (until: null).
+export type Muted = { until: number | null } | null;
+
 type UseRoomResult = {
   agent: RoomAgent;
   earlier: boolean;
   load: () => Promise<void>;
   messages: Message[];
+  muted: Muted;
   presence: number;
   setMessages: Dispatch<SetStateAction<Message[]>>;
+  setMuted: Dispatch<SetStateAction<Muted>>;
+  typists: string[];
 };
 
-export function useRoom(room: Room, agentHost: string, onPassClosed: () => void): UseRoomResult {
+export function useRoom({
+  agentHost,
+  onPassClosed,
+  room,
+  userId,
+}: {
+  agentHost: string;
+  onPassClosed: () => void;
+  room: Room;
+  userId: string;
+}): UseRoomResult {
   const url = agentUrl(agentHost);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState(0);
   const [earlier, setEarlier] = useState(false);
+  const [typing, setTyping] = useState<Record<string, number>>({});
+  const [muted, setMuted] = useState<Muted>(null);
   const agent: RoomAgent = useAgent({
     agent: room.kind === "sphere" ? "ParleySphereAgent" : "ParleySessionAgent",
     host: url.host,
@@ -79,6 +101,26 @@ export function useRoom(room: Room, agentHost: string, onPassClosed: () => void)
         setMessages((current) =>
           current.some(({ id }) => id === message.id) ? current : [...current, message],
         );
+        setTyping((current) => without(current, message.authorId));
+      }
+      if (event.type === "typing.changed") {
+        const { expiresAt, userId: typist } = event.payload as {
+          expiresAt: number;
+          userId: string;
+        };
+        if (typist !== userId)
+          setTyping((current) =>
+            expiresAt > Date.now() ? { ...current, [typist]: expiresAt } : without(current, typist),
+          );
+      }
+      if (event.type === "restriction.changed") {
+        const { mutedUntil, userId: target } = event.payload as {
+          mutedUntil: number | null;
+          userId: string;
+        };
+        // NOTE: the Worker sends 0 for restored access and null for no end.
+        if (target === userId)
+          setMuted(mutedUntil === null || mutedUntil > Date.now() ? { until: mutedUntil } : null);
       }
       if (event.type === "message.deleted") {
         const { id } = event.payload as { id: number };
@@ -93,11 +135,43 @@ export function useRoom(room: Room, agentHost: string, onPassClosed: () => void)
     };
     agent.addEventListener("message", listener);
     return () => agent.removeEventListener("message", listener);
-  }, [agent]);
+  }, [agent, userId]);
+
+  // A typist who goes quiet without saying so drops off at their expiry.
+  useEffect(() => {
+    const next = Math.min(...Object.values(typing));
+    if (!Number.isFinite(next)) return;
+    const timer = setTimeout(
+      () =>
+        setTyping((current) =>
+          Object.fromEntries(Object.entries(current).filter(([, expiry]) => expiry > Date.now())),
+        ),
+      Math.max(0, next - Date.now()) + 50,
+    );
+    return () => clearTimeout(timer);
+  }, [typing]);
+
+  const mutedUntil = muted?.until ?? null;
+  useEffect(() => {
+    if (mutedUntil === null) return;
+    // NOTE: setTimeout overflows past ~24.8 days; mutes are at most 7.
+    const timer = setTimeout(() => setMuted(null), Math.max(0, mutedUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [mutedUntil]);
 
   useEffect(() => {
     void loadBefore();
   }, [loadBefore, room.id]);
 
-  return { agent, earlier, load, messages, presence, setMessages };
+  return {
+    agent,
+    earlier,
+    load,
+    messages,
+    muted,
+    presence,
+    setMessages,
+    setMuted,
+    typists: Object.keys(typing),
+  };
 }

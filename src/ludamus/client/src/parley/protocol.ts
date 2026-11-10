@@ -1,5 +1,6 @@
 export type Copy = Record<
   | "backLabel"
+  | "cancelLabel"
   | "closeLabel"
   | "connectionError"
   | "copyLink"
@@ -25,6 +26,7 @@ export type Copy = Record<
   | "moderatorDelete"
   | "muteConfirm"
   | "muted"
+  | "mutedUntil"
   | "muteIndefinitely"
   | "muteLabel"
   | "muteOneDay"
@@ -46,6 +48,10 @@ export type Copy = Record<
   | "sessionRoom"
   | "sphereRoom"
   | "title"
+  | "typingMany"
+  | "typingOne"
+  | "typingSomeone"
+  | "typingTwo"
   | "unread"
   | "unreadCountFew"
   | "unreadCountMany"
@@ -102,8 +108,12 @@ export function passCloseHandlers(onPassClosed: () => void) {
   };
 }
 
+// Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
+// plain http/ws; everything else gets TLS.
 export function agentUrl(host: string): URL {
   if (host.includes("://")) return new URL(host);
-  const local = host.startsWith("localhost") || host.startsWith("127.0.0.1");
+  const { hostname } = new URL(`http://${host}`);
+  const local =
+    hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "127.0.0.1";
   return new URL(`${local ? "http" : "https"}://${host}`);
 }

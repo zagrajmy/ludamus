@@ -99,6 +99,12 @@ def _copy() -> dict[str, str]:
         "copyLink": _("Copy message link"),
         "reportMessage": _("Report message"),
         "reported": _("Message reported."),
+        "cancelLabel": _("Cancel"),
+        "mutedUntil": _("Your writing access is muted until %(time)s."),
+        "typingOne": _("%(name)s is typing…"),
+        "typingTwo": _("%(first)s and %(second)s are typing…"),
+        "typingMany": _("Several people are typing…"),
+        "typingSomeone": _("Someone"),
     }
 
 
