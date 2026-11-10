@@ -1,4 +1,4 @@
-import type { AgentConnectionError, CallOptions, StreamOptions } from "agents/client";
+import type { CallOptions, StreamOptions } from "agents/client";
 
 import { useAgent } from "agents/react";
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
@@ -25,14 +25,19 @@ type MessageListener = (event: MessageEvent<string>) => void;
 // only exported, single-instance types (agents/client, DOM's MessageEvent)
 // instead of inferred.
 type RoomAgent = {
-  addEventListener: (type: "message", listener: MessageListener) => void;
+  addEventListener: {
+    (type: "message", listener: MessageListener): void;
+    (type: "close" | "open", listener: () => void): void;
+  };
   call: <T = unknown>(
     method: string,
     args?: unknown[],
     options?: CallOptions | StreamOptions,
   ) => Promise<T>;
-  connectionError: AgentConnectionError | null;
-  removeEventListener: (type: "message", listener: MessageListener) => void;
+  removeEventListener: {
+    (type: "message", listener: MessageListener): void;
+    (type: "close" | "open", listener: () => void): void;
+  };
 };
 
 const PAGE = 50;
@@ -50,6 +55,7 @@ type UseRoomResult = {
   load: () => Promise<void>;
   messages: Message[];
   muted: Muted;
+  offline: boolean;
   presence: number;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setMuted: Dispatch<SetStateAction<Muted>>;
@@ -73,6 +79,7 @@ export function useRoom({
   const [earlier, setEarlier] = useState(false);
   const [typing, setTyping] = useState<Record<string, number>>({});
   const [muted, setMuted] = useState<Muted>(null);
+  const [offline, setOffline] = useState(false);
   const agent: RoomAgent = useAgent({
     agent: room.kind === "sphere" ? "ParleySphereAgent" : "ParleySessionAgent",
     host: url.host,
@@ -137,6 +144,19 @@ export function useRoom({
     return () => agent.removeEventListener("message", listener);
   }, [agent, userId]);
 
+  // NOTE: useAgent's connectionError is set only by a close it will not
+  // retry; a dropped socket it keeps redialling shows only through these.
+  useEffect(() => {
+    const lost = () => setOffline(true);
+    const back = () => setOffline(false);
+    agent.addEventListener("close", lost);
+    agent.addEventListener("open", back);
+    return () => {
+      agent.removeEventListener("close", lost);
+      agent.removeEventListener("open", back);
+    };
+  }, [agent]);
+
   // A typist who goes quiet without saying so drops off at their expiry.
   useEffect(() => {
     const next = Math.min(...Object.values(typing));
@@ -169,6 +189,7 @@ export function useRoom({
     load,
     messages,
     muted,
+    offline,
     presence,
     setMessages,
     setMuted,

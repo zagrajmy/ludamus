@@ -27,24 +27,26 @@ export function ActionsMenu({
   } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const items = () => [...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+  // NOTE: the trigger is mounted whenever this runs, and the menu whenever
+  // it is open, so their refs are never null where they are read.
+  const items = () => [...menu.current!.querySelectorAll<HTMLElement>("[role=menuitem]")];
 
   const close = (refocus: boolean) => {
     setOpen(false);
     setPosition(null);
-    if (refocus) trigger.current?.focus();
+    if (refocus) trigger.current!.focus();
   };
 
   // The thread scrolls and clips, so the menu is fixed to the viewport, beside
   // its trigger and inside the thread's box (data-menu-bounds): below the
   // trigger when it fits, else on the roomier side, scrolling if neither fits.
   useLayoutEffect(() => {
-    if (!open || trigger.current === null || menu.current === null) return;
-    const anchor = trigger.current.getBoundingClientRect();
-    const { height, width } = menu.current.getBoundingClientRect();
-    const box =
-      trigger.current.closest("[data-menu-bounds]")?.getBoundingClientRect() ??
-      new DOMRect(0, 0, innerWidth, innerHeight);
+    if (!open) return;
+    const anchor = trigger.current!.getBoundingClientRect();
+    // Layout size, not the box: the menu scales in from 97%, and a measured
+    // box would place it that much over its trigger.
+    const { offsetHeight: height, offsetWidth: width } = menu.current!;
+    const box = trigger.current!.closest("[data-menu-bounds]")!.getBoundingClientRect();
     const below = box.bottom - EDGE - (anchor.bottom + MENU_GAP);
     const above = anchor.top - MENU_GAP - (box.top + EDGE);
     const down = height <= below || (height > above && below >= above);
@@ -62,25 +64,26 @@ export function ActionsMenu({
   // measured, and a hidden element cannot take focus.
   const placed = position !== null;
   useEffect(() => {
-    if (placed) items()[0]?.focus();
+    if (placed) items()[0]!.focus();
   }, [placed]);
 
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
-      const { target } = event;
-      if (!(target instanceof Node)) return;
-      if (!menu.current?.contains(target) && !trigger.current?.contains(target)) close(false);
+      const target = event.target as Node;
+      if (!menu.current!.contains(target) && !trigger.current!.contains(target)) close(false);
     };
-    // The menu is fixed to the viewport, so it closes once its message moves
-    // or the window changes size.
+    // The menu is fixed to the viewport, so it closes once its message moves:
+    // the thread scrolls or the window changes size. Scrolling the menu
+    // itself, when it is too tall to fit, keeps it.
+    const thread = trigger.current!.closest("[data-menu-scroller]")!;
     const moved = () => close(false);
     document.addEventListener("pointerdown", dismiss);
-    document.addEventListener("scroll", moved, true);
+    thread.addEventListener("scroll", moved);
     addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
-      document.removeEventListener("scroll", moved, true);
+      thread.removeEventListener("scroll", moved);
       removeEventListener("resize", moved);
     };
   }, [open]);
@@ -88,7 +91,7 @@ export function ActionsMenu({
   const keydown = (event: KeyboardEvent<HTMLDivElement>) => {
     const all = items();
     const at = all.indexOf(document.activeElement as HTMLElement);
-    const move = (index: number) => all[(index + all.length) % all.length]?.focus();
+    const move = (index: number) => all[(index + all.length) % all.length]!.focus();
     if (event.key === "ArrowDown") move(at + 1);
     else if (event.key === "ArrowUp") move(at - 1);
     else if (event.key === "Home") move(0);

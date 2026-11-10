@@ -190,8 +190,22 @@ export function Conversation({
   room: Room;
 }) {
   const { copy } = bootstrap;
-  const { agent, earlier, load, messages, muted, presence, setMessages, setMuted, typists } =
-    useRoom({ agentHost: bootstrap.agentHost, onPassClosed, room, userId: bootstrap.user.id });
+  // NOTE: declared before useRoom, so on unmount React runs it before
+  // useAgent's own cleanup closes the socket the parting ping goes out on.
+  const leave = useRef<() => void>(() => null);
+  useEffect(() => () => leave.current(), []);
+  const {
+    agent,
+    earlier,
+    load,
+    messages,
+    muted,
+    offline,
+    presence,
+    setMessages,
+    setMuted,
+    typists,
+  } = useRoom({ agentHost: bootstrap.agentHost, onPassClosed, room, userId: bootstrap.user.id });
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -201,7 +215,6 @@ export function Conversation({
   const closeButton = useRef<HTMLButtonElement>(null);
   const typingSince = useRef(0);
   const wasMuted = useRef(false);
-  const offline = agent.connectionError !== null;
   const { length } = [...body.trim()];
   const tooLong = length > LIMIT;
 
@@ -227,23 +240,30 @@ export function Conversation({
       if (!result.ok && result.code === "muted") setMuted((current) => current ?? { until: null });
     }, lostPing);
   };
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    leave.current = () => {
       if (typingSince.current !== 0) void agent.call("stopTyping").catch(lostPing);
-    },
-    [agent],
-  );
+    };
+  }, [agent]);
 
   const confirm: Confirm = (request) =>
     setPending({ ...request, returnTo: document.activeElement });
+  // Focus goes back once the question has left and the composer is back: to
+  // the menu that asked, or, if its message is gone, the composer (the close
+  // button in a room without one).
+  const returnTo = useRef<Element | null>(null);
   const settle = (go: boolean) => {
-    if (pending === null) return;
+    returnTo.current = pending!.returnTo;
     setPending(null);
-    if (go) pending.run();
-    if (pending.returnTo instanceof HTMLElement && pending.returnTo.isConnected)
-      pending.returnTo.focus();
-    else composer.current?.focus();
+    if (go) pending!.run();
   };
+  useEffect(() => {
+    const target = returnTo.current;
+    if (pending !== null || target === null) return;
+    returnTo.current = null;
+    if (target instanceof HTMLElement && target.isConnected) target.focus();
+    else (composer.current ?? closeButton.current!).focus();
+  }, [pending]);
 
   useEffect(() => {
     // On a phone, focusing the composer would raise the keyboard over a
@@ -389,6 +409,8 @@ export function Conversation({
             id="parley-message"
             onChange={(event) => {
               setBody(event.target.value);
+              // A refused send speaks of the draft it was; editing makes it stale.
+              setError(null);
               announceTyping(event.target.value);
             }}
             onKeyDown={submitOnEnter}
@@ -467,6 +489,7 @@ export function Conversation({
           <MessageScroller.Viewport
             aria-label={copy.messageListLabel}
             className="parley-thread absolute inset-0 overflow-y-auto overscroll-contain"
+            data-menu-scroller
           >
             <MessageScroller.Content className="flex min-h-full flex-col justify-end pb-7">
               {messages.length === 0 ? (
