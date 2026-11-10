@@ -99,6 +99,15 @@ def people(request: RootHttpRequest, user_id: int) -> HttpResponse:
     )
 
 
+@require_GET
+@_guarded
+def conversation_list(request: RootHttpRequest, user_id: int) -> HttpResponse:
+    found = request.services.parley_conversations.list_for(user_id)
+    return JsonResponse(
+        {"conversations": [dto.model_dump(mode="json", by_alias=True) for dto in found]}
+    )
+
+
 @require_POST
 @_guarded
 def start_direct(request: RootHttpRequest, user_id: int) -> HttpResponse:

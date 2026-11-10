@@ -92,6 +92,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
                 "canModerate": False,
             },
         ],
+        "canMessage": False,
         "conversations": [],
         "capabilityToken": "signed-token",
         "agentHost": "parley.example.com",

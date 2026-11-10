@@ -3,6 +3,7 @@ import {
   type FormEvent,
   Fragment,
   type KeyboardEvent,
+  type Ref,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -12,7 +13,10 @@ import {
 import type { Bootstrap, Message, Result, Room } from "./protocol";
 
 import { Avatar } from "./avatar";
+import { ConfirmSheet } from "./confirm-sheet";
+import { counterpart, roomKind } from "./conversations";
 import { counted, moment, number, when } from "./format";
+import { ICON_BUTTON } from "./header";
 import { Icon } from "./icons";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
 import { type Muted, useRoom } from "./use-room";
@@ -66,64 +70,62 @@ function MutedNotice({ copy, muted }: { copy: Bootstrap["copy"]; muted: NonNulla
   );
 }
 
-// Asks before a destructive action in place of the composer, so the thread
-// stays in view and the chat keeps its own look.
-function ConfirmSheet({
-  cancel,
-  copy,
-  pending,
-}: {
-  cancel: () => void;
-  copy: Bootstrap["copy"];
-  pending: Pending;
-}) {
-  const cancelButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    cancelButton.current?.focus();
-  }, []);
-  return (
-    <div
-      aria-describedby="parley-confirm-question"
-      aria-label={pending.accept}
-      className="border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        // NOTE: preventDefault keeps the panel's own Escape (close chat) out of it.
-        event.preventDefault();
-        cancel();
-      }}
-      role="alertdialog"
-    >
-      <p className="text-sm text-foreground" id="parley-confirm-question">
-        {pending.question}
-      </p>
-      <div className="mt-3 flex justify-end gap-2">
-        <button
-          className="btn btn-secondary text-sm"
-          onClick={cancel}
-          ref={cancelButton}
-          type="button"
-        >
-          {copy.cancelLabel}
-        </button>
-        <button className="btn btn-danger text-sm" onClick={pending.run} type="button">
-          {pending.accept}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function errorMessage(code: string, copy: Bootstrap["copy"]): string {
   const messages: Record<string, string> = {
     archived: copy.errorArchived,
     forbidden: copy.errorForbidden,
     invalid: copy.errorInvalid,
     muted: copy.errorMuted,
+    pending: copy.errorPending,
     rate_limited: copy.errorRateLimited,
     timeout: copy.connectionError,
   };
   return messages[code] ?? copy.errorUnknown;
+}
+
+// What a request's recipient can do with it, each answering with the
+// problem if it did not go through.
+export type RequestAnswers = Record<"accept" | "block" | "decline", () => Promise<string | null>>;
+
+function RequestSheet({
+  answer,
+  copy,
+  name,
+}: {
+  answer: (choice: keyof RequestAnswers) => void;
+  copy: Bootstrap["copy"];
+  name: string;
+}) {
+  return (
+    <div
+      aria-labelledby="parley-request-question"
+      className="border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      role="group"
+    >
+      <p className="text-sm text-foreground" id="parley-request-question">
+        {copy.requestQuestion.replace("%(name)s", name)}
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          className="me-auto rounded-full px-3 py-1.5 text-sm font-medium text-danger-text hover:bg-danger-bg focus-visible:outline-2 focus-visible:outline-border-focus"
+          onClick={() => answer("block")}
+          type="button"
+        >
+          {copy.block}
+        </button>
+        <button
+          className="btn btn-secondary text-sm"
+          onClick={() => answer("decline")}
+          type="button"
+        >
+          {copy.decline}
+        </button>
+        <button className="btn btn-primary text-sm" onClick={() => answer("accept")} type="button">
+          {copy.accept}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -175,18 +177,24 @@ function sameRun(previous: Message | undefined, message: Message): boolean {
 }
 
 export function Conversation({
+  answers,
   back,
   bootstrap,
   close,
+  details,
   onPassClosed,
   onRead,
+  onRefused,
   room,
 }: {
+  answers: RequestAnswers;
   back: (() => void) | null;
   bootstrap: Bootstrap;
   close: () => void;
+  details: { open: () => void; trigger: Ref<HTMLButtonElement> } | null;
   onPassClosed: () => void;
   onRead: (id: number) => void;
+  onRefused: () => Promise<boolean>;
   room: Room;
 }) {
   const { copy } = bootstrap;
@@ -205,7 +213,13 @@ export function Conversation({
     setMessages,
     setMuted,
     typists,
-  } = useRoom({ agentHost: bootstrap.agentHost, onPassClosed, room, userId: bootstrap.user.id });
+  } = useRoom({
+    agentHost: bootstrap.agentHost,
+    onPassClosed,
+    onRefused,
+    room,
+    userId: bootstrap.user.id,
+  });
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -355,6 +369,19 @@ export function Conversation({
       }
       return { notice: copy.linkCopied };
     });
+  const reply = (choice: keyof RequestAnswers) => {
+    const run = () =>
+      void act(async () => {
+        const problem = await answers[choice]();
+        return problem === null ? { notice: null } : { error: problem };
+      });
+    if (choice !== "block") return run();
+    confirm({
+      accept: copy.block,
+      question: copy.blockConfirm.replace("%(name)s", room.title),
+      run,
+    });
+  };
   const report = (messageId: number) =>
     act(async () => {
       const form = new FormData();
@@ -384,6 +411,8 @@ export function Conversation({
           pending={{ ...pending, run: () => settle(true) }}
         />
       );
+    if (room.conversation?.state === "request")
+      return <RequestSheet answer={reply} copy={copy} name={room.title} />;
     if (!room.canWrite)
       return (
         <p className="flex items-center justify-center gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-xs text-foreground-muted">
@@ -432,9 +461,16 @@ export function Conversation({
       </form>
     );
   };
-  const writableEmpty = room.kind === "sphere" ? copy.emptySphere : copy.emptySession;
+  const { conversation } = room;
+  const writableEmpty = {
+    conversation: conversation?.kind === "group" ? copy.emptyGroup : copy.emptyDirect,
+    session: copy.emptySession,
+    sphere: copy.emptySphere,
+  }[room.kind];
   const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
-  const kind = room.kind === "sphere" ? copy.sphereRoom : copy.sessionRoom;
+  const kind = roomKind(copy, room);
+  const face =
+    conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
@@ -451,7 +487,7 @@ export function Conversation({
         )}
         <div className={`flex min-w-0 flex-1 items-center gap-2.5 ${back === null ? "pl-2" : ""}`}>
           <span className="relative shrink-0">
-            <Avatar className="size-9 text-xs" name={room.title} />
+            <Avatar className="size-9 text-xs" name={room.title} src={face} />
             {presence > 1 && !offline && (
               <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-bg-secondary" />
             )}
@@ -464,9 +500,20 @@ export function Conversation({
             </p>
           </div>
         </div>
+        {details !== null && (
+          <button
+            aria-label={copy.detailsLabel}
+            className={ICON_BUTTON}
+            onClick={details.open}
+            ref={details.trigger}
+            type="button"
+          >
+            <Icon className="size-5" name={conversation?.kind === "group" ? "Group" : "More"} />
+          </button>
+        )}
         <button
           aria-label={copy.closeLabel}
-          className="grid size-10 shrink-0 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus"
+          className={ICON_BUTTON}
           onClick={close}
           ref={closeButton}
           type="button"
@@ -494,7 +541,7 @@ export function Conversation({
             <MessageScroller.Content className="flex min-h-full flex-col justify-end pb-7">
               {messages.length === 0 ? (
                 <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
-                  <Avatar className="size-16 text-lg" name={room.title} />
+                  <Avatar className="size-16 text-lg" name={room.title} src={face} />
                   <p className="mt-3 font-semibold text-foreground">{room.title}</p>
                   <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
                 </div>

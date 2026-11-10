@@ -77,6 +77,8 @@ class ParleyBootstrapDTO(BaseModel):
     sphere: dict[str, str]
     user: dict[str, str]
     rooms: list[ParleyRoomDTO]
+    # Whether direct messages and groups are open to this person at all.
+    can_message: bool = Field(default=False, serialization_alias="canMessage")
     conversations: list[ParleyConversationDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")

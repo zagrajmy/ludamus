@@ -49,6 +49,10 @@ def _copy() -> dict[str, str]:
                 "%(count)s unread conversation", "%(count)s unread conversations", count
             ),
         ),
+        **_plural_forms(
+            "members",
+            lambda count: ngettext("%(count)s member", "%(count)s members", count),
+        ),
         "title": _("Chat"),
         "closeLabel": _("Close chat"),
         "loading": _("Gathering conversations…"),
@@ -104,6 +108,62 @@ def _copy() -> dict[str, str]:
         "typingTwo": _("%(first)s and %(second)s are typing…"),
         "typingMany": _("Several people are typing…"),
         "typingSomeone": _("Someone"),
+        **_conversation_copy(),
+    }
+
+
+def _conversation_copy() -> dict[str, str]:
+    return {
+        "newMessage": _("New message"),
+        "newGroup": _("New group"),
+        "searchPeople": _("Find a person"),
+        "searchHint": _("Type at least two letters of their name."),
+        "searching": _("Searching…"),
+        "nobodyFound": _("Nobody by that name you can write to."),
+        "groupName": _("Group name"),
+        "groupPeople": _("People in the group"),
+        "groupNeedsTitle": _("Give the group a name."),
+        "groupNeedsPeople": _("Add at least one person."),
+        "groupTitleTooLong": _("Group names can be up to 80 characters."),
+        "createGroup": _("Create group"),
+        "removeSelected": _("Remove %(name)s"),
+        "directMessage": _("Direct message"),
+        "requests": _("Requests"),
+        "requestFrom": _("Wants to message you"),
+        "requestQuestion": _("%(name)s wants to message you."),
+        "accept": _("Accept"),
+        "decline": _("Decline"),
+        "block": _("Block"),
+        "blockPerson": _("Block %(name)s"),
+        "blockConfirm": _(
+            "Block %(name)s? Neither of you will be able to write to the other."
+        ),
+        "emptyDirect": _(
+            "Say hello. Until they accept, they will see only your first message."
+        ),
+        "emptyGroup": _("A brand new group. Say hello to everyone."),
+        "errorPending": _(
+            "They have not accepted your message yet. You can write more once they do."
+        ),
+        "errorNotFound": _("That person or conversation is no longer available."),
+        "errorTooMany": _("A group can have up to 50 people."),
+        "detailsLabel": _("Conversation details"),
+        "backToConversation": _("Back to the conversation"),
+        "membersLabel": _("People"),
+        "you": _("(you)"),
+        "addPeople": _("Add people"),
+        "memberAdded": _("%(name)s added."),
+        "removeMember": _("Remove %(name)s from the group"),
+        "removeConfirm": _("Remove %(name)s from the group?"),
+        "removeLabel": _("Remove"),
+        "leaveGroup": _("Leave group"),
+        "leaveGroupConfirm": _(
+            "Leave this group? Its messages will stop reaching you."
+        ),
+        "leaveConversation": _("Leave conversation"),
+        "leaveConversationConfirm": _(
+            "Leave this conversation? It will disappear from your list."
+        ),
     }
 
 

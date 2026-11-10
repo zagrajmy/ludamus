@@ -1,12 +1,24 @@
 export type Copy = Record<
+  | "accept"
+  | "addPeople"
   | "backLabel"
+  | "backToConversation"
+  | "block"
+  | "blockConfirm"
+  | "blockPerson"
   | "cancelLabel"
   | "closeLabel"
   | "connectionError"
   | "copyLink"
+  | "createGroup"
+  | "decline"
   | "deleteConfirm"
   | "deletedMessage"
   | "deleteLabel"
+  | "detailsLabel"
+  | "directMessage"
+  | "emptyDirect"
+  | "emptyGroup"
   | "emptyReadOnly"
   | "emptySession"
   | "emptySphere"
@@ -14,11 +26,28 @@ export type Copy = Record<
   | "errorForbidden"
   | "errorInvalid"
   | "errorMuted"
+  | "errorNotFound"
+  | "errorPending"
   | "errorRateLimited"
+  | "errorTooMany"
   | "errorUnknown"
+  | "groupName"
+  | "groupNeedsPeople"
+  | "groupNeedsTitle"
+  | "groupPeople"
+  | "groupTitleTooLong"
+  | "leaveConversation"
+  | "leaveConversationConfirm"
+  | "leaveGroup"
+  | "leaveGroupConfirm"
   | "linkCopied"
   | "loadEarlier"
   | "loading"
+  | "memberAdded"
+  | "membersFew"
+  | "membersLabel"
+  | "membersMany"
+  | "membersOne"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
@@ -32,17 +61,30 @@ export type Copy = Record<
   | "muteOneDay"
   | "muteOneHour"
   | "muteSevenDays"
+  | "newGroup"
+  | "newMessage"
+  | "nobodyFound"
   | "offline"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
   | "readOnly"
+  | "removeConfirm"
+  | "removeLabel"
+  | "removeMember"
+  | "removeSelected"
   | "reported"
   | "reportMessage"
+  | "requestFrom"
+  | "requestQuestion"
+  | "requests"
   | "restoreWriting"
   | "retry"
   | "roomsLabel"
   | "scrollLatest"
+  | "searchHint"
+  | "searching"
+  | "searchPeople"
   | "sending"
   | "sendLabel"
   | "sessionRoom"
@@ -57,20 +99,38 @@ export type Copy = Record<
   | "unreadCountMany"
   | "unreadCountOne"
   | "writePlaceholder"
-  | "writingRestored",
+  | "writingRestored"
+  | "you",
   string
 >;
+
+export type Person = { avatarUrl: string; id: string; name: string };
+
+// A direct or group conversation as its member sees it; members lists the
+// people in it now, its member among them.
+export type ConversationInfo = {
+  canWrite: boolean;
+  id: string;
+  isAdmin: boolean;
+  kind: "direct" | "group";
+  members: Person[];
+  state: "active" | "request";
+  title: string;
+};
 
 export type Room = {
   canModerate: boolean;
   canWrite: boolean;
+  conversation?: ConversationInfo;
   id: string;
-  kind: "session" | "sphere";
+  kind: "conversation" | "session" | "sphere";
   title: string;
 };
 export type Bootstrap = {
   agentHost: string;
+  canMessage: boolean;
   capabilityToken: string;
+  conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
   rooms: Room[];
@@ -98,11 +158,16 @@ export type Event = { payload: unknown; type: string; v: 1 };
 // been revoked; the same pass would only be refused again, so the browser
 // fetches a new one instead of reconnecting.
 const PASS_CLOSED = new Set([4401, 4403]);
+// A conversation shuts out anyone not on its member list. That may be a
+// list still on its way, so onRefused lets the chat check whether the
+// person is still in it and redial if so.
+const NOT_A_MEMBER = 4404;
 
-export function passCloseHandlers(onPassClosed: () => void) {
+export function passCloseHandlers(onPassClosed: () => void, onRefused: () => void = () => null) {
   return {
     onClose: (event: CloseEvent) => {
       if (PASS_CLOSED.has(event.code)) onPassClosed();
+      if (event.code === NOT_A_MEMBER) onRefused();
     },
     shouldReconnectOnClose: (event: CloseEvent) => !PASS_CLOSED.has(event.code),
   };

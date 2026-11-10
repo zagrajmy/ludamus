@@ -88,6 +88,7 @@ class ParleyService:
                 "avatarUrl": access.user_avatar_url,
             },
             rooms=access.rooms,
+            can_message=direct,
             conversations=self._conversations.list_for(user_id) if direct else [],
             capability_token=self._signer.sign(claims),
             agent_host=self._agent_host,

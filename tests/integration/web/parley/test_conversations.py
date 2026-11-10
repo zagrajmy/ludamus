@@ -98,6 +98,42 @@ class TestPeople:
 
 
 @pytest.mark.django_db
+class TestList:
+    def test_lists_ones_own_conversations_and_requests_but_not_others(
+        self, authenticated_client, me
+    ):
+        ada = _adult(name="Ada")
+        _post(_as(ada), "parley_conversation_direct", {"userId": me.pk})
+        _post(_as(ada), "parley_conversation_group", {"title": "Not mine"})
+
+        response = authenticated_client.get(reverse("parley_conversations"))
+
+        conversation = ParleyConversation.objects.get(kind="direct")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            json={
+                "conversations": [
+                    {
+                        "id": f"conversation:{conversation.pk}",
+                        "kind": "direct",
+                        "title": "Ada",
+                        "state": "request",
+                        "canWrite": False,
+                        "isAdmin": False,
+                        "members": [_person(ada), _person(me)],
+                    }
+                ]
+            },
+        )
+
+    def test_a_minor_has_none(self, authenticated_client, active_user):
+        response = authenticated_client.get(reverse("parley_conversations"))
+
+        assert_response(response, HTTPStatus.OK, json={"conversations": []})
+
+
+@pytest.mark.django_db
 class TestDirect:
     def test_a_first_message_waits_as_a_request_until_accepted(
         self, authenticated_client, me

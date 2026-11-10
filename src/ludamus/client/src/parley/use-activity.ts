@@ -10,13 +10,24 @@ import {
   type RoomActivity,
 } from "./protocol";
 
-export function useActivity(bootstrap: Bootstrap, onPassClosed: () => void) {
+export type Activity = {
+  activity: Record<string, RoomActivity>;
+  markRead: (roomId: string, messageId: number) => void;
+};
+
+// Which rooms have news: the sphere's rooms from the sphere's own agent,
+// one's conversations from one's inbox.
+export function useActivity(
+  bootstrap: Bootstrap,
+  source: "inbox" | "sphere",
+  onPassClosed: () => void,
+): Activity {
   const url = agentUrl(bootstrap.agentHost);
   const [activity, setActivity] = useState<Record<string, RoomActivity>>({});
   const agent = useAgent({
-    agent: "ParleySphereAgent",
+    agent: source === "inbox" ? "ParleyInboxAgent" : "ParleySphereAgent",
     host: url.host,
-    name: bootstrap.sphere.id,
+    name: source === "inbox" ? bootstrap.user.id : bootstrap.sphere.id,
     protocol: url.protocol === "https:" ? "wss" : "ws",
     ...passCloseHandlers(onPassClosed),
   });

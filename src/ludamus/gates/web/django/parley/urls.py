@@ -8,6 +8,9 @@ urlpatterns = [
     path("reports/", report, name="parley_report"),
     path("people/", conversations.people, name="parley_people"),
     path(
+        "conversations/", conversations.conversation_list, name="parley_conversations"
+    ),
+    path(
         "conversations/direct/",
         conversations.start_direct,
         name="parley_conversation_direct",

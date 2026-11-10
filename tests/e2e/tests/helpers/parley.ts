@@ -2,20 +2,44 @@ import type { Locator, Page, WebSocketRoute } from "@playwright/test";
 
 import { expect } from "./fixtures";
 
+export type Person = { avatarUrl: string; id: string; name: string };
+export type Conversation = {
+  canWrite: boolean;
+  id: string;
+  isAdmin: boolean;
+  kind: "direct" | "group";
+  members: Person[];
+  state: "active" | "request";
+  title: string;
+};
+
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
 // sphere 1 with its common room and one read-only programme point.
 export const bootstrap = {
   agentHost: "localhost:8787",
+  canMessage: false,
   capabilityToken: "mock-token",
   copy: {
+    accept: "Accept",
+    addPeople: "Add people",
     backLabel: "Back to conversations",
+    backToConversation: "Back to the conversation",
+    block: "Block",
+    blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
+    blockPerson: "Block %(name)s",
     cancelLabel: "Cancel",
     closeLabel: "Close chat",
     connectionError: "Could not connect to the chat.",
     copyLink: "Copy message link",
-    deletedMessage: "Message deleted",
+    createGroup: "Create group",
+    decline: "Decline",
     deleteConfirm: "Delete this message for everyone?",
+    deletedMessage: "Message deleted",
     deleteLabel: "Delete message",
+    detailsLabel: "Conversation details",
+    directMessage: "Direct message",
+    emptyDirect: "Say hello. Until they accept, they will see only your first message.",
+    emptyGroup: "A brand new group. Say hello to everyone.",
     emptyReadOnly: "Nobody has written here yet.",
     emptySession: "You found the table first. Leave a note for the others.",
     emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
@@ -23,11 +47,28 @@ export const bootstrap = {
     errorForbidden: "You do not have permission to do that.",
     errorInvalid: "That message could not be sent.",
     errorMuted: "Your writing access is currently muted.",
+    errorNotFound: "That person or conversation is no longer available.",
+    errorPending: "They have not accepted your message yet. You can write more once they do.",
     errorRateLimited: "Too many messages. Wait a moment and try again.",
+    errorTooMany: "A group can have up to 50 people.",
     errorUnknown: "Something went wrong. Try again.",
+    groupName: "Group name",
+    groupNeedsPeople: "Add at least one person.",
+    groupNeedsTitle: "Give the group a name.",
+    groupPeople: "People in the group",
+    groupTitleTooLong: "Group names can be up to 80 characters.",
+    leaveConversation: "Leave conversation",
+    leaveConversationConfirm: "Leave this conversation? It will disappear from your list.",
+    leaveGroup: "Leave group",
+    leaveGroupConfirm: "Leave this group? Its messages will stop reaching you.",
     linkCopied: "Link copied.",
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
+    memberAdded: "%(name)s added.",
+    membersFew: "%(count)s members",
+    membersLabel: "People",
+    membersMany: "%(count)s members",
+    membersOne: "%(count)s member",
     messageActions: "Message actions",
     messageLabel: "Message",
     messageListLabel: "Messages",
@@ -41,17 +82,30 @@ export const bootstrap = {
     muteOneDay: "Mute for 24 hours",
     muteOneHour: "Mute for 1 hour",
     muteSevenDays: "Mute for 7 days",
+    newGroup: "New group",
+    newMessage: "New message",
+    nobodyFound: "Nobody by that name you can write to.",
     offline: "Connection lost. Reconnecting…",
     presenceFew: "%(count)s people here",
     presenceMany: "%(count)s people here",
     presenceOne: "%(count)s person here",
     readOnly: "You can read this conversation, but not write in it.",
+    removeConfirm: "Remove %(name)s from the group?",
+    removeLabel: "Remove",
+    removeMember: "Remove %(name)s from the group",
+    removeSelected: "Remove %(name)s",
     reported: "Message reported.",
     reportMessage: "Report message",
+    requestFrom: "Wants to message you",
+    requestQuestion: "%(name)s wants to message you.",
+    requests: "Requests",
     restoreWriting: "Restore writing access",
     retry: "Try again",
     roomsLabel: "Conversations",
     scrollLatest: "Jump to the latest messages",
+    searchHint: "Type at least two letters of their name.",
+    searching: "Searching…",
+    searchPeople: "Find a person",
     sending: "Sending…",
     sendLabel: "Send message",
     sessionRoom: "Programme point",
@@ -67,7 +121,9 @@ export const bootstrap = {
     unreadCountOne: "%(count)s unread conversation",
     writePlaceholder: "Write a message…",
     writingRestored: "Writing access restored.",
+    you: "(you)",
   },
+  conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
   rooms: [
     { canModerate: true, canWrite: true, id: "sphere:1", kind: "sphere", title: "Zagrajmy" },
@@ -184,6 +240,11 @@ export class FakeWorker {
 
   private accept(socket: WebSocketRoute): void {
     this.sockets.push(socket);
+    // A socket the page closes is gone; only open ones hear pushes and closes.
+    socket.onClose(() => {
+      const at = this.sockets.indexOf(socket);
+      if (at !== -1) this.sockets.splice(at, 1);
+    });
     socket.onMessage((raw) => {
       const message = JSON.parse(String(raw)) as {
         args?: Record<string, unknown>[];

@@ -89,13 +89,16 @@ export function MessageItem({
                   }),
               } as const,
             ]
-          : [
-              {
-                icon: "Flag",
-                label: copy.reportMessage,
-                onSelect: () => report(message.id),
-              } as const,
-            ]),
+          : // TODO: reports name a sphere's room, so a conversation has none yet.
+            room.kind === "conversation"
+            ? []
+            : [
+                {
+                  icon: "Flag",
+                  label: copy.reportMessage,
+                  onSelect: () => report(message.id),
+                } as const,
+              ]),
         ...(room.canModerate && !own
           ? ([
               {
