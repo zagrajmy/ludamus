@@ -40,7 +40,7 @@ type Socket = { closed: Promise<number>; socket: WebSocket };
 // Resolves once the room has admitted the socket: admission is what sends
 // the first presence count.
 async function open(path: string, token: string): Promise<Socket> {
-  const response = await exports.default.fetch(`https://parley.test/agents/${path}`, {
+  const response = await exports.default.fetch(`http://localhost:8787/agents/${path}`, {
     headers: {
       Cookie: `parley_capability=${token}`,
       Origin: "http://localhost:8000",
@@ -61,7 +61,7 @@ async function open(path: string, token: string): Promise<Socket> {
 }
 
 async function revoke(claims: Record<string, unknown>, audience = REVOCATION_AUDIENCE) {
-  return exports.default.fetch("https://parley.test/revoke", {
+  return exports.default.fetch("http://localhost:8787/revoke", {
     body: JSON.stringify({ token: await sign(claims, audience, now()) }),
     headers: { "Content-Type": "application/json" },
     method: "POST",

@@ -26,10 +26,10 @@ import {
 } from "./protocol";
 
 export type Env = {
-  ALLOWED_ORIGINS: string;
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
   PARLEY_PUBLIC_KEY: string;
+  ROOT_DOMAIN: string;
   // NOTE: routeAgentRequest serves each namespace under its binding name,
   // kebab-cased, and the browser addresses rooms by class name.
   ParleySessionAgent: AgentNamespace<ParleySessionAgent>;

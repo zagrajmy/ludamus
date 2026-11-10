@@ -719,7 +719,6 @@ LOGGING = {
 }
 
 # Parley
-PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST")
 PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
 # NOTE: this pair is committed so laptops and e2e sign passes with no setup.
 # Anyone can read it, so a deployment that signs with it is refused.
@@ -734,21 +733,32 @@ if (
     and _PARLEY_DEV_KEY.exists()
 ):
     PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+# A deployment's Worker serves parley.<ROOT_DOMAIN>; local runs name theirs,
+# and tests have none.
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST") or (
+    "" if ENV in _PARLEY_DEV_ENVS else f"parley.{ROOT_DOMAIN}"
+)
 if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
-    _parley_key = serialization.load_pem_private_key(
+    _PARLEY_KEY = serialization.load_pem_private_key(
         PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
     )
-    _parley_fingerprint = hashlib.sha256(
-        _parley_key.public_key().public_bytes(
+    _PARLEY_FINGERPRINT = hashlib.sha256(
+        _PARLEY_KEY.public_key().public_bytes(
             serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
         )
     ).hexdigest()
-    if _parley_fingerprint == _PARLEY_DEV_KEY_FINGERPRINT:
+    if _PARLEY_FINGERPRINT == _PARLEY_DEV_KEY_FINGERPRINT:
         raise ImproperlyConfigured(
             "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
         )
 if PARLEY_AGENT_HOST:
-    PARLEY_IS_LOCAL = PARLEY_AGENT_HOST.startswith(("localhost", "127.0.0.1"))
+    # Same rule as links.parley_worker.is_local, which settings cannot import.
+    _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""
+    PARLEY_IS_LOCAL = _PARLEY_HOSTNAME in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    } or _PARLEY_HOSTNAME.endswith(".localhost")
     PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
     PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
     CSP_POLICY["connect-src"].extend(

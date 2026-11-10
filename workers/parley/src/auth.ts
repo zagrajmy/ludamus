@@ -7,19 +7,57 @@ const COOKIE_NAME = "parley_capability";
 export const REVOCATION_AUDIENCE = "parley-revocation";
 
 type AuthEnv = {
-  ALLOWED_ORIGINS: string;
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
   PARLEY_PUBLIC_KEY: string;
+  ROOT_DOMAIN: string;
 };
 
-function allowedOrigins(env: AuthEnv): Set<string> {
-  return new Set(env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()));
+function isLocal(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".localhost")
+  );
 }
 
-export function originIsAllowed(request: Request, env: AuthEnv): boolean {
+// A Worker answering on a local host is a dev server, where the app and the
+// Worker often sit on different local sites (ludamus.localhost:1355 and
+// localhost:8787, or whatever ports an agent picked). There any local page
+// may open it, and its cookie crosses sites. Cloudflare routes by Host, so a
+// deployed Worker never sees a local one.
+function servedLocally(request: Request): boolean {
+  return isLocal(new URL(request.url).hostname);
+}
+
+function originOf(request: Request): URL | null {
   const origin = request.headers.get("Origin");
-  return origin !== null && allowedOrigins(env).has(origin);
+  if (origin === null) return null;
+  try {
+    return new URL(origin);
+  } catch {
+    return null;
+  }
+}
+
+// The app and every sphere on a subdomain of it; a sphere on a custom domain
+// of its own could not send the SameSite=Strict cookie anyway.
+export function originIsAllowed(request: Request, env: AuthEnv): boolean {
+  const origin = originOf(request);
+  if (origin === null) return false;
+  if (servedLocally(request)) return isLocal(origin.hostname);
+  return (
+    origin.protocol === "https:" &&
+    (origin.host === env.ROOT_DOMAIN || origin.host.endsWith(`.${env.ROOT_DOMAIN}`))
+  );
+}
+
+export function cookieAttributes(request: Request): string {
+  // NOTE: SameSite=None needs Secure, which browsers accept from a local
+  // host over plain http; Partitioned keeps it working where third-party
+  // cookies are blocked.
+  return servedLocally(request) ? "SameSite=None; Secure; Partitioned" : "SameSite=Strict; Secure";
 }
 
 export function capabilityCookie(request: Request): string | null {
@@ -138,7 +176,6 @@ export async function exchangeCapability(request: Request, env: AuthEnv): Promis
   try {
     const capability = await verifyCapability(token, env);
     const maxAge = Math.max(0, capability.exp - Math.floor(Date.now() / 1000));
-    const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
     return corsResponse(
       request,
       env,
@@ -146,7 +183,7 @@ export async function exchangeCapability(request: Request, env: AuthEnv): Promis
         status: 204,
         headers: {
           "Cache-Control": "no-store",
-          "Set-Cookie": `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/agents; Max-Age=${maxAge}${secure}`,
+          "Set-Cookie": `${COOKIE_NAME}=${token}; HttpOnly; ${cookieAttributes(request)}; Path=/agents; Max-Age=${maxAge}`,
         },
       }),
     );
@@ -157,7 +194,7 @@ export async function exchangeCapability(request: Request, env: AuthEnv): Promis
 
 export function corsResponse(request: Request, env: AuthEnv, response: Response): Response {
   const origin = request.headers.get("Origin");
-  if (origin === null || !allowedOrigins(env).has(origin)) return response;
+  if (origin === null || !originIsAllowed(request, env)) return response;
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Credentials", "true");
   headers.set("Access-Control-Allow-Origin", origin);

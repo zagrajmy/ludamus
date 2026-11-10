@@ -57,7 +57,7 @@ export default Alchemy.Stack(
       name: stage === "prod" ? testedRuntime.name : undefined,
       // NOTE: the capability cookie is SameSite=Strict, so browsers send it
       // only to a Worker on the app's own site, never to workers.dev.
-      domain: stage === "prod" ? yield* Config.String("PARLEY_DOMAIN") : undefined,
+      domain: stage === "prod" ? `parley.${yield* Config.String("ROOT_DOMAIN")}` : undefined,
       main: "./src/index.ts",
       compatibility: {
         date: testedRuntime.compatibility_date,
@@ -75,7 +75,7 @@ export default Alchemy.Stack(
       env: {
         ...durableObjects,
         ...testedRuntime.vars,
-        ALLOWED_ORIGINS: Config.String("PARLEY_ALLOWED_ORIGINS"),
+        ROOT_DOMAIN: Config.String("ROOT_DOMAIN"),
         PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY").pipe(Config.map(refuseDevKey)),
       },
     });

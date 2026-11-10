@@ -26,30 +26,35 @@ before `wrangler dev` or Alchemy starts, failing on a missing one.
 `wrangler.json` lists the secret under `secrets.required`, which makes
 Wrangler pass only that from the environment into the Worker.
 
-| Input                    | Development        | Production |
-| ------------------------ | ------------------ | ---------- |
-| `PARLEY_PUBLIC_KEY`      | required           | required   |
-| `PARLEY_ALLOWED_ORIGINS` | from wrangler.json | required   |
-| `PARLEY_DOMAIN`          | unused             | required   |
+| Input               | Development           | Production |
+| ------------------- | --------------------- | ---------- |
+| `PARLEY_PUBLIC_KEY` | from .env.development | required   |
+| `ROOT_DOMAIN`       | unused                | required   |
 
 Give the values the way varlock takes them: in the process environment, or
 in a git-ignored `.env.local` beside the schema. The production inputs
-are public (a public key, a hostname and a list of origins), so it can also live
-in a committed `.env.production`.
+are public (a public key and a domain), so they can also live in a committed
+`.env.production`.
 
-The Worker keeps each browser's capability in a `SameSite=Strict` cookie, so
-`PARLEY_DOMAIN` must sit on the app's own site, such as
-`parley.<ROOT_DOMAIN>`. On `workers.dev`, or for a sphere on a custom domain
-of its own, browsers withhold the cookie and every room refuses the
-socket.
+In production the Worker serves `parley.<ROOT_DOMAIN>` and keeps each
+browser's pass in a `SameSite=Strict` cookie, so it admits only the app and
+its sphere subdomains. On `workers.dev`, or for a sphere on a custom domain
+of its own, browsers withhold the cookie and every room refuses the socket.
 
 ## Local development
+
+`mise run start` runs the Worker beside the app, on `localhost:8787` and,
+behind portless, as `parley.<ROOT_DOMAIN>` too. On its own:
 
 ```sh
 aube run dev   # http://localhost:8787
 ```
 
-Set `PARLEY_AGENT_HOST=localhost:8787` in the app's `.env.local`.
+The app's `.env.development` points `PARLEY_AGENT_HOST` at it, and both sign
+and check passes with the committed `dev-signing-key.pem`. A Worker on a
+local host admits any local origin and sends its cookie as
+`SameSite=None; Secure; Partitioned`, so an app on another local port or
+hostname still connects.
 
 ## Deploy
 
@@ -65,9 +70,9 @@ One-time setup:
    `alchemy-state-store` that holds deploy state in a Durable Object, and
    asks before doing so. Its token and encryption key go into the account's
    Secrets Store, which a plain "Edit Cloudflare Workers" token cannot write.
-3. Provide `PARLEY_ALLOWED_ORIGINS`, `PARLEY_DOMAIN` and `PARLEY_PUBLIC_KEY`
-   (see [Inputs](#inputs)). The domain's zone must already be in the
-   account; Alchemy creates the DNS record and certificate. Derive the key with
+3. Provide `ROOT_DOMAIN` and `PARLEY_PUBLIC_KEY` (see [Inputs](#inputs)).
+   The domain's zone must already be in the account; Alchemy creates the DNS
+   record and certificate. Derive the key with
    `openssl rsa -in parley-private.pem -pubout`.
 
 Then:
@@ -84,8 +89,8 @@ gets its own Worker and Durable Objects, so it never touches production
 rooms. It has no custom domain, so it serves the Worker's API but no browser
 sockets; remove it with `alchemy destroy --stage <name>` the same way.
 
-Point the app at the result: `PARLEY_AGENT_HOST` is `PARLEY_DOMAIN`, and
-`PARLEY_SIGNING_PRIVATE_KEY` is the private half of the key above.
+Point the app at the result by giving it `PARLEY_SIGNING_PRIVATE_KEY`, the
+private half of the key above. It then talks to `parley.<ROOT_DOMAIN>`.
 
 [alchemy]: https://alchemy.run
 [varlock]: https://varlock.dev

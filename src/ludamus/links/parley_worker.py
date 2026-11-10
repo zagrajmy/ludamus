@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import requests
 
 # Cloudflare answers from the edge, so a revocation that takes longer is
@@ -7,10 +9,17 @@ import requests
 _TIMEOUT_SECONDS = 10
 
 
+def is_local(agent_host: str) -> bool:
+    hostname = urlsplit(f"//{agent_host}").hostname or ""
+    return hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(
+        ".localhost"
+    )
+
+
 class ParleyWorkerClient:
     def __init__(self, agent_host: str) -> None:
-        local = agent_host.startswith(("localhost", "127.0.0.1"))
-        self._revoke_url = f"{'http' if local else 'https'}://{agent_host}/revoke"
+        scheme = "http" if is_local(agent_host) else "https"
+        self._revoke_url = f"{scheme}://{agent_host}/revoke"
 
     def revoke(self, token: str) -> None:
         body: dict[str, str] = {"token": token}

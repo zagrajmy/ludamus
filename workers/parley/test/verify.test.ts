@@ -7,7 +7,7 @@ import { REVOCATION_AUDIENCE, verifyCapability, verifyRevocation } from "../src/
 import { revokes } from "../src/room-agent";
 
 let env: {
-  ALLOWED_ORIGINS: string;
+  ROOT_DOMAIN: string;
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
   PARLEY_PUBLIC_KEY: string;
@@ -29,7 +29,7 @@ const valid = {
 beforeAll(async () => {
   const { privateKey, publicKey } = await generateKeyPair("RS256");
   env = {
-    ALLOWED_ORIGINS: "https://ludamus.test",
+    ROOT_DOMAIN: "ludamus.test",
     JWT_AUDIENCE: "parley",
     JWT_ISSUER: "ludamus",
     PARLEY_PUBLIC_KEY: await exportSPKI(publicKey),
