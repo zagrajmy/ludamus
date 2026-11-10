@@ -613,6 +613,16 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
+            if self._repos.agenda_items.list_overlapping_in_space(
+                placement.space_pk,
+                placement.start_time,
+                placement.end_time,
+                exclude_session_pk=session_pk,
+            ):
+                raise PlacementRejectedError(
+                    PlacementRejection.SPACE_TIME_CONFLICT,
+                    "another session is already scheduled in this space at this time",
+                )
             self._widen_time_slots_around(placement, event)
             # A move needs the facilitator's fresh agreement to the new slot.
             confirmed = event.auto_confirm_sessions and not is_move

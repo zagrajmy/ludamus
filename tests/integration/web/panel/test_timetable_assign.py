@@ -318,6 +318,37 @@ class TestTimetableAssignView:
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
+    def test_assign_rejects_a_room_already_booked_at_that_time(
+        self, panel_client, event, proposal_category
+    ):
+        _allow_assignments(event)
+        space = SpaceFactory(event=event)
+        occupier = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        challenger = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        start_time = event.start_time
+        end_time = start_time + timedelta(hours=1)
+        AgendaItemFactory(
+            session=occupier, space=space, start_time=start_time, end_time=end_time
+        )
+
+        response = panel_client.post(
+            self.get_url(event),
+            assign_payload(
+                session=challenger, space=space, start=start_time, end=end_time
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            content=(b"There is already a session scheduled at this space and time."),
+        )
+        assert not AgendaItem.objects.filter(session=challenger).exists()
+
     def test_reassigns_already_scheduled_session_to_new_slot(
         self, panel_client, event, proposal_category
     ):

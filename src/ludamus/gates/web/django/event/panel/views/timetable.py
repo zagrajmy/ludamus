@@ -89,6 +89,8 @@ def _placement_rejection_message(error: PlacementRejectedError) -> str:
             "This is before the event is published. "
             "Move the publication time in the event settings first."
         )
+    if error.reason is PlacementRejection.SPACE_TIME_CONFLICT:
+        return _("There is already a session scheduled at this space and time.")
     return _("This placement is invalid.")
 
 
