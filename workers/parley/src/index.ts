@@ -1,10 +1,19 @@
 import { getAgentByName, routeAgentRequest } from "agents";
 
+import type { ParleyConversationAgent } from "./conversation-agent";
 import type { Env } from "./room-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
-import { corsResponse, exchangeCapability, originIsAllowed, revocationFromRequest } from "./auth";
+import {
+  corsResponse,
+  exchangeCapability,
+  membershipFromRequest,
+  originIsAllowed,
+  revocationFromRequest,
+} from "./auth";
 
+export { ParleyConversationAgent } from "./conversation-agent";
+export { ParleyInboxAgent } from "./inbox-agent";
 export { ParleySessionAgent } from "./session-agent";
 export { ParleySphereAgent } from "./sphere-agent";
 
@@ -35,6 +44,16 @@ export default {
         revocation.sphere,
       );
       await sphere.revoke(revocation);
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname === "/conversations" && request.method === "POST") {
+      const membership = await membershipFromRequest(request, env);
+      if (membership instanceof Response) return membership;
+      const room = await getAgentByName<Env, ParleyConversationAgent>(
+        env.ParleyConversationAgent,
+        membership.conversation,
+      );
+      await room.sync(membership);
       return new Response(null, { status: 204 });
     }
     if (!originIsAllowed(request, env)) return new Response("Forbidden", { status: 403 });

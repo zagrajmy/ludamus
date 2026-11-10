@@ -8,6 +8,7 @@ from ludamus.pacts.parley import (
     ParleyBootstrapDTO,
     ParleyCapabilityClaims,
     ParleyConversationRepositoryProtocol,
+    ParleyMembershipOutboxProtocol,
     ParleyReportData,
     ParleyRepositoryProtocol,
     ParleyRevocationClaims,
@@ -117,9 +118,13 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         *,
         repository: ParleyRepositoryProtocol,
         outbox: ParleyRevocationOutboxProtocol,
+        conversations: ParleyConversationRepositoryProtocol,
+        memberships: ParleyMembershipOutboxProtocol,
     ) -> None:
         self._repository = repository
         self._outbox = outbox
+        self._conversations = conversations
+        self._memberships = memberships
 
     def revoke_event_user(self, *, event_id: int, user_id: int) -> None:
         if (sphere_id := self._repository.read_event_sphere_id(event_id)) is not None:
@@ -128,6 +133,10 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
     def revoke_user(self, *, user_id: int) -> None:
         if sphere_ids := self._repository.list_chat_sphere_ids():
             self._outbox.schedule(sphere_ids=sphere_ids, subject=str(user_id))
+        # Their conversations drop them from the member list the Worker holds.
+        self._memberships.schedule(
+            conversation_ids=self._conversations.conversation_ids_of(user_id)
+        )
 
     def revoke_sphere(self, *, sphere_id: int) -> None:
         self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)

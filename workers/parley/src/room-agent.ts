@@ -8,6 +8,8 @@ import {
   type ConnectionContext,
 } from "agents";
 
+import type { ParleyConversationAgent } from "./conversation-agent";
+import type { ParleyInboxAgent } from "./inbox-agent";
 import type { ParleySessionAgent } from "./session-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
@@ -15,6 +17,7 @@ import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { integer, normalizeMessage } from "./limits";
 import {
+  NOT_A_MEMBER,
   PASS_EXPIRED,
   PASS_REVOKED,
   type Capability,
@@ -32,6 +35,8 @@ export type Env = {
   ROOT_DOMAIN: string;
   // NOTE: routeAgentRequest serves each namespace under its binding name,
   // kebab-cased, and the browser addresses rooms by class name.
+  ParleyConversationAgent: AgentNamespace<ParleyConversationAgent>;
+  ParleyInboxAgent: AgentNamespace<ParleyInboxAgent>;
   ParleySessionAgent: AgentNamespace<ParleySessionAgent>;
   ParleySphereAgent: AgentNamespace<ParleySphereAgent>;
 };
@@ -39,6 +44,8 @@ export type Env = {
 function passExpired(capability: Capability): boolean {
   return capability.exp * 1_000 <= Date.now();
 }
+
+export { NOT_A_MEMBER };
 
 export function revokes(
   revocation: Pick<Revocation, "revokedBefore" | "sub">,
@@ -64,7 +71,7 @@ type MessageRow = {
 export abstract class RoomAgent extends Agent<Env> {
   protected readonly agentContext: AgentContext;
   protected readonly workerEnv: Env;
-  protected abstract readonly roomPrefix: "session" | "sphere";
+  protected abstract readonly roomPrefix: "conversation" | "session" | "sphere";
 
   constructor(context: AgentContext, env: Env) {
     super(context, env);
@@ -118,7 +125,7 @@ export abstract class RoomAgent extends Agent<Env> {
     // landing while it answers still finds this socket to close.
     connection.setState({ admitted: false, capability });
     if (!(await this.admits(capability))) {
-      connection.close(PASS_REVOKED, "Access revoked");
+      connection.close(this.refusal(), "Access revoked");
       return;
     }
     if (connection.readyState !== WebSocket.OPEN) return;
@@ -127,6 +134,11 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   protected abstract admits(capability: Capability): Promise<boolean>;
+
+  // How a refused admission closes; a pass close, unless a room says otherwise.
+  protected refusal(): number {
+    return PASS_REVOKED;
+  }
 
   closeRevoked(revocation: Pick<Revocation, "revokedBefore" | "sub">): void {
     for (const connection of this.getConnections<ConnectionState>()) {

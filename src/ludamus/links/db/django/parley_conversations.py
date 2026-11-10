@@ -164,8 +164,14 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
     ) -> tuple[ParleyConversationKind, list[ParleyMemberSnapshot]]:
         conversation = ParleyConversation.objects.get(pk=conversation_id)
         # Everyone, the departed included: a direct conversation dies with
-        # either person's leaving.
-        everyone = list(conversation.members.all())
+        # either person's leaving. An account no longer eligible, disabled or
+        # under 16, is not on the list the Worker gets.
+        everyone = list(conversation.members.select_related("user"))
+        eligible = set(
+            User.objects.filter(
+                _eligible(), pk__in=[member.user_id for member in everyone]
+            ).values_list("pk", flat=True)
+        )
         return ParleyConversationKind(conversation.kind), [
             ParleyMemberSnapshot(
                 user_id=member.user_id,
@@ -177,8 +183,16 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
                 ),
             )
             for member in everyone
-            if member.state in _PRESENT
+            if member.state in _PRESENT and member.user_id in eligible
         ]
+
+    @staticmethod
+    def conversation_ids_of(user_id: int) -> list[int]:
+        return list(
+            ParleyConversationMember.objects.filter(
+                user_id=user_id, state__in=_PRESENT
+            ).values_list("conversation_id", flat=True)
+        )
 
     @staticmethod
     def conversations_with(*, first_id: int, second_id: int) -> list[int]:

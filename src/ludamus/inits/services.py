@@ -178,7 +178,10 @@ class Services:
     @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
         return ParleyRevocationService(
-            repository=self._repos.parley, outbox=parley_revocation_outbox()
+            repository=self._repos.parley,
+            outbox=parley_revocation_outbox(),
+            conversations=self._repos.parley_conversations,
+            memberships=parley_membership_outbox(),
         )
 
     @cached_property

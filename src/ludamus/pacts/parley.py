@@ -266,6 +266,9 @@ class ParleyConversationRepositoryProtocol(Protocol):
     ) -> tuple[ParleyConversationKind, list[ParleyMemberSnapshot]]: ...
 
     @staticmethod
+    def conversation_ids_of(user_id: int) -> list[int]: ...
+
+    @staticmethod
     def conversations_with(*, first_id: int, second_id: int) -> list[int]: ...
 
     @staticmethod

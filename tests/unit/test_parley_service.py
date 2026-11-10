@@ -227,9 +227,31 @@ class FakeOutbox:
         self.scheduled.append((sphere_ids, subject))
 
 
-def _revocations(repository):
+class FakeConversations:
+    def __init__(self, conversations=()):
+        self._conversations = list(conversations)
+
+    def conversation_ids_of(self, _user_id):
+        return self._conversations
+
+
+class FakeMemberships:
+    def __init__(self):
+        self.synced = []
+
+    def schedule(self, *, conversation_ids):
+        self.synced.extend(conversation_ids)
+
+
+def _revocations(repository, conversations=()):
     outbox = FakeOutbox()
-    return ParleyRevocationService(repository=repository, outbox=outbox), outbox
+    service = ParleyRevocationService(
+        repository=repository,
+        outbox=outbox,
+        conversations=FakeConversations(conversations),
+        memberships=FakeMemberships(),
+    )
+    return service, outbox
 
 
 def test_a_ban_revokes_the_person_in_the_events_sphere_only_when_it_has_chat():
@@ -250,6 +272,20 @@ def test_a_disabled_account_is_revoked_in_every_sphere_with_chat():
 
     assert outbox.scheduled == [([3, 45], "123")]
     assert not quiet.scheduled
+
+
+def test_a_disabled_account_drops_out_of_its_conversations():
+    memberships = FakeMemberships()
+    service = ParleyRevocationService(
+        repository=FakeChatSpheres(),
+        outbox=FakeOutbox(),
+        conversations=FakeConversations([8, 9]),
+        memberships=memberships,
+    )
+
+    service.revoke_user(user_id=123)
+
+    assert memberships.synced == [8, 9]
 
 
 def test_turning_chat_off_revokes_everyone_in_the_sphere():

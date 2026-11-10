@@ -1,4 +1,4 @@
-export type RoomKind = "sphere" | "session";
+export type RoomKind = "conversation" | "session" | "sphere";
 
 export type SessionGrant = { endsAt: number; writable: boolean };
 
@@ -7,6 +7,8 @@ export type SessionGrant = { endsAt: number; writable: boolean };
 export type Capability = {
   aud: "parley";
   avatar: string;
+  // Whether direct and group conversations are open to this person at all.
+  direct?: boolean;
   exp: number;
   iat: number;
   iss: "ludamus";
@@ -18,6 +20,18 @@ export type Capability = {
   sessions: Record<string, SessionGrant>;
   sphere: string;
   sub: string;
+};
+
+export type MemberState = "active" | "request";
+
+export type Member = { state: MemberState; user: string; writable: boolean };
+
+// Who is in a conversation, as Django last saw it. A newer one replaces it whole.
+export type Membership = {
+  conversation: string;
+  iat: number;
+  kind: "direct" | "group";
+  members: Member[];
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
@@ -34,6 +48,9 @@ export type Revocation = {
 // never as a reason to retry the same one.
 export const PASS_EXPIRED = 4401;
 export const PASS_REVOKED = 4403;
+// Not on the conversation's member list, or not yet: the socket redials, as
+// it would after any drop, rather than fetching a new pass.
+export const NOT_A_MEMBER = 4404;
 
 // Admission waits on the sphere's deny-list; until it answers the socket
 // holds a pass but hears nothing.
@@ -70,7 +87,8 @@ export type ServerEvent =
 export type RoomActivity = { at: number; unread: boolean };
 
 export type RpcError = {
-  code: "archived" | "forbidden" | "invalid" | "muted" | "rate_limited";
+  // pending: a request not yet accepted takes one message, no more.
+  code: "archived" | "forbidden" | "invalid" | "muted" | "pending" | "rate_limited";
   ok: false;
 };
 

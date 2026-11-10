@@ -1,10 +1,11 @@
 import { importSPKI, jwtVerify } from "jose";
 
-import type { Capability, Revocation } from "./protocol";
+import type { Capability, Member, Membership, Revocation } from "./protocol";
 
 const COOKIE_NAME = "parley_capability";
 // Its own audience, so neither kind of token can be passed off as the other.
 export const REVOCATION_AUDIENCE = "parley-revocation";
+export const MEMBERSHIP_AUDIENCE = "parley-membership";
 
 type AuthEnv = {
   JWT_AUDIENCE: string;
@@ -85,13 +86,18 @@ function isSessionGrants(value: unknown): value is Capability["sessions"] {
   );
 }
 
-async function verified(token: string, env: AuthEnv, audience: string) {
+async function verified(
+  token: string,
+  env: AuthEnv,
+  audience: string,
+  requiredClaims = ["exp", "iat", "sub"],
+) {
   const publicKey = await importSPKI(env.PARLEY_PUBLIC_KEY.replaceAll("\\n", "\n"), "RS256");
   const { payload } = await jwtVerify(token, publicKey, {
     algorithms: ["RS256"],
     audience,
     issuer: env.JWT_ISSUER,
-    requiredClaims: ["exp", "iat", "sub"],
+    requiredClaims,
   });
   return payload;
 }
@@ -107,7 +113,8 @@ export async function verifyCapability(token: string, env: AuthEnv): Promise<Cap
     (payload.role !== "manager" && payload.role !== "member") ||
     !isSeconds(payload.readOnlyAfter) ||
     !isSeconds(payload.retainFor) ||
-    !isSessionGrants(payload.sessions)
+    !isSessionGrants(payload.sessions) ||
+    (payload.direct !== undefined && typeof payload.direct !== "boolean")
   ) {
     throw new Error("Invalid capability");
   }
@@ -131,6 +138,37 @@ export async function verifyRevocation(token: string, env: AuthEnv): Promise<Rev
     revokedBefore: payload.revokedBefore,
     sphere: payload.sphere,
     sub: payload.sub,
+  };
+}
+
+function isMember(value: unknown): value is Member {
+  if (typeof value !== "object" || value === null) return false;
+  const { state, user, writable } = value as Record<string, unknown>;
+  return (
+    typeof user === "string" &&
+    /^\d+$/u.test(user) &&
+    (state === "active" || state === "request") &&
+    typeof writable === "boolean"
+  );
+}
+
+export async function verifyMembership(token: string, env: AuthEnv): Promise<Membership> {
+  // A member list names a room, not a person.
+  const payload = await verified(token, env, MEMBERSHIP_AUDIENCE, ["exp", "iat"]);
+  if (
+    typeof payload.conversation !== "string" ||
+    !/^\d+$/u.test(payload.conversation) ||
+    (payload.kind !== "direct" && payload.kind !== "group") ||
+    !Array.isArray(payload.members) ||
+    !payload.members.every(isMember)
+  ) {
+    throw new Error("Invalid membership");
+  }
+  return {
+    conversation: payload.conversation,
+    iat: payload.iat!,
+    kind: payload.kind,
+    members: payload.members,
   };
 }
 
@@ -160,6 +198,21 @@ export async function revocationFromRequest(
     return await verifyRevocation(token, env);
   } catch {
     return new Response("Invalid revocation", { status: 401 });
+  }
+}
+
+// Django's push of a conversation's member list, server to server like a
+// revocation.
+export async function membershipFromRequest(
+  request: Request,
+  env: AuthEnv,
+): Promise<Membership | Response> {
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
+  try {
+    return await verifyMembership(token, env);
+  } catch {
+    return new Response("Invalid membership", { status: 401 });
   }
 }
 
