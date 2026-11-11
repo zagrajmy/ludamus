@@ -95,7 +95,9 @@
                                             </td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
-                                            <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                                            <td class="py-2">
+                                                {% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -140,7 +142,9 @@
                                             </td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
-                                            <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                                            <td class="py-2">
+                                                {% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
