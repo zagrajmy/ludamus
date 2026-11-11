@@ -264,6 +264,85 @@ class Shadowban(models.Model):
 REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
 
 
+class ParleyConversation(models.Model):
+    """A chat between people, apart from any sphere: a direct one or a group."""
+
+    class Kind(models.TextChoices):
+        DIRECT = "direct"
+        GROUP = "group"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    title = models.CharField(max_length=80, blank=True, default="")
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    # One direct conversation per pair: "<lower pk>:<higher pk>". Groups have
+    # none, and any number of them may share members.
+    pair_key = models.CharField(max_length=41, null=True, blank=True, unique=True)
+
+    class Meta:
+        db_table = "parley_conversation"
+
+    def __str__(self) -> str:
+        return f"Parley {self.kind} conversation {self.pk}"
+
+
+class ParleyConversationMember(models.Model):
+    class State(models.TextChoices):
+        ACTIVE = "active"
+        # Reached by someone they have not talked to yet; reads, cannot write
+        # until they accept.
+        REQUEST = "request"
+        LEFT = "left"
+
+    conversation = models.ForeignKey(
+        ParleyConversation, on_delete=models.CASCADE, related_name="members"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_memberships"
+    )
+    state = models.CharField(max_length=10, choices=State.choices)
+    is_admin = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "parley_conversation_member"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("conversation", "user"),
+                name="parley_conversation_member_unique_user",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} is {self.state} in conversation {self.conversation_id}"
+
+
+class ParleyBlock(models.Model):
+    """No direct conversation between the two, and neither adds the other to a group."""
+
+    blocker = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocks"
+    )
+    blocked = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocked_by"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "parley_block"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("blocker", "blocked"), name="parley_block_unique_pair"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.blocker_id} blocks {self.blocked_id}"
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
@@ -280,6 +359,64 @@ class EventBan(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} banned from event {self.event_id}"
+
+
+class ParleyReport(models.Model):
+    # A sphere's room, or a conversation: exactly one of the two.
+    sphere = models.ForeignKey(
+        "Sphere",
+        on_delete=models.CASCADE,
+        related_name="parley_reports",
+        null=True,
+        blank=True,
+    )
+    conversation = models.ForeignKey(
+        "ParleyConversation",
+        on_delete=models.CASCADE,
+        related_name="reports",
+        null=True,
+        blank=True,
+    )
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    room_id = models.CharField(max_length=64)
+    message_id = models.PositiveBigIntegerField()
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    # The message as its room kept it when reported: the room is the only
+    # other place it lives, and staff cannot read it there.
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="parley_reports_against",
+        null=True,
+        blank=True,
+    )
+    author_name = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    written_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_report"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("reporter", "room_id", "message_id"),
+                name="parley_report_unique_reporter_message",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(sphere__isnull=False, conversation__isnull=True)
+                    | models.Q(sphere__isnull=True, conversation__isnull=False)
+                ),
+                name="parley_report_sphere_or_conversation",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Parley report {self.pk} for {self.room_id}:{self.message_id}"
 
 
 class Party(models.Model):
@@ -521,6 +658,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    parley_enabled = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -1845,8 +1983,6 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    # NOTE: null for a signup that arrived as a calendar reply, not a request.
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:

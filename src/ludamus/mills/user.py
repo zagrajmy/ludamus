@@ -46,6 +46,7 @@ from ludamus.specs.email_verification import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.user import (
         AvatarUrlProviderProtocol,
@@ -127,12 +128,14 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
         subscriptions: SphereSubscriptionRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
         self._subscriptions = subscriptions
+        self._chat = chat
 
     def provision_user(
         self, *, username: str, create_data: UserData, claim_token: str = ""
@@ -197,6 +200,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         with self._transaction.atomic():
             self._set_age_band(user_slug, AgeBand.UNKNOWN)
             self._users.update(user_slug, UserData(is_active=False))
+            self._chat.revoke_user(user_id=self._users.read(user_slug).pk)
 
     def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool:
         """Return whether the change dropped promotional subscriptions."""

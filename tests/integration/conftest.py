@@ -353,7 +353,6 @@ class EncounterRSVPFactory(DjangoModelFactory):
 
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
-    ip_address = Faker("ipv4")
 
 
 class EncounterInviteeFactory(DjangoModelFactory):
@@ -490,7 +489,10 @@ def non_root_sphere(settings, faker):
 
 @pytest.fixture(name="event")
 def event_fixture(sphere):
-    now = datetime.now(UTC)
+    # NOTE: noon keeps the proposal window's wall-clock times clear of the
+    # 02:00 hour a DST switch skips or repeats, which forms reject as
+    # ambiguous when a test posts them back.
+    now = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
     midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
@@ -612,8 +614,9 @@ def encounter_with_rsvps(sphere):
 
 @pytest.fixture(autouse=True)
 def _empty_cache():
-    # The locmem cache outlives a test's rolled-back database, so a cached
-    # landing count would leak into the next test's assertions.
+    # The locmem cache outlives a test's rolled-back database: a cached
+    # landing count or a rate-limit window reserved by one test would leak
+    # into the next test's assertions.
     cache.clear()
 
 

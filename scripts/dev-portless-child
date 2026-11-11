@@ -18,6 +18,20 @@ root_domain="${root_domain%/}"
 export ROOT_DOMAIN="$root_domain"
 export ALLOWED_HOSTS=".localhost,127.0.0.1,localhost,.local"
 
+# The chat Worker joins the app's site as parley.<ROOT_DOMAIN>, as it does
+# when deployed; localhost:8787 keeps answering for anything that skips
+# portless, so a failed alias only costs the shared site.
+root_host="${ROOT_DOMAIN%:*}"
+case "$root_host" in
+  *.localhost)
+    if aubr portless alias "parley.${root_host%.localhost}" 8787 --force >&2; then
+      export PARLEY_AGENT_HOST="parley.$ROOT_DOMAIN"
+    else
+      echo "[dev] portless alias failed; the chat stays on localhost:8787" >&2
+    fi
+    ;;
+esac
+
 printf '[dev] auth0=%s root=%s app_port=%s\n' \
   "${AUTH0_DOMAIN:-?}" "$ROOT_DOMAIN" "${PORT:-?}" >&2
 

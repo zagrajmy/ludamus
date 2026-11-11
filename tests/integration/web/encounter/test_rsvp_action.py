@@ -91,48 +91,50 @@ class TestEncounterRSVPActionView:
             url=f"/e/{encounter.share_code}/",
         )
         rsvp = EncounterRSVP.objects.get(user=user)
-        assert rsvp.ip_address == "203.0.113.50"
+        assert rsvp.encounter_id == encounter.pk
 
-    def test_rsvp_stores_cloudflare_connecting_ip(
-        self, authenticated_client, encounter, user
+    def test_signing_up_stores_no_address(self, authenticated_client, encounter, user):
+        authenticated_client.post(
+            self._url(encounter.share_code), REMOTE_ADDR="203.0.113.50"
+        )
+
+        rsvp = EncounterRSVP.objects.get(user=user)
+        assert not hasattr(rsvp, "ip_address")
+
+    def test_the_throttle_follows_the_cloudflare_connecting_ip(
+        self, authenticated_client, encounter, sphere
     ):
+        authenticated_client.post(
+            self._url(EncounterFactory(sphere=sphere).share_code),
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1",
+            follow=True,
+        )
+
         response = authenticated_client.post(
             self._url(encounter.share_code),
             HTTP_CF_CONNECTING_IP="203.0.113.50",
-            HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1",
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 10.0.0.2",
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=((constants.SUCCESS, "You have signed up!"),),
-            url=f"/e/{encounter.share_code}/",
-        )
-        rsvp = EncounterRSVP.objects.get(user=user)
-        assert rsvp.ip_address == "203.0.113.50"
-
-    def test_rsvp_falls_through_a_malformed_cloudflare_header(
-        self, authenticated_client, encounter, user
-    ):
-        # ip_address is a non-null inet column, so a forged or malformed
-        # header must not reach it — the next source down is used instead.
-        response = authenticated_client.post(
-            self._url(encounter.share_code),
-            HTTP_CF_CONNECTING_IP="not-an-ip",
-            REMOTE_ADDR="203.0.113.50",
+            messages=(
+                (constants.ERROR, "Please wait a moment before signing up again."),
+            ),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=((constants.SUCCESS, "You have signed up!"),),
-            url=f"/e/{encounter.share_code}/",
+    def test_ip_throttle(self, authenticated_client, encounter, sphere):
+        authenticated_client.post(
+            self._url(EncounterFactory(sphere=sphere).share_code),
+            REMOTE_ADDR="10.0.0.1",
+            follow=True,
         )
-        rsvp = EncounterRSVP.objects.get(user=user)
-        assert rsvp.ip_address == "203.0.113.50"
-
-    def test_ip_throttle(self, authenticated_client, encounter):
-        EncounterRSVPFactory(encounter=encounter, ip_address="10.0.0.1")
 
         response = authenticated_client.post(
             self._url(encounter.share_code), REMOTE_ADDR="10.0.0.1"

@@ -21,7 +21,10 @@ from ludamus.inits.builders import (
 from ludamus.inits.dbos_scheduler import (
     announcement_fanout_scheduler,
     offer_expiry_scheduler,
+    parley_membership_outbox,
+    parley_revocation_outbox,
 )
+from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
@@ -29,6 +32,7 @@ from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.tickets import DjangoTicketMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
+from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
@@ -72,6 +76,8 @@ from ludamus.mills.notifications import (
 )
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
+from ludamus.mills.parley import ParleyRevocationService, ParleyService
+from ludamus.mills.parley_conversations import ParleyConversationService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -171,6 +177,35 @@ class Services:
         self._transaction = DjangoTransaction()
 
     @cached_property
+    def parley(self) -> ParleyService:
+        signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        agent_host: str = settings.PARLEY_AGENT_HOST
+        return ParleyService(
+            repository=self._repos.parley,
+            conversations=self._repos.parley_conversations,
+            signer=JwtSigner(signing_private_key),
+            messages=parley_message_reader(),
+            agent_host=agent_host,
+        )
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationService:
+        return ParleyConversationService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
+    def parley_revocations(self) -> ParleyRevocationService:
+        return ParleyRevocationService(
+            repository=self._repos.parley,
+            outbox=parley_revocation_outbox(),
+            conversations=self._repos.parley_conversations,
+            memberships=parley_membership_outbox(),
+        )
+
+    @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
             transaction=self._transaction, fields=self._repos.personal_data_fields
@@ -245,6 +280,7 @@ class Services:
             spheres=self._repos.spheres,
             claims=self.claims,
             subscriptions=self._repos.sphere_subscriptions,
+            chat=self.parley_revocations,
         )
 
     @cached_property
@@ -391,6 +427,7 @@ class Services:
             self._repos.events,
             self._repos.encounters,
             self._repos.active_users,
+            self.parley_revocations,
         )
 
     @cached_property
@@ -576,7 +613,11 @@ class Services:
 
     @cached_property
     def event_bans(self) -> EventBanService:
-        return EventBanService(self._transaction, self._repos.event_bans)
+        return EventBanService(
+            transaction=self._transaction,
+            repo=self._repos.event_bans,
+            chat=self.parley_revocations,
+        )
 
     @cached_property
     def bookmarks(self) -> BookmarkService:

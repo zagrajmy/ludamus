@@ -20,6 +20,8 @@ from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
 from ludamus.links.db.django.notification_inbox import NotificationReadRepository
 from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
+from ludamus.links.db.django.parley import ParleyRepository
+from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.repositories.encounter import EncounterInviteeRepository
@@ -283,6 +285,14 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def parley(self) -> ParleyRepository:
+        return ParleyRepository()
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationRepository:
+        return ParleyConversationRepository()
 
     @cached_property
     def encounter_invitees(self) -> EncounterInviteeRepository:
