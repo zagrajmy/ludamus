@@ -44,12 +44,14 @@ export function ReactionPicker({
   );
   const box = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const placedTop = useRef(0);
 
   // Above what opened it when there is room, else below, kept inside the
   // thread's box the way the actions menu is.
   useLayoutEffect(() => {
     const { offsetHeight: height, offsetWidth: width } = box.current!;
     const at = anchor.getBoundingClientRect();
+    placedTop.current = at.top;
     const bounds = anchor.closest("[data-menu-bounds]")!.getBoundingClientRect();
     const above = at.top - GAP - height >= bounds.top + EDGE;
     setPosition({
@@ -63,7 +65,8 @@ export function ReactionPicker({
     if (position !== null) box.current!.querySelector("input")!.focus();
   }, [position]);
 
-  // A press elsewhere or a scroll of the thread leaves the anchor behind.
+  // A press elsewhere, or a scroll that carries the anchor off, leaves it
+  // behind; one that keeps the anchor in place does not.
   useEffect(() => {
     const thread = anchor.closest("[data-menu-scroller]")!;
     const dismiss = (event: PointerEvent) => {
@@ -71,12 +74,15 @@ export function ReactionPicker({
       if (!box.current!.contains(target) && !anchor.contains(target)) end(false);
     };
     const moved = () => end(false);
+    const scrolled = () => {
+      if (Math.abs(anchor.getBoundingClientRect().top - placedTop.current) > 0.5) end(false);
+    };
     document.addEventListener("pointerdown", dismiss);
-    thread.addEventListener("scroll", moved);
+    thread.addEventListener("scroll", scrolled);
     addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
-      thread.removeEventListener("scroll", moved);
+      thread.removeEventListener("scroll", scrolled);
       removeEventListener("resize", moved);
     };
   }, [anchor, end]);

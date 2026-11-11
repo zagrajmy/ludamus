@@ -299,7 +299,10 @@ test("A request waits on top until it is accepted, declined or blocked", async (
       { json: {}, status: 500 },
       { json: direct(), status: 200 },
     ],
-    "conversations/12/leave/": [{ status: 204 }],
+    "conversations/12/leave/": () => {
+      listed = listed.filter(({ id }) => id !== "conversation:12");
+      return { status: 204 };
+    },
     "conversations/13/decline/": [{ json: {}, status: 500 }, { status: 204 }],
     "conversations/14/decline/": [{ status: 204 }],
     "conversations/15/decline/": [{ status: 204 }],
@@ -366,12 +369,16 @@ test("A request waits on top until it is accepted, declined or blocked", async (
   await expect(panel.getByText(copy.readOnly)).toBeVisible();
 
   await panel.getByRole("button", { name: copy.detailsLabel }).click();
+  const listings = () => calls.filter(({ path: where }) => where === "conversations/").length;
+  const before = listings();
   await details.getByRole("button", { name: copy.leaveConversation }).click();
   await expect(details.getByRole("alertdialog")).toContainText(copy.leaveConversationConfirm);
   await details
     .getByRole("alertdialog")
     .getByRole("button", { name: copy.leaveConversation })
     .click();
+  // Its news still in the inbox, the list is asked again, and leaves it out.
+  await expect.poll(listings).toBeGreaterThan(before);
   await expect(roomButton(panel, ada.name)).toBeHidden();
 });
 

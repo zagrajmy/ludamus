@@ -124,9 +124,11 @@ test("The actions menu runs from the keyboard and closes when its message moves"
   await expect(menu).toBeHidden();
 
   await open(page, panel, "The latest from Kuba");
-  await panel
-    .getByLabel(copy.messageListLabel, { exact: true })
-    .evaluate((viewport) => viewport.scrollBy(0, -200));
+  const thread = panel.getByLabel(copy.messageListLabel, { exact: true });
+  // A scroll that leaves the message where it was keeps the menu.
+  await thread.dispatchEvent("scroll");
+  await expect(menu).toBeVisible();
+  await thread.evaluate((viewport) => viewport.scrollBy(0, -200));
   await expect(menu).toBeHidden();
 
   await open(page, panel, "The latest from Kuba");

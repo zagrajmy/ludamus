@@ -334,6 +334,11 @@ test("A reaction names who gave it, and + opens every emoji there is", async ({ 
   await expect(picker).toBeHidden();
   await more.click();
   await expect(picker).toBeVisible();
-  await panel.locator("[data-menu-scroller]").dispatchEvent("scroll");
+  const scroller = panel.locator("[data-menu-scroller]");
+  // A scroll that leaves the + where it was, as the thread keeping its place
+  // does, keeps it open.
+  await scroller.dispatchEvent("scroll");
+  await expect(picker).toBeVisible();
+  await scroller.evaluate((viewport) => viewport.scrollTo(0, 0));
   await expect(picker).toBeHidden();
 });

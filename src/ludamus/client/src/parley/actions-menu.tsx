@@ -38,6 +38,7 @@ export function ActionsMenu({
   } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const placedTop = useRef(0);
   // NOTE: the trigger is mounted whenever this runs, and the menu whenever
   // it is open, so their refs are never null where they are read.
   const items = () => [...menu.current!.querySelectorAll<HTMLElement>(ITEMS)];
@@ -68,6 +69,7 @@ export function ActionsMenu({
   useLayoutEffect(() => {
     if (!open) return;
     const anchor = trigger.current!.getBoundingClientRect();
+    placedTop.current = anchor.top;
     // Layout size, not the box: the menu scales in from 97%, and a measured
     // box would place it that much over its trigger.
     const { offsetHeight: height, offsetWidth: width } = menu.current!;
@@ -99,16 +101,22 @@ export function ActionsMenu({
       if (!menu.current!.contains(target) && !trigger.current!.contains(target)) close(false);
     };
     // The menu is fixed to the viewport, so it closes once its message moves:
-    // the thread scrolls or the window changes size. Scrolling the menu
-    // itself, when it is too tall to fit, keeps it.
+    // the thread scrolls it away or the window changes size. A scroll that
+    // leaves the trigger where it was (the thread keeping its place while a
+    // reaction grows a bubble above) keeps it, as does scrolling the menu
+    // itself when it is too tall to fit.
     const thread = trigger.current!.closest("[data-menu-scroller]")!;
     const moved = () => close(false);
+    const scrolled = () => {
+      if (Math.abs(trigger.current!.getBoundingClientRect().top - placedTop.current) > 0.5)
+        close(false);
+    };
     document.addEventListener("pointerdown", dismiss);
-    thread.addEventListener("scroll", moved);
+    thread.addEventListener("scroll", scrolled);
     addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
-      thread.removeEventListener("scroll", moved);
+      thread.removeEventListener("scroll", scrolled);
       removeEventListener("resize", moved);
     };
   }, [open]);
