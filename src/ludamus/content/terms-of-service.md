@@ -34,7 +34,7 @@ Użyte w Regulaminie pojęcia oznaczają:
    - adres email
    - przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 4. Użytkownik może używać tylko jednego Konta w Serwisie.
-5. Pytanie o przedział wieku pojawia się po zalogowaniu przez WorkOS. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: Auth0 może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
+5. Pytanie o przedział wieku pojawia się po zalogowaniu przez WorkOS. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: WorkOS może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
 
 ### 2.2 Ograniczenia wiekowe
 
@@ -150,7 +150,7 @@ Użytkownik nie może:
 
 ## § 8. USUWANIE KONTA
 
-1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radoslaw@ganczarek.in
+1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radek@zagrajmy.net
 2. Usunięcie Konta skutkuje:
    - anulowaniem wszystkich aktywnych zapisów na Wydarzenia
    - usunięciem wszystkich danych osobowych
@@ -178,7 +178,7 @@ Użytkownik nie może:
 
 W sprawach dotyczących Regulaminu można się kontaktować:
 
-**Email:** radoslaw@ganczarek.in
+**Email:** radek@zagrajmy.net
 
 **Temat:** "Regulamin - [opis sprawy]"
 

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.mills.user import ClaimService, CrowdAuthService, LegacyAccountLinker
+from ludamus.mills.user import ClaimService, CrowdAuthService
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.user import (
@@ -244,6 +244,14 @@ class FakeClaimRepo:
         return self._claimable.slug
 
 
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_user(self, *, user_id):
+        self.revoked.append(user_id)
+
+
 def _claim_service(repo):
     return ClaimService(FakeTransaction(), repo)
 
@@ -324,6 +332,7 @@ def _service(
     transaction=None,
     identity=None,
     subscriptions=None,
+    chat=None,
 ):
     return CrowdAuthService(
         transaction=transaction or FakeTransaction(),
@@ -331,8 +340,8 @@ def _service(
         spheres=spheres or FakeSpheres(),
         claims=claims or FakeClaims(),
         identity=identity or FakeIdentity(),
-        legacy_accounts=LegacyAccountLinker(users=users),
         subscriptions=subscriptions or FakeSubscriptions(),
+        chat=chat or FakeChat(),
     )
 
 
@@ -880,12 +889,14 @@ class TestAgeConfirmation:
 
     def test_underage_account_cannot_keep_independent_access(self):
         users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        chat = FakeChat()
 
-        _service(users=users).disable_underage_account("me")
+        _service(users=users, chat=chat).disable_underage_account("me")
 
         user = users.read("me")
         assert user.is_active is False
         assert user.age_band == AgeBand.UNKNOWN
+        assert chat.revoked == [user.pk]
 
     @pytest.mark.parametrize(
         "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)

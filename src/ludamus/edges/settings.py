@@ -9,11 +9,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from cryptography.hazmat.primitives import serialization
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
@@ -54,6 +56,9 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
+    # Parley
+    PARLEY_AGENT_HOST=(str, ""),
+    PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -221,6 +226,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
+                "ludamus.gates.web.django.context_processors.parley",
                 "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -683,6 +689,56 @@ LOGGING = {
         },
     },
 }
+
+# Parley
+PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+# NOTE: this pair is committed so laptops and e2e sign passes with no setup.
+# Anyone can read it, so a deployment that signs with it is refused.
+_PARLEY_DEV_KEY = BASE_DIR.parent.parent / "workers" / "parley" / "dev-signing-key.pem"
+_PARLEY_DEV_KEY_FINGERPRINT = (
+    "ea6891a6b117bb28a671edec882ab38b8a26a404ad2a8832fb247bcb7f35ab4e"
+)
+_PARLEY_DEV_ENVS = {"development", "test"}
+if (
+    not PARLEY_SIGNING_PRIVATE_KEY
+    and ENV in _PARLEY_DEV_ENVS
+    and _PARLEY_DEV_KEY.exists()
+):
+    PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+# A deployment's Worker serves parley.<ROOT_DOMAIN>; local runs name theirs,
+# and tests have none.
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST") or (
+    "" if ENV in _PARLEY_DEV_ENVS else f"parley.{ROOT_DOMAIN}"
+)
+if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
+    _PARLEY_KEY = serialization.load_pem_private_key(
+        PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
+    )
+    _PARLEY_FINGERPRINT = hashlib.sha256(
+        _PARLEY_KEY.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    ).hexdigest()
+    if _PARLEY_FINGERPRINT == _PARLEY_DEV_KEY_FINGERPRINT:
+        raise ImproperlyConfigured(
+            "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
+        )
+if PARLEY_AGENT_HOST:
+    # Same rule as links.parley_worker.is_local, which settings cannot import.
+    _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""
+    PARLEY_IS_LOCAL = _PARLEY_HOSTNAME in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    } or _PARLEY_HOSTNAME.endswith(".localhost")
+    PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
+    PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
+    CSP_POLICY["connect-src"].extend(
+        [
+            f"{PARLEY_HTTP_SCHEME}://{PARLEY_AGENT_HOST}",
+            f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
+        ]
+    )
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor

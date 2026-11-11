@@ -1,3 +1,4 @@
 django: django-admin runserver --insecure 0.0.0.0:${PORT:-8000}
 vite: cd src/ludamus/client && npm run dev
 workos: python scripts/workos_simulator.py
+parley: cd workers/parley && aube run dev

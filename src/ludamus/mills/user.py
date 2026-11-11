@@ -48,6 +48,7 @@ from ludamus.specs.email_verification import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.user import (
         AuthenticationDTO,
@@ -129,45 +130,42 @@ class ClaimService(ClaimServiceProtocol):
             return ClaimResultDTO(outcome=ClaimOutcome.CONVERTED, user_slug=slug)
 
 
-class LegacyAccountLinker:
-    """Finds the Auth0-era account behind a first WorkOS login and claims it.
+def adopt_legacy_account(
+    *, users: UserRepositoryProtocol, identity: IdentityDTO, username: str
+) -> UserDTO | None:
+    """Claims the Auth0-era account behind a first WorkOS login.
 
-    TODO: https://github.com/zagrajmy/ludamus/issues/1402 — delete once no
-    active account is left on an auth0| username.
+    TODO: https://github.com/zagrajmy/ludamus/issues/1402 — delete this and
+    find_legacy_account once no active account is left on an auth0| username.
     """
-
-    def __init__(self, *, users: UserRepositoryProtocol) -> None:
-        self._users = users
-
-    def exists(self, identity: IdentityDTO) -> bool:
-        return self._find(identity) is not None
-
-    def adopt(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
-        if (legacy := self._find(identity)) is None:
-            return None
-        self._users.update(legacy.slug, {"username": username})
-        logger.info("Linked legacy account %s to %s", legacy.slug, username)
-        return self._users.read(legacy.slug)
-
-    def _find(self, identity: IdentityDTO) -> UserDTO | None:
-        # The import's external_id is authoritative: when it is set but its
-        # account is gone, an email match would land on someone else's row.
-        if identity.legacy_id:
-            with suppress(NotFoundError):
-                return self._users.read_by_username(
-                    f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
-                )
-            return None
-        if not identity.email_verified or not identity.email:
-            return None
-        with suppress(NotFoundError):
-            user = self._users.read_by_email(identity.email)
-            if user.username.startswith(AUTH0_USERNAME_PREFIX):
-                # SAFETY: Auth0 never verified the stored address, so this
-                # match is weaker than external_id; keep it visible.
-                logger.warning("Linking legacy account %s by verified email", user.slug)
-                return user
+    if (legacy := find_legacy_account(users, identity)) is None:
         return None
+    users.update(legacy.slug, {"username": username})
+    logger.info("Linked legacy account %s to %s", legacy.slug, username)
+    return users.read(legacy.slug)
+
+
+def find_legacy_account(
+    users: UserRepositoryProtocol, identity: IdentityDTO
+) -> UserDTO | None:
+    # The import's external_id is authoritative: when it is set but its
+    # account is gone, an email match would land on someone else's row.
+    if identity.legacy_id:
+        with suppress(NotFoundError):
+            return users.read_by_username(
+                f"{AUTH0_USERNAME_PREFIX}{identity.legacy_id}"
+            )
+        return None
+    if not identity.email_verified or not identity.email:
+        return None
+    with suppress(NotFoundError):
+        user = users.read_by_email(identity.email)
+        if user.username.startswith(AUTH0_USERNAME_PREFIX):
+            # SAFETY: Auth0 never verified the stored address, so this
+            # match is weaker than external_id; keep it visible.
+            logger.warning("Linking legacy account %s by verified email", user.slug)
+            return user
+    return None
 
 
 class CrowdAuthService(CrowdAuthServiceProtocol):
@@ -179,16 +177,16 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         spheres: SphereDomainRepositoryProtocol,
         claims: ClaimServiceProtocol,
         identity: IdentityProviderProtocol,
-        legacy_accounts: LegacyAccountLinker,
         subscriptions: SphereSubscriptionRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
         self._spheres = spheres
         self._claims = claims
         self._identity = identity
-        self._legacy_accounts = legacy_accounts
         self._subscriptions = subscriptions
+        self._chat = chat
 
     def login_url(self, *, redirect_uri: str, state: str, sign_up: bool) -> str:
         return self._identity.authorization_url(
@@ -203,7 +201,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def has_account(self, identity: IdentityDTO) -> bool:
         existing = self._read_by_username(_workos_username(identity))
-        return existing is not None or self._legacy_accounts.exists(identity)
+        return existing is not None or (
+            find_legacy_account(self._users, identity) is not None
+        )
 
     def complete_login(
         self,
@@ -262,8 +262,8 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         )
 
     def _find_account(self, identity: IdentityDTO, *, username: str) -> UserDTO | None:
-        return self._read_by_username(username) or self._legacy_accounts.adopt(
-            identity, username=username
+        return self._read_by_username(username) or adopt_legacy_account(
+            users=self._users, identity=identity, username=username
         )
 
     def _read_by_username(self, username: str) -> UserDTO | None:
@@ -285,6 +285,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         with self._transaction.atomic():
             self._set_age_band(user_slug, AgeBand.UNKNOWN)
             self._users.update(user_slug, UserData(is_active=False))
+            self._chat.revoke_user(user_id=self._users.read(user_slug).pk)
 
     def confirm_age(self, *, user_slug: str, age_band: AgeBand) -> bool:
         """Return whether the change dropped promotional subscriptions."""

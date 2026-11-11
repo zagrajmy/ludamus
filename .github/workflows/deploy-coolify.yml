@@ -98,6 +98,9 @@ jobs:
           WORKOS_API_KEY: ${{ secrets.WORKOS_API_KEY }}
           GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
+          # Turns the chat on; deploy-parley.yml deploys the Worker holding
+          # its public half.
+          PARLEY_SIGNING_PRIVATE_KEY: ${{ secrets.PARLEY_SIGNING_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           # Previously injected by compose `environment:` on the host.

@@ -1,6 +1,11 @@
+import base64
+import json
 from http import HTTPStatus
 
 import pytest
+import responses
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from django.contrib import messages
 from django.urls import reverse
 
@@ -13,6 +18,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     panel_context,
 )
+from tests.integration.web.parley.helpers import configure_parley, decode_segment
 
 
 @pytest.mark.django_db
@@ -127,6 +133,54 @@ class TestBansPageView:
         )
         ban = EventBan.objects.get(event=event, user=troublemaker)
         assert ban.reason == "incites violence"
+
+    def test_ban_takes_back_the_chat_pass_once_committed(
+        self, panel_client, event, settings, django_capture_on_commit_callbacks
+    ):
+        public_key = configure_parley(settings)
+        troublemaker = UserFactory(username="tm", email="tm@example.com", name="TM")
+
+        with responses.RequestsMock() as worker:
+            worker.post("https://parley.example.com/revoke", status=204)
+            with django_capture_on_commit_callbacks(execute=True):
+                panel_client.post(self._url(event), data={"identifier": "tm"})
+
+            [call] = worker.calls
+        token = json.loads(call.request.body)["token"]
+        header, body, signature = token.split(".")
+        claims = decode_segment(body)
+        assert claims["aud"] == "parley-revocation"
+        assert claims["sphere"] == str(event.sphere_id)
+        assert claims["sub"] == str(troublemaker.pk)
+        assert claims["revokedBefore"] == claims["iat"]
+        assert claims["exp"] == claims["iat"] + 12 * 3600
+        public_key.verify(
+            base64.urlsafe_b64decode(signature + "=" * (-len(signature) % 4)),
+            f"{header}.{body}".encode(),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+
+    def test_ban_stands_when_the_chat_worker_is_down(
+        self, panel_client, event, settings, django_capture_on_commit_callbacks
+    ):
+        configure_parley(settings)
+        troublemaker = UserFactory(username="tm", email="tm@example.com", name="TM")
+
+        with responses.RequestsMock() as worker:
+            worker.post("https://parley.example.com/revoke", status=503)
+            with django_capture_on_commit_callbacks(execute=True):
+                response = panel_client.post(
+                    self._url(event), data={"identifier": "tm"}
+                )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "User banned from the event.")],
+            url=self._url(event),
+        )
+        assert EventBan.objects.filter(event=event, user=troublemaker).exists()
 
     def test_ban_unknown_identifier_reports_error(self, panel_client, event):
         response = panel_client.post(self._url(event), data={"identifier": "ghost"})
