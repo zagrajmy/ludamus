@@ -1,9 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
 
 from ludamus.mills.parley import (
+    ParleyReportRetentionService,
     ParleyRevocationService,
     ParleyService,
     sign_revocations,
@@ -471,3 +472,35 @@ def test_each_sphere_gets_a_revocation_that_outlives_the_passes_it_voids():
         assert claims.revoked_before == cutoff
         assert claims.exp == int((now + PARLEY_TOKEN_LIFETIME).timestamp())
     assert signed[0].jti != signed[1].jti
+
+
+# What could go wrong: the cutoff runs the wrong way, or on another span than
+# the rooms' year, so a copy goes early or outlives its message; or the count
+# the sweep reports is not what was cleared.
+class CopiedReports:
+    def __init__(self, written):
+        self.written = written
+        self.cleared = []
+
+    def forget_copies_written_before(self, cutoff):
+        due = [name for name, at in self.written.items() if at <= cutoff]
+        self.cleared.extend(due)
+        return len(due)
+
+
+def test_a_reports_copy_goes_once_its_message_is_a_year_old():
+    now = datetime(2027, 8, 6, 12, tzinfo=UTC)
+    year = timedelta(days=365)
+    reports = CopiedReports(
+        {
+            "a year ago to the second": now - year,
+            "two years ago": now - 2 * year,
+            "a minute short of a year": now - year + timedelta(minutes=1),
+        }
+    )
+    service = ParleyReportRetentionService(repository=reports)
+
+    cleared = service.forget_expired_copies(now=now)
+
+    assert cleared == len(reports.cleared)
+    assert reports.cleared == ["a year ago to the second", "two years ago"]

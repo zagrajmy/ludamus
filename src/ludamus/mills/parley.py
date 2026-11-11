@@ -26,6 +26,7 @@ from ludamus.pacts.parley import (
     ParleyWorkerUnavailableError,
 )
 from ludamus.specs.parley import (
+    PARLEY_MESSAGE_LIFETIME,
     PARLEY_SESSION_READ_ONLY_DELAY,
     PARLEY_SESSION_RETENTION,
     PARLEY_TOKEN_LIFETIME,
@@ -185,6 +186,22 @@ class ParleyService:
             now=now,
             retained_after=now - PARLEY_SESSION_RETENTION,
             writable_after=now - PARLEY_SESSION_READ_ONLY_DELAY,
+        )
+
+
+class ParleyReportRetentionService:
+    """Let a report's copy of a message go when the message itself does.
+
+    Rooms delete every message a year after it was written. The report stays
+    as the moderation record: who reported whom, why, and when it was written.
+    """
+
+    def __init__(self, *, repository: ParleyRepositoryProtocol) -> None:
+        self._repository = repository
+
+    def forget_expired_copies(self, *, now: datetime) -> int:
+        return self._repository.forget_copies_written_before(
+            now - PARLEY_MESSAGE_LIFETIME
         )
 
 

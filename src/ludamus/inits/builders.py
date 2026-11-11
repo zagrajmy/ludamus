@@ -32,6 +32,7 @@ from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.listing import ListingService
 from ludamus.mills.notifications import AnnouncementFanoutService
+from ludamus.mills.parley import ParleyReportRetentionService
 from ludamus.mills.printing import PrintablesReminderService
 from ludamus.mills.sphere import SitesService
 from ludamus.mills.user import EmailVerificationService
@@ -130,6 +131,10 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
     )
+
+
+def build_parley_report_retention() -> ParleyReportRetentionService:
+    return ParleyReportRetentionService(repository=Repositories().parley)
 
 
 def build_listings() -> ListingService:

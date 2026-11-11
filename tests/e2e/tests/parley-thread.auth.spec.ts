@@ -107,10 +107,13 @@ test("A conversation reads back in runs with dates, links, avatars and history",
       roomId: "sphere:1",
     });
 
+  await expect(panel.getByText(bootstrap.copy.retentionNote)).toHaveCount(0);
   await panel.getByRole("button", { name: bootstrap.copy.loadEarlier }).click();
   await expect(panel.getByText("The very first word")).toBeVisible();
-  // The second page came back short, so there is nothing further back.
+  // The second page came back short, so there is nothing further back, and
+  // the start of history says why it ends there.
   await expect(panel.getByRole("button", { name: bootstrap.copy.loadEarlier })).toHaveCount(0);
+  await expect(panel.getByText(bootstrap.copy.retentionNote)).toBeVisible();
   expect(worker.called("loadBefore").at(-1)?.input).toEqual({ beforeId: 3, limit: 50 });
 
   worker.push("presence.changed", { count: 1 }, /parley-sphere-agent/u);
@@ -327,4 +330,19 @@ test("A dropped connection says so and clears once the socket is back", async ({
   // The socket redials on its own; the strip goes once it is open again.
   await expect(panel.getByText(bootstrap.copy.offline)).toHaveCount(0, { timeout: 15_000 });
   await expect(launcherOf(page)).toBeVisible();
+});
+
+test("A programme point's thread, gone within the month, promises no year", async ({ page }) => {
+  await routeBootstrap(page);
+  await (
+    await FakeWorker.install(page)
+  ).on("loadBefore", () => ({
+    ok: true,
+    value: [message({ body: "See you at the table", createdAt: Date.now(), id: 1 })],
+  }));
+  await page.goto("/");
+
+  const panel = await openRoom(page, "Mothership", "See you at the table");
+
+  await expect(panel.getByText(bootstrap.copy.retentionNote)).toHaveCount(0);
 });

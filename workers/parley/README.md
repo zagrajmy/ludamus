@@ -19,6 +19,18 @@ Never deploy with `wrangler deploy`. It keeps no state, so it would fork the
 Worker away from the stack, and its upload omits Issues, which turns
 Issues off.
 
+## Retention
+
+Every message, in every kind of room, is deleted for good a year after it
+was written. Each read purges what is due first, so no message is served
+past its year however late the alarm runs. A room's alarm sweeps its storage
+once the oldest message is due, and then at most daily while any remain; a
+room with no messages sets none. A sphere's room activity and read positions,
+and a person's inbox, drop entries a year old the same way, so no unread flag
+outlives its message. Session rooms go sooner on top of that: read-only 48
+hours after their event ends, and deleted whole 30 days after. Django clears
+its own copy of a reported message on the same one-year rule.
+
 ## Inputs
 
 `.env.schema` declares Parley's inputs, and [varlock][varlock] validates them

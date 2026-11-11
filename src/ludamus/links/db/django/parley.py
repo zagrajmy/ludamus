@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.db.models import Q
 
 from ludamus.links.db.django.models import (
@@ -21,6 +23,9 @@ from ludamus.pacts.parley import (
 )
 from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.user import UserType
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class ParleyRepository(ParleyRepositoryProtocol):
@@ -114,6 +119,14 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 "conversation_id": report.conversation_id,
                 **copy,
             },
+        )
+
+    @staticmethod
+    def forget_copies_written_before(cutoff: datetime) -> int:
+        return (
+            ParleyReport.objects.filter(written_at__lte=cutoff)
+            .exclude(body="", author_name="")
+            .update(body="", author_name="")
         )
 
     @staticmethod

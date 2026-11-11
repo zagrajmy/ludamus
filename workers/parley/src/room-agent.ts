@@ -15,7 +15,7 @@ import type { ParleySphereAgent } from "./sphere-agent";
 
 import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
 import { capabilityFromRequest } from "./auth";
-import { integer, normalizeMessage } from "./limits";
+import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
 import {
   NOT_A_MEMBER,
   PASS_EXPIRED,
@@ -120,6 +120,7 @@ export abstract class RoomAgent extends Agent<Env> {
       deletion_reason TEXT,
       UNIQUE(author_id, client_nonce)
     )`;
+    void this.sql`CREATE INDEX IF NOT EXISTS messages_created_at ON messages (created_at)`;
     void this.sql`CREATE TABLE IF NOT EXISTS restrictions (
       user_id TEXT PRIMARY KEY,
       muted_until INTEGER,
@@ -138,6 +139,7 @@ export abstract class RoomAgent extends Agent<Env> {
       kind TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )`;
+    await this.scheduleSweep({ earliest: Date.now(), idempotent: true });
   }
 
   async onConnect(
@@ -193,6 +195,7 @@ export abstract class RoomAgent extends Agent<Env> {
     ) {
       return { ok: false, code: "invalid" };
     }
+    this.purgeExpiredMessages();
     const existing = this
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
     if (existing !== undefined)
@@ -211,6 +214,7 @@ export abstract class RoomAgent extends Agent<Env> {
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
     const message = this.message(row, {});
     this.emit({ type: "message.created", v: 1, payload: message });
+    void this.scheduleSweep({ earliest: now, idempotent: true });
     this.afterMessage(message);
     return { ok: true, value: message };
   }
@@ -225,6 +229,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (beforeId === null) return { ok: false, code: "invalid" };
     const limit = input?.limit === undefined ? 50 : integer(input.limit);
     if (limit === null) return { ok: false, code: "invalid" };
+    this.purgeExpiredMessages();
     const rows = this
       .sql<MessageRow>`SELECT * FROM messages WHERE id < ${beforeId} ORDER BY id DESC LIMIT ${Math.min(limit, 50)}`;
     return { ok: true, value: this.messages(rows.reverse()) };
@@ -235,6 +240,7 @@ export abstract class RoomAgent extends Agent<Env> {
     const capability = this.currentCapability();
     const messageId = integer(input?.messageId);
     if (messageId === null) return { ok: false, code: "invalid" };
+    this.purgeExpiredMessages();
     const row = this.sql<{
       author_id: string;
       deleted_at: number | null;
@@ -256,6 +262,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (!this.moderates(capability)) return { ok: false, code: "forbidden" };
     const messageId = integer(input?.messageId);
     if (messageId === null) return { ok: false, code: "invalid" };
+    this.purgeExpiredMessages();
     const row = this.sql<{
       deleted_at: number | null;
     }>`SELECT deleted_at FROM messages WHERE id = ${messageId}`[0];
@@ -279,6 +286,7 @@ export abstract class RoomAgent extends Agent<Env> {
     const messageId = integer(input?.messageId);
     if (messageId === null || !isReaction(input?.emoji)) return { ok: false, code: "invalid" };
     const emoji = input.emoji;
+    this.purgeExpiredMessages();
     const row = this.sql<{
       deleted_at: number | null;
     }>`SELECT deleted_at FROM messages WHERE id = ${messageId}`[0];
@@ -344,6 +352,7 @@ export abstract class RoomAgent extends Agent<Env> {
     const capability = this.currentCapability();
     const messageId = integer(input?.messageId);
     if (!this.moderates(capability) || messageId === null) return { ok: false, code: "forbidden" };
+    this.purgeExpiredMessages();
     const rows = this
       .sql<MessageRow>`SELECT * FROM messages WHERE id BETWEEN ${Math.max(1, messageId - 10)} AND ${messageId + 10} ORDER BY id`;
     return { ok: true, value: this.messages(rows) };
@@ -454,6 +463,7 @@ export abstract class RoomAgent extends Agent<Env> {
   // Not @callable: Django asks, over the Worker's own fetch, to keep a copy
   // of a reported message. A deleted one keeps its words for that.
   readMessage(id: number): Reported | null {
+    this.purgeExpiredMessages();
     const row = this.sql<MessageRow>`SELECT * FROM messages WHERE id = ${id}`[0];
     if (row === undefined) return null;
     return {
@@ -480,6 +490,40 @@ export abstract class RoomAgent extends Agent<Env> {
     return reactionsOf(
       this.sql<ReactionRow>`SELECT emoji, message_id, user_id FROM reactions
         WHERE message_id = ${messageId} ORDER BY created_at, rowid`,
+    );
+  }
+
+  // The one place a message is deleted for good. Every read purges first,
+  // so a late alarm never lets a message outlive its year.
+  // NOTE: a table keyed by message id deletes its rows here, before the
+  // messages that name them.
+  protected purgeExpiredMessages(): void {
+    const cutoff = retentionCutoff();
+    void this.sql`DELETE FROM reactions
+      WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
+    void this.sql`DELETE FROM messages WHERE created_at <= ${cutoff}`;
+  }
+
+  // Not @callable: the room's own alarm runs it.
+  async sweepExpiredMessages(): Promise<void> {
+    this.purgeExpiredMessages();
+    await this.scheduleSweep({ earliest: Date.now() + DAY_MS, idempotent: false });
+  }
+
+  // One sweep pending at a time, due once the oldest message turns a year
+  // old, and never before `earliest`. A room with no messages sets none.
+  // NOTE: a one-shot schedule stays listed until its callback returns, so
+  // the sweep's own reschedule skips the dedup, which would find itself.
+  private async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
+    const oldest = this.sql<{
+      created_at: number;
+    }>`SELECT created_at FROM messages ORDER BY created_at LIMIT 1`[0];
+    if (oldest === undefined) return;
+    await this.schedule(
+      new Date(Math.max(oldest.created_at + MESSAGE_LIFETIME_MS, options.earliest)),
+      "sweepExpiredMessages",
+      undefined,
+      { idempotent: options.idempotent },
     );
   }
 
