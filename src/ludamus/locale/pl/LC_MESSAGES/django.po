@@ -13001,8 +13001,8 @@ msgstr "Twoje drużyny"
 #: src/ludamus/templates/user/user/parties.html
 msgid "Sign up for sessions together, or keep a group you play with."
 msgstr ""
-"Zapisujcie się razem na sesje albo po prostu trzymajcie się jako grupa do "
-"grania."
+"Zapisujcie się razem na punkty programu albo po prostu trzymajcie się jako "
+"grupa do grania."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Create play party"
@@ -13015,8 +13015,8 @@ msgstr "Utwórz drużynę do zapisów"
 #: src/ludamus/templates/user/user/parties.html
 msgid "Sign up for sessions together — invite friends once it exists."
 msgstr ""
-"Zapisujcie się razem na sesje — znajomych zaprosisz, gdy drużyna już "
-"powstanie."
+"Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy drużyna "
+"już powstanie."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
@@ -13329,7 +13329,8 @@ msgstr "Wspólne zapisy"
 msgid ""
 "This party is for playing. Turn this on to sign up for sessions together."
 msgstr ""
-"Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na sesje."
+"Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na "
+"punkty programu."
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Turn on enrolling together"
@@ -13337,11 +13338,13 @@ msgstr "Włącz wspólne zapisy"
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "This party has enrolled in sessions, so this stays on."
-msgstr "Ta drużyna ma już zapisy na sesje, więc ta opcja pozostaje włączona."
+msgstr ""
+"Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
+"włączona."
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "This party can sign up for sessions together."
-msgstr "Ta drużyna może zapisywać się razem na sesje."
+msgstr "Ta drużyna może zapisywać się razem na punkty programu."
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Turn off enrolling together"
