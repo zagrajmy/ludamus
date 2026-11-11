@@ -3,9 +3,15 @@ import { createPortal } from "react-dom";
 
 import { Icon, type IconName } from "./icons";
 
+type PaletteOption = { checked: boolean; label: string; onSelect: () => void; symbol: string };
+
+// A palette is a row of checkable glyphs; the arrow keys walk it like any item.
 export type MenuEntry =
   | { heading: string }
-  | { icon: IconName; label: string; onSelect: () => void; tone?: "danger" };
+  | { icon: IconName; label: string; onSelect: () => void; tone?: "danger" }
+  | { label: string; options: PaletteOption[] };
+
+const ITEMS = "[role=menuitem], [role=menuitemcheckbox]";
 
 const MENU_GAP = 4;
 const EDGE = 8;
@@ -29,7 +35,21 @@ export function ActionsMenu({
   const menu = useRef<HTMLDivElement>(null);
   // NOTE: the trigger is mounted whenever this runs, and the menu whenever
   // it is open, so their refs are never null where they are read.
-  const items = () => [...menu.current!.querySelectorAll<HTMLElement>("[role=menuitem]")];
+  const items = () => [...menu.current!.querySelectorAll<HTMLElement>(ITEMS)];
+  // Roving focus: only the item last focused is tabbable, which keeps a menu
+  // tall enough to scroll within reach of the keyboard.
+  const [active, setActive] = useState<string | null>(null);
+  const first = entries.flatMap((entry) =>
+    "heading" in entry
+      ? []
+      : "options" in entry
+        ? entry.options.map((option) => option.symbol)
+        : [entry.label],
+  )[0];
+  const roving = (key: string) => ({
+    onFocus: () => setActive(key),
+    tabIndex: (active ?? first) === key ? 0 : -1,
+  });
 
   const close = (refocus: boolean) => {
     setOpen(false);
@@ -92,8 +112,8 @@ export function ActionsMenu({
     const all = items();
     const at = all.indexOf(document.activeElement as HTMLElement);
     const move = (index: number) => all[(index + all.length) % all.length]!.focus();
-    if (event.key === "ArrowDown") move(at + 1);
-    else if (event.key === "ArrowUp") move(at - 1);
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") move(at + 1);
+    else if (event.key === "ArrowUp" || event.key === "ArrowLeft") move(at - 1);
     else if (event.key === "Home") move(0);
     else if (event.key === "End") move(all.length - 1);
     else if (event.key === "Tab") close(false);
@@ -142,6 +162,31 @@ export function ActionsMenu({
                 >
                   {entry.heading}
                 </p>
+              ) : "options" in entry ? (
+                <div
+                  aria-label={entry.label}
+                  className="mb-1 flex justify-between gap-0.5 border-b border-border pb-1"
+                  key={entry.label}
+                  role="group"
+                >
+                  {entry.options.map((option) => (
+                    <button
+                      aria-checked={option.checked}
+                      aria-label={option.label}
+                      className={`grid size-9 place-items-center rounded-full text-lg leading-none outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus ${option.checked ? "bg-primary-light ring-1 ring-primary" : ""}`}
+                      key={option.symbol}
+                      onClick={() => {
+                        close(true);
+                        option.onSelect();
+                      }}
+                      role="menuitemcheckbox"
+                      {...roving(option.symbol)}
+                      type="button"
+                    >
+                      {option.symbol}
+                    </button>
+                  ))}
+                </div>
               ) : (
                 <button
                   className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary ${entry.tone === "danger" ? "text-danger-text" : ""}`}
@@ -151,7 +196,7 @@ export function ActionsMenu({
                     entry.onSelect();
                   }}
                   role="menuitem"
-                  tabIndex={-1}
+                  {...roving(entry.label)}
                   type="button"
                 >
                   <Icon

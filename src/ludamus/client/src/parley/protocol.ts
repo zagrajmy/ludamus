@@ -35,6 +35,8 @@ export type Copy = Record<
   | "errorNotFound"
   | "errorPending"
   | "errorRateLimited"
+  | "errorReactionGone"
+  | "errorReactionRateLimited"
   | "errorTooMany"
   | "errorUnknown"
   | "groupName"
@@ -75,6 +77,17 @@ export type Copy = Record<
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
+  | "react"
+  | "reactionCountFew"
+  | "reactionCountMany"
+  | "reactionCountOne"
+  | "reactionDice"
+  | "reactionHeart"
+  | "reactionLaugh"
+  | "reactionSad"
+  | "reactionsLabel"
+  | "reactionSurprised"
+  | "reactionThumbsUp"
   | "readOnly"
   | "removeConfirm"
   | "removeLabel"
@@ -159,7 +172,14 @@ export type Message = {
   deletedAt: number | null;
   id: number;
   nonce: string;
+  // Each reaction's people, in the order they reacted; a Worker older than
+  // reactions sends none.
+  reactions?: Reactions;
 };
+
+export type Reactions = Record<string, string[]>;
+
+export type ReactionChange = { messageId: number; reactions: Reactions };
 
 export type RoomActivity = { at: number; unread: boolean };
 

@@ -23,6 +23,10 @@ import {
   type Capability,
   type ConnectionState,
   type Message,
+  type Reaction,
+  type ReactionChange,
+  REACTIONS,
+  type Reactions,
   type Reported,
   type Revocation,
   type RpcResult,
@@ -69,6 +73,20 @@ type MessageRow = {
   id: number;
 };
 
+type ReactionRow = { emoji: string; message_id: number; user_id: string };
+
+const isReaction = (value: unknown): value is Reaction =>
+  (REACTIONS as readonly unknown[]).includes(value);
+
+function reactionsOf(rows: ReactionRow[]): Reactions {
+  const reactions: Reactions = {};
+  for (const reaction of REACTIONS) {
+    const users = rows.filter((row) => row.emoji === reaction).map((row) => row.user_id);
+    if (users.length > 0) reactions[reaction] = users;
+  }
+  return reactions;
+}
+
 export abstract class RoomAgent extends Agent<Env> {
   protected readonly agentContext: AgentContext;
   protected readonly workerEnv: Env;
@@ -107,6 +125,13 @@ export abstract class RoomAgent extends Agent<Env> {
       muted_until INTEGER,
       actor_id TEXT NOT NULL,
       updated_at INTEGER NOT NULL
+    )`;
+    void this.sql`CREATE TABLE IF NOT EXISTS reactions (
+      message_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (message_id, user_id, emoji)
     )`;
     void this.sql`CREATE TABLE IF NOT EXISTS rate_events (
       user_id TEXT NOT NULL,
@@ -170,7 +195,8 @@ export abstract class RoomAgent extends Agent<Env> {
     }
     const existing = this
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    if (existing !== undefined) return { ok: true, value: this.message(existing) };
+    if (existing !== undefined)
+      return { ok: true, value: this.message(existing, this.reactionsFor(existing.id)) };
     if (
       !this.consumeRate(capability.sub, "message", 5, 10_000) ||
       !this.consumeRate(capability.sub, "message-minute", 30, 60_000)
@@ -183,7 +209,7 @@ export abstract class RoomAgent extends Agent<Env> {
       VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
     const row = this
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const message = this.message(row);
+    const message = this.message(row, {});
     this.emit({ type: "message.created", v: 1, payload: message });
     this.afterMessage(message);
     return { ok: true, value: message };
@@ -201,7 +227,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (limit === null) return { ok: false, code: "invalid" };
     const rows = this
       .sql<MessageRow>`SELECT * FROM messages WHERE id < ${beforeId} ORDER BY id DESC LIMIT ${Math.min(limit, 50)}`;
-    return { ok: true, value: rows.reverse().map((row) => this.message(row)) };
+    return { ok: true, value: this.messages(rows.reverse()) };
   }
 
   @callable()
@@ -218,6 +244,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (row.deleted_at === null) {
       void this
         .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = ${capability.sub}, deletion_reason = 'author' WHERE id = ${messageId}`;
+      void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
       this.emit({ type: "message.deleted", v: 1, payload: { id: messageId } });
     }
     return { ok: true, value: { id: messageId } };
@@ -236,9 +263,44 @@ export abstract class RoomAgent extends Agent<Env> {
     if (row.deleted_at === null) {
       void this
         .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = ${capability.sub}, deletion_reason = 'moderator' WHERE id = ${messageId}`;
+      void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
       this.emit({ type: "message.deleted", v: 1, payload: { id: messageId } });
     }
     return { ok: true, value: { id: messageId } };
+  }
+
+  // Whoever may write here may react: the same call adds a reaction and,
+  // once held, takes it back.
+  @callable()
+  toggleReaction(input: { emoji?: unknown; messageId?: unknown }): RpcResult<ReactionChange> {
+    const capability = this.currentCapability();
+    const writeError = this.writeError(capability);
+    if (writeError !== null) return writeError;
+    const messageId = integer(input?.messageId);
+    if (messageId === null || !isReaction(input?.emoji)) return { ok: false, code: "invalid" };
+    const emoji = input.emoji;
+    const row = this.sql<{
+      deleted_at: number | null;
+    }>`SELECT deleted_at FROM messages WHERE id = ${messageId}`[0];
+    if (row === undefined || row.deleted_at !== null) return { ok: false, code: "invalid" };
+    if (
+      !this.consumeRate(capability.sub, "reaction", 10, 10_000) ||
+      !this.consumeRate(capability.sub, "reaction-minute", 60, 60_000)
+    ) {
+      return { ok: false, code: "rate_limited" };
+    }
+    const held = this.sql<{ held: number }>`SELECT COUNT(*) AS held FROM reactions
+      WHERE message_id = ${messageId} AND user_id = ${capability.sub} AND emoji = ${emoji}`[0]!;
+    if (held.held > 0) {
+      void this.sql`DELETE FROM reactions
+        WHERE message_id = ${messageId} AND user_id = ${capability.sub} AND emoji = ${emoji}`;
+    } else {
+      void this.sql`INSERT INTO reactions (message_id, user_id, emoji, created_at)
+        VALUES (${messageId}, ${capability.sub}, ${emoji}, ${Date.now()})`;
+    }
+    const change = { messageId, reactions: this.reactionsFor(messageId) };
+    this.emit({ type: "reaction.changed", v: 1, payload: change });
+    return { ok: true, value: change };
   }
 
   @callable()
@@ -284,7 +346,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (!this.moderates(capability) || messageId === null) return { ok: false, code: "forbidden" };
     const rows = this
       .sql<MessageRow>`SELECT * FROM messages WHERE id BETWEEN ${Math.max(1, messageId - 10)} AND ${messageId + 10} ORDER BY id`;
-    return { ok: true, value: rows.map((row) => this.message(row)) };
+    return { ok: true, value: this.messages(rows) };
   }
 
   @callable()
@@ -403,7 +465,25 @@ export abstract class RoomAgent extends Agent<Env> {
     };
   }
 
-  private message(row: MessageRow): Message {
+  private messages(rows: MessageRow[]): Message[] {
+    if (rows.length === 0) return [];
+    const ids = rows.map((row) => row.id);
+    const held = this.sql<ReactionRow>`SELECT emoji, message_id, user_id FROM reactions
+      WHERE message_id BETWEEN ${Math.min(...ids)} AND ${Math.max(...ids)}
+      ORDER BY created_at, rowid`;
+    return rows.map((row) =>
+      this.message(row, reactionsOf(held.filter((reaction) => reaction.message_id === row.id))),
+    );
+  }
+
+  private reactionsFor(messageId: number): Reactions {
+    return reactionsOf(
+      this.sql<ReactionRow>`SELECT emoji, message_id, user_id FROM reactions
+        WHERE message_id = ${messageId} ORDER BY created_at, rowid`,
+    );
+  }
+
+  private message(row: MessageRow, reactions: Reactions): Message {
     return {
       authorAvatarUrl: row.author_avatar_url,
       authorId: row.author_id,
@@ -413,6 +493,7 @@ export abstract class RoomAgent extends Agent<Env> {
       deletedAt: row.deleted_at,
       id: row.id,
       nonce: row.client_nonce,
+      reactions,
     };
   }
 }
