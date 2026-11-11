@@ -127,9 +127,9 @@ def start_direct(request: RootHttpRequest, user_id: int) -> HttpResponse:
 @require_POST
 @_guarded
 def create_group(request: RootHttpRequest, user_id: int) -> HttpResponse:
-    people = _body(request, _People)
+    chosen = _body(request, _People)
     conversation = request.services.parley_conversations.create_group(
-        user_id=user_id, title=people.title, member_ids=people.member_ids
+        user_id=user_id, title=chosen.title, member_ids=chosen.member_ids
     )
     # New, or the one these people already share.
     logger.info(
