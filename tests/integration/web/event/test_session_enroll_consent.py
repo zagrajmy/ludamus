@@ -350,15 +350,33 @@ class TestOfferedSeatTimeConflict:
             user=member, session=other
         ).exists()
 
-        SessionParticipation.objects.create(
+        clashing = SessionParticipation.objects.create(
             session=other, user=member, status=SessionParticipationStatus.CONFIRMED
         )
 
-        client.post(
+        response = client.post(
             reverse("web:chronology:offer-claim", kwargs={"token": held.claim_token})
         )
-        held.refresh_from_db()
-        assert held.status == SessionParticipationStatus.OFFERED
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "This spot overlaps a session you already have a seat in, "
+                        "so it was released."
+                    ),
+                )
+            ],
+        )
+        assert not SessionParticipation.objects.filter(pk=held.pk).exists()
+        clashing.refresh_from_db()
+        assert clashing.status == SessionParticipationStatus.CONFIRMED
 
 
 class TestHeldSeatUnavailable:
