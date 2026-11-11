@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { Avatar } from "./avatar";
@@ -651,16 +652,22 @@ function Parley({
   );
 }
 
+// NOTE: committed before this returns. Rendered in a later task, the page's
+// own launcher would stay up a moment after the chat began loading, and a
+// click on it then would be lost: its loader has already started, closed.
 export function mountParley(element: HTMLElement, initialOpen: boolean): void {
   const { closeLabel = "", connectionError = "", loading = "", retry = "" } = element.dataset;
-  createRoot(element).render(
-    <Parley
-      bootstrapUrl={element.dataset.bootstrapUrl ?? "/parley/bootstrap/"}
-      initialOpen={initialOpen}
-      launcherLabel={
-        element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
-      }
-      shell={{ closeLabel, connectionError, loading, retry }}
-    />,
+  const root = createRoot(element);
+  flushSync(() =>
+    root.render(
+      <Parley
+        bootstrapUrl={element.dataset.bootstrapUrl ?? "/parley/bootstrap/"}
+        initialOpen={initialOpen}
+        launcherLabel={
+          element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
+        }
+        shell={{ closeLabel, connectionError, loading, retry }}
+      />,
+    ),
   );
 }
