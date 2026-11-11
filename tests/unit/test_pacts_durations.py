@@ -5,6 +5,7 @@ from ludamus.pacts.durations import (
     MAX_DURATION_MINUTES,
     InvalidDurationError,
     build_duration,
+    duration_minutes,
     format_duration,
     normalize_duration,
     parse_duration,
@@ -15,6 +16,15 @@ from ludamus.pacts.durations import (
 @pytest.mark.parametrize("stored", ("P4H", "PT1H30MJUNK", "JUNKPT1H"))
 def test_parse_duration_reads_an_unreadable_value_as_zero(stored: str) -> None:
     assert parse_duration(stored) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("stored", "minutes"), (("PT1H30M", 90), ("PT45M", 45), ("", 0), (None, 0))
+)
+def test_duration_minutes_totals_hours_and_minutes(
+    stored: str | None, minutes: int
+) -> None:
+    assert duration_minutes(stored) == minutes
 
 
 class TestParseDurationPart:

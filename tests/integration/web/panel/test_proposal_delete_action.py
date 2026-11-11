@@ -17,7 +17,7 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
 )
-from ludamus.pacts import ScheduleChangeAction
+from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import EventFactory, SpaceFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

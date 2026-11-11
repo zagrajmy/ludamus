@@ -22,3 +22,9 @@ Add `127.0.0.1 ludamus.localhost` to /etc/hosts in the session-start hook, or po
 ## Context
 
 Worked around by appending the hosts entry by hand.
+
+2026-11-08: recurred in a Claude Code cloud sandbox. `mise run test:e2e` timed
+out after 180 s waiting for the privacy web server, because
+`http://localhost:8001/` redirects to `ludamus.localhost:8001` and the
+sandbox resolver maps no `*.localhost` subdomain; adding
+`127.0.0.1 ludamus.localhost` to /etc/hosts fixed it again.

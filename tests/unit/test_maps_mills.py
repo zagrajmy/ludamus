@@ -4,13 +4,14 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.maps import EventMapsService
-from ludamus.pacts import NotFoundError, SpaceDTO
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.maps import (
     EventMapDTO,
     EventMapPageDTO,
     EventMapRecordDTO,
     MapTreeNodeDTO,
 )
+from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 7

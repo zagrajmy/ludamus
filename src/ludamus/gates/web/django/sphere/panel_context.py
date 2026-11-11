@@ -1,8 +1,5 @@
-# Sidebar and tab context shared by every sphere-panel page. The pages
-# themselves still live under `multiverse/` and are reached as
-# `multiverse:panel:*`; this helper moved ahead of them because the guild pages
-# in this package need it too, and it is sphere infrastructure, not
-# multiverse-specific.
+# Sidebar and tab context shared by every sphere-panel page, reached as
+# `multiverse:panel:*`.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
@@ -21,9 +18,8 @@ SphereTab = Literal["general", "announcements", "connections"]
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.gates.web.django.multiverse.access import MultiverseRequest
-    from ludamus.gates.web.django.panel import PanelNav
-    from ludamus.pacts import EventDTO
+    from ludamus.gates.web.django.panel import PanelNav, PanelRequest
+    from ludamus.pacts.event import EventDTO
 
 
 class SphereSidebar(PanelNavContext):
@@ -41,7 +37,7 @@ class SphereSettings(SphereSidebar):
 # sidebar (rendered from `panel/base.html`) has something to link to. A sphere
 # with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
-    request: MultiverseRequest, *, active_nav: PanelNav
+    request: PanelRequest, *, active_nav: PanelNav
 ) -> SphereSidebar:
     events = request.services.sphere_panel.list_events(
         request.context.current_sphere_id
@@ -64,7 +60,7 @@ def sphere_sidebar_context(
 # reverses in Python — `{% url … as … %}` would swallow a renamed route and
 # point the whole strip at the current page.
 def sphere_settings_context(
-    request: MultiverseRequest, *, active_tab: SphereTab
+    request: PanelRequest, *, active_tab: SphereTab
 ) -> SphereSettings:
     return {
         **sphere_sidebar_context(request, active_nav="sphere-settings"),

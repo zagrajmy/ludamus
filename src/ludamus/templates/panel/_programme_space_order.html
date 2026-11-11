@@ -2,7 +2,7 @@
 {% load django_vite %}
 {% load tessera %}
 {% if programme_spaces %}
-    {% translate "Could not save the programme order. Reloading the page." as t_programme_order_error %}
+    {% translate "Could not save the programme order. Reload the page to see the saved one." as t_programme_order_error %}
     <div>
         {% if programme_spaces|length > 1 %}
             <p class="mb-4 text-sm text-foreground-muted">
@@ -34,7 +34,7 @@
                     {% endif %}
                     <div class="min-w-0 flex-1">
                         <p class="flex min-w-0 font-medium text-foreground">
-                            {% include "chronology/_session_location.html" with data=row.location show_map_link=False session_link_base="#" %}
+                            {% include "event/_session_location.html" with data=row.location show_map_link=False session_link_base="#" %}
                         </p>
                         {% if row.tracks %}
                             <div class="mt-1 flex flex-wrap gap-1">

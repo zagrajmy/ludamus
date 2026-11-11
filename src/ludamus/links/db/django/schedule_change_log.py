@@ -11,8 +11,8 @@ from ludamus.links.db.django.change_log_base import (
     latest_log_pks_by_session,
 )
 from ludamus.links.db.django.models import ScheduleChangeLog
-from ludamus.pacts import (
-    NotFoundError,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.timetable import (
     ScheduleChangeAction,
     ScheduleChangeLogData,
     ScheduleChangeLogDTO,

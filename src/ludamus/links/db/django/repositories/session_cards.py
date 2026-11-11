@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, TypeAdapter
 
 from ludamus.links.db.django.models import (
+    EnrollmentConfig,
     Session,
     SessionFieldValue,
     SessionParticipation,
@@ -24,7 +25,7 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.links.db.django.repositories.chronology import (
+from ludamus.links.db.django.repositories.event import (
     card_stats,
     location_data,
     location_from_chain,
@@ -34,27 +35,31 @@ from ludamus.links.db.django.repositories.chronology import (
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
+    own_pending_proposals,
+    review_inbox_proposals,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts import (
-    NO_LOCATION,
-    AgendaItemDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionParticipationStatus,
-    SessionStatus,
-    TimeSlotDTO,
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
+from ludamus.pacts.fields import SessionFieldValueDTO
+from ludamus.pacts.session_cards import (
+    SessionCardDTO,
+    SessionCardStatsDTO,
+    SessionSeatDTO,
 )
-from ludamus.pacts.chronology import SessionCardDTO, SessionCardStatsDTO, SessionSeatDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import NO_LOCATION
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
 
     from django.db.models import QuerySet
 
-    from ludamus.links.db.django.models import EnrollmentConfig, Event
-    from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.legacy import LocationData
+    from ludamus.pacts.ids import EventId, UserId
+    from ludamus.pacts.user import UserDTO
+    from ludamus.pacts.venues import LocationData
 
 
 class _SessionRow(BaseModel):
@@ -168,14 +173,14 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
 
 
 def _stats(
-    row: _SessionRow, *, active_configs: Collection[EnrollmentConfig]
+    row: _SessionRow, *, configs: Collection[EnrollmentConfig]
 ) -> SessionCardStatsDTO:
     return card_stats(
         participants_limit=row.participants_limit,
         start_time=row.agenda_item__start_time,
         enrolled_count=row.enrolled_count_cached,
         waiting_count=row.waiting_count_cached,
-        active_configs=active_configs,
+        configs=configs,
     )
 
 
@@ -292,7 +297,9 @@ def _scheduled_rows(event_id: int) -> list[_SessionRow]:
     )
 
 
-def scheduled_session_cards(event: Event, *, roster_up_to: int) -> list[SessionCardDTO]:
+def scheduled_session_cards(
+    event_id: int, *, roster_up_to: int
+) -> list[SessionCardDTO]:
     """Read every public scheduled session of the event, earliest first.
 
     Returns:
@@ -300,15 +307,15 @@ def scheduled_session_cards(event: Event, *, roster_up_to: int) -> list[SessionC
         ``roster_up_to`` sessions: the card grid draws them, the compact
         schedule a bigger event switches to does not.
     """
-    if not (rows := _scheduled_rows(event.pk)):
+    if not (rows := _scheduled_rows(event_id)):
         return []
     session_ids = [row.pk for row in rows]
-    locations = _location_index(event.pk)
+    locations = _location_index(event_id)
     presenters = _presenters({row.presenter_id for row in rows if row.presenter_id})
     field_values = _field_values_by_session(session_ids)
     track_names = _track_names_by_session(session_ids)
     seats = _seats_by_session(session_ids) if len(rows) < roster_up_to else {}
-    active_configs = event.get_active_enrollment_configs()
+    configs = list(EnrollmentConfig.objects.filter(event_id=event_id))
     return [
         SessionCardDTO(
             session=_session_dto(row),
@@ -320,7 +327,7 @@ def scheduled_session_cards(event: Event, *, roster_up_to: int) -> list[SessionC
             category_name=row.category__name or "",
             participations=seats.get(row.pk, []),
             preferred_time_slots=[],
-            **_stats(row, active_configs=active_configs).model_dump(),
+            **_stats(row, configs=configs).model_dump(),
         )
         for row in rows
     ]
@@ -375,3 +382,37 @@ def proposal_cards(
     # Instances, not rows: the queue is short and comes with its relations
     # prefetched (review_inbox_proposals), slots included.
     return [_card_from_session(session) for session in proposals]
+
+
+class EventScheduleRepository(EventScheduleRepositoryProtocol):
+    @staticmethod
+    def scheduled_cards(
+        *, event_id: EventId, roster_up_to: int
+    ) -> list[SessionCardDTO]:
+        return scheduled_session_cards(event_id, roster_up_to=roster_up_to)
+
+    @staticmethod
+    def review_queue(event_id: EventId) -> list[SessionCardDTO]:
+        return proposal_cards(review_inbox_proposals(event_id))
+
+    @staticmethod
+    def own_proposals(
+        *, event_id: EventId, presenter_id: UserId
+    ) -> list[SessionCardDTO]:
+        return proposal_cards(
+            own_pending_proposals(event_id=event_id, presenter_id=presenter_id)
+        )
+
+    @staticmethod
+    def seat_statuses(
+        *, session_ids: Collection[int], user_ids: Collection[int]
+    ) -> list[SeatStatusDTO]:
+        rows = SessionParticipation.objects.filter(
+            session_id__in=session_ids, user_id__in=user_ids
+        ).values_list("session_id", "status")
+        return [
+            SeatStatusDTO(
+                session_id=session_id, status=SessionParticipationStatus(status)
+            )
+            for session_id, status in rows
+        ]

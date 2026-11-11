@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
-from ludamus.pacts import EventDTO
+from ludamus.pacts.event import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

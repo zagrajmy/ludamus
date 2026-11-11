@@ -1,0 +1,22 @@
+id: delivery-call-sites
+language: python
+severity: error
+files:
+  - src/**/*.py
+ignores:
+  - src/ludamus/links/db/django/notifications.py
+  - src/ludamus/links/db/django/encounter_invites.py
+  - src/ludamus/links/db/django/announcements.py
+  - src/ludamus/links/db/django/admin.py
+rule:
+  any:
+    - pattern: from ludamus.links.db.django.delivery import $$$
+    - pattern: from ludamus.links.db.django import delivery
+    - pattern: from ludamus.links.db.django import delivery as $A
+    - pattern: import ludamus.links.db.django.delivery
+    - pattern: import ludamus.links.db.django.delivery as $A
+message: |
+  Delivery primitives are used by the notifier, the encounter invite
+  mailer, the announcement fan-out and the admin alone. A new module that
+  delivers must be added to this rule's ignores, in review, so its
+  language handling gets a look.

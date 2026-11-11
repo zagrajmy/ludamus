@@ -1,6 +1,6 @@
 from ludamus.mills.event import EventConfirmationsService
 from ludamus.pacts.event import ConfirmationOrganizerRowDTO
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
+from ludamus.pacts.timetable import ConfirmationCountsRow, ConfirmationTotalsRow
 
 _EVENT = 1
 _ADA = 11

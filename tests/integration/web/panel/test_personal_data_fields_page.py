@@ -4,7 +4,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import PersonalDataField, PersonalDataFieldValue
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.submissions import PersonalFieldSummary
+from ludamus.pacts.propose import PersonalFieldSummary
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,

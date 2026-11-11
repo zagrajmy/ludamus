@@ -15,11 +15,11 @@ jobs:
       actions: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         with:
           script: |
             const { pathToFileURL } = require("node:url");

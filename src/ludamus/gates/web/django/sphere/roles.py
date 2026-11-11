@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

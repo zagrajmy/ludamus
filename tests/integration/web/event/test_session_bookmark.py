@@ -1,0 +1,280 @@
+from datetime import timedelta
+from http import HTTPStatus
+
+import pytest
+from django.urls import reverse
+from django.utils.timezone import localtime
+
+from ludamus.gates.web.django.event.schedule import (
+    RoomLane,
+    RoomLaneRow,
+    RoomLanes,
+    RoomLaneTile,
+)
+from ludamus.links.db.django.bookmarks import BookmarkRepository
+from ludamus.links.db.django.models import SessionBookmark
+from ludamus.pacts.bookmarks import BookmarkStateDTO
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SessionFactory,
+    SphereFactory,
+    UserFactory,
+)
+from tests.integration.utils import assert_response
+from tests.integration.web.event.helpers import (
+    compact_day,
+    event_page_context,
+    programme_day_of,
+    session_card,
+)
+
+BOOKMARK_COUNT = 3
+
+
+class TestSessionBookmarkToggleView:
+    URL_NAME = "web:chronology:session-bookmark"
+
+    def _url(self, session_id: int) -> str:
+        return reverse(self.URL_NAME, kwargs={"session_id": session_id})
+
+    def test_unauthorized_when_anonymous(self, client, session):
+        response = client.post(self._url(session.pk))
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.json() == {"error": "auth"}
+        assert not SessionBookmark.objects.exists()
+
+    def test_toggle_on_then_off(self, authenticated_client, active_user, session):
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        response_on = authenticated_client.post(self._url(session.pk))
+
+        assert response_on.status_code == HTTPStatus.OK
+        assert response_on.json() == {"bookmarked": True, "count": 2}
+        bookmark = SessionBookmark.objects.get(user=active_user, session=session)
+        assert str(bookmark) == f"{active_user.pk} bookmarked session {session.pk}"
+
+        response_off = authenticated_client.post(self._url(session.pk))
+
+        assert response_off.status_code == HTTPStatus.OK
+        assert response_off.json() == {"bookmarked": False, "count": 1}
+        assert not SessionBookmark.objects.filter(user=active_user).exists()
+
+    def test_not_found_for_other_sphere_session(self, authenticated_client):
+        other_event = EventFactory(sphere=SphereFactory())
+        other_session = SessionFactory(event=other_event, category=None)
+
+        response = authenticated_client.post(self._url(other_session.pk))
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.json() == {"error": "not-found"}
+        assert not SessionBookmark.objects.exists()
+
+    @pytest.mark.usefixtures("session")
+    def test_not_found_for_missing_session(self, authenticated_client):
+        response = authenticated_client.post(self._url(999_999))
+
+        assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.json() == {"error": "not-found"}
+
+
+class TestEventPageBookmarkCounts:
+    URL_NAME = "web:chronology:event"
+    pytestmark = pytest.mark.usefixtures("_compact_schedule")
+
+    def _url(self, slug: str) -> str:
+        return reverse(self.URL_NAME, kwargs={"slug": slug})
+
+    @pytest.fixture
+    def _compact_schedule(self, monkeypatch):
+        monkeypatch.setattr(
+            "ludamus.gates.web.django.event.page.COMPACT_SCHEDULE_MIN_SESSIONS", 1
+        )
+
+    def test_anonymous_sees_count_badge_and_zero_count_renders_nothing(
+        self, agenda_item, client, event, space
+    ):
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        other = AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
+
+        response = client.get(self._url(event.slug))
+
+        cards = [
+            session_card(
+                agenda_item, presenter=agenda_item.session.presenter, bookmark_count=2
+            ),
+            session_card(other, presenter=other.session.presenter),
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._url(event.slug),
+                compact_schedule=True,
+                hour_data={
+                    agenda_item.start_time: [cards[0]],
+                    other.start_time: [cards[1]],
+                },
+                schedule_days=[compact_day(cards)],
+                sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
+            ),
+            template_name=["event/event.html"],
+            contains="Bookmarked by 2 people",
+            not_contains=["data-bookmark-toggle", "Bookmarked by 0"],
+        )
+
+    def test_anonymous_rooms_view_shows_count_badge(self, agenda_item, client, event):
+        SessionBookmark.objects.create(user=UserFactory(), session=agenda_item.session)
+        # Whole hours, so the lane's rows are the session's own two hours and
+        # not a third one the fixture's sub-second offset would spill into.
+        hour_start = localtime(agenda_item.start_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        agenda_item.start_time = hour_start
+        agenda_item.end_time = hour_start + timedelta(hours=2)
+        agenda_item.save()
+
+        response = client.get(self._url(event.slug), {"view": "rooms"})
+
+        card = session_card(
+            agenda_item, presenter=agenda_item.session.presenter, bookmark_count=1
+        )
+        room_tile = RoomLaneTile(
+            data=card,
+            start=localtime(agenda_item.start_time),
+            end=localtime(agenda_item.end_time),
+            col=1,
+            row_span=2,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._url(event.slug),
+                compact_schedule=True,
+                hour_data={agenda_item.start_time: [card]},
+                schedule_days=[compact_day([card])],
+                active_tab="rooms",
+                room_lanes=RoomLanes(
+                    rooms=[
+                        RoomLane(
+                            name=agenda_item.space.name,
+                            group="",
+                            group_key="",
+                            starts_group=True,
+                        )
+                    ],
+                    rows=[
+                        RoomLaneRow(
+                            day=0,
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start,
+                            window=(hour_start, hour_start + timedelta(hours=1)),
+                            starting_tiles=[room_tile],
+                        ),
+                        RoomLaneRow(
+                            day=0,
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start + timedelta(hours=1),
+                            window=(
+                                hour_start + timedelta(hours=1),
+                                hour_start + timedelta(hours=2),
+                            ),
+                        ),
+                    ],
+                    spans=[2],
+                    lane_indices=[0],
+                    lane_counts=[1],
+                    row_lengths=[60],
+                ),
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
+            template_name=["event/event.html"],
+            contains="Bookmarked by 1 person",
+        )
+
+    def test_authenticated_toggle_shows_count_and_hides_zero(
+        self, agenda_item, authenticated_client, event, space
+    ):
+        for _ in range(BOOKMARK_COUNT):
+            SessionBookmark.objects.create(
+                user=UserFactory(), session=agenda_item.session
+            )
+        other = AgendaItemFactory(
+            session=SessionFactory(event=event, category=None), space=space
+        )
+
+        response = authenticated_client.get(self._url(event.slug))
+
+        cards = [
+            session_card(
+                agenda_item,
+                presenter=agenda_item.session.presenter,
+                bookmark_count=BOOKMARK_COUNT,
+                # The viewer hosts this one, so its card offers the edit link.
+                can_edit=True,
+            ),
+            session_card(other, presenter=other.session.presenter),
+        ]
+        # The toggle's own structure — a visible "3" here, a hidden "0" on the
+        # other session — is the schedule tags' contract, pinned in
+        # test_schedule_tags; this asserts the page hands them the counts.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._url(event.slug),
+                compact_schedule=True,
+                hour_data={
+                    agenda_item.start_time: [cards[0]],
+                    other.start_time: [cards[1]],
+                },
+                schedule_days=[compact_day(cards)],
+                sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
+            ),
+            template_name=["event/event.html"],
+        )
+
+
+class TestBookmarkRepositorySessionState:
+    def test_counts_every_bookmark_and_flags_the_viewers(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=True, count=2)
+
+    def test_anonymous_viewer_sees_the_count_only(self, session):
+        SessionBookmark.objects.create(user=UserFactory(), session=session)
+
+        state = BookmarkRepository.session_state(
+            user_id=None, session_id=session.pk, event_id=session.event_id
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=1)
+
+    def test_session_of_another_event_reads_as_empty(self, active_user, session):
+        SessionBookmark.objects.create(user=active_user, session=session)
+        other_event = EventFactory(sphere=session.event.sphere)
+
+        state = BookmarkRepository.session_state(
+            user_id=active_user.pk, session_id=session.pk, event_id=other_event.pk
+        )
+
+        assert state == BookmarkStateDTO(bookmarked=False, count=0)

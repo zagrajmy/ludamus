@@ -8,7 +8,7 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts.chronology import MultiselectOptionDTO
+from ludamus.pacts.timetable import MultiselectOptionDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

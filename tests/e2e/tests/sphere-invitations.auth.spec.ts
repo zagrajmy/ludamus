@@ -10,7 +10,7 @@ import { BASE_URL, CREW_SPHERE } from "./helpers/urls";
 // the root sphere and on a non-root one. The invitee is e2e-invitee, seeded on
 // no sphere's team so this spec is the only thing that makes them a member.
 // Expiry, revoking, foreign spheres and private spheres are covered by
-// tests/integration/web/multiverse/test_team.py.
+// tests/integration/web/sphere/test_team.py.
 
 test.use({ storageState: path.join(__dirname, "..", ".auth-state-invitee.json") });
 
