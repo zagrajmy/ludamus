@@ -37,7 +37,37 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
 
 
-admin.site.register(ParleyReport)
+# NOTE: options in place of a ModelAdmin subclass, which strict mypy
+# would only take with a type: ignore.
+admin.site.register(
+    ParleyReport,
+    list_display=(
+        "created_at",
+        "room_id",
+        "reporter",
+        "reported_user",
+        "body",
+        "resolved_at",
+    ),
+    list_filter=(("resolved_at", admin.EmptyFieldListFilter),),
+    list_select_related=("reporter", "reported_user"),
+    search_fields=("body", "author_name", "room_id"),
+    # What the room said stays as reported; staff only mark it resolved.
+    readonly_fields=(
+        "sphere",
+        "conversation",
+        "reporter",
+        "room_id",
+        "message_id",
+        "reason",
+        "reported_user",
+        "author_name",
+        "body",
+        "written_at",
+        "deleted_at",
+        "created_at",
+    ),
+)
 
 
 @admin.register(AgendaItem)

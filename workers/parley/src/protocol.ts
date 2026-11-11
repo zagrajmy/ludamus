@@ -37,6 +37,14 @@ export type Membership = {
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
 // "*" covers everyone in the sphere. It matters until those passes would
 // have expired on their own, which is the revocation's own exp.
+export type Reported = Pick<
+  Message,
+  "authorId" | "authorName" | "body" | "createdAt" | "deletedAt"
+>;
+
+// Django asking after one message, to keep a copy with a report of it.
+export type Lookup = { messageId: number; room: string };
+
 export type Revocation = {
   exp: number;
   revokedBefore: number;

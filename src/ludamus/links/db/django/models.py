@@ -351,8 +351,20 @@ class EventBan(models.Model):
 
 
 class ParleyReport(models.Model):
+    # A sphere's room, or a conversation: exactly one of the two.
     sphere = models.ForeignKey(
-        "Sphere", on_delete=models.CASCADE, related_name="parley_reports"
+        "Sphere",
+        on_delete=models.CASCADE,
+        related_name="parley_reports",
+        null=True,
+        blank=True,
+    )
+    conversation = models.ForeignKey(
+        "ParleyConversation",
+        on_delete=models.CASCADE,
+        related_name="reports",
+        null=True,
+        blank=True,
     )
     reporter = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="parley_reports"
@@ -360,6 +372,19 @@ class ParleyReport(models.Model):
     room_id = models.CharField(max_length=64)
     message_id = models.PositiveBigIntegerField()
     reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    # The message as its room kept it when reported: the room is the only
+    # other place it lives, and staff cannot read it there.
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="parley_reports_against",
+        null=True,
+        blank=True,
+    )
+    author_name = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    written_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
 
@@ -369,6 +394,13 @@ class ParleyReport(models.Model):
             models.UniqueConstraint(
                 fields=("reporter", "room_id", "message_id"),
                 name="parley_report_unique_reporter_message",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(sphere__isnull=False, conversation__isnull=True)
+                    | models.Q(sphere__isnull=True, conversation__isnull=False)
+                ),
+                name="parley_report_sphere_or_conversation",
             ),
         )
 

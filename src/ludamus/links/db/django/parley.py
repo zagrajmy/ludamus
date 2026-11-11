@@ -13,7 +13,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
-    ParleyReportData,
+    ParleyReportRecord,
     ParleyRepositoryProtocol,
     ParleyRoomDTO,
     ParleyRoomKind,
@@ -87,21 +87,34 @@ class ParleyRepository(ParleyRepositoryProtocol):
             is_manager=is_manager,
         )
 
-    def create_report(
-        self, *, data: ParleyReportData, window: ParleyTimeWindow
-    ) -> bool:
-        access = self.read_access(
-            sphere_id=data.sphere_id, user_id=data.user_id, window=window
+    @staticmethod
+    def save_report(report: ParleyReportRecord) -> None:
+        message = report.message
+        copy = (
+            {}
+            if message is None
+            else {
+                "author_name": message.author_name,
+                "body": message.body,
+                "written_at": message.created_at,
+                "deleted_at": message.deleted_at,
+                # NOTE: the Worker takes authors from passes, whose subjects
+                # are Django user ids.
+                "reported_user": User.objects.filter(pk=message.author_id).first(),
+            }
         )
-        if access is None or data.room_id not in {room.id for room in access.rooms}:
-            return False
+        # Reporting the same message again keeps the first report.
         ParleyReport.objects.get_or_create(
-            reporter_id=data.user_id,
-            room_id=data.room_id,
-            message_id=data.message_id,
-            defaults={"reason": data.reason, "sphere_id": data.sphere_id},
+            reporter_id=report.reporter_id,
+            room_id=report.room_id,
+            message_id=report.message_id,
+            defaults={
+                "reason": report.reason,
+                "sphere_id": report.sphere_id,
+                "conversation_id": report.conversation_id,
+                **copy,
+            },
         )
-        return True
 
     @staticmethod
     def read_event_sphere_id(event_id: int) -> int | None:

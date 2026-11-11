@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
+import pytest
+
 from ludamus.mills.parley import (
     ParleyRevocationService,
     ParleyService,
@@ -10,9 +12,13 @@ from ludamus.pacts.parley import (
     REVOKE_EVERYONE,
     ParleyAccessDTO,
     ParleyCapabilityClaims,
+    ParleyConversationKind,
+    ParleyMemberState,
     ParleyReportData,
+    ParleyReportedMessage,
     ParleyRoomDTO,
     ParleyRoomKind,
+    ParleyWorkerUnavailableError,
 )
 from ludamus.specs.parley import PARLEY_TOKEN_LIFETIME
 
@@ -63,6 +69,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
         repository=repository,
         conversations=NoConversations(),
         signer=signer,
+        messages=Messages(None),
         agent_host="parley.example.com",
     )
 
@@ -94,6 +101,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
         ],
         "canMessage": False,
         "conversations": [],
+        "blocked": [],
         "capabilityToken": "signed-token",
         "agentHost": "parley.example.com",
     }
@@ -158,6 +166,7 @@ def test_bootstrap_signs_a_manager_role_without_listing_rooms() -> None:
         repository=repository,
         conversations=NoConversations(),
         signer=signer,
+        messages=Messages(None),
         agent_host="parley.example.com",
     )
 
@@ -177,6 +186,7 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
         repository=repository,
         conversations=NoConversations(),
         signer=signer,
+        messages=Messages(None),
         agent_host="parley.example.com",
     )
 
@@ -188,24 +198,166 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
     signer.sign.assert_not_called()
 
 
-def test_report_message_returns_what_the_repository_stored() -> None:
-    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
-    repository = Mock()
-    repository.create_report.return_value = False
+REPORTER, AUTHOR = 123, 7
+# A lookup is signed for the one call that carries it.
+LOOKUP_LIFETIME_SECONDS = 60
+
+
+class Rooms:
+    """The sphere's rooms this reporter sees, and the reports kept."""
+
+    def __init__(self, rooms=("sphere:45",)):
+        self.rooms = rooms
+        self.saved = []
+
+    def read_access(self, *, sphere_id, user_id, window):
+        # No rooms at all: the sphere's chat is not open to this person.
+        if self.rooms is None:
+            return None
+        return ParleyAccessDTO(
+            sphere_id=sphere_id,
+            sphere_name="Bachanalia",
+            user_id=user_id,
+            user_name="Ada",
+            user_avatar_url="",
+            rooms=[
+                ParleyRoomDTO(
+                    id=room, kind=ParleyRoomKind.SPHERE, title="Hall", can_write=True
+                )
+                for room in self.rooms
+            ],
+            is_manager=False,
+        )
+
+    def save_report(self, report):
+        self.saved.append(report)
+
+
+class Members(NoConversations):
+    def __init__(self, **states):
+        self.states = {
+            int(key.removeprefix("c")): state for key, state in states.items()
+        }
+
+    def read_member(self, *, conversation_id, user_id):
+        state = self.states.get(conversation_id)
+        return None if state is None else (ParleyConversationKind.GROUP, state, False)
+
+
+class Messages:
+    """The Worker's answer to a lookup: a message, None, or no answer."""
+
+    def __init__(self, answer):
+        self.answer = answer
+        self.asked = []
+
+    def read_message(self, token, /):
+        self.asked.append(token)
+        if self.answer == "down":
+            raise ParleyWorkerUnavailableError
+        return self.answer
+
+
+class RecordingSigner:
+    def __init__(self):
+        self.signed = []
+
+    def sign(self, claims):
+        self.signed.append(claims)
+        return f"token-{len(self.signed)}"
+
+
+def _said_by(author_id):
+    return ParleyReportedMessage(
+        author_id=str(author_id),
+        author_name="Kuba",
+        body="You will regret this",
+        created_at=datetime(2026, 8, 6, 11, tzinfo=UTC),
+        deleted_at=None,
+    )
+
+
+def _reporting(room_id, *, rooms=None, members=None, answer="theirs"):
+    rooms = rooms or Rooms()
+    messages = Messages(_said_by(AUTHOR) if answer == "theirs" else answer)
+    signer = RecordingSigner()
     service = ParleyService(
-        repository=repository,
-        conversations=NoConversations(),
-        signer=Mock(),
+        repository=rooms,
+        conversations=members or Members(),
+        signer=signer,
+        messages=messages,
         agent_host="parley.example.com",
     )
-    data = ParleyReportData(
-        sphere_id=45, user_id=123, room_id="sphere:45", message_id=7, reason="spam"
+    created = service.report_message(
+        data=ParleyReportData(
+            sphere_id=45,
+            user_id=REPORTER,
+            room_id=room_id,
+            message_id=9,
+            reason="Abuse",
+        ),
+        now=datetime(2026, 8, 6, 12, tzinfo=UTC),
+    )
+    return created, rooms.saved, messages.asked, signer.signed
+
+
+def test_a_report_from_a_sphere_room_keeps_what_the_room_said():
+    created, saved, asked, signed = _reporting("sphere:45")
+
+    assert created is True
+    assert [(r.sphere_id, r.conversation_id, r.message) for r in saved] == [
+        (45, None, _said_by(AUTHOR))
+    ]
+    assert asked == ["token-1"]
+    lookup = signed[0]
+    assert (lookup.aud, lookup.room, lookup.message) == (
+        "parley-message",
+        "sphere:45",
+        9,
+    )
+    assert lookup.exp - lookup.iat == LOOKUP_LIFETIME_SECONDS
+
+
+def test_a_report_from_a_conversation_belongs_to_it_alone():
+    created, saved, _, _ = _reporting(
+        "conversation:8", members=Members(c8=ParleyMemberState.REQUEST)
     )
 
-    created = service.report_message(data=data, now=now)
+    assert created is True
+    assert [(r.sphere_id, r.conversation_id) for r in saved] == [(None, 8)]
 
-    assert created is False
-    assert repository.create_report.call_args.kwargs["window"].now == now
+
+def test_a_report_stands_without_its_copy_when_the_worker_cannot_say():
+    created, saved, _, _ = _reporting("sphere:45", answer="down")
+
+    assert created is True
+    assert saved[0].message is None
+
+
+@pytest.mark.parametrize(
+    ("room_id", "rooms", "members"),
+    (
+        ("sphere:45", Rooms(rooms=None), None),
+        ("session:45:3", None, None),
+        ("conversation:8", None, Members(c8=ParleyMemberState.LEFT)),
+        ("conversation:8", None, Members()),
+        ("conversation:x", None, None),
+    ),
+    ids=["no-chat", "unseen-room", "left", "never-in", "not-an-id"],
+)
+def test_a_room_out_of_sight_takes_no_report_and_asks_nothing(room_id, rooms, members):
+    created, saved, asked, _ = _reporting(room_id, rooms=rooms, members=members)
+
+    assert (created, saved, asked) == (False, [], [])
+
+
+@pytest.mark.parametrize(
+    "answer", (None, _said_by(REPORTER)), ids=("no-such-message", "own")
+)
+def test_a_message_the_room_lacks_or_ones_own_takes_no_report(answer):
+    created, saved, _, _ = _reporting("sphere:45", answer=answer)
+
+    assert (created, saved) == (False, [])
 
 
 class FakeChatSpheres:

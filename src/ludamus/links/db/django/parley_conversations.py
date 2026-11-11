@@ -65,6 +65,19 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         return User.objects.filter(_eligible(), pk=user_id).exists()
 
     @staticmethod
+    def exists(user_id: int) -> bool:
+        return User.objects.filter(pk=user_id).exists()
+
+    @staticmethod
+    def list_blocked(user_id: int) -> list[ParleyPersonDTO]:
+        blocks = (
+            ParleyBlock.objects.filter(blocker_id=user_id)
+            .select_related("blocked")
+            .order_by("blocked__name", "blocked_id")
+        )
+        return [_person(block.blocked) for block in blocks]
+
+    @staticmethod
     def blocked_between(first_id: int, second_id: int) -> bool:
         return _blocked(first_id, second_id)
 

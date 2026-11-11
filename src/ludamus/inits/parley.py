@@ -18,6 +18,11 @@ from ludamus.links.encryption import JwtSigner
 from ludamus.links.parley_worker import ParleyWorkerClient
 from ludamus.mills.parley import sign_revocations
 from ludamus.mills.parley_conversations import sign_membership
+from ludamus.pacts.parley import (
+    ParleyMessageReaderProtocol,
+    ParleyReportedMessage,
+    ParleyWorkerUnavailableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,3 +108,18 @@ class DisabledParleyMembershipOutbox:
             "parley not configured, membership sync dropped: conversations=%s",
             conversation_ids,
         )
+
+
+class UnconfiguredParleyMessages:
+    """No Worker to ask: a report is kept without its message."""
+
+    @staticmethod
+    def read_message(_token: str, /) -> ParleyReportedMessage | None:
+        raise ParleyWorkerUnavailableError
+
+
+def parley_message_reader() -> ParleyMessageReaderProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    return (
+        ParleyWorkerClient(agent_host) if agent_host else UnconfiguredParleyMessages()
+    )

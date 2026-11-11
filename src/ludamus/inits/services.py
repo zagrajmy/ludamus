@@ -24,6 +24,7 @@ from ludamus.inits.dbos_scheduler import (
     parley_membership_outbox,
     parley_revocation_outbox,
 )
+from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
@@ -164,6 +165,7 @@ class Services:
             repository=self._repos.parley,
             conversations=self._repos.parley_conversations,
             signer=JwtSigner(signing_private_key),
+            messages=parley_message_reader(),
             agent_host=agent_host,
         )
 

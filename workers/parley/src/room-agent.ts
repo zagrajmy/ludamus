@@ -23,6 +23,7 @@ import {
   type Capability,
   type ConnectionState,
   type Message,
+  type Reported,
   type Revocation,
   type RpcResult,
   type ServerEvent,
@@ -386,6 +387,20 @@ export abstract class RoomAgent extends Agent<Env> {
     void this
       .sql`INSERT INTO rate_events (user_id, kind, created_at) VALUES (${userId}, ${kind}, ${now})`;
     return true;
+  }
+
+  // Not @callable: Django asks, over the Worker's own fetch, to keep a copy
+  // of a reported message. A deleted one keeps its words for that.
+  readMessage(id: number): Reported | null {
+    const row = this.sql<MessageRow>`SELECT * FROM messages WHERE id = ${id}`[0];
+    if (row === undefined) return null;
+    return {
+      authorId: row.author_id,
+      authorName: row.author_name,
+      body: row.body,
+      createdAt: row.created_at,
+      deletedAt: row.deleted_at,
+    };
   }
 
   private message(row: MessageRow): Message {

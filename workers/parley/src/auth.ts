@@ -1,11 +1,12 @@
 import { importSPKI, jwtVerify } from "jose";
 
-import type { Capability, Member, Membership, Revocation } from "./protocol";
+import type { Capability, Lookup, Member, Membership, Revocation } from "./protocol";
 
 const COOKIE_NAME = "parley_capability";
 // Its own audience, so neither kind of token can be passed off as the other.
 export const REVOCATION_AUDIENCE = "parley-revocation";
 export const MEMBERSHIP_AUDIENCE = "parley-membership";
+export const LOOKUP_AUDIENCE = "parley-message";
 
 type AuthEnv = {
   JWT_AUDIENCE: string;
@@ -172,6 +173,20 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
   };
 }
 
+export async function verifyLookup(token: string, env: AuthEnv): Promise<Lookup> {
+  // A lookup names a message, not a person.
+  const payload = await verified(token, env, LOOKUP_AUDIENCE, ["exp", "iat"]);
+  if (
+    typeof payload.room !== "string" ||
+    typeof payload.message !== "number" ||
+    !Number.isSafeInteger(payload.message) ||
+    payload.message < 1
+  ) {
+    throw new Error("Invalid lookup");
+  }
+  return { messageId: payload.message, room: payload.room };
+}
+
 async function tokenFromBody(request: Request): Promise<string | null> {
   try {
     const body: unknown = await request.json();
@@ -213,6 +228,20 @@ export async function membershipFromRequest(
     return await verifyMembership(token, env);
   } catch {
     return new Response("Invalid membership", { status: 401 });
+  }
+}
+
+// Django asking for a reported message, server to server like a revocation.
+export async function lookupFromRequest(
+  request: Request,
+  env: AuthEnv,
+): Promise<Lookup | Response> {
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
+  try {
+    return await verifyLookup(token, env);
+  } catch {
+    return new Response("Invalid lookup", { status: 401 });
   }
 }
 

@@ -26,6 +26,14 @@ export function parseRoom(kind: Room["kind"], name: string): Room | null {
     : { id: `session:${name}`, kind, session: match[2], sphere: match[1] };
 }
 
+// Any room by its full id, as Django names it.
+export function roomFromId(roomId: string): Room | null {
+  const separator = roomId.indexOf(":");
+  const kind = roomId.slice(0, separator);
+  if (kind !== "conversation" && kind !== "sphere" && kind !== "session") return null;
+  return parseRoom(kind, roomId.slice(separator + 1));
+}
+
 function parseRoomId(roomId: string): Room | null {
   const separator = roomId.indexOf(":");
   const kind = roomId.slice(0, separator);

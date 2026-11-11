@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.parley import (
         ParleyCapabilityClaims,
         ParleyMembershipClaims,
+        ParleyMessageLookupClaims,
         ParleyRevocationClaims,
     )
 
@@ -54,7 +55,10 @@ class JwtSigner:
     def sign(
         self,
         claims: (
-            ParleyCapabilityClaims | ParleyMembershipClaims | ParleyRevocationClaims
+            ParleyCapabilityClaims
+            | ParleyMembershipClaims
+            | ParleyMessageLookupClaims
+            | ParleyRevocationClaims
         ),
     ) -> str:
         loaded = serialization.load_pem_private_key(

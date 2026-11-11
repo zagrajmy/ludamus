@@ -219,7 +219,9 @@ class ParleyConversationService:
     def block(self, *, user_id: int, blocked_id: int) -> None:
         if user_id == blocked_id:
             raise ParleyConversationError("invalid")
-        if not self._repository.is_eligible(blocked_id):
+        # Anyone at all, so a minor's messages in a sphere's room can be
+        # hidden as well.
+        if not self._repository.exists(blocked_id):
             raise ParleyConversationError("not_found")
         with self._transaction.atomic():
             self._repository.block(blocker_id=user_id, blocked_id=blocked_id)

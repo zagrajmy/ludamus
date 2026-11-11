@@ -274,6 +274,22 @@ class TestDirect:
         assert_response(response, HTTPStatus.NO_CONTENT)
         assert not ParleyBlock.objects.exists()
 
+    @pytest.mark.usefixtures("parley_settings")
+    def test_the_chat_starts_knowing_whom_one_has_blocked_a_minor_too(
+        self, authenticated_client, me, sphere
+    ):
+        sphere.parley_enabled = True
+        sphere.save()
+        kid = UserFactory(name="Kid", age_band=AgeBand.THIRTEEN_TO_FIFTEEN.value)
+        blocked_me = _adult(name="Not mine")
+        blocked_me.parley_blocks.create(blocked=me)
+
+        response = _post(authenticated_client, "parley_block", {"userId": kid.pk})
+
+        assert_response(response, HTTPStatus.NO_CONTENT)
+        response = authenticated_client.get(reverse("parley_bootstrap"))
+        assert response.json()["blocked"] == [_person(kid)]
+
 
 @pytest.mark.django_db
 class TestGroups:

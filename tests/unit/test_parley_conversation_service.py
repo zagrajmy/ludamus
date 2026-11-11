@@ -48,6 +48,10 @@ class World:
     def is_eligible(self, user_id):
         return user_id in self.eligible
 
+    def exists(self, user_id):
+        # Everyone but OUT has an account, the minor KID included.
+        return user_id in self.eligible | {KID}
+
     def blocked_between(self, first_id, second_id):
         return (first_id, second_id) in self.blocks or (
             second_id,
@@ -350,6 +354,10 @@ class TestBlocks:
     @pytest.mark.parametrize(("blocked", "code"), ((ME, "invalid"), (OUT, "not_found")))
     def test_a_block_needs_someone_else_who_is_there(self, service, blocked, code):
         _refused(code, service.block, user_id=ME, blocked_id=blocked)
+
+    def test_anyone_with_an_account_can_be_blocked_a_minor_too(self, service, world):
+        service.block(user_id=ME, blocked_id=KID)
+        assert (ME, KID) in world.blocks
 
 
 def test_the_member_list_is_signed_as_its_own_kind_of_token(world):

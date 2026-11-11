@@ -80,6 +80,8 @@ class ParleyBootstrapDTO(BaseModel):
     # Whether direct messages and groups are open to this person at all.
     can_message: bool = Field(default=False, serialization_alias="canMessage")
     conversations: list[ParleyConversationDTO] = Field(default_factory=list)
+    # People this person has blocked: their messages stay out of sight.
+    blocked: list[ParleyPersonDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")
 
@@ -141,6 +143,51 @@ class ParleyReportData(BaseModel):
     reason: str = Field(max_length=255)
 
 
+class ParleyReportedMessage(BaseModel):
+    """A reported message as its room keeps it, deleted words included."""
+
+    author_id: str
+    author_name: str
+    body: str
+    created_at: datetime
+    deleted_at: datetime | None
+
+
+class ParleyReportRecord(BaseModel):
+    reporter_id: int
+    # A report belongs to the sphere whose room it came from, or to the
+    # conversation it came from; never both.
+    sphere_id: int | None
+    conversation_id: int | None
+    room_id: str
+    message_id: int
+    reason: str
+    # What the room said the message was; None when the Worker could not say.
+    message: ParleyReportedMessage | None
+
+
+class ParleyMessageLookupClaims(BaseModel):
+    """Django asking a room for one message, to keep a copy with a report."""
+
+    iss: str
+    aud: str
+    room: str
+    message: int
+    iat: int
+    exp: int
+    jti: str
+
+
+class ParleyWorkerUnavailableError(Exception):
+    """The chat Worker could not be asked, or did not answer."""
+
+
+class ParleyMessageReaderProtocol(Protocol):
+    # None when the room has no such message; raises
+    # ParleyWorkerUnavailableError when it cannot be asked.
+    def read_message(self, token: str, /) -> ParleyReportedMessage | None: ...
+
+
 class ParleyTimeWindow(BaseModel):
     now: datetime
     retained_after: datetime
@@ -153,9 +200,8 @@ class ParleyRepositoryProtocol(Protocol):
         *, sphere_id: int, user_id: int, window: ParleyTimeWindow
     ) -> ParleyAccessDTO | None: ...
 
-    def create_report(
-        self, *, data: ParleyReportData, window: ParleyTimeWindow
-    ) -> bool: ...
+    @staticmethod
+    def save_report(report: ParleyReportRecord) -> None: ...
 
     @staticmethod
     def read_event_sphere_id(event_id: int) -> int | None: ...
@@ -168,7 +214,10 @@ class ParleySignerProtocol(Protocol):
     def sign(
         self,
         claims: (
-            ParleyCapabilityClaims | ParleyMembershipClaims | ParleyRevocationClaims
+            ParleyCapabilityClaims
+            | ParleyMembershipClaims
+            | ParleyMessageLookupClaims
+            | ParleyRevocationClaims
         ),
     ) -> str: ...
 
@@ -220,6 +269,12 @@ class ParleyMemberSnapshot(BaseModel):
 class ParleyConversationRepositoryProtocol(Protocol):
     @staticmethod
     def is_eligible(user_id: int) -> bool: ...
+
+    @staticmethod
+    def exists(user_id: int) -> bool: ...
+
+    @staticmethod
+    def list_blocked(user_id: int) -> list[ParleyPersonDTO]: ...
 
     @staticmethod
     def blocked_between(first_id: int, second_id: int) -> bool: ...
