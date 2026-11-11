@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
-import { bootstrap, FakeWorker, launcherOf, routeBootstrap } from "./helpers/parley";
+import { bootstrap, FakeWorker, launcherOf, panelOf, routeBootstrap } from "./helpers/parley";
 
 // The chromium-auth project's default storage state (e2e-tester) is a plain
 // user with no sphere role, so it can't reach /multiverse/panel/ to flip
@@ -65,14 +65,84 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await expect(panel).toBeHidden();
   await expect(launcher).toBeFocused();
 
+  // Reopened, it is back where it was left; the back button reaches the rest.
   await page.setViewportSize({ height: 844, width: 390 });
   await launcher.click();
-  await page
-    .getByRole("navigation", { name: "Conversations" })
-    .getByRole("button", { name: /Zagrajmy/u })
-    .click();
+  await expect(panel.getByText(bootstrap.copy.readOnly)).toBeVisible();
+  await panel.getByRole("button", { name: "Back to conversations" }).click();
+  await rooms.getByRole("button", { name: /Zagrajmy/u }).click();
   await expect(page.getByPlaceholder("Write a message…")).toBeVisible();
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-mobile.png" });
+});
+
+test("The chat window floats where it is dragged, and stays there", async ({ page }) => {
+  await routeBootstrap(page);
+  await FakeWorker.install(page);
+  // Whatever an older build left behind, the window still opens.
+  await page.addInitScript(() => localStorage.setItem("parley.window", "{"));
+  await page.goto("/");
+  const launcher = launcherOf(page);
+  await launcher.click();
+  const panel = panelOf(page);
+  const header = panel.locator("header").first();
+  await expect(header).toBeVisible();
+  const before = (await panel.boundingBox())!;
+  expect(before.x).toBeGreaterThan(16);
+
+  // A press without a move leaves it where it is.
+  const grip = (await header.boundingBox())!;
+  await page.mouse.click(grip.x + 120, grip.y + 20);
+  expect(await panel.boundingBox()).toEqual(before);
+
+  // Dragged by its header, it follows the pointer; far past an edge, it
+  // stops 16px inside the viewport.
+  await page.mouse.move(grip.x + 120, grip.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 2000, grip.y - 2000, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await panel.boundingBox())!.x).toBe(16);
+  expect((await panel.boundingBox())!.y).toBe(16);
+
+  // A press on a button in the header is a press, not a drag.
+  await panel.getByRole("button", { name: bootstrap.copy.closeLabel }).click();
+  await expect(panel).toBeHidden();
+
+  // Reopened, it comes back where it was left.
+  await launcher.click();
+  await expect(panel).toBeVisible();
+  await expect.poll(async () => (await panel.boundingBox())!.x).toBe(16);
+  expect((await panel.boundingBox())!.y).toBe(16);
+});
+
+test("On a programme point's page the chat opens on its room, kept on top of the list", async ({
+  page,
+}) => {
+  await routeBootstrap(page);
+  await FakeWorker.install(page);
+  // NOTE: stands in for an enrolment page, whose template sets this.
+  await page.addInitScript(() => {
+    addEventListener("DOMContentLoaded", () => {
+      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageSession = "42";
+    });
+  });
+  await page.goto("/");
+  await launcherOf(page).click();
+  const panel = panelOf(page);
+  await expect(panel.getByRole("heading", { name: "Mothership" })).toBeVisible();
+
+  await panel.getByRole("button", { name: "Back to conversations" }).click();
+  const rooms = panel.getByRole("navigation", { name: "Conversations" });
+  await expect(rooms.getByRole("heading")).toHaveText([
+    bootstrap.copy.onThisPage,
+    bootstrap.copy.allChats,
+  ]);
+  await expect(rooms.getByRole("button").first()).toContainText("Mothership");
+  // Someone who has not said they are 16 or older learns why they cannot
+  // start a conversation, and where to change that.
+  await expect(rooms.getByRole("link", { name: bootstrap.copy.confirmAge })).toHaveAttribute(
+    "href",
+    bootstrap.ageUrl,
+  );
 });
 
 test("An organizer who turns the chat off removes its launcher", async ({ page }) => {

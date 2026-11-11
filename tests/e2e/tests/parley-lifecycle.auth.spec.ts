@@ -187,12 +187,13 @@ test("A sphere with one room opens it straight from the launcher", async ({ page
 
   await launcher.click();
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
-  // From the open room, the launcher steps out to the list, then closes it.
+  // The launcher only opens and closes; it reopens where the window was left.
   await page.setViewportSize({ height: 800, width: 1280 });
   await launcher.click();
-  await expect(roomsOf(panel)).toBeVisible();
-  await launcher.click();
   await expect(panel).toBeHidden();
+  await launcher.click();
+  await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
+  await expect(roomsOf(panel)).toHaveCount(0);
 });
 
 test("A one-room sphere loaded in the background opens that room", async ({ page }) => {

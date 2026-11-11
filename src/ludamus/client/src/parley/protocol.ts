@@ -2,6 +2,7 @@ export type Copy = Record<
   | "accept"
   | "addPeople"
   | "addReaction"
+  | "allChats"
   | "backLabel"
   | "backToConversation"
   | "backToNewMessage"
@@ -15,6 +16,7 @@ export type Copy = Record<
   | "blockPerson"
   | "cancelLabel"
   | "closeLabel"
+  | "confirmAge"
   | "connectionError"
   | "copyLink"
   | "createGroup"
@@ -62,6 +64,7 @@ export type Copy = Record<
   | "messageLabel"
   | "messageListLabel"
   | "messageTooLong"
+  | "messagingNeedsAge"
   | "moderatorDelete"
   | "muteConfirm"
   | "muted"
@@ -80,6 +83,7 @@ export type Copy = Record<
   | "nobodyFound"
   | "noEmoji"
   | "offline"
+  | "onThisPage"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
@@ -166,6 +170,8 @@ export type Room = {
 };
 export type Bootstrap = {
   agentHost: string;
+  // Where someone confirms their age band, which direct messages need.
+  ageUrl: string;
   // People this person has blocked; their messages stay out of sight.
   blocked: Person[];
   canMessage: boolean;

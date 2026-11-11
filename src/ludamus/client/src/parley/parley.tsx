@@ -1,5 +1,7 @@
 import {
+  type CSSProperties,
   type Dispatch,
+  type PointerEvent,
   type ReactNode,
   type Ref,
   type RefObject,
@@ -46,7 +48,12 @@ type Shell = { closeLabel: string; connectionError: string; loading: string; ret
 
 const PASS_REFUSED_WINDOW = 5000;
 const LAUNCHER =
-  "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-11 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+  "parley-launcher fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-11 place-items-center rounded-full bg-primary transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+// Where the window was left, per browser; gone, it opens over the button.
+const SPOT_KEY = "parley.window";
+const SECTION = "px-2 pt-3 pb-1 text-xs font-semibold text-foreground-muted";
+const EDGE = 16;
+const DESKTOP = "(min-width: 40rem)";
 
 function Launcher({
   expanded,
@@ -88,19 +95,94 @@ function Launcher({
   );
 }
 
-// The room list pops over the chat button; the conversation docks as a
-// window on the page's bottom edge beside it. Phones get both full screen.
-function Frame({ children, label, room }: { children: ReactNode; label: string; room: boolean }) {
+type Spot = { x: number; y: number };
+
+function savedSpot(): Spot | null {
+  try {
+    const spot: unknown = JSON.parse(localStorage.getItem(SPOT_KEY) ?? "null");
+    return typeof spot === "object" &&
+      spot !== null &&
+      typeof (spot as Spot).x === "number" &&
+      typeof (spot as Spot).y === "number"
+      ? (spot as Spot)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSpot(spot: Spot): void {
+  try {
+    localStorage.setItem(SPOT_KEY, JSON.stringify(spot));
+  } catch {
+    // NOTE: with storage off, the window opens over the button next time.
+  }
+}
+
+// One window for every view: it floats over the page, dragged by its header
+// and kept inside the viewport. Phones get it full screen.
+function Frame({ children, label }: { children: ReactNode; label: string }) {
+  const frame = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<Spot | null>(savedSpot);
+  const inside = useCallback((wanted: Spot): Spot => {
+    const { offsetHeight, offsetWidth } = frame.current!;
+    return {
+      x: Math.max(EDGE, Math.min(wanted.x, innerWidth - offsetWidth - EDGE)),
+      y: Math.max(EDGE, Math.min(wanted.y, innerHeight - offsetHeight - EDGE)),
+    };
+  }, []);
+  const placed = spot !== null;
+  useEffect(() => {
+    if (!placed) return;
+    const fit = () => setSpot((current) => current && inside(current));
+    fit();
+    addEventListener("resize", fit);
+    return () => removeEventListener("resize", fit);
+  }, [inside, placed]);
+
+  const drag = (event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as Element;
+    const handle = target.closest<HTMLElement>("[data-parley-drag]");
+    if (
+      event.button !== 0 ||
+      handle === null ||
+      target.closest("button, a, input, textarea") !== null ||
+      !matchMedia(DESKTOP).matches
+    )
+      return;
+    const box = frame.current!.getBoundingClientRect();
+    const grip = { x: event.clientX - box.left, y: event.clientY - box.top };
+    let last: Spot | null = null;
+    const move = (moved: globalThis.PointerEvent) => {
+      last = inside({ x: moved.clientX - grip.x, y: moved.clientY - grip.y });
+      setSpot(last);
+    };
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      if (last !== null) saveSpot(last);
+    };
+    handle.setPointerCapture(event.pointerId);
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("lostpointercapture", stop, { once: true });
+  };
+
   return (
     <div
       aria-label={label}
-      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg-secondary text-foreground sm:inset-auto sm:w-95 sm:border sm:border-border sm:shadow-xl ${
-        room
-          ? "sm:right-19 sm:bottom-0 sm:h-[min(35rem,calc(100dvh-1.5rem))] sm:rounded-t-2xl sm:border-b-0"
-          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)] sm:max-h-[min(30rem,calc(100dvh-6.25rem))] sm:rounded-2xl"
+      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-(--parley-surface) text-foreground sm:inset-auto sm:h-[min(35rem,calc(100dvh-6rem))] sm:w-95 sm:rounded-[20px] sm:border sm:border-border sm:shadow-(--parley-elevation) ${
+        placed
+          ? "sm:top-(--parley-y) sm:left-(--parley-x)"
+          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)]"
       }`}
       id="parley-panel"
+      onPointerDown={drag}
+      ref={frame}
       role="dialog"
+      style={
+        placed
+          ? ({ "--parley-x": `${spot.x}px`, "--parley-y": `${spot.y}px` } as CSSProperties)
+          : undefined
+      }
     >
       {children}
     </div>
@@ -113,6 +195,7 @@ function RoomList({
   close,
   compose,
   current,
+  here,
   open,
   rooms,
 }: {
@@ -121,6 +204,8 @@ function RoomList({
   close: () => void;
   compose: (() => void) | null;
   current: string | null;
+  // The room of the page being looked at, kept on top.
+  here: Room | undefined;
   open: (room: Room) => void;
   rooms: Room[];
 }) {
@@ -133,9 +218,12 @@ function RoomList({
     .map((room, order) => ({ order, room, seen: activity[room.id] }))
     .toSorted((a, b) => (b.seen?.at ?? 0) - (a.seen?.at ?? 0) || a.order - b.order);
   // Someone asking to talk waits on top until answered.
+  const pinned = sorted.filter(({ room }) => room.id === here?.id);
   const requests = sorted.filter(({ room }) => room.conversation?.state === "request");
-  const others = sorted.filter(({ room }) => room.conversation?.state !== "request");
-  const firstId = (requests[0] ?? others[0])?.room.id;
+  const others = sorted.filter(
+    ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
+  );
+  const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
     const { conversation } = room;
@@ -147,12 +235,12 @@ function RoomList({
       <li key={room.id}>
         <button
           aria-current={room.id === current ? "true" : undefined}
-          className={`flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          className={`flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
           onClick={() => open(room)}
           ref={room.id === firstId ? firstRoom : undefined}
           type="button"
         >
-          <Avatar className="size-12 text-sm" name={room.title} src={face} />
+          <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
           <span className="min-w-0 flex-1">
             <span
               className={`block truncate text-[0.9375rem] ${unread ? "font-bold" : "font-medium"}`}
@@ -167,7 +255,7 @@ function RoomList({
             </span>
           </span>
           {unread && (
-            <span className="size-3 shrink-0 rounded-full bg-primary">
+            <span className="size-2 shrink-0 rounded-full bg-primary">
               <span className="sr-only">{copy.unread}</span>
             </span>
           )}
@@ -187,17 +275,35 @@ function RoomList({
       </PanelHeader>
       <nav
         aria-label={copy.roomsLabel}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[5px]"
       >
-        {requests.length > 0 && (
+        {pinned.length > 0 && (
           <>
-            <h3 className="px-2 py-1 text-xs font-semibold text-foreground-muted">
-              {copy.requests}
-            </h3>
-            <ul className="mb-2 border-b border-border pb-2">{requests.map(row)}</ul>
+            <h3 className={SECTION}>{copy.onThisPage}</h3>
+            <ul>{pinned.map(row)}</ul>
           </>
         )}
+        {requests.length > 0 && (
+          <>
+            <h3 className={SECTION}>{copy.requests}</h3>
+            <ul>{requests.map(row)}</ul>
+          </>
+        )}
+        {(pinned.length > 0 || requests.length > 0) && others.length > 0 && (
+          <h3 className={SECTION}>{copy.allChats}</h3>
+        )}
         <ul>{others.map(row)}</ul>
+        {compose === null && (
+          <p className="mx-0.5 mt-2 rounded-[14px] bg-bg-tertiary px-3 py-2.5 text-sm text-foreground-secondary">
+            {copy.messagingNeedsAge}{" "}
+            <a
+              className="font-medium text-coral-700 underline underline-offset-2 dark:text-coral-300"
+              href={bootstrap.ageUrl}
+            >
+              {copy.confirmAge}
+            </a>
+          </p>
+        )}
       </nav>
     </>
   );
@@ -225,6 +331,7 @@ function Connected({
   launcher,
   launcherLabel,
   onPassClosed,
+  pageSession,
   setView,
   view,
 }: {
@@ -233,6 +340,7 @@ function Connected({
   launcher: RefObject<HTMLButtonElement | null>;
   launcherLabel: string;
   onPassClosed: () => void;
+  pageSession: string;
   setView: Dispatch<SetStateAction<View>>;
   view: View;
 }) {
@@ -251,6 +359,10 @@ function Connected({
   ];
   const activity = { ...sphere.activity, ...inbox.activity };
   const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
+  const here =
+    pageSession === ""
+      ? undefined
+      : rooms.find(({ id }) => id === `session:${bootstrap.sphere.id}:${pageSession}`);
   const roomId = view.kind === "room" || view.kind === "details" ? view.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   const unreadRooms = rooms.filter(
@@ -302,8 +414,13 @@ function Connected({
     setView({ kind: "list" });
   };
 
+  // The chat button reopens what was last open, else this page's room.
+  const left = useRef<View | null>(null);
   const close = useCallback(() => {
-    setView({ kind: "closed" });
+    setView((shownView) => {
+      if (shownView.kind !== "closed") left.current = shownView;
+      return { kind: "closed" };
+    });
     launcher.current?.focus();
   }, [launcher, setView]);
   const open = (target: Room) => {
@@ -335,10 +452,15 @@ function Connected({
   }, [close, view.kind]);
 
   const toggle = () => {
-    if (["blocked", "compose", "group", "list"].includes(view.kind)) return close();
-    if (view.kind === "room" || view.kind === "details" || single === undefined)
-      return setView({ kind: "list" });
-    open(single);
+    if (view.kind !== "closed") return close();
+    const last = left.current;
+    const gone =
+      (last?.kind === "room" || last?.kind === "details") &&
+      !rooms.some(({ id }) => id === last.roomId);
+    if (last !== null && !gone) return setView(last);
+    const first = here ?? single;
+    if (first !== undefined) return open(first);
+    setView({ kind: "list" });
   };
 
   // A block changes who may write where, so the list is asked again.
@@ -393,98 +515,97 @@ function Connected({
         unreadLabel={counted(copy, "unreadCount", unreadRooms)}
         unreadRooms={unreadRooms}
       />
-      {view.kind === "list" && (
-        <Frame label={copy.title} room={false}>
-          <RoomList
-            activity={activity}
-            bootstrap={bootstrap}
-            close={close}
-            compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
-            current={current}
-            open={open}
-            rooms={rooms}
-          />
-        </Frame>
-      )}
-      {view.kind === "compose" && (
-        <Frame label={copy.title} room={false}>
-          <NewMessage
-            api={api}
-            back={toList}
-            blocked={blocked.length}
-            bootstrap={bootstrap}
-            close={close}
-            newGroup={() => setView({ kind: "group" })}
-            showBlocked={() => setView({ kind: "blocked" })}
-            started={opened}
-          />
-        </Frame>
-      )}
-      {view.kind === "blocked" && (
-        <Frame label={copy.title} room={false}>
-          <BlockedPeople
-            back={() => setView({ kind: "compose" })}
-            bootstrap={bootstrap}
-            close={close}
-            people={blocked}
-            unblock={blocks.unblock}
-          />
-        </Frame>
-      )}
-      {view.kind === "group" && (
-        <Frame label={copy.title} room={false}>
-          <NewGroup
-            api={api}
-            back={() => setView({ kind: "compose" })}
-            bootstrap={bootstrap}
-            close={close}
-            created={opened}
-          />
-        </Frame>
-      )}
-      {room !== undefined && (
-        <Frame label={copy.title} room>
-          {/* The details cover the thread without closing its socket. */}
-          <div className={view.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
-            <Conversation
-              answers={answersFor(room)}
-              back={single === undefined ? toList : null}
-              blocked={blockedIds}
+      {view.kind !== "closed" && (
+        <Frame label={copy.title}>
+          {view.kind === "list" && (
+            <RoomList
+              activity={activity}
               bootstrap={bootstrap}
               close={close}
-              details={
-                room.conversation === undefined
-                  ? null
-                  : {
-                      open: () => setView({ kind: "details", roomId: room.id }),
-                      trigger: detailsTrigger,
-                    }
-              }
-              key={room.id}
-              // A direct conversation blocks from its details and its request.
-              onBlock={
-                bootstrap.canMessage && room.conversation?.kind !== "direct" ? blocks.block : null
-              }
-              onPassClosed={onPassClosed}
-              onRead={(messageId) =>
-                (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
-              }
-              onRefused={() => refused(room.id)}
-              room={room}
+              compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
+              current={current}
+              here={here}
+              open={open}
+              rooms={rooms}
             />
-          </div>
-          {view.kind === "details" && room.conversation !== undefined && (
-            <Details
+          )}
+          {view.kind === "compose" && (
+            <NewMessage
               api={api}
-              back={() => setView({ kind: "room", roomId: room.id })}
-              backRef={detailsBack}
-              blocks={blocks}
+              back={toList}
+              blocked={blocked.length}
               bootstrap={bootstrap}
               close={close}
-              conversation={room.conversation}
-              left={() => drop(room.id)}
-              updated={upsert}
+              newGroup={() => setView({ kind: "group" })}
+              showBlocked={() => setView({ kind: "blocked" })}
+              started={opened}
             />
+          )}
+          {view.kind === "blocked" && (
+            <BlockedPeople
+              back={() => setView({ kind: "compose" })}
+              bootstrap={bootstrap}
+              close={close}
+              people={blocked}
+              unblock={blocks.unblock}
+            />
+          )}
+          {view.kind === "group" && (
+            <NewGroup
+              api={api}
+              back={() => setView({ kind: "compose" })}
+              bootstrap={bootstrap}
+              close={close}
+              created={opened}
+            />
+          )}
+          {room !== undefined && (
+            <>
+              {/* The details cover the thread without closing its socket. */}
+              <div className={view.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+                <Conversation
+                  answers={answersFor(room)}
+                  back={single === undefined ? toList : null}
+                  blocked={blockedIds}
+                  bootstrap={bootstrap}
+                  close={close}
+                  details={
+                    room.conversation === undefined
+                      ? null
+                      : {
+                          open: () => setView({ kind: "details", roomId: room.id }),
+                          trigger: detailsTrigger,
+                        }
+                  }
+                  key={room.id}
+                  // A direct conversation blocks from its details and its request.
+                  onBlock={
+                    bootstrap.canMessage && room.conversation?.kind !== "direct"
+                      ? blocks.block
+                      : null
+                  }
+                  onPassClosed={onPassClosed}
+                  onRead={(messageId) =>
+                    (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
+                  }
+                  onRefused={() => refused(room.id)}
+                  room={room}
+                />
+              </div>
+              {view.kind === "details" && room.conversation !== undefined && (
+                <Details
+                  api={api}
+                  back={() => setView({ kind: "room", roomId: room.id })}
+                  backRef={detailsBack}
+                  blocks={blocks}
+                  bootstrap={bootstrap}
+                  close={close}
+                  conversation={room.conversation}
+                  left={() => drop(room.id)}
+                  updated={upsert}
+                />
+              )}
+            </>
           )}
         </Frame>
       )}
@@ -496,11 +617,13 @@ function Parley({
   bootstrapUrl,
   initialOpen,
   launcherLabel,
+  pageSession,
   shell,
 }: {
   bootstrapUrl: string;
   initialOpen: boolean;
   launcherLabel: string;
+  pageSession: string;
   shell: Shell;
 }) {
   const [view, setView] = useState<View>({ kind: initialOpen ? "list" : "closed" });
@@ -546,9 +669,11 @@ function Parley({
         loadedAt.current = Date.now();
         setBootstrap(data);
         const only = data.rooms.length === 1 && !data.canMessage ? data.rooms[0] : undefined;
-        if (only !== undefined)
+        const here = data.rooms.find(({ id }) => id === `session:${data.sphere.id}:${pageSession}`);
+        const first = here ?? only;
+        if (first !== undefined)
           setView((current) =>
-            current.kind === "list" ? { kind: "room", roomId: only.id } : current,
+            current.kind === "list" ? { kind: "room", roomId: first.id } : current,
           );
       } catch {
         // NOTE: a background connect that fails stays quiet; opening the chat
@@ -560,7 +685,7 @@ function Parley({
     return () => {
       active = false;
     };
-  }, [attempt, bootstrap, bootstrapUrl, failed, visible, wanted]);
+  }, [attempt, bootstrap, bootstrapUrl, failed, pageSession, visible, wanted]);
 
   useEffect(() => {
     if (bootstrap === null) return;
@@ -583,6 +708,7 @@ function Parley({
         launcher={launcher}
         launcherLabel={launcherLabel}
         onPassClosed={passClosed}
+        pageSession={pageSession}
         setView={setView}
         view={view}
       />
@@ -610,7 +736,7 @@ function Parley({
         unreadRooms={0}
       />
       {wanted && (
-        <Frame label={launcherLabel} room={false}>
+        <Frame label={launcherLabel}>
           <div className="flex justify-end px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-2">
             <button
               aria-label={shell.closeLabel}
@@ -656,7 +782,13 @@ function Parley({
 // own launcher would stay up a moment after the chat began loading, and a
 // click on it then would be lost: its loader has already started, closed.
 export function mountParley(element: HTMLElement, initialOpen: boolean): void {
-  const { closeLabel = "", connectionError = "", loading = "", retry = "" } = element.dataset;
+  const {
+    closeLabel = "",
+    connectionError = "",
+    loading = "",
+    pageSession = "",
+    retry = "",
+  } = element.dataset;
   const root = createRoot(element);
   flushSync(() =>
     root.render(
@@ -666,6 +798,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
+        pageSession={pageSession}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,
     ),

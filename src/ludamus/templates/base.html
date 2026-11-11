@@ -184,12 +184,13 @@
                  data-close-label="{% translate 'Close chat' %}"
                  data-loading="{% translate 'Gathering conversations…' %}"
                  data-connection-error="{% translate 'Could not connect to the chat.' %}"
-                 data-retry="{% translate 'Try again' %}">
+                 data-retry="{% translate 'Try again' %}"
+                 data-page-session="{% block parley_session %}{% endblock parley_session %}">
                 <button type="button"
                         data-parley-launcher
                         aria-controls="parley-panel"
                         aria-expanded="false"
-                        class="fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] grid size-11 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                        class="parley-launcher fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] grid size-11 place-items-center rounded-full bg-primary hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
                         aria-label="{% translate 'Open chat' %}">
                     {% icon "chat-bubble-oval-left-ellipsis" variant="mini" class="size-5.5" %}
                 </button>

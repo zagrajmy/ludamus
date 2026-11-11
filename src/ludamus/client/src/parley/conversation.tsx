@@ -62,7 +62,7 @@ function TypingDots() {
 function MutedNotice({ copy, muted }: { copy: Bootstrap["copy"]; muted: NonNullable<Muted> }) {
   return (
     <p
-      className="mx-3 mt-2 mb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2.5 rounded-[1.25rem] bg-bg-tertiary px-4 py-2.5 text-sm text-foreground-secondary"
+      className="m-[7px] mb-[max(7px,env(safe-area-inset-bottom))] flex items-center gap-2.5 rounded-xl bg-bg-tertiary px-4 py-2.5 text-sm text-foreground-secondary"
       role="status"
     >
       <Icon className="size-4 shrink-0 text-foreground-muted" name="Mute" />
@@ -480,7 +480,7 @@ export function Conversation({
     if (muted !== null) return <MutedNotice copy={copy} muted={muted} />;
     return (
       <form
-        className="px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="p-[7px] pb-[max(7px,env(safe-area-inset-bottom))]"
         onSubmit={(event) => void submit(event)}
       >
         <label className="sr-only" htmlFor="parley-message">
@@ -491,7 +491,7 @@ export function Conversation({
           <textarea
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
-            className={`parley-composer block min-h-10 w-full resize-none rounded-[1.25rem] bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
+            className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
             onChange={(event) => {
               setBody(event.target.value);
@@ -508,7 +508,7 @@ export function Conversation({
           <button
             aria-busy={sending}
             aria-label={sending ? copy.sending : copy.sendLabel}
-            className="absolute end-1 bottom-1 grid size-8 place-items-center rounded-full text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus disabled:text-foreground-muted disabled:hover:bg-transparent"
+            className="absolute end-1 bottom-1 grid size-8 place-items-center rounded-lg text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus disabled:text-foreground-muted disabled:hover:bg-transparent"
             disabled={sending || body.trim() === "" || tooLong}
             type="submit"
           >
@@ -531,22 +531,29 @@ export function Conversation({
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-1 border-b border-border p-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-2">
+      <header
+        className="flex items-center gap-1 border-b border-border p-[7px] pt-[max(7px,env(safe-area-inset-top))] sm:cursor-grab sm:pt-[7px]"
+        data-parley-drag
+      >
         {back !== null && (
-          <button
-            aria-label={copy.backLabel}
-            className="grid size-10 shrink-0 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus"
-            onClick={back}
-            type="button"
-          >
+          <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
           </button>
         )}
-        <div className={`flex min-w-0 flex-1 items-center gap-2.5 ${back === null ? "pl-2" : ""}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="relative shrink-0">
-            <Avatar className="size-9 text-xs" name={room.title} src={face} />
+            {/* In the window's corner the avatar shares its curve; beside the
+                back button it matches the two lines of text instead. */}
+            <Avatar
+              className={
+                back === null ? "size-10 rounded-xl text-xs" : "size-[34px] rounded-[10px] text-xs"
+              }
+              name={room.title}
+              square
+              src={face}
+            />
             {presence > 1 && !offline && (
-              <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-bg-secondary" />
+              <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-(--parley-surface)" />
             )}
           </span>
           <div className="min-w-0">

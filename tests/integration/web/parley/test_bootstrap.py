@@ -105,6 +105,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
         },
     ]
     assert payload["agentHost"] == "parley.example.com"
+    assert payload["ageUrl"] == "/crowd/profile/privacy/"
     header, body, signature = payload["capabilityToken"].split(".")
     assert decode_segment(header) == {"alg": "RS256", "typ": "JWT"}
     claims = decode_segment(body)
