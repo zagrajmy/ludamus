@@ -6,7 +6,7 @@ from django import template
 from django.utils.timesince import timeuntil
 
 from ludamus.gates.web.django.sphere.roles import ROLE_COPY
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 
 if TYPE_CHECKING:
     from datetime import datetime

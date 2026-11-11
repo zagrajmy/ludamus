@@ -1,0 +1,33 @@
+{% load tessera %}
+{% comment %}
+A panel dashboard tile: the number, what it counts, and the page it links to.
+`tone` (blue, purple, green or yellow) colours the icon; `note` adds a line
+under the number on wider screens.
+{% endcomment %}
+<a href="{{ href }}"
+   class="card p-4 lg:p-6 block ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-xs lg:text-sm text-foreground-muted">{{ label }}</p>
+            <p class="text-2xl lg:text-3xl font-bold text-foreground">{{ value }}</p>
+        </div>
+        {% if tone == "blue" %}
+            <div class="w-10 h-10 lg:w-12 lg:h-12 bg-blue-100 dark:bg-blue-100/20 rounded-lg flex items-center justify-center">
+                {% icon icon class="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 dark:text-blue-400" %}
+            </div>
+        {% elif tone == "purple" %}
+            <div class="w-10 h-10 lg:w-12 lg:h-12 bg-purple-100 dark:bg-purple-100/20 rounded-lg flex items-center justify-center">
+                {% icon icon class="w-5 h-5 lg:w-6 lg:h-6 text-purple-600 dark:text-purple-400" %}
+            </div>
+        {% elif tone == "green" %}
+            <div class="w-10 h-10 lg:w-12 lg:h-12 bg-green-100 dark:bg-green-100/20 rounded-lg flex items-center justify-center">
+                {% icon icon class="w-5 h-5 lg:w-6 lg:h-6 text-green-600 dark:text-green-400" %}
+            </div>
+        {% else %}
+            <div class="w-10 h-10 lg:w-12 lg:h-12 bg-yellow-100 dark:bg-yellow-100/20 rounded-lg flex items-center justify-center">
+                {% icon icon class="w-5 h-5 lg:w-6 lg:h-6 text-yellow-600 dark:text-yellow-400" %}
+            </div>
+        {% endif %}
+    </div>
+    {% if note %}<p class="text-xs lg:text-sm text-green-600 mt-2 hidden sm:block">{{ note }}</p>{% endif %}
+</a>

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
 from ludamus.mills.panel_columns import (
-    PROPOSAL_BUILTIN_KEYS,
     all_columns,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
 )
+from ludamus.pacts.panel import PROPOSAL_BUILTIN_KEYS
 
 
 @dataclass

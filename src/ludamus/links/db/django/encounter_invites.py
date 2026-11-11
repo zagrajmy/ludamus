@@ -6,9 +6,9 @@ updates the event, a CANCEL removes it. With ``ENCOUNTER_REPLY_EMAIL`` set,
 each invite names a per-guest organizer address there, so a guest's
 accept or decline comes back as a REPLY the app can trust.
 
-Each message speaks its guest's language: their account's, else the site
-default. A guest with no account has told us none; the link they get is
-the encounter's shared page, so a visit does not say which guest it was.
+Each message speaks its guest's language: their account's, else English.
+A guest with no account has told us none; the link they get is the
+encounter's shared page, so a visit does not say which guest it was.
 """
 
 from __future__ import annotations

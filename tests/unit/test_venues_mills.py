@@ -1,16 +1,17 @@
 import pytest
 
-from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts import NotFoundError
+from ludamus.mills.venues import SpaceTreeService, VenuesService, copy_name
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.venues import (
     ProgrammeSpaceRowDTO,
     SpaceInputDTO,
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
 )
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import FakeTransaction, event_dto
 
 EVENT_PK = 1
+SPHERE_PK = 1
 
 
 def _record(
@@ -135,12 +136,9 @@ class FakeSpaces:
             if r.event_id == event_id
         ]
 
-    def read(self, pk):
-        return self.records[pk]
-
     def read_in_event(self, event_id, pk):
-        record = self.read(pk)
-        if record.event_id != event_id:
+        record = self.records.get(pk)
+        if record is None or record.event_id != event_id:
             raise NotFoundError
         return record
 
@@ -190,21 +188,44 @@ class FakeSpaces:
         )
 
 
-def _tree_service(repo):
-    return SpaceTreeService(FakeTransaction(), repo)
+class FakeEvents:
+    def __init__(self, sphere_by_event):
+        self._sphere_by_event = sphere_by_event
+
+    def read(self, pk):
+        return event_dto(pk=pk, sphere_id=self._sphere_by_event[pk])
+
+
+def _tree_service(repo, events=None):
+    return SpaceTreeService(
+        transaction=FakeTransaction(),
+        spaces=repo,
+        events=events or FakeEvents({EVENT_PK: SPHERE_PK}),
+    )
 
 
 class TestSpaceTreeService:
-    def test_reads_pass_through_the_repository(self):
-        repo = FakeSpaces(
-            [_record(pk=1, name="Sala"), _record(pk=2, name="Inna", event_id=9)],
-            tree=_tree(),
-        )
+    def test_a_created_space_is_read_and_listed_in_its_event_only(self):
+        repo = FakeSpaces([_record(pk=1, name="Inna", event_id=9)], tree=_tree())
         service = _tree_service(repo)
 
+        created = service.create(
+            event_id=EVENT_PK,
+            parent_id=None,
+            data=SpaceInputDTO(name="Sala", capacity=None, location=""),
+        )
+
+        assert service.read(event_id=EVENT_PK, pk=created.pk) == created
+        assert [r.name for r in service.list_programme_spaces(EVENT_PK)] == ["Sala"]
+        # NOTE: the tree is built by the repository; the service only hands
+        # it on, so this line is here for the mills coverage gate alone.
         assert service.list_tree(EVENT_PK) == _tree()
-        assert [r.pk for r in service.list_programme_spaces(EVENT_PK)] == [1]
-        assert service.read(1).name == "Sala"
+
+    def test_read_refuses_a_space_of_another_event(self):
+        repo = FakeSpaces([_record(pk=2, name="Inna", event_id=9)])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).read(event_id=EVENT_PK, pk=2)
 
     def test_creates_a_root_space(self):
         repo = FakeSpaces()
@@ -240,15 +261,65 @@ class TestSpaceTreeService:
 
         assert list(repo.records) == [1]
 
-    def test_update_renames_and_reparents(self):
-        repo = FakeSpaces([_record(pk=1, name="Budynek"), _record(pk=2, name="Sala")])
+    def test_patch_changes_only_the_named_fields(self):
+        sala = _record(
+            pk=2,
+            name="Sala",
+            parent_id=1,
+            capacity=12,
+            description="Duża",
+            location="1",
+        )
+        repo = FakeSpaces([_record(pk=1, name="Budynek"), sala])
 
-        updated = _tree_service(repo).update(
-            pk=2, parent_id=1, data=SpaceInputDTO(name="Sala 1", capacity=None)
+        patched = _tree_service(repo).patch_space(
+            event_id=EVENT_PK, pk=2, changes={"name": "Sala 1"}
         )
 
-        assert (updated.name, updated.parent_id) == ("Sala 1", 1)
-        assert repo.records[2] == updated
+        assert patched == sala.model_copy(update={"name": "Sala 1"})
+        assert repo.records[2] == patched
+
+    def test_patch_moves_under_a_parent_of_the_same_event_or_to_the_top(self):
+        repo = FakeSpaces(
+            [
+                _record(pk=1, name="A"),
+                _record(pk=3, name="B"),
+                _record(pk=2, name="Sala", parent_id=1),
+            ]
+        )
+        service = _tree_service(repo)
+        other_parent = 3
+
+        assert (
+            service.patch_space(
+                event_id=EVENT_PK, pk=2, changes={"parent_id": other_parent}
+            )
+        ).parent_id == other_parent
+        assert (
+            service.patch_space(event_id=EVENT_PK, pk=2, changes={"parent_id": None})
+        ).parent_id is None
+
+    def test_patch_refuses_a_space_of_another_event(self):
+        foreign = _record(pk=2, name="Sala", event_id=9)
+        repo = FakeSpaces([foreign])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).patch_space(
+                event_id=EVENT_PK, pk=2, changes={"name": "Mine"}
+            )
+
+        assert repo.records[2] == foreign
+
+    def test_patch_refuses_a_parent_of_another_event(self):
+        sala = _record(pk=2, name="Sala")
+        repo = FakeSpaces([_record(pk=1, name="Obcy", event_id=9), sala])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).patch_space(
+                event_id=EVENT_PK, pk=2, changes={"parent_id": 1}
+            )
+
+        assert repo.records[2] == sala
 
     def test_reparent_targets_skip_self_descendants_and_full_leaves(self):
         tree = [
@@ -330,26 +401,89 @@ class TestSpaceTreeService:
     def test_duplicate_adds_a_sibling_under_the_new_name(self):
         repo = FakeSpaces([_record(pk=1, name="Sala", parent_id=7)])
 
-        copy = _tree_service(repo).duplicate(pk=1, new_name="Sala (kopia)")
+        copy = _tree_service(repo).duplicate(event_id=EVENT_PK, pk=1)
 
-        assert (copy.name, copy.parent_id) == ("Sala (kopia)", 7)
+        assert (copy.name, copy.parent_id) == ("Sala (Copy)", 7)
         assert set(repo.records) == {1, copy.pk}
+
+    def test_duplicate_refuses_a_space_of_another_event(self):
+        repo = FakeSpaces([_record(pk=1, name="Sala", event_id=9)])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).duplicate(event_id=EVENT_PK, pk=1)
+
+        assert list(repo.records) == [1]
 
     def test_copy_to_event_lands_as_a_root_of_the_target(self):
         repo = FakeSpaces([_record(pk=1, name="Sala", parent_id=7)])
+        events = FakeEvents({EVENT_PK: SPHERE_PK, 9: SPHERE_PK})
 
-        copy = _tree_service(repo).copy_to_event(pk=1, target_event_id=9)
+        copy = _tree_service(repo, events).copy_to_event(
+            event_id=EVENT_PK, pk=1, target_event_id=9
+        )
 
         assert (copy.event_id, copy.parent_id, copy.name) == (9, None, "Sala")
+
+    def test_copy_to_event_refuses_a_space_of_another_event(self):
+        repo = FakeSpaces([_record(pk=1, name="Sala", event_id=8)])
+        events = FakeEvents({EVENT_PK: SPHERE_PK, 8: SPHERE_PK, 9: SPHERE_PK})
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo, events).copy_to_event(
+                event_id=EVENT_PK, pk=1, target_event_id=9
+            )
+
+        assert list(repo.records) == [1]
+
+    def test_copy_to_event_refuses_a_target_in_another_sphere(self):
+        repo = FakeSpaces([_record(pk=1, name="Sala")])
+        events = FakeEvents({EVENT_PK: SPHERE_PK, 9: SPHERE_PK + 1})
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo, events).copy_to_event(
+                event_id=EVENT_PK, pk=1, target_event_id=9
+            )
+
+        assert list(repo.records) == [1]
 
     def test_delete_removes_a_subtree_without_sessions(self):
         repo = FakeSpaces([_record(pk=1, name="Sala")])
 
-        assert _tree_service(repo).delete_space(1)
+        assert _tree_service(repo).delete_space(event_id=EVENT_PK, pk=1)
         assert not repo.records
 
     def test_delete_refuses_a_subtree_holding_a_session(self):
         repo = FakeSpaces([_record(pk=1, name="Sala")], with_sessions=[1])
 
-        assert not _tree_service(repo).delete_space(1)
+        assert not _tree_service(repo).delete_space(event_id=EVENT_PK, pk=1)
         assert list(repo.records) == [1]
+
+    def test_delete_refuses_a_space_of_another_event(self):
+        repo = FakeSpaces([_record(pk=1, name="Sala", event_id=9)])
+
+        with pytest.raises(NotFoundError):
+            _tree_service(repo).delete_space(event_id=EVENT_PK, pk=1)
+
+        assert list(repo.records) == [1]
+
+
+class TestCopyName:
+    def test_names_a_first_copy(self):
+        assert copy_name("Main Hall") == "Main Hall (Copy)"
+
+    def test_increments_copy_suffix(self):
+        assert copy_name("Main Hall (Copy)") == "Main Hall (Copy 2)"
+
+    def test_increments_high_numbered_copy_suffix(self):
+        assert copy_name("Main Hall (Copy 99)") == "Main Hall (Copy 100)"
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        (
+            ("Room (A)", "Room (A) (Copy)"),
+            ("Room (Copy) Extra", "Room (Copy) Extra (Copy)"),
+            ("(Copy)", "(Copy) (Copy)"),
+        ),
+    )
+    def test_leaves_parentheses_that_are_not_a_copy_suffix(self, name, expected):
+        assert copy_name(name) == expected

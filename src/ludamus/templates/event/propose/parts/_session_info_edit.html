@@ -1,4 +1,4 @@
-{% extends "chronology/parts/_session_info.html" %}
+{% extends "event/parts/_session_info.html" %}
 {% load i18n session_info_tags tessera %}
 {% block host %}
     {% include "components/avatar.html" with user=current_user size="size-9" %}
@@ -32,7 +32,7 @@
                 </legend>
                 {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error only %}
                 {% if track_error %}<p id="propose-track-error"
-   class="text-sm text-danger">{{ track_error }}</p>{% endif %}
+                                       class="text-sm text-danger">{{ track_error }}</p>{% endif %}
             </fieldset>
         {% endif %}
     </div>

@@ -6,7 +6,7 @@ would catch a regression there. These are the questions to ask of the screen,
 not a list of known defects — verify against the current template before
 reporting anything.
 
-## Programme and schedule (`templates/chronology/`)
+## Programme and schedule (`templates/event/`)
 
 The densest surface in the product: many sessions, several views, filters, and
 a time axis.

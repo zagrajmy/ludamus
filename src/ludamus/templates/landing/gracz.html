@@ -185,7 +185,7 @@
                 </div>
                 <div class="grid gap-3">
                     {% for item in encounters %}
-                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name %}
+                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count spots_remaining=item.spots_remaining is_mine=item.is_mine organizer_name=item.organizer_name %}
                     {% endfor %}
                 </div>
             {% else %}
@@ -473,7 +473,7 @@
             </div>
             <p class="mt-4 mx-auto max-w-[34rem] text-warm-400 text-[1.05rem] print:hidden">
                 {% translate "Organizing a conference or a meetup?" %} <a href="#"
-    class="font-semibold underline underline-offset-[3px] cursor-pointer hover:text-warm-50">{% translate "See the organizer page" %}</a>.
+                                                                          class="font-semibold underline underline-offset-[3px] cursor-pointer hover:text-warm-50">{% translate "See the organizer page" %}</a>.
             </p>
         </div>
     </div>

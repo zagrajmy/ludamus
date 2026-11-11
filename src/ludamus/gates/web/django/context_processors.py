@@ -6,16 +6,14 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.links.analytics import identity, redaction
-from ludamus.pacts.crowd import AgeBand
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
-    from ludamus.pacts import SiteDTO, SphereDTO
-    from ludamus.pacts.crowd import UserDTO
+    from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.notifications import NavbarNotificationsDTO
+    from ludamus.pacts.sphere import SiteDTO, SphereDTO
+    from ludamus.pacts.user import UserDTO
 
 
 class SitesContextData(TypedDict):
@@ -26,10 +24,10 @@ class SitesContextData(TypedDict):
     has_panel_access: bool
 
 
-def sites(request: RootRepositoryRequest) -> SitesContextData:
+def sites(request: RootRequest) -> SitesContextData:
     # Context processor may run during error handling before middleware completes
     if not hasattr(request, "context") or not hasattr(
-        request, "di"
+        request, "services"
     ):  # pragma: no cover
         return SitesContextData(
             root_origin="",
@@ -65,47 +63,6 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
-class PosthogConfig(TypedDict):
-    api_key: str
-    environment: str
-    host: str
-    # Derived from the URLconf so the browser redacts the same segments the
-    # server does, rather than keeping its own copy of the route list.
-    redaction_rules: list[list[str]]
-    user_id: str
-    privacy_revision: str
-
-
-class AnalyticsContextData(TypedDict):
-    posthog_config: PosthogConfig | None
-
-
-def analytics(request: HttpRequest) -> AnalyticsContextData:
-    user = getattr(request, "user", None)
-    if (
-        not settings.POSTHOG_API_KEY
-        or user is None
-        or not user.is_authenticated
-        or not AgeBand(user.age_band).allows_optional_features
-    ):
-        return AnalyticsContextData(posthog_config=None)
-    # Identify by pk, not slug: a slug follows a rename and would split one
-    # person across two distinct_ids. request.user rather than the profile
-    # service — the auth middleware already resolved it, so this costs no
-    # extra query. distinct_id namespaces it per deployment so staging and
-    # production cannot land on the same person.
-    return AnalyticsContextData(
-        posthog_config=PosthogConfig(
-            api_key=settings.POSTHOG_API_KEY,
-            host=settings.POSTHOG_HOST,
-            user_id=identity.distinct_id(user.pk),
-            privacy_revision=str(user.privacy_revision),
-            environment=identity.environment(),
-            redaction_rules=redaction.client_patterns(),
-        )
-    )
-
-
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,
@@ -120,11 +77,11 @@ class CurrentUserContextData(TypedDict):
     navbar_notifications: NotRequired[NavbarNotificationsDTO]
 
 
-def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
+def current_user(request: RootRequest) -> CurrentUserContextData:
     # Context processor may run during error handling before middleware completes
     if (
         not hasattr(request, "context")
-        or not hasattr(request, "di")
+        or not hasattr(request, "services")
         or not request.context.current_user_slug
     ):
         return CurrentUserContextData(
@@ -135,9 +92,7 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
     return CurrentUserContextData(
         current_user=user_dto,
         optional_features_available=user_dto.age_band.allows_optional_features,
-        current_user_info=UserInfo.from_user_dto(
-            user_dto, gravatar_url=request.di.gravatar_url
-        ),
+        current_user_info=UserInfo.from_user_dto(user_dto),
         navbar_notifications=request.services.notifications.get_navbar(user_dto.pk),
     )
 

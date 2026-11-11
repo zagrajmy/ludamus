@@ -24,33 +24,20 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.delivery import compose_mail, ring, send
+from ludamus.links.db.django.delivery import Bell, compose_mail, ring, send
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
-    Notification,
     NotificationSubscription,
     Session,
     SphereSubscription,
 )
+from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
-from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import NotificationDTO, SubscriptionDTO
+from ludamus.pacts.notifications import NotificationKind, SubscriptionDTO
+from ludamus.pacts.user import EMAIL_LINK_MAX_AGE, AgeBand
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from ludamus.links.db.django.recipients import Recipient
-    from ludamus.pacts.chronology import (
-        AnonymousProposalAcceptedNotification,
-        ProposalAcceptance,
-        ProposalAcceptedNotification,
-    )
-    from ludamus.pacts.crowd import (
-        EmailChangeCompletedNotification,
-        EmailChangeRequestedNotification,
-        EmailVerificationNotification,
-    )
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
     from ludamus.pacts.listing import (
@@ -66,6 +53,16 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.printing import PrintablesReadyNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
+    from ludamus.pacts.sessions import (
+        AnonymousProposalAcceptedNotification,
+        ProposalAcceptance,
+        ProposalAcceptedNotification,
+    )
+    from ludamus.pacts.user import (
+        EmailChangeCompletedNotification,
+        EmailChangeRequestedNotification,
+        EmailVerificationNotification,
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -132,42 +129,38 @@ def _ring_board(
     # Board notices land in the bell only; no mail goes out for them.
     ring(
         recipient,
-        kind=kind,
-        title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
-        body=body,
-        url=absolute_url(
-            reverse(url_name, kwargs={"pk": notification.listing_id}),
-            domain=str(settings.ROOT_DOMAIN),
+        Bell(
+            kind=kind,
+            title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
+            body=body,
+            url=absolute_url(
+                reverse(url_name, kwargs={"pk": notification.listing_id}),
+                domain=str(settings.ROOT_DOMAIN),
+            ),
+            payload={"listing_id": notification.listing_id},
         ),
-        payload={"listing_id": notification.listing_id},
     )
 
 
-def _deliver(
-    recipient: Recipient,
-    *,
-    kind: NotificationKind,
-    title: str,
-    body: str,
-    url: str,
-    payload: Mapping[str, str | int],
-) -> None:
+def _deliver(recipient: Recipient, bell: Bell) -> None:
     # Persist the row inside the surrounding transaction so a rolled-back
     # promotion drops its notification too (the row is consistent with the
     # seat change it announces). Only the email is deferred to after-commit,
     # best-effort: SMTP can't be un-sent, so it must wait for the real commit
     # and must not roll back a confirmed seat if it fails.
-    ring(recipient, kind=kind, title=title, body=body, url=url, payload=payload)
+    ring(recipient, bell)
     if not recipient.can_mail:
         # No address, or none anyone proved — the bell row above still
         # lands, so an unproven address costs a mail, not a notification.
         logger.info(
             "No deliverable address for notification kind=%s recipient=%s",
-            kind.value,
+            bell.kind.value,
             recipient.user_id,
         )
         return
-    message = compose_mail(recipient, subject=title, body=f"{body}\n\n{url}")
+    message = compose_mail(
+        recipient, subject=bell.title, body=f"{bell.body}\n\n{bell.url}"
+    )
     transaction.on_commit(partial(send, message))
 
 
@@ -198,27 +191,18 @@ class _SphereSubscriptionMail:
             user__age_band=AgeBand.SIXTEEN_PLUS,
         ).exists()
 
-    def deliver(
-        self,
-        recipient: Recipient,
-        *,
-        kind: NotificationKind,
-        title: str,
-        body: str,
-        url: str,
-        payload: Mapping[str, str | int],
-    ) -> None:
+    def deliver(self, recipient: Recipient, bell: Bell) -> None:
         if not self._authorized():
             logger.info("Promotional notification skipped: consent is no longer valid")
             return
-        ring(recipient, kind=kind, title=title, body=body, url=url, payload=payload)
+        ring(recipient, bell)
         if not recipient.can_mail:
             logger.info("No deliverable address for promotional notification")
             return
         message = compose_mail(
             recipient,
-            subject=title,
-            body=f"{body}\n\n{url}\n\n-- \n{self.footer()}",
+            subject=bell.title,
+            body=f"{bell.body}\n\n{bell.url}\n\n-- \n{self.footer()}",
             headers=self.headers(),
         )
 
@@ -278,11 +262,13 @@ class DjangoUserNotifier:
             )
             _deliver(
                 recipient,
-                kind=NotificationKind.WAITLIST_PROMOTED,
-                title=title,
-                body=body,
-                url=url,
-                payload={"session_id": notification.session_id},
+                Bell(
+                    kind=NotificationKind.WAITLIST_PROMOTED,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"session_id": notification.session_id},
+                ),
             )
 
     @staticmethod
@@ -308,15 +294,17 @@ class DjangoUserNotifier:
             ) % {"deadline": deadline}
             _deliver(
                 recipient,
-                kind=NotificationKind.WAITLIST_OFFER,
-                title=title,
-                body=body,
-                url=url,
-                payload={
-                    "session_id": notification.session_id,
-                    "claim_token": notification.claim_token,
-                    "offer_expires_at": notification.offer_expires_at.isoformat(),
-                },
+                Bell(
+                    kind=NotificationKind.WAITLIST_OFFER,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={
+                        "session_id": notification.session_id,
+                        "claim_token": notification.claim_token,
+                        "offer_expires_at": notification.offer_expires_at.isoformat(),
+                    },
+                ),
             )
 
     @staticmethod
@@ -333,13 +321,15 @@ class DjangoUserNotifier:
             )
             _deliver(
                 recipient,
-                kind=NotificationKind.OFFER_EXPIRED,
-                title=title,
-                body=body,
-                url=_session_enrollment_url(
-                    notification.event_slug, notification.session_id
+                Bell(
+                    kind=NotificationKind.OFFER_EXPIRED,
+                    title=title,
+                    body=body,
+                    url=_session_enrollment_url(
+                        notification.event_slug, notification.session_id
+                    ),
+                    payload={"session_id": notification.session_id},
                 ),
-                payload={"session_id": notification.session_id},
             )
 
     @staticmethod
@@ -357,13 +347,15 @@ class DjangoUserNotifier:
             )
             _deliver(
                 recipient,
-                kind=NotificationKind.PARTY_INVITE,
-                title=title,
-                body=body,
-                url=absolute_url(
-                    reverse("web:crowd:profile-parties"), domain=settings.ROOT_DOMAIN
+                Bell(
+                    kind=NotificationKind.PARTY_INVITE,
+                    title=title,
+                    body=body,
+                    url=absolute_url(
+                        reverse("web:crowd:profile-parties"),
+                        domain=settings.ROOT_DOMAIN,
+                    ),
                 ),
-                payload={},
             )
 
     @staticmethod
@@ -382,11 +374,13 @@ class DjangoUserNotifier:
             )
             _deliver(
                 recipient,
-                kind=NotificationKind.PARTY_ENROLLED,
-                title=title,
-                body=body,
-                url=url,
-                payload={"session_id": notification.session_id},
+                Bell(
+                    kind=NotificationKind.PARTY_ENROLLED,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"session_id": notification.session_id},
+                ),
             )
 
     @staticmethod
@@ -412,15 +406,17 @@ class DjangoUserNotifier:
             ) % {"deadline": deadline}
             _deliver(
                 recipient,
-                kind=NotificationKind.PARTY_SEAT_HELD,
-                title=title,
-                body=body,
-                url=url,
-                payload={
-                    "session_id": notification.session_id,
-                    "claim_token": notification.claim_token,
-                    "offer_expires_at": notification.offer_expires_at.isoformat(),
-                },
+                Bell(
+                    kind=NotificationKind.PARTY_SEAT_HELD,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={
+                        "session_id": notification.session_id,
+                        "claim_token": notification.claim_token,
+                        "offer_expires_at": notification.offer_expires_at.isoformat(),
+                    },
+                ),
             )
 
     @staticmethod
@@ -443,11 +439,12 @@ class DjangoUserNotifier:
             ) % {"hours": _EMAIL_LINK_HOURS}
             _deliver(
                 recipient,
-                kind=NotificationKind.EMAIL_VERIFICATION,
-                title=title,
-                body=body,
-                url=url,
-                payload={},
+                Bell(
+                    kind=NotificationKind.EMAIL_VERIFICATION,
+                    title=title,
+                    body=body,
+                    url=url,
+                ),
             )
 
     @staticmethod
@@ -477,11 +474,13 @@ class DjangoUserNotifier:
             ) % {"new_address": notification.new_address, "hours": _EMAIL_LINK_HOURS}
             _deliver(
                 recipient,
-                kind=NotificationKind.EMAIL_CHANGE_REQUESTED,
-                title=title,
-                body=body,
-                url=url,
-                payload={"new_address": notification.new_address},
+                Bell(
+                    kind=NotificationKind.EMAIL_CHANGE_REQUESTED,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"new_address": notification.new_address},
+                ),
             )
 
     @staticmethod
@@ -499,13 +498,15 @@ class DjangoUserNotifier:
             ) % {"new_address": notification.new_address}
             _deliver(
                 recipient,
-                kind=NotificationKind.EMAIL_CHANGE_COMPLETED,
-                title=title,
-                body=body,
-                url=absolute_url(
-                    reverse("web:crowd:profile"), domain=settings.ROOT_DOMAIN
+                Bell(
+                    kind=NotificationKind.EMAIL_CHANGE_COMPLETED,
+                    title=title,
+                    body=body,
+                    url=absolute_url(
+                        reverse("web:crowd:profile"), domain=settings.ROOT_DOMAIN
+                    ),
+                    payload={"new_address": notification.new_address},
                 ),
-                payload={"new_address": notification.new_address},
             )
 
     @staticmethod
@@ -527,11 +528,13 @@ class DjangoUserNotifier:
             ) % {"event": notification.event_name}
             _deliver(
                 recipient,
-                kind=NotificationKind.PRINTABLES_READY,
-                title=title,
-                body=body,
-                url=url,
-                payload={"event_slug": notification.event_slug},
+                Bell(
+                    kind=NotificationKind.PRINTABLES_READY,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"event_slug": notification.event_slug},
+                ),
             )
 
     @staticmethod
@@ -619,11 +622,13 @@ class DjangoUserNotifier:
                 unsubscribe_token=notification.unsubscribe_token,
             ).deliver(
                 recipient,
-                kind=NotificationKind.SPHERE_EVENT_PUBLISHED,
-                title=title,
-                body=body,
-                url=url,
-                payload={"event_slug": notification.event_slug},
+                Bell(
+                    kind=NotificationKind.SPHERE_EVENT_PUBLISHED,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"event_slug": notification.event_slug},
+                ),
             )
 
     @staticmethod
@@ -631,11 +636,11 @@ class DjangoUserNotifier:
         # Once per session and person: accepting again, or after a rejection
         # nobody was told about, is no news to them.
         with speaking_to(notification.recipient_user_id) as recipient:
-            if Notification.objects.filter(
-                recipient_id=notification.recipient_user_id,
-                kind=NotificationKind.PROPOSAL_ACCEPTED.value,
-                payload__session_id=notification.session_id,
-            ).exists():
+            if already_told(
+                notification.recipient_user_id,
+                kind=NotificationKind.PROPOSAL_ACCEPTED,
+                session_id=notification.session_id,
+            ):
                 logger.info(
                     "Acceptance of session %s already announced to user %s",
                     notification.session_id,
@@ -645,11 +650,13 @@ class DjangoUserNotifier:
             title, body, url = _acceptance_copy(notification)
             _deliver(
                 recipient,
-                kind=NotificationKind.PROPOSAL_ACCEPTED,
-                title=title,
-                body=body,
-                url=url,
-                payload={"session_id": notification.session_id},
+                Bell(
+                    kind=NotificationKind.PROPOSAL_ACCEPTED,
+                    title=title,
+                    body=body,
+                    url=url,
+                    payload={"session_id": notification.session_id},
+                ),
             )
 
     @staticmethod
@@ -726,62 +733,20 @@ class DjangoUserNotifier:
             body = " ".join(parts)
             _deliver(
                 recipient,
-                kind=NotificationKind.SHADOWBANNED_SIGNUP,
-                title=title,
-                body=body,
-                url=absolute_url(
-                    reverse(
-                        "web:chronology:event", kwargs={"slug": notification.event_slug}
+                Bell(
+                    kind=NotificationKind.SHADOWBANNED_SIGNUP,
+                    title=title,
+                    body=body,
+                    url=absolute_url(
+                        reverse(
+                            "web:chronology:event",
+                            kwargs={"slug": notification.event_slug},
+                        ),
+                        domain=notification.sphere_domain,
                     ),
-                    domain=notification.sphere_domain,
+                    payload={"event_slug": notification.event_slug},
                 ),
-                payload={"event_slug": notification.event_slug},
             )
-
-
-class NotificationReadRepository:
-    @staticmethod
-    def unread_count(user_id: int) -> int:
-        return Notification.objects.filter(
-            recipient_id=user_id, read_at__isnull=True
-        ).count()
-
-    @staticmethod
-    def total_count(user_id: int) -> int:
-        return Notification.objects.filter(recipient_id=user_id).count()
-
-    @staticmethod
-    def list_for_user(
-        user_id: int, *, limit: int, offset: int = 0
-    ) -> list[NotificationDTO]:
-        # The window is the query's, not Python's: the bell asks for the first
-        # ten and the history page for one page, so a long backlog is never
-        # loaded whole to show a screenful.
-        # `-pk` only breaks ties: two notifications raised in the same
-        # transaction share a timestamp, and a page window needs a total order
-        # or rows drift between pages.
-        rows = Notification.objects.filter(recipient_id=user_id).order_by(
-            "-creation_time", "-pk"
-        )[offset : offset + limit]
-        return [NotificationDTO.model_validate(notification) for notification in rows]
-
-    @staticmethod
-    def mark_read(user_id: int, pk: int) -> NotificationDTO | None:
-        # Scoped by recipient AND pk: a notification addressed to someone else
-        # returns None (the view 404s) and is never mutated.
-        notification = Notification.objects.filter(recipient_id=user_id, pk=pk).first()
-        if notification is None:
-            return None
-        if notification.read_at is None:
-            notification.read_at = datetime.now(UTC)
-            notification.save(update_fields=["read_at"])
-        return NotificationDTO.model_validate(notification)
-
-    @staticmethod
-    def mark_all_read(user_id: int) -> None:
-        Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(
-            read_at=datetime.now(UTC)
-        )
 
 
 class NotificationSubscriptionRepository:

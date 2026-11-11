@@ -21,10 +21,7 @@
 {% endcomment %}
 {% block main_region %}
     {% if messages %}
-        <div class="flash-region"
-             role="region"
-             aria-live="polite"
-             aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+        {% include "components/flash-region.html" %}
     {% endif %}
     <main class="grow flex flex-col w-full mb-8">
         {% include "landing/landing.html" %}

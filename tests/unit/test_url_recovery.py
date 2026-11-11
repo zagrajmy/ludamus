@@ -1,6 +1,6 @@
 import pytest
 
-from ludamus.mills.url_recovery import strip_trailing_junk
+from ludamus.gates.web.django.url_recovery import strip_trailing_junk
 
 
 @pytest.mark.parametrize(

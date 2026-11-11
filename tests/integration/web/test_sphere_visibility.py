@@ -4,7 +4,7 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.sphere import SphereVisibility
 from tests.integration.utils import assert_response, assert_response_404
 
 URL = reverse("web:index")
@@ -63,7 +63,7 @@ class TestPrivateSphere:
             response,
             HTTPStatus.OK,
             context_data={"next": ""},
-            template_name="crowd/login_required.html",
+            template_name="user/login_required.html",
         )
 
 

@@ -6,7 +6,7 @@ import pytest
 
 from ludamus.gates.web.django.mcp.tokens import mint_organizer_token
 from ludamus.links.db.django.models import Connection, EventIntegration, Track
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import KonwencikExportSettings
 from tests.integration.conftest import (
     EventFactory,

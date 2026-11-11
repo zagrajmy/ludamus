@@ -395,7 +395,7 @@ class TestAcceptanceNotification:
         }
 
     @pytest.mark.usefixtures("polish_catalog")
-    def test_a_recipient_never_seen_signed_in_reads_the_site_language(
+    def test_a_recipient_never_seen_signed_in_reads_english(
         self, panel_client, event, settings
     ):
         proposer = UserFactory(username="proposer", language="")
@@ -404,10 +404,10 @@ class TestAcceptanceNotification:
 
         panel_client.post(
             _url(event, proposal_id=session.pk, action=ACCEPT),
-            headers={"accept-language": "en"},
+            headers={"accept-language": "pl"},
         )
 
-        assert Notification.objects.get().title == "Zaakceptowano: Dungeon Night"
+        assert Notification.objects.get().title == "Accepted: Dungeon Night"
 
     def test_other_status_changes_notify_no_one(self, panel_client, event):
         session = make_proposal(event, presenter=UserFactory(username="proposer"))
