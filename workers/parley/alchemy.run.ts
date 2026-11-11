@@ -53,11 +53,14 @@ export default Alchemy.Stack(
   { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
     const stage = yield* Alchemy.Stage;
+    // The app's own environments, each with a Worker and Durable Objects of
+    // its own. Any other stage is a preview: workers.dev only.
+    const hosted = { prod: testedRuntime.name, staging: `${testedRuntime.name}-staging` }[stage];
     const parley = yield* Cloudflare.Worker("Parley", {
-      name: stage === "prod" ? testedRuntime.name : undefined,
+      name: hosted,
       // NOTE: the capability cookie is SameSite=Strict, so browsers send it
       // only to a Worker on the app's own site, never to workers.dev.
-      domain: stage === "prod" ? `parley.${yield* Config.String("ROOT_DOMAIN")}` : undefined,
+      domain: hosted === undefined ? undefined : `parley.${yield* Config.String("ROOT_DOMAIN")}`,
       main: "./src/index.ts",
       compatibility: {
         date: testedRuntime.compatibility_date,
