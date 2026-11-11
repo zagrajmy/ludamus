@@ -2,58 +2,61 @@
 
 Each primitive takes the `Voice` or `Recipient` its message was composed
 under and confirms that language is still in force, so copy written in the
-sender's language cannot reach a reader. An ast-grep rule
-(`deliver-through-a-recipient`) keeps Notification rows and Django mail out
-of every other module.
+sender's language cannot reach a reader. ast-grep rules (`bell-row-writes`,
+`notification-model-owners`, `mail-in-delivery`) keep Notification rows and
+Django mail out of every other module.
 """
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from django.core.mail import EmailMessage, EmailMultiAlternatives, mailers
 
 from ludamus.links.db.django.models import Notification
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
     from ludamus.links.db.django.recipients import Recipient, Voice
-    from ludamus.pacts.legacy import NotificationKind
+    from ludamus.pacts.notifications import NotificationKind
 
 type Mail = EmailMessage
 
 
-def ring(
-    recipient: Recipient,
-    *,
-    kind: NotificationKind,
-    title: str,
-    body: str,
-    url: str,
-    payload: Mapping[str, str | int],
-) -> None:
-    """Create the bell row for the account the copy was written for."""
-    recipient.confirm()
-    Notification.objects.create(
-        recipient_id=recipient.user_id,
-        kind=kind.value,
-        title=title,
-        body=body,
-        url=url,
-        payload=dict(payload),
+@dataclass(frozen=True, kw_only=True)
+class Bell:
+    """What one bell row says, and where it leads (empty url: the overlay)."""
+
+    kind: NotificationKind
+    title: str
+    body: str
+    url: str
+    payload: Mapping[str, str | int] = field(default_factory=dict)
+
+
+def _bell_row(bell: Bell, recipient_id: int) -> Notification:
+    return Notification(
+        recipient_id=recipient_id,
+        kind=bell.kind.value,
+        title=bell.title,
+        body=bell.body,
+        url=bell.url,
+        payload=dict(bell.payload),
     )
 
 
-def ring_as_written(
-    *,
-    recipient_ids: Iterable[int],
-    kind: NotificationKind,
-    title: str,
-    body: str,
-    url: str,
-    payload: Mapping[str, str | int],
-) -> int:
+def ring(recipient: Recipient, bell: Bell) -> None:
+    """Create the bell row for the account the copy was written for."""
+    recipient.confirm()
+    _bell_row(bell, recipient.user_id).save()
+
+
+def ring_as_written(*, recipient_ids: Iterable[int], bell: Bell) -> int:
     """Ring each recipient's bell with text a person wrote, as they wrote it.
 
     The one delivery that takes no `Recipient`: an organizer's announcement
@@ -65,17 +68,7 @@ def ring_as_written(
         How many bells rang.
     """
     rows = Notification.objects.bulk_create(
-        [
-            Notification(
-                recipient_id=recipient_id,
-                kind=kind.value,
-                title=title,
-                body=body,
-                url=url,
-                payload=dict(payload),
-            )
-            for recipient_id in recipient_ids
-        ],
+        [_bell_row(bell, recipient_id) for recipient_id in recipient_ids],
         batch_size=500,
     )
     return len(rows)
@@ -119,9 +112,15 @@ def send(message: EmailMessage) -> bool:
     """Send one notice, best-effort: the change it announces has committed.
 
     Returns:
-        Whether the mail server took it; a refusal is the caller's to log.
+        Whether the mail server took it. A refusal is logged here; the caller
+        decides what else it means (re-arming a flag, say).
     """
-    return bool(message.send(fail_silently=True))
+    if sent := bool(message.send(fail_silently=True)):
+        return sent
+    logger.warning(
+        "Mail not sent: %r to %d recipient(s)", message.subject, len(message.to)
+    )
+    return sent
 
 
 def send_all(messages: Sequence[EmailMessage]) -> int:

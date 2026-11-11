@@ -11,18 +11,15 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import Window, slot_windows_by_local_date
-from ludamus.pacts import (
+from ludamus.mills.timeslots import slot_windows_by_local_date
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventPublicationInvalidError
+from ludamus.pacts.sessions import SessionStatus, Window
+from ludamus.pacts.timetable import (
     AgendaItemDTO,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogData,
-    SessionStatus,
-    TrackSessionCountsDTO,
-)
-from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ClosedRangeDTO,
+    ConflictDetectionServiceProtocol,
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
@@ -32,28 +29,30 @@ from ludamus.pacts.chronology import (
     HeatmapDTO,
     HeatmapRowDTO,
     MultiselectOptionDTO,
+    PlacementRejectedError,
+    PlacementRejection,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ScheduleChangeAction,
+    ScheduleChangeLogData,
     SessionPlacement,
     SessionPositionDTO,
     SessionPositionState,
     SpaceColumnDTO,
     SpaceGroupDTO,
     TimeLabelDTO,
+    TimetableChangeLogDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
     TimetableGridFilter,
-    TrackProgressDTO,
-)
-from ludamus.pacts.event import EventPublicationInvalidError
-from ludamus.pacts.timetable import (
-    ConflictDetectionServiceProtocol,
-    PlacementRejectedError,
-    PlacementRejection,
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
+    TimetableSessionDetailDTO,
+    TrackProgressDTO,
+    UnscheduledSessionsDTO,
 )
-from ludamus.specs.chronology import resolve_event_toggle
+from ludamus.pacts.tracks import TrackSessionCountsDTO
+from ludamus.specs.sessions import resolve_event_toggle
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -63,15 +62,16 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import (
-        EventDTO,
-        FacilitatorDTO,
-        SpaceDTO,
-        SphereRepositoryProtocol,
-        TimeSlotDTO,
+    from ludamus.pacts.event import EventDTO, TimeSlotDTO
+    from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoryDTO,
+        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.timetable import TimetableRepos
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
+    from ludamus.pacts.timetable import TimetableRepos, UnscheduledSessionFilter
+    from ludamus.pacts.venues import SpaceDTO
 
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
@@ -234,10 +234,12 @@ class TimetableService(TimetableServiceProtocol):
         transaction: TransactionProtocol,
         repos: TimetableRepos,
         *,
+        categories: ProposalCategoryRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._categories = categories
         # Only to read whether its events require a space; the conflict
         # service shares TimetableRepos and needs none.
         self._spheres = spheres
@@ -258,6 +260,41 @@ class TimetableService(TimetableServiceProtocol):
             MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
             for node, depth in self._tree(event_pk)
         ]
+
+    def list_categories(self, event_pk: int) -> list[ProposalCategoryDTO]:
+        return self._categories.list_by_event(event_pk)
+
+    def list_unscheduled(
+        self, *, event_pk: int, filters: UnscheduledSessionFilter
+    ) -> UnscheduledSessionsDTO:
+        sessions, has_more = self._repos.sessions.list_unscheduled_by_event(
+            event_pk, filters
+        )
+        return UnscheduledSessionsDTO(sessions=sessions, has_more=has_more)
+
+    def session_detail(
+        self, *, event_pk: int, session_pk: int
+    ) -> TimetableSessionDetailDTO:
+        sessions = self._repos.sessions
+        require_session_in_event(
+            sessions=sessions, session_pk=session_pk, event_pk=event_pk
+        )
+        return TimetableSessionDetailDTO(
+            session=sessions.read(session_pk),
+            agenda_item=self._repos.agenda_items.read_by_session(session_pk),
+            facilitators=sessions.read_facilitators(session_pk),
+            time_slots=sessions.read_preferred_time_slots(session_pk),
+        )
+
+    def change_log(
+        self, *, event_pk: int, space_pk: int | None
+    ) -> TimetableChangeLogDTO:
+        logs = self._repos.schedule_change_logs
+        return TimetableChangeLogDTO(
+            logs=logs.list_by_event(event_pk, space_pk=space_pk),
+            spaces=self._repos.spaces.list_by_event(event_pk),
+            revertible_pks=set(logs.latest_pks_by_session(event_pk).values()),
+        )
 
     def build_grid(
         self,
@@ -770,21 +807,6 @@ class _EventConflictContext(NamedTuple):
 class ConflictDetectionService(ConflictDetectionServiceProtocol):
     def __init__(self, repos: TimetableRepos) -> None:
         self._repos = repos
-
-    def detect_for_assignment(
-        self, event_pk: int, session_pk: int
-    ) -> list[ConflictDTO]:
-        # Runs after the assignment commits, so the session's own agenda item
-        # is already in the event context — detect on the real row through the
-        # same in-memory engine as the full listing, so every conflict shape
-        # has exactly one definition.
-        context = self._load_event_context(event_pk)
-        subject = next(
-            (item for item in context.items if item.session_id == session_pk), None
-        )
-        if subject is None:
-            raise NotFoundError
-        return self._detect(subject, context)
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None

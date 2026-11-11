@@ -21,8 +21,8 @@ from ludamus.pacts.team import (
 from ludamus.specs.permissions import INVITATION_LIFETIME
 
 if TYPE_CHECKING:
-    from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRole
     from ludamus.pacts.team import (
         SphereInvitationDTO,
         SphereTeamRepositoryProtocol,

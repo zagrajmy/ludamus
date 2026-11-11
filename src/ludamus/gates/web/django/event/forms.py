@@ -1,0 +1,142 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.formats import date_format
+from django.utils.timezone import localtime
+from django.utils.translation import gettext
+from django.utils.translation import gettext_lazy as _
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ludamus.pacts.event import TimeSlotDTO
+    from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+
+# What this module hands ChoiceField: a pk (or "" for the placeholder) under a
+# label already translated, flat or inside an optgroup.
+type Choice = tuple[int | str, str]
+type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
+
+
+class TakenOptionsSelect(forms.Select):
+    # `taken` is read by the tessera select renderer: those options render
+    # disabled and marked taken, and a field left with one free option stops
+    # asking, as one with a single option does. With both selects open,
+    # accept-placement.ts disables the spaces taken in the slot picked.
+    def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
+        super().__init__()
+        self.taken = taken
+
+
+def slot_label(slot: TimeSlotDTO) -> str:
+    # The `date` filter this replaced localises first, so a label built here
+    # has to as well or the times shift by the event's offset.
+    start = localtime(slot.start_time)
+    end = localtime(slot.end_time)
+    return f"{date_format(start, 'l, M j · G:i')}–{date_format(end, 'G:i')}"
+
+
+def slot_choices(
+    time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
+) -> ChoiceList:
+    labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
+    blank: ChoiceList = [("", gettext("Choose a time…"))]
+    preferred = {*preferred_ids}
+    # The facilitator asked for these — float them to the top so the obvious
+    # choice is the first one, no footnote needed. Nothing to float means no
+    # headings at all: "Other times" alone would name a contrast with a group
+    # that is not there.
+    if not (wanted := [pair for pair in labelled if pair[0] in preferred]):
+        return [*blank, *labelled]
+    choices: ChoiceList = [*blank, (gettext("Preferred by the facilitator"), wanted)]
+    if rest := [pair for pair in labelled if pair[0] not in preferred]:
+        choices.append((gettext("Other times"), rest))
+    return choices
+
+
+def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(error) from exc
+    if value not in allowed:
+        raise ValidationError(error)
+    return value
+
+
+def create_proposal_acceptance_form(
+    context: ProposalAcceptContextDTO,
+) -> type[forms.Form]:
+    # Group bookable leaf spaces under their parent name (optgroups); the
+    # service supplies the options so the form stays free of the ORM.
+    time_slots = context.time_slots
+    grouped: dict[str, list[tuple[int, str]]] = {}
+    for option in context.space_options:
+        grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
+            (option.pk, option.name)
+        )
+    # Where a space is optional, leaving it blank is the answer "no space".
+    blank = (
+        gettext("Select a space...") if context.space_required else gettext("No space")
+    )
+    choices: ChoiceList = [("", blank)]
+    choices.extend(grouped.items())
+
+    allowed_space_ids = {option.pk for option in context.space_options}
+    allowed_time_slot_ids = {slot.pk for slot in time_slots}
+    placements = context.placements
+
+    space_field = forms.ChoiceField(
+        choices=choices,
+        label=_("Space"),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.taken_space_ids)
+        ),
+        help_text=_("Select the space where this session will take place"),
+        required=context.space_required,
+    )
+    time_slot_field = forms.ChoiceField(
+        choices=slot_choices(time_slots, context.preferred_time_slot_ids),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.full_time_slot_ids)
+        ),
+        label=_("Time slot"),
+        help_text=_("Pick the start time for this session."),
+        required=True,
+    )
+
+    def clean_space(self: forms.Form) -> int | None:
+        if not self.cleaned_data["space"] and not context.space_required:
+            return None
+        return _validated_choice_id(
+            self.cleaned_data["space"],
+            allowed=allowed_space_ids,
+            error=gettext("Invalid space selection."),
+        )
+
+    def clean_time_slot(self: forms.Form) -> int:
+        return _validated_choice_id(
+            self.cleaned_data["time_slot"],
+            allowed=allowed_time_slot_ids,
+            error=gettext("Invalid time slot selection."),
+        )
+
+    # With no space required and none to choose from, the only answer is
+    # "no space", and a field offering one option asks nothing.
+    space_fields = (
+        {"space": space_field, "clean_space": clean_space}
+        if context.space_options or context.space_required
+        else {}
+    )
+    return type(
+        "ProposalAcceptanceForm",
+        (forms.Form,),
+        {
+            **space_fields,
+            "time_slot": time_slot_field,
+            "clean_time_slot": clean_time_slot,
+        },
+    )

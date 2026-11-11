@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from datetime import datetime
+from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -80,13 +81,21 @@ class SpaceInputDTO(BaseModel):
     location: str = ""
 
 
+class SpacePatch(TypedDict, total=False):
+    # Only the keys present change. `parent_id: None` moves the space to the
+    # top level; leaving the key out keeps its parent.
+    name: str
+    capacity: int | None
+    description: str
+    location: str
+    parent_id: int | None
+
+
 class SpaceTreeRepositoryProtocol(Protocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]: ...
     @staticmethod
     def list_programme_spaces(event_id: int) -> list[ProgrammeSpaceRowDTO]: ...
-    @staticmethod
-    def read(pk: int) -> SpaceRecordDTO: ...
     @staticmethod
     def read_in_event(event_id: int, pk: int) -> SpaceRecordDTO: ...
     def create(
@@ -111,12 +120,12 @@ class SpaceTreeRepositoryProtocol(Protocol):
 class SpaceTreeServiceProtocol(Protocol):
     def list_tree(self, event_pk: int) -> list[SpaceTreeNodeDTO]: ...
     def list_programme_spaces(self, event_id: int) -> list[ProgrammeSpaceRowDTO]: ...
-    def read(self, pk: int) -> SpaceRecordDTO: ...
+    def read(self, *, event_id: int, pk: int) -> SpaceRecordDTO: ...
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO: ...
-    def update(
-        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
+    def patch_space(
+        self, *, event_id: int, pk: int, changes: SpacePatch
     ) -> SpaceRecordDTO: ...
     def list_reparent_targets(
         self, *, pk: int, event_pk: int
@@ -126,11 +135,69 @@ class SpaceTreeServiceProtocol(Protocol):
     ) -> None: ...
     def reorder_programme(self, event_id: int, space_pks: list[int]) -> None: ...
     def move_to_top_level(self, event_id: int, space_pk: int) -> SpaceRecordDTO: ...
-    def duplicate(self, *, pk: int, new_name: str) -> SpaceRecordDTO: ...
-    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceRecordDTO: ...
-    def delete_space(self, pk: int) -> bool: ...
+    def duplicate(self, *, event_id: int, pk: int) -> SpaceRecordDTO: ...
+    def copy_to_event(
+        self, *, event_id: int, pk: int, target_event_id: int
+    ) -> SpaceRecordDTO: ...
+    def delete_space(self, *, event_id: int, pk: int) -> bool: ...
 
 
 class VenuesServiceProtocol(Protocol):
     def list_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]: ...
     def resolve_scope(self, event_pk: int, scope_pk: int | None) -> PrintScopeDTO: ...
+
+
+class LocationData(TypedDict):
+    space_id: int
+    parent_id: int
+    space_name: str
+    parent_name: str
+    path: str
+    sort_path: tuple[tuple[int, str, int], ...]
+    programme_order: int
+
+
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_id": 0,
+    "parent_id": 0,
+    "space_name": "",
+    "parent_name": "",
+    "path": "",
+    "sort_path": (),
+    "programme_order": 0,
+}
+
+
+class SpaceDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    parent_id: int | None = None
+    capacity: int | None
+    creation_time: datetime
+    modification_time: datetime
+    name: str
+    order: int
+    programme_order: int = 0
+    pk: int
+    slug: str
+
+
+class SpaceOptionDTO(BaseModel):
+    # A bookable leaf space as a form choice: its pk, display name, and the
+    # immediate-parent name it groups under (empty for a root-level leaf).
+    pk: int
+    name: str
+    group: str
+
+
+class SpaceRepositoryProtocol(Protocol):
+    @staticmethod
+    def read(pk: int) -> SpaceDTO: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
+    @staticmethod
+    def lock(pk: int) -> None: ...

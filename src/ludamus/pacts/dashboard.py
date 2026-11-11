@@ -13,7 +13,7 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
-from ludamus.pacts.crowd import AgeBand
+from ludamus.pacts.user import AgeBand
 
 # How much of each section a dashboard holds before it stops being a glance.
 # The agenda is uncapped: it is what this member already committed to, and
@@ -128,10 +128,8 @@ class SphereUnsubscribeTokenPayload(BaseModel):
 
 
 class SphereUnsubscribeTokenCodecProtocol(Protocol):
-    @staticmethod
-    def dumps(payload: SphereUnsubscribeTokenPayload) -> str: ...
-    @staticmethod
-    def loads(token: str) -> SphereUnsubscribeTokenPayload | None: ...
+    def dumps(self, payload: SphereUnsubscribeTokenPayload) -> str: ...
+    def loads(self, token: str) -> SphereUnsubscribeTokenPayload | None: ...
 
 
 class DashboardRepositoryProtocol(Protocol):

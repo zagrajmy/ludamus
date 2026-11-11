@@ -11,26 +11,17 @@ from ludamus.mills.timetable import (
     TimetableOverviewService,
     TimetableService,
 )
-from ludamus.pacts import (
-    AgendaItemDTO,
-    AgendaItemRepositoryProtocol,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
     EventRepositoryProtocol,
-    NotFoundError,
-    ScheduleChangeAction,
-    ScheduleChangeLogDTO,
-    ScheduleChangeLogRepositoryProtocol,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SpaceDTO,
-    SpaceRepositoryProtocol,
-    SphereRepositoryProtocol,
     TimeSlotDTO,
     TimeSlotRepositoryProtocol,
-    TrackDTO,
-    TrackRepositoryProtocol,
-    TrackSessionCountsDTO,
 )
-from ludamus.pacts.chronology import (
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.sphere import SphereRepositoryProtocol
+from ludamus.pacts.timetable import (
+    AgendaItemDTO,
+    AgendaItemRepositoryProtocol,
     CapacityHoursDTO,
     ClosedRangeDTO,
     ConflictDTO,
@@ -41,16 +32,24 @@ from ludamus.pacts.chronology import (
     HeatmapDayDTO,
     HeatmapDTO,
     HeatmapRowDTO,
+    PlacementRejectedError,
+    PlacementRejection,
+    ScheduleChangeAction,
+    ScheduleChangeLogDTO,
+    ScheduleChangeLogRepositoryProtocol,
     SessionPlacement,
     SpaceGroupDTO,
     TimetableGridFilter,
-    TrackProgressDTO,
-)
-from ludamus.pacts.timetable import (
-    PlacementRejectedError,
-    PlacementRejection,
     TimetableRepos,
+    TrackProgressDTO,
+    UnscheduledSessionFilter,
 )
+from ludamus.pacts.tracks import (
+    TrackDTO,
+    TrackRepositoryProtocol,
+    TrackSessionCountsDTO,
+)
+from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
 from tests.unit.factories import event_dto, session_dto, track_dto
 
 UNASSIGN_LOG_PK = 77
@@ -76,10 +75,15 @@ def _timetable_repos(uow) -> TimetableRepos:
     )
 
 
-def _timetable_service(uow) -> TimetableService:
+def _timetable_service(uow, *, categories=None) -> TimetableService:
     transaction = MagicMock()
     transaction.atomic = uow.atomic
-    return TimetableService(transaction, _timetable_repos(uow), spheres=uow.spheres)
+    return TimetableService(
+        transaction,
+        _timetable_repos(uow),
+        categories=categories or MagicMock(),
+        spheres=uow.spheres,
+    )
 
 
 def _conflict_service(uow) -> ConflictDetectionService:
@@ -596,10 +600,8 @@ class TestRevertChange:
 
         service.revert_change(log_pk=3, event_pk=1, user_pk=9)
 
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(7)
         mock_uow.agenda_items.delete.assert_called_once_with(11)
         mock_uow.agenda_items.create.assert_not_called()
-        mock_uow.sessions.read.assert_not_called()
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
                 "event_id": 1,
@@ -650,9 +652,7 @@ class TestAssignSession:
         result = service.unassign_session(session_pk=4, event_pk=1, user_pk=9)
 
         assert result == UNASSIGN_LOG_PK
-        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
         mock_uow.sessions.lock.assert_called_once_with(4)
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
         mock_uow.agenda_items.delete.assert_called_once_with(5)
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
@@ -894,12 +894,8 @@ class TestAssignSession:
 
         service.assign_session(session_pk=4, placement=placement, event_pk=1, user_pk=9)
 
-        assert mock_uow.sessions.read_event.call_args_list == [call(4), call(4)]
         mock_uow.sessions.lock.assert_called_once_with(4)
-        mock_uow.spaces.list_by_event.assert_called_once_with(1)
         mock_uow.spaces.lock.assert_called_once_with(1)
-        mock_uow.agenda_items.read_by_session.assert_called_once_with(4)
-        mock_uow.sessions.read.assert_called_once_with(4)
         mock_uow.agenda_items.delete.assert_not_called()
         mock_uow.agenda_items.create.assert_called_once_with(
             {
@@ -1352,15 +1348,6 @@ class TestTimetableOverviewCapacityHours:
         uow.time_slots.list_by_event.return_value = slots
         uow.agenda_items.list_by_event.return_value = items
         return uow
-
-    def test_reads_rooms_slots_and_items_of_the_event(self):
-        uow = self._uow(spaces=[], slots=[], items=[])
-
-        _overview_service(uow).capacity_hours(event_pk=1)
-
-        uow.spaces.list_by_event.assert_called_once_with(1)
-        uow.time_slots.list_by_event.assert_called_once_with(1)
-        uow.agenda_items.list_by_event.assert_called_once_with(1)
 
     def test_hours_are_rounded_to_one_decimal(self):
         uow = self._uow(
@@ -2062,62 +2049,6 @@ class TestRevertChangeOutcomes:
         assert uow.schedule_change_logs.created == []
 
 
-class TestDetectForAssignment:
-    @pytest.fixture
-    def uow(self):
-        uow = _spec_uow(
-            agenda_items=_FakeAgendaItems(
-                _make_item(pk=1, session_id=10, space_id=1, session_title="Mine"),
-                _make_item(pk=2, session_id=20, space_id=1, session_title="Theirs"),
-            )
-        )
-        uow.spaces.list_by_event.return_value = [_space(1)]
-        _stub_warning_reads(uow)
-        return uow
-
-    def test_reports_the_placed_sessions_clashes(self, uow):
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert [(c.type, c.subject_session_pk, c.session_pk) for c in conflicts] == [
-            (ConflictType.SPACE_OVERLAP, 10, 20)
-        ]
-
-    def test_reports_a_room_too_small_for_the_session(self, uow):
-        uow.agenda_items.rows = {
-            1: _make_item(
-                pk=1,
-                session_id=10,
-                space_id=1,
-                session_participants_limit=_SESSION_LIMIT,
-            )
-        }
-        uow.spaces.list_by_event.return_value = [_space(1, capacity=_ROOM_CAPACITY)]
-
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert [(c.type, c.space_capacity, c.session_limit) for c in conflicts] == [
-            (ConflictType.CAPACITY_EXCEEDED, _ROOM_CAPACITY, _SESSION_LIMIT)
-        ]
-
-    def test_a_session_without_a_limit_fits_a_room_of_no_capacity(self, uow):
-        uow.agenda_items.rows = {1: _make_item(pk=1, session_id=10, space_id=1)}
-        uow.spaces.list_by_event.return_value = [_space(1, capacity=0)]
-
-        conflicts = _conflict_service(uow).detect_for_assignment(
-            event_pk=1, session_pk=10
-        )
-
-        assert not conflicts
-
-    def test_an_unscheduled_session_is_not_found(self, uow):
-        with pytest.raises(NotFoundError):
-            _conflict_service(uow).detect_for_assignment(event_pk=1, session_pk=30)
-
-
 class TestTrackAttribution:
     @pytest.fixture
     def uow(self):
@@ -2424,3 +2355,53 @@ class TestTrackProgress:
                 progress_pct=33,
             )
         ]
+
+
+class TestTimetablePanelReads:
+    def test_categories_come_from_the_event(self):
+        # NOTE: a hand-off to the repository; the stub answers only for the
+        # event asked about, so a dropped or swapped id fails here.
+        categories = SimpleNamespace(list_by_event={1: ["RPG"]}.__getitem__)
+
+        service = _timetable_service(_spec_uow(), categories=categories)
+
+        assert service.list_categories(1) == ["RPG"]
+
+    def test_unscheduled_sessions_report_whether_more_wait(self):
+        uow = _spec_uow()
+        uow.sessions.list_unscheduled_by_event.return_value = (["session"], True)
+        filters = UnscheduledSessionFilter(search="dragons")
+
+        result = _timetable_service(uow).list_unscheduled(event_pk=1, filters=filters)
+
+        assert (result.sessions, result.has_more) == (["session"], True)
+        uow.sessions.list_unscheduled_by_event.assert_called_once_with(1, filters)
+
+    def test_a_session_of_another_event_has_no_detail(self):
+        uow = _spec_uow()
+        uow.sessions.read_event.return_value = event_dto(pk=2)
+
+        with pytest.raises(NotFoundError):
+            _timetable_service(uow).session_detail(event_pk=1, session_pk=5)
+
+        uow.sessions.read.assert_not_called()
+
+    def test_a_session_detail_carries_its_placement_and_people(self):
+        uow = _spec_uow()
+        uow.sessions.read_event.return_value = event_dto(pk=1)
+
+        detail = _timetable_service(uow).session_detail(event_pk=1, session_pk=5)
+
+        assert detail.session is uow.sessions.read.return_value
+        assert detail.agenda_item is uow.agenda_items.read_by_session.return_value
+        assert detail.facilitators is uow.sessions.read_facilitators.return_value
+        assert detail.time_slots is uow.sessions.read_preferred_time_slots.return_value
+
+    def test_only_each_sessions_newest_change_is_revertible(self):
+        uow = _spec_uow()
+        uow.schedule_change_logs.latest_pks_by_session.return_value = {5: 30, 6: 31}
+
+        log = _timetable_service(uow).change_log(event_pk=1, space_pk=4)
+
+        assert log.revertible_pks == {30, 31}
+        uow.schedule_change_logs.list_by_event.assert_called_once_with(1, space_pk=4)

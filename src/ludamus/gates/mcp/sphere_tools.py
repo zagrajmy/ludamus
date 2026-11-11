@@ -10,7 +10,7 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     SphereSettingsOutcome,
     SphereSettingsPatch,
     SphereVisibility,

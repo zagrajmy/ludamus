@@ -4,10 +4,15 @@ from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
-from ludamus.pacts import EncounterDTO, NotFoundError
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
-from ludamus.pacts.encounter import EncounterInviteeDTO, EncountersPolicy, InviteeStatus
-from tests.unit.factories import FakeTransaction
+from ludamus.pacts.encounter import (
+    EncounterDTO,
+    EncounterInviteeDTO,
+    EncountersPolicy,
+    InviteeStatus,
+)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from tests.unit.factories import FakeTransaction, FakeUsers
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -68,26 +73,6 @@ class FakeSites:
 
     def read(self, sphere_id):
         return self.rows[sphere_id]
-
-
-class FakeUsers:
-    def __init__(self, users=()):
-        self.users = {user.pk: user for user in users}
-
-    def read_by_id(self, pk):
-        try:
-            return self.users[pk]
-        except KeyError:
-            raise NotFoundError from None
-
-    def read_by_ids(self, pks):
-        return [self.users[pk] for pk in pks if pk in self.users]
-
-    def read_by_email(self, email):
-        for user in self.users.values():
-            if user.email == email:
-                return user
-        raise NotFoundError
 
 
 class FakeSpheres:
@@ -264,16 +249,20 @@ class FakeInvitees:
         key = self._key(encounter_id, email)
         return None if key is None else self.rows[key]
 
-    def count_accepted_without_signup(self, encounter_id):
-        return sum(
-            1
-            for invitee in self.list_by_encounter(encounter_id)
-            if invitee.status is InviteeStatus.ACCEPTED
-            and not (
-                invitee.user_id
-                and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+    def count_accepted_without_signup(self, encounter_ids):
+        counts = {
+            encounter_id: sum(
+                1
+                for invitee in self.list_by_encounter(encounter_id)
+                if invitee.status is InviteeStatus.ACCEPTED
+                and not (
+                    invitee.user_id
+                    and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+                )
             )
-        )
+            for encounter_id in encounter_ids
+        }
+        return {pk: count for pk, count in counts.items() if count}
 
     def emails_invited_by_creator_since(self, creator_id, since):
         return {
@@ -353,9 +342,11 @@ class EncounterWorld:
         self.encounters = FakeEncounters(encounters)
         self.rsvps = FakeRSVPs(signups, recent_ips=recent_ips)
         self.users = FakeUsers(
-            users
-            if users is not None
-            else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            *(
+                users
+                if users is not None
+                else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            )
         )
         self.invitees = FakeInvitees(
             invitees,

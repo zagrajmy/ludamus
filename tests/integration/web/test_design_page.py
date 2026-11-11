@@ -5,7 +5,7 @@ from unittest.mock import ANY
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.web.django.design_fixtures import (
+from ludamus.gates.web.django.design_fixtures import (
     mock_event_info,
     mock_session_data,
     mock_session_data_ended,

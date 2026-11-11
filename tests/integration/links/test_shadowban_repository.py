@@ -7,7 +7,7 @@ from ludamus.links.db.django.models import (
     Shadowban,
 )
 from ludamus.links.db.django.safety import ShadowbanRepository
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from tests.integration.conftest import SessionFactory, UserFactory
 
 

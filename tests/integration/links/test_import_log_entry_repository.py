@@ -6,9 +6,10 @@ import pytest
 
 from ludamus.links.db.django.models import Connection, EventIntegration, Session
 from ludamus.links.db.django.repositories import ImportLogEntryRepository
-from ludamus.pacts import NotFoundError, SessionStatus
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.submissions import ImportLogEntryCreateData, ImportLogStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.propose import ImportLogEntryCreateData, ImportLogStatus
+from ludamus.pacts.sessions import SessionStatus
 from tests.integration.conftest import EventFactory, SphereFactory
 
 _INTEGRATION_COUNTER = {"n": 0}

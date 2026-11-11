@@ -8,7 +8,7 @@ separate classes so each consumer is granted only the half it needs.
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from ludamus.pacts.multiverse import DecryptionError
+from ludamus.pacts.sphere import DecryptionError
 
 
 class FernetEncryptor:

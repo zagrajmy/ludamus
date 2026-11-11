@@ -26,7 +26,10 @@ if TYPE_CHECKING:
     from django.utils.functional import Promise
 
     from ludamus.gates.web.django.dynamic_fields import FieldPairs
-    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+    from ludamus.pacts.proposal_categories import (
+        ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
+    )
 
 
 # Hyphen, en dash, em dash, minus: whichever the keyboard gave.

@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import EventBan, SphereMembership
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (

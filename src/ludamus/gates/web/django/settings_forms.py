@@ -17,7 +17,7 @@ from ludamus.gates.web.django.forms import (
     logo_field,
 )
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import EventVisibility
+from ludamus.pacts.event import EventVisibility
 
 
 class EventSettingsForm(forms.Form):

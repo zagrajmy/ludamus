@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        EventRepositoryProtocol,
+    from ludamus.pacts.event import EventRepositoryProtocol
+    from ludamus.pacts.timetable import (
         ScheduleChangeLogDTO,
         ScheduleChangeLogRepositoryProtocol,
     )
