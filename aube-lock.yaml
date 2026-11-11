@@ -6,6 +6,8 @@ settings:
 
 overrides:
   '@effect/platform-node-shared': 4.0.7
+  '@effect/sql-d1': 4.0.7
+  '@effect/sql-sqlite-do': 4.0.7
   '@faker-js/faker@>=9.0.0 <10.5.0': 10.6.0
   '@hono/node-server@>=1.0.0 <1.19.10': 1.19.14
   body-parser@>=2.0.0 <2.4.0: 2.4.0
@@ -623,15 +625,15 @@ packages:
       effect: ^4.0.7
       redis: '>=5.0.0 <7.0.0'
 
-  '@effect/sql-d1@4.1.2':
-    resolution: {integrity: sha512-7uzFwDg/SQali/+Edp6H/t0nQSXtdDsNO8dHkC8xl45/YITJ6F5Os0pBZdXMCdtqehekhDM3qzTtJut4rLGcEA==}
+  '@effect/sql-d1@4.0.7':
+    resolution: {integrity: sha512-LHF6vItApeUt+FkyxXKYdMhi//HyRQeyYaeTjHHFvSdSnhcb+44pcoo8ClbvH13ps7OFVPPJ9yL3/7oBSnYBKQ==}
     peerDependencies:
-      effect: ^4.1.2
+      effect: ^4.0.7
 
-  '@effect/sql-sqlite-do@4.1.2':
-    resolution: {integrity: sha512-1qlYhIvNsvYxvfp1183FPMGnHN/9TAGtlMLsBB7OrVE5R/9bWnWyahMxGID79sJ6csW3Azeyxk3ZwRdWXLvNTQ==}
+  '@effect/sql-sqlite-do@4.0.7':
+    resolution: {integrity: sha512-1CKW0SEMks+xPCsnoCu1gjv84zHT6SpZ/Ey5YV19GBnqG6mSx6kaqF92ZwAHa0bUy22hvzMX006OJgjwbNkVlQ==}
     peerDependencies:
-      effect: ^4.1.2
+      effect: ^4.0.7
 
   '@electric-sql/pglite-socket@0.0.20':
     resolution: {integrity: sha512-J5nLGsicnD9wJHnno9r+DGxfcZWh+YJMCe0q/aCgtG6XOm9Z7fKeite8IZSNXgZeGltSigM9U/vAWZQWdgcSFg==}
@@ -5005,12 +5007,12 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/sql-d1@4.1.2(effect@4.0.7)':
+  '@effect/sql-d1@4.0.7(effect@4.0.7)':
     dependencies:
       '@cloudflare/workers-types': 5.20261109.1
       effect: 4.0.7
 
-  '@effect/sql-sqlite-do@4.1.2(effect@4.0.7)':
+  '@effect/sql-sqlite-do@4.0.7(effect@4.0.7)':
     dependencies:
       effect: 4.0.7
 
@@ -6524,8 +6526,8 @@ snapshots:
       '@distilled.cloud/railway': 1.0.0-rc.13(effect@4.0.7)
       '@distilled.cloud/stripe': 1.0.0-rc.13(effect@4.0.7)
       '@distilled.cloud/zerossl': 1.0.0-rc.13(effect@4.0.7)
-      '@effect/sql-d1': 4.1.2(effect@4.0.7)
-      '@effect/sql-sqlite-do': 4.1.2(effect@4.0.7)
+      '@effect/sql-d1': 4.0.7(effect@4.0.7)
+      '@effect/sql-sqlite-do': 4.0.7(effect@4.0.7)
       '@libsql/client': 0.17.4
       '@neon/functions': 0.11.0(hono@4.13.13)
       '@octokit/rest': 22.0.1
