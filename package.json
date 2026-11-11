@@ -15,7 +15,7 @@
     "fallow": "3.34.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
-    "oxlint-tsgolint": "7.0.2005",
+    "oxlint-tsgolint": "7.0.2006",
     "portless": "0.13.0",
     "typescript": "5.9.3",
     "varlock": "1.12.0"
