@@ -25,7 +25,6 @@
     {% csrf_token %}
     {% tab_shell "panel/_timetable_tabs.html" %}
         {% tab_shell_body %}
-            <!-- Filter bar: track + date + room + facilitator + category/duration chips -->
             <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
                 {# The facilitator filter is always offered, so the form always renders. #}
                 <form method="get"
@@ -45,7 +44,7 @@
                                     {{ track.name }}
                                 </option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     {% endif %}
                     {% if grid.available_dates|length > 1 %}
                         <label for="timetable-date"
@@ -57,7 +56,7 @@
                                 <option value="{{ d|date:"Y-m-d" }}"
                                         {% if grid.date_selection == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     {% endif %}
                     {% comment %}
                     Rooms paginate five to a page, so on a large venue this picker
@@ -98,9 +97,7 @@
                     </a>
                 </div>
             </div>
-            <!-- Two-column responsive layout: left pane (browse/detail + conflicts) | grid -->
             <div class="flex flex-col lg:flex-row gap-4 items-start">
-                <!-- Left column: browse-or-detail pane stacked above conflicts foldable -->
                 <div class="flex flex-col gap-3 w-full lg:w-72 lg:flex-none">
                     {% include "panel/parts/timetable-browse-pane.html" %}
                     {% comment %}
@@ -117,19 +114,21 @@
                         {% include "panel/parts/timetable-conflict-panel.html" %}
                     </details>
                 </div>
-                <!-- Center pane: timetable grid -->
                 <div class="flex-1 min-w-0 w-full">
                     <div id="timetable-grid"
                          data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                          data-confirm-move="{% translate "The schedule of this program item is confirmed. Moving it will clear the confirmation." %}"
                          data-confirm-move-action="{% translate "Move" %}"
+                         data-drop-occupied="{% translate "Room taken" %}"
+                         data-drop-too-small="{% translate "Room too small" %}"
+                         data-drop-closed="{% translate "Extends the day" %}"
                          hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}{% querystring %}"
                          hx-swap="innerHTML"
                          hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
                 </div>
             </div>
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/timetable.ts' %}

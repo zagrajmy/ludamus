@@ -6,30 +6,120 @@ on these ports (repositories, notifier, scheduler) so their decisions stay
 unit-testable with fakes.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, Self
+from enum import StrEnum, auto
+from typing import TYPE_CHECKING, Literal, Protocol, Self, TypedDict
 
 from pydantic import BaseModel, ConfigDict
-
-from ludamus.pacts.legacy import PromotionMode, SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.legacy import (
-        EnrollmentConfigRepositoryProtocol,
-        EventDTO,
-        TicketAPIProtocol,
-        VirtualEnrollmentConfig,
-    )
+    from ludamus.pacts.event import EventDTO
+    from ludamus.pacts.ids import HasPk
     from ludamus.pacts.party import HeldSeatNotification
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 # Sentinel for "no membership limit" so the whole-party fit check is a plain
 # integer comparison in the pure selection invariant.
 UNLIMITED_SLOTS = 1_000_000_000
+
+
+class DatedWindow(Protocol):
+    pk: int
+    start_time: datetime
+    end_time: datetime
+
+
+def window_is_open(*, start_time: datetime, end_time: datetime, now: datetime) -> bool:
+    # A window opens at its start and has closed by its end: the panel states
+    # both as the moments enrollment begins and stops.
+    return start_time <= now < end_time
+
+
+def open_windows[W: DatedWindow](windows: Iterable[W], *, now: datetime) -> list[W]:
+    return [
+        window
+        for window in windows
+        if window_is_open(
+            start_time=window.start_time, end_time=window.end_time, now=now
+        )
+    ]
+
+
+def allowance_windows[W: DatedWindow](
+    windows: Iterable[W], *, now: datetime
+) -> list[W]:
+    """Name the windows whose passes a waiting-list promotion spends.
+
+    Returns:
+        The windows open now; once every one has closed, the latest to end,
+        so a waiter keeps the allowance they joined under.
+    """
+    listed = list(windows)
+    if opened := open_windows(listed, now=now):
+        return opened
+    if not (ended := [window for window in listed if window.end_time <= now]):
+        return []
+    return [max(ended, key=_last_to_end)]
+
+
+def _last_to_end(window: DatedWindow) -> tuple[datetime, int]:
+    return (window.end_time, window.pk)
+
+
+def email_domain(email: str) -> str:
+    return email.split("@")[1] if "@" in email else ""
+
+
+def seat_cap(*, participants_limit: int, percentage_slots: int) -> int:
+    """Scale a session's limit by the share of it a window offers.
+
+    Returns:
+        The seats on offer, rounded up so a share never rounds a seat away.
+    """
+    return math.ceil(participants_limit * percentage_slots / 100)
+
+
+class SessionSeatsDTO(BaseModel):
+    """A session's seats as stored, and the cap the open windows put on them."""
+
+    participants_limit: int
+    # The most liberal share among the windows open now that can seat the
+    # session; None when none can.
+    seating_percentage: int | None
+    # CONFIRMED and OFFERED rows both hold a seat: an offered seat must not be
+    # handed out twice.
+    enrolled_count: int
+
+    @property
+    def effective_participants_limit(self) -> int:
+        # With no window seating the session its own limit stands: a waiting
+        # list keeps moving after enrollment closes. A seat for one actor is a
+        # different question, answered by EnrollmentPolicy.
+        return seat_cap(
+            participants_limit=self.participants_limit,
+            percentage_slots=(
+                100 if self.seating_percentage is None else self.seating_percentage
+            ),
+        )
+
+    @property
+    def seats_left(self) -> int:
+        return max(0, self.effective_participants_limit - self.enrolled_count)
+
+    @property
+    def is_full(self) -> bool:
+        # "Full" means there was a seat and it is taken. A session that takes no
+        # enrollment never had one, and calling it full would offer its viewers
+        # a waiting list to join and warn a leaver that their seat passes to the
+        # next person waiting.
+        return (
+            self.participants_limit != 0
+            and self.enrolled_count >= self.effective_participants_limit
+        )
 
 
 class WaitingParticipantDTO(BaseModel):
@@ -48,8 +138,12 @@ class WaitingParticipantDTO(BaseModel):
     # Re-validated against the session's current placement by the repo.
     has_conflict: bool
     # Remaining distinct-user membership slots for this participant's slot
-    # owner in the event; UNLIMITED_SLOTS when no limit applies.
+    # owner in the event; UNLIMITED_SLOTS when no limit applies. Negative when
+    # the household already holds more seats than passes.
     owner_slots_remaining: int
+    # Already holds a seat elsewhere in the event, so the owner's allowance
+    # counts them and promoting them spends no further slot.
+    holds_event_seat: bool
     # Who is told about the seat — the sponsoring leader for a login-less
     # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
@@ -74,10 +168,11 @@ class PromotionStateDTO(BaseModel):
     session_id: int
     session_title: str
     event_slug: str
+    start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
     presenter_id: int | None
-    available_seats: int
+    seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
     # Players the presenter shadowbanned — ineligible for promotion.
@@ -100,6 +195,8 @@ class OfferDTO(BaseModel):
     event_slug: str
     # All participations sharing this offer (whole party).
     participant_ids: list[int]
+    # Whose seats they are, in participant_ids order.
+    user_ids: list[int]
     # Everyone who should hear about this offer: each real member for
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
@@ -113,11 +210,16 @@ class PromotionResult(BaseModel):
     offered: list[int] = []
 
 
+# "conflict": the offered seat overlaps one the member already holds, so it
+# was released rather than claimed.
+type ClaimFailure = Literal["not_found", "expired", "conflict"]
+
+
 class ClaimResult(BaseModel):
     success: bool
     session_id: int | None = None
     event_slug: str | None = None
-    reason: str | None = None
+    reason: ClaimFailure | None = None
 
 
 class SeatHoldRequest(BaseModel):
@@ -202,9 +304,24 @@ class EnrollmentSettingsServiceProtocol(Protocol):
     def delete_window(self, event_id: int, pk: int) -> bool: ...
 
 
+class SeatHolderLockProtocol(Protocol):
+    def lock_seat_holders(
+        self, *, user_ids: Iterable[int], waiters_of: int | None = None
+    ) -> None:
+        """Lock the User rows of everyone whose seat the caller decides.
+
+        Takes the people in `user_ids`, the waiters of session `waiters_of`
+        when given, and the pass owner of each (the sponsoring manager of a
+        login-less companion), in one statement ordered by primary key. The
+        caller already holds the Session row lock and has read nothing it
+        decides on yet; a caller that may refill the session in the same
+        transaction passes `waiters_of`, so the refill asks for no new row.
+        """
+
+
 class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
-        """Lock the session row and read everything needed to promote.
+        """Lock the session row and its waiters, then read what promotion needs.
 
         Returns None when the session cannot accept promotions (gone / no
         agenda item). Counts CONFIRMED + OFFERED as occupying seats. An
@@ -227,6 +344,12 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
 
     def read_offer_claim_window(self, session_id: int) -> timedelta: ...
 
+    # The offer for the claim page to show; takes no lock.
+    def peek_offer_by_token(self, token: str) -> OfferDTO | None: ...
+
+    # The three offer reads take the seat locks for the caller's transaction:
+    # the offer's Session row, the User rows of its party and of the session's
+    # waiters, then the party's still-OFFERED rows.
     def read_offer_by_token(self, token: str) -> OfferDTO | None: ...
 
     def read_offer_by_participation(self, participation_id: int) -> OfferDTO | None: ...
@@ -244,6 +367,9 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
     ) -> None: ...
 
     def drop(self, participation_ids: list[int]) -> None: ...
+
+    def conflicted_user_ids(self, *, session_id: int, user_ids: list[int]) -> set[int]:
+        """Who of `user_ids` holds an occupying seat overlapping the session."""
 
 
 class UserNotifierProtocol(Protocol):
@@ -415,7 +541,7 @@ class AnonymousEnrollmentError(Exception):
         self.event_slug = event_slug
 
 
-class AnonymousEnrollmentWindowSnapshot(BaseModel):
+class EnrollmentWindowSnapshot(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     percentage_slots: int
@@ -427,7 +553,7 @@ class AnonymousEnrollmentWindowSnapshot(BaseModel):
 class AnonymousEventDTO(BaseModel):
     event_id: int
     slug: str
-    active_windows: list[AnonymousEnrollmentWindowSnapshot]
+    active_windows: list[EnrollmentWindowSnapshot]
 
 
 class AnonymousSessionDTO(BaseModel):
@@ -436,7 +562,7 @@ class AnonymousSessionDTO(BaseModel):
     event_slug: str
     has_agenda_item: bool
     participants_limit: int
-    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
+    eligible_windows: list[EnrollmentWindowSnapshot]
     title: str
     facilitator_name: str
     description: str
@@ -482,11 +608,15 @@ class AnonymousSessionContextDTO(AnonymousSessionDTO):
         )
 
 
-class AnonymousSeatingDTO(BaseModel):
+class SessionSeatingDTO(BaseModel):
+    """A session's seats as read under its row lock, for the decision that holds it."""
+
     title: str
     participants_limit: int
+    presenter_id: int | None = None
+    # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
-    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
+    eligible_windows: list[EnrollmentWindowSnapshot]
 
 
 class AnonymousActivationDTO(BaseModel):
@@ -541,7 +671,44 @@ class AnonymousEnrollmentRequestDTO(BaseModel):
     code: str | None
 
 
-class AnonymousEnrollmentRepositoryProtocol(Protocol):
+class SeatRepositoryProtocol(SeatHolderLockProtocol, Protocol):
+    """The reads and writes every seat decision on the enroll paths makes.
+
+    `lock_seating` takes the Session row lock and `lock_seat_holders` the
+    people's; every other method is called after both, in the caller's
+    transaction, so what it reads is what the decision holds.
+    """
+
+    @staticmethod
+    def lock_seating(session_id: int) -> SessionSeatingDTO: ...
+
+    @staticmethod
+    def conflicted_user_ids(*, session_id: int, user_ids: list[int]) -> set[int]: ...
+
+    # Each person's row on the session, by user id; nobody without one. The
+    # status as stored: a legacy value SessionParticipationStatus no longer
+    # names still marks a row.
+    @staticmethod
+    def read_statuses(*, session_id: int, user_ids: list[int]) -> dict[int, str]: ...
+
+    # Creates the person's row, or rewrites the status and party of theirs.
+    @staticmethod
+    def seat(
+        *,
+        session_id: int,
+        user_id: int,
+        status: SessionParticipationStatus,
+        party_id: int | None,
+    ) -> None: ...
+
+    # Deletes the person's row, returning its status (None if absent).
+    @staticmethod
+    def release(
+        *, session_id: int, user_id: int
+    ) -> SessionParticipationStatus | None: ...
+
+
+class AnonymousEnrollmentRepositoryProtocol(SeatRepositoryProtocol, Protocol):
     # Raises NotFoundError when no event matches the slug.
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO: ...
@@ -557,25 +724,6 @@ class AnonymousEnrollmentRepositoryProtocol(Protocol):
 
     @staticmethod
     def read_participation_status(
-        *, session_id: int, user_id: int
-    ) -> SessionParticipationStatus | None: ...
-
-    @staticmethod
-    def has_conflicts(*, session_id: int, user: UserDTO) -> bool: ...
-
-    # Locks the session row for the enrollment mutation that follows.
-    @staticmethod
-    def lock_seating(session_id: int) -> AnonymousSeatingDTO: ...
-
-    @staticmethod
-    def create_or_confirm(*, session_id: int, user_id: int) -> None: ...
-
-    @staticmethod
-    def create_waiting(*, session_id: int, user_id: int) -> None: ...
-
-    # Deletes the user's participation, returning its status (None if absent).
-    @staticmethod
-    def delete_participation(
         *, session_id: int, user_id: int
     ) -> SessionParticipationStatus | None: ...
 
@@ -603,3 +751,103 @@ class AnonymousEnrollmentServiceProtocol(Protocol):
     def load_by_code(self, *, code: str) -> AnonymousLoadDTO: ...
 
     def event_slug_by_id(self, event_id: int) -> str | None: ...
+
+
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
+class SessionParticipationStatus(StrEnum):
+    CONFIRMED = auto()
+    WAITING = auto()
+    OFFERED = auto()
+
+
+# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
+# seat is held so the same seat is never offered to two waiters at once.
+OCCUPYING_PARTICIPATION_STATUSES = (
+    SessionParticipationStatus.CONFIRMED,
+    SessionParticipationStatus.OFFERED,
+)
+
+
+class EnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allow_anonymous_enrollment: bool
+    banner_text: str
+    end_time: datetime
+    event_id: int
+    limit_to_end_time: bool
+    max_waitlist_sessions: int
+    percentage_slots: int
+    pk: int
+    restrict_to_configured_users: bool
+    start_time: datetime
+
+
+class UserEnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    allowed_slots: int
+    enrollment_config_id: int
+    fetched_from_api: bool
+    last_check: datetime | None
+    pk: int
+    user_email: str
+
+
+class DomainEnrollmentConfigDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    enrollment_config_id: int
+    domain: str
+    allowed_slots_per_user: int
+
+
+class EnrollmentConfigRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_list(event_id: int) -> list[EnrollmentConfigDTO]: ...
+    @staticmethod
+    def create_user_config(
+        user_enrollment_config: UserEnrollmentConfigData,
+    ) -> UserEnrollmentConfigDTO: ...
+    @staticmethod
+    def read_user_config(
+        config: HasPk, user_email: str
+    ) -> UserEnrollmentConfigDTO | None: ...
+    @staticmethod
+    def update_user_config(user_enrollment_config: UserEnrollmentConfigDTO) -> None: ...
+    @staticmethod
+    def read_domain_config(
+        enrollment_config: HasPk, domain: str
+    ) -> DomainEnrollmentConfigDTO | None: ...
+
+
+class TicketAPIProtocol(Protocol):
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
+
+
+@dataclass
+class VirtualEnrollmentConfig:
+    user_slots: int = 0
+    domain_slots: int = 0
+    domain: str = ""
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
+
+
+class MembershipAPIError(Exception):
+    pass
+
+
+class UserEnrollmentConfigData(TypedDict):
+    allowed_slots: int
+    enrollment_config_id: int
+    fetched_from_api: bool
+    last_check: datetime | None
+    user_email: str

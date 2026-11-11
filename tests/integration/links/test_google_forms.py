@@ -25,7 +25,7 @@ from ludamus.links.google_sheets import (
     SHEETS_META_URL,
     SHEETS_VALUES_URL,
 )
-from ludamus.pacts.chronology import CheckOutcome, SourceQuestion
+from ludamus.pacts.integrations import CheckOutcome, SourceQuestion
 
 SECRET = b'{"type": "service_account"}'
 CONFIG = GoogleDocsProposalConfig(sheet_id="sheet-1", form_id="form-1")

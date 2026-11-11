@@ -27,10 +27,19 @@ def parse_duration(iso_duration: str | None) -> tuple[int, int]:
     return int(match["hours"] or 0), int(match["minutes"] or 0)
 
 
+def duration_minutes(iso_duration: str | None) -> int:
+    hours, minutes = parse_duration(iso_duration)
+    return hours * MINUTES_PER_HOUR + minutes
+
+
 def parse_duration_part(raw: str, *, maximum: int) -> int:
     if not (text := (raw or "").strip()):
         return 0
-    if not text.isdigit() or len(text) > len(str(maximum)) or int(text) > maximum:
+    if (
+        not (text.isascii() and text.isdigit())
+        or len(text) > len(str(maximum))
+        or int(text) > maximum
+    ):
         raise InvalidDurationError
     return int(text)
 
@@ -63,15 +72,19 @@ def normalize_duration(text: str) -> str:
     )
 
 
+HOUR_UNIT = "h"
+MINUTE_UNIT = "min"
+
+
 def format_duration(iso_duration: str | None) -> str:
     hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
-        return f"{hours}h {minutes}min"
+        return f"{hours}{HOUR_UNIT} {minutes}{MINUTE_UNIT}"
     if hours:
-        return f"{hours}h"
+        return f"{hours}{HOUR_UNIT}"
     if minutes:
-        return f"{minutes}min"
+        return f"{minutes}{MINUTE_UNIT}"
     return ""
 
 

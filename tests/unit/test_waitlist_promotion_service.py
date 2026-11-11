@@ -11,13 +11,14 @@ from ludamus.pacts.enrollment import (
     ClaimResult,
     HeldSeatData,
     OfferDTO,
+    PromotionMode,
     PromotionNotification,
     PromotionResult,
     PromotionStateDTO,
     SeatHoldRequest,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from tests.unit.factories import FakeTransaction
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -34,15 +35,18 @@ pytestmark = pytest.mark.usefixtures("_frozen")
 @pytest.fixture
 def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._now", lambda: _NOW)
-    monkeypatch.setattr("ludamus.mills.enrollment._token", lambda: "tok-xyz")
+    monkeypatch.setattr("ludamus.mills.enrollment.mint_claim_token", lambda: "tok-xyz")
 
 
 class FakeRepo:
-    def __init__(self, states=None, offer=None, lapsed=None):
+    def __init__(self, states=None, offer=None, lapsed=None, conflicted=()):
         self._states = list(states or [])
         self._offer = offer
         self._lapsed = None if lapsed is None else list(lapsed)
+        # Users holding a seat that overlaps the offer's session.
+        self._conflicted = set(conflicted)
         self.log = SimpleNamespace(
+            peeked=[],
             confirmed=[],
             offered=[],
             created=[],
@@ -94,6 +98,10 @@ class FakeRepo:
         self.log.tokens_read.append(token)
         return self._offer
 
+    def peek_offer_by_token(self, token):
+        self.log.peeked.append(token)
+        return self._offer
+
     def read_offer_for_member(self, *, user_id, session_id):
         self.log.members_read.append((user_id, session_id))
         return self._offer if session_id == _SESSION_ID else None
@@ -107,6 +115,10 @@ class FakeRepo:
 
     def drop(self, ids):
         self.log.dropped.append(ids)
+
+    def conflicted_user_ids(self, *, session_id, user_ids):
+        assert session_id == _SESSION_ID
+        return self._conflicted & set(user_ids)
 
 
 class FakeNotifier:
@@ -148,25 +160,31 @@ def _wp(pid, *, sponsor_id=None, order=0):
         creation_time=_NOW + timedelta(minutes=order),
         has_conflict=False,
         owner_slots_remaining=UNLIMITED_SLOTS,
+        holds_event_seat=False,
         recipient_user_id=sponsor_id if sponsor_id is not None else pid,
     )
 
 
-def _state(waiting, *, mode=PromotionMode.AUTO, seats=1):
+def _state(
+    waiting, *, mode=PromotionMode.AUTO, seats=1, start=_NOW + timedelta(days=7)
+):
     return PromotionStateDTO(
         session_id=_SESSION_ID,
         session_title="Dragons",
         event_slug="con",
+        start_time=start,
         promotion_mode=mode,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 
 
-def _build(states=None, offer=None, lapsed=None):
-    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed)
+def _build(states=None, offer=None, lapsed=None, conflicted=()):
+    repo = FakeRepo(states=states, offer=offer, lapsed=lapsed, conflicted=conflicted)
     notifier = FakeNotifier()
     scheduler = FakeScheduler()
     service = WaitlistPromotionService(FakeTransaction(), repo, notifier, scheduler)
@@ -179,6 +197,7 @@ def _offer(*, expires):
         session_title="Dragons",
         event_slug="con",
         participant_ids=[1, 2],
+        user_ids=[11, 12],
         recipients=[_MANAGER_ID],
         offer_expires_at=expires,
     )
@@ -259,6 +278,63 @@ class TestFillFreedSeats:
         assert repo.log.offered[0]["ids"] == [1, 2]
         assert notifier.offered[0].recipient_user_id == _MANAGER_ID
 
+    def test_offer_that_would_outlive_the_start_seats_the_waiter(self):
+        service, repo, notifier, scheduler = _build(
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=_NOW + timedelta(hours=2),
+                )
+            ]
+        )
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult(promoted=[1])
+        assert repo.log.confirmed == [[1]]
+        assert not repo.log.offered
+        assert [n.recipient_user_id for n in notifier.promoted] == [1]
+        assert not notifier.offered
+        assert not scheduler.scheduled
+
+    def test_offer_ending_exactly_at_the_start_is_still_made(self):
+        service, repo, _, scheduler = _build(
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=_NOW + timedelta(hours=24),
+                )
+            ]
+        )
+
+        result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult(offered=[1])
+        assert not repo.log.confirmed
+        assert scheduler.scheduled == [(1, _NOW + timedelta(hours=24))]
+
+    @pytest.mark.parametrize("mode", (PromotionMode.AUTO, PromotionMode.OFFER_CLAIM))
+    @pytest.mark.parametrize("start", (_NOW, _NOW - timedelta(hours=1)))
+    def test_started_session_promotes_nobody(self, caplog, mode, start):
+        service, repo, notifier, scheduler = _build(
+            states=[_state([_wp(1)], mode=mode, start=start)]
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.fill_freed_seats(session_id=_SESSION_ID)
+
+        assert result == PromotionResult()
+        assert not repo.log.confirmed
+        assert not repo.log.offered
+        assert not notifier.promoted
+        assert not notifier.offered
+        assert not scheduler.scheduled
+        assert caplog.messages == [
+            f"Session {_SESSION_ID} promotes nobody: it has already started"
+        ]
+
 
 class TestClaimOffer:
     def _offer(self, *, expires=_NOW + timedelta(hours=1)):
@@ -267,6 +343,7 @@ class TestClaimOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
@@ -313,6 +390,27 @@ class TestClaimOffer:
         )
         assert not repo.log.claimed
 
+    def test_one_overlapping_member_releases_the_whole_offer_and_refills(self, caplog):
+        service, repo, _, _ = _build(
+            offer=self._offer(), conflicted={12}, states=[None]
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_offer(token="tok-xyz")
+
+        assert result == ClaimResult(
+            success=False, reason="conflict", session_id=_SESSION_ID, event_slug="con"
+        )
+        # A party moves as one: the member without a clash is not left
+        # holding a half-claimed offer.
+        assert repo.log.dropped == [[1, 2]]
+        assert not repo.log.claimed
+        assert repo.log.locked == [_SESSION_ID]
+        assert caplog.messages[0] == (
+            f"Claim on session {_SESSION_ID} released the offer of [11, 12]: "
+            "[12] overlap seats already held"
+        )
+
 
 class TestClaimMemberOffer:
     def test_members_own_offer_is_claimed_and_logged(self, caplog):
@@ -335,6 +433,25 @@ class TestClaimMemberOffer:
                 f"on session {_SESSION_ID}: claimed"
             )
         ]
+
+    def test_an_overlapping_seat_is_released_and_logged(self, caplog):
+        service, repo, _, _ = _build(
+            offer=_offer(expires=_NOW + timedelta(hours=1)),
+            conflicted={11, 12},
+            states=[None],
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_member_offer(
+                user_id=_MEMBER_ID, session_id=_SESSION_ID
+            )
+
+        assert result.reason == "conflict"
+        assert repo.log.dropped == [[1, 2]]
+        assert caplog.messages[-1] == (
+            f"Dashboard offer claim by member {_MEMBER_ID} "
+            f"on session {_SESSION_ID}: conflict"
+        )
 
     def test_offer_of_another_member_is_not_found_and_logged(self, caplog):
         # The lookup is scoped to this member's own seats, so someone else's
@@ -403,6 +520,7 @@ class TestExpireOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
         )
@@ -460,6 +578,7 @@ class TestExpireLapsedOffers:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW - timedelta(minutes=1),
         )
@@ -533,6 +652,7 @@ class TestDeclineOffer:
             session_title="Dragons",
             event_slug="con",
             participant_ids=[1, 2],
+            user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW + timedelta(hours=1),
         )
@@ -570,7 +690,9 @@ class TestPeekOffer:
         service, repo, _, _ = _build(offer=offer)
 
         assert service.peek_offer(token="tok-xyz") == offer
-        assert repo.log.tokens_read == ["tok-xyz"]
+        assert repo.log.peeked == ["tok-xyz"]
+        # A page view reads; it takes none of the locks a claim does.
+        assert not repo.log.tokens_read
 
     def test_unknown_token_is_none(self):
         service, _, _, _ = _build()
@@ -610,7 +732,13 @@ class TestFillFreedSeatsOutcomes:
     def test_a_fresh_claim_token_is_long_and_url_safe(self, monkeypatch):
         monkeypatch.undo()
         service, repo, _, _ = _build(
-            states=[_state([_wp(1)], mode=PromotionMode.OFFER_CLAIM)]
+            states=[
+                _state(
+                    [_wp(1)],
+                    mode=PromotionMode.OFFER_CLAIM,
+                    start=datetime.now(UTC) + timedelta(days=7),
+                )
+            ]
         )
 
         service.fill_freed_seats(session_id=_SESSION_ID)

@@ -50,7 +50,7 @@ jobs:
       deployment: false
     steps:
       - name: Checkout (provides .env.schema for varlock validation)
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
           persist-credentials: false
@@ -120,10 +120,10 @@ jobs:
                    | {key: .key, value: (.value | tostring), is_preview: false}]' \
             > envs.json
 
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -145,6 +145,12 @@ jobs:
           build-args: |
             ENV=production
             DJANGO_SETTINGS_MODULE=ludamus.edges.settings
+            POSTHOG_CLI_ENV_ID=${{ vars.POSTHOG_CLI_ENV_ID }}
+            POSTHOG_SOURCEMAPS_ARMED=${{ secrets.POSTHOG_CLI_TOKEN != '' }}
+          # NOTE: the action rejects a secret with an empty value, so the
+          # token is passed only when the Environment has one. Without it,
+          # the Dockerfile skips the source-map upload.
+          secrets: ${{ secrets.POSTHOG_CLI_TOKEN && format('posthog_cli_token={0}', secrets.POSTHOG_CLI_TOKEN) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

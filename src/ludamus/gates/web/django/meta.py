@@ -9,11 +9,11 @@ from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from django.utils.timezone import localtime
 
-from ludamus.mills.legacy import render_markdown
+from ludamus.gates.web.django.markdown import render_markdown
 
 if TYPE_CHECKING:
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
-    from ludamus.pacts import EncounterDTO
+    from ludamus.gates.web.django.event.event_presentation import SessionData
+    from ludamus.pacts.encounter import EncounterDTO
 
 SUMMARY_WORDS = 20
 
@@ -27,6 +27,10 @@ class LinkPreview:
 
 def _summary(description_html: str) -> str:
     return Truncator(unescape(strip_tags(description_html))).words(SUMMARY_WORDS)
+
+
+def markdown_summary(description: str) -> str:
+    return _summary(render_markdown(description)) if description else ""
 
 
 def encounter_description(encounter: EncounterDTO, description_html: str) -> str:
@@ -55,8 +59,8 @@ def session_link_preview(*, data: SessionData, event_name: str) -> LinkPreview:
         parts.append(f"— {place}")
     if session.facilitator_name and (name := data.presenter.full_name):
         parts.append(f"· {name}")
-    if session.description:
-        parts.append(f"| {_summary(render_markdown(session.description))}")
+    if summary := markdown_summary(session.description):
+        parts.append(f"| {summary}")
     return LinkPreview(
         title=f"{session.title} • {event_name}",
         description=" ".join(parts),

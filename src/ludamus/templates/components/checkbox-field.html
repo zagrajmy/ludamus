@@ -1,7 +1,10 @@
 {# Single checkbox, with or without its inline label. #}
 {# Variables: name, id, label, value, checked, checked_values, disabled, size, #}
-{# aria_label, has_errors, aria_controls, aria_expanded, data_action, #}
-{# data_required_target, form_id, hook_class. #}
+{# aria_label, aria_labelledby, has_errors, aria_controls, aria_expanded, #}
+{# data_action, data_required_target, form_id, hook_class. #}
+{# Prefer aria_labelledby pointing at existing (maskable) elements when the #}
+{# accessible name contains personal data: session replay records aria-label #}
+{# attribute values verbatim, but masks referenced text nodes. #}
 {# checked_values is the list/set form of checked, for loops over a picker: #}
 {# pass the collection of selected values and the box ticks itself. #}
 {# aria_controls and aria_expanded are independent — pass either or both. #}

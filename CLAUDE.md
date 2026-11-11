@@ -33,7 +33,9 @@ description — run it rather than trusting a hardcoded list here. Most used:
   of main's leaf, in order, and re-point the first one's `dependencies` to
   that leaf. Drop the branch's merge migrations. Never rename, renumber, or
   edit a migration already on `main`.
-- Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
+- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
+  flags.
+- Use the `src/ludamus/gates/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
   `extra_class` for page layout only. No utility copy-paste into CSS.
@@ -75,7 +77,7 @@ GLIMPSE layers, bottom to top: `pacts` (protocols, DTOs, errors), `mills`
 (logic, services), `links` (models, repos), `gates` (views, CLIs, APIs),
 `inits` (DI). `specs` (business invariants, pure constants) sits beside
 `pacts` and is imported only by `mills`. `edges` (settings, wsgi) stay
-outside the import graph. `adapters/` is legacy.
+outside the import graph.
 
 Before writing backend code in these layers, load the `glimpse` skill. It is
 the `glimpse@glimpse` plugin; install steps in
@@ -87,11 +89,6 @@ Access data: views call `request.services.<service_name>.<method>(...)` and get
 back ready-to-render DTOs (Pydantic, never Django models). Services live in
 `mills/`, take specific repo protocols + `TransactionProtocol` via the
 constructor, and own transactional boundaries.
-
-Legacy: some views still use `request.di.uow.<repo>` during the strangler-fig
-migration. [docs/agents/services-migration.md](docs/agents/services-migration.md)
-has the per-file recipe. New code must use `request.services`; never extend the
-`request.di.uow` surface.
 
 ## Testing
 
@@ -120,8 +117,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
   split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
   deliberate deviation, `TODO:` known gap, issue link. No narration, no
   summaries, no work history microblogging.
-- `gates`, `links`, `adapters.web`, and templates get integration tests when
-  they need a Python test at all. Never raise coverage with a mock-everything
+- `gates`, `links`, and templates get integration tests when they need a
+  Python test at all. Never raise coverage with a mock-everything
   unit test. Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - View tests use `assert_response`, never manual assertions, and use ANY only
   for forms/views, never for simple values ([], {}, booleans, strings, ints).
@@ -145,31 +142,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
   name the proxy; the helper reads `CF-Connecting-IP`. Never read those
   headers directly. Topology in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-## Translation conventions (Polish)
-
-- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
-  flags.
-
-- **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
-  event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
-- **track** → "blok" or "blok programowy"
-- **facilitator** → "twórca programu"
-- **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides
-  with the "track" translation)
-- **proposal category** (prelekcja, sesja RPG, warsztaty, …) →
-  "rodzaj atrakcji" on participant-facing pages (do **not** use "kategoria" —
-  counterintuitive there); "kategoria" stays OK in the organizer panel
-
 ## Details
 
-- [Architecture](docs/agents/architecture.md) — codebase map: nouns, pages,
-  models, service wiring
-- [GLIMPSE skill](https://github.com/fancysnake/glimpse-architecture) — layer,
-  layout, and slicing rules (plugin `glimpse@glimpse`)
-- [Services migration](docs/agents/services-migration.md) — per-file recipe for
-  moving views from `request.di.uow` to `request.services`
-- [Testing assertions](docs/agents/testing-assertions.md) — patterns for
-  integration tests
 - [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
   adding tools
 - [Production troubleshooting](docs/agents/troubleshooting.md) — PostHog and
@@ -180,4 +154,5 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
-- [Testing strategy](docs/TESTING_STRATEGY.md)
+- [Verification](docs/VERIFICATION.md) — Hypothesis/CrossHair properties, Bend
+  models, the differential test and Bombadil: which layer each covers

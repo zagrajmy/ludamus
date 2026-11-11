@@ -69,6 +69,20 @@ claude mcp add --transport http zagrajmy "$base/mcp/" \
 
 Organizer endpoint is `$base/mcp/organizer/` with the matching event token.
 
+## Tags (LFG board)
+
+The board's tags are global. Load the example vocabulary, then edit it in
+Django admin under Tags:
+
+```bash
+mise run dj import_tags docs/tags.example.csv
+```
+
+Columns are `category,name,slug,parent`. `slug` may be empty and is made from
+`name`. `parent` is a slug from the same category, listed anywhere in the
+file. Re-running the file skips tags that already exist; `--force` updates
+their name and parent.
+
 ## Logging in locally (auth0-simulator)
 
 Auth0 is the real identity provider, so local login goes through a bundled

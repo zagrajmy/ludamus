@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.admin import helpers
 from django.shortcuts import render
 
+from ludamus.links.db.django.delivery import Bell, ring_as_written
 from ludamus.links.db.django.models import (
     AgendaItem,
     DomainEnrollmentConfig,
@@ -14,18 +15,19 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
-    Notification,
     ProposalCategory,
     Session,
     SessionFieldValue,
     Space,
     Sphere,
     SphereMembership,
+    Tag,
+    TagCategory,
     TimeSlot,
     User,
     UserEnrollmentConfig,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -116,12 +118,16 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ) -> HttpResponse | None:
         form = SendNotificationForm(request.POST if "apply" in request.POST else None)
         if form.is_valid():
-            Notification.objects.bulk_create(
-                Notification(recipient=user, **form.cleaned_data) for user in queryset
+            sent = ring_as_written(
+                recipient_ids=queryset.values_list("pk", flat=True),
+                bell=Bell(
+                    kind=NotificationKind(form.cleaned_data["kind"]),
+                    title=form.cleaned_data["title"],
+                    body=form.cleaned_data["body"],
+                    url=form.cleaned_data["url"],
+                ),
             )
-            self.message_user(
-                request, f"Notification sent to {queryset.count()} user(s)."
-            )
+            self.message_user(request, f"Notification sent to {sent} user(s).")
             return None
         return render(
             request,
@@ -220,3 +226,19 @@ class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 class EncounterRSVPAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("encounter", "user", "ip_address", "creation_time")
     list_filter = ("encounter",)
+
+
+@admin.register(TagCategory)
+class TagCategoryAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
+    list_display = ("name", "slug")
+    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
+    list_display = ("__str__", "category", "slug")
+    list_filter = ("category",)
+    list_select_related = ("category", "parent__parent")
+    search_fields = ("name", "search_key")
+    autocomplete_fields = ("parent",)
+    prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}

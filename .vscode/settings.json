@@ -1,5 +1,8 @@
 {
   "djlint.profile": "django",
+  "djlint.useVenv": false,
+  "djlint.executablePath": "scripts/djlint",
+  "djlint.configuration": "pyproject.toml",
   "djlint.formatCss": true,
   "djlint.formatJs": true,
   "files.associations": {

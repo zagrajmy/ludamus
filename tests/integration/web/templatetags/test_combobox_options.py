@@ -16,7 +16,7 @@ class TestComboboxOptionData:
             "{% load tessera %}"
             '{% tessera_combobox id="fruit" name="fruit" multiple=multiple %}'
             + slot
-            + "{% endtessera_combobox %}"
+            + "{% end_tessera_combobox %}"
         )
         html = tpl.render(Context({"multiple": multiple}))
         raw = re.search(

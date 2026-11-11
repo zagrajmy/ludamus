@@ -1,6 +1,7 @@
 // Config rides on the nearest [data-bookmark-url-template] ancestor — the
-// compact schedule root or the session modal: data-csrf and
-// data-bookmark-url-template (a reverse()d URL with a `0` id placeholder).
+// compact schedule root or the session modal: data-csrf,
+// data-bookmark-url-template (a reverse()d URL with a `0` id placeholder) and
+// data-login-url.
 
 const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
 
@@ -46,7 +47,8 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   const root = button.closest<HTMLElement>("[data-bookmark-url-template]");
   const { sessionId } = button.dataset;
   const template = root?.dataset.bookmarkUrlTemplate;
-  if (!root || !sessionId || !template || inFlight.has(sessionId)) return;
+  const loginUrl = root?.dataset.loginUrl;
+  if (!root || !sessionId || !template || !loginUrl || inFlight.has(sessionId)) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
   const previousCount = Number(button.querySelector("[data-bookmark-count]")?.textContent ?? 0);
@@ -59,6 +61,14 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
       // A stalled request must not hold the in-flight guard forever.
       signal: AbortSignal.timeout(8000),
     });
+    // Only a signed-in page renders the toggle, so a 401 means the session
+    // ended after it loaded: sign in again and come back to this page.
+    if (response.status === 401) {
+      paintSession(sessionId, previous, previousCount);
+      const next = encodeURIComponent(globalThis.location.pathname + globalThis.location.search);
+      globalThis.location.assign(`${loginUrl}?next=${next}`);
+      return;
+    }
     if (!response.ok) throw new Error(`Bookmark toggle failed: ${response.status}`);
     const data: unknown = await response.json();
     if (

@@ -33,10 +33,10 @@ jobs:
       sha: ${{ steps.resolve.outputs.sha }}
       should_deploy: ${{ steps.resolve.outputs.should_deploy }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         id: resolve
         with:
           script: |
@@ -59,13 +59,13 @@ jobs:
     steps:
       # This job runs the helper scripts, not the deployed code, so the
       # workspace holds github.sha and there is no .workflow/ sleight of hand.
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Create GitHub deployment
         id: deployment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           STAGING_URL: https://test.zagrajmy.net
           TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
@@ -105,11 +105,11 @@ jobs:
       contents: read
       deployments: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           DEPLOYMENT_ID: ${{ needs.start-deployment.outputs.id }}
           # `cancelled` and `skipped` both land on the `error` state, same as

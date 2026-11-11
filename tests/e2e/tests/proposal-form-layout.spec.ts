@@ -1,4 +1,4 @@
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // The form used to be a CSS multi-column masonry, and the tall column painted
@@ -17,9 +17,7 @@ const columnCount = async (page: import("@playwright/test").Page) =>
   });
 
 test.describe("Proposal form layout", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("keeps three columns wide, two medium, one narrow", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

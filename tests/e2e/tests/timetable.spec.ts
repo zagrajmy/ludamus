@@ -1,16 +1,13 @@
 import { type Page } from "@playwright/test";
 
+import { attachArtifacts } from "./helpers/artifacts";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 test.describe.configure({ mode: "serial" });
 
 test.describe("Timetable", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/");
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   // --- Page Loading ---
 
@@ -438,7 +435,7 @@ test.describe("Timetable", () => {
     ).toBeVisible();
   });
 
-  test("session cards are draggable and carry their duration", async ({ page }) => {
+  test("session cards are draggable and carry their duration", async ({ page }, testInfo) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
     );
@@ -452,6 +449,18 @@ test.describe("Timetable", () => {
 
     await expect(card).toHaveAttribute("draggable", "true");
     await expect(card).toHaveAttribute("data-duration", /^\d+$/);
+
+    const limited = page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator('[data-session-pk]:not([data-participants-limit="0"])')
+      .first();
+    const limit = await limited.getAttribute("data-participants-limit");
+    await expect(limited).toContainText(`${limit} seats`);
+    await attachArtifacts(testInfo, {
+      name: "timetable-session-card-seats",
+      region: page.getByRole("region", { name: "Sessions to assign" }),
+      facts: { limit, label: `${limit} seats` },
+    });
   });
 
   // --- Session Search ---

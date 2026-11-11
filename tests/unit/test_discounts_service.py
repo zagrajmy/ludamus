@@ -14,8 +14,9 @@ from ludamus.pacts.discounts import (
     DiscountSyncResultDTO,
     FacilitatorScheduleRow,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import FacilitatorListItemDTO
-from ludamus.pacts.legacy import FacilitatorDTO, NotFoundError
+from ludamus.pacts.facilitators import FacilitatorDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 1
@@ -56,6 +57,8 @@ def _list_item(pk=1, accreditation_type="standard"):
     return FacilitatorListItemDTO(
         accreditation_type=accreditation_type,
         display_name="Ada",
+        organizer_id=None,
+        organizer_name=None,
         pk=pk,
         session_count=0,
         slug=f"ada-{pk}",

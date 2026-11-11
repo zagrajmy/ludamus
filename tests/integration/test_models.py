@@ -13,15 +13,18 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
     Party,
     PartyMembership,
-    ScheduleChangeAction,
     ScheduleChangeLog,
     SphereMembership,
+    Tag,
+    TagCategory,
     TimeSlot,
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.sphere import SphereRole
+from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import EventFactory
 
 
@@ -30,17 +33,17 @@ class TestEventIsPublished:
         event = EventFactory(
             sphere=sphere, publication_time=datetime.now(UTC) - timedelta(days=1)
         )
-        assert event.is_published is True
+        assert EventDTO.model_validate(event).is_published is True
 
     def test_not_published_when_publication_time_in_future(self, sphere):
         event = EventFactory(
             sphere=sphere, publication_time=datetime.now(UTC) + timedelta(days=1)
         )
-        assert event.is_published is False
+        assert EventDTO.model_validate(event).is_published is False
 
     def test_not_published_when_publication_time_is_none(self, sphere):
         event = EventFactory(sphere=sphere, publication_time=None)
-        assert event.is_published is False
+        assert EventDTO.model_validate(event).is_published is False
 
 
 class TestSphereClean:
@@ -190,3 +193,34 @@ class TestPartyMembershipConstraint:
 
         with pytest.raises(IntegrityError), transaction.atomic():
             PartyMembership.objects.create(party=party, member=active_user)
+
+
+@pytest.mark.django_db
+class TestTagValidation:
+    def test_parent_from_another_category_is_refused(self):
+        genre = TagCategory.objects.create(name="Gatunek", slug="genre")
+        horror = Tag.objects.create(category=genre, name="Horror", slug="horror")
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        tag = Tag(category=activity, name="Mörk Borg", slug="mork-borg", parent=horror)
+
+        with pytest.raises(ValidationError, match="parent's category"):
+            tag.full_clean()
+
+    def test_reparenting_under_own_descendant_is_refused(self):
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
+        ttrpg.parent = Tag.objects.create(
+            category=activity, name="OSR", slug="osr", parent=ttrpg
+        )
+
+        with pytest.raises(ValidationError, match="own ancestor"):
+            ttrpg.full_clean()
+
+    def test_category_change_with_children_is_refused(self):
+        activity = TagCategory.objects.create(name="Gra", slug="activity")
+        ttrpg = Tag.objects.create(category=activity, name="TTRPG", slug="ttrpg")
+        Tag.objects.create(category=activity, name="OSR", slug="osr", parent=ttrpg)
+        ttrpg.category = TagCategory.objects.create(name="Gatunek", slug="genre")
+
+        with pytest.raises(ValidationError, match="cannot change its category"):
+            ttrpg.full_clean()

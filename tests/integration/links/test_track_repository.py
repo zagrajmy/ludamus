@@ -3,8 +3,7 @@ from django.db import IntegrityError
 
 from ludamus.links.db.django.models import Track
 from ludamus.links.db.django.repositories import TrackRepository
-from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
-from ludamus.pacts.tracks import DuplicateTrackNameError
+from ludamus.pacts.tracks import DuplicateTrackNameError, TrackCreateData, TrackFormData
 from tests.integration.conftest import EventFactory
 
 
@@ -73,9 +72,7 @@ class TestTrackRepositoryDuplicateName:
         with pytest.raises(DuplicateTrackNameError):
             TrackRepository().update(
                 renamed.pk,
-                TrackUpdateData(
-                    name="rpg", is_public=True, space_pks=[], manager_pks=[]
-                ),
+                TrackFormData(name="rpg", is_public=True, space_pks=[], manager_pks=[]),
             )
 
         renamed.refresh_from_db()
@@ -87,7 +84,7 @@ class TestTrackRepositoryDuplicateName:
 
         updated = TrackRepository().update(
             track.pk,
-            TrackUpdateData(name="RPG", is_public=False, space_pks=[], manager_pks=[]),
+            TrackFormData(name="RPG", is_public=False, space_pks=[], manager_pks=[]),
         )
 
         assert updated.is_public is False
@@ -113,7 +110,7 @@ class TestTrackRepositoryReraisesUnrelatedIntegrityError:
         with pytest.raises(IntegrityError):
             TrackRepository().update(
                 track.pk,
-                TrackUpdateData(
+                TrackFormData(
                     name="Board games", is_public=True, space_pks=[], manager_pks=[]
                 ),
             )

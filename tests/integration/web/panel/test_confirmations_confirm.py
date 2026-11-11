@@ -3,14 +3,14 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import AgendaItem, Event, Facilitator, Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.event import (
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
     ConfirmationSessionDTO,
     ConfirmationStatusGroupDTO,
+    EventDTO,
 )
-from ludamus.pacts.legacy import SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -35,6 +35,10 @@ def _schedule(
 def _scheduled_group(*items, other_track_names=()):
     # One contact address, its placed program in the order the card renders it:
     # by start time, and every item of these fixtures is placed.
+    loaded = AgendaItem.objects.select_related("session__category", "space").in_bulk(
+        [item.pk for item in items]
+    )
+    items = [loaded[item.pk] for item in items]
     return ConfirmationEmailGroupDTO(
         contact_email=items[0].session.contact_email,
         status_groups=[

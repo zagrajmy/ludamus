@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -14,8 +13,10 @@ from ludamus.pacts.event import (
     ConfirmationStatusGroupDTO,
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
+    EventDTO,
 )
-from ludamus.pacts.legacy import SessionStatus, TrackDTO
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import timetable_tab_urls

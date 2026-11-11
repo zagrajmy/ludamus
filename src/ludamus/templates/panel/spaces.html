@@ -36,8 +36,8 @@
                     {% include "panel/_programme_space_order.html" %}
                 {% else %}
                     {% if tree %}
-                        {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
-                        {% translate "Could not move the space to the top level. Reloading the page." as t_move_error %}
+                        {% translate "Could not save the new order. Reload the page to see the saved one." as t_reorder_error %}
+                        {% translate "Could not move the space to the top level." as t_move_error %}
                         {% if has_nested_spaces %}
                             {# A hint at rest; space-tree.ts arms the dashed drop box #}
                             {# only while a nested space is being dragged. #}
@@ -72,7 +72,7 @@
                     {% endif %}
                     {% include "panel/_venue_path_previews.html" %}
                 {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
     </div>
 {% endblock content %}

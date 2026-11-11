@@ -13,8 +13,8 @@ from ludamus.mills.konwencik import (
     KONWENCIK_COLUMNS,
     KonwencikExportService,
 )
-from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,
@@ -26,6 +26,8 @@ from ludamus.pacts.konwencik import (
     KonwencikSkipReason,
 )
 from ludamus.pacts.sheets import SheetExportError
+from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import track_dto
 
 WARSAW = ZoneInfo("Europe/Warsaw")
@@ -231,8 +233,9 @@ class TestKonwencikMatrix:
 
         assert outcome == KonwencikExportOutcome(rows_written=1, skipped={})
         assert (
-            env.integrations.get_for_update.call_args_list
-            == [call(EVENT_PK, INTEGRATION_PK)] * 2
+            env.integrations.get_for_update.call_args_list == [
+                call(EVENT_PK, INTEGRATION_PK)
+            ] * 2
         )
         locked, released = env.integrations.update_settings.call_args_list
         assert locked.kwargs["event_id"] == EVENT_PK

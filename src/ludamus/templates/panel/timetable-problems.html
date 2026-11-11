@@ -8,10 +8,8 @@
     {% translate "Problems" %}
 {% endblock page_title %}
 {% block content %}
-    <!-- Timetable sub-page tabs -->
     {% tab_shell "panel/_timetable_tabs.html" %}
         {% tab_shell_body %}
-            <!-- Conflicts section -->
             <section class="mb-8" aria-labelledby="problems-conflicts">
                 <h2 id="problems-conflicts" class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
                 {% if conflicts_grouped %}
@@ -55,7 +53,6 @@
                     <p class="text-sm text-success">{% translate "No conflicts." %}</p>
                 {% endif %}
             </section>
-            <!-- Sessions outside preferred slots section -->
             <section aria-labelledby="problems-outside-slots">
                 <h2 id="problems-outside-slots" class="text-base font-semibold mb-3">
                     {% translate "Sessions outside preferred slots" %}
@@ -81,7 +78,7 @@
                                             <div class="text-xs text-foreground-muted mt-1">
                                                 {% translate "Track:" %} {{ violation.track_name }}
                                                 {% if violation.manager_names %}
-                                                    ({% translate "managed by:" %} {{ violation.manager_names|join:", " }})
+                                                    ({% translate "managed by:" %} <span data-ph-mask>{{ violation.manager_names|join:", " }}</span>)
                                                 {% endif %}
                                             </div>
                                         {% endif %}
@@ -96,6 +93,6 @@
                     <p class="text-sm text-success">{% translate "All scheduled sessions are inside their preferred slots." %}</p>
                 {% endif %}
             </section>
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

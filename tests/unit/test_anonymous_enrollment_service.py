@@ -1,26 +1,28 @@
 import re
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
 from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
-from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import (
     AnonymousCancelResultDTO,
     AnonymousEnrollmentError,
     AnonymousEnrollmentErrorCode,
     AnonymousEnrollmentRequestDTO,
-    AnonymousEnrollmentWindowSnapshot,
     AnonymousEnrollOutcome,
     AnonymousEnrollResultDTO,
     AnonymousEventDTO,
     AnonymousLoadDTO,
-    AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
     AnonymousSessionDTO,
+    EnrollmentWindowSnapshot,
+    SessionParticipationStatus,
+    SessionSeatingDTO,
 )
-from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 from tests.unit.factories import FakeTransaction
 
 _SESSION_ID = 42
@@ -32,13 +34,13 @@ _ANON_CODE = re.compile(r"[a-z0-9_-]{6}")
 _ANON_USERNAME = re.compile(r"anon_[a-z0-9_-]{11}")
 
 
-def _open_window(**overrides) -> AnonymousEnrollmentWindowSnapshot:
+def _open_window(**overrides) -> EnrollmentWindowSnapshot:
     values = {"percentage_slots": 100, "allow_anonymous_enrollment": True}
     values.update(overrides)
-    return AnonymousEnrollmentWindowSnapshot(**values)
+    return EnrollmentWindowSnapshot(**values)
 
 
-def _seating(**overrides) -> AnonymousSeatingDTO:
+def _seating(**overrides) -> SessionSeatingDTO:
     values = {
         "title": "Warsztat",
         "participants_limit": 10,
@@ -46,11 +48,13 @@ def _seating(**overrides) -> AnonymousSeatingDTO:
         "eligible_windows": [_open_window()],
     }
     values.update(overrides)
-    return AnonymousSeatingDTO(**values)
+    return SessionSeatingDTO(**values)
 
 
 def _user(name="Ala") -> UserDTO:
     return UserDTO(
+        privacy_revision=UUID(int=1),
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",
@@ -123,6 +127,7 @@ class FakeRepo:
             statuses_read=[],
             conflicts_checked=[],
             seatings_locked=[],
+            seat_holders_locked=[],
         )
 
     def read_event(self, event_slug):
@@ -146,9 +151,11 @@ class FakeRepo:
             session_id, user_id
         ]
 
-    def has_conflicts(self, **kwargs):
-        self.log.conflicts_checked.append(kwargs)
-        return self._cfg.get("conflicts", False)
+    def conflicted_user_ids(self, *, session_id, user_ids):
+        self.log.conflicts_checked.append(
+            {"session_id": session_id, "user_ids": user_ids}
+        )
+        return set(user_ids) if self._cfg.get("conflicts", False) else set()
 
     def lock_seating(self, session_id):
         self.log.seatings_locked.append(session_id)
@@ -160,13 +167,21 @@ class FakeRepo:
             participants_limit=participants_limit, enrolled_count=enrolled_count
         )
 
-    def create_or_confirm(self, *, session_id, user_id):
-        self.log.confirmed.append((session_id, user_id))
+    def lock_seat_holders(self, *, user_ids, waiters_of=None):
+        self.log.seat_holders_locked.append((list(user_ids), waiters_of))
 
-    def create_waiting(self, *, session_id, user_id):
-        self.log.waiting.append((session_id, user_id))
+    def read_statuses(self, *, session_id, user_ids):
+        status = self._cfg.get("participation_status")
+        return {} if status is None else dict.fromkeys(user_ids, status)
 
-    def delete_participation(self, *, session_id, user_id):
+    def seat(self, *, session_id, user_id, status, party_id):
+        seated = {
+            SessionParticipationStatus.CONFIRMED: self.log.confirmed,
+            SessionParticipationStatus.WAITING: self.log.waiting,
+        }[status]
+        seated.append((session_id, user_id, party_id))
+
+    def release(self, *, session_id, user_id):
         self.log.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
 
@@ -326,10 +341,10 @@ class TestEnroll:
         assert result.session_title == "Warsztat"
         assert result.event_slug == "conv"
         assert repo.log.conflicts_checked == [
-            {"session_id": _SESSION_ID, "user": _user()}
+            {"session_id": _SESSION_ID, "user_ids": [_USER_PK]}
         ]
         assert repo.log.seatings_locked == [_SESSION_ID]
-        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
         assert not repo.log.waiting
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
 
@@ -340,7 +355,23 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
-        assert repo.log.waiting == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.waiting == [(_SESSION_ID, _USER_PK, None)]
+        assert not repo.log.confirmed
+
+    def test_full_session_leaves_a_replayed_seat_in_place(self):
+        # A double-click on a session that filled meanwhile: the row already
+        # there is not traded for a place on the waiting list.
+        repo = FakeRepo(
+            session=_session_ctx(),
+            is_full=True,
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "Ala")
+
+        assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
+        assert not repo.log.waiting
         assert not repo.log.confirmed
 
     def test_rejects_when_enrollment_closes_before_seating_lock(self):
@@ -362,6 +393,10 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.CONFLICT
+        # Read under the session and person locks, so a racing enroll into an
+        # overlapping session has committed before this check runs.
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        assert repo.log.seat_holders_locked == [([_USER_PK], None)]
         assert not repo.log.confirmed
         assert not repo.log.waiting
 
@@ -382,6 +417,8 @@ class TestCancel:
         assert result.session_title == "Warsztat"
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
         assert repo.log.seatings_locked == [_SESSION_ID]
+        # The refill runs in the same request: its waiters are locked up front.
+        assert repo.log.seat_holders_locked == [([_USER_PK], _SESSION_ID)]
         assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
 
@@ -554,7 +591,7 @@ class TestEnrollOutcomes:
 
         assert result.outcome == AnonymousEnrollOutcome.ENROLLED
         assert users.updated == [(f"code_{_CODE}", {"name": "Ola"})]
-        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
 
     def test_a_nameless_visitor_giving_no_name_is_refused(self):
         repo = FakeRepo(session=_session_ctx(), seating=_seating())
@@ -587,7 +624,23 @@ class TestEnrollOutcomes:
         result = service.enroll(_request(), "")
 
         assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
-        assert repo.log.waiting == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.waiting == [(_SESSION_ID, _USER_PK, None)]
+        assert not repo.log.confirmed
+
+    def test_full_session_leaves_a_replayed_seat_in_place(self):
+        # A double-click on a session that filled meanwhile: the row already
+        # there is not traded for a place on the waiting list.
+        repo = FakeRepo(
+            session=_session_ctx(),
+            is_full=True,
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "Ala")
+
+        assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
+        assert not repo.log.waiting
         assert not repo.log.confirmed
 
     def test_a_free_seat_enrolls(self):
@@ -601,7 +654,7 @@ class TestEnrollOutcomes:
             session_title="Locked",
             event_slug="conv",
         )
-        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
 
 
 class TestCancelOutcomes:
