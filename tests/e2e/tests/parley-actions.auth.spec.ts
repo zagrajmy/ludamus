@@ -46,7 +46,10 @@ async function open(page: Page, panel: Locator, body: string): Promise<Locator> 
   await actionsFor(panel, body).scrollIntoViewIfNeeded();
   await actionsFor(panel, body).click();
   const menu = menuOf(page);
-  await expect(menu.getByRole("menuitem").first()).toBeFocused();
+  // Where this person may react, the reactions come first.
+  await expect(
+    menu.getByRole("menuitemcheckbox").or(menu.getByRole("menuitem")).first(),
+  ).toBeFocused();
   return menu;
 }
 
@@ -70,17 +73,31 @@ test("The actions menu runs from the keyboard and closes when its message moves"
   const { panel } = await chat(page);
   const trigger = actionsFor(panel, "The latest from Kuba");
   const menu = await open(page, panel, "The latest from Kuba");
+  const reactions = menu.getByRole("menuitemcheckbox");
   const items = menu.getByRole("menuitem");
   await analyzePageAccessibility(page);
 
+  // The reactions' row walks sideways or down, and so does the rest.
+  await page.keyboard.press("ArrowRight");
+  await expect(reactions.nth(1)).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(reactions.first()).toBeFocused();
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowDown");
+  await expect(reactions.first()).toBeFocused();
+  await reactions.last().focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(items.first()).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(items.nth(1)).toBeFocused();
   await page.keyboard.press("ArrowUp");
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press("Home");
   await page.keyboard.press("ArrowUp");
   await expect(items.last()).toHaveText(copy.restoreWriting);
   await expect(items.last()).toBeFocused();
   await page.keyboard.press("Home");
-  await expect(items.first()).toBeFocused();
+  await expect(reactions.first()).toBeFocused();
   await page.keyboard.press("End");
   await expect(items.last()).toBeFocused();
   // A key the menu has no use for does nothing.

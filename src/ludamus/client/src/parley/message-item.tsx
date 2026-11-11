@@ -5,6 +5,7 @@ import type { Bootstrap, Message, Room } from "./protocol";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
+import { ReactionChips, reactionPalette } from "./reactions";
 
 export type MuteAction = "restore" | number | null;
 
@@ -55,6 +56,7 @@ export function MessageItem({
   message,
   moderate,
   mute,
+  react,
   remove,
   report,
   room,
@@ -71,6 +73,8 @@ export function MessageItem({
   message: Message;
   moderate: (id: number) => void;
   mute: (id: string, action: MuteAction) => void;
+  // Toggles one of this person's reactions; null where they may not react.
+  react: ((id: number, emoji: string) => void) | null;
   remove: (id: number) => void;
   report: (id: number) => void;
   room: Room;
@@ -78,10 +82,14 @@ export function MessageItem({
   const { copy } = bootstrap;
   const own = message.authorId === bootstrap.user.id;
   const deleted = message.deletedAt !== null;
+  const reactWith = react === null ? null : (emoji: string) => react(message.id, emoji);
   const entries: MenuEntry[] =
     deleted || hidden
       ? []
       : [
+          ...(reactWith === null
+            ? []
+            : [reactionPalette(copy, { message, react: reactWith, userId: bootstrap.user.id })]),
           { icon: "Link", label: copy.copyLink, onSelect: () => copyLink(message.id) },
           ...(own
             ? [
@@ -208,6 +216,14 @@ export function MessageItem({
             />
           )}
         </div>
+        {!deleted && !hidden && (
+          <ReactionChips
+            copy={copy}
+            message={message}
+            react={reactWith}
+            userId={bootstrap.user.id}
+          />
+        )}
       </div>
     </MessageScroller.Item>
   );

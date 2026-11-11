@@ -60,6 +60,8 @@ export const bootstrap = {
     errorNotFound: "That person or conversation is no longer available.",
     errorPending: "They have not accepted your message yet. You can write more once they do.",
     errorRateLimited: "Too many messages. Wait a moment and try again.",
+    errorReactionGone: "That message no longer takes reactions.",
+    errorReactionRateLimited: "Too many reactions. Wait a moment and try again.",
     errorTooMany: "A group can have up to 50 people.",
     errorUnknown: "Something went wrong. Try again.",
     groupName: "Name (optional)",
@@ -102,6 +104,17 @@ export const bootstrap = {
     presenceFew: "%(count)s people here",
     presenceMany: "%(count)s people here",
     presenceOne: "%(count)s person here",
+    react: "React",
+    reactionCountFew: "%(reaction)s: %(count)s people",
+    reactionCountMany: "%(reaction)s: %(count)s people",
+    reactionCountOne: "%(reaction)s: %(count)s person",
+    reactionDice: "Dice",
+    reactionHeart: "Heart",
+    reactionLaugh: "Laughing",
+    reactionSad: "Sad",
+    reactionsLabel: "Reactions",
+    reactionSurprised: "Surprised",
+    reactionThumbsUp: "Thumbs up",
     readOnly: "You can read this conversation, but not write in it.",
     removeConfirm: "Remove %(name)s from the group?",
     removeLabel: "Remove",
@@ -302,6 +315,7 @@ export type Message = {
   deletedAt: number | null;
   id: number;
   nonce: string;
+  reactions?: Record<string, string[]>;
 };
 
 export function message(fields: Partial<Message> & Pick<Message, "id">): Message {

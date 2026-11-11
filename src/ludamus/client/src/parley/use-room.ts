@@ -15,6 +15,7 @@ import {
   type Event,
   type Message,
   passCloseHandlers,
+  type ReactionChange,
   type Result,
   type Room,
 } from "./protocol";
@@ -58,6 +59,11 @@ const AGENTS = {
   session: "ParleySessionAgent",
   sphere: "ParleySphereAgent",
 } as const;
+
+export const withReactions = (messages: Message[], change: ReactionChange): Message[] =>
+  messages.map((message) =>
+    message.id === change.messageId ? { ...message, reactions: change.reactions } : message,
+  );
 
 const without = (record: Record<string, number>, key: string): Record<string, number> =>
   Object.fromEntries(Object.entries(record).filter(([name]) => name !== key));
@@ -168,6 +174,8 @@ export function useRoom({
           ),
         );
       }
+      if (event.type === "reaction.changed")
+        setMessages((current) => withReactions(current, event.payload as ReactionChange));
       if (event.type === "presence.changed")
         setPresence((event.payload as { count: number }).count);
     };

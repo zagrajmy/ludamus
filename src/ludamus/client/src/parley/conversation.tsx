@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import type { Bootstrap, Message, Person, Result, Room } from "./protocol";
+import type { Bootstrap, Message, Person, ReactionChange, Result, Room } from "./protocol";
 
 import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
@@ -19,7 +19,7 @@ import { counted, moment, number, when } from "./format";
 import { ICON_BUTTON } from "./header";
 import { Icon } from "./icons";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
-import { type Muted, useRoom } from "./use-room";
+import { type Muted, useRoom, withReactions } from "./use-room";
 
 const RUN_GAP = 5 * 60_000;
 const SEPARATOR_GAP = 30 * 60_000;
@@ -81,6 +81,15 @@ function errorMessage(code: string, copy: Bootstrap["copy"]): string {
     timeout: copy.connectionError,
   };
   return messages[code] ?? copy.errorUnknown;
+}
+
+// A refused reaction is about the reaction, not a message being sent.
+function reactionError(code: string, copy: Bootstrap["copy"]): string {
+  const messages: Record<string, string> = {
+    invalid: copy.errorReactionGone,
+    rate_limited: copy.errorReactionRateLimited,
+  };
+  return messages[code] ?? errorMessage(code, copy);
 }
 
 // What a request's recipient can do with it, each answering with the
@@ -364,6 +373,17 @@ export function Conversation({
         ? call("restoreWriting", { userId }, copy.writingRestored)
         : call("muteUser", { durationMs: action, userId }, copy.muted),
     );
+  // A refusal for muting is the composer's news, as when sending.
+  const react = (messageId: number, emoji: string) =>
+    act(async () => {
+      const result = await withTimeout(
+        agent.call<Result<ReactionChange>>("toggleReaction", [{ emoji, messageId }]),
+      );
+      if (result.ok) setMessages((current) => withReactions(current, result.value));
+      else if (result.code === "muted") setMuted((current) => current ?? { until: null });
+      else return { error: reactionError(result.code, copy) };
+      return { notice: null };
+    });
   const copyLink = (messageId: number) =>
     act(async () => {
       const url = new URL(globalThis.location.href);
@@ -609,6 +629,11 @@ export function Conversation({
                       message={message}
                       moderate={(id) => void moderate(id)}
                       mute={(id, action) => void mute(id, action)}
+                      react={
+                        room.canWrite && muted === null
+                          ? (id, emoji) => void react(id, emoji)
+                          : null
+                      }
                       remove={(id) => void remove(id)}
                       report={(id) => void report(id)}
                       room={room}

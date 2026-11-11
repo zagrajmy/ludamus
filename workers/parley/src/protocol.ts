@@ -67,6 +67,14 @@ export type ConnectionState = {
   capability: Capability;
 };
 
+// The only reactions a room takes, in the order they are shown.
+export const REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎲"] as const;
+
+export type Reaction = (typeof REACTIONS)[number];
+
+// Who reacted with what; a reaction nobody holds is left out.
+export type Reactions = Partial<Record<Reaction, string[]>>;
+
 export type Message = {
   authorAvatarUrl: string;
   authorId: string;
@@ -76,11 +84,15 @@ export type Message = {
   deletedAt: number | null;
   id: number;
   nonce: string;
+  reactions: Reactions;
 };
+
+export type ReactionChange = { messageId: number; reactions: Reactions };
 
 export type ServerEvent =
   | { type: "message.created"; v: 1; payload: Message }
   | { type: "message.deleted"; v: 1; payload: { id: number } }
+  | { type: "reaction.changed"; v: 1; payload: ReactionChange }
   | { type: "presence.changed"; v: 1; payload: { count: number } }
   | { type: "typing.changed"; v: 1; payload: { expiresAt: number; userId: string } }
   | { type: "restriction.changed"; v: 1; payload: { mutedUntil: number | null; userId: string } }

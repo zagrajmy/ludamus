@@ -2,7 +2,7 @@ import type { Copy } from "./protocol";
 
 const locale = (): string => document.documentElement.lang || "pl";
 
-type Counted = "members" | "presence" | "unreadCount";
+type Counted = "members" | "presence" | "reactionCount" | "unreadCount";
 
 export function counted(copy: Copy, key: Counted, count: number): string {
   const rule = new Intl.PluralRules(locale()).select(count);

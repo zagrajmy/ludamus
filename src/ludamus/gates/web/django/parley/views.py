@@ -109,6 +109,32 @@ def _copy() -> dict[str, str]:
         "typingMany": _("Several people are typing…"),
         "typingSomeone": _("Someone"),
         **_conversation_copy(),
+        **_reaction_copy(),
+    }
+
+
+def _reaction_copy() -> dict[str, str]:
+    return {
+        **_plural_forms(
+            "reactionCount",
+            lambda count: ngettext(
+                "%(reaction)s: %(count)s person",
+                "%(reaction)s: %(count)s people",
+                count,
+            ),
+        ),
+        "react": _("React"),
+        "reactionsLabel": _("Reactions"),
+        "reactionThumbsUp": _("Thumbs up"),
+        "reactionHeart": _("Heart"),
+        "reactionLaugh": _("Laughing"),
+        "reactionSurprised": _("Surprised"),
+        "reactionSad": _("Sad"),
+        "reactionDice": _("Dice"),
+        "errorReactionGone": _("That message no longer takes reactions."),
+        "errorReactionRateLimited": _(
+            "Too many reactions. Wait a moment and try again."
+        ),
     }
 
 
