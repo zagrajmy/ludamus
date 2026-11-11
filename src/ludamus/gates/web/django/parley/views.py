@@ -135,6 +135,16 @@ def _reaction_copy() -> dict[str, str]:
         "errorReactionRateLimited": _(
             "Too many reactions. Wait a moment and try again."
         ),
+        "errorReactionFull": _(
+            "This message has as many kinds of reaction as it takes."
+        ),
+        "addReaction": _("Add a reaction"),
+        "reactionPicker": _("Choose an emoji"),
+        "searchEmoji": _("Search emoji"),
+        "loadingEmoji": _("Loading emoji…"),
+        "noEmoji": _("No emoji found."),
+        "reactorYou": _("you"),
+        "reactorBlocked": _("someone you blocked"),
     }
 
 

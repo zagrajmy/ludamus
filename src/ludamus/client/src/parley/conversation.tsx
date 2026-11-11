@@ -3,7 +3,10 @@ import {
   type FormEvent,
   Fragment,
   type KeyboardEvent,
+  lazy,
   type Ref,
+  Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -83,9 +86,16 @@ function errorMessage(code: string, copy: Bootstrap["copy"]): string {
   return messages[code] ?? copy.errorUnknown;
 }
 
+// The full emoji set, fetched with its data only once someone asks for it.
+const ReactionPicker = lazy(async () => {
+  const { ReactionPicker: Picker } = await import("./emoji-picker");
+  return { default: Picker };
+});
+
 // A refused reaction is about the reaction, not a message being sent.
 function reactionError(code: string, copy: Bootstrap["copy"]): string {
   const messages: Record<string, string> = {
+    full: copy.errorReactionFull,
     invalid: copy.errorReactionGone,
     rate_limited: copy.errorReactionRateLimited,
   };
@@ -241,6 +251,8 @@ export function Conversation({
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<(Pending & { returnTo: Element | null }) | null>(null);
+  const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
+  const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const typingSince = useRef(0);
@@ -620,6 +632,7 @@ export function Conversation({
                     )}
                     <MessageItem
                       block={onBlock === null ? null : blockAuthor}
+                      blocked={blocked}
                       bootstrap={bootstrap}
                       confirm={confirm}
                       copyLink={(id) => void copyLink(id)}
@@ -629,6 +642,7 @@ export function Conversation({
                       message={message}
                       moderate={(id) => void moderate(id)}
                       mute={(id, action) => void mute(id, action)}
+                      pick={(messageId, anchor) => setPicking({ anchor, messageId })}
                       react={
                         room.canWrite && muted === null
                           ? (id, emoji) => void react(id, emoji)
@@ -668,6 +682,16 @@ export function Conversation({
           </p>
         </MessageScroller.Root>
       </MessageScroller.Provider>
+      {picking !== null && (
+        <Suspense fallback={null}>
+          <ReactionPicker
+            anchor={picking.anchor}
+            close={stopPicking}
+            copy={copy}
+            pick={(emoji) => void react(picking.messageId, emoji)}
+          />
+        </Suspense>
+      )}
       {(problem !== null || notice !== null || counter) && (
         <div className="flex items-baseline gap-3 px-4 pt-2 text-xs">
           {/* A lasting problem (a draft too long) must not hide news such as

@@ -5,11 +5,16 @@ import { Icon, type IconName } from "./icons";
 
 type PaletteOption = { checked: boolean; label: string; onSelect: () => void; symbol: string };
 
-// A palette is a row of checkable glyphs; the arrow keys walk it like any item.
+// A palette is a row of checkable glyphs, the arrow keys walking it like any
+// item, and a last "+" that opens more of them beside the menu's button.
 export type MenuEntry =
   | { heading: string }
   | { icon: IconName; label: string; onSelect: () => void; tone?: "danger" }
-  | { label: string; options: PaletteOption[] };
+  | {
+      label: string;
+      more: { label: string; onSelect: (trigger: HTMLElement) => void };
+      options: PaletteOption[];
+    };
 
 const ITEMS = "[role=menuitem], [role=menuitemcheckbox]";
 
@@ -43,7 +48,7 @@ export function ActionsMenu({
     "heading" in entry
       ? []
       : "options" in entry
-        ? entry.options.map((option) => option.symbol)
+        ? [...entry.options.map((option) => option.symbol), entry.more.label]
         : [entry.label],
   )[0];
   const roving = (key: string) => ({
@@ -165,7 +170,7 @@ export function ActionsMenu({
               ) : "options" in entry ? (
                 <div
                   aria-label={entry.label}
-                  className="mb-1 flex justify-between gap-0.5 border-b border-border pb-1"
+                  className="mb-1 flex justify-between border-b border-border pb-1"
                   key={entry.label}
                   role="group"
                 >
@@ -173,7 +178,7 @@ export function ActionsMenu({
                     <button
                       aria-checked={option.checked}
                       aria-label={option.label}
-                      className={`grid size-9 place-items-center rounded-full text-lg leading-none outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus ${option.checked ? "bg-primary-light ring-1 ring-primary" : ""}`}
+                      className={`grid size-8 place-items-center rounded-full text-lg leading-none outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus ${option.checked ? "bg-primary-light ring-1 ring-primary" : ""}`}
                       key={option.symbol}
                       onClick={() => {
                         close(true);
@@ -186,6 +191,19 @@ export function ActionsMenu({
                       {option.symbol}
                     </button>
                   ))}
+                  <button
+                    aria-label={entry.more.label}
+                    className="grid size-8 place-items-center rounded-full text-lg leading-none text-foreground-muted outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus"
+                    onClick={() => {
+                      close(true);
+                      entry.more.onSelect(trigger.current!);
+                    }}
+                    role="menuitem"
+                    {...roving(entry.more.label)}
+                    type="button"
+                  >
+                    +
+                  </button>
                 </div>
               ) : (
                 <button

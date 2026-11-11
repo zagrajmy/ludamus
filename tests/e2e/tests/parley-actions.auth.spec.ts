@@ -203,7 +203,7 @@ test("Deleting one's own message asks first and says when it fails", async ({ co
   const trigger = actionsFor(panel, "My own words");
 
   let menu = await open(page, panel, "My own words");
-  await expect(menu.getByRole("menuitem")).toHaveText([copy.copyLink, copy.deleteLabel]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["+", copy.copyLink, copy.deleteLabel]);
   await menu.getByRole("menuitem", { name: copy.copyLink }).click();
   await expect(panel.getByRole("status").filter({ hasText: copy.linkCopied })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/#parley:sphere:1:2$/u);
@@ -271,6 +271,7 @@ test("A moderator reports, deletes and mutes someone else's message", async ({ p
 
   const menu = await open(page, panel, "Please moderate me");
   await expect(menu.getByRole("menuitem")).toHaveText([
+    "+",
     copy.copyLink,
     copy.reportMessage,
     copy.moderatorDelete,
@@ -340,5 +341,5 @@ test("Someone without moderation rights can only copy and report", async ({ page
   ]);
   const { panel } = await chat(page);
   const menu = await open(page, panel, "Please moderate me");
-  await expect(menu.getByRole("menuitem")).toHaveText([copy.copyLink, copy.reportMessage]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["+", copy.copyLink, copy.reportMessage]);
 });

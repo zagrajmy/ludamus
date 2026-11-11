@@ -15,6 +15,7 @@ import type { ParleySphereAgent } from "./sphere-agent";
 
 import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
 import { capabilityFromRequest } from "./auth";
+import { isEmoji } from "./emoji";
 import { integer, normalizeMessage } from "./limits";
 import {
   NOT_A_MEMBER,
@@ -22,11 +23,12 @@ import {
   PASS_REVOKED,
   type Capability,
   type ConnectionState,
+  MAX_REACTION_KINDS,
   type Message,
-  type Reaction,
   type ReactionChange,
   REACTIONS,
   type Reactions,
+  type Reactors,
   type Reported,
   type Revocation,
   type RpcResult,
@@ -73,18 +75,23 @@ type MessageRow = {
   id: number;
 };
 
-type ReactionRow = { emoji: string; message_id: number; user_id: string };
+type ReactionRow = { emoji: string; message_id: number; user_id: string; user_name: string };
 
-const isReaction = (value: unknown): value is Reaction =>
-  (REACTIONS as readonly unknown[]).includes(value);
+const QUICK: readonly string[] = REACTIONS;
 
-function reactionsOf(rows: ReactionRow[]): Reactions {
+// The quick reactions first, in their order; then any other emoji in the
+// order it was first given. Rows come oldest first.
+function reactionsOf(rows: ReactionRow[]): { reactions: Reactions; reactors: Reactors } {
+  const rank = (emoji: string) => (QUICK.includes(emoji) ? QUICK.indexOf(emoji) : QUICK.length);
+  const order = [...new Set(rows.map((row) => row.emoji))].sort((a, b) => rank(a) - rank(b));
   const reactions: Reactions = {};
-  for (const reaction of REACTIONS) {
-    const users = rows.filter((row) => row.emoji === reaction).map((row) => row.user_id);
-    if (users.length > 0) reactions[reaction] = users;
+  for (const emoji of order) {
+    reactions[emoji] = rows.filter((row) => row.emoji === emoji).map((row) => row.user_id);
   }
-  return reactions;
+  return {
+    reactions,
+    reactors: Object.fromEntries(rows.map((row) => [row.user_id, row.user_name])),
+  };
 }
 
 export abstract class RoomAgent extends Agent<Env> {
@@ -130,6 +137,7 @@ export abstract class RoomAgent extends Agent<Env> {
       message_id INTEGER NOT NULL,
       user_id TEXT NOT NULL,
       emoji TEXT NOT NULL,
+      user_name TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       PRIMARY KEY (message_id, user_id, emoji)
     )`;
@@ -209,7 +217,7 @@ export abstract class RoomAgent extends Agent<Env> {
       VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
     const row = this
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const message = this.message(row, {});
+    const message = this.message(row, { reactions: {}, reactors: {} });
     this.emit({ type: "message.created", v: 1, payload: message });
     this.afterMessage(message);
     return { ok: true, value: message };
@@ -277,7 +285,7 @@ export abstract class RoomAgent extends Agent<Env> {
     const writeError = this.writeError(capability);
     if (writeError !== null) return writeError;
     const messageId = integer(input?.messageId);
-    if (messageId === null || !isReaction(input?.emoji)) return { ok: false, code: "invalid" };
+    if (messageId === null || !isEmoji(input?.emoji)) return { ok: false, code: "invalid" };
     const emoji = input.emoji;
     const row = this.sql<{
       deleted_at: number | null;
@@ -295,10 +303,14 @@ export abstract class RoomAgent extends Agent<Env> {
       void this.sql`DELETE FROM reactions
         WHERE message_id = ${messageId} AND user_id = ${capability.sub} AND emoji = ${emoji}`;
     } else {
-      void this.sql`INSERT INTO reactions (message_id, user_id, emoji, created_at)
-        VALUES (${messageId}, ${capability.sub}, ${emoji}, ${Date.now()})`;
+      const kinds = this.sql<{ emoji: string }>`SELECT DISTINCT emoji FROM reactions
+        WHERE message_id = ${messageId}`.map((kind) => kind.emoji);
+      if (!kinds.includes(emoji) && kinds.length >= MAX_REACTION_KINDS)
+        return { ok: false, code: "full" };
+      void this.sql`INSERT INTO reactions (message_id, user_id, emoji, user_name, created_at)
+        VALUES (${messageId}, ${capability.sub}, ${emoji}, ${capability.name}, ${Date.now()})`;
     }
-    const change = { messageId, reactions: this.reactionsFor(messageId) };
+    const change = { messageId, ...this.reactionsFor(messageId) };
     this.emit({ type: "reaction.changed", v: 1, payload: change });
     return { ok: true, value: change };
   }
@@ -468,7 +480,7 @@ export abstract class RoomAgent extends Agent<Env> {
   private messages(rows: MessageRow[]): Message[] {
     if (rows.length === 0) return [];
     const ids = rows.map((row) => row.id);
-    const held = this.sql<ReactionRow>`SELECT emoji, message_id, user_id FROM reactions
+    const held = this.sql<ReactionRow>`SELECT emoji, message_id, user_id, user_name FROM reactions
       WHERE message_id BETWEEN ${Math.min(...ids)} AND ${Math.max(...ids)}
       ORDER BY created_at, rowid`;
     return rows.map((row) =>
@@ -476,14 +488,17 @@ export abstract class RoomAgent extends Agent<Env> {
     );
   }
 
-  private reactionsFor(messageId: number): Reactions {
+  private reactionsFor(messageId: number): { reactions: Reactions; reactors: Reactors } {
     return reactionsOf(
-      this.sql<ReactionRow>`SELECT emoji, message_id, user_id FROM reactions
+      this.sql<ReactionRow>`SELECT emoji, message_id, user_id, user_name FROM reactions
         WHERE message_id = ${messageId} ORDER BY created_at, rowid`,
     );
   }
 
-  private message(row: MessageRow, reactions: Reactions): Message {
+  private message(
+    row: MessageRow,
+    { reactions, reactors }: { reactions: Reactions; reactors: Reactors },
+  ): Message {
     return {
       authorAvatarUrl: row.author_avatar_url,
       authorId: row.author_id,
@@ -494,6 +509,7 @@ export abstract class RoomAgent extends Agent<Env> {
       id: row.id,
       nonce: row.client_nonce,
       reactions,
+      reactors,
     };
   }
 }

@@ -22,6 +22,8 @@ const zed: Person = { avatarUrl: "", id: "9", name: "Zed Blocked" };
 
 type Reactions = Record<string, string[]>;
 
+const QUICK = ["👍", "❤️", "😂", "😮", "😢", "🎲"];
+
 // Kuba's message with reactions, among them this person's dice; one of this
 // person's own, from before reactions; a deleted one; and one from someone
 // this person blocked.
@@ -33,6 +35,7 @@ function thread(): ReturnType<typeof message>[] {
       createdAt: now - 4 * 60_000,
       id: 1,
       reactions: { "👍": ["2", "3"], "🎲": [ME, zed.id] },
+      reactors: { "2": "Kuba Nowak", "3": "Ola", [ME]: bootstrap.user.name, [zed.id]: zed.name },
     }),
     message({ authorId: ME, body: "I will", createdAt: now - 3 * 60_000, id: 2 }),
     message({
@@ -66,7 +69,16 @@ function toggling(): (input: Record<string, unknown>) => Reply {
     reactions[emoji] = users.includes(ME) ? users.filter((id) => id !== ME) : [...users, ME];
     if (reactions[emoji].length === 0) delete reactions[emoji];
     held.set(messageId, reactions);
-    return { ok: true, value: { messageId, reactions } };
+    // The quick ones first, in their order, as the Worker sends them.
+    const rank = (key: string) => {
+      const at = QUICK.indexOf(key);
+      return at === -1 ? QUICK.length : at;
+    };
+    const ordered = Object.fromEntries(
+      Object.entries(reactions).toSorted(([a], [b]) => rank(a) - rank(b)),
+    );
+    const reactors = { ...thread().find((entry) => entry.id === messageId)?.reactors, [ME]: "Me" };
+    return { ok: true, value: { messageId, reactions: ordered, reactors } };
   };
 }
 
@@ -77,6 +89,10 @@ function bubbleOf(panel: Locator, body: string): Locator {
 
 const reactionsOf = (panel: Locator, body: string): Locator =>
   bubbleOf(panel, body).getByRole("group", { name: copy.reactionsLabel });
+
+// The chips that toggle a reaction, not the one that opens the picker.
+const chipsOf = (panel: Locator, body: string): Locator =>
+  reactionsOf(panel, body).locator("button[aria-pressed]");
 
 async function openActions(page: Page, panel: Locator, body: string): Promise<Locator> {
   await bubbleOf(panel, body).getByRole("button", { name: copy.messageActions }).click();
@@ -95,7 +111,7 @@ test("Someone reacts from a message's actions and toggles a reaction from its ch
 
   // Counted and marked where the viewer holds one, and nobody named; a
   // deleted message and a blocked person's show none.
-  const chips = reactionsOf(panel, "Who brings snacks?").getByRole("button");
+  const chips = chipsOf(panel, "Who brings snacks?");
   await expect(chips).toHaveText(["👍2", "🎲2"]);
   await expect(chips.first()).toHaveAccessibleName("Thumbs up: 2 people");
   await expect(chips.first()).toHaveAttribute("aria-pressed", "false");
@@ -145,15 +161,13 @@ test("Someone reacts from a message's actions and toggles a reaction from its ch
   // One's own message takes reactions too.
   menu = await openActions(page, panel, "I will");
   await menu.getByRole("menuitemcheckbox", { name: copy.reactionDice }).click();
-  await expect(reactionsOf(panel, "I will").getByRole("button")).toHaveAccessibleName(
-    "Dice: 1 person",
-  );
+  await expect(chipsOf(panel, "I will")).toHaveAccessibleName("Dice: 1 person");
 
   // Taking back the last of a reaction from the keyboard hands focus to the
   // chip in its place, and once none is left, to the message's actions.
   menu = await openActions(page, panel, "I will");
   await menu.getByRole("menuitemcheckbox", { name: copy.reactionSurprised }).click();
-  const own = reactionsOf(panel, "I will").getByRole("button");
+  const own = chipsOf(panel, "I will");
   await expect(own).toHaveText(["😮1", "🎲1"]);
   await own.first().focus();
   await page.keyboard.press("Enter");
@@ -184,6 +198,7 @@ test("A refused reaction says why, and muting puts the chips out of reach", asyn
   await routeBootstrap(page);
   const replies: Reply[] = [
     { code: "rate_limited", ok: false },
+    { code: "full", ok: false },
     { code: "invalid", ok: false },
     { code: "forbidden", ok: false },
     "reject",
@@ -194,10 +209,11 @@ test("A refused reaction says why, and muting puts the chips out of reach", asyn
     .on("toggleReaction", () => replies.shift()!);
   await page.goto("/");
   const panel = await openRoom(page, "Zagrajmy", "Who brings snacks?");
-  const thumbs = reactionsOf(panel, "Who brings snacks?").getByRole("button").first();
+  const thumbs = chipsOf(panel, "Who brings snacks?").first();
 
   for (const problem of [
     copy.errorReactionRateLimited,
+    copy.errorReactionFull,
     copy.errorReactionGone,
     copy.errorForbidden,
     copy.connectionError,
@@ -215,7 +231,7 @@ test("A refused reaction says why, and muting puts the chips out of reach", asyn
   await expect(thumbs).toBeDisabled();
   const menu = await openActions(page, panel, "Who brings snacks?");
   await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(0);
-  expect(worker.called("toggleReaction")).toHaveLength(5);
+  expect(worker.called("toggleReaction")).toHaveLength(6);
 });
 
 test("In a room one may only read, reactions show but do not toggle", async ({ page }) => {
@@ -224,10 +240,100 @@ test("In a room one may only read, reactions show but do not toggle", async ({ p
   await page.goto("/");
   const panel = await openRoom(page, "Mothership", "Who brings snacks?");
 
-  const chips = reactionsOf(panel, "Who brings snacks?").getByRole("button");
+  const chips = chipsOf(panel, "Who brings snacks?");
   await expect(chips).toHaveCount(2);
   for (const chip of await chips.all()) await expect(chip).toBeDisabled();
   const menu = await openActions(page, panel, "Who brings snacks?");
   await expect(menu.getByRole("menuitem").first()).toBeFocused();
   await expect(menu.getByRole("menuitemcheckbox")).toHaveCount(0);
+});
+
+test("A reaction names who gave it, and + opens every emoji there is", async ({ page }) => {
+  await routeBootstrap(page, [{ blocked: [zed] }]);
+  const fans = Array.from({ length: 12 }, (_, index) => String(20 + index));
+  const worker = (await FakeWorker.install(page))
+    .on("loadBefore", () => ({
+      ok: true,
+      value: [
+        ...thread(),
+        message({
+          body: "Crowd pleaser",
+          id: 5,
+          reactions: { "😂": fans },
+          reactors: Object.fromEntries(fans.map((id) => [id, `Fan ${id}`])),
+        }),
+      ],
+    }))
+    .on("toggleReaction", toggling());
+  await page.goto("/");
+  const panel = await openRoom(page, "Zagrajmy", "Crowd pleaser");
+  const tooltip = page.locator("[role=tooltip]");
+
+  // Hovered or focused, a chip names its people: the viewer first, anyone
+  // blocked unnamed, and past ten only a count.
+  const [thumbs, dice] = [0, 1].map((index) => chipsOf(panel, "Who brings snacks?").nth(index));
+  await dice!.hover();
+  await expect(tooltip).toHaveText(`You and ${copy.reactorBlocked}`);
+  await expect(dice!).toHaveAccessibleDescription(`You and ${copy.reactorBlocked}`);
+  await panel.getByRole("heading", { name: "Zagrajmy" }).hover();
+  await expect(tooltip).toHaveCount(0);
+  await thumbs!.focus();
+  await expect(tooltip).toHaveText("Kuba Nowak and Ola");
+  await thumbs!.blur();
+  await expect(tooltip).toHaveCount(0);
+  await expect(chipsOf(panel, "Crowd pleaser")).toHaveAccessibleDescription(
+    /^Fan 20, Fan 21, .*Fan 29,? and \+2$/u,
+  );
+  // Someone the room never named is still counted.
+  worker.push("reaction.changed", { messageId: 5, reactions: { "😂": ["77"] }, reactors: {} });
+  await expect(chipsOf(panel, "Crowd pleaser")).toHaveAccessibleDescription(copy.typingSomeone);
+
+  // The last chip opens every emoji, found by searching, in the page's own
+  // language.
+  await page.evaluate(() => {
+    document.documentElement.lang = "pl";
+  });
+  const more = reactionsOf(panel, "Who brings snacks?").getByRole("button", {
+    name: copy.addReaction,
+  });
+  await more.click();
+  const picker = page.getByRole("dialog", { name: copy.reactionPicker });
+  const search = picker.getByPlaceholder(copy.searchEmoji);
+  await expect(search).toBeFocused();
+  // NOTE: Frimousse numbers its grid's rows and cells from 0, where ARIA
+  // counts from 1, and finds rows by that number itself, so the rows are
+  // left out until it is fixed upstream.
+  await analyzePageAccessibility(page, { exclude: "[frimousse-row]" });
+  await page.screenshot({ animations: "disabled", path: "screenshots/parley-emoji-picker.png" });
+  await search.fill("ocean");
+  await picker.getByText("🐙", { exact: true }).click();
+  await expect(picker).toBeHidden();
+  await expect(more).toBeFocused();
+  await expect(chipsOf(panel, "Who brings snacks?").last()).toHaveAccessibleName("🐙: 1 person");
+  expect(worker.called("toggleReaction").at(-1)?.input).toEqual({ emoji: "🐙", messageId: 1 });
+
+  // From a message's actions too, in English this time; Escape puts it away
+  // and focus back.
+  await page.evaluate(() => {
+    document.documentElement.lang = "en";
+  });
+  const menu = await openActions(page, panel, "Crowd pleaser");
+  await menu.getByRole("menuitem", { name: copy.addReaction }).click();
+  await expect(picker).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(picker).toBeHidden();
+  await expect(panel).toBeVisible();
+  await expect(
+    bubbleOf(panel, "Crowd pleaser").getByRole("button", { name: copy.messageActions }),
+  ).toBeFocused();
+
+  // A press elsewhere, or the thread moving under it, puts it away too.
+  await more.click();
+  await expect(picker).toBeVisible();
+  await panel.getByRole("heading", { name: "Zagrajmy" }).click();
+  await expect(picker).toBeHidden();
+  await more.click();
+  await expect(picker).toBeVisible();
+  await panel.locator("[data-menu-scroller]").dispatchEvent("scroll");
+  await expect(picker).toBeHidden();
 });

@@ -47,6 +47,7 @@ function corners(own: boolean, first: boolean, last: boolean): string {
 
 export function MessageItem({
   block,
+  blocked,
   bootstrap,
   confirm,
   copyLink,
@@ -56,6 +57,7 @@ export function MessageItem({
   message,
   moderate,
   mute,
+  pick,
   react,
   remove,
   report,
@@ -63,6 +65,8 @@ export function MessageItem({
 }: {
   // Blocks the author; null where blocking is not offered.
   block: ((message: Message) => void) | null;
+  // Ids of the people this person blocked, left unnamed among reactions.
+  blocked: Set<string>;
   bootstrap: Bootstrap;
   confirm: Confirm;
   copyLink: (id: number) => void;
@@ -73,6 +77,8 @@ export function MessageItem({
   message: Message;
   moderate: (id: number) => void;
   mute: (id: string, action: MuteAction) => void;
+  // Opens the full emoji set beside an element, for this message.
+  pick: (id: number, anchor: HTMLElement) => void;
   // Toggles one of this person's reactions; null where they may not react.
   react: ((id: number, emoji: string) => void) | null;
   remove: (id: number) => void;
@@ -83,13 +89,21 @@ export function MessageItem({
   const own = message.authorId === bootstrap.user.id;
   const deleted = message.deletedAt !== null;
   const reactWith = react === null ? null : (emoji: string) => react(message.id, emoji);
+  const more = (anchor: HTMLElement) => pick(message.id, anchor);
   const entries: MenuEntry[] =
     deleted || hidden
       ? []
       : [
           ...(reactWith === null
             ? []
-            : [reactionPalette(copy, { message, react: reactWith, userId: bootstrap.user.id })]),
+            : [
+                reactionPalette(copy, {
+                  message,
+                  more,
+                  react: reactWith,
+                  userId: bootstrap.user.id,
+                }),
+              ]),
           { icon: "Link", label: copy.copyLink, onSelect: () => copyLink(message.id) },
           ...(own
             ? [
@@ -218,8 +232,10 @@ export function MessageItem({
         </div>
         {!deleted && !hidden && (
           <ReactionChips
+            blocked={blocked}
             copy={copy}
             message={message}
+            more={reactWith === null ? null : more}
             react={reactWith}
             userId={bootstrap.user.id}
           />

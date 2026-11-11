@@ -1,6 +1,6 @@
 import type { Copy } from "./protocol";
 
-const locale = (): string => document.documentElement.lang || "pl";
+export const locale = (): string => document.documentElement.lang || "pl";
 
 type Counted = "members" | "presence" | "reactionCount" | "unreadCount";
 

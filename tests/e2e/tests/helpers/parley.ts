@@ -24,6 +24,7 @@ export const bootstrap = {
   copy: {
     accept: "Accept",
     addPeople: "Add people",
+    addReaction: "Add a reaction",
     backLabel: "Back to conversations",
     backToConversation: "Back to the conversation",
     backToNewMessage: "Back to new message",
@@ -60,6 +61,7 @@ export const bootstrap = {
     errorNotFound: "That person or conversation is no longer available.",
     errorPending: "They have not accepted your message yet. You can write more once they do.",
     errorRateLimited: "Too many messages. Wait a moment and try again.",
+    errorReactionFull: "This message has as many kinds of reaction as it takes.",
     errorReactionGone: "That message no longer takes reactions.",
     errorReactionRateLimited: "Too many reactions. Wait a moment and try again.",
     errorTooMany: "A group can have up to 50 people.",
@@ -75,6 +77,7 @@ export const bootstrap = {
     linkCopied: "Link copied.",
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
+    loadingEmoji: "Loading emoji…",
     memberAdded: "%(name)s added.",
     membersFew: "%(count)s members",
     membersLabel: "People",
@@ -100,6 +103,7 @@ export const bootstrap = {
     newMessage: "New message",
     nobodyBlocked: "You have not blocked anyone.",
     nobodyFound: "Nobody by that name you can write to.",
+    noEmoji: "No emoji found.",
     offline: "Connection lost. Reconnecting…",
     presenceFew: "%(count)s people here",
     presenceMany: "%(count)s people here",
@@ -111,10 +115,13 @@ export const bootstrap = {
     reactionDice: "Dice",
     reactionHeart: "Heart",
     reactionLaugh: "Laughing",
+    reactionPicker: "Choose an emoji",
     reactionSad: "Sad",
     reactionsLabel: "Reactions",
     reactionSurprised: "Surprised",
     reactionThumbsUp: "Thumbs up",
+    reactorBlocked: "someone you blocked",
+    reactorYou: "you",
     readOnly: "You can read this conversation, but not write in it.",
     removeConfirm: "Remove %(name)s from the group?",
     removeLabel: "Remove",
@@ -130,6 +137,7 @@ export const bootstrap = {
     roomsLabel: "Conversations",
     saveName: "Save name",
     scrollLatest: "Jump to the latest messages",
+    searchEmoji: "Search emoji",
     searchHint: "Type at least two letters of their name.",
     searching: "Searching…",
     searchPeople: "Find a person",
@@ -316,6 +324,7 @@ export type Message = {
   id: number;
   nonce: string;
   reactions?: Record<string, string[]>;
+  reactors?: Record<string, string>;
 };
 
 export function message(fields: Partial<Message> & Pick<Message, "id">): Message {

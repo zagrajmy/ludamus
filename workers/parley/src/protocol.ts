@@ -67,13 +67,18 @@ export type ConnectionState = {
   capability: Capability;
 };
 
-// The only reactions a room takes, in the order they are shown.
+// The quick reactions, shown first and in this order; any other emoji
+// follows in the order it was first given.
 export const REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎲"] as const;
 
-export type Reaction = (typeof REACTIONS)[number];
+// A message takes this many kinds of reaction at most.
+export const MAX_REACTION_KINDS = 20;
 
 // Who reacted with what; a reaction nobody holds is left out.
-export type Reactions = Partial<Record<Reaction, string[]>>;
+export type Reactions = Record<string, string[]>;
+
+// The name each of those people reacted under.
+export type Reactors = Record<string, string>;
 
 export type Message = {
   authorAvatarUrl: string;
@@ -85,9 +90,10 @@ export type Message = {
   id: number;
   nonce: string;
   reactions: Reactions;
+  reactors: Reactors;
 };
 
-export type ReactionChange = { messageId: number; reactions: Reactions };
+export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
 export type ServerEvent =
   | { type: "message.created"; v: 1; payload: Message }
@@ -108,7 +114,8 @@ export type RoomActivity = { at: number; unread: boolean };
 
 export type RpcError = {
   // pending: a request not yet accepted takes one message, no more.
-  code: "archived" | "forbidden" | "invalid" | "muted" | "pending" | "rate_limited";
+  // full: a message holds as many kinds of reaction as it may.
+  code: "archived" | "forbidden" | "full" | "invalid" | "muted" | "pending" | "rate_limited";
   ok: false;
 };
 

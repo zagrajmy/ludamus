@@ -29,11 +29,11 @@ describe("a reaction", () => {
     const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
     const bea = await open(`parley-sphere-agent/${sphere}`, await pass("8", sphere));
     const sent = await say(ada, "Who brings the dice?");
-    expect(sent.reactions).toEqual({});
+    expect([sent.reactions, sent.reactors]).toEqual([{}, {}]);
 
     expect(await react(bea, sent.id, "🎲")).toEqual({
       ok: true,
-      value: { messageId: sent.id, reactions: { "🎲": ["8"] } },
+      value: { messageId: sent.id, reactions: { "🎲": ["8"] }, reactors: { "8": "Person 8" } },
     });
     await react(ada, sent.id, "❤️");
     // Shown in the palette's order, whatever order they came in.
@@ -50,7 +50,11 @@ describe("a reaction", () => {
     });
     await settle();
     expect(ada.events.filter((event) => event.type === "reaction.changed").at(-1)).toEqual({
-      payload: { messageId: sent.id, reactions: { "❤️": ["7"], "🎲": ["7"] } },
+      payload: {
+        messageId: sent.id,
+        reactions: { "❤️": ["7"], "🎲": ["7"] },
+        reactors: { "7": "Person 7" },
+      },
       type: "reaction.changed",
     });
     expect((await history(bea))[0]!.reactions).toEqual({ "❤️": ["7"], "🎲": ["7"] });
@@ -58,16 +62,55 @@ describe("a reaction", () => {
     bea.socket.close();
   }, 20_000);
 
-  it("takes only the palette, and only on a message still standing", async () => {
+  it("takes one emoji of any kind, after the quick ones, and nothing else", async () => {
     const sphere = sphereId();
     const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
     const kept = await say(ada, "Keep me");
+
+    for (const emoji of ["👩🏽‍🚀", "🇵🇱", "1️⃣", "🏳️‍🌈", "🙂", "👍"]) {
+      expect(await react(ada, kept.id, emoji)).toMatchObject({ ok: true });
+    }
+    expect(Object.keys((await history(ada))[0]!.reactions)).toEqual([
+      "👍",
+      "👩🏽‍🚀",
+      "🇵🇱",
+      "1️⃣",
+      "🏳️‍🌈",
+      "🙂",
+    ]);
+    for (const emoji of ["a", "🙂🙂", "🙂 ", ":)", "1", "", "🇵", "👍".repeat(20), 1, undefined]) {
+      expect(await react(ada, kept.id, emoji)).toEqual({ code: "invalid", ok: false });
+    }
+    ada.socket.close();
+  }, 20_000);
+
+  it("takes twenty kinds on a message at most", async () => {
+    const sphere = sphereId();
+    const [ada, bea, cyd] = await Promise.all(
+      ["7", "8", "9"].map(async (user) =>
+        open(`parley-sphere-agent/${sphere}`, await pass(user, sphere)),
+      ),
+    );
+    const sent = await say(ada!, "React to me");
+    const kinds = [..."🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦"];
+    for (const [index, emoji] of kinds.entries()) {
+      await react(index < 10 ? ada! : bea!, sent.id, emoji);
+    }
+
+    expect(await react(cyd!, sent.id, "🥕")).toEqual({ code: "full", ok: false });
+    // One already there still takes another person, and comes off as ever.
+    expect((await react(cyd!, sent.id, "🥦")).value!.reactions["🥦"]).toEqual(["8", "9"]);
+    expect((await react(cyd!, sent.id, "🥦")).value!.reactions["🥦"]).toEqual(["8"]);
+    for (const socket of [ada!, bea!, cyd!]) socket.socket.close();
+  }, 20_000);
+
+  it("is taken only on a message still standing", async () => {
+    const sphere = sphereId();
+    const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
+    await say(ada, "Keep me");
     const gone = await say(ada, "Delete me");
     await react(ada, gone.id, "👍");
 
-    for (const emoji of ["🙂", "👍🏻", "❤", "", 1, undefined]) {
-      expect(await react(ada, kept.id, emoji)).toEqual({ code: "invalid", ok: false });
-    }
     for (const messageId of [0, "1", undefined, gone.id + 1]) {
       expect(await react(ada, messageId, "👍")).toEqual({ code: "invalid", ok: false });
     }

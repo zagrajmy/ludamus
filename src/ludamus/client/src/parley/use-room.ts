@@ -62,7 +62,9 @@ const AGENTS = {
 
 export const withReactions = (messages: Message[], change: ReactionChange): Message[] =>
   messages.map((message) =>
-    message.id === change.messageId ? { ...message, reactions: change.reactions } : message,
+    message.id === change.messageId
+      ? { ...message, reactions: change.reactions, reactors: change.reactors }
+      : message,
   );
 
 const without = (record: Record<string, number>, key: string): Record<string, number> =>

@@ -3819,6 +3819,38 @@ msgid "Too many reactions. Wait a moment and try again."
 msgstr "Za dużo reakcji. Zaczekaj chwilę i spróbuj ponownie."
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "This message has as many kinds of reaction as it takes."
+msgstr "Ta wiadomość ma już tyle rodzajów reakcji, ile może przyjąć."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Add a reaction"
+msgstr "Dodaj reakcję"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Choose an emoji"
+msgstr "Wybierz emoji"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Search emoji"
+msgstr "Szukaj emoji"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Loading emoji…"
+msgstr "Wczytywanie emoji…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "No emoji found."
+msgstr "Nie znaleziono emoji."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "you"
+msgstr "Ty"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "someone you blocked"
+msgstr "zablokowana osoba"
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "New message"
 msgstr "Nowa wiadomość"
 

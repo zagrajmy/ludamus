@@ -1,6 +1,7 @@
 export type Copy = Record<
   | "accept"
   | "addPeople"
+  | "addReaction"
   | "backLabel"
   | "backToConversation"
   | "backToNewMessage"
@@ -35,6 +36,7 @@ export type Copy = Record<
   | "errorNotFound"
   | "errorPending"
   | "errorRateLimited"
+  | "errorReactionFull"
   | "errorReactionGone"
   | "errorReactionRateLimited"
   | "errorTooMany"
@@ -50,6 +52,7 @@ export type Copy = Record<
   | "linkCopied"
   | "loadEarlier"
   | "loading"
+  | "loadingEmoji"
   | "memberAdded"
   | "membersFew"
   | "membersLabel"
@@ -75,6 +78,7 @@ export type Copy = Record<
   | "newMessage"
   | "nobodyBlocked"
   | "nobodyFound"
+  | "noEmoji"
   | "offline"
   | "presenceFew"
   | "presenceMany"
@@ -86,10 +90,13 @@ export type Copy = Record<
   | "reactionDice"
   | "reactionHeart"
   | "reactionLaugh"
+  | "reactionPicker"
   | "reactionSad"
   | "reactionsLabel"
   | "reactionSurprised"
   | "reactionThumbsUp"
+  | "reactorBlocked"
+  | "reactorYou"
   | "readOnly"
   | "removeConfirm"
   | "removeLabel"
@@ -105,6 +112,7 @@ export type Copy = Record<
   | "roomsLabel"
   | "saveName"
   | "scrollLatest"
+  | "searchEmoji"
   | "searchHint"
   | "searching"
   | "searchPeople"
@@ -178,14 +186,16 @@ export type Message = {
   deletedAt: number | null;
   id: number;
   nonce: string;
-  // Each reaction's people, in the order they reacted; a Worker older than
-  // reactions sends none.
+  // Each reaction's people, in the order they reacted, and the names they
+  // reacted under; a Worker older than reactions sends neither.
   reactions?: Reactions;
+  reactors?: Reactors;
 };
 
 export type Reactions = Record<string, string[]>;
+export type Reactors = Record<string, string>;
 
-export type ReactionChange = { messageId: number; reactions: Reactions };
+export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
 export type RoomActivity = { at: number; unread: boolean };
 
