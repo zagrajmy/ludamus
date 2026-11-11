@@ -38,7 +38,9 @@
                   hx-select-oob="#board-facets"
                   hx-push-url="true"
                   class="flex flex-col gap-5 lg:w-72 lg:shrink-0">
-                {% if request.GET.page_size %}<input type="hidden" name="page_size" value="{{ request.GET.page_size }}">{% endif %}
+                {% if request.GET.page_size %}
+                    <input type="hidden" name="page_size" value="{{ request.GET.page_size }}">
+                {% endif %}
                 {% tessera_field form.looking_for %}
                 {% tessera_field form.q %}
                 {% tessera_field form.closed %}
