@@ -31,8 +31,9 @@
                     {% include "components/dynamic-field-label.html" with label=tracks_label is_required=True visibility_badge=False only %}
                 </legend>
                 {% include "components/choice-group.html" with input_type="checkbox" name="track_pks" options=track_options has_errors=track_error only %}
-                {% if track_error %}<p id="propose-track-error"
-   class="text-sm text-danger">{{ track_error }}</p>{% endif %}
+                {% if track_error %}
+                    <p id="propose-track-error" class="text-sm text-danger">{{ track_error }}</p>
+                {% endif %}
             </fieldset>
         {% endif %}
     </div>
