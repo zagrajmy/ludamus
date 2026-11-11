@@ -1,43 +1,27 @@
-{% load csp_tags %}
 {% load i18n %}
+{% load django_vite %}
 {# Search-first picker: with hundreds of facilitators per event, only the #}
 {# already-selected rows show until the search narrows the list. #}
+{# multiselect-filter.ts runs the search, in its search-first mode. #}
 {% translate "Search by name…" as t_search_placeholder %}
 {% translate "Search facilitators by name" as t_search_label %}
-<div class="mb-4">
-    {% include "components/text-field.html" with name="" id="facilitator-search" placeholder=t_search_placeholder aria_label=t_search_label autocomplete="off" only %}
+<div data-multiselect-filter data-multiselect-search-first>
+    <div class="mb-4" data-multiselect-search>
+        {% include "components/text-field.html" with name="" id="facilitator-search" placeholder=t_search_placeholder aria_label=t_search_label autocomplete="off" only %}
+    </div>
+    <div class="space-y-2" id="facilitator-list" data-multiselect-options>
+        {% for f in all_facilitators %}
+            <label class="flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5"
+                   {% if f.pk not in assigned_facilitator_pks %}hidden{% endif %}
+                   data-search="{{ f.display_name|lower }}">
+                {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked_values=assigned_facilitator_pks label="" only %}
+                {{ f.display_name }}
+            </label>
+        {% endfor %}
+    </div>
+    <p id="no-facilitators-found"
+       class="text-sm text-foreground-muted mt-2"
+       data-multiselect-empty
+       hidden>{% translate "No facilitators match your search." %}</p>
 </div>
-<div class="space-y-2" id="facilitator-list">
-    {% for f in all_facilitators %}
-        <label data-facilitator-row
-               class="flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
-               data-name="{{ f.display_name|lower }}">
-            {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked_values=assigned_facilitator_pks label="" only %}
-            {{ f.display_name }}
-        </label>
-    {% endfor %}
-</div>
-<p id="no-facilitators-found"
-   class="hidden text-sm text-foreground-muted mt-2">{% translate "No facilitators match your search." %}</p>
-<script{% nonce %}>
-    (function() {
-        const search = document.getElementById('facilitator-search');
-        const list = document.getElementById('facilitator-list');
-        if (!search || !list) return;
-
-        function refresh() {
-            const query = search.value.toLowerCase().trim();
-            let matches = 0;
-            list.querySelectorAll('[data-facilitator-row]').forEach(function(row) {
-                const matched = query && (row.dataset.name || '').includes(query);
-                if (matched) matches++;
-                const checked = row.querySelector('input').checked;
-                row.classList.toggle('hidden', !matched && !checked);
-            });
-            document.getElementById('no-facilitators-found')
-                .classList.toggle('hidden', !query || matches > 0);
-        }
-        search.addEventListener('input', refresh);
-        list.addEventListener('change', refresh);
-    })();
-</script>
+{% vite_asset 'src/multiselect-filter.ts' %}

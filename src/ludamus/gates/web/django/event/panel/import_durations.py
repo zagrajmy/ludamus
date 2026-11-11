@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
 
 from ludamus.pacts.durations import duration_from_parts, stepper_parts
-from ludamus.pacts.submissions import DurationSpec
+from ludamus.pacts.propose import DurationSpec
 
 if TYPE_CHECKING:
     from django.http import QueryDict
 
-    from ludamus.pacts.chronology import SourceQuestion
-    from ludamus.pacts.submissions import QuestionTarget, QuestionValue
+    from ludamus.pacts.integrations import SourceQuestion
+    from ludamus.pacts.propose import QuestionTarget, QuestionValue
 
 
 class OptionDuration(TypedDict):

@@ -3,13 +3,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ludamus.mills.timeslots import (
-    MIDNIGHT,
-    PROGRAMME_DAYS,
-    DayTurnover,
-    slot_windows_by_local_date,
-)
-from ludamus.pacts import TimeSlotDTO
+from ludamus.mills.timeslots import slot_windows_by_local_date
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.sessions import MIDNIGHT, PROGRAMME_DAYS, DayTurnover
 
 _TZ = ZoneInfo("Europe/Warsaw")
 # Zones on either side of UTC whose date differs from the server's at these

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.chronology import SessionModalServiceProtocol
+from ludamus.pacts.session_cards import SessionModalServiceProtocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import SessionModalDTO, SessionModalRepositoryProtocol
     from ludamus.pacts.ids import EventId, SessionId, UserId
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.session_cards import (
+        SessionModalDTO,
+        SessionModalRepositoryProtocol,
+    )
 
 
 class SessionModalService(SessionModalServiceProtocol):

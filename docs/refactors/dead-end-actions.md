@@ -76,7 +76,7 @@ because that DTO is built in `links`, which may import Django and so `gettext`.
 
 The other four cannot put it on the DTO: `ProposalCategoriesPageDTO` is built
 in `mills/proposal_categories.py`, and the personal-data `FieldUsageSummary` in
-`mills/submissions/personal_data_fields.py`, and `mills` must not import
+`mills/propose/personal_data_fields.py`, and `mills` must not import
 Django. But the view may — `gates` already writes Polish everywhere — so each
 view turns the fact its service returns into `dict[pk, sentence]`:
 

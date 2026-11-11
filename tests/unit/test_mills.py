@@ -1,189 +1,25 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
 
-from ludamus.mills import (
-    generate_ics_content,
-    google_calendar_url,
-    outlook_calendar_url,
-)
-from ludamus.mills.submissions.mapping import (
+from ludamus.mills.propose.mapping import (
     RowSkippedError,
-    SlugCollisionError,
     cell,
     dedup_ident,
     extract_identity,
     field_answer,
-    generate_unique_slug,
     resolve_builtins,
     session_field_values,
-    slugify,
 )
-from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
-from ludamus.pacts import (
-    EncounterDTO,
-    EventDTO,
-    NotFoundError,
-    OrganizerFieldDTO,
-    SessionFieldValueData,
-)
-from ludamus.pacts.submissions import (
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.fields import SessionFieldValueData
+from ludamus.pacts.propose import (
     FieldDefinition,
     FieldDefinitions,
     ImportRow,
     ImportSettings,
     QuestionTarget,
 )
-
-
-def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
-    return OrganizerFieldDTO(
-        field_type="text",
-        max_length=50,
-        name=name,
-        order=0,
-        pk=pk,
-        question=question,
-        slug=slug,
-    )
-
-
-class TestCFPPersonalDataFieldService:
-    @pytest.fixture
-    def fields(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def transaction(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def service(self, transaction, fields):
-        return CFPPersonalDataFieldService(transaction=transaction, fields=fields)
-
-    def test_list_summaries_combines_fields_with_answer_counts(self, service, fields):
-        field_a = _personal_data_field(pk=1, slug="a")
-        field_b = _personal_data_field(pk=2, slug="b")
-        answers_a = 3
-        fields.list_by_event.return_value = [field_a, field_b]
-        fields.count_values.return_value = {1: answers_a}
-
-        summaries = service.list_summaries(event_pk=42)
-
-        assert [s.field for s in summaries] == [field_a, field_b]
-        assert summaries[0].answer_count == answers_a
-        assert summaries[1].answer_count == 0
-        fields.list_by_event.assert_called_once_with(42)
-        fields.count_values.assert_called_once_with(42)
-
-    def test_read_returns_the_field_of_the_named_event(self, service, fields):
-        by_event_and_slug = {
-            (5, "email"): _personal_data_field(pk=1),
-            (6, "email"): _personal_data_field(pk=2),
-        }
-        fields.read_by_slug.side_effect = lambda event_pk, slug: by_event_and_slug[
-            event_pk, slug
-        ]
-
-        assert service.read(6, "email") == _personal_data_field(pk=2)
-
-    def test_read_propagates_not_found(self, service, fields):
-        fields.read_by_slug.side_effect = NotFoundError
-
-        with pytest.raises(NotFoundError):
-            service.read(5, "missing")
-
-    def test_create_persists_field_in_transaction(self, service, transaction, fields):
-        created = _personal_data_field(pk=99)
-        fields.create.return_value = created
-        data = {
-            "name": "Email",
-            "question": "Q",
-            "field_type": "text",
-            "options": None,
-            "is_multiple": False,
-            "allow_custom": False,
-            "max_length": 50,
-            "help_text": "",
-            "is_public": False,
-            "is_required": True,
-            "order": 2,
-        }
-
-        result = service.create(7, data)
-
-        assert result is created
-        transaction.atomic.assert_called_once()
-        fields.create.assert_called_once_with(7, data)
-
-    def test_update_writes_field_in_transaction(self, service, transaction, fields):
-        fields.read_by_slug.return_value = _personal_data_field(pk=10)
-        update_data = {
-            "name": "Email",
-            "question": "Q",
-            "max_length": 50,
-            "help_text": "",
-            "is_public": False,
-            "is_required": False,
-            "order": 0,
-            "options": None,
-            "is_multiple": False,
-            "allow_custom": False,
-        }
-
-        service.update(event_pk=5, field_slug="email", data=update_data)
-
-        transaction.atomic.assert_called_once()
-        fields.read_by_slug.assert_called_once_with(5, "email")
-        fields.update.assert_called_once_with(10, update_data)
-
-    def test_update_raises_when_field_missing(self, service, fields):
-        fields.read_by_slug.side_effect = NotFoundError
-
-        with pytest.raises(NotFoundError):
-            service.update(
-                event_pk=5,
-                field_slug="missing",
-                data={
-                    "name": "x",
-                    "question": "x",
-                    "max_length": 0,
-                    "help_text": "",
-                    "is_public": False,
-                    "is_required": False,
-                    "order": 0,
-                    "options": None,
-                    "is_multiple": False,
-                    "allow_custom": False,
-                },
-            )
-        fields.update.assert_not_called()
-
-    def test_delete_returns_false_when_field_has_answers(self, service, fields):
-        fields.read_by_slug.return_value = _personal_data_field(pk=10)
-        fields.has_values.return_value = True
-
-        result = service.delete(event_pk=5, field_slug="email")
-
-        assert result is False
-        fields.delete.assert_not_called()
-
-    def test_delete_removes_field_when_unanswered(self, service, fields):
-        fields.read_by_slug.return_value = _personal_data_field(pk=10)
-        fields.has_values.return_value = False
-
-        result = service.delete(event_pk=5, field_slug="email")
-
-        assert result is True
-        fields.delete.assert_called_once_with(10)
-
-    def test_delete_propagates_not_found(self, service, fields):
-        fields.read_by_slug.side_effect = NotFoundError
-
-        with pytest.raises(NotFoundError):
-            service.delete(event_pk=5, field_slug="missing")
 
 
 class TestIsProposalActive:
@@ -219,75 +55,6 @@ class TestIsProposalActive:
         event = EventDTO(**base_event_data)
 
         assert event.is_proposal_active is False
-
-
-class TestLegacyCalendarWrappers:
-    @staticmethod
-    def _encounter(**overrides):
-        start = datetime(2026, 8, 15, 12, 30, tzinfo=UTC)
-        values = {
-            "creation_time": start - timedelta(days=7),
-            "creator_id": 1,
-            "description": "A great session",
-            "end_time": start + timedelta(hours=3),
-            "game": "D&D",
-            "max_participants": 6,
-            "pk": 1,
-            "place": "Room 42",
-            "share_code": "ABC123",
-            "sphere_id": 1,
-            "start_time": start,
-            "title": "My Encounter",
-        }
-        return EncounterDTO(**(values | overrides))
-
-    @freeze_time("2026-08-01 09:00:00")
-    def test_ics_content_uids_the_encounter_by_its_share_code(self):
-        result = generate_ics_content(self._encounter(), "https://example.com/s/ABC123")
-
-        assert result == (
-            "BEGIN:VCALENDAR\r\n"
-            "VERSION:2.0\r\n"
-            "PRODID:-//Zagrajmy//Ludamus//PL\r\n"
-            "BEGIN:VEVENT\r\n"
-            "UID:ABC123@ludamus\r\n"
-            "DTSTAMP:20260801T090000Z\r\n"
-            "DTSTART:20260815T123000Z\r\n"
-            "DTEND:20260815T153000Z\r\n"
-            "SUMMARY:My Encounter\r\n"
-            "LOCATION:Room 42\r\n"
-            "DESCRIPTION:A great session\r\n"
-            "URL:https://example.com/s/ABC123\r\n"
-            "END:VEVENT\r\n"
-            "END:VCALENDAR\r\n"
-        )
-
-    def test_google_url_gives_an_open_ended_encounter_the_default_duration(self):
-        encounter = self._encounter(end_time=None)
-
-        result = google_calendar_url(encounter, "https://example.com/s/ABC123")
-
-        assert result == (
-            "https://calendar.google.com/calendar/render?action=TEMPLATE"
-            "&text=My+Encounter"
-            "&dates=20260815T123000Z%2F20260815T143000Z"
-            "&details=A+great+session%0A%0Ahttps%3A%2F%2Fexample.com%2Fs%2FABC123"
-            "&location=Room+42"
-        )
-
-    def test_outlook_url_gives_an_open_ended_encounter_the_default_duration(self):
-        encounter = self._encounter(end_time=None)
-
-        result = outlook_calendar_url(encounter, "https://example.com/s/ABC123")
-
-        assert result == (
-            "https://outlook.live.com/calendar/0/action/compose?rru=addevent"
-            "&subject=My+Encounter"
-            "&startdt=2026-08-15T12%3A30%3A00%2B00%3A00"
-            "&enddt=2026-08-15T14%3A30%3A00%2B00%3A00"
-            "&body=A+great+session%0A%0Ahttps%3A%2F%2Fexample.com%2Fs%2FABC123"
-            "&location=Room+42"
-        )
 
 
 class TestMappingHelpers:
@@ -503,76 +270,6 @@ class TestMappingHelpers:
         )
 
         assert values == [SessionFieldValueData(session_id=7, field_id=55, value="D&D")]
-
-
-class TestGenerateUniqueSlug:
-    SUFFIX_LENGTH = 4  # token_urlsafe(3) as base64
-    DEFAULT_ATTEMPTS = 8
-
-    def test_appends_suffix_until_free(self):
-        taken = {"my-talk"}
-
-        slug = generate_unique_slug("My Talk", lambda s: s in taken)
-
-        assert slug.startswith("my-talk-")
-        assert len(slug) == len("my-talk-") + self.SUFFIX_LENGTH
-
-    def test_raises_when_retry_budget_exhausted(self):
-        with pytest.raises(SlugCollisionError) as exc_info:
-            generate_unique_slug("My Talk", lambda _s: True, max_attempts=3)
-
-        assert exc_info.value.base_slug == "my-talk"
-        assert str(exc_info.value) == "Could not generate a unique slug for 'my-talk'."
-
-    def test_tries_eight_slugs_by_default(self):
-        tried: list[str] = []
-
-        def taken(slug: str) -> bool:
-            tried.append(slug)
-            return True
-
-        with pytest.raises(SlugCollisionError):
-            generate_unique_slug("My Talk", taken)
-
-        assert len(tried) == self.DEFAULT_ATTEMPTS
-
-    def test_keeps_slug_within_max_length_with_suffix(self):
-        taken = {slugify("x" * 80)}
-
-        slug = generate_unique_slug("x" * 80, lambda s: s in taken)
-
-        assert len(slug) == TestSlugify.MAX_SLUG_LENGTH
-        assert slug not in taken
-
-    def test_honours_a_custom_max_length(self):
-        assert generate_unique_slug("x" * 80, lambda _s: False, max_length=10) == (
-            "x" * 10
-        )
-
-    def test_strips_the_dash_the_cut_leaves_before_the_suffix(self):
-        slug = generate_unique_slug(
-            "aaaa bbbb", lambda s: s == "aaaa-bbbb", max_length=10
-        )
-
-        assert slug.startswith("aaaa-")
-        assert len(slug) == len("aaaa-") + self.SUFFIX_LENGTH
-
-    def test_without_a_fallback_an_unsluggable_title_yields_an_empty_slug(self):
-        assert not generate_unique_slug("!!!", lambda _s: False)
-
-
-class TestSlugify:
-    MAX_SLUG_LENGTH = 50
-
-    def test_truncation_drops_trailing_dash(self):
-        # 49 chars then a space+word so the cut lands on a separator
-        assert not slugify(f"{'a' * 49} bb").endswith("-")
-
-    def test_caps_at_the_slug_column_width_by_default(self):
-        assert len(slugify("x" * 80)) == self.MAX_SLUG_LENGTH
-
-    def test_strips_a_leading_dash_before_capping(self):
-        assert slugify(f"-{'a' * self.MAX_SLUG_LENGTH}") == "a" * self.MAX_SLUG_LENGTH
 
 
 class TestDedupIdent:

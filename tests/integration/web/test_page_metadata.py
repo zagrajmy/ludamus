@@ -107,7 +107,7 @@ class TestPageTitle:
         response = _get_ok(
             manager_client,
             reverse("multiverse:panel:sphere-settings"),
-            "multiverse/panel/sphere-settings.html",
+            "sphere/panel/sphere-settings.html",
         )
 
         assert _title(response) == f"Sphere settings • {sphere.name}"
@@ -119,7 +119,7 @@ class TestPageTitle:
             manager_client,
             f'{reverse("web:chronology:event-print", kwargs={"slug": event.slug})}'
             "?material=door-cards",
-            "chronology/print.html",
+            "event/print.html",
         )
 
         assert _title(response) == f"{event.name} • Print • {sphere.name}"
@@ -144,7 +144,7 @@ class TestLinkPreviewTitle:
         response = _get_ok(
             client,
             reverse("web:chronology:event", kwargs={"slug": event.slug}),
-            ["chronology/event.html"],
+            ["event/event.html"],
         )
 
         assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
@@ -183,7 +183,7 @@ class TestMetaDescription:
         response = _get_ok(
             client,
             reverse("web:chronology:event", kwargs={"slug": event.slug}),
-            ["chronology/event.html"],
+            ["event/event.html"],
         )
 
         assert _descriptions(response) == ["Konwent gier w Krakowie"] * 3
@@ -199,7 +199,7 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
-            "notice_board/detail.html",
+            "encounter/detail.html",
         )
 
         description = _meta(response, "name", "description")
@@ -215,7 +215,7 @@ class TestMetaDescription:
         response = _get_ok(
             client,
             reverse("web:chronology:event", kwargs={"slug": event.slug}),
-            ["chronology/event.html"],
+            ["event/event.html"],
         )
 
         assert _descriptions(response) == [PRODUCT_PITCH] * 3
@@ -231,7 +231,7 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
-            "notice_board/detail.html",
+            "encounter/detail.html",
         )
 
         assert _meta_raw(response, "name", "description").endswith(
@@ -249,7 +249,7 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
-            "notice_board/detail.html",
+            "encounter/detail.html",
         )
 
         description = _meta(response, "name", "description")
@@ -264,7 +264,7 @@ class TestSessionLinkPreview:
             client,
             f'{reverse("web:chronology:event", kwargs={"slug": event.slug})}'
             f"?session={session_param}",
-            ["chronology/event.html"],
+            ["event/event.html"],
         )
 
     def _scheduled(self, event, **session_fields):

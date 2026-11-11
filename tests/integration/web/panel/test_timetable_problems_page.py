@@ -3,8 +3,8 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.timetable import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,

@@ -7,6 +7,13 @@ import { eventTimeZone, programmeDate, programmeDayStartHour } from "./event-tim
 
 const MINUTE_MS = 60_000;
 
+// SessionAvailability's terms, as the page states them (event.html).
+const availabilityTerms = (): Record<string, string> =>
+  JSON.parse(document.querySelector("#session-availability")?.textContent ?? "{}") as Record<
+    string,
+    string
+  >;
+
 const eventClock = (at: number): string => {
   const timeZone = eventTimeZone();
   if (!timeZone) return "";
@@ -93,6 +100,7 @@ const placeInList = (at: number): void => {
 // Only ever marks: the served state is the floor, so a reader whose device
 // clock runs slow cannot light a past programme back up.
 const markEnded = (at: number): void => {
+  const ended = availabilityTerms().ENDED;
   let marked = false;
   for (const session of document.querySelectorAll<HTMLElement>(
     ".session[data-session-end]:not([data-ended])",
@@ -103,7 +111,7 @@ const markEnded = (at: number): void => {
     // Every other availability term is about a seat in something still to
     // come, so ending settles the status the filters read (SessionData.
     // availability puts "ended" above all of them).
-    session.dataset.status = "ended";
+    if (ended) session.dataset.status = ended;
     marked = true;
   }
   // SAFETY: session-filters answers with schedule:filtered, which re-enters

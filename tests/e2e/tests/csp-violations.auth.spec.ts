@@ -5,7 +5,7 @@ import { expect, test } from "./helpers/fixtures";
 // event-handler attributes — see csp-violations.spec.ts for the rest of the
 // sweep and why the enforcing header is what this server actually sends.
 //
-// crowd/user/avatar.html's radios (also converted, to data-action="submit-form")
+// user/user/avatar.html's radios (also converted, to data-action="submit-form")
 // aren't covered here: they render only for a user with a provider avatar, and
 // the e2e fixtures create local accounts. Its visible "Save" button submits the
 // same form, so that page degrades rather than breaking.

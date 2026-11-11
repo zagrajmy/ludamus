@@ -54,16 +54,13 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.mills.timeslots import PROGRAMME_DAYS
-from ludamus.pacts import SessionStatus
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.crowd import AgeBand, UserType
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.sessions import PROGRAMME_DAYS, SessionStatus
+from ludamus.pacts.user import AgeBand, UserType
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import (
-    EventVisibility,
-    NotificationKind,
-    SessionParticipationStatus,
-)
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.notifications import NotificationKind
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -1283,6 +1280,53 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_orphan_answers_event(sphere: Sphere, *, tester: User) -> None:
+    # A proposal holding an answer its category no longer asks for, and a
+    # second category that does ask it, so switching on the edit form turns
+    # the read-only row back into an input.
+    event = _create_event(
+        sphere,
+        name="Revised Questions Meet",
+        slug="revised-questions",
+        description="A proposal outliving the question it answered.",
+        start_offset=timedelta(days=22),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    current = ProposalCategory.objects.create(
+        event=event, name="Current Format", slug="current-format"
+    )
+    former = ProposalCategory.objects.create(
+        event=event, name="Former Format", slug="former-format"
+    )
+    field = SessionField.objects.create(
+        event=event,
+        name="Legacy",
+        question="Legacy question?",
+        slug="legacy",
+        field_type="text",
+        order=0,
+    )
+    SessionFieldRequirement.objects.create(
+        category=former, field=field, is_required=False, order=0
+    )
+    session = Session.objects.create(
+        event=event,
+        presenter=tester,
+        facilitator_name=tester.name,
+        contact_email=tester.email,
+        category=current,
+        title="Revised Proposal",
+        slug="revised-proposal",
+        description="Answered a question nobody asks any more.",
+        duration="PT1H",
+        participants_limit=4,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+    SessionFieldValue.objects.create(session=session, field=field, value="Old answer")
+
+
 # A live event whose slots are in every state a card schedule can show: one
 # over yesterday, and tomorrow a 10:00 holding a talk that takes no sign-up
 # beside a workshop whose window has not opened, then a sign-up-free 14:00.
@@ -1356,6 +1400,308 @@ def _create_single_slot_event(sphere: Sphere) -> None:
         seats=6,
         hour=1,
     )
+
+
+def _flow_user(slug: str, *, name: str) -> User:
+    # A user of its own per role in a flow spec, so no other spec reads its
+    # seats, notifications or RSVPs.
+    return User.objects.create_user(
+        username=slug,
+        email=f"{slug}@test.local",
+        password=f"{slug}-123",
+        name=name,
+        slug=slug,
+    )
+
+
+def _flow_user_state(slug: str, *, name: str) -> User:
+    user = _flow_user(slug, name=name)
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+    )
+    return user
+
+
+# A visitor without an account signs up with a code. One session has room, the
+# other's only seat is taken, so the code's second signup lands on the waiting
+# list. Driven by anonymous-enrollment.spec.ts.
+def _create_anonymous_signup_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Lantern Fair",
+        slug="lantern-fair",
+        description="Sign up without an account; keep the code.",
+        start_offset=timedelta(days=22),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+        allow_anonymous=True,
+    )
+    venue = _create_venue(event, name="Fair Grounds", slug="fair-grounds")
+    area = _create_area(venue, name="Fair Tent", slug="fair-tent")
+    space = _create_space(area, name="Lantern Table", slug="lantern-table", capacity=4)
+    _scheduled_session(
+        event,
+        space,
+        title="Lantern Walk",
+        slug="lantern-walk",
+        presenter="Fair GM",
+        description="A session with room left.",
+        seats=4,
+        hour=0,
+    )
+    duel = _scheduled_session(
+        event,
+        space,
+        title="Cellar Duel",
+        slug="cellar-duel",
+        presenter="Fair GM",
+        description="A one-seat session whose seat is taken.",
+        seats=1,
+        hour=3,
+    )
+    _seat(
+        duel,
+        _flow_user("e2e-duel-holder", name="Duel Holder"),
+        SessionParticipationStatus.CONFIRMED,
+    )
+
+
+# A member signs a companion up with them. One session seats both; the other
+# has one chair left. Driven by party-enrollment.auth.spec.ts.
+def _create_party_seats_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Hearth Night",
+        slug="hearth-night",
+        description="Bring someone along.",
+        start_offset=timedelta(days=23),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    venue = _create_venue(event, name="Hearth Hall", slug="hearth-hall")
+    area = _create_area(venue, name="Hearth Floor", slug="hearth-floor")
+    space = _create_space(area, name="Hearth Table", slug="hearth-table", capacity=4)
+    host = _flow_user_state("e2e-hearth-host", name="Maren Hearth")
+    User.objects.create_user(
+        username="connected|e2e-hearth-companion",
+        slug="e2e-hearth-companion",
+        name="Pip Hearth",
+        user_type=UserType.CONNECTED,
+        manager=host,
+    )
+    _scheduled_session(
+        event,
+        space,
+        title="Two Chair Tale",
+        slug="two-chair-tale",
+        presenter="Hearth GM",
+        description="Room for the two of you.",
+        seats=2,
+        hour=0,
+    )
+    last_chair = _scheduled_session(
+        event,
+        space,
+        title="Last Chair Saga",
+        slug="last-chair-saga",
+        presenter="Hearth GM",
+        description="One chair left.",
+        seats=2,
+        hour=3,
+    )
+    _seat(
+        last_chair,
+        _flow_user("e2e-hearth-regular", name="Hearth Regular"),
+        SessionParticipationStatus.CONFIRMED,
+    )
+
+
+# A full one-seat session with two people waiting. The organizer raises the
+# limit by one in the panel, which must seat the first waiter and only her.
+# One session per attempt, because a raise cannot be taken back.
+# Driven by capacity-promotion.auth.spec.ts.
+def _create_capacity_lab_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Tidewater Moot",
+        slug="tidewater-moot",
+        description="More chairs arrive.",
+        start_offset=timedelta(days=24),
+        duration_hours=12,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Skirmish",
+        slug="skirmish",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    venue = _create_venue(event, name="Tide Hall", slug="tide-hall")
+    area = _create_area(venue, name="Tide Floor", slug="tide-floor")
+    space = _create_space(area, name="Tide Table", slug="tide-table", capacity=8)
+    holder = _flow_user("e2e-tide-holder", name="Tide Holder")
+    first = _flow_user_state("e2e-tide-first", name="Ilse First")
+    second = _flow_user_state("e2e-tide-second", name="Otto Second")
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        session = _scheduled_session(
+            event,
+            space,
+            title=f"Harbor Siege {attempt}",
+            slug=f"harbor-siege-{attempt}",
+            presenter="Tide GM",
+            description="A full table with two people waiting.",
+            seats=1,
+            hour=(attempt - 1) * 3,
+        )
+        session.category = category
+        session.status = SessionStatus.ACCEPTED
+        session.save(update_fields=["category", "status"])
+        # Creation order is queue order: the first waiter joined first.
+        for user, status in (
+            (holder, SessionParticipationStatus.CONFIRMED),
+            (first, SessionParticipationStatus.WAITING),
+            (second, SessionParticipationStatus.WAITING),
+        ):
+            _seat(session, user, status)
+
+
+# Proposals waiting for a decision next to one already on the agenda, for the
+# bulk status bar. Driven by proposal-bulk-review.spec.ts, which puts every
+# status back when it is done.
+def _create_review_desk_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Quillmark Convention",
+        slug="quillmark-con",
+        description="A pile of proposals to get through.",
+        start_offset=timedelta(days=26),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        proposals_open=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Tabletop",
+        slug="tabletop",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    venue = _create_venue(event, name="Quill Hall", slug="quill-hall")
+    area = _create_area(venue, name="Quill Floor", slug="quill-floor")
+    space = _create_space(area, name="Quill Room", slug="quill-room", capacity=8)
+    for title in ("Moonlit Heist", "Clockwork Duel", "Ashen Choir"):
+        Session.objects.create(
+            event=event,
+            category=category,
+            facilitator_name="Quill GM",
+            title=title,
+            slug=title.lower().replace(" ", "-"),
+            description="A proposal waiting for a decision.",
+            duration="PT2H",
+            participants_limit=4,
+            min_age=0,
+            status=SessionStatus.PENDING,
+        )
+    anchored = _scheduled_session(
+        event,
+        space,
+        title="Anchored Saga",
+        slug="anchored-saga",
+        presenter="Quill GM",
+        description="Already on the agenda.",
+        seats=4,
+        hour=1,
+    )
+    anchored.category = category
+    anchored.status = SessionStatus.ACCEPTED
+    anchored.save(update_fields=["category", "status"])
+
+
+# One accepted session nobody has placed yet and one room to place it in: the
+# organizer puts it on the timetable and takes it off again, and the public
+# schedule follows. Driven by timetable-publish.spec.ts.
+def _create_placement_lab_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Gilded Bazaar",
+        slug="gilded-bazaar",
+        description="A programme that fills in as the organizer places it.",
+        start_offset=timedelta(days=29),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Stories",
+        slug="stories",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    venue = _create_venue(event, name="Bazaar Hall", slug="bazaar-hall")
+    _create_space(venue, name="Brass Room", slug="brass-room", capacity=8)
+    # The timetable draws its grid over the event's time slots.
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=4),
+    )
+    Session.objects.create(
+        event=event,
+        category=category,
+        facilitator_name="Bazaar GM",
+        title="Brass Lantern Tale",
+        slug="brass-lantern-tale",
+        description="Accepted, waiting for a room and an hour.",
+        duration="PT2H",
+        participants_limit=6,
+        min_age=0,
+        status=SessionStatus.ACCEPTED,
+    )
+
+
+# An event with a scheduled session and no enrollment window yet: the
+# organizer opens one in the panel and closes it again. Driven by
+# panel-enrollment-window.spec.ts.
+def _create_window_lab_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Saffron Gathering",
+        slug="saffron-gathering",
+        description="Enrollment opens when the organizer says so.",
+        start_offset=timedelta(days=27),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Saffron Hall", slug="saffron-hall")
+    area = _create_area(venue, name="Saffron Floor", slug="saffron-floor")
+    space = _create_space(area, name="Saffron Room", slug="saffron-room", capacity=6)
+    _scheduled_session(
+        event,
+        space,
+        title="Spice Route",
+        slug="spice-route",
+        presenter="Saffron GM",
+        description="A session waiting for its enrollment window.",
+        seats=6,
+        hour=1,
+    )
+
+
+# Three members who answer an encounter the e2e-tester sets up with two
+# spots. Driven by encounter-rsvp.auth.spec.ts.
+def _create_encounter_guests() -> None:
+    _flow_user_state("e2e-rsvp-first", name="Juniper Guest")
+    _flow_user_state("e2e-rsvp-second", name="Rowan Guest")
+    _flow_user_state("e2e-rsvp-third", name="Sage Guest")
 
 
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
@@ -1964,8 +2310,16 @@ def main() -> None:
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
     _create_slot_states_event(sphere)
+    _create_anonymous_signup_event(sphere)
+    _create_party_seats_event(sphere)
+    _create_capacity_lab_event(sphere)
+    _create_review_desk_event(sphere)
+    _create_window_lab_event(sphere)
+    _create_placement_lab_event(sphere)
+    _create_encounter_guests()
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

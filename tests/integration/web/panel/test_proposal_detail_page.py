@@ -15,22 +15,21 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import (
-    AgendaItemDTO,
-    FacilitatorDTO,
-    ScheduleChangeAction,
-    ScheduleChangeLogDTO,
-    SessionDTO,
-    SessionStatus,
-    TimeSlotDTO,
-    TrackDTO,
-)
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.submissions import ImportLogEntryDTO
+from ludamus.pacts.propose import ImportLogEntryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import (
+    AgendaItemDTO,
+    ScheduleChangeAction,
+    ScheduleChangeLogDTO,
+)
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
