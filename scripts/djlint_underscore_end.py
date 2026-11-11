@@ -13,7 +13,7 @@ mypyc-compiled extension modules: `djlint.rules.T038` resolves to a `.so` whose
 the module attribute from here does nothing. Delegation is not available and
 the logic has to be copied.
 
-The logic below is upstream's, re-synced to djlint 1.47.0. What changed: the
+The logic below is upstream's, re-synced to djlint 1.49.7. What changed: the
 regex marked EDITED, which is the point of the copy; keyword-only signatures,
 which this repo requires past two parameters; and `run`'s closer branch
 lifted into `_close` and two helpers, because upstream's single function is
@@ -114,6 +114,7 @@ def _error(
     return {
         "code": rule["name"],
         "line": get_line(match.start(), line_ends),
+        "end": get_line(match.end(), line_ends),
         "match": match.group().strip()[:20],
         "message": message,
     }

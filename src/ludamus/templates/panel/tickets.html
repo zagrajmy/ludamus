@@ -253,7 +253,9 @@
                                     <td class="px-4 py-4 text-sm text-right tabular-nums whitespace-nowrap text-foreground">
                                         {{ order.total|money:order.currency }}
                                     </td>
-                                    <td class="px-4 py-4 text-sm">{% include "panel/_ticket_order_status_badge.html" with status=order.status %}</td>
+                                    <td class="px-4 py-4 text-sm">
+                                        {% include "panel/_ticket_order_status_badge.html" with status=order.status %}
+                                    </td>
                                     <td class="px-4 py-4">
                                         {% if order.status == "paid" %}
                                             <form method="post"

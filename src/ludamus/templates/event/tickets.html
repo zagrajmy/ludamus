@@ -75,7 +75,7 @@
                             {% url 'web:crowd:auth0:login' as login_url %}
                             {% blocktranslate trimmed with next=request.get_full_path|urlencode %}
                                 No account needed. <a href="{{ login_url }}?next={{ next }}"
-    class="underline underline-offset-4">Log in</a> first to save the tickets to yours.
+                                                      class="underline underline-offset-4">Log in</a> first to save the tickets to yours.
                             {% endblocktranslate %}
                         {% endif %}
                     </p>
