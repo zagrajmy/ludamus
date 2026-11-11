@@ -55,7 +55,7 @@ whitenoise = "~6.12.0"
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
 # NOTE: cabinet is not on PyPI and is not going there; git is its only source.
-cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v3.0.0" }
+cabinet = { url = "https://github.com/fancysnake/cabinet/releases/download/v5.0.0/cabinet-5.0.0-py3-none-any.whl" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^11.0.0"
