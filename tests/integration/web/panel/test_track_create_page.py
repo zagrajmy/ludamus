@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.user import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

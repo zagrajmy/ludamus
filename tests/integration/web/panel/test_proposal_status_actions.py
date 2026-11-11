@@ -8,9 +8,12 @@ from urllib.parse import quote
 
 import pytest
 from django.contrib import messages
+from django.core import mail
+from django.core.mail.backends.base import BaseEmailBackend
 from django.urls import reverse
 
-from tests.integration.conftest import EventFactory
+from ludamus.links.db.django.models import Notification
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -19,9 +22,15 @@ from tests.integration.web.panel.helpers import (
     assert_proposal_status_applied,
     assert_proposal_status_unchanged,
     assert_scheduled_proposal_refused,
+    make_facilitator,
     make_proposal,
     make_scheduled_proposal,
 )
+
+
+class RefusingBackend(BaseEmailBackend):
+    def send_messages(self, email_messages):
+        return 0
 
 
 @dataclass(frozen=True)
@@ -206,3 +215,204 @@ class TestScheduledProposal:
             response=response, event=event, session=session
         )
         assert_proposal_status_unchanged(session, "accepted")
+
+
+class TestAcceptanceNotification:
+    def test_accepting_tells_everyone_running_the_session_once(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        proposer = UserFactory(username="proposer")
+        co_host = UserFactory(username="cohost")
+        UserFactory(username="bystander")
+        session = make_proposal(event, presenter=proposer, title="Dungeon Night")
+        session.facilitators.add(
+            make_facilitator(event, user=co_host),
+            make_facilitator(event, display_name="Guest", slug="guest"),
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        event_url = "https://testserver" + reverse(
+            "web:chronology:event", kwargs={"slug": event.slug}
+        )
+        body = (
+            f"Your proposal for {event.name} was accepted. It will appear on the "
+            "agenda once the organizers give it a time and place."
+        )
+        assert list(
+            Notification.objects.order_by("recipient__username").values_list(
+                "recipient__username", "kind", "title", "body", "url", "payload"
+            )
+        ) == [
+            (
+                username,
+                "proposal_accepted",
+                "Accepted: Dungeon Night",
+                body,
+                event_url,
+                {"session_id": session.pk},
+            )
+            for username in ("cohost", "proposer")
+        ]
+        assert sorted(message.to for message in mail.outbox) == sorted(
+            [[co_host.email], [proposer.email]]
+        )
+
+    def test_a_title_with_line_breaks_still_makes_a_one_line_subject(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        proposer = UserFactory(username="proposer")
+        session = make_proposal(event, presenter=proposer, title="Dungeon\r\nNight")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [message.subject for message in mail.outbox] == [
+            "Accepted: Dungeon Night"
+        ]
+
+    def test_accepting_again_after_a_rejection_tells_no_one_twice(
+        self, panel_client, event
+    ):
+        proposer = UserFactory(username="proposer")
+        session = make_proposal(event, presenter=proposer)
+
+        for action in (ACCEPT, REJECT, ACCEPT, ACCEPT):
+            panel_client.post(_url(event, proposal_id=session.pk, action=action))
+
+        assert Notification.objects.filter(recipient=proposer).count() == 1
+
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_a_proposal_sent_without_an_account_is_mailed_once_in_its_language(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        session = make_proposal(
+            event,
+            title="Dungeon Night",
+            contact_email="guest@example.com",
+            contact_language="pl",
+        )
+        session.facilitators.add(make_facilitator(event))
+
+        for action in (ACCEPT, REJECT, ACCEPT):
+            with django_capture_on_commit_callbacks(execute=True):
+                panel_client.post(
+                    _url(event, proposal_id=session.pk, action=action),
+                    headers={"accept-language": "en"},
+                )
+
+        event_url = "https://testserver" + reverse(
+            "web:chronology:event", kwargs={"slug": event.slug}
+        )
+        assert [
+            (message.to, message.subject, message.body) for message in mail.outbox
+        ] == [
+            (
+                ["guest@example.com"],
+                "Zaakceptowano: Dungeon Night",
+                (
+                    f"Twoje zgłoszenie na {event.name} zostało zaakceptowane. Pojawi "
+                    "się w programie, gdy organizatorzy nadadzą mu termin i miejsce."
+                    f"\n\n{event_url}"
+                ),
+            )
+        ]
+        assert not Notification.objects.exists()
+
+    def test_a_refused_mail_is_logged_as_not_sent(
+        self, panel_client, event, settings, caplog, django_capture_on_commit_callbacks
+    ):
+        settings.EMAIL_BACKEND = f"{__name__}.RefusingBackend"
+        session = make_proposal(
+            event, contact_email="guest@example.com", contact_language="en"
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert [
+            (record.levelname, record.getMessage())
+            for record in caplog.records
+            if record.name == "ludamus.links.db.django.notifications"
+        ] == [
+            (
+                "WARNING",
+                f"Acceptance of session {session.pk} not mailed to its proposer",
+            )
+        ]
+        session.refresh_from_db()
+        assert session.acceptance_mailed_at is None
+
+    def test_a_contact_that_never_used_the_propose_form_is_not_mailed(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
+        session = make_proposal(event, contact_email="imported@example.com")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        session.refresh_from_db()
+        assert session.status == "accepted"
+        assert not mail.outbox
+        assert not Notification.objects.exists()
+
+    @pytest.mark.parametrize("organizer_language", ("pl", "en"))
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_each_recipient_reads_it_in_their_own_language(
+        self,
+        panel_client,
+        event,
+        organizer_language,
+        django_capture_on_commit_callbacks,
+    ):
+        english = UserFactory(username="english", language="en")
+        polish = UserFactory(username="polish", language="pl")
+        session = make_proposal(event, presenter=english, title="Dungeon Night")
+        session.facilitators.add(make_facilitator(event, user=polish))
+
+        with django_capture_on_commit_callbacks(execute=True):
+            panel_client.post(
+                _url(event, proposal_id=session.pk, action=ACCEPT),
+                headers={"accept-language": organizer_language},
+            )
+
+        assert dict(
+            Notification.objects.values_list("recipient__username", "body")
+        ) == {
+            "english": (
+                f"Your proposal for {event.name} was accepted. It will appear on "
+                "the agenda once the organizers give it a time and place."
+            ),
+            "polish": (
+                f"Twoje zgłoszenie na {event.name} zostało zaakceptowane. Pojawi "
+                "się w programie, gdy organizatorzy nadadzą mu termin i miejsce."
+            ),
+        }
+        assert {message.to[0]: message.subject for message in mail.outbox} == {
+            english.email: "Accepted: Dungeon Night",
+            polish.email: "Zaakceptowano: Dungeon Night",
+        }
+
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_a_recipient_never_seen_signed_in_reads_english(
+        self, panel_client, event, settings
+    ):
+        proposer = UserFactory(username="proposer", language="")
+        session = make_proposal(event, presenter=proposer, title="Dungeon Night")
+        settings.LANGUAGE_CODE = "pl"
+
+        panel_client.post(
+            _url(event, proposal_id=session.pk, action=ACCEPT),
+            headers={"accept-language": "pl"},
+        )
+
+        assert Notification.objects.get().title == "Accepted: Dungeon Night"
+
+    def test_other_status_changes_notify_no_one(self, panel_client, event):
+        session = make_proposal(event, presenter=UserFactory(username="proposer"))
+
+        for action in (HOLD, REJECT, PENDING):
+            panel_client.post(_url(event, proposal_id=session.pk, action=action))
+
+        assert not Notification.objects.exists()

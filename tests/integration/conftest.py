@@ -1,14 +1,17 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
+from django.utils.module_loading import import_string
 from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
@@ -37,6 +40,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from tests.integration.catalog import compile_po
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 from tests.template_checks import MissingTemplateVariableFilter
 
@@ -59,12 +63,15 @@ register(AnonymousUserFactory)
 
 @pytest.fixture(scope="session", autouse=True)
 def _urlconf_loaded():
-    # Load the whole URLconf while the clock is real. It imports the MCP tools
-    # module, which builds pydantic TypeAdapters at import time, and pydantic
+    # Load the whole URLconf and the middleware chain while the clock is real.
+    # They import modules that build pydantic models and TypeAdapters at
+    # import time (the MCP tools, the repository registry), and pydantic
     # cannot generate a schema for the datetime class freezegun swaps in. A
-    # test that freezes time before the first reverse() would otherwise fail on
+    # test that freezes time before the first request would otherwise fail on
     # whichever xdist worker happens to run it first.
     assert get_resolver().reverse_dict is not None
+    for middleware in django_settings.MIDDLEWARE:
+        import_string(middleware)
 
 
 @pytest.fixture(autouse=True)
@@ -114,6 +121,21 @@ def english_language(settings):
     settings.LANGUAGE_CODE = "en"
 
 
+@pytest.fixture(scope="session", name="_compiled_polish_catalog")
+def compiled_polish_catalog_fixture(tmp_path_factory):
+    root = tmp_path_factory.mktemp("locale")
+    messages = root / "pl" / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    source = Path(django_settings.LOCALE_PATHS[0]) / "pl" / "LC_MESSAGES"
+    compile_po(po_path=source / "django.po", mo_path=messages / "django.mo")
+    return root
+
+
+@pytest.fixture
+def polish_catalog(settings, _compiled_polish_catalog):
+    settings.LOCALE_PATHS = [_compiled_polish_catalog]
+
+
 def sponsor_user(*, leader, member):
     # Mirror the 0110 backfill shape: the leader's own party (created with
     # their own ACCEPT_BY_DEFAULT membership) sponsors the companion.
@@ -146,9 +168,8 @@ def sixteen_plus_user(active_user):
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
-        django_get_or_create = ("username",)
 
-    username = Faker("user_name")
+    username = Sequence(lambda n: f"user{n}")
     email = Sequence(lambda n: f"user{n}@example.com")
     # Verified by default, mirroring production after the grandfathering
     # migration; suppression tests flip it off explicitly.

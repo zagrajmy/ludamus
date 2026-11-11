@@ -43,9 +43,10 @@ function rowElement(selector: string, row: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`${selector}[data-row="${row}"]`);
 }
 
-// Lowercase ASCII slug for the live name→slug preview. Mirrors the server-side
-// slugify, which applies the same simov/slugify transliteration table via a
-// hand-maintained Python copy (mills/submissions.py: _TRANSLITERATION).
+// Lowercase ASCII slug for the live name→slug preview. It only approximates the
+// server's slugify (pacts/slugs.py, unidecode): Polish letters agree, but this
+// one spells symbols out ("&" → "and") and drops "_" and CJK, while the server
+// drops symbols, keeps "_", transliterates CJK, and caps slugs at 50 chars.
 function slugify(value: string): string {
   return slugifyLib(value, { locale: "pl", lower: true, strict: true });
 }

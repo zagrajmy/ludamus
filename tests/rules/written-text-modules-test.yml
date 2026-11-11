@@ -1,0 +1,27 @@
+id: written-text-modules
+valid:
+  - |
+    ring_as_written(
+        recipient_ids=ids,
+        bell=Bell(kind=kind, title=announcement.title, body=body, url=""),
+    )
+  - "obj, _ = Model.objects.get_or_create(pk=pk)"
+  - |
+    for _ in range(3):
+        retry()
+  - |
+    for _, row in pairs:
+        keep(row)
+  - "seats = [0 for _ in range(n)]"
+  - "skip = lambda _: None"
+invalid:
+  - 'body = ngettext("one seat", "%(n)d seats", n)'
+  - 'label = gettext_lazy("Send")'
+  - 'label = pgettext("admin", "Send")'
+  - 'label = npgettext("admin", "seat", "seats", n)'
+  - "from django.utils.translation import gettext as tr"
+  - "from ludamus.links.db.django.models import _ as tr"
+  - "tr = models._"
+  - "from ludamus.links.db.django.models import _"
+  - "from django.utils import translation"
+  - "import django.utils.translation as t"

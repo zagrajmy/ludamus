@@ -22,7 +22,7 @@ from ludamus.links.google_sheets import (
     KonwencikSheetConfig,
     KonwencikSheetExporter,
 )
-from ludamus.pacts.chronology import CheckOutcome
+from ludamus.pacts.integrations import CheckOutcome
 from ludamus.pacts.sheets import SheetExportError
 
 SECRET = b'{"type": "service_account"}'

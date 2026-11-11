@@ -36,7 +36,6 @@ class _LoggableChange(Protocol):
 
 
 def base_log_fields(log: _LoggableChange) -> dict[str, object]:
-    # Common DTO fields shared by every change-log row (schedule, content, …).
     return {
         "pk": log.pk,
         "event_id": log.event_id,

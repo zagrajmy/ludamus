@@ -18,7 +18,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
+                <div class="text-sm leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
             {% endif %}
         </div>
     {% endfor %}

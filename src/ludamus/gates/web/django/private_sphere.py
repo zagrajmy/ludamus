@@ -7,7 +7,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.http import Http404
 
 from ludamus.gates.web.django.access import has_panel_access
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.sphere import SphereVisibility
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponseBase

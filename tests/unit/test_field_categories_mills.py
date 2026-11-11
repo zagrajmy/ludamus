@@ -1,6 +1,6 @@
-from ludamus.mills.submissions.session_fields import CFPSessionFieldService
-from ludamus.pacts import OrganizerFieldDTO
-from ludamus.pacts.submissions import RequirementSelectionDTO
+from ludamus.mills.propose.session_fields import CFPSessionFieldService
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.propose import RequirementSelectionDTO
 from tests.unit.factories import FakeTransaction, category
 
 EVENT_PK = 10

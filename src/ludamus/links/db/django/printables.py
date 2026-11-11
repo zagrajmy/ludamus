@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 from django.db.models import Prefetch
 
 from ludamus.links.db.django.models import Event, SphereMembership
-from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
     PrintablesReminderRepositoryProtocol,
 )
+from ludamus.pacts.sphere import SphereRole
 
 if TYPE_CHECKING:
     from datetime import timedelta

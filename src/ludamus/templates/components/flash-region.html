@@ -1,0 +1,6 @@
+{% load i18n %}
+{# The fixed toaster flashes stack in. flash.ts clones an empty one from #flash-region-template when a flash it raises finds none on the page. #}
+<div class="flash-region"
+     role="region"
+     aria-live="polite"
+     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>

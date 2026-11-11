@@ -48,7 +48,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
   test("dense event page, whose compact schedule ships its own inline script", async ({ page }) => {
     await installCspViolationCollector(page);
 
-    // chronology/_compact_schedule.html renders only above
+    // event/_compact_schedule.html renders only above
     // COMPACT_SCHEDULE_MIN_SESSIONS, so the regular event detail test below
     // takes the card branch and never loads this page's scroll-restore
     // script.

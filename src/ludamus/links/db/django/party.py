@@ -14,7 +14,6 @@ from django.db.models import Prefetch, Q
 from ludamus.links.db.django.companions import companions_of
 from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.party import (
     InvitablePartyDTO,
@@ -29,6 +28,7 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     PartyRepositoryProtocol,
 )
+from ludamus.pacts.user import CompanionDTO, UserType
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.models import User
@@ -190,7 +190,9 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def lock_owned_companions(*, manager_pk: int) -> list[CompanionDTO]:
-        companions = companions_of(manager_pk).select_for_update()
+        # In pk order, as every statement that locks User rows takes them
+        # (docs/agents/architecture.md, seat lock order).
+        companions = companions_of(manager_pk).select_for_update().order_by("pk")
         return [CompanionDTO.model_validate(companion) for companion in companions]
 
     @staticmethod

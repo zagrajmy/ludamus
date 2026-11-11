@@ -2,18 +2,48 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime
 from uuid import UUID
 
-from ludamus.pacts import (
-    EventDTO,
-    ProposalCategoryDTO,
-    SessionDTO,
-    SessionStatus,
-    TrackDTO,
-)
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.tracks import TrackDTO
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
 DEFAULT_END = datetime(2026, 6, 1, 18, 0, tzinfo=UTC)
+
+
+class FakeUsers:
+    """Users by slug and by pk; a miss raises NotFoundError, as the repo does."""
+
+    def __init__(self, *users: UserDTO) -> None:
+        self.users = {user.slug: user for user in users}
+
+    def read(self, slug: str) -> UserDTO:
+        try:
+            return self.users[slug]
+        except KeyError:
+            raise NotFoundError from None
+
+    def read_by_id(self, pk: int) -> UserDTO:
+        for user in self.users.values():
+            if user.pk == pk:
+                return user
+        raise NotFoundError
+
+    def read_by_ids(self, pks) -> list[UserDTO]:
+        by_pk = {user.pk: user for user in self.users.values()}
+        return [by_pk[pk] for pk in pks if pk in by_pk]
+
+    def read_by_email(self, email: str) -> UserDTO:
+        for user in self.users.values():
+            if user.email == email:
+                return user
+        raise NotFoundError
+
+    def update(self, user_slug: str, user_data) -> None:
+        self.users[user_slug] = self.users[user_slug].model_copy(update=dict(user_data))
 
 
 class FakeTransaction:
@@ -70,6 +100,7 @@ def session_dto(**overrides) -> SessionDTO:
     defaults = {
         "category_id": None,
         "contact_email": "",
+        "contact_language": "",
         "creation_time": DEFAULT_START,
         "description": "",
         "facilitator_name": "",

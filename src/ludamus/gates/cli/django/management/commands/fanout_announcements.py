@@ -7,23 +7,9 @@ Safe to run repeatedly — the ``notified_at`` claim delivers each announcement
 at most once.
 """
 
-from __future__ import annotations
-
-import logging
-
-from django.core.management.base import BaseCommand
-
-from ludamus.inits.builders import build_announcement_fanout
-
-logger = logging.getLogger(__name__)
+from ludamus.gates.cli.django.management.commands._sweep import SweepCommand
 
 
-class Command(BaseCommand):
+class Command(SweepCommand):
     help = "Deliver published announcements to their subscribers' bells."
-
-    def handle(self, *_args: str, **_options: int | str | bool | None) -> None:
-        notified = build_announcement_fanout().fanout_due()
-        logger.info("fanout_announcements: notified %s subscriber(s)", notified)
-        self.stdout.write(
-            self.style.SUCCESS(f"Notified {notified} subscriber(s) of announcements.")
-        )
+    sweep = "fanout_announcements"

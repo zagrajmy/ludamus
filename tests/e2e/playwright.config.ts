@@ -76,6 +76,13 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: isCI ? "retain-on-failure" : "on-first-retry",
+    // NOTE: Playwright passes --no-sandbox to Chromium unless told otherwise.
+    // Opt-in, because most hosts cannot give Chromium its sandbox: dev
+    // containers and Ubuntu 23.10+ (GitHub's runners included) deny
+    // unprivileged user namespaces, and Chromium refuses to sandbox as root,
+    // which is how docker/verification.Dockerfile runs. CI lifts the AppArmor
+    // restriction and sets the flag.
+    launchOptions: { chromiumSandbox: process.env.E2E_CHROMIUM_SANDBOX === "1" },
     ...(proxyServer
       ? {
           proxy: {
@@ -125,6 +132,10 @@ export default defineConfig({
         /proposal-delete-restore\.spec\.ts/,
         /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
+        /anonymous-enrollment\.spec\.ts/,
+        /proposal-bulk-review\.spec\.ts/,
+        /panel-enrollment-window\.spec\.ts/,
+        /timetable-publish\.spec\.ts/,
         // Read-only but chains several full navigations of the heavy print
         // preview; Firefox's slow loads make it time out where Chromium fits
         // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
