@@ -178,7 +178,7 @@ export function ActionsMenu({
                     <button
                       aria-checked={option.checked}
                       aria-label={option.label}
-                      className={`grid size-8 place-items-center rounded-full text-lg leading-none outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus ${option.checked ? "bg-primary-light ring-1 ring-primary" : ""}`}
+                      className={`grid size-8 place-items-center rounded-full text-base leading-none outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus ${option.checked ? "bg-primary-light ring-1 ring-primary" : ""}`}
                       key={option.symbol}
                       onClick={() => {
                         close(true);
@@ -193,7 +193,7 @@ export function ActionsMenu({
                   ))}
                   <button
                     aria-label={entry.more.label}
-                    className="grid size-8 place-items-center rounded-full text-lg leading-none text-foreground-muted outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="grid size-8 place-items-center rounded-full text-base leading-none text-foreground-muted outline-none hover:bg-bg-tertiary focus-visible:bg-bg-tertiary focus-visible:ring-2 focus-visible:ring-border-focus"
                     onClick={() => {
                       close(true);
                       entry.more.onSelect(trigger.current!);

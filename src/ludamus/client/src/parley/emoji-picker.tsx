@@ -100,7 +100,7 @@ export function ReactionPicker({
     >
       <EmojiPicker.Root
         className="flex min-h-0 flex-1 flex-col"
-        columns={8}
+        columns={9}
         emojibaseUrl={EMOJIBASE}
         locale={locale().toLowerCase().startsWith("pl") ? "pl" : "en"}
         onEmojiSelect={({ emoji }) => {
@@ -138,7 +138,7 @@ export function ReactionPicker({
               ),
               Emoji: ({ emoji, ...props }) => (
                 <button
-                  className="grid size-8 place-items-center rounded-md text-xl leading-none data-active:bg-bg-tertiary"
+                  className="grid size-7 place-items-center rounded-md text-lg leading-none data-active:bg-bg-tertiary"
                   {...props}
                 >
                   {emoji.emoji}
