@@ -83,8 +83,20 @@ jobs:
               environmentUrl: process.env.STAGING_URL,
             });
 
-  deploy:
+  # Ahead of the app, which may call endpoints only the new Worker has.
+  parley:
     needs: [resolve-staging, start-deployment]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-parley.yml
+    with:
+      environment: staging
+      stage: staging
+      sha: ${{ needs.resolve-staging.outputs.sha }}
+    secrets: inherit
+
+  deploy:
+    needs: [resolve-staging, start-deployment, parley]
     permissions:
       contents: read
       packages: write
