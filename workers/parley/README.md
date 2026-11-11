@@ -96,9 +96,11 @@ openssl rsa -in parley-private.pem -pubout
 ```
 
 The token needs, on the Zagrajmy account (`add2b427b034a6073f63a849af7de160`),
-Workers Scripts edit and Secrets Store read, and DNS edit on the
+Workers Scripts edit and Secrets Store edit, and DNS edit on the
 `ROOT_DOMAIN` zone, which must already be in that account; Alchemy creates
-the DNS record and certificate.
+the DNS record and certificate. Secrets Store read is not enough: with no
+saved credentials, as in CI, Alchemy reads its state store's token through a
+preview Worker that binds the secret, and binding a secret takes edit.
 
 ### The first deploy, by hand
 
