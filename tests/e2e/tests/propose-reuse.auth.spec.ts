@@ -19,20 +19,20 @@ const pastEventUrl = "/chronology/event/mothership-nights-1/";
 const proposeUrl = "/event/mothership-nights-2/session/propose/";
 const title = "First time at the table? Play Mothership";
 
-// The facts row is labelled while proposing and bare in the modal, and the
-// organizer's fields are asked as a form, so both differ by design; the
-// description between them has to read the same once the outlines that mark
-// a field as editable are set aside.
-const belowFacts = async (page: Page, info: Locator): Promise<Buffer> => {
+// The summary above it is a form while proposing (labelled facts, the cover
+// beside them) and bare in the modal, and the organizer's fields are asked as
+// a form, so both differ by design; the description between them has to read
+// the same once the outlines that mark a field as editable are set aside.
+const description = async (page: Page, info: Locator): Promise<Buffer> => {
   await info.evaluate((root) => {
     for (const el of root.querySelectorAll<HTMLElement>("input, textarea, select")) {
       el.style.outline = "none";
     }
   });
   const root = (await info.boundingBox())!;
-  const facts = (await info.locator("[data-session-facts]").boundingBox())!;
+  const heading = (await info.locator('[data-morph="desc-label"]').boundingBox())!;
   const fields = (await info.locator("[data-session-fields]").boundingBox())!;
-  const top = Math.round(facts.y + facts.height);
+  const top = Math.round(heading.y);
   return page.screenshot({
     animations: "disabled",
     clip: {
@@ -58,7 +58,7 @@ test.describe("Proposing from an earlier session", () => {
     await expect(modal).toBeVisible();
     // The dialog springs open past its size; measure it once it has settled.
     await modal.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
-    const modalInfo = await belowFacts(page, modal.locator("[data-session-info]"));
+    const modalInfo = await description(page, modal.locator("[data-session-info]"));
 
     await page.goto(proposeUrl);
     const form = page.locator("#propose-details-form");
@@ -86,7 +86,7 @@ test.describe("Proposing from an earlier session", () => {
     await page
       .locator("body")
       .evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    const proposeInfo = await belowFacts(page, form.locator("[data-session-info]"));
+    const proposeInfo = await description(page, form.locator("[data-session-info]"));
 
     const diff = await visualDiff(browser, test.info(), {
       name: "session-info-modal-vs-propose",

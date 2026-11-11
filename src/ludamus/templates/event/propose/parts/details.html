@@ -19,14 +19,6 @@
             {% csrf_token %}
             <h2 class="sr-only">{% translate "Session Details" %}</h2>
             <div class="px-6 pt-6">{% include "event/propose/parts/_stepper.html" %}</div>
-            {# Where the card shows its cover. #}
-            {% if image_form %}
-                <div class="px-6 pb-2">{% tessera_inplace image_form.cover_image %}</div>
-            {% endif %}
-            <div class="px-6 py-4 border-b border-border text-lg font-semibold text-foreground">
-                <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
-                {% tessera_inplace form.title %}
-            </div>
             <div class="px-6 py-4">{% include "event/propose/parts/_session_info_edit.html" %}</div>
             {% if private_field_descriptors %}
                 <section class="border-t border-border bg-proposal-surface dark:bg-black/25 px-6 py-4"

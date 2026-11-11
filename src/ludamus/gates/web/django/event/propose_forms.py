@@ -15,7 +15,7 @@ from ludamus.gates.web.django.dynamic_fields import (
 from ludamus.gates.web.django.forms import (
     STORAGE_LIMIT_VALIDATOR,
     MarkdownTextarea,
-    cover_image_field,
+    session_cover_image_field,
 )
 from ludamus.pacts.durations import duration_choices
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
@@ -163,7 +163,7 @@ def build_session_details_form(
 
 
 class SessionCoverImageForm(forms.Form):
-    cover_image = cover_image_field(crop="top-and-bottom")
+    cover_image = session_cover_image_field()
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

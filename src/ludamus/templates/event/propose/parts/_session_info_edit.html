@@ -1,5 +1,21 @@
 {% extends "event/parts/_session_info.html" %}
 {% load i18n session_info_tags tessera %}
+{% block summary %}
+    {# The cover is a picture of the session, not a long answer, so on a #}
+    {# wide screen it stands beside the short ones rather than above them. #}
+    <div class="{% if image_form %}grid md:grid-cols-2 md:items-start gap-x-6{% endif %}">
+        <div class="min-w-0">
+            <div class="mb-4 text-lg font-semibold text-foreground">
+                <label for="{{ form.title.auto_id }}" class="sr-only">{{ form.title.label }}</label>
+                {% tessera_inplace form.title %}
+            </div>
+            {{ block.super }}
+        </div>
+        {% if image_form %}
+            <div class="mb-6 min-w-0">{% tessera_inplace image_form.cover_image %}</div>
+        {% endif %}
+    </div>
+{% endblock summary %}
 {% block host %}
     {% include "components/avatar.html" with user=current_user size="size-9" %}
     <div class="flex flex-1 min-w-0 font-medium text-foreground">

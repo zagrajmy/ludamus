@@ -57,6 +57,13 @@ TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the top and bottom, so keep the "
     "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
+# A session's cover is drawn at most 750 CSS px wide (its dialog), so 1280
+# is sharp on a 2× screen; asking for an event hero's 1920 only makes every
+# card on the board download a bigger file, as it is served as uploaded.
+SESSION_COVER_IMAGE_HELP_TEXT = _(
+    "1280×720 (16:9) works best. We crop the top and bottom, so keep the "
+    "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
 # is wider, so an overflow only ever surfaces in production. A validator rather
 # than `max_value` on every field writing the column: validators reject
@@ -123,6 +130,12 @@ def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
         help_text=help_text,
         widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, crop=crop),
     )
+
+
+def session_cover_image_field() -> forms.ImageField:
+    field = cover_image_field(crop="top-and-bottom")
+    field.help_text = SESSION_COVER_IMAGE_HELP_TEXT
+    return field
 
 
 def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField:
@@ -634,7 +647,7 @@ class SessionEditForm(forms.Form):
     duration_minutes = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
     )
-    cover_image = cover_image_field(crop="top-and-bottom")
+    cover_image = session_cover_image_field()
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
