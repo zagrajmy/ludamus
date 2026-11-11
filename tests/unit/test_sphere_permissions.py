@@ -68,13 +68,22 @@ class FakeEncounters:
         return self._exists and sphere_id == SPHERE_PK
 
 
-def _service(*, spheres=None, encounters=None, users=None):
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_sphere(self, *, sphere_id):
+        self.revoked.append(sphere_id)
+
+
+def _service(*, spheres=None, encounters=None, users=None, chat=None):
     return SpherePanelService(
         FakeTransaction(),
         spheres or FakeSpheres(),
         FakeEvents(),
         encounters or FakeEncounters(),
         users or FakeUsers(),
+        chat or FakeChat(),
     )
 
 
@@ -163,6 +172,7 @@ class TestSpherePanelServiceUpdateSettings:
     def _update(service, **overrides):
         kwargs = {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": EncountersPolicy.MANAGERS,
         }
@@ -179,6 +189,7 @@ class TestSpherePanelServiceUpdateSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
+                    "parley_enabled": False,
                     "event_cover_buttons_at_bottom": True,
                     "encounters_policy": "managers",
                 },
@@ -192,6 +203,23 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1]["require_session_space"] is False
 
+    def test_turning_chat_off_takes_back_every_pass(self):
+        chat = FakeChat()
+        service = _service(chat=chat)
+
+        self._update(service, parley_enabled=True)
+        self._update(service, parley_enabled=False)
+
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_saving_while_chat_is_off_revokes_nothing(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        self._update(_service(spheres=spheres, chat=chat), parley_enabled=False)
+
+        assert not chat.revoked
+
     def test_empty_logo_removes_it(self):
         spheres = FakeSpheres()
 
@@ -199,6 +227,7 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1] == {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": "managers",
             "logo": "",

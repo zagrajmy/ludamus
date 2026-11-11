@@ -8,6 +8,7 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
+    "jsx": "react-jsx",
     "types": [],
     "lib": [
       "es2024",
@@ -20,6 +21,7 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ]
 }

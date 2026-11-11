@@ -1,5 +1,3 @@
-"""Sphere settings — general tab (sphere-wide defaults)."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -10,8 +8,8 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.settings_forms import SphereSettingsForm
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
+from ludamus.gates.web.django.sphere.panel.forms import SphereSettingsForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
@@ -36,6 +34,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
                 "require_session_space": sphere.require_session_space,
+                "parley_enabled": sphere.parley_enabled,
                 "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
@@ -61,6 +60,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
+            parley_enabled=form.cleaned_data["parley_enabled"],
             event_cover_buttons_at_bottom=form.cleaned_data[
                 "event_cover_buttons_at_bottom"
             ],

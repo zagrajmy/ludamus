@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sphere import (
         AnnouncementData,
@@ -153,12 +154,14 @@ class SpherePanelService:
         events: EventRepositoryProtocol,
         encounters: EncounterRepositoryProtocol,
         users: UserRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._spheres = spheres
         self._events = events
         self._encounters = encounters
         self._users = users
+        self._chat = chat
 
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
         return self._spheres.manager_role(sphere_id, user_slug)
@@ -189,6 +192,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         require_session_space: bool | None = None,
@@ -216,6 +220,7 @@ class SpherePanelService:
         """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "parley_enabled": parley_enabled,
             "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
@@ -233,6 +238,8 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if not parley_enabled and self._spheres.read(sphere_id).parley_enabled:
+                self._chat.revoke_sphere(sphere_id=sphere_id)
             self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
 

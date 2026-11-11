@@ -13,7 +13,7 @@ def unschedule_spaceless_items(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0188_session_contact_language")]
+    dependencies = [("db_main", "0192_remove_encounterrsvp_ip_address")]
 
     operations = [
         migrations.AddField(

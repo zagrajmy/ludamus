@@ -16,7 +16,6 @@ from ludamus.gates.web.django.forms import (
     datetime_local_widget,
     logo_field,
 )
-from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.event import EventVisibility
 
 
@@ -154,46 +153,3 @@ class EventSettingsForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
-
-
-class SphereSettingsForm(forms.Form):
-    """Form for sphere-wide settings."""
-
-    allow_facilitator_session_edit = forms.BooleanField(
-        required=False,
-        label=_("Allow facilitators to edit their own sessions"),
-        help_text=_("Default for the whole sphere. Events can override this setting."),
-    )
-    require_session_space = forms.BooleanField(
-        required=False,
-        label=_("Require a space for every scheduled session"),
-        help_text=_(
-            "Default for the whole sphere; events can override it. Turn off for "
-            "meetups that only need a time."
-        ),
-    )
-    event_cover_buttons_at_bottom = forms.BooleanField(
-        required=False,
-        label=_("Place event cover buttons at the bottom right"),
-        help_text=_(
-            "Shows print and venue map buttons in a horizontal row at the bottom "
-            "right of event covers."
-        ),
-    )
-    encounters_policy = forms.ChoiceField(
-        choices=[
-            (EncountersPolicy.NONE.value, _("Nobody (encounters are off here)")),
-            (EncountersPolicy.MANAGERS.value, _("Sphere managers only")),
-            (EncountersPolicy.EVERYONE.value, _("Everyone")),
-        ],
-        widget=forms.RadioSelect,
-        label=_("Who may organize encounters"),
-        help_text=_(
-            "Encounters are small meetups organized by hand. Public ones are "
-            "listed for everyone on the events page."
-        ),
-    )
-    confirmed_encounters_disable = forms.BooleanField(
-        required=False, widget=forms.HiddenInput
-    )
-    logo = logo_field()

@@ -202,6 +202,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         require_session_space: bool | None = None,
@@ -236,6 +237,7 @@ class SphereDTO(BaseModel):
 
     allow_facilitator_session_edit: bool = True
     require_session_space: bool = True
+    parley_enabled: bool = True
     event_cover_buttons_at_bottom: bool = False
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
@@ -249,6 +251,7 @@ class SphereDTO(BaseModel):
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     require_session_space: bool
+    parley_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: str

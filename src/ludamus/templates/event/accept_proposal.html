@@ -22,7 +22,9 @@
         {# whether it is being reviewed or already scheduled. #}
         <div class="card">
             {% if session.cover_image_url %}
-                <div class="p-1">{% include "components/cover-image.html" with url=session.cover_image_url only %}</div>
+                <div class="p-1">
+                    {% include "components/cover-image.html" with url=session.cover_image_url only %}
+                </div>
             {% endif %}
             <div class="card-body">
                 <h2 class="text-xl font-semibold text-foreground mb-4">{{ session.title }}</h2>
@@ -30,7 +32,9 @@
                 {# thing. The counts and dates are facts about the proposal, not #}
                 {# about the host, so they live in the tiles below. #}
                 <div class="flex items-center gap-3 mb-6 flex-wrap">
-                    <span class="shrink-0">{% include "components/avatar.html" with user=presenter size="size-9" %}</span>
+                    <span class="shrink-0">
+                        {% include "components/avatar.html" with user=presenter size="size-9" %}
+                    </span>
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
                         <div class="font-medium text-foreground">{{ session.facilitator_name }}</div>
                         {% if session.contact_email %}
@@ -49,7 +53,9 @@
                     </div>
                 {% endif %}
                 {% if field_values %}
-                    <div class="mb-6">{% include "components/_session_field_values.html" with field_values=field_values %}</div>
+                    <div class="mb-6">
+                        {% include "components/_session_field_values.html" with field_values=field_values %}
+                    </div>
                 {% endif %}
                 <div class="grid grid-cols-2 gap-3">
                     {# A proposal that takes no sign-up has no seat count to show, #}
