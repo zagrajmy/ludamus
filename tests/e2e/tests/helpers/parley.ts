@@ -133,6 +133,7 @@ export const bootstrap = {
     requestQuestion: "%(name)s wants to message you.",
     requests: "Requests",
     restoreWriting: "Restore writing access",
+    retentionNote: "Messages disappear a year after they are written.",
     retry: "Try again",
     roomsLabel: "Conversations",
     saveName: "Save name",

@@ -3,6 +3,7 @@ import { Agent, callable, getCurrentAgent, type Connection, type ConnectionConte
 import type { Env } from "./room-agent";
 
 import { capabilityFromRequest } from "./auth";
+import { retentionCutoff } from "./limits";
 import {
   PASS_EXPIRED,
   PASS_REVOKED,
@@ -47,6 +48,7 @@ export class ParleyInboxAgent extends Agent<Env> {
   @callable()
   getActivity(): RpcResult<Record<string, RoomActivity>> {
     this.currentCapability();
+    this.purgeExpiredActivity();
     const rows = this.sql<ActivityRow>`SELECT * FROM room_activity`;
     return {
       ok: true,
@@ -75,6 +77,7 @@ export class ParleyInboxAgent extends Agent<Env> {
   // Not @callable: only a conversation room reaches this, over Durable
   // Object RPC, so a browser cannot forge activity.
   recordActivity(input: { authorId: string; latestMessageId: number; roomId: string }): void {
+    this.purgeExpiredActivity();
     const now = Date.now();
     void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
       VALUES (${input.roomId}, ${input.latestMessageId}, ${now})
@@ -88,6 +91,12 @@ export class ParleyInboxAgent extends Agent<Env> {
     });
     // One's own message is read by definition.
     if (input.authorId === this.name) this.read(input.roomId, input.latestMessageId);
+  }
+
+  // Activity a year old points only at messages its room has deleted, so an
+  // unread flag for one never lingers.
+  private purgeExpiredActivity(): void {
+    void this.sql`DELETE FROM room_activity WHERE updated_at <= ${retentionCutoff()}`;
   }
 
   private read(roomId: string, messageId: number): void {

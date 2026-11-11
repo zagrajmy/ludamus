@@ -602,15 +602,20 @@ export function Conversation({
                   <p className="mt-3 font-semibold text-foreground">{room.title}</p>
                   <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
                 </div>
+              ) : earlier ? (
+                <button
+                  className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
+                  onClick={() => void load()}
+                  type="button"
+                >
+                  {copy.loadEarlier}
+                </button>
               ) : (
-                earlier && (
-                  <button
-                    className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                    onClick={() => void load()}
-                    type="button"
-                  >
-                    {copy.loadEarlier}
-                  </button>
+                // A session room goes 30 days after its event, well inside the year.
+                room.kind !== "session" && (
+                  <p className="mx-auto mt-3 max-w-64 px-6 text-center text-xs text-foreground-muted">
+                    {copy.retentionNote}
+                  </p>
                 )
               )}
               {messages.map((message, index) => {

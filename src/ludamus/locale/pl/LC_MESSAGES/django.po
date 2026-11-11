@@ -3634,6 +3634,10 @@ msgid "Load earlier messages"
 msgstr "Wczytaj wcześniejsze wiadomości"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages disappear a year after they are written."
+msgstr "Wiadomości znikają rok po napisaniu."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Message deleted"
 msgstr "Wiadomość usunięta"
 

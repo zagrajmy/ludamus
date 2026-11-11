@@ -206,6 +206,11 @@ class ParleyRepositoryProtocol(Protocol):
     @staticmethod
     def save_report(report: ParleyReportRecord) -> None: ...
 
+    # Empties the words reports copied of messages written at or before the
+    # cutoff, keeping each report; returns how many it emptied.
+    @staticmethod
+    def forget_copies_written_before(cutoff: datetime) -> int: ...
+
     @staticmethod
     def read_event_sphere_id(event_id: int) -> int | None: ...
 

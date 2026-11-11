@@ -108,6 +108,7 @@ export type Copy = Record<
   | "requestQuestion"
   | "requests"
   | "restoreWriting"
+  | "retentionNote"
   | "retry"
   | "roomsLabel"
   | "saveName"

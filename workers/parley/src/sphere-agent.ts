@@ -4,6 +4,7 @@ import type { Capability, Message, Revocation, RoomActivity, RpcResult } from ".
 import type { ParleySessionAgent } from "./session-agent";
 
 import { canSeeRoom } from "./access";
+import { retentionCutoff } from "./limits";
 import { RoomAgent, type Env } from "./room-agent";
 
 type Admission = Pick<Capability, "exp" | "iat" | "sub"> & { roomId: string };
@@ -99,9 +100,19 @@ export class ParleySphereAgent extends RoomAgent {
     return revokedBefore != null && capability.iat < revokedBefore;
   }
 
+  // A room's activity and anyone's read position a year old point only at
+  // messages already deleted, so an unread flag for one never lingers.
+  protected purgeExpiredMessages(): void {
+    super.purgeExpiredMessages();
+    const cutoff = retentionCutoff();
+    void this.sql`DELETE FROM room_activity WHERE updated_at <= ${cutoff}`;
+    void this.sql`DELETE FROM read_positions WHERE updated_at <= ${cutoff}`;
+  }
+
   @callable()
   getActivity(): RpcResult<Record<string, RoomActivity>> {
     const capability = this.currentCapability();
+    this.purgeExpiredMessages();
     const rows = this.sql<{
       latest_message_id: number;
       last_read_message_id: number | null;

@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 24.10.2026**
+**Data ostatniej aktualizacji: 11.11.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -109,6 +109,7 @@ Dane osobowe przechowujemy:
 
 - **Dane konta:** do momentu usunięcia konta przez użytkownika lub na jego żądanie
 - **Historia aktywności:** do momentu usunięcia konta
+- **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
 - **Logi techniczne:** maksymalnie 12 miesięcy
 - **Dane analityczne i zgłoszenia błędów:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
 
