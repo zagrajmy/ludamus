@@ -19,7 +19,7 @@ from decimal import Decimal
 
 import pytest
 
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.payment_api import CheckoutStage, RefundEvent, WebhookOutcome
 from ludamus.pacts.tickets import (
     OrderStatus,

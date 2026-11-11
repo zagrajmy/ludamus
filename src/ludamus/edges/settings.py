@@ -18,25 +18,20 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 env = environ.Env(
-    # Domains
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
     SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
-    # Auth0
     AUTH0_CLIENT_ID=(str, ""),
     AUTH0_CLIENT_SECRET=(str, ""),
     AUTH0_DOMAIN=(str, ""),
-    # Database
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
-    # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     MEDIA_URL=(str, "/media/"),
@@ -59,7 +54,6 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
-    # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -101,7 +95,6 @@ env = environ.Env(
 )
 
 
-# Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
 IS_STAGING = env("IS_STAGING")
@@ -120,16 +113,12 @@ CREDENTIALS_ENCRYPTION_KEY = env("CREDENTIALS_ENCRYPTION_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
-# Parse comma-separated allowed hosts for production
 ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
 
-# Append localhost and its subdomains for development
 if ENV == "development":
     ALLOWED_HOSTS.extend([".localhost", ".local", "localhost", "127.0.0.1"])
 
 SESSION_COOKIE_DOMAIN = env("SESSION_COOKIE_DOMAIN") or None
-
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -139,20 +128,18 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    # Third Party
     "django_extensions",
     "django_vite",
     "heroicons",
-    # First Party
-    "ludamus.adapters.web.django.apps.WebMainConfig",
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
     "ludamus.links.analytics.apps.AnalyticsConfig",
+    "ludamus.inits.apps.InitsConfig",
 ]
 
 MIDDLEWARE = [
-    "ludamus.gates.web.django.wide_event.WideEventMiddleware",
+    "ludamus.inits.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
@@ -163,15 +150,20 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "ludamus.inits.RepositoryInjectionMiddleware",
+    "ludamus.gates.web.django.middlewares.AppMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "ludamus.gates.web.django.middlewares.RedirectErrorMiddleware",
+]
+
+# Run in this order by AppMiddleware, and only for paths outside
+# MIDDLEWARE_SKIP_PREFIXES.
+APP_MIDDLEWARE = [
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
-    "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.request_context.RequestContextMiddleware",
     "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "ludamus.inits.middleware.UserLanguageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]
 
 if DEBUG:
@@ -234,7 +226,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
-                "ludamus.gates.web.django.context_processors.analytics",
+                "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -377,7 +369,7 @@ MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# URL prefixes that skip middleware processing (UoW injection, context setup)
+# URL prefixes that skip APP_MIDDLEWARE (UoW injection, context setup)
 MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
@@ -412,12 +404,8 @@ STATIC_VERSION = COMMIT_SHA
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Auth
-
 AUTH_USER_MODEL = "db_main.User"
 LOGIN_URL = "/crowd/login-required/"
-
-# Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
 # The conventions the landing and about pages show, in this order.
@@ -426,19 +414,13 @@ LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
 )
 SITE_ID = env("SITE_ID")
 
-# Auth0
-
 AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-# Support
-
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 # Sender's postal address, printed under every opt-in (non-transactional) email.
 MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
-
-# Board
 
 # NOTE: the navbar links the board only where this is on. Readers cannot answer
 # a listing yet (#1526, #1527), so production keeps the board undiscovered.
@@ -520,31 +502,25 @@ PERMISSIONS_POLICY = (
 # else, so test_no_csp_headers_by_default's regression guard is unaffected.
 ENABLE_CSP = IS_PRODUCTION or env.bool("ENABLE_CSP", default=False)
 
-# Security Settings for Production
 if IS_PRODUCTION:
-    # HTTPS/SSL Settings
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
     USE_X_FORWARDED_PORT = True
 
-    # Security Headers
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
 
-    # HSTS Settings (HTTP Strict Transport Security)
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-    # Session Security
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
     SESSION_COOKIE_AGE = 3600 * 24 * 30  # 30 days
     SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-    # CSRF Security
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
     CSRF_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
@@ -556,16 +532,13 @@ if IS_PRODUCTION:
         else:
             CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
 
-    # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 
-    # File Upload Security
     FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
     DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 else:
-    # Development settings
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -656,7 +629,6 @@ if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
     else:
         DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
-# Cache configuration
 CACHES = (
     {
         "default": {
@@ -673,7 +645,6 @@ CACHES = (
     }
 )
 
-# Logging configuration
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -690,13 +661,22 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "json" if IS_PRODUCTION else "verbose",
-        }
+        },
+        # PostHog Logs, over OTLP/HTTP, INFO and up; off without POSTHOG_API_KEY.
+        "posthog": {"()": "ludamus.links.analytics.log_shipping.posthog_handler"},
     },
-    "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
+    "root": {
+        "handlers": ["console", "posthog"],
+        "level": "INFO" if IS_PRODUCTION else "DEBUG",
+    },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django": {
+            "handlers": ["console", "posthog"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "django.security": {
-            "handlers": ["console"],
+            "handlers": ["console", "posthog"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },
@@ -726,7 +706,6 @@ VENDOR_DEPENDENCIES: list[dict[str, str]] = [
 
 VENDOR_STATIC_DIR = BASE_DIR / "static" / "vendor"
 
-# Vite asset pipeline
 DJANGO_VITE = {
     "default": {
         "dev_mode": ENV == "development" or ROOT_DOMAIN == "testserver",

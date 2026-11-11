@@ -1,7 +1,8 @@
 from django.db.transaction import non_atomic_requests
 from django.urls import URLPattern, path
 
-from ludamus.gates.web.django.event import propose, tickets
+from ludamus.gates.web.django.event import anonymous, propose, tickets, views
+from ludamus.gates.web.django.event.session_modal import SessionModalComponentView
 
 urlpatterns: list[URLPattern] = [
     path(
@@ -72,5 +73,43 @@ urlpatterns: list[URLPattern] = [
         "event/<str:event_slug>/tickets/orders/<slug:reference>/claim/<str:token>/",
         tickets.EventTicketOrderClaimConfirmPageView.as_view(),
         name="event-ticket-order-claim-confirm",
+    ),
+]
+
+session_urlpatterns: list[URLPattern] = [
+    path(
+        "event/<str:event_slug>/session/<int:session_id>/edit/",
+        views.SessionEditView.as_view(),
+        name="session-edit",
+    ),
+    path(
+        "event/<str:event_slug>/session/<int:session_id>/parts/modal",
+        SessionModalComponentView.as_view(),
+        name="session-modal",
+    ),
+    path(
+        "event/<str:event_slug>/anonymous/do/activate",
+        anonymous.EventAnonymousActivateActionView.as_view(),
+        name="event-anonymous-activate",
+    ),
+    path(
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/anonymous",
+        anonymous.SessionEnrollmentAnonymousPageView.as_view(),
+        name="session-enrollment-anonymous",
+    ),
+    path(
+        "anonymous/do/load",
+        anonymous.AnonymousLoadActionView.as_view(),
+        name="anonymous-load",
+    ),
+    path(
+        "anonymous/do/reset/",
+        anonymous.AnonymousResetActionView.as_view(),
+        name="anonymous-reset",
+    ),
+    path(
+        "session/<int:session_id>/bookmark/",
+        views.SessionBookmarkToggleView.as_view(),
+        name="session-bookmark",
     ),
 ]

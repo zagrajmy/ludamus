@@ -3,20 +3,18 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event_settings import EventSettingsService
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
-from ludamus.pacts.event_settings import (
-    EventSettingsRepos,
-    EventSlugTakenError,
-    ProposalSettingsUpdateData,
-)
-from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
+    EventDatesInvalidError,
     EventDTO,
     EventProposalSettingsDTO,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
     EventUpdateData,
-    NotFoundError,
-    ProposalCategoryDTO,
 )
+from ludamus.pacts.event_settings import EventSettingsRepos, ProposalSettingsUpdateData
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, event_dto
 
@@ -210,7 +208,7 @@ class TestUpdateGeneral:
         # the winner on the retry read.
         fakes = _Fakes(events=[_event(), _event(pk=_OTHER_EVENT_PK, slug="new-conf")])
 
-        with pytest.raises(EventSlugTakenError) as exc_info:
+        with pytest.raises(EventSlugConflictError) as exc_info:
             fakes.service.update_general(
                 sphere_id=SPHERE_ID,
                 slug="conf",

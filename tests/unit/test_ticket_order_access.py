@@ -41,7 +41,7 @@ from datetime import timedelta
 
 import pytest
 
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tickets import (
     CLAIM_MAIL_INTERVAL,
     AbandonOutcome,

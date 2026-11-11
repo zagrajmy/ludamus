@@ -24,8 +24,8 @@ from django.urls import reverse
 from django.utils.crypto import salted_hmac
 
 from ludamus.links.db.django.models import SpherePlan, Ticket, TicketOrder
-from ludamus.pacts import EventDTO
 from ludamus.pacts.billing import PlanSource
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.tickets import (
     MAX_TICKETS_PER_ORDER,
     EventShopDTO,
@@ -143,7 +143,7 @@ class TestEventTicketsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/tickets.html",
+            template_name="event/tickets.html",
             context_data={
                 "event": EventDTO.model_validate(event),
                 "shop": EventShopDTO(

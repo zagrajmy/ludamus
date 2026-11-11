@@ -4,13 +4,13 @@ from django.urls import reverse
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import Notification, SphereSubscription, User
 from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
-from ludamus.pacts.crowd import AgeBand
+from ludamus.links.signed_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.pacts.dashboard import (
     SphereEventPublishedNotification,
     SphereUnsubscribeTokenPayload,
 )
 from ludamus.pacts.party import PartyInviteNotification
+from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import UserFactory
 
 
@@ -32,7 +32,7 @@ def _promotion(subscription):
         event_slug="family-convention",
         sphere_name=subscription.sphere.name,
         sphere_domain="testserver",
-        unsubscribe_token=DjangoSphereUnsubscribeTokenCodec.dumps(
+        unsubscribe_token=DjangoSphereUnsubscribeTokenCodec().dumps(
             SphereUnsubscribeTokenPayload(
                 user_id=subscription.user_id,
                 sphere_id=subscription.sphere_id,

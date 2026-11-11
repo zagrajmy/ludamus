@@ -12,6 +12,7 @@ from django.urls import reverse
 
 from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     EventProposalSettings,
@@ -27,13 +28,9 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import (
-    EventDTO,
-    EventProposalSettingsDTO,
-    ProposalCategoryDTO,
-    RedirectError,
-)
+from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
 from ludamus.pacts.images import StoredFile
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,

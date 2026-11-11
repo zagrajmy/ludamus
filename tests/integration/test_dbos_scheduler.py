@@ -15,9 +15,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from dbos import DBOS
+from django.core.exceptions import ImproperlyConfigured
 from django.db import DEFAULT_DB_ALIAS, connections
 
 from ludamus.inits import dbos_scheduler as scheduler_module
+from ludamus.inits.sweeps import SWEEPS
 from ludamus.links.db.django.models import (
     Announcement,
     Notification,
@@ -105,7 +107,7 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     scheduler_module.launch_scheduler()
     assert launched.wait(timeout=_LAUNCH_TIMEOUT_SECONDS)
     assert {s["schedule_name"] for s in DBOS.list_schedules()} == {
-        workflow.__name__ for workflow, _cron in scheduler_module.CRON_WORKFLOWS
+        sweep.workflow for sweep in SWEEPS
     }
 
     # The fanout sweep is the one workflow given real work: its step branches on
@@ -125,26 +127,8 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     try:
         # The cron trigger itself is DBOS's croniter loop; drive the same
         # workflows manually and assert the sweeps complete against the DB.
-        DBOS.start_workflow(scheduler_module.expire_offers_sweep, now, now).get_result()
-        DBOS.start_workflow(
-            scheduler_module.printables_reminders_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.verification_reminders_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.announcement_fanout_sweep, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.konwencik_export_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.sphere_announcements_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.encounter_invitee_purge_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(scheduler_module.listing_close_tick, now, now).get_result()
+        for workflow, _sweep in scheduler_module._cron_workflows:
+            DBOS.start_workflow(workflow, now, None).get_result()
     finally:
         DBOS.destroy()
 
@@ -160,6 +144,17 @@ def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
     settings.SCHEDULER_MODE = "cron"
 
     scheduler_module.launch_scheduler()
+
+    assert not calls
+
+
+def test_launch_scheduler_rejects_an_unknown_mode(settings, monkeypatch):
+    calls = []
+    monkeypatch.setattr(scheduler_module, "_ensure_launched", lambda: calls.append(1))
+    settings.SCHEDULER_MODE = "dbso"
+
+    with pytest.raises(ImproperlyConfigured, match="SCHEDULER_MODE"):
+        scheduler_module.launch_scheduler()
 
     assert not calls
 

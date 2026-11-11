@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, TypedDict, Unpack
 
 from django.core.management.base import BaseCommand, CommandError
 
-from ludamus.inits.services import Services
+from ludamus.gates.cli.django import wiring
 
 if TYPE_CHECKING:
     from django.core.management.base import CommandParser
@@ -74,7 +74,9 @@ class Command(BaseCommand):
 
     def handle(self, *_args: *tuple[()], **options: Unpack[_Options]) -> None:
         path = options["file"]
-        report = Services().tags.import_rows(_read_rows(path), force=options["force"])
+        report = wiring.services().tags.import_rows(
+            _read_rows(path), force=options["force"]
+        )
         for error in report.errors:
             self.stderr.write(error)
         summary = (

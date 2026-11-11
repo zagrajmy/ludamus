@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import TYPE_CHECKING, assert_never
 
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.payment_api import (
     AccountEvent,
     CheckoutEvent,
@@ -81,8 +81,8 @@ from ludamus.specs.tickets import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import EventDTO
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.payment_api import StripeWebhookEvent
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tickets import (

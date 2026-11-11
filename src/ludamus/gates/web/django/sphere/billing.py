@@ -20,29 +20,28 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import account_email
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.payment_api import PaymentProviderError
+from ludamus.pacts.sphere import Capability
 from ludamus.pacts.tickets import PayoutStatus
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+    from ludamus.gates.web.django.panel import PanelRequest
 
 logger = logging.getLogger(__name__)
 
 _BILLING_URL = "multiverse:panel:billing"
 
 
-def _absolute(request: MultiverseRequest, name: str) -> str:
+def _absolute(request: PanelRequest, name: str) -> str:
     return request.build_absolute_uri(reverse(name))
 
 
-def _stripe_unreachable(request: MultiverseRequest, what: str) -> HttpResponse:
+def _stripe_unreachable(request: PanelRequest, what: str) -> HttpResponse:
     logger.warning(
         "Billing: Stripe %s failed for sphere=%s",
         what,
@@ -55,13 +54,13 @@ def _stripe_unreachable(request: MultiverseRequest, what: str) -> HttpResponse:
 
 
 class BillingPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         return TemplateResponse(
             self.request,
-            "multiverse/panel/billing.html",
+            "sphere/panel/billing.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="billing"),
                 "plan": self.request.services.plan.page(sphere_id=sphere_id),
@@ -83,10 +82,10 @@ class _ManagerOnlyMixin(SphereAccessMixin):
 class BillingConnectActionView(SphereAccessMixin, View):
     """Create the sphere's Stripe account if it has none, then onboard it."""
 
-    request: MultiverseRequest
+    request: PanelRequest
     http_method_names = ("post",)
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         if not (email := account_email(self.request)):
             messages.error(
                 self.request,
@@ -117,9 +116,9 @@ class BillingResumeActionView(_ManagerOnlyMixin, View):
     with an account gets a fresh link to it, one without goes back to the page.
     """
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         try:
             url = self.request.services.payouts.resume_onboarding_url(
                 sphere_id=self.request.context.current_sphere_id,
@@ -134,9 +133,9 @@ class BillingResumeActionView(_ManagerOnlyMixin, View):
 class BillingReturnActionView(_ManagerOnlyMixin, View):
     """Where Stripe's onboarding hands the manager back."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         try:
             page = self.request.services.payouts.refresh(
                 sphere_id=self.request.context.current_sphere_id
@@ -164,10 +163,10 @@ class BillingReturnActionView(_ManagerOnlyMixin, View):
 
 
 class BillingPortalActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
     http_method_names = ("post",)
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         try:
             url = self.request.services.plan.billing_portal_url(
                 sphere_id=self.request.context.current_sphere_id,

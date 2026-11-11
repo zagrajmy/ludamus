@@ -29,13 +29,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts.billing import SpherePlanRepositoryProtocol
-    from ludamus.pacts.crowd import UserRepositoryProtocol
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.payment_api import (
         AccountState,
         StripeWebhookEvent,
         WebhookOutcome,
     )
+    from ludamus.pacts.user import UserRepositoryProtocol
 
 DEFAULT_CURRENCY = "pln"
 # Minor units per unit, as a power of ten: grosze to złoty is scaleb(-2).

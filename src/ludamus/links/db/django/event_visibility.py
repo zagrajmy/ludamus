@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
-from ludamus.pacts.legacy import EventVisibility
+from ludamus.pacts.event import EventVisibility
 
 if TYPE_CHECKING:
     from datetime import datetime

@@ -24,7 +24,7 @@ from freezegun import freeze_time
 
 from ludamus.links.db.django.models import Ticket
 from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
-from ludamus.pacts import EventDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.tickets import (
     CLAIM_MAIL_INTERVAL,
     ORDER_CLAIM_LINK_MAX_AGE,
@@ -165,7 +165,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 guests,
@@ -198,7 +198,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 guests,
@@ -244,7 +244,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 guests,
@@ -264,7 +264,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 guests,
@@ -301,7 +301,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 mine,
@@ -372,7 +372,7 @@ class TestEventTicketOrderPage:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order.html",
+            template_name="event/ticket-order.html",
             context_data=_order_page_context(
                 event,
                 mine,
@@ -760,7 +760,7 @@ class TestEventTicketOrderClaimConfirmPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/ticket-order-claim.html",
+            template_name="event/ticket-order-claim.html",
             context_data={
                 "event": EventDTO.model_validate(event),
                 "reference": guests.reference,

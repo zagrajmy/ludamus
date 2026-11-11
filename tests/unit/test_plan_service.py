@@ -36,7 +36,7 @@ from ludamus.pacts.billing import (
     PlanTermsDTO,
     SubscriptionState,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.payment_api import (
     CheckoutEvent,
     CheckoutStage,

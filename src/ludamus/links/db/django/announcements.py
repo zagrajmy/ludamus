@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from ludamus.links.db.django.delivery import ring_as_written
+from ludamus.links.db.django.delivery import Bell, ring_as_written
 from ludamus.links.db.django.models import Announcement, NotificationSubscription
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import ClaimedAnnouncementDTO
+from ludamus.pacts.notifications import ClaimedAnnouncementDTO, NotificationKind
 
 
 class AnnouncementFanoutRepository:
@@ -49,9 +48,11 @@ class AnnouncementFanoutRepository:
         # is read where you are, it does not navigate.
         return ring_as_written(
             recipient_ids=recipient_ids,
-            kind=NotificationKind.ANNOUNCEMENT,
-            title=announcement.title,
-            body=announcement.content,
-            url="",
-            payload={"announcement_id": announcement.pk},
+            bell=Bell(
+                kind=NotificationKind.ANNOUNCEMENT,
+                title=announcement.title,
+                body=announcement.content,
+                url="",
+                payload={"announcement_id": announcement.pk},
+            ),
         )

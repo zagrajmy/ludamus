@@ -211,7 +211,7 @@ class TestSidebarCoverage:
     # asks for a `tab_urls` entry that does not exist, and `{{ tab_urls.typo }}`
     # renders "" — pointing the tab at the current page instead of raising.
     def test_every_sphere_tab_is_in_the_literal(self) -> None:
-        source = _template_source("multiverse/panel/_sphere_tabs_nav.html")
+        source = _template_source("sphere/panel/_sphere_tabs_nav.html")
 
         tabs = set(re.findall(r'{% tab "([^"]+)"', source))
 

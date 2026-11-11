@@ -6,7 +6,7 @@ from decimal import Decimal
 from django import template
 from django.utils import formats
 
-from ludamus.mills.qr import qr_svg
+from ludamus.gates.web.django.qr import qr_svg
 from ludamus.pacts.tickets import DEFAULT_CURRENCY, MONEY_DECIMAL_PLACES
 
 register = template.Library()

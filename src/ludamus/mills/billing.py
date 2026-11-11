@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.billing import PlanPageDTO, PlanServiceProtocol, PlanSource
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.payment_api import SubscriptionEvent, WebhookOutcome
 from ludamus.specs.billing import current_terms
 from ludamus.specs.tickets import platform_fee_percent

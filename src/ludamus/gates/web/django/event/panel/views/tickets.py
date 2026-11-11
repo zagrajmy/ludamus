@@ -14,18 +14,17 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.forms import TicketTypeForm
 from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
+    EventPanelMixin,
     PanelContext,
 )
-from ludamus.pacts.legacy import NotFoundError, RedirectError
+from ludamus.gates.web.django.redirects import RedirectError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tickets import RefundOutcome, TicketTypeData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import EventDTO
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.tickets import TicketTypeDTO
 
 logger = logging.getLogger(__name__)
@@ -51,44 +50,45 @@ def _data(form: TicketTypeForm) -> TicketTypeData:
     }
 
 
-class TicketsViewMixin(EventContextMixin):
-    request: EventPanelRequest
+class TicketsViewMixin(EventPanelMixin):
+    request: PanelRequest
 
-    def page_context(self, slug: str) -> tuple[PanelContext, EventDTO]:
-        context, current_event = self.require_event_context(slug)
+    def page_context(self) -> PanelContext:
+        context = self.panel_context()
         context["active_nav"] = "tickets"
-        return context, current_event
+        return context
 
     def render_form(
-        self, *, slug: str, form: TicketTypeForm, ticket_type: TicketTypeDTO | None
+        self, *, form: TicketTypeForm, ticket_type: TicketTypeDTO | None
     ) -> HttpResponse:
-        context, _current_event = self.page_context(slug)
+        context = self.page_context()
         context.update({"form": form, "ticket_type": ticket_type})
         return TemplateResponse(self.request, _FORM_TEMPLATE, context)
 
 
-class EventTicketsPageView(EventPanelAccessMixin, TicketsViewMixin, View):
-    request: EventPanelRequest
+class EventTicketsPageView(TicketsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.page_context(slug)
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.page_context()
         context["page"] = self.request.services.ticket_panel.page(
-            sphere_id=self.request.context.current_sphere_id, event_id=current_event.pk
+            sphere_id=self.request.context.current_sphere_id,
+            event_id=self.current_event.pk,
         )
         return TemplateResponse(self.request, "panel/tickets.html", context)
 
 
-class TicketTypeCreatePageView(EventPanelAccessMixin, TicketsViewMixin, View):
-    request: EventPanelRequest
+class TicketTypeCreatePageView(TicketsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        return self.render_form(slug=slug, form=TicketTypeForm(), ticket_type=None)
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        return self.render_form(form=TicketTypeForm(), ticket_type=None)
 
-    def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         form = TicketTypeForm(self.request.POST)
         if not form.is_valid():
-            return self.render_form(slug=slug, form=form, ticket_type=None)
-        current_event = self.require_current_event(slug)
+            return self.render_form(form=form, ticket_type=None)
+        current_event = self.current_event
         created = self.request.services.ticket_panel.create_type(
             event_id=current_event.pk, data=_data(form)
         )
@@ -103,13 +103,12 @@ class TicketTypeCreatePageView(EventPanelAccessMixin, TicketsViewMixin, View):
         return redirect(_TICKETS_URL, slug=slug)
 
 
-class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
-    request: EventPanelRequest
+class TicketTypeEditPageView(TicketsViewMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         ticket_type = self._read(slug=slug, pk=pk)
         return self.render_form(
-            slug=slug,
             form=TicketTypeForm(
                 initial=ticket_type.model_dump(
                     include=set(TicketTypeData.__required_keys__)
@@ -118,13 +117,11 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
             ticket_type=ticket_type,
         )
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         form = TicketTypeForm(self.request.POST)
         if not form.is_valid():
-            return self.render_form(
-                slug=slug, form=form, ticket_type=self._read(slug=slug, pk=pk)
-            )
-        current_event = self.require_current_event(slug)
+            return self.render_form(form=form, ticket_type=self._read(slug=slug, pk=pk))
+        current_event = self.current_event
         try:
             self.request.services.ticket_panel.update_type(
                 event_id=current_event.pk, pk=pk, data=_data(form)
@@ -141,7 +138,7 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
         return redirect(_TICKETS_URL, slug=slug)
 
     def _read(self, *, slug: str, pk: int) -> TicketTypeDTO:
-        current_event = self.require_current_event(slug)
+        current_event = self.current_event
         try:
             return self.request.services.ticket_panel.read_type(
                 event_id=current_event.pk, pk=pk
@@ -150,13 +147,13 @@ class TicketTypeEditPageView(EventPanelAccessMixin, TicketsViewMixin, View):
             raise _not_found(slug) from exc
 
 
-class _ArchiveActionView(EventPanelAccessMixin, TicketsViewMixin, View):
-    request: EventPanelRequest
+class _ArchiveActionView(TicketsViewMixin, View):
+    request: PanelRequest
     http_method_names = ("post",)
     archived: bool
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        current_event = self.require_current_event(slug)
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        current_event = self.current_event
         try:
             self.request.services.ticket_panel.set_archived(
                 event_id=current_event.pk, pk=pk, archived=self.archived
@@ -189,12 +186,12 @@ class TicketTypeRestoreActionView(_ArchiveActionView):
     archived = False
 
 
-class TicketOrderRefundActionView(EventPanelAccessMixin, TicketsViewMixin, View):
-    request: EventPanelRequest
+class TicketOrderRefundActionView(TicketsViewMixin, View):
+    request: PanelRequest
     http_method_names = ("post",)
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        current_event = self.require_current_event(slug)
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        current_event = self.current_event
         try:
             outcome = self.request.services.ticket_panel.refund(
                 event_id=current_event.pk, order_pk=pk

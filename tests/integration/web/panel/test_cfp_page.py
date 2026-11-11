@@ -5,7 +5,7 @@ from django.urls import reverse
 from freezegun import freeze_time
 
 from ludamus.links.db.django.models import ProposalCategory, Session
-from ludamus.pacts import ProposalCategoryDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,

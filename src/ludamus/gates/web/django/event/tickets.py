@@ -34,7 +34,7 @@ from ludamus.gates.web.django.helpers import (
     get_client_ip,
     read_public_event,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tickets import (
     CLAIM_MAIL_INTERVAL,
     MAX_TICKETS_PER_ORDER,
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.tickets import EventShopDTO
 
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ class EventTicketsPageView(View):
             raise Http404
         return TemplateResponse(
             request,
-            "chronology/tickets.html",
+            "event/tickets.html",
             {"event": event, "shop": shop, "max_per_order": MAX_TICKETS_PER_ORDER},
         )
 
@@ -237,7 +237,7 @@ class EventTicketOrderPageView(View):
         here = request.get_full_path()
         return TemplateResponse(
             request,
-            "chronology/ticket-order.html",
+            "event/ticket-order.html",
             {
                 "event": event,
                 "order": page.order,
@@ -347,7 +347,7 @@ class EventTicketOrderClaimConfirmPageView(View):
             case ConfirmLinkState.READY:
                 return TemplateResponse(
                     request,
-                    "chronology/ticket-order-claim.html",
+                    "event/ticket-order-claim.html",
                     {"event": event, "reference": reference, "token": token},
                 )
             case ConfirmLinkState.LINK_INVALID:

@@ -1,0 +1,659 @@
+"""Facilitator views (list, detail, create, edit, merge)."""
+
+from __future__ import annotations
+
+from collections import Counter
+from typing import TYPE_CHECKING, Any
+
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.http import urlencode
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy, ngettext
+from django.views.generic.base import View
+
+from ludamus.gates.web.django.dynamic_fields import answered_value
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelMixin,
+    format_field_value,
+    read_accreditation_filter,
+    read_field_filters,
+)
+from ludamus.gates.web.django.event.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_views,
+    facilitator_column_values,
+)
+from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
+    ORGANIZER_REFUSALS,
+    FacilitatorActionView,
+)
+from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
+    PERSONAL_PREFIX,
+    personal_descriptors,
+    personal_fields_form,
+)
+from ludamus.gates.web.django.forms import (
+    ACCREDITATION_TYPE_CHOICES,
+    ACCREDITATION_TYPE_LABELS,
+    FacilitatorForm,
+)
+from ludamus.gates.web.django.pagination import pagination_context
+from ludamus.gates.web.django.panel import (
+    PanelRequest,
+    facilitator_detail_tab_urls,
+    facilitator_tab_urls,
+    safe_next_url,
+)
+from ludamus.gates.web.django.request_ids import parse_id
+from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.panel import (
+    MIN_MERGE_FACILITATORS,
+    FacilitatorCreateData,
+    FacilitatorListQuery,
+    FacilitatorMergeData,
+    FacilitatorMergeError,
+    MergeErrorReason,
+)
+from ludamus.pacts.propose import (
+    AccreditationType,
+    FacilitatorActionError,
+    OrganizerActionRefusal,
+)
+
+if TYPE_CHECKING:
+    from django.http import HttpResponse
+
+
+# A tampered `?organizer=` value falls back to "all", so the toolbar never
+# shows a selected option the list is not actually filtered by.
+_ORGANIZER_FILTERS = ("mine", "unassigned")
+
+
+def _merge_error_message(reason: MergeErrorReason) -> str:
+    # Built per call so gettext resolves in the active request language.
+    messages_by_reason = {
+        MergeErrorReason.TOO_FEW: _("Select at least two facilitators to merge."),
+        MergeErrorReason.NO_TARGET: _(
+            "Choose which of the selected facilitators the others merge into."
+        ),
+        MergeErrorReason.NO_DISPLAY_NAME: _(
+            "Choose the display name the merged facilitator keeps."
+        ),
+        MergeErrorReason.BAD_ACCREDITATION: _(
+            "Choose the accreditation the merged facilitator keeps."
+        ),
+        MergeErrorReason.MULTIPLE_LINKED: _(
+            "These facilitators each have a linked user account. Unlink all but "
+            "one before merging."
+        ),
+    }
+    return str(messages_by_reason[reason])
+
+
+def read_facilitator_query(request: PanelRequest) -> FacilitatorListQuery:
+    # The one reader of the list's filters: the list and its export both go
+    # through here, so a filter cannot apply to one and not the other.
+    organizer = request.GET.get("organizer", "").strip()
+    return FacilitatorListQuery(
+        search=request.GET.get("search", "").strip(),
+        accreditation=read_accreditation_filter(request),
+        organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
+        current_user_id=request.context.current_user_id,
+        sort=request.GET.get("sort", "").strip() or "name",
+        raw_field_filters=read_field_filters(request),
+    )
+
+
+class FacilitatorsPageView(EventPanelMixin, View):
+    """List facilitators for an event."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
+
+        query = read_facilitator_query(self.request)
+        list_context = self.request.services.facilitator_panel.list_context(
+            event_id=self.current_event.pk, query=query
+        )
+        pagination = pagination_context(self.request, list_context.facilitators)
+        page_obj = pagination["page_obj"]
+
+        guilds = self.request.services.guilds
+        sphere_id = self.current_event.sphere_id
+        facilitators = list(page_obj.object_list)
+        attach_facilitator_guild_marks(facilitators, guilds=guilds, sphere_id=sphere_id)
+        cells = facilitator_column_values(
+            panel=self.request.services.facilitator_panel,
+            facilitators=facilitators,
+            columns=list_context.columns,
+        )
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "list"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["facilitators"] = facilitators
+        context.update(pagination)
+        context["columns"] = column_views(list_context.columns, FACILITATOR_COLUMNS)
+        context["guild_options"] = guilds.list_for_sphere(sphere_id=sphere_id)
+        context["column_values"] = cells
+        context["filterable_fields"] = list_context.filterable_fields
+        context["filter_fields"] = {
+            field.pk: query.raw_field_filters.get(field.pk, "")
+            for field in list_context.filterable_fields
+        }
+        context["filter_search"] = query.search
+        context["filter_accreditation"] = query.accreditation or None
+        context["filter_organizer"] = query.organizer
+        context["filter_sort"] = query.sort
+        context["filters_active"] = bool(
+            query.search
+            or query.accreditation
+            or query.organizer
+            or list_context.field_filters
+        )
+        context["accreditation_types"] = ACCREDITATION_TYPE_CHOICES
+        return TemplateResponse(self.request, "panel/facilitators.html", context)
+
+
+class FacilitatorBinPageView(EventPanelMixin, View):
+    """List the deleted facilitators, where restore is the only action."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
+
+        deleted = self.request.services.facilitator_panel.list_deleted(
+            self.current_event.pk
+        )
+        pagination = pagination_context(self.request, deleted)
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "bin"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["facilitators"] = list(pagination["page_obj"].object_list)
+        context.update(pagination)
+        return TemplateResponse(self.request, "panel/facilitator-bin.html", context)
+
+
+class FacilitatorDetailPageView(EventPanelMixin, View):
+    """View facilitator details and personal data."""
+
+    request: PanelRequest
+
+    def get(
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
+    ) -> HttpResponse:
+        context = self.panel_context()
+
+        try:
+            detail = self.request.services.facilitator_panel.detail_context(
+                event_id=self.current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=True,
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitators", slug=slug)
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "details"
+        context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
+        context["facilitator"] = detail.facilitator
+        context["linked_user"] = detail.linked_user
+        context["guild"] = self.request.services.guilds.mark_for_facilitator(
+            sphere_id=self.current_event.sphere_id, facilitator_pk=detail.facilitator.pk
+        )
+        context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
+            AccreditationType(detail.facilitator.accreditation_type)
+        ]
+        context["personal_data_items"] = detail.personal_data_items
+        context["has_personal_data"] = any(v for _, v in detail.personal_data_items)
+        context["sessions"] = detail.sessions
+        return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
+
+
+class FacilitatorHistoryPageView(EventPanelMixin, View):
+    """Per-facilitator change history tab."""
+
+    request: PanelRequest
+
+    def get(
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
+    ) -> HttpResponse:
+        context = self.panel_context()
+
+        service = self.request.services.facilitator_panel
+        try:
+            name, logs = service.facilitator_history(
+                event_id=self.current_event.pk, facilitator_slug=facilitator_slug
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitators", slug=slug)
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "history"
+        context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
+        context["item_name"] = name
+        context["back_url"] = reverse("panel:facilitators", kwargs={"slug": slug})
+        context["back_label"] = _("Facilitators")
+        context["logs"] = logs
+        context["field_names"] = (
+            self.request.services.personal_data_field_values.list_field_names(
+                self.current_event.pk
+            )
+        )
+        return TemplateResponse(self.request, "panel/item-history.html", context)
+
+
+class FacilitatorCreatePageView(EventPanelMixin, View):
+    """Create a new facilitator for an event."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        context = self.panel_context()
+
+        fields = self.request.services.facilitator_panel.list_fields(
+            self.current_event.pk
+        )
+        context["active_nav"] = "facilitators"
+        context["form"] = FacilitatorForm()
+        context["field_descriptors"] = personal_descriptors(
+            fields=fields, form=personal_fields_form(fields=fields)
+        )
+        return TemplateResponse(self.request, "panel/facilitator-create.html", context)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
+
+        service = self.request.services.facilitator_panel
+        fields = service.list_fields(self.current_event.pk)
+        form = FacilitatorForm(self.request.POST)
+        fields_form = personal_fields_form(fields=fields, data=self.request.POST)
+        if not form.is_valid() or not fields_form.is_valid():
+            context["active_nav"] = "facilitators"
+            context["form"] = form
+            context["field_descriptors"] = personal_descriptors(
+                fields=fields, form=fields_form
+            )
+            return TemplateResponse(
+                self.request, "panel/facilitator-create.html", context
+            )
+
+        display_name = form.cleaned_data["display_name"]
+        service.create_facilitator(
+            event_id=self.current_event.pk,
+            data=FacilitatorCreateData(
+                display_name=display_name,
+                accreditation_type=form.cleaned_data["accreditation_type"],
+                is_collective=form.cleaned_data["is_collective"],
+                organizer_id=(
+                    self.request.context.current_user_id
+                    if form.cleaned_data["assign_me"]
+                    else None
+                ),
+                values={
+                    field.pk: answered_value(
+                        prefix=PERSONAL_PREFIX, field_def=field, form=fields_form
+                    )
+                    for field in fields
+                },
+            ),
+            user_id=self.request.context.current_user_id,
+        )
+        messages.success(self.request, _("Facilitator created successfully."))
+        return redirect("panel:facilitators", slug=slug)
+
+
+class FacilitatorMergePageView(EventPanelMixin, View):
+    """Search-and-collect merge flow with a reconcile-then-confirm screen."""
+
+    request: PanelRequest
+
+    def _basket_slugs(self) -> list[str]:
+        slugs = self.request.GET.getlist("facilitator_slugs")
+        if add := self.request.GET.get("add", ""):
+            slugs = [*slugs, add]
+        if remove := self.request.GET.get("remove", ""):
+            slugs = [s for s in slugs if s != remove]
+        return list(dict.fromkeys(slugs))
+
+    @staticmethod
+    def _base_context(context: dict[str, Any], slug: str) -> None:
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "merge"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+
+    def _render_search(
+        self,
+        *,
+        context: dict[str, Any],
+        slug: str,
+        event_id: int,
+        basket_slugs: list[str],
+    ) -> HttpResponse:
+        panel = self.request.services.facilitator_panel
+        basket = panel.merge_basket(event_id=event_id, slugs=basket_slugs)
+        in_basket = {f.slug for f in basket}
+        search = self.request.GET.get("q", "").strip()
+        results = [
+            f
+            for f in panel.search_candidates(event_id=event_id, search=search)
+            if f.slug not in in_basket
+        ]
+        self._base_context(context, slug)
+        context["confirm"] = False
+        context["basket"] = basket
+        context["search_query"] = search
+        context["search_results"] = results
+        context["can_merge"] = len(basket) >= MIN_MERGE_FACILITATORS
+        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
+
+    def _render_confirm(
+        self,
+        *,
+        context: dict[str, Any],
+        slug: str,
+        event_id: int,
+        basket_slugs: list[str],
+        target_slug: str,
+        error: str | None,
+    ) -> HttpResponse:
+        try:
+            preview = self.request.services.facilitator_panel.merge_context(
+                event_id=event_id,
+                facilitator_slugs=basket_slugs,
+                target_slug=target_slug,
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitator-merge", slug=slug)
+
+        self._base_context(context, slug)
+        context["confirm"] = True
+        context["facilitators"] = preview.facilitators
+        context["target_choices"] = [
+            (facilitator, facilitator.pk == preview.target.pk)
+            for facilitator in preview.facilitators
+        ]
+        context["name_choices"] = preview.name_choices
+        context["unanimous_display_name"] = preview.unanimous_display_name
+        context["accreditation_choices"] = [
+            (
+                value,
+                ACCREDITATION_TYPE_LABELS[AccreditationType(value)],
+                sources,
+                checked,
+            )
+            for value, sources, checked in preview.accreditation_choices
+        ]
+        context["unanimous_accreditation"] = preview.unanimous_accreditation
+        context["field_choices"] = [
+            (
+                field,
+                [
+                    (pk, format_field_value(value=value), sources, checked)
+                    for pk, value, sources, checked in choices
+                ],
+            )
+            for field, choices in preview.field_conflicts
+        ]
+        context["error"] = error
+        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
+
+        basket_slugs = self._basket_slugs()
+        if (
+            self.request.GET.get("confirm")
+            and len(basket_slugs) >= MIN_MERGE_FACILITATORS
+        ):
+            return self._render_confirm(
+                context=context,
+                slug=slug,
+                event_id=self.current_event.pk,
+                basket_slugs=basket_slugs,
+                target_slug=self.request.GET.get("target_slug", ""),
+                error=None,
+            )
+        return self._render_search(
+            context=context,
+            slug=slug,
+            event_id=self.current_event.pk,
+            basket_slugs=basket_slugs,
+        )
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context = self.panel_context()
+
+        basket_slugs = list(
+            dict.fromkeys(self.request.POST.getlist("facilitator_slugs"))
+        )
+        keep_values_from = {
+            field_pk: facilitator_pk
+            for key in self.request.POST
+            if key.startswith("personal_")
+            and (field_pk := parse_id(key.removeprefix("personal_"))) is not None
+            and (facilitator_pk := parse_id(self.request.POST.get(key))) is not None
+        }
+        try:
+            self.request.services.facilitator_panel.merge(
+                event_id=self.current_event.pk,
+                sphere_id=self.current_event.sphere_id,
+                target_slug=self.request.POST.get("target_slug", ""),
+                facilitator_slugs=basket_slugs,
+                data=FacilitatorMergeData(
+                    display_name=self.request.POST.get("display_name", "").strip(),
+                    accreditation_type=self.request.POST.get("accreditation_type", ""),
+                    keep_values_from=keep_values_from,
+                ),
+                user_id=self.request.context.current_user_id,
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitator-merge", slug=slug)
+        except FacilitatorMergeError as exc:
+            return self._render_confirm(
+                context=context,
+                slug=slug,
+                event_id=self.current_event.pk,
+                basket_slugs=basket_slugs,
+                target_slug=self.request.POST.get("target_slug", ""),
+                error=_merge_error_message(exc.reason),
+            )
+
+        messages.success(self.request, _("Facilitators merged successfully."))
+        return redirect("panel:facilitators", slug=slug)
+
+
+class FacilitatorDeleteActionView(FacilitatorActionView):
+    """Delete a facilitator, reversibly (POST only)."""
+
+    success_message = gettext_lazy("Facilitator deleted.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.delete(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorRestoreActionView(FacilitatorActionView):
+    """Bring a deleted facilitator back (POST only)."""
+
+    success_message = gettext_lazy("Facilitator restored.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.restore(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorMarkGuestActionView(FacilitatorActionView):
+    """Set a facilitator's accreditation to guest (POST only)."""
+
+    success_message = gettext_lazy("Facilitator marked as guest.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_accreditation(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            accreditation_type=AccreditationType.GUEST.value,
+            user_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorAssignOrganizerActionView(FacilitatorActionView):
+    """Take an unassigned facilitator on as its organizer (POST only)."""
+
+    success_message = gettext_lazy("You now handle this facilitator.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.assign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorUnassignOrganizerActionView(FacilitatorActionView):
+    """Release a facilitator you organize, so someone else can take it."""
+
+    success_message = gettext_lazy("Stepped down.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.unassign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+            force=self.request.user.is_superuser,
+        )
+
+
+BULK_FACILITATOR_ACTIONS = ("delete", "restore", "mark-guest", "merge")
+
+
+class FacilitatorBulkActionView(EventPanelMixin, View):
+    """Apply one triage action to several facilitators at once (POST only)."""
+
+    http_method_names = ("post",)
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        back = safe_next_url(
+            self.request, reverse("panel:facilitators", kwargs={"slug": slug})
+        )
+        action = self.request.POST.get("action", "")
+        if action not in BULK_FACILITATOR_ACTIONS:
+            messages.error(self.request, _("Unknown bulk action."))
+            return redirect(back)
+
+        if not (slugs := self.request.POST.getlist("facilitator_slugs")):
+            messages.warning(self.request, _("No facilitators selected."))
+            return redirect(back)
+
+        if action == "merge":
+            # Hand the selection to the merge flow's basket (PRG, so the
+            # bulk form stays a POST).
+            base = reverse("panel:facilitator-merge", kwargs={"slug": slug})
+            query = urlencode({"facilitator_slugs": slugs}, doseq=True)
+            return redirect(f"{base}?{query}")
+
+        applied = missing = 0
+        # Counted per reason, so the report states the refusal the service
+        # actually gave instead of the one the bulk path assumes.
+        refused: Counter[OrganizerActionRefusal] = Counter()
+        for facilitator_slug in slugs:
+            try:
+                self._apply(
+                    action=action,
+                    event_id=self.current_event.pk,
+                    facilitator_slug=facilitator_slug,
+                )
+            except NotFoundError:
+                missing += 1
+            except FacilitatorActionError as exc:
+                # One refusal stops that row only; the rest of the selection
+                # still goes through.
+                refused[exc.refusal] += 1
+            else:
+                applied += 1
+
+        self._report(applied=applied, missing=missing, refused=refused)
+        return redirect(back)
+
+    def _apply(self, *, action: str, event_id: int, facilitator_slug: str) -> None:
+        panel = self.request.services.facilitator_panel
+        if action == "mark-guest":
+            panel.set_accreditation(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                accreditation_type=AccreditationType.GUEST.value,
+                user_id=self.request.context.current_user_id,
+            )
+        elif action == "delete":
+            panel.delete(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                user_id=self.request.context.current_user_id,
+            )
+        elif action == "restore":
+            panel.restore(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                user_id=self.request.context.current_user_id,
+            )
+        else:
+            # `post` already checked the membership, so this is unreachable
+            # from the web: it exists so an action added to the tuple without
+            # a branch here fails in the suite instead of silently restoring
+            # the whole selection.
+            msg = f"unhandled bulk facilitator action: {action!r}"
+            raise ValueError(msg)
+
+    def _report(
+        self, *, applied: int, missing: int, refused: Counter[OrganizerActionRefusal]
+    ) -> None:
+        if applied:
+            messages.success(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator updated.",
+                    "%(count)d facilitators updated.",
+                    applied,
+                )
+                % {"count": applied},
+            )
+        if missing:
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator could not be found.",
+                    "%(count)d facilitators could not be found.",
+                    missing,
+                )
+                % {"count": missing},
+            )
+        for refusal, count in refused.items():
+            # One reason-agnostic wrapper around the refusal the service gave,
+            # so the bulk path cannot state a reason it never checked.
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator was skipped: %(reason)s",
+                    "%(count)d facilitators were skipped: %(reason)s",
+                    count,
+                )
+                % {"count": count, "reason": ORGANIZER_REFUSALS[refusal]},
+            )

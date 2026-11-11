@@ -25,7 +25,7 @@ from ludamus.links.db.django.models import (
     TicketOrder,
     TicketType,
 )
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.tickets import (
     FeeBreakdownDTO,
     PayoutStatus,

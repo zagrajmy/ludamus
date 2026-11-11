@@ -19,7 +19,7 @@ class ProfileTicketsPageView(LoginRequiredMixin, View):
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
             request,
-            "crowd/user/tickets.html",
+            "user/user/tickets.html",
             {
                 "profile_active_tab": "tickets",
                 "tickets": request.services.ticket_sales.owned_tickets(
