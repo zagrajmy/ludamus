@@ -161,6 +161,22 @@ def _conversation_copy() -> dict[str, str]:
             "Leave this group? Its messages will stop reaching you."
         ),
         "leaveConversation": _("Leave conversation"),
+        "backToNewMessage": _("Back to new message"),
+        "blockedMessage": _("A message from someone you blocked."),
+        "blockedNotice": _("%(name)s blocked."),
+        "blockedPeople": _("Blocked people"),
+        "blockedHint": _(
+            "They cannot start a conversation with you, and their messages stay"
+            " hidden from you."
+        ),
+        "blockHideConfirm": _(
+            "Block %(name)s? Their messages will be hidden from you, and they will"
+            " not be able to start a conversation with you."
+        ),
+        "nobodyBlocked": _("You have not blocked anyone."),
+        "unblock": _("Unblock"),
+        "unblocked": _("%(name)s unblocked."),
+        "unblockPerson": _("Unblock %(name)s"),
         "leaveConversationConfirm": _(
             "Leave this conversation? It will disappear from your list."
         ),

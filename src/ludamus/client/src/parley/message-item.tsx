@@ -45,10 +45,12 @@ function corners(own: boolean, first: boolean, last: boolean): string {
 }
 
 export function MessageItem({
+  block,
   bootstrap,
   confirm,
   copyLink,
   first,
+  hidden,
   last,
   message,
   moderate,
@@ -57,10 +59,14 @@ export function MessageItem({
   report,
   room,
 }: {
+  // Blocks the author; null where blocking is not offered.
+  block: ((message: Message) => void) | null;
   bootstrap: Bootstrap;
   confirm: Confirm;
   copyLink: (id: number) => void;
   first: boolean;
+  // Written by someone this person blocked: shown as a gap, nothing more.
+  hidden: boolean;
   last: boolean;
   message: Message;
   moderate: (id: number) => void;
@@ -72,80 +78,88 @@ export function MessageItem({
   const { copy } = bootstrap;
   const own = message.authorId === bootstrap.user.id;
   const deleted = message.deletedAt !== null;
-  const entries: MenuEntry[] = deleted
-    ? []
-    : [
-        { icon: "Link", label: copy.copyLink, onSelect: () => copyLink(message.id) },
-        ...(own
-          ? [
-              {
-                icon: "Trash",
-                label: copy.deleteLabel,
-                onSelect: () =>
-                  confirm({
-                    accept: copy.deleteLabel,
-                    question: copy.deleteConfirm,
-                    run: () => remove(message.id),
-                  }),
-              } as const,
-            ]
-          : // TODO: reports name a sphere's room, so a conversation has none yet.
-            room.kind === "conversation"
-            ? []
+  const entries: MenuEntry[] =
+    deleted || hidden
+      ? []
+      : [
+          { icon: "Link", label: copy.copyLink, onSelect: () => copyLink(message.id) },
+          ...(own
+            ? [
+                {
+                  icon: "Trash",
+                  label: copy.deleteLabel,
+                  onSelect: () =>
+                    confirm({
+                      accept: copy.deleteLabel,
+                      question: copy.deleteConfirm,
+                      run: () => remove(message.id),
+                    }),
+                } as const,
+              ]
             : [
                 {
                   icon: "Flag",
                   label: copy.reportMessage,
                   onSelect: () => report(message.id),
                 } as const,
+                ...(block === null
+                  ? []
+                  : [
+                      {
+                        icon: "Block",
+                        label: copy.blockPerson.replace("%(name)s", message.authorName),
+                        onSelect: () => block(message),
+                        tone: "danger",
+                      } as const,
+                    ]),
               ]),
-        ...(room.canModerate && !own
-          ? ([
-              {
-                icon: "Trash",
-                label: copy.moderatorDelete,
-                onSelect: () =>
-                  confirm({
-                    accept: copy.moderatorDelete,
-                    question: copy.deleteConfirm,
-                    run: () => moderate(message.id),
-                  }),
-                tone: "danger",
-              },
-              { heading: copy.muteLabel },
-              {
-                icon: "Mute",
-                label: copy.muteOneHour,
-                onSelect: () => mute(message.authorId, HOUR),
-              },
-              {
-                icon: "Mute",
-                label: copy.muteOneDay,
-                onSelect: () => mute(message.authorId, 24 * HOUR),
-              },
-              {
-                icon: "Mute",
-                label: copy.muteSevenDays,
-                onSelect: () => mute(message.authorId, 7 * 24 * HOUR),
-              },
-              {
-                icon: "Mute",
-                label: copy.muteIndefinitely,
-                onSelect: () =>
-                  confirm({
-                    accept: copy.muteIndefinitely,
-                    question: copy.muteConfirm,
-                    run: () => mute(message.authorId, null),
-                  }),
-              },
-              {
-                icon: "Retry",
-                label: copy.restoreWriting,
-                onSelect: () => mute(message.authorId, "restore"),
-              },
-            ] satisfies MenuEntry[])
-          : []),
-      ];
+          ...(room.canModerate && !own
+            ? ([
+                {
+                  icon: "Trash",
+                  label: copy.moderatorDelete,
+                  onSelect: () =>
+                    confirm({
+                      accept: copy.moderatorDelete,
+                      question: copy.deleteConfirm,
+                      run: () => moderate(message.id),
+                    }),
+                  tone: "danger",
+                },
+                { heading: copy.muteLabel },
+                {
+                  icon: "Mute",
+                  label: copy.muteOneHour,
+                  onSelect: () => mute(message.authorId, HOUR),
+                },
+                {
+                  icon: "Mute",
+                  label: copy.muteOneDay,
+                  onSelect: () => mute(message.authorId, 24 * HOUR),
+                },
+                {
+                  icon: "Mute",
+                  label: copy.muteSevenDays,
+                  onSelect: () => mute(message.authorId, 7 * 24 * HOUR),
+                },
+                {
+                  icon: "Mute",
+                  label: copy.muteIndefinitely,
+                  onSelect: () =>
+                    confirm({
+                      accept: copy.muteIndefinitely,
+                      question: copy.muteConfirm,
+                      run: () => mute(message.authorId, null),
+                    }),
+                },
+                {
+                  icon: "Retry",
+                  label: copy.restoreWriting,
+                  onSelect: () => mute(message.authorId, "restore"),
+                },
+              ] satisfies MenuEntry[])
+            : []),
+        ];
 
   return (
     <MessageScroller.Item
@@ -154,7 +168,7 @@ export function MessageItem({
       scrollAnchor
     >
       {!own &&
-        (last ? (
+        (last && !hidden ? (
           <Avatar
             className="size-7 text-[0.625rem]"
             name={message.authorName}
@@ -164,13 +178,13 @@ export function MessageItem({
           <span aria-hidden="true" className="w-7 shrink-0" />
         ))}
       <div className={`flex max-w-[78%] min-w-0 flex-col ${own ? "items-end" : "items-start"}`}>
-        {!own && first && (
+        {!own && first && !hidden && (
           <span className="mb-1 px-3 text-xs text-foreground-muted">{message.authorName}</span>
         )}
         <div className={`flex min-w-0 items-center gap-1 ${own ? "flex-row-reverse" : ""}`}>
           <p
             className={`min-w-0 rounded-[1.125rem] px-3 py-2 text-[0.9375rem] leading-snug wrap-anywhere whitespace-pre-wrap ${corners(own, first, last)} ${
-              deleted
+              deleted || hidden
                 ? "border border-border text-foreground-muted italic"
                 : own
                   ? "bg-coral-700 text-white"
@@ -178,8 +192,9 @@ export function MessageItem({
             }`}
             title={fullTime(message.createdAt)}
           >
-            {own ? null : <span className="sr-only">{message.authorName}: </span>}
-            {deleted ? copy.deletedMessage : <MessageBody body={message.body} />}
+            {own || hidden ? null : <span className="sr-only">{message.authorName}: </span>}
+            {hidden && copy.blockedMessage}
+            {!hidden && (deleted ? copy.deletedMessage : <MessageBody body={message.body} />)}
             <time className="sr-only" dateTime={new Date(message.createdAt).toISOString()}>
               {" "}
               {clock(message.createdAt)}

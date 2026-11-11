@@ -42,14 +42,22 @@ function Action({
   );
 }
 
+// What the chat does about blocks: who is blocked, and blocking or
+// unblocking someone, each answering with the problem if it failed.
+export type Blocks = {
+  block: (person: Person) => Promise<string | null>;
+  has: (userId: string) => boolean;
+  unblock: (person: Person) => Promise<string | null>;
+};
+
 // Who is in a conversation and what its member can do about it: an admin
 // adds and removes people, anyone leaves, and a direct conversation's other
-// person can be blocked.
+// person can be blocked and unblocked.
 export function Details({
   api,
   back,
   backRef,
-  blocked,
+  blocks,
   bootstrap,
   close,
   conversation,
@@ -59,7 +67,7 @@ export function Details({
   api: ConversationsApi;
   back: () => void;
   backRef: Ref<HTMLButtonElement>;
-  blocked: () => void;
+  blocks: Blocks;
   bootstrap: Bootstrap;
   close: () => void;
   conversation: ConversationInfo;
@@ -85,25 +93,28 @@ export function Details({
     opener.current?.focus();
   };
 
-  const act = async (
-    run: () => Promise<{ code: string; ok: false } | { ok: true }>,
-    then: () => void,
-  ) => {
+  // Runs a change, then what follows it, or says why it did not go through.
+  const act = async (run: () => Promise<string | null>, then: () => void) => {
     setQuestion(null);
     setBusy(true);
     setError(null);
     setNotice(null);
-    const answer = await run();
+    const problem = await run();
     setBusy(false);
-    if (answer.ok) then();
-    else setError(refusal(answer.code, copy));
+    if (problem === null) then();
+    else setError(problem);
+  };
+  const said = async (call: Promise<{ code: string; ok: false } | { ok: true }>) => {
+    const answer = await call;
+    return answer.ok ? null : refusal(answer.code, copy);
   };
   const add = (person: Person) =>
     void act(
       async () => {
         const answer = await api.addMembers(conversation.id, [person.id]);
-        if (answer.ok) updated(answer.value);
-        return answer;
+        if (!answer.ok) return refusal(answer.code, copy);
+        updated(answer.value);
+        return null;
       },
       () => setNotice(copy.memberAdded.replace("%(name)s", person.name)),
     );
@@ -113,7 +124,7 @@ export function Details({
       question: copy.removeConfirm.replace("%(name)s", person.name),
       run: () =>
         void act(
-          () => api.removeMember(conversation.id, person.id),
+          () => said(api.removeMember(conversation.id, person.id)),
           () =>
             updated({
               ...conversation,
@@ -125,14 +136,21 @@ export function Details({
     ask({
       accept: group ? copy.leaveGroup : copy.leaveConversation,
       question: group ? copy.leaveGroupConfirm : copy.leaveConversationConfirm,
-      run: () => void act(() => api.leave(conversation.id), left),
+      run: () => void act(() => said(api.leave(conversation.id)), left),
     });
   const block = (person: Person) =>
     ask({
       accept: copy.block,
       question: copy.blockConfirm.replace("%(name)s", person.name),
-      run: () => void act(() => api.block(person.id), blocked),
+      // Blocked, the conversation can no longer be written in; back in it,
+      // that shows.
+      run: () => void act(() => blocks.block(person), back),
     });
+  const unblock = (person: Person) =>
+    void act(
+      () => blocks.unblock(person),
+      () => setNotice(copy.unblocked.replace("%(name)s", person.name)),
+    );
 
   return (
     <section aria-label={copy.detailsLabel} className="flex min-h-0 flex-1 flex-col">
@@ -194,14 +212,22 @@ export function Details({
             ) : (
               <Action icon="PersonAdd" label={copy.addPeople} onClick={() => setAdding(true)} />
             ))}
-          {!group && other !== undefined && (
-            <Action
-              danger
-              icon="Block"
-              label={copy.blockPerson.replace("%(name)s", other.name)}
-              onClick={() => block(other)}
-            />
-          )}
+          {!group &&
+            other !== undefined &&
+            (blocks.has(other.id) ? (
+              <Action
+                icon="Block"
+                label={copy.unblockPerson.replace("%(name)s", other.name)}
+                onClick={() => unblock(other)}
+              />
+            ) : (
+              <Action
+                danger
+                icon="Block"
+                label={copy.blockPerson.replace("%(name)s", other.name)}
+                onClick={() => block(other)}
+              />
+            ))}
           <Action
             danger
             icon="Leave"

@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import type { Bootstrap, Message, Result, Room } from "./protocol";
+import type { Bootstrap, Message, Person, Result, Room } from "./protocol";
 
 import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
@@ -179,9 +179,11 @@ function sameRun(previous: Message | undefined, message: Message): boolean {
 export function Conversation({
   answers,
   back,
+  blocked,
   bootstrap,
   close,
   details,
+  onBlock,
   onPassClosed,
   onRead,
   onRefused,
@@ -189,9 +191,14 @@ export function Conversation({
 }: {
   answers: RequestAnswers;
   back: (() => void) | null;
+  // Ids of the people this person blocked: their messages stay hidden.
+  blocked: Set<string>;
   bootstrap: Bootstrap;
   close: () => void;
   details: { open: () => void; trigger: Ref<HTMLButtonElement> } | null;
+  // Blocks someone, answering with the problem if it did not go through;
+  // null where blocking from a message is not offered.
+  onBlock: ((person: Person) => Promise<string | null>) | null;
   onPassClosed: () => void;
   onRead: (id: number) => void;
   onRefused: () => Promise<boolean>;
@@ -382,6 +389,23 @@ export function Conversation({
       run,
     });
   };
+  const blockAuthor = (message: Message) => {
+    const person = {
+      avatarUrl: message.authorAvatarUrl,
+      id: message.authorId,
+      name: message.authorName,
+    };
+    confirm({
+      accept: copy.block,
+      question: copy.blockHideConfirm.replace("%(name)s", person.name),
+      run: () =>
+        void act(async () => {
+          const problem = await onBlock!(person);
+          if (problem !== null) return { error: problem };
+          return { notice: copy.blockedNotice.replace("%(name)s", person.name) };
+        }),
+    });
+  };
   const report = (messageId: number) =>
     act(async () => {
       const form = new FormData();
@@ -396,7 +420,8 @@ export function Conversation({
     });
 
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
-  const typing = typists.length > 0 && !offline;
+  const shownTypists = typists.filter((id) => !blocked.has(id));
+  const typing = shownTypists.length > 0 && !offline;
   const composing = room.canWrite && muted === null && pending === null;
   const problem = error ?? (composing && tooLong ? copy.messageTooLong : null);
   const counter = composing && length >= COUNT_FROM;
@@ -574,10 +599,12 @@ export function Conversation({
                       </p>
                     )}
                     <MessageItem
+                      block={onBlock === null ? null : blockAuthor}
                       bootstrap={bootstrap}
                       confirm={confirm}
                       copyLink={(id) => void copyLink(id)}
                       first={first}
+                      hidden={blocked.has(message.authorId)}
                       last={last}
                       message={message}
                       moderate={(id) => void moderate(id)}
@@ -608,7 +635,7 @@ export function Conversation({
                 <span className="truncate">
                   {typingLabel(
                     copy,
-                    typists.map((id) => authors.get(id) ?? null),
+                    shownTypists.map((id) => authors.get(id) ?? null),
                   )}
                 </span>
               </>

@@ -3,8 +3,14 @@ export type Copy = Record<
   | "addPeople"
   | "backLabel"
   | "backToConversation"
+  | "backToNewMessage"
   | "block"
   | "blockConfirm"
+  | "blockedHint"
+  | "blockedMessage"
+  | "blockedNotice"
+  | "blockedPeople"
+  | "blockHideConfirm"
   | "blockPerson"
   | "cancelLabel"
   | "closeLabel"
@@ -63,6 +69,7 @@ export type Copy = Record<
   | "muteSevenDays"
   | "newGroup"
   | "newMessage"
+  | "nobodyBlocked"
   | "nobodyFound"
   | "offline"
   | "presenceFew"
@@ -94,6 +101,9 @@ export type Copy = Record<
   | "typingOne"
   | "typingSomeone"
   | "typingTwo"
+  | "unblock"
+  | "unblocked"
+  | "unblockPerson"
   | "unread"
   | "unreadCountFew"
   | "unreadCountMany"
@@ -128,6 +138,8 @@ export type Room = {
 };
 export type Bootstrap = {
   agentHost: string;
+  // People this person has blocked; their messages stay out of sight.
+  blocked: Person[];
   canMessage: boolean;
   capabilityToken: string;
   conversations: ConversationInfo[];

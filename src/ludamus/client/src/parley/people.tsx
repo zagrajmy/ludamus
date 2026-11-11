@@ -128,16 +128,20 @@ export function PeoplePicker({
 export function NewMessage({
   api,
   back,
+  blocked,
   bootstrap,
   close,
   newGroup,
+  showBlocked,
   started,
 }: {
   api: ConversationsApi;
   back: () => void;
+  blocked: number;
   bootstrap: Bootstrap;
   close: () => void;
   newGroup: () => void;
+  showBlocked: () => void;
   started: (conversation: ConversationInfo) => void;
 }) {
   const { copy } = bootstrap;
@@ -178,6 +182,103 @@ export function NewMessage({
         {error !== null && (
           <p className="px-4 pt-2 text-xs text-danger-text" role="alert">
             {error}
+          </p>
+        )}
+        {/* Blocked people never turn up in the search; this is where they are. */}
+        {blocked > 0 && (
+          <button
+            className={`${ROW} mt-3 border-t border-border pt-3`}
+            onClick={showBlocked}
+            type="button"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-bg-tertiary text-foreground-muted">
+              <Icon className="size-5" name="Block" />
+            </span>
+            <span className="flex-1 text-[0.9375rem] font-medium">{copy.blockedPeople}</span>
+            <span className="text-sm text-foreground-muted tabular-nums">{blocked}</span>
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function BlockedPeople({
+  back,
+  bootstrap,
+  close,
+  people,
+  unblock,
+}: {
+  back: () => void;
+  bootstrap: Bootstrap;
+  close: () => void;
+  people: Person[];
+  unblock: (person: Person) => Promise<string | null>;
+}) {
+  const { copy } = bootstrap;
+  const backButton = useRef<HTMLButtonElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    backButton.current?.focus();
+  }, []);
+  const release = async (person: Person) => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    const problem = await unblock(person);
+    setBusy(false);
+    if (problem !== null) return setError(problem);
+    setNotice(copy.unblocked.replace("%(name)s", person.name));
+    // Its row is gone, and its button with it.
+    backButton.current?.focus();
+  };
+  return (
+    <>
+      <PanelHeader
+        back={{ label: copy.backToNewMessage, run: back }}
+        backRef={backButton}
+        close={close}
+        closeLabel={copy.closeLabel}
+        title={copy.blockedPeople}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-1 pb-4">
+        <p className="px-2 pb-2 text-sm text-foreground-muted">{copy.blockedHint}</p>
+        {people.length === 0 ? (
+          <p className="px-2 py-6 text-center text-sm text-foreground-muted">
+            {copy.nobodyBlocked}
+          </p>
+        ) : (
+          <ul>
+            {people.map((person) => (
+              <li className="flex items-center gap-3 p-2" key={person.id}>
+                <Avatar className="size-10 text-xs" name={person.name} src={person.avatarUrl} />
+                <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-medium">
+                  {person.name}
+                </span>
+                <button
+                  aria-label={copy.unblockPerson.replace("%(name)s", person.name)}
+                  className="btn btn-secondary text-sm"
+                  disabled={busy}
+                  onClick={() => void release(person)}
+                  type="button"
+                >
+                  {copy.unblock}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {error !== null && (
+          <p className="px-4 pt-2 text-xs text-danger-text" role="alert">
+            {error}
+          </p>
+        )}
+        {notice !== null && (
+          <p className="px-4 pt-2 text-xs text-success-text" role="status">
+            {notice}
           </p>
         )}
       </div>
@@ -235,7 +336,7 @@ export function NewGroup({
   return (
     <>
       <PanelHeader
-        back={{ label: copy.backLabel, run: back }}
+        back={{ label: copy.backToNewMessage, run: back }}
         close={close}
         closeLabel={copy.closeLabel}
         title={copy.newGroup}

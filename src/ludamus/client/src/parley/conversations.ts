@@ -55,6 +55,7 @@ export function conversationsApi(bootstrap: Bootstrap) {
       return answer.ok ? { ok: true, value: answer.value.people } : answer;
     },
     startDirect: (userId: string) => post<ConversationInfo>("conversations/direct/", { userId }),
+    unblock: (userId: string) => post<undefined>(`blocks/${userId}/remove/`),
   };
 }
 

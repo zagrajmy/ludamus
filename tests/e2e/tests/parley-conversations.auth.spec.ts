@@ -12,6 +12,7 @@ import {
   message,
   panelOf,
   type Person,
+  routeApi,
   routeBootstrap,
 } from "./helpers/parley";
 
@@ -44,41 +45,6 @@ const group = (fields: Partial<Conversation> = {}): Conversation => ({
   title: "Friday crew",
   ...fields,
 });
-
-type Reply = "abort" | { delayMs?: number; json?: unknown; status: number };
-type Handler = (body: Record<string, unknown>, url: URL) => Reply;
-
-// Stands in for Django's conversation endpoints. Each path answers from its
-// handler, or from the next of a list of replies, the last one repeating.
-async function routeApi(
-  page: Page,
-  api: Record<string, Handler | Reply[]>,
-): Promise<{ body: Record<string, unknown>; path: string }[]> {
-  const calls: { body: Record<string, unknown>; path: string }[] = [];
-  const served = new Map<string, number>();
-  await page.route(/\/parley\/(?:people|conversations|blocks)\//u, async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const where = url.pathname.replace(/^\/parley\//u, "");
-    const data = request.postData();
-    const body = data === null ? {} : (JSON.parse(data) as Record<string, unknown>);
-    calls.push({ body, path: where });
-    const answer = api[where];
-    let reply: Reply = { json: { error: "not_found" }, status: 404 };
-    if (typeof answer === "function") reply = answer(body, url);
-    else if (answer !== undefined) {
-      const count = served.get(where) ?? 0;
-      served.set(where, count + 1);
-      reply = answer[Math.min(count, answer.length - 1)]!;
-    }
-    if (reply === "abort") return route.abort();
-    if (reply.delayMs !== undefined)
-      await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
-    if (reply.status === 204) return route.fulfill({ status: 204 });
-    return route.fulfill({ json: reply.json ?? {}, status: reply.status });
-  });
-  return calls;
-}
 
 async function openList(page: Page): Promise<Locator> {
   await page.goto("/");
@@ -168,7 +134,10 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await FakeWorker.install(page);
   const calls = await routeApi(page, {
     "conversations/20/leave/": [{ status: 204 }],
-    "conversations/20/members/": [{ json: group({ members: [me, ada, kuba] }), status: 200 }],
+    "conversations/20/members/": [
+      { json: { error: "too_many" }, status: 422 },
+      { json: group({ members: [me, ada, kuba] }), status: 200 },
+    ],
     "conversations/20/members/8/remove/": [
       { json: { error: "forbidden" }, status: 403 },
       { status: 204 },
@@ -185,7 +154,7 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await panel.getByRole("button", { name: copy.newMessage }).click();
   await panel.getByRole("button", { name: copy.newGroup }).click();
   await expect(panel.getByRole("heading", { name: copy.newGroup })).toBeVisible();
-  await panel.getByRole("button", { name: copy.backLabel }).click();
+  await panel.getByRole("button", { name: copy.backToNewMessage }).click();
   await expect(panel.getByRole("heading", { name: copy.newMessage })).toBeVisible();
   await panel.getByRole("button", { name: copy.newGroup }).click();
 
@@ -255,6 +224,8 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await add.fill("ku");
   await expect(details.getByRole("button", { exact: true, name: ada.name })).toBeHidden();
   await details.getByRole("button", { name: kuba.name }).click();
+  await expect(details.getByRole("alert")).toHaveText(copy.errorTooMany);
+  await details.getByRole("button", { name: kuba.name }).click();
   await expect(
     details.getByRole("status").filter({ hasText: `${kuba.name} added.` }),
   ).toBeVisible();
@@ -274,6 +245,16 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
 test("A request waits on top until it is accepted, declined or blocked", async ({ page }) => {
   const asking = (person: Person, id: string): Conversation =>
     direct({ canWrite: false, id, members: [person, me], state: "request", title: person.name });
+  // Someone who asked and has since gone, name and all.
+  const gone = direct({
+    canWrite: false,
+    id: "conversation:15",
+    members: [me],
+    state: "request",
+    title: "",
+  });
+  // What the list says once a block has it asked again.
+  let listed = [direct(), gone];
   await routeBootstrap(page, [
     {
       canMessage: true,
@@ -281,14 +262,7 @@ test("A request waits on top until it is accepted, declined or blocked", async (
         asking(ada, "conversation:12"),
         asking(kuba, "conversation:13"),
         asking(ola, "conversation:14"),
-        // Someone who asked and has since gone, name and all.
-        direct({
-          canWrite: false,
-          id: "conversation:15",
-          members: [me],
-          state: "request",
-          title: "",
-        }),
+        gone,
       ],
     },
   ]);
@@ -302,7 +276,7 @@ test("A request waits on top until it is accepted, declined or blocked", async (
   );
   const calls = await routeApi(page, {
     "blocks/": [{ json: {}, status: 500 }, { status: 204 }],
-    "conversations/": [{ json: { conversations: [direct({ canWrite: false })] }, status: 200 }],
+    "conversations/": () => ({ json: { conversations: listed }, status: 200 }),
     "conversations/12/accept/": [
       { json: {}, status: 500 },
       { json: direct(), status: 200 },
@@ -364,6 +338,7 @@ test("A request waits on top until it is accepted, declined or blocked", async (
   ]);
 
   // Blocked from a conversation already under way, it stays, closed.
+  listed = [direct({ canWrite: false })];
   await roomButton(panel, ada.name).click();
   await panel.getByRole("button", { name: copy.detailsLabel }).click();
   const details = panel.getByRole("region", { name: copy.detailsLabel });

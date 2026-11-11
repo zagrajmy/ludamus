@@ -15,21 +15,23 @@ import { createRoot } from "react-dom/client";
 import { Avatar } from "./avatar";
 import { Conversation, type RequestAnswers } from "./conversation";
 import { asRoom, conversationsApi, counterpart, refusal, roomKind } from "./conversations";
-import { Details } from "./details";
+import { type Blocks, Details } from "./details";
 import { ago, counted } from "./format";
 import { IconButton, PanelHeader } from "./header";
 import { Icon } from "./icons";
-import { NewGroup, NewMessage } from "./people";
+import { BlockedPeople, NewGroup, NewMessage } from "./people";
 import {
   agentUrl,
   type Bootstrap,
   type ConversationInfo,
+  type Person,
   type Room,
   type RoomActivity,
 } from "./protocol";
 import { type Activity, useActivity } from "./use-activity";
 
 type View =
+  | { kind: "blocked" }
   | { kind: "closed" }
   | { kind: "compose" }
   | { kind: "details"; roomId: string }
@@ -237,6 +239,8 @@ function Connected({
   const sphere = useActivity(bootstrap, "sphere", onPassClosed);
   const api = useMemo(() => conversationsApi(bootstrap), [bootstrap]);
   const [conversations, setConversations] = useState(bootstrap.conversations);
+  const [blocked, setBlocked] = useState(bootstrap.blocked);
+  const blockedIds = new Set(blocked.map(({ id }) => id));
   const [current, setCurrent] = useState<string | null>(null);
   const detailsTrigger = useRef<HTMLButtonElement>(null);
   const detailsBack = useRef<HTMLButtonElement>(null);
@@ -330,10 +334,29 @@ function Connected({
   }, [close, view.kind]);
 
   const toggle = () => {
-    if (view.kind === "list" || view.kind === "compose" || view.kind === "group") return close();
+    if (["blocked", "compose", "group", "list"].includes(view.kind)) return close();
     if (view.kind === "room" || view.kind === "details" || single === undefined)
       return setView({ kind: "list" });
     open(single);
+  };
+
+  // A block changes who may write where, so the list is asked again.
+  const blocks: Blocks = {
+    block: async (person: Person) => {
+      const answer = await api.block(person.id);
+      if (!answer.ok) return refusal(answer.code, copy);
+      setBlocked((known) => [...known.filter(({ id }) => id !== person.id), person]);
+      void refresh();
+      return null;
+    },
+    has: (userId) => blockedIds.has(userId),
+    unblock: async (person: Person) => {
+      const answer = await api.unblock(person.id);
+      if (!answer.ok) return refusal(answer.code, copy);
+      setBlocked((known) => known.filter(({ id }) => id !== person.id));
+      void refresh();
+      return null;
+    },
   };
 
   const answersFor = (target: Room): RequestAnswers => {
@@ -352,11 +375,8 @@ function Connected({
       },
       block: async () => {
         const other = counterpart(target.conversation!, user.id);
-        if (other !== undefined) {
-          const answer = await api.block(other.id);
-          if (!answer.ok) return refusal(answer.code, copy);
-        }
-        return decline();
+        const problem = other === undefined ? null : await blocks.block(other);
+        return problem ?? decline();
       },
       decline,
     };
@@ -390,10 +410,23 @@ function Connected({
           <NewMessage
             api={api}
             back={toList}
+            blocked={blocked.length}
             bootstrap={bootstrap}
             close={close}
             newGroup={() => setView({ kind: "group" })}
+            showBlocked={() => setView({ kind: "blocked" })}
             started={opened}
+          />
+        </Frame>
+      )}
+      {view.kind === "blocked" && (
+        <Frame label={copy.title} room={false}>
+          <BlockedPeople
+            back={() => setView({ kind: "compose" })}
+            bootstrap={bootstrap}
+            close={close}
+            people={blocked}
+            unblock={blocks.unblock}
           />
         </Frame>
       )}
@@ -415,6 +448,7 @@ function Connected({
             <Conversation
               answers={answersFor(room)}
               back={single === undefined ? toList : null}
+              blocked={blockedIds}
               bootstrap={bootstrap}
               close={close}
               details={
@@ -426,6 +460,10 @@ function Connected({
                     }
               }
               key={room.id}
+              // A direct conversation blocks from its details and its request.
+              onBlock={
+                bootstrap.canMessage && room.conversation?.kind !== "direct" ? blocks.block : null
+              }
               onPassClosed={onPassClosed}
               onRead={(messageId) =>
                 (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
@@ -439,10 +477,7 @@ function Connected({
               api={api}
               back={() => setView({ kind: "room", roomId: room.id })}
               backRef={detailsBack}
-              blocked={() => {
-                void refresh();
-                setView({ kind: "room", roomId: room.id });
-              }}
+              blocks={blocks}
               bootstrap={bootstrap}
               close={close}
               conversation={room.conversation}

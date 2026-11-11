@@ -17,6 +17,7 @@ export type Conversation = {
 // sphere 1 with its common room and one read-only programme point.
 export const bootstrap = {
   agentHost: "localhost:8787",
+  blocked: [] as Person[],
   canMessage: false,
   capabilityToken: "mock-token",
   copy: {
@@ -24,8 +25,16 @@ export const bootstrap = {
     addPeople: "Add people",
     backLabel: "Back to conversations",
     backToConversation: "Back to the conversation",
+    backToNewMessage: "Back to new message",
     block: "Block",
     blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
+    blockedHint:
+      "They cannot start a conversation with you, and their messages stay hidden from you.",
+    blockedMessage: "A message from someone you blocked.",
+    blockedNotice: "%(name)s blocked.",
+    blockedPeople: "Blocked people",
+    blockHideConfirm:
+      "Block %(name)s? Their messages will be hidden from you, and they will not be able to start a conversation with you.",
     blockPerson: "Block %(name)s",
     cancelLabel: "Cancel",
     closeLabel: "Close chat",
@@ -84,6 +93,7 @@ export const bootstrap = {
     muteSevenDays: "Mute for 7 days",
     newGroup: "New group",
     newMessage: "New message",
+    nobodyBlocked: "You have not blocked anyone.",
     nobodyFound: "Nobody by that name you can write to.",
     offline: "Connection lost. Reconnecting…",
     presenceFew: "%(count)s people here",
@@ -115,6 +125,9 @@ export const bootstrap = {
     typingOne: "%(name)s is typing…",
     typingSomeone: "Someone",
     typingTwo: "%(first)s and %(second)s are typing…",
+    unblock: "Unblock",
+    unblocked: "%(name)s unblocked.",
+    unblockPerson: "Unblock %(name)s",
     unread: "Unread",
     unreadCountFew: "%(count)s unread conversations",
     unreadCountMany: "%(count)s unread conversations",
@@ -314,4 +327,39 @@ export async function openRoom(page: Page, title: string, ready?: string): Promi
   await expect(panel.getByRole("heading", { name: title })).toBeVisible();
   if (ready !== undefined) await expect(panel.getByText(ready).first()).toBeVisible();
   return panel;
+}
+
+export type ApiReply = "abort" | { delayMs?: number; json?: unknown; status: number };
+type ApiHandler = (body: Record<string, unknown>, url: URL) => ApiReply;
+
+// Stands in for Django's conversation endpoints. Each path answers from its
+// handler, or from the next of a list of replies, the last one repeating.
+export async function routeApi(
+  page: Page,
+  api: Record<string, ApiHandler | ApiReply[]>,
+): Promise<{ body: Record<string, unknown>; path: string }[]> {
+  const calls: { body: Record<string, unknown>; path: string }[] = [];
+  const served = new Map<string, number>();
+  await page.route(/\/parley\/(?:people|conversations|blocks)\//u, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const where = url.pathname.replace(/^\/parley\//u, "");
+    const data = request.postData();
+    const body = data === null ? {} : (JSON.parse(data) as Record<string, unknown>);
+    calls.push({ body, path: where });
+    const answer = api[where];
+    let reply: ApiReply = { json: { error: "not_found" }, status: 404 };
+    if (typeof answer === "function") reply = answer(body, url);
+    else if (answer !== undefined) {
+      const count = served.get(where) ?? 0;
+      served.set(where, count + 1);
+      reply = answer[Math.min(count, answer.length - 1)]!;
+    }
+    if (reply === "abort") return route.abort();
+    if (reply.delayMs !== undefined)
+      await new Promise((resolve) => setTimeout(resolve, reply.delayMs));
+    if (reply.status === 204) return route.fulfill({ status: 204 });
+    return route.fulfill({ json: reply.json ?? {}, status: reply.status });
+  });
+  return calls;
 }

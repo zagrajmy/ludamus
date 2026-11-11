@@ -3950,6 +3950,56 @@ msgid "Leave conversation"
 msgstr "Opuść rozmowę"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Back to new message"
+msgstr "Wróć do nowej wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "A message from someone you blocked."
+msgstr "Wiadomość od zablokowanej osoby."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(name)s blocked."
+msgstr "Zablokowano: %(name)s."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Blocked people"
+msgstr "Zablokowane osoby"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"They cannot start a conversation with you, and their messages stay hidden "
+"from you."
+msgstr "Nie mogą rozpocząć z Tobą rozmowy, a ich wiadomości pozostają ukryte."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid ""
+"Block %(name)s? Their messages will be hidden from you, and they will not be "
+"able to start a conversation with you."
+msgstr ""
+"Zablokować: %(name)s? Wiadomości tej osoby zostaną ukryte i nie rozpocznie "
+"już z Tobą rozmowy."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You have not blocked anyone."
+msgstr "Nikt nie jest zablokowany."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Unblock"
+msgstr "Odblokuj"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(name)s unblocked."
+msgstr "Odblokowano: %(name)s."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "Unblock %(name)s"
+msgstr "Odblokuj: %(name)s"
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Leave this conversation? It will disappear from your list."
 msgstr "Opuścić tę rozmowę? Zniknie z Twojej listy."
 
