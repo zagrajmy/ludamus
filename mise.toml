@@ -17,9 +17,6 @@ npm.package_manager = "npm"
 # both still fail on the first attempt.
 http_retries = 12
 
-[hooks]
-enter = "poetry install"
-
 # Claude Code web's sandbox proxy 403s every GitHub download (api.github.com
 # included), so tools prefer npm/PyPI backends; mise.sandbox.toml substitutes
 # the rest there (activated via MISE_ENV=sandbox — see docs/agents/sandbox.md).
