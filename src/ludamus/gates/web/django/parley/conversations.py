@@ -7,7 +7,6 @@ caller cannot see, forbidden (403), and the rest as 422.
 
 from __future__ import annotations
 
-import json
 import logging
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Concatenate
@@ -15,6 +14,7 @@ from typing import TYPE_CHECKING, Concatenate
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
+from pydantic import BaseModel, Field, PositiveInt, ValidationError
 
 from ludamus.pacts.parley import ParleyConversationError
 
@@ -33,26 +33,28 @@ class _InvalidBodyError(Exception):
     pass
 
 
-def _body(request: RootHttpRequest) -> dict[str, object]:
+class _Someone(BaseModel):
+    user_id: PositiveInt = Field(alias="userId")
+
+
+class _People(BaseModel):
+    title: str = ""
+    member_ids: list[PositiveInt] = Field(alias="memberIds", default_factory=list)
+
+
+class _Members(BaseModel):
+    member_ids: list[PositiveInt] = Field(alias="memberIds")
+
+
+class _Name(BaseModel):
+    name: str = ""
+
+
+def _body[M: BaseModel](request: RootHttpRequest, shape: type[M]) -> M:
     try:
-        body = json.loads(request.body or b"{}")
-    except json.JSONDecodeError as error:
+        return shape.model_validate_json(request.body or b"{}")
+    except ValidationError as error:
         raise _InvalidBodyError from error
-    if not isinstance(body, dict):
-        raise _InvalidBodyError
-    return body
-
-
-def _ids(value: object) -> list[int]:
-    if not isinstance(value, list) or not all(
-        isinstance(item, int | str) and str(item).isdigit() for item in value
-    ):
-        raise _InvalidBodyError
-    return [int(item) for item in value]
-
-
-def _id(value: object) -> int:
-    return _ids([value])[0]
 
 
 def _conversation(
@@ -111,7 +113,7 @@ def conversation_list(request: RootHttpRequest, user_id: int) -> HttpResponse:
 @require_POST
 @_guarded
 def start_direct(request: RootHttpRequest, user_id: int) -> HttpResponse:
-    recipient_id = _id(_body(request).get("userId"))
+    recipient_id = _body(request, _Someone).user_id
     conversation = request.services.parley_conversations.start_direct(
         user_id=user_id, recipient_id=recipient_id
     )
@@ -125,12 +127,9 @@ def start_direct(request: RootHttpRequest, user_id: int) -> HttpResponse:
 @require_POST
 @_guarded
 def create_group(request: RootHttpRequest, user_id: int) -> HttpResponse:
-    body = _body(request)
-    title = body.get("title", "")
-    if not isinstance(title, str):
-        raise _InvalidBodyError
+    people = _body(request, _People)
     conversation = request.services.parley_conversations.create_group(
-        user_id=user_id, title=title, member_ids=_ids(body.get("memberIds", []))
+        user_id=user_id, title=people.title, member_ids=people.member_ids
     )
     # New, or the one these people already share.
     logger.info(
@@ -183,7 +182,7 @@ def add_members(request: RootHttpRequest, user_id: int, pk: int) -> HttpResponse
     conversation = request.services.parley_conversations.add_members(
         user_id=user_id,
         conversation_id=pk,
-        member_ids=_ids(_body(request).get("memberIds")),
+        member_ids=_body(request, _Members).member_ids,
     )
     logger.info(
         "Parley group members added",
@@ -214,9 +213,7 @@ def remove_member(
 @require_POST
 @_guarded
 def rename(request: RootHttpRequest, user_id: int, pk: int) -> HttpResponse:
-    name = _body(request).get("name", "")
-    if not isinstance(name, str):
-        raise _InvalidBodyError
+    name = _body(request, _Name).name
     conversation = request.services.parley_conversations.rename(
         user_id=user_id, conversation_id=pk, name=name
     )
@@ -230,7 +227,7 @@ def rename(request: RootHttpRequest, user_id: int, pk: int) -> HttpResponse:
 @require_POST
 @_guarded
 def block(request: RootHttpRequest, user_id: int) -> HttpResponse:
-    blocked_id = _id(_body(request).get("userId"))
+    blocked_id = _body(request, _Someone).user_id
     request.services.parley_conversations.block(user_id=user_id, blocked_id=blocked_id)
     logger.info("Parley person blocked", extra={"user_id": user_id})
     return HttpResponse(status=HTTPStatus.NO_CONTENT)

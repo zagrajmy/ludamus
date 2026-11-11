@@ -295,8 +295,9 @@ class TestDirect:
         response = _post(authenticated_client, "parley_block", {"userId": kid.pk})
 
         assert_response(response, HTTPStatus.NO_CONTENT)
-        response = authenticated_client.get(reverse("parley_bootstrap"))
-        assert response.json()["blocked"] == [_person(kid)]
+        # The bootstrap carries a fresh pass, so only its block list is compared.
+        bootstrap = authenticated_client.get(reverse("parley_bootstrap")).json()
+        assert bootstrap["blocked"] == [_person(kid)]
 
 
 @pytest.mark.django_db
@@ -389,8 +390,7 @@ class TestGroups:
             authenticated_client, "parley_conversation_group", {"memberIds": [ada.pk]}
         )
 
-        assert response.json()["id"] == direct.json()["id"]
-        assert response.json()["title"] == "Ada"
+        assert_response(response, HTTPStatus.CREATED, json=direct.json())
 
     def test_anyone_in_it_names_it_and_no_one_else(self, authenticated_client, me):
         ada, bob = _adult(name="Ada"), _adult(name="Bob")
@@ -409,7 +409,20 @@ class TestGroups:
             authenticated_client, "parley_conversation_name", {"name": 7}, pk=pk
         )
 
-        assert (response.json()["title"], response.json()["name"]) == ("Crew", "Crew")
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            json={
+                "id": conversation_id,
+                "kind": "group",
+                "title": "Crew",
+                "name": "Crew",
+                "state": "active",
+                "canWrite": True,
+                "isAdmin": False,
+                "members": [_person(me), _person(ada), _person(bob)],
+            },
+        )
         assert_response(stranger, HTTPStatus.NOT_FOUND, json={"error": "not_found"})
         assert_response(
             malformed, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "invalid"}
