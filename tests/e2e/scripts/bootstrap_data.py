@@ -24,6 +24,7 @@ django.setup()
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
+from django.core.files import File
 from django.core.management import call_command
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -1402,6 +1403,44 @@ def _create_single_slot_event(sphere: Sphere) -> None:
     )
 
 
+def _create_session_covers_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Gallery Night",
+        slug="session-covers",
+        description="Two tables, one with a picture.",
+        start_offset=timedelta(days=19),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    venue = _create_venue(event, name="Gallery Venue", slug="gallery-venue")
+    area = _create_area(venue, name="Gallery Area", slug="gallery-area")
+    space = _create_space(area, name="Gallery Room", slug="gallery-room", capacity=6)
+    pictured = _scheduled_session(
+        event,
+        space,
+        title="Meeple Painting",
+        slug="meeple-painting",
+        presenter="Gallery GM",
+        description="Bring a brush; the meeples are on us.",
+        seats=6,
+        hour=1,
+    )
+    cover = settings.BASE_DIR / "static" / "placeholder-images" / "01.webp"
+    with cover.open("rb") as image:
+        pictured.cover_image.save("meeple-painting.webp", File(image))
+    _scheduled_session(
+        event,
+        space,
+        title="Blank Canvas",
+        slug="blank-canvas",
+        presenter="Gallery GM",
+        description="A session with no cover of its own.",
+        seats=6,
+        hour=2,
+    )
+
+
 def _flow_user(slug: str, *, name: str) -> User:
     # A user of its own per role in a flow spec, so no other spec reads its
     # seats, notifications or RSVPs.
@@ -2312,6 +2351,7 @@ def main() -> None:
     _create_accept_lab_event(sphere)
     _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
+    _create_session_covers_event(sphere)
     _create_slot_states_event(sphere)
     _create_anonymous_signup_event(sphere)
     _create_party_seats_event(sphere)

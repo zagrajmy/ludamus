@@ -1,4 +1,4 @@
-{% load i18n tessera %}
+{% load i18n tessera cfp_tags %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
         aria-labelledby="session-{{ data.session.pk }}-title"
@@ -6,6 +6,12 @@
         data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
         data-login-url="{% url 'web:crowd:auth0:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
+    {# Same strip, same place as on the card. Decorative, so a short viewport #}
+    {# drops it rather than squeeze the scrolling body under fixed chrome. #}
+    {% session_cover_image data.session as cover_image_url %}
+    {% if cover_image_url %}
+        {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0 [@media(max-height:40rem)]:hidden" only %}
+    {% endif %}
     <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
         <h3 id="session-{{ data.session.pk }}-title"
             class="text-lg font-semibold text-foreground"
