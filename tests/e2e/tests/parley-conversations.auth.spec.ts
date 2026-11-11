@@ -30,6 +30,7 @@ const direct = (fields: Partial<Conversation> = {}): Conversation => ({
   isAdmin: false,
   kind: "direct",
   members: [me, ada],
+  name: "",
   state: "active",
   title: ada.name,
   ...fields,
@@ -41,6 +42,7 @@ const group = (fields: Partial<Conversation> = {}): Conversation => ({
   isAdmin: true,
   kind: "group",
   members: [me, ada, kuba],
+  name: "Friday crew",
   state: "active",
   title: "Friday crew",
   ...fields,
@@ -134,6 +136,10 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await FakeWorker.install(page);
   const calls = await routeApi(page, {
     "conversations/20/leave/": [{ status: 204 }],
+    "conversations/20/name/": [
+      { json: { error: "invalid_title" }, status: 422 },
+      { json: group({ name: "Saturday crew", title: "Saturday crew" }), status: 200 },
+    ],
     "conversations/20/members/": [
       { json: { error: "too_many" }, status: 422 },
       { json: group({ members: [me, ada, kuba] }), status: 200 },
@@ -158,17 +164,14 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await expect(panel.getByRole("heading", { name: copy.newMessage })).toBeVisible();
   await panel.getByRole("button", { name: copy.newGroup }).click();
 
-  const title = panel.getByLabel(copy.groupName);
-  await expect(title).toBeFocused();
+  // People come first; a name is optional.
+  const search = panel.getByRole("searchbox", { name: copy.groupPeople });
+  await expect(search).toBeFocused();
   const create = panel.getByRole("button", { name: copy.createGroup });
   await create.click();
-  await expect(panel.getByRole("alert")).toHaveText(copy.groupNeedsTitle);
-  await expect(title).toBeFocused();
-  await title.fill("Friday crew");
-  await create.click();
   await expect(panel.getByRole("alert")).toHaveText(copy.groupNeedsPeople);
+  await panel.getByLabel(copy.groupName).fill("Friday crew");
 
-  const search = panel.getByLabel(copy.groupPeople);
   await search.fill("a");
   await expect(panel.getByText(copy.searchHint)).toBeVisible();
   // Enter in the search does not send the form half-filled.
@@ -203,6 +206,21 @@ test("A group gets a name and people, and its admin shapes who is in it", async 
   await expect(details.getByText(copy.you)).toBeVisible();
   await analyzePageAccessibility(page);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-group-details.png" });
+
+  // Anyone in it names it; an unchanged name has nothing to save.
+  const name = details.getByLabel(copy.nameLabel);
+  const save = details.getByRole("button", { name: copy.saveName });
+  await expect(name).toHaveValue("Friday crew");
+  await expect(save).toBeDisabled();
+  await name.fill("Saturday crew");
+  await save.click();
+  await expect(details.getByRole("alert")).toHaveText(copy.groupTitleTooLong);
+  await save.click();
+  await expect(details.getByRole("status").filter({ hasText: copy.nameSaved })).toBeVisible();
+  await expect(save).toBeDisabled();
+  expect(
+    calls.filter(({ path: where }) => where === "conversations/20/name/").at(-1)?.body,
+  ).toEqual({ name: "Saturday crew" });
 
   const remove = details.getByRole("button", { name: `Remove ${kuba.name} from the group` });
   await remove.click();

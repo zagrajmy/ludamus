@@ -9,6 +9,7 @@ export type Conversation = {
   isAdmin: boolean;
   kind: "direct" | "group";
   members: Person[];
+  name: string;
   state: "active" | "request";
   title: string;
 };
@@ -61,9 +62,8 @@ export const bootstrap = {
     errorRateLimited: "Too many messages. Wait a moment and try again.",
     errorTooMany: "A group can have up to 50 people.",
     errorUnknown: "Something went wrong. Try again.",
-    groupName: "Group name",
+    groupName: "Name (optional)",
     groupNeedsPeople: "Add at least one person.",
-    groupNeedsTitle: "Give the group a name.",
     groupPeople: "People in the group",
     groupTitleTooLong: "Group names can be up to 80 characters.",
     leaveConversation: "Leave conversation",
@@ -91,6 +91,9 @@ export const bootstrap = {
     muteOneDay: "Mute for 24 hours",
     muteOneHour: "Mute for 1 hour",
     muteSevenDays: "Mute for 7 days",
+    nameHint: "Everyone in it sees this name. Leave it empty to go back to the default.",
+    nameLabel: "Conversation name",
+    nameSaved: "Name saved.",
     newGroup: "New group",
     newMessage: "New message",
     nobodyBlocked: "You have not blocked anyone.",
@@ -112,6 +115,7 @@ export const bootstrap = {
     restoreWriting: "Restore writing access",
     retry: "Try again",
     roomsLabel: "Conversations",
+    saveName: "Save name",
     scrollLatest: "Jump to the latest messages",
     searchHint: "Type at least two letters of their name.",
     searching: "Searching…",

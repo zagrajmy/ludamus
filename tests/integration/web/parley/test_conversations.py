@@ -104,7 +104,12 @@ class TestList:
     ):
         ada = _adult(name="Ada")
         _post(_as(ada), "parley_conversation_direct", {"userId": me.pk})
-        _post(_as(ada), "parley_conversation_group", {"title": "Not mine"})
+        bob, cyd = _adult(name="Bob"), _adult(name="Cyd")
+        _post(
+            _as(ada),
+            "parley_conversation_group",
+            {"title": "Not mine", "memberIds": [bob.pk, cyd.pk]},
+        )
 
         response = authenticated_client.get(reverse("parley_conversations"))
 
@@ -118,6 +123,7 @@ class TestList:
                         "id": f"conversation:{conversation.pk}",
                         "kind": "direct",
                         "title": "Ada",
+                        "name": "",
                         "state": "request",
                         "canWrite": False,
                         "isAdmin": False,
@@ -152,6 +158,7 @@ class TestDirect:
                 "id": f"conversation:{conversation.pk}",
                 "kind": "direct",
                 "title": "Ada",
+                "name": "",
                 "state": "active",
                 "canWrite": True,
                 "isAdmin": False,
@@ -170,6 +177,7 @@ class TestDirect:
                 "id": f"conversation:{conversation.pk}",
                 "kind": "direct",
                 "title": "Test User",
+                "name": "",
                 "state": "active",
                 "canWrite": True,
                 "isAdmin": False,
@@ -318,6 +326,7 @@ class TestGroups:
                 "id": f"conversation:{conversation.pk}",
                 "kind": "group",
                 "title": "Friday crew",
+                "name": "Friday crew",
                 "state": "active",
                 "canWrite": True,
                 "isAdmin": True,
@@ -325,17 +334,87 @@ class TestGroups:
             },
         )
 
-    def test_a_group_needs_a_title(self, authenticated_client, me):
+    @pytest.mark.parametrize(
+        ("title", "people", "error"),
+        (("Crew", False, "no_people"), ("x" * 81, True, "invalid_title")),
+        ids=("nobody", "long-name"),
+    )
+    def test_a_conversation_needs_people_and_a_short_name_if_any(
+        self, authenticated_client, me, title, people, error
+    ):
+        others = [_adult(name="Ada").pk, _adult(name="Bob").pk] if people else []
+
         response = _post(
             authenticated_client,
             "parley_conversation_group",
-            {"title": "   ", "memberIds": []},
+            {"title": title, "memberIds": others},
         )
 
         assert_response(
-            response, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "invalid_title"}
+            response, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": error}
         )
         assert not ParleyConversation.objects.exists()
+
+    def test_an_unnamed_group_goes_by_its_people_and_reopens_for_the_same_ones(
+        self, authenticated_client, me
+    ):
+        people = [_adult(name=name) for name in ("Ada", "Bob", "Cyd", "Dee", "Eve")]
+        ids = [person.pk for person in people]
+
+        first = _post(
+            authenticated_client, "parley_conversation_group", {"memberIds": ids}
+        )
+        again = _post(
+            authenticated_client,
+            "parley_conversation_group",
+            {"title": "Crew", "memberIds": list(reversed(ids))},
+        )
+
+        assert first.json()["title"] == "Ada, Bob, Cyd +2"
+        assert (again.json()["id"], again.json()["title"]) == (
+            first.json()["id"],
+            "Crew",
+        )
+        assert ParleyConversation.objects.count() == 1
+
+    def test_one_person_reopens_the_direct_conversation_with_them(
+        self, authenticated_client, me
+    ):
+        ada = _adult(name="Ada")
+        direct = _post(
+            authenticated_client, "parley_conversation_direct", {"userId": ada.pk}
+        )
+
+        response = _post(
+            authenticated_client, "parley_conversation_group", {"memberIds": [ada.pk]}
+        )
+
+        assert response.json()["id"] == direct.json()["id"]
+        assert response.json()["title"] == "Ada"
+
+    def test_anyone_in_it_names_it_and_no_one_else(self, authenticated_client, me):
+        ada, bob = _adult(name="Ada"), _adult(name="Bob")
+        conversation_id = _post(
+            authenticated_client,
+            "parley_conversation_group",
+            {"memberIds": [ada.pk, bob.pk]},
+        ).json()["id"]
+        pk = int(conversation_id.removeprefix("conversation:"))
+
+        response = _post(_as(ada), "parley_conversation_name", {"name": "Crew"}, pk=pk)
+        stranger = _post(
+            _as(_adult(name="Zed")), "parley_conversation_name", {"name": "X"}, pk=pk
+        )
+        malformed = _post(
+            authenticated_client, "parley_conversation_name", {"name": 7}, pk=pk
+        )
+
+        assert (response.json()["title"], response.json()["name"]) == ("Crew", "Crew")
+        assert_response(stranger, HTTPStatus.NOT_FOUND, json={"error": "not_found"})
+        assert_response(
+            malformed, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "invalid"}
+        )
+        assert ParleyConversation.objects.get().title == "Crew"
 
     def test_only_its_admin_adds_and_removes_and_anyone_can_leave(
         self, authenticated_client, me
@@ -344,7 +423,7 @@ class TestGroups:
         _post(
             authenticated_client,
             "parley_conversation_group",
-            {"title": "Crew", "memberIds": [ada.pk]},
+            {"title": "Crew", "memberIds": [ada.pk, cyd.pk]},
         )
         conversation = ParleyConversation.objects.get()
 
@@ -392,8 +471,11 @@ class TestGroups:
     ):
         ada = _adult(name="Ada")
         client = _as(ada)
+        bob = _adult(name="Bob")
         _post(
-            client, "parley_conversation_group", {"title": "Private", "memberIds": []}
+            client,
+            "parley_conversation_group",
+            {"title": "Private", "memberIds": [bob.pk, _adult(name="Cyd").pk]},
         )
         conversation = ParleyConversation.objects.get()
 
@@ -407,7 +489,11 @@ class TestGroups:
             )
 
             assert_response(response, HTTPStatus.NOT_FOUND, json={"error": "not_found"})
-        assert _states(conversation.pk) == {"Ada": "active"}
+        assert _states(conversation.pk) == {
+            "Ada": "active",
+            "Bob": "active",
+            "Cyd": "active",
+        }
 
 
 @pytest.mark.django_db

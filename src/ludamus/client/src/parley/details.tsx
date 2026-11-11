@@ -1,4 +1,4 @@
-import { type Ref, useRef, useState } from "react";
+import { type FormEvent, type Ref, useId, useRef, useState } from "react";
 
 import type { Bootstrap, ConversationInfo, Person } from "./protocol";
 
@@ -82,6 +82,8 @@ export function Details({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [question, setQuestion] = useState<Pending | null>(null);
+  const [name, setName] = useState(conversation.name);
+  const nameId = useId();
   // A question answered "no" hands focus back to the button that asked it.
   const opener = useRef<HTMLElement | null>(null);
   const ask = (next: Pending) => {
@@ -107,6 +109,19 @@ export function Details({
   const said = async (call: Promise<{ code: string; ok: false } | { ok: true }>) => {
     const answer = await call;
     return answer.ok ? null : refusal(answer.code, copy);
+  };
+  const rename = (event: FormEvent) => {
+    event.preventDefault();
+    void act(
+      async () => {
+        const answer = await api.rename(conversation.id, name);
+        if (!answer.ok) return refusal(answer.code, copy);
+        updated(answer.value);
+        setName(answer.value.name);
+        return null;
+      },
+      () => setNotice(copy.nameSaved),
+    );
   };
   const add = (person: Person) =>
     void act(
@@ -162,6 +177,37 @@ export function Details({
         title={copy.detailsLabel}
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-4">
+        {/* A request is answered before it is renamed. */}
+        {conversation.state === "active" && (
+          <form className="px-2 pb-4" onSubmit={rename}>
+            <label
+              className="block pb-1 text-sm font-medium text-foreground-secondary"
+              htmlFor={nameId}
+            >
+              {copy.nameLabel}
+            </label>
+            <div className="flex gap-2">
+              <input
+                aria-describedby={`${nameId}-hint`}
+                className="block h-10 min-w-0 flex-1 rounded-full bg-bg-tertiary px-4 text-[0.9375rem] text-foreground focus:outline-2 focus:outline-border-focus"
+                id={nameId}
+                maxLength={80}
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
+              <button
+                className="btn btn-secondary text-sm"
+                disabled={busy || name.trim() === conversation.name}
+                type="submit"
+              >
+                {copy.saveName}
+              </button>
+            </div>
+            <p className="pt-1 text-xs text-foreground-muted" id={`${nameId}-hint`}>
+              {copy.nameHint}
+            </p>
+          </form>
+        )}
         <h3 className="px-2 pb-1 text-sm font-medium text-foreground-secondary">
           {group ? counted(copy, "members", conversation.members.length) : copy.membersLabel}
         </h3>

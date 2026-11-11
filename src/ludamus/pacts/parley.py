@@ -63,8 +63,11 @@ class ParleyConversationDTO(BaseModel):
 
     id: str
     kind: ParleyConversationKind
-    # A group's own title; a direct conversation is named after the other person.
+    # What the conversation is called: its name, or else the other person
+    # (direct) or the other members (group).
     title: str
+    # The name its members gave it; empty when they gave none.
+    name: str = ""
     state: ParleyMemberState
     can_write: bool = Field(serialization_alias="canWrite")
     is_admin: bool = Field(serialization_alias="isAdmin")
@@ -288,6 +291,12 @@ class ParleyConversationRepositoryProtocol(Protocol):
     def find_direct(pair_key: str) -> int | None: ...
 
     @staticmethod
+    def find_group(member_ids: list[int]) -> int | None: ...
+
+    @staticmethod
+    def set_title(*, conversation_id: int, title: str) -> None: ...
+
+    @staticmethod
     def create_conversation(
         *,
         kind: ParleyConversationKind,
@@ -376,6 +385,10 @@ class ParleyConversationServiceProtocol(Protocol):
     def remove_member(
         self, *, user_id: int, conversation_id: int, member_id: int
     ) -> None: ...
+
+    def rename(
+        self, *, user_id: int, conversation_id: int, name: str
+    ) -> ParleyConversationDTO: ...
 
     def block(self, *, user_id: int, blocked_id: int) -> None: ...
 

@@ -126,16 +126,18 @@ def start_direct(request: RootHttpRequest, user_id: int) -> HttpResponse:
 @_guarded
 def create_group(request: RootHttpRequest, user_id: int) -> HttpResponse:
     body = _body(request)
-    title = body.get("title")
+    title = body.get("title", "")
     if not isinstance(title, str):
         raise _InvalidBodyError
     conversation = request.services.parley_conversations.create_group(
         user_id=user_id, title=title, member_ids=_ids(body.get("memberIds", []))
     )
+    # New, or the one these people already share.
     logger.info(
-        "Parley group created",
+        "Parley conversation opened with people",
         extra={
             "conversation_id": conversation.id,
+            "kind": conversation.kind,
             "members": len(conversation.members),
             "user_id": user_id,
         },
@@ -207,6 +209,22 @@ def remove_member(
         extra={"conversation_id": pk, "member_id": member_id, "user_id": user_id},
     )
     return HttpResponse(status=HTTPStatus.NO_CONTENT)
+
+
+@require_POST
+@_guarded
+def rename(request: RootHttpRequest, user_id: int, pk: int) -> HttpResponse:
+    name = _body(request).get("name", "")
+    if not isinstance(name, str):
+        raise _InvalidBodyError
+    conversation = request.services.parley_conversations.rename(
+        user_id=user_id, conversation_id=pk, name=name
+    )
+    logger.info(
+        "Parley conversation renamed",
+        extra={"conversation_id": pk, "named": bool(name.strip()), "user_id": user_id},
+    )
+    return _conversation(conversation)
 
 
 @require_POST

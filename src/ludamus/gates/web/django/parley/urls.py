@@ -31,6 +31,11 @@ urlpatterns = [
         name="parley_conversation_decline",
     ),
     path(
+        "conversations/<int:pk>/name/",
+        conversations.rename,
+        name="parley_conversation_name",
+    ),
+    path(
         "conversations/<int:pk>/leave/",
         conversations.leave,
         name="parley_conversation_leave",

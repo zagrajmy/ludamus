@@ -74,6 +74,19 @@ class World:
             None,
         )
 
+    def find_group(self, member_ids):
+        groups = [
+            pk
+            for pk, row in self.conversations.items()
+            if row["kind"] == GROUP
+            and {user for user, state in self.states(pk).items() if state != LEFT}
+            == set(member_ids)
+        ]
+        return max(groups, default=None)
+
+    def set_title(self, *, conversation_id, title):
+        self.conversations[conversation_id]["title"] = title
+
     def create_conversation(self, *, kind, title, created_by, pair_key):
         pk = len(self.conversations) + 1
         self.conversations[pk] = {"kind": kind, "pair_key": pair_key, "title": title}
@@ -108,6 +121,7 @@ class World:
             id=f"conversation:{conversation_id}",
             kind=self.conversations[conversation_id]["kind"],
             title=self.conversations[conversation_id]["title"],
+            name=self.conversations[conversation_id]["title"],
             state=state,
             can_write=state == ACTIVE,
             is_admin=self.members[conversation_id, user_id][1],
@@ -243,22 +257,65 @@ class TestGroups:
         world.blocks.add((BOB, ME))
 
         group = service.create_group(
-            user_id=ME, title="  Crew ", member_ids=[ADA, ADA, BOB, KID, ME]
+            user_id=ME, title="  Crew ", member_ids=[ADA, ADA, BOB, KID, ME, 100]
         )
 
         assert (group.title, group.is_admin) == ("Crew", True)
-        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE, 100: ACTIVE}
         assert outbox.sent == [1]
 
-    @pytest.mark.parametrize("title", ("   ", "x" * 81))
-    def test_a_title_is_required_and_short(self, service, title):
+    def test_a_name_is_optional_but_short(self, service):
+        unnamed = service.create_group(user_id=ME, title="   ", member_ids=[ADA, BOB])
+
+        assert not unnamed.name
         _refused(
             "invalid_title",
             service.create_group,
             user_id=ME,
-            title=title,
-            member_ids=[],
+            title="x" * 81,
+            member_ids=[ADA, BOB],
         )
+
+    @pytest.mark.parametrize(
+        "people", ([], [KID, OUT, ME]), ids=("none", "unreachable")
+    )
+    def test_a_conversation_needs_someone_to_talk_to(self, service, people):
+        _refused(
+            "no_people", service.create_group, user_id=ME, title="", member_ids=people
+        )
+
+    def test_the_same_people_get_the_conversation_they_already_have(
+        self, service, world
+    ):
+        first = service.create_group(user_id=ME, title="Crew", member_ids=[ADA, BOB])
+
+        again = service.create_group(user_id=ME, title="", member_ids=[BOB, ADA, BOB])
+        renamed = service.create_group(user_id=ME, title="Party", member_ids=[ADA, BOB])
+
+        assert again.id == renamed.id == first.id
+        assert (again.title, renamed.title) == ("Crew", "Party")
+        assert len(world.conversations) == 1
+
+    def test_other_people_or_fewer_of_them_get_a_conversation_of_their_own(
+        self, service, world
+    ):
+        service.create_group(user_id=ME, title="", member_ids=[ADA, BOB])
+        service.create_group(user_id=ME, title="", member_ids=[ADA, BOB, 100])
+        world.members[1, BOB] = (LEFT, False)
+
+        ours = service.create_group(user_id=ME, title="", member_ids=[ADA, BOB])
+
+        assert ours.id == "conversation:3"
+
+    def test_one_other_person_is_the_direct_conversation_with_them(
+        self, service, world
+    ):
+        direct = service.start_direct(user_id=ME, recipient_id=ADA)
+
+        named = service.create_group(user_id=ME, title="Us two", member_ids=[ADA])
+
+        assert (named.id, named.kind, named.title) == (direct.id, DIRECT, "Us two")
+        assert len(world.conversations) == 1
 
     def test_a_group_has_a_size_limit(self, service):
         people = list(range(100, 100 + PARLEY_GROUP_MAX_MEMBERS))
@@ -268,14 +325,18 @@ class TestGroups:
 
     def test_a_minor_cannot_create_one(self, service):
         _refused(
-            "forbidden", service.create_group, user_id=KID, title="Kids", member_ids=[]
+            "forbidden",
+            service.create_group,
+            user_id=KID,
+            title="Kids",
+            member_ids=[ADA, BOB],
         )
 
     def test_its_admin_adds_and_removes_people(self, service, world):
-        service.create_group(user_id=ME, title="Crew", member_ids=[ADA])
+        service.create_group(user_id=ME, title="Crew", member_ids=[ADA, 100])
 
         service.add_members(user_id=ME, conversation_id=1, member_ids=[ADA, BOB])
-        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE, BOB: ACTIVE}
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE, 100: ACTIVE, BOB: ACTIVE}
         service.remove_member(user_id=ME, conversation_id=1, member_id=BOB)
         assert world.states(1)[BOB] == LEFT
         # Someone removed can be added back.
@@ -283,7 +344,7 @@ class TestGroups:
         assert world.states(1)[BOB] == ACTIVE
 
     def test_adding_stops_at_the_size_limit(self, service):
-        service.create_group(user_id=ME, title="Crew", member_ids=[])
+        service.create_group(user_id=ME, title="Crew", member_ids=[ADA, BOB])
         people = list(range(100, 100 + PARLEY_GROUP_MAX_MEMBERS))
         _refused(
             "too_many",
@@ -294,7 +355,7 @@ class TestGroups:
         )
 
     def test_only_the_admin_of_a_group_shapes_it(self, service):
-        service.create_group(user_id=ME, title="Crew", member_ids=[ADA])
+        service.create_group(user_id=ME, title="Crew", member_ids=[ADA, 100])
         service.start_direct(user_id=ME, recipient_id=BOB)
 
         _refused(
@@ -328,13 +389,55 @@ class TestGroups:
 
     @pytest.mark.parametrize("member", (ME, BOB), ids=("oneself", "not in it"))
     def test_removing_needs_someone_else_who_is_in_it(self, service, member):
-        service.create_group(user_id=ME, title="Crew", member_ids=[ADA])
+        service.create_group(user_id=ME, title="Crew", member_ids=[ADA, 100])
         _refused(
             "not_found",
             service.remove_member,
             user_id=ME,
             conversation_id=1,
             member_id=member,
+        )
+
+
+class TestNames:
+    def test_anyone_in_it_names_it_for_everyone_and_no_name_clears_it(
+        self, service, world
+    ):
+        service.create_group(user_id=ME, title="", member_ids=[ADA, BOB])
+
+        named = service.rename(user_id=ADA, conversation_id=1, name="  Crew  ")
+        assert named.name == "Crew"
+        assert service.list_for(BOB)[0].name == "Crew"
+        assert not service.rename(user_id=ME, conversation_id=1, name="").name
+
+    def test_a_request_is_answered_before_it_is_renamed(self, service):
+        service.start_direct(user_id=ME, recipient_id=ADA)
+
+        _refused("forbidden", service.rename, user_id=ADA, conversation_id=1, name="X")
+        assert service.rename(user_id=ME, conversation_id=1, name="X").name == "X"
+
+    def test_only_someone_in_it_renames_it(self, service, world):
+        service.create_group(user_id=ME, title="", member_ids=[ADA, BOB])
+        service.leave(user_id=ADA, conversation_id=1)
+
+        for outsider in (ADA, 100):
+            _refused(
+                "not_found",
+                service.rename,
+                user_id=outsider,
+                conversation_id=1,
+                name="Ours",
+            )
+        assert not world.conversations[1]["title"]
+
+    def test_a_name_is_short(self, service):
+        service.create_group(user_id=ME, title="", member_ids=[ADA, BOB])
+        _refused(
+            "invalid_title",
+            service.rename,
+            user_id=ME,
+            conversation_id=1,
+            name="x" * 81,
         )
 
 

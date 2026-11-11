@@ -3794,16 +3794,12 @@ msgid "Nobody by that name you can write to."
 msgstr "Nie ma nikogo o tym imieniu, do kogo można napisać."
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Group name"
-msgstr "Nazwa grupy"
+msgid "Name (optional)"
+msgstr "Nazwa (opcjonalnie)"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "People in the group"
 msgstr "Osoby w grupie"
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid "Give the group a name."
-msgstr "Nadaj grupie nazwę."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Add at least one person."
@@ -3952,6 +3948,26 @@ msgstr "Opuść rozmowę"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Back to new message"
 msgstr "Wróć do nowej wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Conversation name"
+msgstr "Nazwa rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"Everyone in it sees this name. Leave it empty to go back to the default."
+msgstr ""
+"Tę nazwę widzą wszyscy w rozmowie. Zostaw puste, by wrócić do domyślnej."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Name saved."
+msgstr "Zapisano nazwę."
+
+#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/user/user/parties.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Save name"
+msgstr "Zapisz nazwę"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "A message from someone you blocked."
@@ -13550,11 +13566,6 @@ msgid "Rename party"
 msgstr "Zmień nazwę drużyny"
 
 #: src/ludamus/templates/user/user/parties.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Save name"
-msgstr "Zapisz nazwę"
-
-#: src/ludamus/templates/user/user/parties.html
 msgid "No party yet"
 msgstr "Nie masz jeszcze drużyny"
 
@@ -13906,6 +13917,12 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
 
 #~ msgid "yourself"
 #~ msgstr "siebie"

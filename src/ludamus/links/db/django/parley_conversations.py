@@ -19,6 +19,8 @@ from ludamus.pacts.parley import (
 from ludamus.pacts.user import AgeBand, UserType
 
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
+# An unnamed group goes by this many of its people, then a count of the rest.
+_NAMES_SHOWN = 3
 
 
 def _eligible() -> Q:
@@ -102,6 +104,28 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
             .values_list("pk", flat=True)
             .first()
         )
+
+    @staticmethod
+    def find_group(member_ids: list[int]) -> int | None:
+        # The newest group whose people now are exactly these.
+        groups = ParleyConversationMember.objects.filter(
+            user_id=member_ids[0],
+            state__in=_PRESENT,
+            conversation__kind=ParleyConversationKind.GROUP,
+        ).values("conversation_id")
+        people: dict[int, set[int]] = {}
+        for conversation_id, user_id in ParleyConversationMember.objects.filter(
+            conversation_id__in=groups, state__in=_PRESENT
+        ).values_list("conversation_id", "user_id"):
+            people.setdefault(conversation_id, set()).add(user_id)
+        wanted = set(member_ids)
+        return max(
+            (pk for pk, present in people.items() if present == wanted), default=None
+        )
+
+    @staticmethod
+    def set_title(*, conversation_id: int, title: str) -> None:
+        ParleyConversation.objects.filter(pk=conversation_id).update(title=title)
 
     @staticmethod
     def create_conversation(
@@ -241,16 +265,11 @@ def _conversation_for(
     if own is None:
         return None
     others = [member for member in members if member.user_id != user_id]
-    if conversation.kind == ParleyConversationKind.GROUP:
-        title = conversation.title
-    else:
-        # The other person, or the last one there was once they have gone.
-        other = others[0].user if others else _other_direct_user(conversation, user_id)
-        title = other.get_full_name() if other is not None else ""
     return ParleyConversationDTO(
         id=f"conversation:{conversation.pk}",
         kind=ParleyConversationKind(conversation.kind),
-        title=title,
+        title=conversation.title or _default_title(conversation, others, user_id),
+        name=conversation.title,
         state=ParleyMemberState(own.state),
         can_write=_writable(
             conversation=conversation,
@@ -260,6 +279,21 @@ def _conversation_for(
         is_admin=own.is_admin,
         members=[_person(member.user) for member in members],
     )
+
+
+def _default_title(
+    conversation: ParleyConversation,
+    others: list[ParleyConversationMember],
+    user_id: int,
+) -> str:
+    if conversation.kind == ParleyConversationKind.GROUP:
+        names = [member.user.get_full_name() for member in others]
+        shown = ", ".join(names[:_NAMES_SHOWN])
+        hidden = len(names) - _NAMES_SHOWN
+        return f"{shown} +{hidden}" if hidden > 0 else shown
+    # The other person, or the last one there was once they have gone.
+    other = others[0].user if others else _other_direct_user(conversation, user_id)
+    return other.get_full_name() if other is not None else ""
 
 
 def _other_direct_user(conversation: ParleyConversation, user_id: int) -> User | None:

@@ -30,6 +30,7 @@ const crew: Conversation = {
   isAdmin: false,
   kind: "group",
   members: [me, ada, kuba],
+  name: "",
   state: "active",
   title: "Friday crew",
 };
@@ -40,6 +41,7 @@ const withKuba = (fields: Partial<Conversation> = {}): Conversation => ({
   isAdmin: false,
   kind: "direct",
   members: [me, kuba],
+  name: "",
   state: "active",
   title: kuba.name,
   ...fields,

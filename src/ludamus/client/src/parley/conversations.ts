@@ -47,6 +47,8 @@ export function conversationsApi(bootstrap: Bootstrap) {
     },
     removeMember: (id: string, memberId: string) =>
       post<undefined>(`conversations/${pk(id)}/members/${memberId}/remove/`),
+    rename: (id: string, name: string) =>
+      post<ConversationInfo>(`conversations/${pk(id)}/name/`, { name }),
     search: async (query: string): Promise<Answer<Person[]>> => {
       const answer = await ask<{ people: Person[] }>(
         bootstrap,
@@ -90,6 +92,7 @@ export function refusal(code: string, copy: Bootstrap["copy"]): string {
   const messages: Record<string, string> = {
     forbidden: copy.errorForbidden,
     invalid_title: copy.groupTitleTooLong,
+    no_people: copy.groupNeedsPeople,
     not_found: copy.errorNotFound,
     timeout: copy.connectionError,
     too_many: copy.errorTooMany,

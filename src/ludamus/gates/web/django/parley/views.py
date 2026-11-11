@@ -120,9 +120,8 @@ def _conversation_copy() -> dict[str, str]:
         "searchHint": _("Type at least two letters of their name."),
         "searching": _("Searching…"),
         "nobodyFound": _("Nobody by that name you can write to."),
-        "groupName": _("Group name"),
+        "groupName": _("Name (optional)"),
         "groupPeople": _("People in the group"),
-        "groupNeedsTitle": _("Give the group a name."),
         "groupNeedsPeople": _("Add at least one person."),
         "groupTitleTooLong": _("Group names can be up to 80 characters."),
         "createGroup": _("Create group"),
@@ -162,6 +161,12 @@ def _conversation_copy() -> dict[str, str]:
         ),
         "leaveConversation": _("Leave conversation"),
         "backToNewMessage": _("Back to new message"),
+        "nameLabel": _("Conversation name"),
+        "nameHint": _(
+            "Everyone in it sees this name. Leave it empty to go back to the default."
+        ),
+        "nameSaved": _("Name saved."),
+        "saveName": _("Save name"),
         "blockedMessage": _("A message from someone you blocked."),
         "blockedNotice": _("%(name)s blocked."),
         "blockedPeople": _("Blocked people"),

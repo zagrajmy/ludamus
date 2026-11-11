@@ -39,7 +39,6 @@ export type Copy = Record<
   | "errorUnknown"
   | "groupName"
   | "groupNeedsPeople"
-  | "groupNeedsTitle"
   | "groupPeople"
   | "groupTitleTooLong"
   | "leaveConversation"
@@ -67,6 +66,9 @@ export type Copy = Record<
   | "muteOneDay"
   | "muteOneHour"
   | "muteSevenDays"
+  | "nameHint"
+  | "nameLabel"
+  | "nameSaved"
   | "newGroup"
   | "newMessage"
   | "nobodyBlocked"
@@ -88,6 +90,7 @@ export type Copy = Record<
   | "restoreWriting"
   | "retry"
   | "roomsLabel"
+  | "saveName"
   | "scrollLatest"
   | "searchHint"
   | "searching"
@@ -124,7 +127,10 @@ export type ConversationInfo = {
   isAdmin: boolean;
   kind: "direct" | "group";
   members: Person[];
+  // The name its members gave it; empty when they gave none.
+  name: string;
   state: "active" | "request";
+  // What it is called: its name, or else who is in it.
   title: string;
 };
 

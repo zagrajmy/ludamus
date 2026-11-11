@@ -43,6 +43,10 @@ _MEMBERSHIP_TTL_SECONDS = 600
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
 
 
+def _pk(conversation_id: str) -> int:
+    return int(conversation_id.removeprefix("conversation:"))
+
+
 def _pair_key(first_id: int, second_id: int) -> str:
     low, high = sorted((first_id, second_id))
     return f"{low}:{high}"
@@ -144,17 +148,26 @@ class ParleyConversationService:
     def create_group(
         self, *, user_id: int, title: str, member_ids: list[int]
     ) -> ParleyConversationDTO:
+        """Talk with these people: the conversation already with them, or a new one.
+
+        One other person is the direct conversation with them; the same people
+        as a group already has are that group. A name, if given, is its name.
+        """
         self._require_eligible(user_id)
-        title = title.strip()
-        if not title or len(title) > PARLEY_GROUP_TITLE_MAX_LENGTH:
-            raise ParleyConversationError("invalid_title")
-        added = self._addable(user_id, member_ids)
+        name = self._valid_name(title)
+        if not (added := self._addable(user_id, member_ids)):
+            raise ParleyConversationError("no_people")
+        if len(added) == 1:
+            direct = self.start_direct(user_id=user_id, recipient_id=added[0])
+            return self._named(_pk(direct.id), user_id, name)
         if len(added) + 1 > PARLEY_GROUP_MAX_MEMBERS:
             raise ParleyConversationError("too_many")
         with self._transaction.atomic():
+            if (existing := self._repository.find_group([user_id, *added])) is not None:
+                return self._named(existing, user_id, name)
             conversation_id = self._repository.create_conversation(
                 kind=ParleyConversationKind.GROUP,
-                title=title,
+                title=name,
                 created_by=user_id,
                 pair_key=None,
             )
@@ -216,6 +229,20 @@ class ParleyConversationService:
             )
             self._outbox.schedule(conversation_ids=[conversation_id])
 
+    def rename(
+        self, *, user_id: int, conversation_id: int, name: str
+    ) -> ParleyConversationDTO:
+        """Anyone in a conversation names it for everyone; no name clears it."""
+        name = self._valid_name(name)
+        state = self._state(conversation_id, user_id)
+        if state not in _PRESENT:
+            raise ParleyConversationError("not_found")
+        # A request is answered before it is renamed.
+        if state != ParleyMemberState.ACTIVE:
+            raise ParleyConversationError("forbidden")
+        self._repository.set_title(conversation_id=conversation_id, title=name)
+        return self._read(conversation_id, user_id)
+
     def block(self, *, user_id: int, blocked_id: int) -> None:
         if user_id == blocked_id:
             raise ParleyConversationError("invalid")
@@ -256,6 +283,21 @@ class ParleyConversationService:
                 is_admin=False,
             )
             self._outbox.schedule(conversation_ids=[conversation_id])
+
+    @staticmethod
+    def _valid_name(name: str) -> str:
+        name = name.strip()
+        if len(name) > PARLEY_GROUP_TITLE_MAX_LENGTH:
+            raise ParleyConversationError("invalid_title")
+        return name
+
+    def _named(
+        self, conversation_id: int, user_id: int, name: str
+    ) -> ParleyConversationDTO:
+        # An existing conversation keeps its name unless a new one was given.
+        if name:
+            self._repository.set_title(conversation_id=conversation_id, title=name)
+        return self._read(conversation_id, user_id)
 
     def _require_eligible(self, user_id: int) -> None:
         if not self._repository.is_eligible(user_id):

@@ -303,22 +303,12 @@ export function NewGroup({
 }) {
   const { copy } = bootstrap;
   const titleId = useId();
-  const titleField = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<Person[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    titleField.current?.focus();
-  }, []);
-
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (title.trim() === "") {
-      setError(copy.groupNeedsTitle);
-      titleField.current?.focus();
-      return;
-    }
     if (chosen.length === 0) {
       setError(copy.groupNeedsPeople);
       return;
@@ -347,25 +337,6 @@ export function NewGroup({
         onSubmit={(event) => void submit(event)}
       >
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-4">
-          <label
-            className="block px-2 pb-1 text-sm font-medium text-foreground-secondary"
-            htmlFor={titleId}
-          >
-            {copy.groupName}
-          </label>
-          <div className="px-2 pb-4">
-            <input
-              className="block h-10 w-full rounded-full bg-bg-tertiary px-4 text-[0.9375rem] text-foreground focus:outline-2 focus:outline-border-focus"
-              id={titleId}
-              maxLength={TITLE_LIMIT}
-              onChange={(event) => {
-                setTitle(event.target.value);
-                setError(null);
-              }}
-              ref={titleField}
-              value={title}
-            />
-          </div>
           {chosen.length > 0 && (
             <ul aria-label={copy.groupPeople} className="flex flex-wrap gap-1.5 px-2 pb-3">
               {chosen.map((person) => (
@@ -392,7 +363,7 @@ export function NewGroup({
           )}
           <PeoplePicker
             api={api}
-            autoFocus={false}
+            autoFocus
             busy={busy}
             copy={copy}
             exclude={new Set(chosen.map(({ id }) => id))}
@@ -404,6 +375,24 @@ export function NewGroup({
           />
         </div>
         <div className="border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <label
+            className="block pb-1 text-sm font-medium text-foreground-secondary"
+            htmlFor={titleId}
+          >
+            {copy.groupName}
+          </label>
+          <div className="pb-3">
+            <input
+              className="block h-10 w-full rounded-full bg-bg-tertiary px-4 text-[0.9375rem] text-foreground focus:outline-2 focus:outline-border-focus"
+              id={titleId}
+              maxLength={TITLE_LIMIT}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                setError(null);
+              }}
+              value={title}
+            />
+          </div>
           {error !== null && (
             <p className="pb-2 text-xs text-danger-text" role="alert">
               {error}
