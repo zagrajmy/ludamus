@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts import TrackListItemDTO
+from ludamus.pacts.tracks import TrackListItemDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,

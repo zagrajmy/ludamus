@@ -7,7 +7,6 @@ happen to cover. `HYPOTHESIS_PROFILE=crosshair` runs the same properties
 through CrossHair's solver instead of random examples.
 """
 
-from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 
 from hypothesis import example, given
@@ -15,10 +14,11 @@ from hypothesis import strategies as st
 
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    PromotionMode,
     PromotionStateDTO,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -26,7 +26,7 @@ _USERS = range(1, 7)
 
 
 def _member(
-    user_id: int, *, order: int, slots: int = UNLIMITED_SLOTS
+    *, user_id: int, order: int, slots: int = UNLIMITED_SLOTS, seated: bool = False
 ) -> WaitingParticipantDTO:
     return WaitingParticipantDTO(
         participation_id=100 + order,
@@ -37,6 +37,7 @@ def _member(
         creation_time=_BASE + timedelta(minutes=order),
         has_conflict=False,
         owner_slots_remaining=slots,
+        holds_event_seat=seated,
         recipient_user_id=user_id,
     )
 
@@ -50,7 +51,9 @@ def _state(waiting: list[WaitingParticipantDTO], *, seats: int) -> PromotionStat
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 
@@ -61,7 +64,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
     slots = draw(
         st.dictionaries(
             st.sampled_from(_USERS),
-            st.sampled_from([0, 1, 2, 3, UNLIMITED_SLOTS]),
+            st.sampled_from([-1, 0, 1, 2, 3, UNLIMITED_SLOTS]),
             min_size=len(_USERS),
             max_size=len(_USERS),
         )
@@ -83,6 +86,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
                 creation_time=_BASE + timedelta(minutes=order),
                 has_conflict=draw(st.booleans()),
                 owner_slots_remaining=slots[recipient],
+                holds_event_seat=draw(st.booleans()),
                 recipient_user_id=recipient,
             )
         )
@@ -94,7 +98,11 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=draw(st.none() | st.sampled_from(_USERS)),
-        available_seats=draw(st.integers(min_value=0, max_value=6)),
+        seats=SessionSeatsDTO(
+            participants_limit=draw(st.integers(min_value=0, max_value=6)),
+            seating_percentage=None,
+            enrolled_count=0,
+        ),
         waiting=waiting,
         shadowbanned_user_ids=frozenset(
             draw(st.sets(st.sampled_from(_USERS), max_size=2))
@@ -122,6 +130,17 @@ def _ids(party: list[WaitingParticipantDTO]) -> list[int]:
     return [member.participation_id for member in party]
 
 
+def _slots_needed(party: list[WaitingParticipantDTO]) -> dict[int, int]:
+    # A pass covers one distinct person per event: someone already seated in
+    # it is counted in the owner's allowance, so seating them again is free.
+    # Every owner is listed, so an overdrawn owner fits not even a free member.
+    needed = dict.fromkeys((m.recipient_user_id for m in party), 0)
+    for member in party:
+        if not member.holds_event_seat:
+            needed[member.recipient_user_id] += 1
+    return needed
+
+
 def _initial_slots(state: PromotionStateDTO) -> dict[int, int]:
     slots: dict[int, int] = {}
     for member in state.waiting:
@@ -133,7 +152,7 @@ def _initial_slots(state: PromotionStateDTO) -> dict[int, int]:
 def test_never_seats_more_than_the_seats_left(state):
     selected = select_promotable_parties(state)
 
-    assert sum(len(party) for party in selected) <= state.available_seats
+    assert sum(len(party) for party in selected) <= state.seats.seats_left
 
 
 @given(promotion_states())
@@ -148,14 +167,18 @@ def test_promotes_whole_eligible_parties_only(state):
 def test_never_spends_more_slots_than_an_owner_has(state):
     selected = select_promotable_parties(state)
 
-    spent = Counter(m.recipient_user_id for party in selected for m in party)
+    spent = _slots_needed([m for party in selected for m in party])
     slots = _initial_slots(state)
     assert all(count <= slots[owner] for owner, count in spent.items())
 
 
 @given(promotion_states())
 # The head of the line has no slots left, so the seat goes to the next party.
-@example(_state([_member(1, order=0, slots=0), _member(2, order=1)], seats=1))
+@example(
+    _state([_member(user_id=1, order=0, slots=0), _member(user_id=2, order=1)], seats=1)
+)
+# Both parties fit, so the first is charged before the second is judged.
+@example(_state([_member(user_id=1, order=0), _member(user_id=2, order=1)], seats=2))
 def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     selected = [_ids(party) for party in select_promotable_parties(state)]
     parties = _eligible_parties(state)
@@ -166,25 +189,27 @@ def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     remaining = _initial_slots(state)
     for party in parties[:last]:
         if _ids(party) in selected:
-            for member in party:
-                remaining[member.recipient_user_id] -= 1
+            for owner, n in _slots_needed(party).items():
+                remaining[owner] -= n
             continue
-        needed = Counter(m.recipient_user_id for m in party)
+        needed = _slots_needed(party)
         short = [owner for owner, n in needed.items() if n > remaining[owner]]
         assert short, f"party {_ids(party)} fits but was passed over"
         assert all(remaining[owner] <= 0 for owner in short)
 
 
 @given(promotion_states())
+# No slots left, but the waiter is already seated elsewhere in the event.
+@example(_state([_member(user_id=1, order=0, slots=0, seated=True)], seats=1))
+# Seated past the passes: even a waiter who costs nothing does not fit.
+@example(_state([_member(user_id=1, order=0, slots=-1, seated=True)], seats=1))
 def test_promotes_the_head_of_the_line_when_it_fits(state):
     if not (parties := _eligible_parties(state)):
         return
     head = parties[0]
-    needed: dict[int, int] = defaultdict(int)
-    for member in head:
-        needed[member.recipient_user_id] += 1
+    needed = _slots_needed(head)
     slots = _initial_slots(state)
-    fits = len(head) <= state.available_seats and all(
+    fits = len(head) <= state.seats.seats_left and all(
         n <= slots[owner] for owner, n in needed.items()
     )
 

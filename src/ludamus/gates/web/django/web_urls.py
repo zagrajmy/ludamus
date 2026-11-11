@@ -1,0 +1,182 @@
+from django.urls import URLPattern, URLResolver, include, path
+from django.views.generic.base import RedirectView, TemplateView
+
+from ludamus.gates.web.django import dashboard as dashboard_gate
+from ludamus.gates.web.django import notifications as notifications_gate
+from ludamus.gates.web.django import staging_inbox
+from ludamus.gates.web.django.auth_pages import auth_error_page
+from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
+from ludamus.gates.web.django.design import DesignPageView
+from ludamus.gates.web.django.encounter.urls import (
+    authenticated_urlpatterns as encounter_authenticated,
+)
+from ludamus.gates.web.django.encounter.urls import (
+    public_urlpatterns as encounter_public,
+)
+from ludamus.gates.web.django.encounter_replies import EncounterCalendarReplyView
+from ludamus.gates.web.django.event import maps, offers
+from ludamus.gates.web.django.event import views as chronology_views
+from ludamus.gates.web.django.event.enroll import SessionEnrollPageView
+from ludamus.gates.web.django.event.ics import EventICSView
+from ludamus.gates.web.django.event.page import EventPageView
+from ludamus.gates.web.django.event.print import PublicEventPrintView
+from ludamus.gates.web.django.event.urls import (
+    session_urlpatterns as chronology_gate_urls,
+)
+from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
+from ludamus.gates.web.django.landing import (
+    index_page,
+    landing_page,
+    legacy_feed_redirect,
+)
+from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
+
+app_name = "web"  # pylint: disable=invalid-name
+
+
+crowd_urls: list[URLPattern | URLResolver] = [*crowd_gate_urls]
+
+chronology_urls = [
+    *chronology_gate_urls,
+    path("event/<str:slug>/", EventPageView.as_view(), name="event"),
+    path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
+    path("event/<str:slug>/calendar.ics", EventICSView.as_view(), name="event-ics"),
+    path("event/<str:slug>/maps/", maps.EventMapsPageView.as_view(), name="event-maps"),
+    path(
+        "event/<str:slug>/maps/do/add",
+        maps.EventMapAddActionView.as_view(),
+        name="event-map-add",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/edit",
+        maps.EventMapEditActionView.as_view(),
+        name="event-map-edit",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/attach",
+        maps.EventMapAttachActionView.as_view(),
+        name="event-map-attach",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/delete",
+        maps.EventMapDeleteActionView.as_view(),
+        name="event-map-delete",
+    ),
+    path(
+        "event/<str:event_slug>/session/<int:session_id>/enrollment/",
+        SessionEnrollPageView.as_view(),
+        name="session-enrollment",
+    ),
+    path(
+        "event/<str:event_slug>/session/<int:session_id>/accept/",
+        chronology_views.ProposalAcceptPageView.as_view(),
+        name="session-accept",
+    ),
+    path(
+        "offer/<str:token>/claim/",
+        offers.SessionOfferClaimView.as_view(),
+        name="offer-claim",
+    ),
+    path(
+        "offer/<str:token>/decline/",
+        offers.SessionOfferDeclineView.as_view(),
+        name="offer-decline",
+    ),
+]
+
+urlpatterns = [
+    path("", index_page, name="index"),
+    # The pitch on purpose, not by default: once a signed-in visitor is
+    # sent to their dashboard from / (#1307), this is the way back to it.
+    path("landing/", landing_page, name="landing"),
+    # The feed lives at the sphere root now. /events/ and /timeline/ were
+    # public, so they redirect permanently rather than 404.
+    path("events/", legacy_feed_redirect),
+    path("timeline/", legacy_feed_redirect),
+    path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
+    path(
+        "dashboard/spheres/<int:pk>/do/subscribe",
+        dashboard_gate.SphereSubscribeActionView.as_view(),
+        name="sphere-subscribe",
+    ),
+    path(
+        "dashboard/spheres/<int:pk>/do/unsubscribe",
+        dashboard_gate.SphereUnsubscribeActionView.as_view(),
+        name="sphere-unsubscribe",
+    ),
+    path(
+        "dashboard/unsubscribe/<str:token>/",
+        dashboard_gate.UnsubscribePageView.as_view(),
+        name="email-unsubscribe",
+    ),
+    path(
+        "dashboard/unsubscribe/<str:token>/do/unsubscribe",
+        dashboard_gate.UnsubscribeActionView.as_view(),
+        name="email-unsubscribe-confirm",
+    ),
+    path(
+        "dashboard/sessions/<int:session_id>/do/claim-offer",
+        dashboard_gate.OfferClaimActionView.as_view(),
+        name="dashboard-offer-claim",
+    ),
+    path(
+        "notifications/",
+        notifications_gate.NotificationsPageView.as_view(),
+        name="notifications",
+    ),
+    path(
+        "notifications/<int:pk>/do/open",
+        notifications_gate.NotificationOpenActionView.as_view(),
+        name="notification-open",
+    ),
+    path(
+        "notifications/<int:pk>/parts/modal",
+        notifications_gate.NotificationModalComponentView.as_view(),
+        name="notification-modal",
+    ),
+    path(
+        "notifications/do/mark-read",
+        offers.NotificationsMarkReadView.as_view(),
+        name="notifications-mark-read",
+    ),
+    path("design/", DesignPageView.as_view(), name="design"),
+    path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
+    path(
+        "dev/emails/",
+        staging_inbox.StagingEmailInboxView.as_view(),
+        name="staging-emails",
+    ),
+    path("", include((chronology_urls, "chronology"), namespace="chronology")),
+    path("", include((event_gate_urls, "event"), namespace="event")),
+    # Permanent redirects for links shared before the `chronology/` path segment
+    # was dropped from public event URLs (issue #543, A4). View names are
+    # unchanged, so only externally shared literal URLs need this shim.
+    path(
+        "chronology/<path:subpath>",
+        RedirectView.as_view(url="/%(subpath)s", permanent=True, query_string=True),
+        name="chronology-legacy-redirect",
+    ),
+    path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
+    path("board/", include((board_urls, "board"), namespace="board")),
+    # The Auth0 tenant's error page setting points here; the path must stay
+    # /auth-error to match it.
+    path("auth-error/", auth_error_page, name="auth-error"),
+    path(
+        "hooks/calendar-replies",
+        EncounterCalendarReplyView.as_view(),
+        name="calendar-replies",
+    ),
+    path(
+        "",
+        include(
+            (
+                [
+                    path("e/", include(encounter_public)),
+                    path("encounters/", include(encounter_authenticated)),
+                ],
+                "notice-board",
+            ),
+            namespace="notice-board",
+        ),
+    ),
+]

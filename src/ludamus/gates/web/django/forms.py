@@ -25,9 +25,17 @@ from ludamus.pacts.durations import (
     duration_choices,
 )
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
-from ludamus.pacts.legacy import EventVisibility, PromotionMode
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.fields import UNREQUIRABLE_FIELD_TYPES
+from ludamus.pacts.images import (
+    IMAGE_ACCEPT,
+    LOGO_ACCEPT,
+    CoverCrop,
+    StoredFile,
+    resolve_uploaded_file_field,
+)
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -35,7 +43,8 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import SessionFieldRequirementDTO
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
+    from ludamus.pacts.sessions import SessionUpdateData
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -162,7 +171,10 @@ class EventSettingsForm(forms.Form):
         },
     )
     slug = forms.SlugField(
-        max_length=50, error_messages={"required": _("Event slug is required.")}
+        label=_("Slug"),
+        max_length=50,
+        help_text=_("URL identifier for this event. Must be unique."),
+        error_messages={"required": _("Event slug is required.")},
     )
     description = forms.CharField(
         label=_("Description"),
@@ -189,11 +201,13 @@ class EventSettingsForm(forms.Form):
     cover_image = cover_image_field(crop="top-and-bottom")
     logo = logo_field()
     start_time = forms.DateTimeField(
+        label=_("Start time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("Start time is required.")},
     )
     end_time = forms.DateTimeField(
+        label=_("End time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
@@ -329,6 +343,9 @@ class ProposalSettingsForm(forms.Form):
 class ProposalCategoryForm(forms.Form):
     """Form for creating/editing proposal categories."""
 
+    # The mode the claim window belongs to, for the page's `data-show-when`.
+    OFFER_CLAIM: ClassVar = PromotionMode.OFFER_CLAIM.value
+
     name = forms.CharField(
         max_length=255,
         strip=True,
@@ -386,15 +403,29 @@ class ProposalCategoryForm(forms.Form):
         return cleaned
 
 
-class PersonalDataFieldForm(forms.Form):
-    """Form for creating/editing personal data fields."""
+def check_select_has_options(form: forms.Form, cleaned: dict[str, object]) -> None:
+    # A select with nothing to pick and no write-in cannot be answered, and a
+    # required one blocks every proposal.
+    options = cleaned.get("options")
+    if (
+        cleaned.get("field_type") == "select"
+        and not cleaned.get("allow_custom")
+        and not (isinstance(options, str) and options.strip())
+    ):
+        form.add_error("options", _("Add at least one option, or allow custom values."))
+
+
+class OrganizerFieldForm(forms.Form):
+    """What a session field and a personal-data field are both made of."""
 
     FIELD_TYPE_CHOICES: ClassVar = [
         ("text", _("Text")),
         ("select", _("Select")),
         ("checkbox", _("Checkbox")),
-        ("discord", _("Discord username")),
     ]
+    # The types the Required controls leave with, space-separated for the
+    # page's `data-hide-when`.
+    UNREQUIRABLE_TYPES: ClassVar = " ".join(sorted(UNREQUIRABLE_FIELD_TYPES))
 
     name = forms.CharField(
         max_length=255,
@@ -447,14 +478,34 @@ class PersonalDataFieldForm(forms.Form):
         ),
     )
     is_public = forms.BooleanField(required=False, initial=False)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or self.cleaned_data
+        check_select_has_options(self, cleaned)
+        return cleaned
+
+
+class PersonalDataFieldForm(OrganizerFieldForm):
+    """Form for creating/editing personal data fields."""
+
+    FIELD_TYPE_CHOICES: ClassVar = [
+        *OrganizerFieldForm.FIELD_TYPE_CHOICES,
+        ("discord", _("Discord username")),
+    ]
+
+    field_type = forms.ChoiceField(
+        choices=FIELD_TYPE_CHOICES, initial="text", required=False
+    )
     is_required = forms.BooleanField(required=False, initial=False)
     order = forms.IntegerField(required=False, min_value=0, initial=0)
 
     def clean(self) -> dict[str, object]:
-        cleaned = super().clean() or self.cleaned_data
+        cleaned = super().clean()
         # The database refuses the pair too; this is the message the organiser
         # reads instead of a constraint error.
-        if cleaned.get("field_type") == "checkbox" and cleaned.get("is_required"):
+        if cleaned.get("field_type") in UNREQUIRABLE_FIELD_TYPES and cleaned.get(
+            "is_required"
+        ):
             # Also a non-field error: the edit page hides the Required control
             # for a checkbox, so its own error paragraph never renders.
             self.add_error("is_required", _("A checkbox cannot be required."))
@@ -473,67 +524,10 @@ class PersonalDataFieldEditForm(PersonalDataFieldForm):
     field_type = forms.ChoiceField(choices=FIELD_TYPE_CHOICES, required=False)
 
 
-class SessionFieldForm(forms.Form):
+class SessionFieldForm(OrganizerFieldForm):
     """Form for creating/editing session fields."""
 
-    FIELD_TYPE_CHOICES: ClassVar = [
-        ("text", _("Text")),
-        ("select", _("Select")),
-        ("checkbox", _("Checkbox")),
-    ]
-
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Field name is too long (max 255 characters)."),
-            "required": _("Field name is required."),
-        },
-    )
-    question = forms.CharField(
-        max_length=500,
-        strip=True,
-        error_messages={
-            "max_length": _("Question text is too long (max 500 characters)."),
-            "required": _("Question text is required."),
-        },
-    )
-    field_type = forms.ChoiceField(
-        choices=FIELD_TYPE_CHOICES, initial="text", required=False
-    )
-    options = forms.CharField(
-        required=False,
-        widget=forms.Textarea,
-        help_text=_("One option per line (for Select fields only)."),
-    )
-    is_multiple = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow selecting multiple options (for Select fields only)."),
-    )
-    allow_custom = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow entering custom values (for Select fields only)."),
-    )
-    max_length = forms.IntegerField(
-        required=False,
-        min_value=0,
-        help_text=_(
-            "Maximum number of characters allowed (0 = no limit)."
-            " Applies to text fields and custom value inputs."
-        ),
-    )
-    help_text = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 2}),
-        help_text=_(
-            "Supports markdown (links, bold)."
-            " Shown below the field in the proposal form."
-        ),
-    )
     icon = forms.CharField(max_length=50, required=False)
-    is_public = forms.BooleanField(required=False, initial=False)
 
 
 class TimeSlotForm(forms.Form):
@@ -806,6 +800,26 @@ class SessionEditForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+    def update_data(self) -> SessionUpdateData:
+        # The presenter's own edit and the organizer's share this form, so they
+        # share the write it makes: the panel's subclass adds `category_id`.
+        cleaned = self.cleaned_data
+        update: SessionUpdateData = {
+            "title": cleaned.get("title") or "",
+            "facilitator_name": cleaned.get("facilitator_name") or "",
+            "description": cleaned.get("description") or "",
+            "contact_email": cleaned.get("contact_email") or "",
+            "participants_limit": cleaned.get("participants_limit") or 0,
+            "min_age": cleaned.get("min_age") or 0,
+            "duration": cleaned.get("duration") or "",
+        }
+        if category_id := cleaned.get("category_id"):
+            update["category_id"] = int(category_id)
+        cover = resolve_uploaded_file_field(cleaned.get("cover_image"))
+        if cover is not None:
+            update["cover_image"] = cover
+        return update
 
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.

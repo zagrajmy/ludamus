@@ -292,6 +292,20 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
   });
 
+  test("shows a rejected slug and end time next to their fields", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/settings/");
+
+    await page.getByLabel("Slug").fill("thornwood-days");
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("An event with this slug already exists.")).toBeVisible();
+    await expect(page.getByLabel("Slug")).toHaveValue("thornwood-days");
+
+    await page.getByLabel("Slug").fill("frostfire-con");
+    await page.getByLabel("End time").fill(await page.getByLabel("Start time").inputValue());
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("End time must be after start time.")).toBeVisible();
+  });
+
   test("writes the proposal description as Markdown", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/settings/proposals/");
 
@@ -615,7 +629,10 @@ test.describe("Backoffice Panel", () => {
     await expect(requiredBox).toBeVisible();
     await page.locator("#id_field_type").selectOption("checkbox");
     await expect(requiredBox).toBeHidden();
-    await expect(requiredBox).not.toBeChecked();
+    // Out of the answer, so it can't submit; switching back keeps the tick.
+    await expect(requiredBox).toBeDisabled();
+    await page.locator("#id_field_type").selectOption("text");
+    await expect(requiredBox).toBeChecked();
 
     await page.goto("/panel/event/frostfire-con/cfp/session-fields/create/");
     const requirementSelect = firstCategoryRequirementSelect(page);
@@ -633,6 +650,20 @@ test.describe("Backoffice Panel", () => {
       disabled: true,
     });
     await expect(requirementSelect).toHaveValue("optional");
+  });
+
+  test("field create forms refuse a select without options", async ({ page }) => {
+    for (const path of ["personal-data", "session-fields"]) {
+      await page.goto(`/panel/event/frostfire-con/cfp/${path}/create/`);
+      await page.locator("#id_name").fill("Empty Select");
+      await page.locator("#id_question").fill("Pick one?");
+      await page.locator("#id_field_type").selectOption("select");
+      await page.getByRole("button", { name: "Create" }).click();
+
+      await expect(
+        page.getByText("Add at least one option, or allow custom values."),
+      ).toBeVisible();
+    }
   });
 
   test("cfp picker shows checkbox fields as optional only", async ({ page }, testInfo) => {

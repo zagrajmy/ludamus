@@ -9,6 +9,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -31,8 +32,9 @@ from ludamus.gates.web.django.propose_cover import (
     stash_wizard_cover,
     wizard_cover_initial,
 )
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
@@ -44,10 +46,9 @@ if TYPE_CHECKING:
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import (
-        EventDTO,
-        EventProposalSettingsDTO,
-        OrganizerFieldDTO,
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
@@ -829,6 +830,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
             cover_image=cover,
             user_id=request.context.current_user_id,
             user_slug=request.context.current_user_slug,
+            language=get_language(),
         )
 
         del request.session[key]

@@ -2,10 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    PromotionMode,
     PromotionStateDTO,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -20,6 +21,7 @@ def _wp(
     order=0,
     has_conflict=False,
     slots=UNLIMITED_SLOTS,
+    holds_event_seat=False,
 ):
     user_id = user_id if user_id is not None else pid
     return WaitingParticipantDTO(
@@ -32,6 +34,7 @@ def _wp(
         creation_time=_BASE + timedelta(minutes=order),
         has_conflict=has_conflict,
         owner_slots_remaining=slots,
+        holds_event_seat=holds_event_seat,
         recipient_user_id=sponsor_id if sponsor_id is not None else user_id,
     )
 
@@ -45,7 +48,9 @@ def _state(waiting, *, seats=1, presenter_id=None):
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=presenter_id,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 
@@ -144,6 +149,19 @@ class TestSelectPromotableParties:
         state = _state(waiting, seats=5)
 
         assert len(select_promotable_parties(state)) == 0
+
+    def test_member_already_seated_in_the_event_spends_no_slot(self):
+        # One slot left: the companion seated elsewhere is already counted in
+        # it, so the whole party fits.
+        waiting = [
+            _wp(1, sponsor_id=99, order=0, slots=1, holds_event_seat=True),
+            _wp(2, sponsor_id=99, order=1, slots=1),
+        ]
+        state = _state(waiting, seats=2)
+
+        selected = select_promotable_parties(state)
+
+        assert [p.participation_id for party in selected for p in party] == [1, 2]
 
     def test_fills_multiple_parties_until_seats_exhausted(self):
         waiting = [_wp(1, order=0), _wp(2, order=1), _wp(3, order=2)]

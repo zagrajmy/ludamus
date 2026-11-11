@@ -24,9 +24,9 @@ from ludamus.links.db.django.models import (
     SphereMembership,
     Track,
 )
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereRole, SphereVisibility
+from ludamus.pacts.sphere import SphereRole, SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -1348,7 +1348,7 @@ class TestOrganizerEventSettingsTools:
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert "already uses the slug" in result["content"][0]["text"]
+        assert result["content"][0]["text"] == "Slug already taken: taken"
         event.refresh_from_db()
         assert event.slug != "taken"
 

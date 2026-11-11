@@ -13,7 +13,7 @@ from odf import teletype
 from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 
-from ludamus.gates.web.django.chronology.panel.views.export import ODS_CONTENT_TYPE
+from ludamus.gates.web.django.event.panel.views.export import ODS_CONTENT_TYPE
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -21,9 +21,9 @@ from ludamus.links.db.django.models import (
     DiscountRule,
     Facilitator,
 )
-from ludamus.pacts import FacilitatorDTO
 from ludamus.pacts.discounts import DiscountDTO
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.propose import AccreditationType
 from tests.integration.conftest import EventFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

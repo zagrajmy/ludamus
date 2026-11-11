@@ -8,7 +8,7 @@ from django.http import HttpRequest
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.web.django.error_views import custom_404, custom_500
+from ludamus.gates.web.django.error_views import custom_404, custom_500
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, assert_response_404
 

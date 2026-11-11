@@ -11,7 +11,11 @@ sets `MISE_ENV=sandbox`, which makes mise load `mise.sandbox.toml` on top of
 reachable backend at the version already pinned in `mise.toml`: hk via cargo,
 shellcheck/hadolint via PyPI binary wheels, actionlint/dockerfmt via the Go
 module proxy (the sandbox image ships the rust and go toolchains these
-backends compile with). The hook installs pipx from apt, then builds `./.venv`
+backends compile with). hk is the one alias that also re-pins its version
+there: `mise.toml`'s entry carries a packslip `workflow` signing policy that
+the cargo backend rejects, and a nearer `[tools]` entry replaces the whole
+entry rather than merging options, so bump the two pins together. The hook
+installs pipx from apt, then builds `./.venv`
 with `pipx run uv venv --python 3.14`: images from 2026-10 on ship only
 3.10–3.13 and no deadsnakes PPA, so uv fetches the python-build-standalone
 build mise uses on laptops. Poetry is not left to build it, since its
@@ -62,9 +66,10 @@ install still exits 0. The Playwright CDN itself is reachable through the proxy.
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. When the hk alias itself refuses to install
 (mise 2026.10 rejects the pin's `workflow` option on the cargo backend), every
-`mise run` aborts before the task body; `MISE_TASK_RUN_AUTO_INSTALL=false mise
-run <task>` skips the install step and runs the task. Laptops never load `mise.sandbox.toml` — nothing
-here activates without `MISE_ENV=sandbox`. If a session ever looks
+`mise run` aborts before the task body;
+`MISE_TASK_RUN_AUTO_INSTALL=false mise run <task>` skips the install step and
+runs the task. Laptops never load `mise.sandbox.toml` — nothing here activates
+without `MISE_ENV=sandbox`. If a session ever looks
 half-provisioned, re-run `mise install` (MISE_ENV is exported session-wide).
 When adding a new GitHub-release tool to `mise.toml`, add a matching alias or
 substitute here, or sandbox sessions will wedge on its install.

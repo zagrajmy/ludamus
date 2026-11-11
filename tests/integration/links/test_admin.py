@@ -6,7 +6,7 @@ from django.contrib.admin import helpers
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification, Tag, TagCategory
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 

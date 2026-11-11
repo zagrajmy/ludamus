@@ -1,7 +1,7 @@
 # Patterns — tessera components and which one to use
 
 The design system lives in
-`src/ludamus/adapters/web/django/templatetags/tessera/`. Load it with
+`src/ludamus/gates/web/django/templatetags/tessera/`. Load it with
 `{% load tessera %}`. The live gallery is at `/design/`
 (`src/ludamus/templates/design.html`) — open it to see every component rendered.
 

@@ -12,6 +12,7 @@ from django.urls import reverse
 
 from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     EventProposalSettings,
@@ -27,13 +28,9 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import (
-    EventDTO,
-    EventProposalSettingsDTO,
-    ProposalCategoryDTO,
-    RedirectError,
-)
+from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
 from ludamus.pacts.images import StoredFile
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,
@@ -3296,6 +3293,19 @@ class TestAnonymousProposalSubmission:
             facilitator=facilitator, event=event, field=phone_field
         )
         assert hpd.value == "+48 555"
+
+    def test_anonymous_submission_remembers_the_language_it_was_sent_in(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+        self._set_wizard_full(client, event, proposal_category)
+
+        client.post(self._url(event.slug, "submit"), headers={"accept-language": "pl"})
+
+        assert Session.objects.values_list(
+            "contact_email", "contact_language"
+        ).get() == ("anon@example.com", "pl")
 
     def test_anonymous_single_category_shows_login_nudge(
         self, client, event, faker, time_zone, proposal_category

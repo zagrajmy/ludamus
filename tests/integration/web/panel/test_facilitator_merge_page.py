@@ -23,7 +23,8 @@ from ludamus.links.db.django.models import (
     Session,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
-from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (

@@ -53,7 +53,7 @@ type RailHour = { label: string; rect: Rect };
 // Both marker name sets come from the served, already-translated markup: the
 // links' bare hour text ("10") and their aria-labels, whichever the engine
 // reports. The patterns are wed to the attribute order that
-// templates/chronology/_compact_schedule.html renders; a reorder there fails
+// templates/event/_compact_schedule.html renders; a reorder there fails
 // the loud railNavName / markerNames guards below, never a device run.
 const RAIL_NAV_NAME = /<nav class="schedule-rail[^"]*"\s+aria-label="([^"]+)"/;
 const RAIL_HOUR_NAMES = /data-schedule-rail-hour[^>]*aria-label="([^"]+)"/g;
