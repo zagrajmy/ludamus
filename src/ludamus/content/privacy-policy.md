@@ -2,25 +2,39 @@
 
 **Data ostatniej aktualizacji: 11.11.2026**
 
-## 1. ADMINISTRATOR DANYCH
+## 1. ADMINISTRATORZY DANYCH
 
-Administratorem Państwa danych osobowych jest:
+Za Państwa dane odpowiadają dwaj niezależni od siebie administratorzy. Każdy z nich decyduje o celach przetwarzania w swoim zakresie i odpowiada za nie samodzielnie.
 
-**Radosław Ganczarek**
+### 1.1 Administrator serwisu
 
-Email: radoslaw@ganczarek.in
+**Radosław Ganczarek**, email: radek@zagrajmy.net
 
-W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować pod powyższym adresem email.
+Administruje danymi potrzebnymi do działania serwisu: kontem (punkt 2.1), danymi technicznymi (punkt 2.2), historią aktywności (punkt 2.3), powiadomieniami, analityką i zgłoszeniami błędów (punkty 3.1–3.5) oraz czatem (punkty 2.5, 3.7 i 3.8). Tej polityki dotyczy przede wszystkim ten zakres. Mówiąc w niej „my", mamy na myśli administratora serwisu.
+
+### 1.2 Organizator wydarzenia
+
+Każdy organizator jest odrębnym administratorem danych, które zbiera na potrzeby prowadzonego przez siebie wydarzenia. Należą do nich:
+
+- odpowiedzi na pytania o dane osobowe, które organizator sam skonfigurował (punkt 2.4),
+- korzystanie z list uczestników i twórców programu, w tym ich eksport,
+- blokady udziału w wydarzeniu nałożone przez organizatora,
+- dane przekazywane do usług, które organizator podłączył do swojego wydarzenia (punkt 4.3).
+
+Cele i okres przechowywania tych danych ustala organizator i to on odpowiada za podstawę prawną. Organizatorem jest społeczność, której nazwa widnieje w nagłówku strony wydarzenia. W sprawach tych danych można kontaktować się z nim bezpośrednio albo z nami pod adresem z punktu 14. Wtedy przekażemy żądanie organizatorowi i pomożemy mu je wykonać.
 
 ## 2. RODZAJE PRZETWARZANYCH DANYCH
 
 W ramach świadczonych usług przetwarzamy następujące kategorie danych osobowych:
 
-### 2.1 Dane rejestracyjne:
+### 2.1 Dane konta:
 
-- Pseudonim (identyfikator użytkownika)
+- Nazwa wyświetlana (może być pseudonimem; przy logowaniu przez Google lub Facebook wypełniamy ją imieniem i nazwiskiem z tego konta, a nazwę można później zmienić w profilu)
 - Adres email
 - Unikalny identyfikator z systemu Auth0
+- Adres zdjęcia profilowego pobrany od dostawcy logowania oraz wybór, czy zamiast niego pokazywać Gravatar
+- Nazwa użytkownika na Discordzie (opcjonalnie)
+- Nazwy wyświetlane osób dodanych do konta jako podopieczni
 - Zadeklarowany przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 
 Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygnuje z rejestracji na tym etapie lub nie spełnia wymogu wieku, Auth0 może już przetwarzać dane uwierzytelniania, a serwis — dane techniczne związane z logowaniem. Nie zbieramy daty urodzenia ani dokumentów tożsamości.
@@ -35,7 +49,28 @@ Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygn
 ### 2.3 Dane o aktywności:
 
 - Historia zapisów na wydarzenia
+- Zapisane punkty programu i przynależność do drużyn
 - Logi aktywności w serwisie
+
+### 2.4 Dane związane z programem wydarzeń:
+
+- Dane twórców programu: nazwa wyświetlana, rodzaj akredytacji, przynależność do grupy oraz odpowiedzi na pytania o dane osobowe skonfigurowane przez organizatora danego wydarzenia (zakres tych pytań ustala organizator)
+- Blokady użytkowników oraz blokady udziału w wydarzeniu wraz z powodem
+- Historia zmian wprowadzanych w panelu organizatora oraz logi importu programu
+- Powiadomienia wysłane w serwisie i pocztą elektroniczną
+
+### 2.5 Dane czatu:
+
+- Treść wiadomości, czas jej napisania oraz nazwa wyświetlana i zdjęcie profilowe autora z chwili wysłania
+- Reakcje emoji wraz z nazwą wyświetlaną osoby, która ich użyła
+- Członkowie rozmów prywatnych i grupowych, prośby o rozmowę, nazwy nadane rozmowom
+- Miejsce, do którego przeczytano rozmowę (do wyświetlania liczby nieprzeczytanych wiadomości)
+- Osoby zablokowane przez użytkownika
+- Wiadomości usunięte przez moderatorów wraz z powodem oraz wyciszenia uczestników
+- Zgłoszenia wiadomości: kto zgłosił, czyją wiadomość, powód, a także kopia treści wiadomości i nazwy autora z chwili zgłoszenia
+- Czas wysłania ostatnich wiadomości i reakcji, potrzebny do ograniczenia ich liczby w krótkim czasie
+
+Informację, że ktoś właśnie pisze, przekazujemy na bieżąco osobom w tej samej rozmowie i nie zapisujemy jej.
 
 ## 3. CELE I PODSTAWY PRAWNE PRZETWARZANIA
 
@@ -43,9 +78,9 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 ### 3.1 Świadczenie usługi zapisów na wydarzenia
 
-- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** pseudonim, email, identyfikator Auth0, zadeklarowany przedział wieku
-- **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia; interes polega na świadczeniu usługi społecznościowej organizacji wydarzeń. Przedział wieku służy stosowaniu ograniczeń chroniących osoby małoletnie. Uwzględniamy ich prawa i potrzebę szczególnej ochrony oraz ograniczamy dane do niezbędnego minimum
+- **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO) - umową jest Regulamin akceptowany przy korzystaniu z serwisu
+- **Dane:** dane konta z punktu 2.1 (w tym zadeklarowany przedział wieku), dane o aktywności z punktu 2.3
+- **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia. Podanie danych z punktu 2.1 jest dobrowolne, ale bez nich nie da się prowadzić konta ani zapisać na wydarzenie
 
 ### 3.2 Niezbędne wiadomości związane z usługą
 
@@ -77,6 +112,18 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 - **Dane:** email, wybrana sfera (społeczność organizująca wydarzenia), ustawienia subskrypcji
 - **Opis:** opcjonalne wiadomości promujące wydarzenia w wybranej sferze. Subskrypcję mogą włączyć wyłącznie zalogowani użytkownicy z zadeklarowanym przedziałem 16+. Osoby niezalogowane, użytkownicy w wieku 13–15 lat i konta bez deklaracji wieku, także założone wcześniej, nie mogą jej włączyć. Zgoda na te wiadomości jest odrębna od zgody na analitykę. Można ją wycofać, wyłączając subskrypcję przełącznikiem na karcie sfery w panelu głównym lub korzystając z linku rezygnacji w każdej promocyjnej wiadomości email. Nie wysyłamy wiadomości z wcześniej włączonych subskrypcji kont bez deklaracji wieku. Potwierdzenie wieku takiego konta usuwa stare subskrypcje — ich ponowne włączenie wymaga nowej zgody. Zmiana przedziału na 13–15 lat również usuwa subskrypcje. Po ponownym zadeklarowaniu 16+ ich włączenie wymaga nowej zgody. Rezygnacja nie wyłącza niezbędnych wiadomości opisanych w punkcie 3.2
 
+### 3.7 Czat
+
+- **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO) - umową jest Regulamin akceptowany przy korzystaniu z serwisu
+- **Dane:** dane czatu z punktu 2.5 (poza zgłoszeniami i moderacją), nazwa wyświetlana i zdjęcie profilowe z punktu 2.1
+- **Opis:** wysyłanie, wyświetlanie i dostarczanie na bieżąco wiadomości w rozmowie sfery, rozmowach przy punktach programu oraz rozmowach prywatnych i grupowych, a także reakcje, liczniki nieprzeczytanych wiadomości i blokowanie innych użytkowników. Korzystanie z czatu jest dobrowolne
+
+### 3.8 Moderacja czatu i zgłoszenia
+
+- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
+- **Dane:** zgłoszenia wiadomości wraz z kopią treści, usunięcia wiadomości przez moderatorów, wyciszenia, czas wysłania ostatnich wiadomości i reakcji
+- **Opis:** ochrona użytkowników przed nękaniem i spamem oraz rozpatrywanie zgłoszeń. Kopię treści zachowujemy przy zgłoszeniu, aby dało się je rozpatrzyć także wtedy, gdy autor usunie wiadomość. Interes polega na utrzymaniu bezpiecznej rozmowy w serwisie
+
 ## 4. ODBIORCY DANYCH
 
 Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
@@ -84,13 +131,37 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 ### 4.1 Dostawcy usług technicznych:
 
 - **OVH SAS** (Francja) - dostawca usług hostingowych
-- **Auth0** (USA/UE) - dostawca usług uwierzytelniania
+- **Cloudflare, Inc.** (USA) - pośredniczy w całym ruchu do serwisu, chroniąc go przed atakami i przyspieszając ładowanie stron, więc widzi adres IP i przesyłane dane. Obsługuje też czat: przechowuje wiadomości, reakcje i członków rozmów z punktu 2.5 i dostarcza je na bieżąco do przeglądarek uczestników
+- **Auth0 / Okta** (USA, Unia Europejska) - dostawca usług uwierzytelniania. Logowanie przez Google lub Facebook oznacza, że wybrany dostawca dowiaduje się o korzystaniu z serwisu
+- **Dostawca poczty wychodzącej** - wysyłka powiadomień z punktu 3.2; widzi adres odbiorcy i treść wiadomości
+- **Google Cloud Storage** - przechowywanie plików przesłanych do serwisu
 
 ### 4.2 Dostawcy analityki:
 
 - **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane analityczne z punktu 3.4 przekazujemy wyłącznie za zgodą zalogowanego użytkownika z zadeklarowanym przedziałem 16+. Zgłoszenia błędów serwera z punktu 3.5 wysyłamy niezależnie od zgody
 
-### 4.3 Ewentualni przyszli odbiorcy:
+### 4.3 Usługi wykorzystywane przy obsłudze programu wydarzeń:
+
+Poniższe usługi podłącza i konfiguruje organizator danego wydarzenia, a dane do nich trafiają na jego polecenie. Administratorem tych danych jest organizator (punkt 1.2).
+
+- **Google (Sheets, Forms)** - organizator może zaimportować zgłoszenia programu z arkusza lub formularza Google oraz wyeksportować harmonogram do arkusza czytanego przez zewnętrzną aplikację z programem wydarzenia. Eksportowany harmonogram zawiera nazwy twórców programu
+- **Sklep z biletami** - przy zapisach na wydarzenie, w którym liczba miejsc zależy od posiadanego biletu lub członkostwa, wysyłamy do sklepu adres email użytkownika i otrzymujemy w odpowiedzi liczbę posiadanych uprawnień
+- **Gravatar (Automattic, USA)** - jeżeli użytkownik wybierze awatar z Gravatara, przeglądarki osób oglądających jego profil pobierają obrazek z serwerów Gravatara; trafia tam skrót adresu email oraz adres IP osoby oglądającej
+
+### 4.4 Inni użytkownicy i dostęp publiczny:
+
+- Nazwa wyświetlana i zapisy są widoczne dla innych uczestników wydarzenia
+- Organizatorzy widzą listy uczestników oraz odpowiedzi na pytania o dane osobowe skonfigurowane w danym wydarzeniu. Dane, z których korzystają na potrzeby swojego wydarzenia, administrują samodzielnie (punkt 1.2)
+- Program wydarzenia wraz z nazwami twórców programu jest publiczny
+- Odpowiedzi na pytania oznaczone przez organizatora jako publiczne są widoczne dla wszystkich
+- Wiadomości czatu, wraz z nazwą wyświetlaną i zdjęciem profilowym autora oraz tym, kto na nie zareagował, widzą osoby w danej rozmowie: w rozmowie sfery — zalogowani użytkownicy tej sfery, przy punkcie programu — jego uczestnicy i prowadzący, w rozmowie prywatnej lub grupowej — jej członkowie
+- Osoby zarządzające sferą widzą rozmowy sfery i wszystkich jej punktów programu, mogą w nich usuwać wiadomości i wyciszać uczestników. Zgłoszenia wiadomości rozpatruje administrator serwisu
+
+### 4.5 Narzędzia administracyjne oparte na AI:
+
+Osoby zarządzające serwisem i organizatorzy wydarzeń mogą korzystać z asystentów AI do obsługi programu wydarzenia. Takie narzędzie działa na uprawnieniach osoby, która je uruchamia, i może odczytać dane programu wydarzenia, w tym nazwy twórców programu. Nie podejmujemy w ten sposób zautomatyzowanych decyzji dotyczących użytkowników.
+
+### 4.6 Ewentualni przyszli odbiorcy:
 
 W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie poinformujemy poprzez aktualizację niniejszej polityki.
 
@@ -98,8 +169,13 @@ W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie
 
 Część danych może być przetwarzana poza Europejskim Obszarem Gospodarczym przez:
 
-- **Auth0** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Auth0 / Okta** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Google** - usługi z punktów 4.1 i 4.3, na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Cloudflare** - pośrednictwo w ruchu i czat z punktu 4.1, na podstawie odpowiednich zabezpieczeń zgodnych z RODO. Serwery czatu są uruchamiane blisko pierwszych uczestników rozmowy, zwykle w Europie, ale nie mamy na to gwarancji
+- **Automattic (Gravatar)** - pobranie awatara przez przeglądarkę osoby oglądającej profil
 - Inne usługi, z których możemy korzystać w przyszłości
+
+Dane analityczne z punktu 4.2 pozostają na serwerach w Unii Europejskiej.
 
 Zapewniamy, że wszystkie transfery odbywają się z zachowaniem odpowiednich zabezpieczeń przewidzianych przez RODO.
 
@@ -111,6 +187,8 @@ Dane osobowe przechowujemy:
 - **Historia aktywności:** do momentu usunięcia konta
 - **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
 - **Logi techniczne:** maksymalnie 12 miesięcy
+- **Historia zmian w panelu organizatora i logi importu programu:** przez czas trwania wydarzenia i 12 miesięcy po jego zakończeniu. Są to zapisy tego, kto wprowadził zmianę, więc pozostają także po usunięciu opisywanego wpisu
+- **Wpisy usunięte przez organizatora:** oznaczamy jako usunięte i przechowujemy przez 12 miesięcy, aby dało się cofnąć pomyłkę
 - **Dane analityczne i zgłoszenia błędów:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
 
 ## 7. PRAWA UŻYTKOWNIKÓW
@@ -141,13 +219,15 @@ Można otrzymać swoje dane w ustrukturyzowanym formacie.
 
 Można wnieść sprzeciw wobec przetwarzania danych w określonych przypadkach.
 
-**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radoslaw@ganczarek.in**
+**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radek@zagrajmy.net**
+
+Prawa dotyczące danych, którymi administruje organizator wydarzenia (punkt 1.2), można wykonać bezpośrednio u niego albo za naszym pośrednictwem.
 
 ## 8. USUWANIE KONTA
 
 Aby usunąć konto i wszystkie powiązane dane osobowe, należy:
 
-1. Wysłać żądanie na adres: radoslaw@ganczarek.in
+1. Wysłać żądanie na adres: radek@zagrajmy.net
 2. W temacie wiadomości napisać: "Usunięcie konta"
 3. Podać pseudonim lub adres email powiązany z kontem
 
@@ -162,7 +242,7 @@ Konto zostanie usunięte w ciągu 30 dni od otrzymania żądania.
 - **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony)
 - **Cookies analityczne:** zapisywane przez narzędzie analityczne wskazane w punkcie 4.2, wyłącznie po wyrażeniu zgody przez zalogowanego użytkownika z zadeklarowanym przedziałem 16+
 
-Decyzję o zgodzie na analitykę zapisujemy oddzielnie w pamięci lokalnej przeglądarki. Zgoda jest powiązana z aktualnym stanem ochrony prywatności konta; po zmianie przedziału wieku jej ponowne udzielenie wymaga nowej decyzji użytkownika.
+Poza plikami cookies korzystamy też z pamięci lokalnej przeglądarki (`localStorage`). Przechowujemy w niej decyzję o zgodzie na analitykę oraz dane zapisywane przez narzędzie analityczne po jej wyrażeniu. Czyści się ją tak samo jak cookies, w ustawieniach przeglądarki. Zgoda jest powiązana z aktualnym stanem ochrony prywatności konta; po zmianie przedziału wieku jej ponowne udzielenie wymaga nowej decyzji użytkownika.
 
 ### 9.2 Zarządzanie cookies:
 
@@ -222,9 +302,18 @@ Email: kancelaria@uodo.gov.pl
 
 W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować:
 
-**Email:** radoslaw@ganczarek.in
+**Email:** radek@zagrajmy.net
 
 **Temat:** "RODO - [opis sprawy]"
+
+## 15. ZAUTOMATYZOWANE PODEJMOWANIE DECYZJI
+
+W serwisie działają dwa mechanizmy automatyczne:
+
+- zwolnione miejsce na wydarzeniu jest przydzielane kolejnej osobie z listy rezerwowej według kolejności zapisów,
+- w wydarzeniach powiązanych ze sklepem z biletami liczba miejsc dostępnych dla użytkownika wynika z liczby uprawnień zwróconej przez sklep (punkt 4.3).
+
+Nie profilujemy użytkowników i nie podejmujemy decyzji wywołujących skutki prawne. W każdej sprawie można skontaktować się z nami pod adresem podanym w punkcie 14 i poprosić o interwencję człowieka.
 
 ---
 
