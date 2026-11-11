@@ -1,11 +1,11 @@
 import pytest
 
+from ludamus.links.db.django.announcements import AnnouncementFanoutRepository
 from ludamus.links.db.django.models import (
     Announcement,
     Notification,
     NotificationSubscription,
 )
-from ludamus.links.db.django.notifications import AnnouncementFanoutRepository
 from ludamus.pacts.notifications import ClaimedAnnouncementDTO
 from tests.integration.conftest import SphereFactory, UserFactory
 

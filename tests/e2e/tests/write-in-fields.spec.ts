@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // A page can offer several write-ins, so each is named after its own question.
@@ -9,8 +10,10 @@ const customValue = (page: Page, question: string) =>
 // By role, not by label: a required field's label carries "(required)" and a
 // non-public one "organizers only", and getByLabel does not normalize the
 // markup's whitespace for a regex. The accessible name is normalized, and
-// anchoring keeps the companion's "Custom value for: …" out.
-const systemInput = (page: Page) => page.getByRole("textbox", { name: /^Which system\?/ });
+// anchoring keeps the companion's "Custom value for: …" out. The name leads
+// with the field's name, then its question.
+const systemInput = (page: Page) =>
+  page.getByRole("textbox", { name: /^System\b.*Which system\?/ });
 
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {
@@ -24,16 +27,16 @@ test.describe("Write-in answers", () => {
     await expect(wizard.getByText("Type a value and press Enter to add it.")).toBeVisible();
 
     await page.getByLabel(/title/i).fill("Nocna sesja");
-    await page.getByLabel(/description/i).fill("A one-shot with content to flag.");
-    await page.getByLabel(/max participants/i).fill("5");
+    await page.getByLabel(/about this session/i).fill("A one-shot with content to flag.");
+    await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page
-      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("group", { name: /^Tone/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
     await systemInput(page).fill("Fate");
     await page
-      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("group", { name: /^Trigger warnings/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
     await customValue(page, "Any trigger warnings?").fill("krew; przemoc");
@@ -49,11 +52,13 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/contact email/i).fill("write-in-fallback@example.com");
     await page.getByRole("button", { name: /Continue/ }).click();
     await page.getByLabel(/title/i).fill("Plain input");
-    await page.getByLabel(/description/i).fill("Semicolons work without the chip enhancement.");
-    await page.getByLabel(/max participants/i).fill("5");
+    await page
+      .getByLabel(/about this session/i)
+      .fill("Semicolons work without the chip enhancement.");
+    await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page
-      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("group", { name: /^Tone/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
     await systemInput(page).fill("Fate");
@@ -72,16 +77,16 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/contact email/i).fill("write-in-back@example.com");
     await page.getByRole("button", { name: /Continue/ }).click();
     await page.getByLabel(/title/i).fill("Powrót");
-    await page.getByLabel(/description/i).fill("Stepping back to the details.");
-    await page.getByLabel(/max participants/i).fill("4");
+    await page.getByLabel(/about this session/i).fill("Stepping back to the details.");
+    await page.getByLabel(/seats/i).fill("4");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page
-      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("group", { name: /^Tone/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
     await systemInput(page).fill("Fate");
     await page
-      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("group", { name: /^Trigger warnings/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
     await customValue(page, "Any trigger warnings?").fill("krew");
@@ -97,7 +102,7 @@ test.describe("Write-in answers", () => {
     await expect(customValue(page, "Any trigger warnings?")).toHaveValue("");
     await expect(
       page
-        .getByRole("group", { name: /Any trigger warnings\?/ })
+        .getByRole("group", { name: /^Trigger warnings/ })
         .getByRole("checkbox", { name: "Horror" }),
     ).toBeChecked();
   });
@@ -155,11 +160,11 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/contact email/i).fill("write-in-errors@example.com");
     await page.getByRole("button", { name: /Continue/ }).click();
     await page.getByLabel(/title/i).fill("Server validation");
-    await page.getByLabel(/description/i).fill("An answer rejected by the server.");
-    await page.getByLabel(/max participants/i).fill("5");
+    await page.getByLabel(/about this session/i).fill("An answer rejected by the server.");
+    await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page
-      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("group", { name: /^Tone/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
     await systemInput(page).fill("Fate");
@@ -205,16 +210,16 @@ test.describe("Write-in answers", () => {
     await expect(page.getByRole("button", { name: "Remove: przemoc" })).toBeHidden();
 
     await page.getByLabel(/title/i).fill("Sesja z chipsami");
-    await page.getByLabel(/description/i).fill("Chips keep the stored value canonical.");
-    await page.getByLabel(/max participants/i).fill("5");
+    await page.getByLabel(/about this session/i).fill("Chips keep the stored value canonical.");
+    await page.getByLabel(/seats/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page
-      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("group", { name: /^Tone/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
     await systemInput(page).fill("Fate");
     await page
-      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("group", { name: /^Trigger warnings/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
     await page.getByRole("button", { name: /Continue/ }).click();
@@ -225,12 +230,7 @@ test.describe("Write-in answers", () => {
 });
 
 test.describe("Session field toggles", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   test("keeps multi-value and custom-value settings on the edit page", async ({ page }) => {
     const name = `Content notes ${Date.now()}`;

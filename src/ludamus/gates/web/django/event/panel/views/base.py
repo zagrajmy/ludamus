@@ -1,72 +1,82 @@
+"""The base of every event panel page: panel access, then the event it names."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, TypedDict
+from functools import cached_property
+from typing import TYPE_CHECKING, ClassVar
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpRequest
+from django.http import Http404
+from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
+from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
-from ludamus.gates.web.django.panel import refuse_panel_access
-from ludamus.pacts.legacy import NotFoundError, RedirectError
-from ludamus.pacts.multiverse import Capability
+from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest, safe_next_url
+from ludamus.gates.web.django.request_ids import parse_id
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.panel import FIELD_KEY_PREFIX
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
-    from django.http import HttpResponseRedirect
+    from collections.abc import Mapping
 
-    from ludamus.pacts import AuthenticatedRequestContext, EventDTO
-    from ludamus.pacts.services import ServicesProtocol
+    from django.http import HttpRequest, HttpResponseBase
+
+    from ludamus.pacts.event import EventDTO, EventPanelContextDTO
+    from ludamus.pacts.tracks import TrackFilterDTO
 
 
 type PanelContext = dict[str, object]
 
 
-class EventPanelRequest(HttpRequest):
-    context: AuthenticatedRequestContext
-    services: ServicesProtocol
-
-
-class EventPanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
-    request: EventPanelRequest
-
-    # What this page's buttons stand for. A view whose writes a narrower role
-    # may perform names that capability instead; it never names the role.
-    write_capability: ClassVar[Capability] = Capability.PANEL_WRITE
-
-    def test_func(self) -> bool:
-        return passes_panel_access(self.request, write_capability=self.write_capability)
-
-    def handle_no_permission(self) -> HttpResponseRedirect:
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        return refuse_panel_access(
-            request=self.request,
-            reads_panel=has_panel_access(self.request),
-            message=_("You don't have permission to access the backoffice panel."),
-        )
-
-
-class EventPageContext(TypedDict):
-    events: list[EventDTO]
+class _EventResolution(View):
+    # Sits after the access mixins in the MRO, so their checks run first and
+    # the event is read before any handler looks at the request.
+    request: PanelRequest
     current_event: EventDTO
-    is_proposal_active: bool
-    stats: dict[str, int]
+    event_slug_kwarg: ClassVar[str] = "slug"
 
-
-class EventContextMixin:
-    request: EventPanelRequest
-
-    def get_typed_event_context(self, slug: str) -> EventPageContext | None:
+    def dispatch(
+        self, request: HttpRequest, *args: str, **kwargs: str | int
+    ) -> HttpResponseBase:
         try:
-            page = self.request.services.event_panel.load_context(
-                self.request.context.current_sphere_id, slug
+            self.current_event = self.request.services.events.read_by_slug(
+                self.request.context.current_sphere_id,
+                str(kwargs[self.event_slug_kwarg]),
             )
         except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return None
+            return self.event_not_found()
+        return super().dispatch(request, *args, **kwargs)
 
+    def event_not_found(self) -> HttpResponseBase:
+        messages.error(self.request, _("Event not found."))
+        return redirect("panel:index")
+
+
+class EventPanelMixin(PanelAccessMixin, _EventResolution):
+    """A panel page about the event its URL names.
+
+    The event is read once per request, before the handler runs; a slug this
+    sphere has no event for sends the organizer back to the panel index. The
+    sidebar's event list and counters cost queries of their own, so only a
+    page that renders the panel chrome asks for them through
+    `panel_context()`.
+    """
+
+    request: PanelRequest
+
+    @cached_property
+    def _panel_page(self) -> EventPanelContextDTO:
+        return self.request.services.event_panel.load_context(
+            sphere_id=self.request.context.current_sphere_id,
+            current_event=self.current_event,
+        )
+
+    def panel_context(self) -> PanelContext:
+        # A fresh dict on every call: views fill it in place.
+        page = self._panel_page
         return {
             "events": page.events,
             "current_event": page.current_event,
@@ -74,27 +84,63 @@ class EventContextMixin:
             "stats": page.stats.model_dump(),
         }
 
-    def get_event_context(self, slug: str) -> tuple[PanelContext, EventDTO | None]:
-        if (context := self.get_typed_event_context(slug)) is None:
-            return {}, None
-        return dict(context), context["current_event"]
 
-    def require_event_context(self, slug: str) -> tuple[PanelContext, EventDTO]:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            raise RedirectError(reverse("panel:index"))
-        return context, current_event
+def read_track_filter(request: PanelRequest, event_pk: int) -> TrackFilterDTO:
+    """Read the `?track=` switcher state; a track of another event is a 404."""
+    try:
+        return request.services.tracks_panel.track_filter(
+            event_pk=event_pk,
+            manager_id=request.context.current_user_id,
+            requested_pk=parse_id(request.GET.get("track")),
+            auto_select="track" not in request.GET,
+        )
+    except NotFoundError:
+        raise Http404 from None
 
-    def require_current_event(self, slug: str) -> EventDTO:
-        if (current_event := self.get_current_event(slug)) is None:
-            raise RedirectError(reverse("panel:index"))
-        return current_event
 
-    def get_current_event(self, slug: str) -> EventDTO | None:
-        try:
-            return self.request.services.events.read_by_slug(
-                self.request.context.current_sphere_id, slug
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return None
+def back_to_proposals(request: HttpRequest, slug: str) -> str:
+    return safe_next_url(request, reverse("panel:proposals", kwargs={"slug": slug}))
+
+
+def proposal_detail_url(*, request: HttpRequest, slug: str, proposal_id: int) -> str:
+    # A bare proposals URL means the pending backlog, so the detail page has to
+    # keep carrying the query the organizer arrived with.
+    detail = reverse(
+        "panel:proposal-detail", kwargs={"slug": slug, "proposal_id": proposal_id}
+    )
+    back = safe_next_url(request, "")
+    return f"{detail}?{urlencode({'next': back})}" if back else detail
+
+
+def format_field_value(
+    *, value: str | list[str] | bool | None, labels: Mapping[str, str] | None = None
+) -> str:
+    # A stored answer holds option *values*; pass `labels` where the reader
+    # should see the option labels instead, and a checkbox as a word rather
+    # than "True".
+    if isinstance(value, bool):
+        return _("Yes") if value else _("No")
+    by_value = labels or {}
+    if isinstance(value, list):
+        return ", ".join(by_value.get(item) or item for item in value)
+    return by_value.get(value or "") or value or ""
+
+
+def read_field_filters(request: HttpRequest) -> dict[int, str]:
+    # `?field_<pk>=value`, one entry per configurable column the organizer
+    # narrowed by. The pk is the mill's to resolve — a field this event does
+    # not have drops out there, not here.
+    return {
+        pk: request.GET.get(key, "")
+        for key in request.GET
+        if key.startswith(FIELD_KEY_PREFIX)
+        and (pk := parse_id(key.removeprefix(FIELD_KEY_PREFIX))) is not None
+    }
+
+
+def read_accreditation_filter(request: HttpRequest) -> str:
+    # A tampered value falls back to "all", so no toolbar ever shows a selected
+    # option the list is not actually filtered by. The options beside it are
+    # `ACCREDITATION_TYPE_CHOICES` — the list the form already renders.
+    raw = request.GET.get("accreditation", "").strip()
+    return raw if raw in AccreditationType else ""

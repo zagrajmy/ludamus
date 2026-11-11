@@ -16,5 +16,5 @@ class ProfilePrivacyPageView(LoginRequiredMixin, View):
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
-            request, "crowd/user/privacy.html", {"profile_active_tab": "privacy"}
+            request, "user/user/privacy.html", {"profile_active_tab": "privacy"}
         )

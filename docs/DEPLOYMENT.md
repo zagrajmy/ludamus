@@ -279,6 +279,9 @@ URL — not through environment variables.
 **Other:**
 
 - `SUPPORT_EMAIL` — default `support@example.com` — L(opt) D(opt) P(opt)
+- `MAIL_POSTAL_ADDRESS` — sender's postal address in the footer of opt-in
+  emails (sphere announcements); a startup warning flags it missing in
+  production — L(opt) D(opt) P
 
 ## 6. Useful Commands Reference
 

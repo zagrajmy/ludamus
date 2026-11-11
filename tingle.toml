@@ -9,7 +9,7 @@ include = ["pyproject.toml"]
 include = ["src/**/*.py"]
 
 [ranges.legacy-code]
-include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
+include = ["src/**/legacy.py"]
 
 [ranges.gates]
 include = ["src/ludamus/gates/**/*.py"]

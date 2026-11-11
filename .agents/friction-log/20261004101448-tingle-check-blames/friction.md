@@ -22,3 +22,5 @@ Clone with a stale `main`, branch from a newer origin commit, run `mise run lint
 ### Context
 
 Hit while redesigning /dev/emails/ in a Claude Code web sandbox.
+
+2026-10-24: The mail-consent worktree based on `8dd1f5da4` reproduced this with local `main` at `c65d8f798`: `mise run lint:tingle` blamed two existing no-mutate pragmas in untouched mills. `mise run lint:tingle -- --base 8dd1f5da4` passed all 36 metrics without changing shared refs.

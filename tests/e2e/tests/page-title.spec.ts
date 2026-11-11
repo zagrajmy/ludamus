@@ -1,3 +1,4 @@
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 /**
@@ -18,18 +19,17 @@ test.describe("Page titles", () => {
     await expect(twitterTitle).toHaveAttribute("content", await page.title());
   });
 
-  test("names an organizer's event in panel and print titles", async ({ page }) => {
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
+  test.describe(() => {
+    test.use({ storageState: managerState });
 
-    await page.goto("/panel/event/frostfire-con/proposals/");
+    test("names an organizer's event in panel and print titles", async ({ page }) => {
+      await page.goto("/panel/event/frostfire-con/proposals/");
 
-    await expect(page).toHaveTitle(/^Proposals • Frostfire Game Convention/);
+      await expect(page).toHaveTitle(/^Proposals • Frostfire Game Convention/);
 
-    await page.goto("/event/frostfire-con/print/?material=door-cards");
+      await page.goto("/event/frostfire-con/print/?material=door-cards");
 
-    await expect(page).toHaveTitle("Frostfire Game Convention • Print • Root Domain Sphere");
+      await expect(page).toHaveTitle("Frostfire Game Convention • Print • Root Domain Sphere");
+    });
   });
 });

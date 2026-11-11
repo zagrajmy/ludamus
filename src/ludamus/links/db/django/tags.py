@@ -21,8 +21,8 @@ def _parent(data: TagWriteDict) -> Tag | None:
 
 class TagRepository(TagRepositoryProtocol):
     @staticmethod
-    def category_slugs() -> set[str]:
-        return set(TagCategory.objects.values_list("slug", flat=True))
+    def category_names() -> dict[str, str]:
+        return dict(TagCategory.objects.values_list("slug", "name"))
 
     @staticmethod
     def read_all() -> list[TagDTO]:

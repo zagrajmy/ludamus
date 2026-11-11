@@ -1,0 +1,6 @@
+{% load i18n %}
+{# When, as the author gave it: a date, their words, or both. Variable: listing. #}
+{% if listing.starts_at %}
+    <time datetime="{{ listing.starts_at|date:'c' }}">{{ listing.starts_at|date:"DATETIME_FORMAT" }}</time>{% if listing.when_text %} · {% endif %}
+{% endif %}
+{{ listing.when_text }}

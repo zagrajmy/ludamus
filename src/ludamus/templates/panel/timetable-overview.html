@@ -8,10 +8,8 @@
     {% translate "Organizer Overview" %}
 {% endblock page_title %}
 {% block content %}
-    <!-- Timetable sub-page tabs -->
     {% tab_shell "panel/_timetable_tabs.html" %}
         {% tab_shell_body %}
-            <!-- Hours-to-fill section -->
             <section class="mb-8">
                 <h2 class="text-base font-semibold mb-3">{% translate "Hours to fill" %}</h2>
                 {% if capacity_hours.capacity_hours %}
@@ -47,7 +45,6 @@
                     <p class="text-sm text-foreground-muted">{% translate "Add rooms and time slots to see how many program-hours are left to fill." %}</p>
                 {% endif %}
             </section>
-            <!-- Heatmap section -->
             <section class="mb-8">
                 <h2 class="text-base font-semibold mb-3">{% translate "Occupancy map" %}</h2>
                 {% if not heatmap.spaces %}
@@ -97,7 +94,6 @@
                     </div>
                 {% endif %}
             </section>
-            <!-- Track progress section -->
             <section>
                 <h2 class="text-base font-semibold mb-3">{% translate "Track progress" %}</h2>
                 {% if track_progress %}
@@ -159,6 +155,6 @@
                     <p class="text-sm text-foreground-muted">{% translate "No tracks for this event." %}</p>
                 {% endif %}
             </section>
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

@@ -119,7 +119,6 @@ export {
   replaceSearchParams,
   restoreCarriedSearchParams,
   type SearchParamCodec,
-  type SearchParamUpdates,
   stringListParam,
   stringParam,
 };

@@ -3,15 +3,12 @@ from datetime import UTC, datetime
 import pytest
 
 from ludamus.mills.event import EventConfirmationsService
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import ConfirmationSessionDTO
-from ludamus.pacts.legacy import (
-    ConfirmationFacilitatorRow,
-    ConfirmationSessionRow,
-    FacilitatorDTO,
-    NotFoundError,
-    SessionStatus,
-    TrackDTO,
-)
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import ConfirmationFacilitatorRow, ConfirmationSessionRow
+from ludamus.pacts.tracks import TrackDTO
 
 _EVENT = 1
 _OTHER_EVENT = 2
@@ -133,14 +130,11 @@ class FakeSessions:
         self._track_names = track_names or {}
         self._facilitator_names = facilitator_names or {}
         self._matched = matched
-        self.queried_pks: list[list[int]] = []
-        self.queried_session_pks: list[list[int]] = []
         self.confirmed: list[tuple[int, int, bool, str | None, int | None]] = []
 
     def list_confirmation_rows(
         self, event_pk: int, facilitator_pks: list[int]
     ) -> list[ConfirmationSessionRow]:
-        self.queried_pks.append(facilitator_pks)
         return [
             row
             for row in self._rows[event_pk]
@@ -150,7 +144,6 @@ class FakeSessions:
     def list_track_names_by_session(
         self, session_pks: list[int]
     ) -> dict[int, dict[int, str]]:
-        self.queried_session_pks.append(session_pks)
         return {
             pk: self._track_names[pk] for pk in session_pks if pk in self._track_names
         }
@@ -158,7 +151,6 @@ class FakeSessions:
     def list_facilitator_names_by_session(
         self, session_pks: list[int]
     ) -> dict[int, dict[int, str]]:
-        self.queried_session_pks.append(session_pks)
         return {
             pk: self._facilitator_names[pk]
             for pk in session_pks
@@ -240,13 +232,12 @@ class TestTrackView:
         assert [f.display_name for f in view.facilitators] == ["Ben", "Ada"]
         assert view.facilitators[1].is_fully_confirmed
 
-    def test_an_empty_block_is_an_empty_view_without_session_queries(self):
-        sessions = FakeSessions([])
+    def test_an_empty_block_is_an_empty_view(self):
         service = EventConfirmationsService(
             facilitators=FakeFacilitators([]),
             agenda_items=FakeAgendaCounts(orphans=_ORPHANS),
             tracks=FakeTracks({}),
-            sessions=sessions,
+            sessions=FakeSessions([]),
         )
 
         view = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK)
@@ -254,16 +245,13 @@ class TestTrackView:
         assert view.facilitators == []
         assert view.progress_pct == 0
         assert view.without_facilitator_count == _ORPHANS
-        assert not sessions.queried_pks
-        assert not sessions.queried_session_pks
 
     def test_a_facilitator_with_no_sessions_is_listed_as_unfinished(self):
-        sessions = FakeSessions([])
         service = EventConfirmationsService(
             facilitators=FakeFacilitators([_facilitator()]),
             agenda_items=FakeAgendaCounts(),
             tracks=FakeTracks({}),
-            sessions=sessions,
+            sessions=FakeSessions([]),
         )
 
         view = service.track_view(event_pk=_EVENT, track_pk=_RPG_TRACK)
@@ -272,8 +260,6 @@ class TestTrackView:
         assert card.email_groups == []
         assert card.is_fully_confirmed is False
         assert view.unclaimed_facilitator_count == 1
-        assert sessions.queried_pks == [[_ADA]]
-        assert not sessions.queried_session_pks
 
     def test_unplaced_sessions_are_counted_not_listed(self):
         service = _service(

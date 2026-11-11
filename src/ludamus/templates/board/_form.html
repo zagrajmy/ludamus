@@ -1,0 +1,51 @@
+{% load i18n tessera %}
+{% comment %}
+    The listing form, shared by create and edit. Variable: form, plus the
+    submit buttons in the `actions` include.
+{% endcomment %}
+{% tessera_errors form %}
+<div class="flex flex-col">
+    {% tessera_field form.seeking %}
+    {% tessera_field form.title %}
+    {% tessera_field form.what %}
+    <fieldset class="mb-4" aria-describedby="listing-when-help">
+        <legend class="text-sm font-medium text-foreground-primary">{% translate "When" %}</legend>
+        <p id="listing-when-help" class="mb-3 text-xs text-foreground-muted">
+            {% translate "Required, drafts too: give a date and time, describe it in your words, or both." %}
+        </p>
+        <div class="grid gap-x-4 md:grid-cols-2">
+            {% tessera_field form.starts_at %}
+            {% tessera_field form.when_text %}
+        </div>
+    </fieldset>
+    <div class="grid gap-x-4 md:grid-cols-2">
+        {% tessera_field form.medium %}
+        {% tessera_field form.place %}
+    </div>
+    {% tessera_field form.seats %}
+    {% tessera_field form.contact %}
+    {% for category in form.tag_categories %}
+        {% if category.options %}
+            <div class="mb-4">
+                <label for="listing-tags-{{ category.slug }}"
+                       class="block mb-1.5 text-sm font-medium text-foreground-primary">{{ category.name }}</label>
+                {% with selected=form.tags.value %}
+                    {% tessera_combobox id="listing-tags-"|add:category.slug name="tags" multiple=True has_errors=form.tags.errors %}
+                        {% for option in category.options %}
+                            <option value="{{ option.pk }}"
+                                    {% if option.pk|stringformat:"d" in selected %}selected{% endif %}>{{ option.path }}</option>
+                        {% endfor %}
+                    {% end_tessera_combobox %}
+                {% endwith %}
+            </div>
+        {% endif %}
+    {% endfor %}
+    {% if form.tags.errors %}
+        <p class="mb-4 text-sm text-danger">{{ form.tags.errors|join:" " }}</p>
+    {% endif %}
+    {% tessera_field form.description %}
+    {% tessera_field form.header_image %}
+    <div class="mt-2 flex flex-col gap-3 border-t border-border pt-4 md:flex-row md:items-center md:justify-between">
+        {% include actions %}
+    </div>
+</div>

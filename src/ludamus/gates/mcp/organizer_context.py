@@ -15,7 +15,7 @@ from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import JsonDict, OrganizerToolProtocol
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 

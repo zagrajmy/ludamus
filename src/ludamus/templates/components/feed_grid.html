@@ -7,7 +7,7 @@
         {% if item.kind == "event" %}
             {% include "components/event_card.html" with event=item.entry %}
         {% else %}
-            {% include "components/encounter_card.html" with encounter=item.entry.encounter rsvp_count=item.entry.rsvp_count is_mine=item.entry.is_mine organizer_name=item.entry.organizer_name %}
+            {% include "components/encounter_card.html" with encounter=item.entry.encounter rsvp_count=item.entry.rsvp_count spots_remaining=item.entry.spots_remaining is_mine=item.entry.is_mine organizer_name=item.entry.organizer_name %}
         {% endif %}
     {% endfor %}
 </div>

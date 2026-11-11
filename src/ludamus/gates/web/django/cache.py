@@ -23,12 +23,9 @@ def patch_audience_cache(
 
 
 class AudienceCachedResponseMixin(TemplateResponseMixin):
-    # Shared by EventsPageView/EventPageView: cache-control depends on
-    # request-time auth state (private for signed-in users, public for
-    # anonymous), so it can't be a static @method_decorator like the rest of
-    # this file's caching. TemplateView.get()/DetailView.get() both funnel
-    # through render_to_response(), so patching there (rather than
-    # overriding get() on each view) covers both with one Any-typed override.
+    # NOTE: cache-control depends on request-time auth state, so it can't be a
+    # static @method_decorator. TemplateView.get() funnels through
+    # render_to_response(), so one override covers every view using the mixin.
     audience_cache_max_age: int
 
     def render_to_response(

@@ -8,29 +8,29 @@
     {% if field.field_type == "select" and field.is_multiple %}
         {# A checkbox group has no single control to point a label at, so the #}
         {# question is the group's legend instead of an orphan <label>. #}
-        <fieldset>
-            <legend class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
-                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+        <fieldset {% if described_by %}aria-describedby="{{ described_by }}"{% endif %}>
+            <legend class="flex flex-wrap items-baseline justify-between gap-x-4 w-full text-sm font-medium text-foreground-secondary first-letter:uppercase">
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name name=field.name label=label is_required=is_required is_public=field.is_public visibility_badge=visibility_badge only %}
             </legend>
-            {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors aria_describedby=described_by only %}
+            {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors only %}
         </fieldset>
     {% elif field.field_type == "select" %}
         <label for="{{ input_id }}"
-               class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
-            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+               class="flex flex-wrap items-baseline justify-between gap-x-4 w-full text-sm font-medium text-foreground-secondary first-letter:uppercase">
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name name=field.name label=label is_required=is_required is_public=field.is_public visibility_badge=visibility_badge only %}
         </label>
         {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by only %}
     {% elif field.field_type == "checkbox" %}
         <label class="inline-flex items-center cursor-pointer">
             {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked aria_describedby=described_by only %}
             <span class="ml-2 text-sm text-foreground first-letter:uppercase">
-                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public visibility_badge=visibility_badge only %}
             </span>
         </label>
     {% else %}
         <label for="{{ input_id }}"
-               class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
-            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+               class="flex flex-wrap items-baseline justify-between gap-x-4 w-full text-sm font-medium text-foreground-secondary first-letter:uppercase">
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name name=field.name label=label is_required=is_required is_public=field.is_public visibility_badge=visibility_badge only %}
         </label>
         {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by only %}
     {% endif %}

@@ -11,19 +11,29 @@ from django.test import override_settings
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.gates.web.django.chronology.event_presentation import EventInfo
+from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
-from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.dashboard import DashboardDTO
-from ludamus.pacts.encounter import PAST_FEED_LIMIT
-from ludamus.pacts.event import LandingConventionDTO, LandingStatsDTO
-from ludamus.pacts.multiverse import AnnouncementDTO
+from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
+    EncounterDTO,
+    EncounterIndexItem,
+    InviteeStatus,
+)
+from ludamus.pacts.event import (
+    EventDTO,
+    EventListItemDTO,
+    LandingConventionDTO,
+    LandingStatsDTO,
+)
+from ludamus.pacts.sphere import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EncounterFactory,
+    EncounterInviteeFactory,
     EncounterRSVPFactory,
     EventFactory,
     SessionFactory,
@@ -35,13 +45,14 @@ from tests.integration.web.landing_context import landing_context
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
+    status = EventDTO.model_validate(event)
     item = EventListItemDTO(
         description=event.description,
         end_time=event.end_time,
-        is_ended=event.is_ended,
-        is_live=event.is_live,
-        is_proposal_active=event.is_proposal_active,
-        is_published=event.is_published,
+        is_ended=status.is_ended,
+        is_live=status.is_live,
+        is_proposal_active=status.is_proposal_active,
+        is_published=status.is_published,
         name=event.name,
         session_count=session_count,
         slug=event.slug,
@@ -651,13 +662,16 @@ def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
     }
 
 
-def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
+def _expected_feed_encounter(
+    encounter, *, organizer_name, rsvp_count=0, accepted_guest_count=0, is_mine=False
+):
     return FeedEncounter(
         entry=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
             rsvp_count=rsvp_count,
             is_mine=is_mine,
             organizer_name=organizer_name,
+            accepted_guest_count=accepted_guest_count,
         )
     )
 
@@ -720,6 +734,37 @@ class TestEventsPageFeed:
             },
             template_name=["index.html"],
         )
+
+    def test_an_accepted_calendar_guest_takes_a_spot_on_the_feed_card(
+        self, client, non_root_sphere
+    ):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            sphere=non_root_sphere,
+            creator=creator,
+            is_public=True,
+            max_participants=2,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+        EncounterRSVPFactory(encounter=encounter)
+        EncounterInviteeFactory(encounter=encounter, status=InviteeStatus.ACCEPTED)
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        expected = _expected_feed_encounter(
+            encounter,
+            organizer_name="Pub Organizer",
+            rsvp_count=1,
+            accepted_guest_count=1,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(upcoming=[expected]),
+            template_name=["index.html"],
+        )
+        assert expected.entry.spots_remaining == 0
 
     def test_private_encounter_is_hidden_from_other_visitors(
         self, client, non_root_sphere

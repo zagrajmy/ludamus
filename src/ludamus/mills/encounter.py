@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import logging
+import string
 from contextlib import suppress
+from secrets import choice
 from typing import TYPE_CHECKING
 
-from ludamus.mills.encounter_calendar import guest_for
+from ludamus.mills.encounter_calendar import (
+    encounter_calendar_links,
+    encounter_ics,
+    guest_for,
+)
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDetailContextDTO,
@@ -15,15 +21,15 @@ from ludamus.pacts.encounter import (
     EncountersPolicy,
     RSVPOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import Capability
 from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
+from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.mills.encounter_calendar import EncounterGuests
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterData,
         EncounterDTO,
@@ -31,11 +37,18 @@ if TYPE_CHECKING:
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.legacy import SphereRepositoryProtocol
-    from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol, SphereRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 logger = logging.getLogger(__name__)
+
+_SHARE_CODE_ALPHABET = string.ascii_letters + string.digits
+_SHARE_CODE_LENGTH = 6
+
+
+def _new_share_code() -> str:
+    return "".join(choice(_SHARE_CODE_ALPHABET) for _ in range(_SHARE_CODE_LENGTH))
 
 
 # The feed renders every past encounter as a card, and a sphere accumulates
@@ -76,8 +89,10 @@ class EncounterService(EncounterServiceProtocol):
             return True
         if policy is EncountersPolicy.MANAGERS:
             user = self._users.read_by_id(user_id)
-            role = self._spheres.manager_role(sphere_id, user.slug)
-            return role is SphereRole.MANAGER
+            return sphere_access(
+                self._spheres.manager_role(sphere_id, user.slug),
+                is_superuser=user.is_superuser,
+            ).allows(Capability.PANEL_WRITE)
         return False
 
     def list_feed(self, *, sphere_id: int, user_id: int | None) -> EncounterFeed:
@@ -127,7 +142,9 @@ class EncounterService(EncounterServiceProtocol):
         # Both lookups are batched: the public feed is rendered for anonymous
         # visitors on every sphere's events feed, so a query per card here
         # would be the page's cost.
-        rsvp_counts = self._rsvps.count_by_encounters([e.pk for e in encounters])
+        pks = [e.pk for e in encounters]
+        rsvp_counts = self._rsvps.count_by_encounters(pks)
+        guest_counts = self._guests.invitees.count_accepted_without_signup(pks)
         names = self._creator_names(
             {e.creator_id for e in encounters if e.creator_id != user_id}
         )
@@ -135,6 +152,7 @@ class EncounterService(EncounterServiceProtocol):
             EncounterIndexItem(
                 encounter=encounter,
                 rsvp_count=rsvp_counts.get(encounter.pk, 0),
+                accepted_guest_count=guest_counts.get(encounter.pk, 0),
                 is_mine=encounter.creator_id == user_id,
                 organizer_name=names.get(encounter.creator_id, ""),
             )
@@ -149,7 +167,12 @@ class EncounterService(EncounterServiceProtocol):
         }
 
     def build_detail(
-        self, *, share_code: str, sphere_id: int, current_user_id: int | None
+        self,
+        *,
+        share_code: str,
+        sphere_id: int,
+        current_user_id: int | None,
+        page_url: str,
     ) -> EncounterDetailContextDTO:
         encounter = self._encounters.read_by_share_code(share_code, sphere_id)
         creator = self._users.read_by_id(encounter.creator_id)
@@ -175,8 +198,16 @@ class EncounterService(EncounterServiceProtocol):
                 else []
             ),
             accepted_guest_count=(
-                self._guests.invitees.count_accepted_without_signup(encounter.pk)
+                self._guests.invitees.count_accepted_without_signup([encounter.pk]).get(
+                    encounter.pk, 0
+                )
             ),
+            calendar_links=encounter_calendar_links(encounter, page_url),
+        )
+
+    def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str:
+        return encounter_ics(
+            self._encounters.read_by_share_code(share_code, sphere_id), page_url
         )
 
     def read_by_share_code(self, *, share_code: str, sphere_id: int) -> EncounterDTO:
@@ -189,8 +220,10 @@ class EncounterService(EncounterServiceProtocol):
         # methods below answer that.
         if not self.can_create(sphere_id=data["sphere_id"], user_id=data["creator_id"]):
             raise NotFoundError
+        record = data.copy()
+        record["share_code"] = _new_share_code()
         with self._transaction.atomic():
-            encounter = self._encounters.create(data)
+            encounter = self._encounters.create(record)
             creator = self._users.read_by_id(encounter.creator_id)
             added = self._guests.replace_invitees(
                 encounter, invitee_emails, creator=creator

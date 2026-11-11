@@ -2,8 +2,8 @@ import pytest
 
 from ludamus.links.db.django.models import Announcement
 from ludamus.links.db.django.repositories import AnnouncementsRepository
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.multiverse import AnnouncementData, AnnouncementDTO
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import AnnouncementData, AnnouncementDTO
 
 
 class TestAnnouncementsRepositoryList:

@@ -3,7 +3,8 @@
 {% load feed_tags %}
 {% comment %}
     Encounter card, the event card's sibling in the feed.
-    Required: 'encounter', 'rsvp_count', 'is_mine'. Optional: 'organizer_name'.
+    Required: 'encounter', 'rsvp_count', 'spots_remaining', 'is_mine'.
+    Optional: 'organizer_name'.
 
     The tag row holds at most two tags, the state first, then the game, so it
     never wraps; "Link only" goes to the organizer's footer instead. Listed
@@ -48,7 +49,7 @@
                             {% elif is_mine %}
                                 {% blocktranslate with count=rsvp_count max=encounter.max_participants %}{{ count }} of {{ max }} signed up{% endblocktranslate %}
                             {% else %}
-                                {% with left=encounter.max_participants|spots_left:rsvp_count %}
+                                {% with left=spots_remaining %}
                                     {% if left %}
                                         {% blocktranslate count counter=left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
                                     {% else %}
@@ -73,7 +74,7 @@
             {% tessera_copy share_path origin=True %}
                 {% icon "clipboard-document" variant="solid" class="h-4 w-4 flex-shrink-0" %}
                 <span class="truncate">{{ share_path }}</span>
-            {% endtessera_copy %}
+            {% end_tessera_copy %}
         {% endwith %}
     {% endif %}
 </div>
