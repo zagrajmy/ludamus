@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from ludamus.links.db.django.models import Discount, Facilitator
 from ludamus.links.db.django.repositories import DiscountRepository
 from ludamus.pacts.discounts import DiscountData, DiscountDTO, DiscountKind
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 
 @pytest.fixture(name="facilitator")

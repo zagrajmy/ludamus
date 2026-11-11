@@ -11,13 +11,13 @@
     <span class="text-foreground-secondary">
         {% if active_integration %}
             {{ active_integration.display_name }}
-        {% elif current_event %}
+        {% else %}
             {{ current_event.name }}
         {% endif %}
     </span>
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event and active_integration %}
+    {% if active_integration %}
         <div class="flex items-center gap-2">
             <form method="post"
                   action="{% url 'panel:konwencik-export-run' slug=current_event.slug pk=active_integration.pk %}">
@@ -38,7 +38,7 @@
                     {% translate "No Konwencik export yet. Add one in Settings → Integrations to publish this event's schedule to a Konwencik spreadsheet." %}
                 </p>
             </div>
-        {% elif current_event %}
+        {% else %}
             <div class="max-w-5xl space-y-6">
                 <div class="card">
                     <div class="card-body flex gap-3">

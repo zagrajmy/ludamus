@@ -23,17 +23,17 @@ from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.forms import create_event_map_form, create_map_spaces_form
 from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.gates.web.django.panel import refuse_panel_access
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.images import parse_uploaded_file, stored_file
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import Capability
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.images import UploadedFileProtocol
-    from ludamus.pacts.legacy import EventDTO
     from ludamus.pacts.maps import EventMapDTO
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
@@ -104,7 +104,7 @@ def render_maps_page(
         )
     return TemplateResponse(
         request,
-        "chronology/maps.html",
+        "event/maps.html",
         {
             "event": event,
             "cards": cards,

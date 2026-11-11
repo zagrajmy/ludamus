@@ -9,7 +9,7 @@ from ludamus.links.db.django.models import Notification
 from ludamus.pacts.notifications import NotificationDTO
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import NotificationKind
+    from ludamus.pacts.notifications import NotificationKind
 
 
 def already_told(user_id: int, *, kind: NotificationKind, session_id: int) -> bool:

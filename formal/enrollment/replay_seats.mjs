@@ -2,7 +2,7 @@
 // from seats.bend) and prints the seats taken after each group. Reads
 // {"limit": n, "groups": [[op, ...], ...]} on stdin, ops as Bend constructors
 // ({"$": "Check", "want": 2}). The differential test in
-// tests/integration/web/chronology/test_seats_model_differential.py drives it.
+// tests/integration/web/event/test_seats_model_differential.py drives it.
 import { readFileSync } from "node:fs";
 
 import Seats from "./seats.gen.mjs";

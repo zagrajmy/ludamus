@@ -3,8 +3,7 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import NotificationDTO
+from ludamus.pacts.notifications import NotificationDTO, NotificationKind
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import (
     PageMatcher,

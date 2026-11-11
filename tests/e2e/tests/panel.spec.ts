@@ -629,7 +629,10 @@ test.describe("Backoffice Panel", () => {
     await expect(requiredBox).toBeVisible();
     await page.locator("#id_field_type").selectOption("checkbox");
     await expect(requiredBox).toBeHidden();
-    await expect(requiredBox).not.toBeChecked();
+    // Out of the answer, so it can't submit; switching back keeps the tick.
+    await expect(requiredBox).toBeDisabled();
+    await page.locator("#id_field_type").selectOption("text");
+    await expect(requiredBox).toBeChecked();
 
     await page.goto("/panel/event/frostfire-con/cfp/session-fields/create/");
     const requirementSelect = firstCategoryRequirementSelect(page);

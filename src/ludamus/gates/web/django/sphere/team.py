@@ -15,13 +15,10 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
-from ludamus.gates.web.django.multiverse.access import (
-    MultiverseRequest,
-    SphereAccessMixin,
-)
+from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.forms import SphereInvitationForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts.multiverse import Capability, SphereRole
+from ludamus.pacts.sphere import Capability, SphereRole
 from ludamus.pacts.team import (
     INVITATION_NOTE_MAX_LENGTH,
     AcceptInvitationOutcome,
@@ -32,6 +29,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.team import IssuedInvitationDTO
 
 logger = logging.getLogger(__name__)
@@ -50,7 +48,7 @@ class IssuedLink(NamedTuple):
     path: str
 
 
-def _read_issued_link(request: MultiverseRequest) -> IssuedLink | None:
+def _read_issued_link(request: PanelRequest) -> IssuedLink | None:
     signed = request.get_signed_cookie(
         _ISSUED_LINK_COOKIE,
         default=None,
@@ -68,7 +66,7 @@ def _read_issued_link(request: MultiverseRequest) -> IssuedLink | None:
     )
 
 
-def _hand_over(request: MultiverseRequest, issued: IssuedInvitationDTO) -> HttpResponse:
+def _hand_over(request: PanelRequest, issued: IssuedInvitationDTO) -> HttpResponse:
     response = redirect("multiverse:panel:team")
     response.set_signed_cookie(
         _ISSUED_LINK_COOKIE,
@@ -84,15 +82,15 @@ def _hand_over(request: MultiverseRequest, issued: IssuedInvitationDTO) -> HttpR
 
 
 class TeamPageView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         sphere_id = self.request.context.current_sphere_id
         # Comms people read the team too; only managers may grow it.
         can_invite = panel_access(self.request).allows(Capability.PANEL_WRITE)
         response = TemplateResponse(
             self.request,
-            "multiverse/panel/team.html",
+            "sphere/panel/team.html",
             {
                 **sphere_sidebar_context(self.request, active_nav="team"),
                 "members": self.request.services.sphere_team.list_members(
@@ -117,9 +115,9 @@ class TeamPageView(SphereAccessMixin, View):
 
 
 class TeamInviteActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         form = SphereInvitationForm(self.request.POST)
         if not form.is_valid():
             messages.error(
@@ -166,9 +164,9 @@ class TeamInviteActionView(SphereAccessMixin, View):
 class TeamInviteReissueActionView(SphereAccessMixin, View):
     """Swap a lost link for a new one: same role and note, the old one dies."""
 
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         issued = self.request.services.sphere_team.reissue(
             sphere_id=self.request.context.current_sphere_id,
             pk=pk,
@@ -194,9 +192,9 @@ class TeamInviteReissueActionView(SphereAccessMixin, View):
 
 
 class TeamInviteRevokeActionView(SphereAccessMixin, View):
-    request: MultiverseRequest
+    request: PanelRequest
 
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
+    def post(self, _request: PanelRequest, pk: int) -> HttpResponse:
         revoked = self.request.services.sphere_team.revoke(
             sphere_id=self.request.context.current_sphere_id, pk=pk
         )
@@ -222,7 +220,7 @@ def _render_join(request: RootRequest, page: JoinPageDTO) -> HttpResponse:
     gone = page.invitation is None and page.member_role is None
     return TemplateResponse(
         request,
-        "multiverse/join.html",
+        "sphere/join.html",
         {"page": page},
         status=HTTPStatus.GONE if gone else HTTPStatus.OK,
     )

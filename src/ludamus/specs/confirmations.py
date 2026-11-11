@@ -1,6 +1,6 @@
 """Invariants of the confirmation view's grouping."""
 
-from ludamus.pacts.legacy import SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 
 # Groups are keyed by (status, is_scheduled). A placed session is its own
 # group, and the only one whose rows can be confirmed.

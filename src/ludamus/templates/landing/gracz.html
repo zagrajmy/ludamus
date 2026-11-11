@@ -185,7 +185,7 @@
                 </div>
                 <div class="grid gap-3">
                     {% for item in encounters %}
-                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name %}
+                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count spots_remaining=item.spots_remaining is_mine=item.is_mine organizer_name=item.organizer_name %}
                     {% endfor %}
                 </div>
             {% else %}

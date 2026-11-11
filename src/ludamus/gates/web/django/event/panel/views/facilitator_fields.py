@@ -7,7 +7,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     dynamic_fields_form,
     field_descriptors,
 )
-from ludamus.pacts.legacy import PersonalDataFieldValueData
+from ludamus.pacts.fields import PersonalDataFieldValueData
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence

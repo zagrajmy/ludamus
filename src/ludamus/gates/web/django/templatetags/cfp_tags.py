@@ -1,23 +1,46 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from django import template
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.pacts.durations import format_duration
+from ludamus.pacts.durations import HOUR_UNIT, MINUTE_UNIT, format_duration
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        ProposalCategoryDTO,
-        SessionDTO,
-        SessionFieldValueDTO,
-    )
+    from django.utils.functional import _StrPromise
+
+    from ludamus.pacts.fields import SessionFieldValueDTO
+    from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+    from ludamus.pacts.sessions import SessionDTO
 
 register = template.Library()
+
+# The category page's field pickers build their headers and badges client-side
+# (field-picker.ts), so their words ride along as the page's json_script.
+_FIELD_PICKER_LABELS = {
+    "available": gettext_lazy("Available"),
+    "chosen": gettext_lazy("Chosen"),
+    "included": gettext_lazy("Included"),
+    "noFieldsSelected": gettext_lazy("No fields selected."),
+    "optional": gettext_lazy("Optional"),
+    "required": gettext_lazy("Required"),
+}
+
+
+@register.simple_tag
+def field_picker_labels() -> dict[str, _StrPromise]:
+    return _FIELD_PICKER_LABELS
+
+
+# The units format_duration writes, for duration-list.ts to label a length it
+# adds the way the server labels the stored ones.
+@register.simple_tag
+def duration_units() -> dict[str, str]:
+    return {"hour": HOUR_UNIT, "minute": MINUTE_UNIT}
 
 
 @register.simple_tag(takes_context=True)
@@ -87,11 +110,6 @@ def content_field_label(field_key: str) -> str:
         "merged_from": _("Merged from"),
     }
     return labels.get(field_key, field_key)
-
-
-@register.filter
-def space_sort_path_json(value: tuple[tuple[int, str, int], ...]) -> str:
-    return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
 
 
 @register.filter

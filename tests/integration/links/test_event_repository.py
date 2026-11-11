@@ -4,8 +4,8 @@ import pytest
 
 from ludamus.links.db.django.repositories import EventRepository, LandingStatsRepository
 from ludamus.pacts.event import EventCreateData, LandingStatsDTO
-from ludamus.pacts.multiverse import SphereVisibility
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sphere import SphereVisibility
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,

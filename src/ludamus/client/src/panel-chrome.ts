@@ -12,6 +12,10 @@ const toggleSidebar = (): void => {
   document.getElementById("sidebarOverlay")?.classList.toggle("hidden");
 };
 
+// Escape closes the phone sidebar, the way a click on its overlay does.
+const isSidebarOpen = (): boolean =>
+  document.getElementById("sidebarOverlay")?.classList.contains("hidden") === false;
+
 const toggleFold = (): void => {
   const html = document.documentElement;
   const folded = html.toggleAttribute("data-folded");
@@ -78,6 +82,10 @@ document.addEventListener("click", (e) => {
     default:
       break;
   }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isSidebarOpen()) toggleSidebar();
 });
 
 document.addEventListener("change", (e) => {

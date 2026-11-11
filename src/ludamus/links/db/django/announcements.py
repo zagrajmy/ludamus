@@ -6,8 +6,7 @@ from datetime import UTC, datetime
 
 from ludamus.links.db.django.delivery import Bell, ring_as_written
 from ludamus.links.db.django.models import Announcement, NotificationSubscription
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import ClaimedAnnouncementDTO
+from ludamus.pacts.notifications import ClaimedAnnouncementDTO, NotificationKind
 
 
 class AnnouncementFanoutRepository:

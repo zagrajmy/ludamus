@@ -5,7 +5,7 @@ from ludamus.links.db.django.models import (
     Notification,
     NotificationSubscription,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 
 
 class TestFanoutAnnouncements:

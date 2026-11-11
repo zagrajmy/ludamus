@@ -1,19 +1,19 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
+from django.contrib.messages import constants, get_messages
+from django.contrib.messages.middleware import MessageMiddleware
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponseRedirect
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.web.django.middlewares import (
-    RedirectErrorMiddleware,
-    RequestContextMiddleware,
-)
-from ludamus.inits.legacy import DependencyInjector, RepositoryInjectionMiddleware
+from ludamus.gates.web.django.middlewares import AppMiddleware, RedirectErrorMiddleware
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.inits.middleware import SUBSCRIBED_SPHERES_SESSION_KEY
+from ludamus.inits.request_context import RequestContextMiddleware
 from ludamus.links.db.django.models import NotificationSubscription, Sphere
-from ludamus.links.db.django.uow import UnitOfWork
-from ludamus.pacts.legacy import RedirectError, RequestContext
+from ludamus.pacts.services import RequestContext
 
 
 @pytest.fixture(name="get_response_mock")
@@ -35,7 +35,6 @@ class TestRequestContextMiddleware:
     ):
         request = rf.get("/")
         request.META["HTTP_HOST"] = sphere.site.domain
-        request.di = DependencyInjector()
         root_sphere = Sphere.objects.get(site__domain=settings.ROOT_DOMAIN)
 
         sphere.site.sphere = sphere
@@ -69,7 +68,6 @@ class TestRequestContextMiddleware:
         )
         request = rf.get("/")
         request.META["HTTP_HOST"] = host
-        request.di = DependencyInjector()
         root_sphere = Sphere.objects.get(site__domain=settings.ROOT_DOMAIN)
 
         middleware(request)
@@ -88,18 +86,16 @@ class TestRequestContextMiddleware:
         middleware, get_response_mock, rf, settings, sphere
     ):
         settings.ALLOWED_HOSTS.append("nonexistent.example.com")
-        request = rf.get("/")
+        request = _with_messages(rf.get("/"))
         request.META["HTTP_HOST"] = "nonexistent.example.com"
-        request.di = DependencyInjector()
 
-        with patch("ludamus.adapters.web.django.middlewares.messages") as mock_messages:
-            response = middleware(request)
+        response = middleware(request)
 
-            assert isinstance(response, HttpResponseRedirect)
-            expected_url = f"http://{sphere.site.domain}{reverse('web:index')}"
-            assert response.url == expected_url
-            mock_messages.error.assert_called_once()
-            get_response_mock.assert_not_called()
+        assert isinstance(response, HttpResponseRedirect)
+        expected_url = f"http://{sphere.site.domain}{reverse('web:index')}"
+        assert response.url == expected_url
+        assert [m.level for m in get_messages(request)] == [constants.ERROR]
+        get_response_mock.assert_not_called()
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -119,144 +115,65 @@ class TestRequestContextMiddleware:
         get_response_mock.assert_called_once_with(request)
 
 
-class TestRepositoryInjectionMiddleware:
-    @pytest.fixture
-    @staticmethod
-    def middleware(get_response_mock):
-        return RepositoryInjectionMiddleware(get_response_mock)
-
-    @staticmethod
-    def test_injects_uow_for_normal_requests(middleware, get_response_mock, rf):
-        request = rf.get("/some/page/")
-
-        middleware(request)
-
-        assert hasattr(request, "di")
-        assert isinstance(request.di.uow, UnitOfWork)
-        get_response_mock.assert_called_once_with(request)
-
+class TestAppMiddleware:
     @staticmethod
     @pytest.mark.parametrize(
         "path", ("/static/test.css", "/admin/", "/__debug__/toolbar/", "/__reload__/")
     )
-    def test_skips_uow_for_excluded_paths(
-        middleware, get_response_mock, rf, path, settings
+    def test_skips_the_app_chain_for_excluded_paths(
+        get_response_mock, rf, path, settings
     ):
-        """Middleware skips UoW creation for paths in MIDDLEWARE_SKIP_PREFIXES."""
         assert any(path.startswith(p) for p in settings.MIDDLEWARE_SKIP_PREFIXES)
         request = rf.get(path)
 
-        middleware(request)
+        AppMiddleware(get_response_mock)(request)
 
-        assert not hasattr(request, "di")
+        assert not hasattr(request, "services")
+        assert not hasattr(request, "context")
         get_response_mock.assert_called_once_with(request)
 
 
 class TestRedirectErrorMiddleware:
-    @pytest.fixture
+    @pytest.mark.parametrize(
+        ("error", "warning", "expected"),
+        (
+            ("Broke", "", [(constants.ERROR, "Broke")]),
+            ("", "Careful", [(constants.WARNING, "Careful")]),
+            (
+                "Broke",
+                "Careful",
+                [(constants.ERROR, "Broke"), (constants.WARNING, "Careful")],
+            ),
+            ("", "", []),
+        ),
+    )
     @staticmethod
-    def middleware(get_response_mock):
-        return RedirectErrorMiddleware(get_response_mock)
+    def test_redirect_error_redirects_and_flashes_its_messages(
+        rf, error, warning, expected
+    ):
+        request = _with_messages(rf.get("/"))
+        exception = RedirectError(url="/elsewhere/", error=error, warning=warning)
 
-    @staticmethod
-    def test_normal_request_processing(middleware, get_response_mock, rf):
+        response = RedirectErrorMiddleware(Mock()).process_exception(request, exception)
 
-        request = rf.get("/")
-
-        middleware(request)
-
-        get_response_mock.assert_called_once_with(request)
-
-    @staticmethod
-    def test_redirect_error_with_error_message(middleware, rf):
-        request = rf.get("/")
-        error_url = "/error-redirect/"
-        error_message = "Test error message"
-        exception = RedirectError(url=error_url, error=error_message)
-
-        with patch(
-            "ludamus.adapters.web.django.middlewares.messages.error"
-        ) as mock_messages_error:
-            response = middleware.process_exception(request, exception)
-
-            assert isinstance(response, HttpResponseRedirect)
-            assert response.url == error_url
-            mock_messages_error.assert_called_once_with(request, error_message)
+        assert isinstance(response, HttpResponseRedirect)
+        assert response.url == "/elsewhere/"
+        assert [(m.level, m.message) for m in get_messages(request)] == expected
 
     @staticmethod
-    def test_redirect_error_with_warning_message(middleware, rf):
-
-        request = rf.get("/")
-        error_url = "/warning-redirect/"
-        warning_message = "Test warning message"
-        exception = RedirectError(url=error_url, warning=warning_message)
-
-        with patch(
-            "ludamus.adapters.web.django.middlewares.messages.warning"
-        ) as mock_messages_warning:
-            response = middleware.process_exception(request, exception)
-
-            assert isinstance(response, HttpResponseRedirect)
-            assert response.url == error_url
-            mock_messages_warning.assert_called_once_with(request, warning_message)
-
-    @staticmethod
-    def test_redirect_error_with_both_error_and_warning(middleware, rf):
-
-        request = rf.get("/")
-        error_url = "/both-messages-redirect/"
-        error_message = "Test error message"
-        warning_message = "Test warning message"
-        exception = RedirectError(
-            url=error_url, error=error_message, warning=warning_message
-        )
-
-        with (
-            patch(
-                "ludamus.adapters.web.django.middlewares.messages.error"
-            ) as mock_messages_error,
-            patch(
-                "ludamus.adapters.web.django.middlewares.messages.warning"
-            ) as mock_messages_warning,
-        ):
-            response = middleware.process_exception(request, exception)
-
-            assert isinstance(response, HttpResponseRedirect)
-            assert response.url == error_url
-            mock_messages_error.assert_called_once_with(request, error_message)
-            mock_messages_warning.assert_called_once_with(request, warning_message)
-
-    @staticmethod
-    def test_redirect_error_without_messages(middleware, rf):
-
-        request = rf.get("/")
-        error_url = "/no-message-redirect/"
-        exception = RedirectError(url=error_url)
-
-        with (
-            patch(
-                "ludamus.adapters.web.django.middlewares.messages.error"
-            ) as mock_messages_error,
-            patch(
-                "ludamus.adapters.web.django.middlewares.messages.warning"
-            ) as mock_messages_warning,
-        ):
-            response = middleware.process_exception(request, exception)
-
-            assert isinstance(response, HttpResponseRedirect)
-            assert response.url == error_url
-            mock_messages_error.assert_not_called()
-            mock_messages_warning.assert_not_called()
-
-    @staticmethod
-    def test_non_redirect_error_returns_none(middleware, rf):
-
+    def test_non_redirect_error_returns_none(rf):
         request = rf.get("/")
         exception = ValueError("Not a redirect error")
 
-        response = middleware.process_exception(request, exception)
+        response = RedirectErrorMiddleware(Mock()).process_exception(request, exception)
 
         assert response is None
+
+
+def _with_messages(request):
+    SessionMiddleware(Mock()).process_request(request)
+    MessageMiddleware(Mock()).process_request(request)
+    return request
 
 
 class TestSphereVisitSubscriptionMiddleware:

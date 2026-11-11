@@ -4,7 +4,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     EventPanelSettings,
     Session,
@@ -12,7 +12,8 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
 )
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import ProposalCategoryDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionListItemDTO, SessionStatus
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import PROPOSAL_FILTER_CONTEXT, panel_context

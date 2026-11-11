@@ -18,11 +18,6 @@ def cover_or_placeholder(url: str, key: int) -> str:
     return url or placeholder_cover_url(key)
 
 
-@register.filter
-def spots_left(capacity: int, taken: int) -> int:
-    return max(capacity - taken, 0)
-
-
 # Free spots stop meaning anything once it has begun; the card counts who
 # came instead.
 @register.filter(expects_localtime=True)

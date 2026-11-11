@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block extra_head %}
+    {% include "components/bottom-sheet-head.html" %}
+{% endblock extra_head %}
+{% block body %}
+    <div class="max-w-5xl mx-auto w-full min-w-0 flex flex-col lg:flex-row lg:items-start gap-6">
+        {% include "user/user/_profile_sidebar.html" %}
+        <div class="flex-1 min-w-0">
+            <section id="{% block profile_sheet_id %}profile-section{% endblock profile_sheet_id %}"
+                     class="bottom-sheet"
+                     data-bottom-sheet
+                     data-height="{% block profile_sheet_height %}half{% endblock profile_sheet_height %}"
+                     data-discard-message="{% translate "Discard your unsaved changes?" %}"
+                     data-discard-label="{% translate "Discard" %}"
+                     {% block profile_sheet_open %}
+                     data-open{% endblock profile_sheet_open %}
+                     aria-labelledby="profile-heading">
+                {% include "components/bottom-sheet-handle.html" %}
+                <div class="bottom-sheet-header">
+                    <h1 id="profile-heading"
+                        class="text-lg lg:text-xl font-semibold min-w-0 break-words outline-none"
+                        tabindex="-1"
+                        data-bottom-sheet-title>
+                        {% block profile_heading %}
+                        {% endblock profile_heading %}
+                    </h1>
+                    <a href="{% block profile_close_url %}{% url 'web:crowd:profile' %}{% endblock profile_close_url %}"
+                       class="bottom-sheet-close icon-btn size-11 items-center justify-center"
+                       data-bottom-sheet-close>
+                        {% icon "x-mark" class="w-5 h-5" %}
+                        <span class="sr-only">{% translate "Close" %}</span>
+                    </a>
+                </div>
+                <div class="bottom-sheet-body">
+                    {% block profile_content %}
+                    {% endblock profile_content %}
+                </div>
+            </section>
+            <div class="bottom-sheet-backdrop" data-bottom-sheet-backdrop hidden></div>
+        </div>
+    </div>
+{% endblock body %}

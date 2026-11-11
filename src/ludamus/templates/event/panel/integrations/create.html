@@ -1,0 +1,29 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "New integration" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "New integration" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_event.name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    <div class="flex items-center gap-3">
+        {% url 'panel:event-integration-settings' slug=current_event.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Create" as create_label %}
+        {% tessera_button create_label form="integration-form" icon="plus" %}
+    </div>
+{% endblock header_actions %}
+{% block content %}
+    <form id="integration-form" method="post" class="max-w-3xl p-3 sm:p-4">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-body">{% include "event/panel/integrations/_form.html" %}</div>
+        </div>
+    </form>
+{% endblock content %}
