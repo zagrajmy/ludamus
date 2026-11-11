@@ -149,6 +149,22 @@ test("Someone reacts from a message's actions and toggles a reaction from its ch
     "Dice: 1 person",
   );
 
+  // Taking back the last of a reaction from the keyboard hands focus to the
+  // chip in its place, and once none is left, to the message's actions.
+  menu = await openActions(page, panel, "I will");
+  await menu.getByRole("menuitemcheckbox", { name: copy.reactionSurprised }).click();
+  const own = reactionsOf(panel, "I will").getByRole("button");
+  await expect(own).toHaveText(["😮1", "🎲1"]);
+  await own.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(own).toHaveText(["🎲1"]);
+  await expect(own.first()).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(own).toHaveCount(0);
+  await expect(
+    bubbleOf(panel, "I will").getByRole("button", { name: copy.messageActions }),
+  ).toBeFocused();
+
   // Others' reactions arrive as they happen; one for a message not loaded is
   // nobody's business here.
   worker.push("reaction.changed", { messageId: 1, reactions: { "😂": ["2", "3", "4", "5"] } });
@@ -157,9 +173,11 @@ test("Someone reacts from a message's actions and toggles a reaction from its ch
   await expect(chips).toHaveAccessibleName("Laughing: 4 people");
 
   // A message deleted under its reactions takes them with it.
+  const groups = panel.getByRole("group", { name: copy.reactionsLabel });
+  await expect(groups).toHaveCount(1);
   worker.push("message.deleted", { id: 1 });
   await expect(panel.getByText("Who brings snacks?")).toHaveCount(0);
-  await expect(panel.getByRole("group", { name: copy.reactionsLabel })).toHaveCount(1);
+  await expect(groups).toHaveCount(0);
 });
 
 test("A refused reaction says why, and muting puts the chips out of reach", async ({ page }) => {

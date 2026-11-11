@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import type { MenuEntry } from "./actions-menu";
 import type { Copy, Message } from "./protocol";
 
@@ -50,11 +52,33 @@ export function ReactionChips({
     const users = message.reactions?.[emoji];
     return users === undefined ? [] : [{ emoji, name, users }];
   });
+  // A chip this person takes their last reaction off goes with it; focus
+  // moves to the chip that takes its place, or to the message's actions.
+  const group = useRef<HTMLDivElement>(null);
+  const vanishing = useRef<{ index: number; message: Element } | null>(null);
+  useEffect(() => {
+    const left = vanishing.current;
+    vanishing.current = null;
+    if (left === null || document.activeElement !== document.body) return;
+    const chips = group.current?.querySelectorAll("button") ?? [];
+    const next = chips[Math.min(left.index, chips.length - 1)];
+    (next ?? left.message.querySelector<HTMLElement>('[aria-haspopup="menu"]'))?.focus();
+  }, [message.reactions]);
   if (held.length === 0) return null;
   return (
-    <div aria-label={copy.reactionsLabel} className="mt-1 flex flex-wrap gap-1 px-1" role="group">
-      {held.map(({ emoji, name, users }) => {
+    <div
+      aria-label={copy.reactionsLabel}
+      className="mt-1 flex flex-wrap gap-1 px-1"
+      ref={group}
+      role="group"
+    >
+      {held.map(({ emoji, name, users }, index) => {
         const own = users.includes(userId);
+        const toggle = (button: HTMLButtonElement) => {
+          if (own && users.length === 1)
+            vanishing.current = { index, message: button.closest("[data-message-id]")! };
+          react!(emoji);
+        };
         return (
           <button
             aria-label={counted(copy, "reactionCount", users.length).replace(
@@ -69,7 +93,7 @@ export function ReactionChips({
             }`}
             disabled={react === null}
             key={emoji}
-            onClick={react === null ? undefined : () => react(emoji)}
+            onClick={react === null ? undefined : (event) => toggle(event.currentTarget)}
             type="button"
           >
             <span aria-hidden="true" className="text-sm leading-none">
