@@ -76,6 +76,8 @@ test("The chat launcher opens an accessible chat window from its room list", asy
 });
 
 test("The chat window floats where it is dragged, and stays there", async ({ page }) => {
+  // Measured mid-opening, it would still be growing.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await routeBootstrap(page);
   await FakeWorker.install(page);
   // Whatever an older build left behind, the window still opens.
@@ -86,6 +88,10 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   const panel = panelOf(page);
   const header = panel.locator("header").first();
   await expect(header).toBeVisible();
+  const corner = async () => {
+    const { x, y } = (await panel.boundingBox())!;
+    return [Math.round(x), Math.round(y)];
+  };
   const before = (await panel.boundingBox())!;
   expect(before.x).toBeGreaterThan(16);
 
@@ -100,8 +106,7 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   await page.mouse.down();
   await page.mouse.move(grip.x - 2000, grip.y - 2000, { steps: 6 });
   await page.mouse.up();
-  await expect.poll(async () => (await panel.boundingBox())!.x).toBe(16);
-  expect((await panel.boundingBox())!.y).toBe(16);
+  await expect.poll(corner).toEqual([16, 16]);
 
   // A press on a button in the header is a press, not a drag.
   await panel.getByRole("button", { name: bootstrap.copy.closeLabel }).click();
@@ -110,14 +115,37 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   // Reopened, it comes back where it was left.
   await launcher.click();
   await expect(panel).toBeVisible();
-  await expect.poll(async () => (await panel.boundingBox())!.x).toBe(16);
-  expect((await panel.boundingBox())!.y).toBe(16);
+  await expect.poll(corner).toEqual([16, 16]);
+
+  // Left in the far corner, a smaller browser window pushes it back inside.
+  await page.mouse.move(grip.x + 120 - before.x + 16, grip.y + 20 - before.y + 16);
+  await page.mouse.down();
+  await page.mouse.move(4000, 4000, { steps: 6 });
+  await page.mouse.up();
+  await page.setViewportSize({ height: 600, width: 900 });
+  await expect
+    .poll(async () => {
+      const box = (await panel.boundingBox())!;
+      return [Math.round(box.x + box.width), Math.round(box.y + box.height)];
+    })
+    .toEqual([900 - 16, 600 - 16]);
+
+  // A phone gets it full screen, whatever spot was saved, and no drag.
+  await page.setViewportSize({ height: 844, width: 390 });
+  await expect
+    .poll(async () => await panel.boundingBox())
+    .toEqual({ height: 844, width: 390, x: 0, y: 0 });
+  await page.mouse.move(120, 20);
+  await page.mouse.down();
+  await page.mouse.move(200, 300, { steps: 4 });
+  await page.mouse.up();
+  expect(await panel.boundingBox()).toEqual({ height: 844, width: 390, x: 0, y: 0 });
 });
 
 test("On a programme point's page the chat opens on its room, kept on top of the list", async ({
   page,
 }) => {
-  await routeBootstrap(page);
+  await routeBootstrap(page, [{ ageGate: "unconfirmed" }]);
   await FakeWorker.install(page);
   // NOTE: stands in for an enrolment page, whose template sets this.
   await page.addInitScript(() => {
@@ -143,6 +171,17 @@ test("On a programme point's page the chat opens on its room, kept on top of the
     "href",
     bootstrap.ageUrl,
   );
+});
+
+test("Someone under 16 learns when direct messages open for them", async ({ page }) => {
+  await routeBootstrap(page, [{ ageGate: "under_16" }]);
+  await FakeWorker.install(page);
+  await page.goto("/");
+  await launcherOf(page).click();
+
+  const rooms = panelOf(page).getByRole("navigation", { name: "Conversations" });
+  await expect(rooms.getByText(bootstrap.copy.messagingUnder16)).toBeVisible();
+  await expect(rooms.getByRole("link")).toHaveCount(0);
 });
 
 test("An organizer who turns the chat off removes its launcher", async ({ page }) => {

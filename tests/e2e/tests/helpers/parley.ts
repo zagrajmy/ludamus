@@ -17,6 +17,7 @@ export type Conversation = {
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
 // sphere 1 with its common room and one read-only programme point.
 export const bootstrap = {
+  ageGate: null as "unconfirmed" | "under_16" | null,
   agentHost: "localhost:8787",
   ageUrl: "/crowd/profile/privacy/",
   blocked: [] as Person[],
@@ -34,6 +35,7 @@ export const bootstrap = {
     blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
     confirmAge: "Confirm your age",
     messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
+    messagingUnder16: "Direct messages open once you turn 16.",
     onThisPage: "On this page",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",

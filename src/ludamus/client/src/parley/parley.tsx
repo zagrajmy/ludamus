@@ -1,10 +1,6 @@
 import {
-  type CSSProperties,
   type Dispatch,
-  type PointerEvent,
   type ReactNode,
-  type Ref,
-  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -32,15 +28,29 @@ import {
   type RoomActivity,
 } from "./protocol";
 import { type Activity, useActivity } from "./use-activity";
+import { useFloatingWindow } from "./use-floating-window";
 
-type View =
+type OpenView =
   | { kind: "blocked" }
-  | { kind: "closed" }
   | { kind: "compose" }
   | { kind: "details"; roomId: string }
   | { kind: "group" }
   | { kind: "list" }
   | { kind: "room"; roomId: string };
+// Closed, the chat keeps what was open for the button to bring back.
+type View = OpenView | { kind: "closed"; left: OpenView | null };
+
+const closed = (shown: View): View =>
+  shown.kind === "closed" ? shown : { kind: "closed", left: shown };
+
+// Where the chat opens: this page's own room, else the only room there is.
+function entryRoom(bootstrap: Bootstrap, pageSession: string): { here?: Room; single?: Room } {
+  const { canMessage, rooms, sphere } = bootstrap;
+  return {
+    here: rooms.find(({ id }) => id === `session:${sphere.id}:${pageSession}`),
+    single: rooms.length === 1 && !canMessage ? rooms[0] : undefined,
+  };
+}
 
 // What the shell says before the bootstrap (and its copy) has arrived; the
 // template renders it translated onto Parley's root.
@@ -48,35 +58,36 @@ type Shell = { closeLabel: string; connectionError: string; loading: string; ret
 
 const PASS_REFUSED_WINDOW = 5000;
 const LAUNCHER =
-  "parley-launcher fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-11 place-items-center rounded-full bg-primary transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
-// Where the window was left, per browser; gone, it opens over the button.
-const SPOT_KEY = "parley.window";
+  "parley-launcher fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 size-11 place-items-center rounded-full bg-primary transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
 const SECTION = "px-2 pt-3 pb-1 text-xs font-semibold text-foreground-muted";
-const EDGE = 16;
-const DESKTOP = "(min-width: 40rem)";
 
 function Launcher({
   expanded,
   label,
-  launcher,
   onClick,
   unreadLabel,
   unreadRooms,
 }: {
   expanded: boolean;
   label: string;
-  launcher: Ref<HTMLButtonElement>;
   onClick: () => void;
   unreadLabel: string;
   unreadRooms: number;
 }) {
+  // Focus comes back here once the chat closes and the button shows again.
+  const launcher = useRef<HTMLButtonElement>(null);
+  const wasExpanded = useRef(expanded);
+  useEffect(() => {
+    if (wasExpanded.current && !expanded) launcher.current?.focus();
+    wasExpanded.current = expanded;
+  }, [expanded]);
   return (
     <button
       aria-controls="parley-panel"
       aria-describedby={unreadRooms > 0 ? "parley-unread" : undefined}
       aria-expanded={expanded}
       aria-label={label}
-      className={`${LAUNCHER} ${expanded ? "max-sm:hidden" : ""}`}
+      className={`${LAUNCHER} ${expanded ? "hidden float:grid" : "grid"}`}
       onClick={onClick}
       ref={launcher}
       type="button"
@@ -95,94 +106,23 @@ function Launcher({
   );
 }
 
-type Spot = { x: number; y: number };
-
-function savedSpot(): Spot | null {
-  try {
-    const spot: unknown = JSON.parse(localStorage.getItem(SPOT_KEY) ?? "null");
-    return typeof spot === "object" &&
-      spot !== null &&
-      typeof (spot as Spot).x === "number" &&
-      typeof (spot as Spot).y === "number"
-      ? (spot as Spot)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSpot(spot: Spot): void {
-  try {
-    localStorage.setItem(SPOT_KEY, JSON.stringify(spot));
-  } catch {
-    // NOTE: with storage off, the window opens over the button next time.
-  }
-}
-
-// One window for every view: it floats over the page, dragged by its header
-// and kept inside the viewport. Phones get it full screen.
+// One window for every view: on a large enough screen it floats over the
+// page, dragged by its header; anything smaller gets it full screen.
 function Frame({ children, label }: { children: ReactNode; label: string }) {
-  const frame = useRef<HTMLDivElement>(null);
-  const [spot, setSpot] = useState<Spot | null>(savedSpot);
-  const inside = useCallback((wanted: Spot): Spot => {
-    const { offsetHeight, offsetWidth } = frame.current!;
-    return {
-      x: Math.max(EDGE, Math.min(wanted.x, innerWidth - offsetWidth - EDGE)),
-      y: Math.max(EDGE, Math.min(wanted.y, innerHeight - offsetHeight - EDGE)),
-    };
-  }, []);
-  const placed = spot !== null;
-  useEffect(() => {
-    if (!placed) return;
-    const fit = () => setSpot((current) => current && inside(current));
-    fit();
-    addEventListener("resize", fit);
-    return () => removeEventListener("resize", fit);
-  }, [inside, placed]);
-
-  const drag = (event: PointerEvent<HTMLDivElement>) => {
-    const target = event.target as Element;
-    const handle = target.closest<HTMLElement>("[data-parley-drag]");
-    if (
-      event.button !== 0 ||
-      handle === null ||
-      target.closest("button, a, input, textarea") !== null ||
-      !matchMedia(DESKTOP).matches
-    )
-      return;
-    const box = frame.current!.getBoundingClientRect();
-    const grip = { x: event.clientX - box.left, y: event.clientY - box.top };
-    let last: Spot | null = null;
-    const move = (moved: globalThis.PointerEvent) => {
-      last = inside({ x: moved.clientX - grip.x, y: moved.clientY - grip.y });
-      setSpot(last);
-    };
-    const stop = () => {
-      handle.removeEventListener("pointermove", move);
-      if (last !== null) saveSpot(last);
-    };
-    handle.setPointerCapture(event.pointerId);
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("lostpointercapture", stop, { once: true });
-  };
-
+  const { drag, frame, placed } = useFloatingWindow();
   return (
     <div
       aria-label={label}
-      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-(--parley-surface) text-foreground sm:inset-auto sm:h-[min(35rem,calc(100dvh-6rem))] sm:w-95 sm:rounded-[20px] sm:border sm:border-border sm:shadow-(--parley-elevation) ${
-        placed
-          ? "sm:top-(--parley-y) sm:left-(--parley-x)"
-          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)]"
+      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-(--parley-surface) text-foreground float:inset-auto float:h-(--parley-height) float:w-(--parley-width) float:rounded-[20px] float:border float:border-border float:shadow-(--parley-elevation) ${
+        placed === undefined
+          ? "float:right-4 float:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)]"
+          : "float:top-(--parley-y) float:left-(--parley-x)"
       }`}
       id="parley-panel"
       onPointerDown={drag}
       ref={frame}
       role="dialog"
-      style={
-        placed
-          ? ({ "--parley-x": `${spot.x}px`, "--parley-y": `${spot.y}px` } as CSSProperties)
-          : undefined
-      }
+      style={placed}
     >
       {children}
     </div>
@@ -275,7 +215,7 @@ function RoomList({
       </PanelHeader>
       <nav
         aria-label={copy.roomsLabel}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[5px]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
       >
         {pinned.length > 0 && (
           <>
@@ -293,15 +233,21 @@ function RoomList({
           <h3 className={SECTION}>{copy.allChats}</h3>
         )}
         <ul>{others.map(row)}</ul>
-        {compose === null && (
+        {bootstrap.ageGate !== null && (
           <p className="mx-0.5 mt-2 rounded-[14px] bg-bg-tertiary px-3 py-2.5 text-sm text-foreground-secondary">
-            {copy.messagingNeedsAge}{" "}
-            <a
-              className="font-medium text-coral-700 underline underline-offset-2 dark:text-coral-300"
-              href={bootstrap.ageUrl}
-            >
-              {copy.confirmAge}
-            </a>
+            {bootstrap.ageGate === "under_16" ? (
+              copy.messagingUnder16
+            ) : (
+              <>
+                {copy.messagingNeedsAge}{" "}
+                <a
+                  className="font-medium text-coral-700 underline underline-offset-2 dark:text-coral-300"
+                  href={bootstrap.ageUrl}
+                >
+                  {copy.confirmAge}
+                </a>
+              </>
+            )}
           </p>
         )}
       </nav>
@@ -327,21 +273,21 @@ function Inbox({
 
 function Connected({
   bootstrap,
+  here,
   inbox,
-  launcher,
   launcherLabel,
   onPassClosed,
-  pageSession,
   setView,
+  single,
   view,
 }: {
   bootstrap: Bootstrap;
+  here: Room | undefined;
   inbox: Activity;
-  launcher: RefObject<HTMLButtonElement | null>;
   launcherLabel: string;
   onPassClosed: () => void;
-  pageSession: string;
   setView: Dispatch<SetStateAction<View>>;
+  single: Room | undefined;
   view: View;
 }) {
   const { copy, user } = bootstrap;
@@ -358,11 +304,6 @@ function Connected({
     ...conversations.map((conversation) => asRoom(conversation, copy.typingSomeone)),
   ];
   const activity = { ...sphere.activity, ...inbox.activity };
-  const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
-  const here =
-    pageSession === ""
-      ? undefined
-      : rooms.find(({ id }) => id === `session:${bootstrap.sphere.id}:${pageSession}`);
   const roomId = view.kind === "room" || view.kind === "details" ? view.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   const unreadRooms = rooms.filter(
@@ -414,15 +355,7 @@ function Connected({
     setView({ kind: "list" });
   };
 
-  // The chat button reopens what was last open, else this page's room.
-  const left = useRef<View | null>(null);
-  const close = useCallback(() => {
-    setView((shownView) => {
-      if (shownView.kind !== "closed") left.current = shownView;
-      return { kind: "closed" };
-    });
-    launcher.current?.focus();
-  }, [launcher, setView]);
+  const close = useCallback(() => setView(closed), [setView]);
   const open = (target: Room) => {
     setCurrent(target.id);
     setView({ kind: "room", roomId: target.id });
@@ -451,13 +384,14 @@ function Connected({
     return () => document.removeEventListener("keydown", keydown);
   }, [close, view.kind]);
 
+  // The chat button reopens what was last open, else this page's room.
   const toggle = () => {
     if (view.kind !== "closed") return close();
-    const last = left.current;
+    const { left } = view;
     const gone =
-      (last?.kind === "room" || last?.kind === "details") &&
-      !rooms.some(({ id }) => id === last.roomId);
-    if (last !== null && !gone) return setView(last);
+      (left?.kind === "room" || left?.kind === "details") &&
+      !rooms.some(({ id }) => id === left.roomId);
+    if (left !== null && !gone) return setView(left);
     const first = here ?? single;
     if (first !== undefined) return open(first);
     setView({ kind: "list" });
@@ -510,7 +444,6 @@ function Connected({
       <Launcher
         expanded={view.kind !== "closed"}
         label={launcherLabel}
-        launcher={launcher}
         onClick={toggle}
         unreadLabel={counted(copy, "unreadCount", unreadRooms)}
         unreadRooms={unreadRooms}
@@ -626,11 +559,12 @@ function Parley({
   pageSession: string;
   shell: Shell;
 }) {
-  const [view, setView] = useState<View>({ kind: initialOpen ? "list" : "closed" });
+  const [view, setView] = useState<View>(
+    initialOpen ? { kind: "list" } : { kind: "closed", left: null },
+  );
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const launcher = useRef<HTMLButtonElement>(null);
   const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
   // The launcher's unread badge needs the room activity before anyone opens
@@ -668,9 +602,8 @@ function Parley({
         if (!active) return;
         loadedAt.current = Date.now();
         setBootstrap(data);
-        const only = data.rooms.length === 1 && !data.canMessage ? data.rooms[0] : undefined;
-        const here = data.rooms.find(({ id }) => id === `session:${data.sphere.id}:${pageSession}`);
-        const first = here ?? only;
+        const { here, single } = entryRoom(data, pageSession);
+        const first = here ?? single;
         if (first !== undefined)
           setView((current) =>
             current.kind === "list" ? { kind: "room", roomId: first.id } : current,
@@ -700,16 +633,17 @@ function Parley({
   }, [bootstrap]);
 
   if (bootstrap !== null) {
+    const { here, single } = entryRoom(bootstrap, pageSession);
     const connected = (inbox: Activity) => (
       <Connected
         bootstrap={bootstrap}
+        here={here}
         inbox={inbox}
         key={bootstrap.capabilityToken}
-        launcher={launcher}
         launcherLabel={launcherLabel}
         onPassClosed={passClosed}
-        pageSession={pageSession}
         setView={setView}
+        single={single}
         view={view}
       />
     );
@@ -721,23 +655,20 @@ function Parley({
     );
   }
 
-  const close = () => {
-    setView({ kind: "closed" });
-    launcher.current?.focus();
-  };
+  // Nothing was open yet, so the button opens this page's room once in.
+  const close = () => setView({ kind: "closed", left: null });
   return (
     <>
       <Launcher
         expanded={wanted}
         label={launcherLabel}
-        launcher={launcher}
         onClick={() => (wanted ? close() : setView({ kind: "list" }))}
         unreadLabel=""
         unreadRooms={0}
       />
       {wanted && (
         <Frame label={launcherLabel}>
-          <div className="flex justify-end px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-2">
+          <div className="flex justify-end px-2 pt-[max(0.5rem,env(safe-area-inset-top))] float:pt-2">
             <button
               aria-label={shell.closeLabel}
               className="grid size-10 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus"

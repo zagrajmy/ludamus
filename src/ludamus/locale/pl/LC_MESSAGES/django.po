@@ -3931,6 +3931,10 @@ msgid "Confirm your age"
 msgstr "Potwierdź wiek"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Direct messages open once you turn 16."
+msgstr "Wiadomości bezpośrednie będą dostępne, gdy skończysz 16 lat."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Wants to message you"
 msgstr "Chce z Tobą porozmawiać"
 

@@ -172,6 +172,7 @@ def _conversation_copy() -> dict[str, str]:
             "To message people directly, confirm you're 16 or older."
         ),
         "confirmAge": _("Confirm your age"),
+        "messagingUnder16": _("Direct messages open once you turn 16."),
         "requestFrom": _("Wants to message you"),
         "requestQuestion": _("%(name)s wants to message you."),
         "accept": _("Accept"),

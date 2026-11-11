@@ -2,6 +2,10 @@ import type { ReactNode, Ref } from "react";
 
 import { Icon, type IconName } from "./icons";
 
+// A window's title bar, which drags it where it floats.
+export const DRAG_HEADER =
+  "flex items-center gap-1 p-[7px] pt-[max(7px,env(safe-area-inset-top))] float:cursor-grab float:touch-none float:select-none float:pt-[7px]";
+
 export const ICON_BUTTON =
   "grid size-10 shrink-0 place-items-center rounded-xl text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus";
 
@@ -47,10 +51,7 @@ export function PanelHeader({
   title: string;
 }) {
   return (
-    <header
-      className="flex items-center gap-1 p-[7px] pt-[max(7px,env(safe-area-inset-top))] sm:cursor-grab sm:pt-[7px]"
-      data-parley-drag
-    >
+    <header className={DRAG_HEADER} data-parley-drag>
       {back !== null && (
         <IconButton buttonRef={backRef} icon="Back" label={back.label} onClick={back.run} />
       )}

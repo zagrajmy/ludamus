@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from ludamus.pacts.user import AgeBand
 
 
 class ParleyRoomKind(StrEnum):
@@ -35,6 +38,13 @@ class ParleyAccessDTO(BaseModel):
     user_avatar_url: str
     rooms: list[ParleyRoomDTO]
     is_manager: bool
+
+
+class ParleyAgeGate(StrEnum):
+    """Why direct messages stay shut to someone, when their age is the reason."""
+
+    UNCONFIRMED = "unconfirmed"
+    UNDER_16 = "under_16"
 
 
 class ParleyConversationKind(StrEnum):
@@ -82,6 +92,7 @@ class ParleyBootstrapDTO(BaseModel):
     rooms: list[ParleyRoomDTO]
     # Whether direct messages and groups are open to this person at all.
     can_message: bool = Field(default=False, serialization_alias="canMessage")
+    age_gate: ParleyAgeGate | None = Field(default=None, serialization_alias="ageGate")
     conversations: list[ParleyConversationDTO] = Field(default_factory=list)
     # People this person has blocked: their messages stay out of sight.
     blocked: list[ParleyPersonDTO] = Field(default_factory=list)
@@ -277,6 +288,9 @@ class ParleyMemberSnapshot(BaseModel):
 class ParleyConversationRepositoryProtocol(Protocol):
     @staticmethod
     def is_eligible(user_id: int) -> bool: ...
+
+    @staticmethod
+    def read_age_band(user_id: int) -> AgeBand: ...
 
     @staticmethod
     def exists(user_id: int) -> bool: ...

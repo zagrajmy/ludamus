@@ -1,6 +1,8 @@
 /* The chat window floats over the page: a step lighter than the page in
    dark mode, where a shadow alone barely shows, with a top-edge highlight. */
 :root {
+  --parley-width: 23.75rem;
+  --parley-height: min(35rem, 100dvh - 6rem);
   --parley-surface: var(--color-bg-secondary);
   --parley-elevation:
     0 1px 2px rgb(37 34 32 / 0.06), 0 12px 32px -8px rgb(37 34 32 / 0.18),

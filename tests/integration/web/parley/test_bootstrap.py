@@ -9,6 +9,7 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import (
     EventFactory,
     SessionFactory,
@@ -148,3 +149,28 @@ def test_manager_token_does_not_grow_with_the_sphere(
     claims = decode_segment(large["capabilityToken"].split(".")[1])
     assert claims["role"] == "manager"
     assert claims["sessions"] == {}
+
+
+@pytest.mark.parametrize(
+    ("age_band", "can_message", "age_gate"),
+    (
+        (AgeBand.UNKNOWN, False, "unconfirmed"),
+        (AgeBand.THIRTEEN_TO_FIFTEEN, False, "under_16"),
+        (AgeBand.SIXTEEN_PLUS, True, None),
+    ),
+)
+@pytest.mark.usefixtures("parley_settings")
+def test_says_whether_age_keeps_direct_messages_shut(
+    authenticated_client, active_user, sphere, age_band, can_message, age_gate
+):
+    sphere.parley_enabled = True
+    sphere.save()
+    active_user.age_band = age_band
+    active_user.save()
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    payload = response.json()
+    assert payload["canMessage"] is can_message
+    assert payload["ageGate"] == age_gate

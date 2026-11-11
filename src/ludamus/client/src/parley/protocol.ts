@@ -65,6 +65,7 @@ export type Copy = Record<
   | "messageListLabel"
   | "messageTooLong"
   | "messagingNeedsAge"
+  | "messagingUnder16"
   | "moderatorDelete"
   | "muteConfirm"
   | "muted"
@@ -169,6 +170,8 @@ export type Room = {
   title: string;
 };
 export type Bootstrap = {
+  // Why direct messages stay shut, when age is the reason.
+  ageGate: "unconfirmed" | "under_16" | null;
   agentHost: string;
   // Where someone confirms their age band, which direct messages need.
   ageUrl: string;

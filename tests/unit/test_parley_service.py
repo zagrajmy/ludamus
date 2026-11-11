@@ -21,6 +21,7 @@ from ludamus.pacts.parley import (
     ParleyRoomKind,
     ParleyWorkerUnavailableError,
 )
+from ludamus.pacts.user import AgeBand
 from ludamus.specs.parley import PARLEY_TOKEN_LIFETIME
 
 
@@ -30,6 +31,10 @@ class NoConversations:
     @staticmethod
     def is_eligible(_user_id):
         return False
+
+    @staticmethod
+    def read_age_band(_user_id):
+        return AgeBand.UNKNOWN
 
     @staticmethod
     def list_for(_user_id):
@@ -101,6 +106,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
             },
         ],
         "canMessage": False,
+        "ageGate": "unconfirmed",
         "conversations": [],
         "blocked": [],
         "capabilityToken": "signed-token",
