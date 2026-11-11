@@ -5,6 +5,9 @@ import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import { createPublicKey } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import { fileURLToPath } from "node:url";
+import { rolldown } from "rolldown";
 
 type WranglerConfig = {
   name: string;
@@ -40,6 +43,24 @@ const devPublicKey = createPublicKey(
   readFileSync(new URL("./dev-signing-key.pem", import.meta.url), "utf8"),
 ).export({ format: "der", type: "spki" });
 
+// NOTE: workerd cannot parse the agents' @callable() decorators, and Alchemy
+// strips the functions from a Worker's build plugins, so the Agents SDK
+// plugin that compiles them cannot run inside Alchemy's bundle. It compiles
+// the Worker's own modules here, leaving packages for Alchemy to bundle.
+// TODO: pass agents() as build.input.plugins again once a release carries
+// https://github.com/alchemy-run/alchemy/pull/3176.
+const compileDecorators = Effect.promise(async () => {
+  const file = fileURLToPath(new URL("./.alchemy/decorated/index.js", import.meta.url));
+  const build = await rolldown({
+    input: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
+    plugins: agents(),
+    external: (id) => !id.startsWith(".") && !isAbsolute(id),
+  });
+  await build.write({ file, format: "esm" });
+  await build.close();
+  return file;
+});
+
 function refuseDevKey(pem: string): string {
   const key = createPublicKey(pem.replaceAll("\\n", "\n"));
   if (key.export({ format: "der", type: "spki" }).equals(devPublicKey)) {
@@ -61,7 +82,7 @@ export default Alchemy.Stack(
       // NOTE: the capability cookie is SameSite=Strict, so browsers send it
       // only to a Worker on the app's own site, never to workers.dev.
       domain: hosted === undefined ? undefined : `parley.${yield* Config.String("ROOT_DOMAIN")}`,
-      main: "./src/index.ts",
+      main: yield* compileDecorators,
       compatibility: {
         date: testedRuntime.compatibility_date,
         // NOTE: Alchemy switches Workers to the new module registry unless
@@ -70,10 +91,6 @@ export default Alchemy.Stack(
         // Alchemy leaves it out.
         flags: ["legacy_module_registry"],
       },
-      // NOTE: Alchemy bundles with Rolldown, whose Oxc transform leaves the
-      // agents' @callable() decorators in place, and workerd cannot parse
-      // them. The Agents SDK plugin compiles them first.
-      build: { input: { plugins: [agents()] } },
       observability,
       env: {
         ...durableObjects,
