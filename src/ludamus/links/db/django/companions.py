@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.models import User
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.user import UserType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

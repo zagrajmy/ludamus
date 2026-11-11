@@ -12,7 +12,8 @@ class TestBuildSessionDetailsFormParticipantLimits:
         field = form.fields["participants_limit"]
         assert field.required is False
         assert field.min_value == 0
-        assert field.initial == 0
+        assert form["participants_limit"].value() is None
+        assert field.widget.attrs["placeholder"] == "no sign-up"
 
     def test_both_limits_zero_accepts_zero(self):
         form_class = build_session_details_form(
@@ -92,6 +93,21 @@ class TestBuildSessionDetailsFormParticipantLimits:
 
         assert not form.is_valid()
         assert "participants_limit" in form.errors
+
+    def test_only_max_set_accepts_an_empty_limit(self):
+        form_class = build_session_details_form(
+            [], category=category(min_participants_limit=0, max_participants_limit=10)
+        )
+        form = form_class(
+            {
+                "title": "Test",
+                "description": "A test session",
+                "facilitator_name": "Presenter",
+                "participants_limit": "",
+            }
+        )
+
+        assert form.is_valid()
 
     def test_only_max_set_accepts_zero(self):
         form_class = build_session_details_form(
@@ -215,7 +231,7 @@ class TestBuildSessionDetailsFormDurations:
         form = form_class()
 
         choices = form.fields["duration"].choices
-        assert choices[0] == ("", "---")
+        assert choices[0] == ("", "–")
 
     def test_duration_choices_include_one_entry_per_duration(self):
         durations = ["PT30M", "PT1H", "PT1H30M"]

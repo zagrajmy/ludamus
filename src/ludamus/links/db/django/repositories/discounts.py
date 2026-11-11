@@ -1,5 +1,4 @@
 from ludamus.links.db.django.models import Discount, DiscountRule
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,
     DiscountDTO,
@@ -8,6 +7,7 @@ from ludamus.pacts.discounts import (
     DiscountRuleDTO,
     DiscountRuleRepositoryProtocol,
 )
+from ludamus.pacts.errors import NotFoundError
 
 
 class DiscountRepository(DiscountRepositoryProtocol):

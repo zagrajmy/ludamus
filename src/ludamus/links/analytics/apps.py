@@ -35,8 +35,7 @@ class AnalyticsConfig(AppConfig):
     """Owns the signal wiring for fault reporting.
 
     An app of its own rather than a hook in WebGatesConfig: gates may not
-    import links, and ludamus.inits cannot be an app because its __init__
-    re-exports legacy, which imports models before the registry is ready.
+    import links, and the receiver needs nothing outside this package.
     """
 
     name = "ludamus.links.analytics"

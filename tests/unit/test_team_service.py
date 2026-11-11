@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills import team as team_mills
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.team import (
     AcceptInvitationOutcome,
     InvitationPreviewDTO,

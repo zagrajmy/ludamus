@@ -18,7 +18,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.pacts.crowd import (
+from ludamus.pacts.user import (
     EmailVerificationAction,
     RedeemOutcome,
     VerificationRequestOutcome,
@@ -36,7 +36,7 @@ def _invalid_link_page(
     request: RootRequest, *, address_taken: bool = False
 ) -> TemplateResponse:
     return TemplateResponse(
-        request, "crowd/email/link_invalid.html", {"address_taken": address_taken}
+        request, "user/email/link_invalid.html", {"address_taken": address_taken}
     )
 
 
@@ -47,9 +47,9 @@ class EmailLinkPageView(View):
             return _invalid_link_page(request)
         match link.action:
             case EmailVerificationAction.CONFIRM:
-                template_name = "crowd/email/confirm.html"
+                template_name = "user/email/confirm.html"
             case EmailVerificationAction.CANCEL:
-                template_name = "crowd/email/cancel.html"
+                template_name = "user/email/cancel.html"
             case _:
                 assert_never(link.action)
         return TemplateResponse(

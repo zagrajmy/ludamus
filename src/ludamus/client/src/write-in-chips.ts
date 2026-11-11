@@ -23,6 +23,7 @@ const initChipsInput = (draft: HTMLInputElement): void => {
 
   const mirror = document.createElement("input");
   mirror.type = "hidden";
+  mirror.dataset.writeInMirror = "";
   mirror.name = draft.name;
   mirror.disabled = draft.disabled;
   draft.removeAttribute("name");
@@ -135,6 +136,15 @@ const initChipsInput = (draft: HTMLInputElement): void => {
   });
   shell.addEventListener("click", (event) => {
     if (event.target === shell) draft.focus();
+  });
+
+  // Another script setting the answer (a copied session) replaces the chips.
+  mirror.addEventListener("write-in:set", (event) => {
+    if (!(event instanceof CustomEvent) || typeof event.detail !== "string") return;
+    for (const value of chips.keys()) removeChip(value);
+    draft.value = "";
+    for (const value of splitValues(event.detail)) addChip(value);
+    sync();
   });
 
   draft.value = "";

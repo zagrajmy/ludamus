@@ -1,23 +1,25 @@
 """Tests for tessera form templatetags, focusing on XSS prevention."""
 
+from datetime import UTC, datetime
+
 from django import forms
 from django.forms.widgets import CheckboxSelectMultiple, RadioSelect, Select
 
-from ludamus.adapters.web.django.templatetags.tessera.checkbox import (
+from ludamus.gates.web.django.templatetags.tessera.checkbox import (
     render_multi_choice_field,
 )
-from ludamus.adapters.web.django.templatetags.tessera.errors import (
+from ludamus.gates.web.django.templatetags.tessera.errors import (
     render_errors,
     render_help_text,
 )
-from ludamus.adapters.web.django.templatetags.tessera.form import (
+from ludamus.gates.web.django.templatetags.tessera.form import (
     tessera_button,
     tessera_errors,
     tessera_field,
     tessera_form,
     tessera_sole_choice,
 )
-from ludamus.adapters.web.django.templatetags.tessera.label import render_label
+from ludamus.gates.web.django.templatetags.tessera.label import render_label
 from ludamus.pacts.images import StoredFile
 
 
@@ -316,3 +318,24 @@ class TestFieldAccessibility:
         assert "<fieldset" in html
         assert "<legend" in html
         assert "<label for=" not in html.split("<legend", 1)[0]
+
+
+class WallClockForm(forms.Form):
+    starts = forms.DateTimeField(
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        )
+    )
+
+
+class TestInputValue:
+    """An input carries its value in the shape the widget formats it to."""
+
+    def test_datetime_local_drops_seconds_the_browser_would_reject(self) -> None:
+        form = WallClockForm(
+            initial={"starts": datetime(2026, 5, 1, 8, 0, 30, tzinfo=UTC)}
+        )
+
+        html = tessera_field(form["starts"])
+
+        assert 'value="2026-05-01T10:00"' in html

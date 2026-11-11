@@ -9,13 +9,25 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from ludamus.gates.web.django.panel import PANEL_CAT_KEYS, PANEL_NAV_KEYS
+from ludamus.gates.web.django.panel import (
+    PANEL_CAT_KEYS,
+    PANEL_NAV_KEYS,
+    ProposalStatusLook,
+    proposal_status_look,
+)
 
 if TYPE_CHECKING:
     from django.template import Context
     from django.utils.safestring import SafeString
 
 register = template.Library()
+
+
+# The label and colour of a proposal's status badge: the same words the list's
+# status filter and the export print.
+@register.simple_tag
+def proposal_status(status: str, *, is_scheduled: bool = False) -> ProposalStatusLook:
+    return proposal_status_look(status, is_scheduled=bool(is_scheduled))
 
 
 # One collapsible category of the panel sidebar, wrapping its links.

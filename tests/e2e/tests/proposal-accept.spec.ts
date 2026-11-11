@@ -1,3 +1,6 @@
+import path from "node:path";
+
+import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
@@ -9,6 +12,8 @@ test.describe.configure({ mode: "serial" });
 
 const EVENT = "accept-lab";
 const ROOM = "The Only Room";
+// NOTE: "Solo Encore" is presented by a user who browses in Polish (bootstrap_data.py).
+const proposerState = path.join(__dirname, "..", ".auth-state-polish-proposer.json");
 
 async function reviewProposal(page: import("@playwright/test").Page, title: string) {
   await page.goto(`/event/${EVENT}/`);
@@ -52,7 +57,12 @@ test.describe("Accepting a proposal", () => {
     expect(cardTop).toBeGreaterThanOrEqual(navBottom);
   });
 
-  test("the room and time it names are the ones it submits", async ({ page }) => {
+  test("the room and time it names are the ones it submits", async ({ browser, page }) => {
+    // The proposer has browsed in Polish before; the organizer accepts in English.
+    const proposer = await browser.newContext({ storageState: proposerState, locale: "pl-PL" });
+    const proposerPage = await proposer.newPage();
+    await proposerPage.goto(`/event/${EVENT}/`);
+
     const decision = await reviewProposal(page, "Solo Encore");
     const [namedRoom, namedSlot] = await decision.locator("dd").allInnerTexts();
 
@@ -65,6 +75,25 @@ test.describe("Accepting a proposal", () => {
     const details = page.getByRole("dialog");
     await expect(details).toContainText(namedRoom.trim());
     const [start, end] = namedSlot.trim().split("–");
-    await expect(details).toContainText(`${start.slice(-5)} - ${end}`);
+    await expect(details).toContainText(`${start.slice(-5)}–${end}`);
+
+    // The proposer hears about it in the bell, in their language, and the
+    // link opens the session.
+    await proposerPage.reload();
+    await proposerPage.getByRole("button", { name: /Powiadomienia/ }).click();
+    const panel = proposerPage.locator("#navbar-notifications-panel");
+    const notification = panel.getByRole("link", { name: /Zaakceptowano: Solo Encore/ });
+    await expect(notification).toContainText(
+      "Twoje zgłoszenie na Solo Room Convention zostało zaakceptowane i dodane do programu.",
+    );
+    await attachArtifacts(test.info(), {
+      name: "proposal-accepted-notification",
+      region: panel,
+      facts: { title: "Zaakceptowano: Solo Encore", event: EVENT, language: "pl" },
+    });
+    await notification.click();
+    await expect(proposerPage).toHaveURL(new RegExp(`/event/${EVENT}/\\?session=\\d+$`));
+    await expect(proposerPage.getByRole("dialog")).toContainText("Solo Encore");
+    await proposer.close();
   });
 });

@@ -14,9 +14,9 @@ from tests.integration.conftest import PNG_BYTES
 
 @pytest.fixture
 def _reset_healthz_cache():
-    urls_module._healthz_cache.update(time=0.0, ok=True)
+    urls_module._healthz_cache = urls_module._HealthzProbe()
     yield
-    urls_module._healthz_cache.update(time=0.0, ok=True)
+    urls_module._healthz_cache = urls_module._HealthzProbe()
 
 
 class TestHealthz:
@@ -39,7 +39,7 @@ class TestHealthz:
         cursor_mock.assert_not_called()
 
     def test_returns_cached_error_within_window(self, client):
-        urls_module._healthz_cache.update(time=math.inf, ok=False)
+        urls_module._healthz_cache.time, urls_module._healthz_cache.ok = math.inf, False
 
         response = client.get("/healthz/")
 

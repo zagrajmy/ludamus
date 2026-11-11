@@ -1,12 +1,14 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.submissions.proposal_category_settings import (
+from ludamus.mills.propose.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.pacts import OrganizerFieldDTO
-from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
-from ludamus.pacts.submissions import (
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.propose import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,

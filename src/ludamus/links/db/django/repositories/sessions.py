@@ -1,5 +1,4 @@
 import json
-import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -18,7 +17,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.links.db.django.repositories.chronology import (
+from ludamus.links.db.django.repositories.event import (
     event_dto,
     location_data,
     public_scheduled_sessions,
@@ -30,43 +29,41 @@ from ludamus.links.db.django.repositories.storage import (
     with_original_names,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    UNSCHEDULED_LIST_LIMIT,
-    AgendaItemDTO,
-    EventDTO,
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.durations import duration_minutes
+from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
+from ludamus.pacts.session_cards import (
+    SessionModalDTO,
+    SessionModalRepositoryProtocol,
+    SessionSeatDTO,
+)
+from ludamus.pacts.sessions import (
     SessionData,
     SessionDTO,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
     SessionListFilters,
     SessionListItemDTO,
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
-    SpaceOptionDTO,
-    TimeSlotDTO,
-    TrackDTO,
-    TrackSessionCountsDTO,
+)
+from ludamus.pacts.timetable import (
+    UNSCHEDULED_LIST_LIMIT,
+    AgendaItemDTO,
+    ConfirmationSessionRow,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import (
-    SessionModalDTO,
-    SessionModalRepositoryProtocol,
-    SessionSeatDTO,
-)
-from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import ConfirmationSessionRow
+from ludamus.pacts.tracks import TrackDTO, TrackSessionCountsDTO
+from ludamus.pacts.venues import SpaceOptionDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ludamus.pacts.ids import EventId, SessionId, UserId
-
-_ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
+    from ludamus.pacts.user import UserDTO
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
 # facilitator list. Anything else falls back to newest first.
@@ -91,12 +88,13 @@ def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
     return (f"-{order_field}" if descending else order_field, "-pk")
 
 
-def _parse_iso8601_duration_minutes(duration: str) -> int:
-    if not (m := _ISO8601_DURATION_RE.match(duration)):
-        return 0
-    hours = int(m.group(1) or 0)
-    minutes = int(m.group(2) or 0)
-    return hours * 60 + minutes
+def sessions_run_by(user_id: int) -> QuerySet[Session]:
+    # A subquery rather than a join: joining facilitators would repeat each
+    # session once per facilitator and inflate every count annotated on it.
+    return Session.objects.filter(
+        Q(presenter_id=user_id)
+        | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
+    )
 
 
 def annotate_session_participation_counts(
@@ -162,17 +160,12 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
     # act on — accepting creates an AgendaItem and a Session has only one, so a
     # pending session already on the timetable cannot be accepted there. Those
     # belong to the panel, whose status machine knows about them.
-    # The participation annotation matters as much here as on the scheduled
-    # path: without it every card re-counts its own participants, and the
-    # review queue is unbounded.
     return (
-        annotate_session_participation_counts(
-            with_session_card_relations(
-                Session.objects.filter(
-                    event_id=event_id,
-                    status=SessionStatus.PENDING,
-                    agenda_item__isnull=True,
-                )
+        with_session_card_relations(
+            Session.objects.filter(
+                event_id=event_id,
+                status=SessionStatus.PENDING,
+                agenda_item__isnull=True,
             )
         )
         .prefetch_related(
@@ -273,11 +266,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # The same queryset the schedule is built from: the modal is public and
         # unauthenticated, so re-deciding visibility here would leave a session
         # hidden from the event page readable by anyone walking session ids.
-        base = annotate_session_participation_counts(
-            public_scheduled_sessions(event_id)
-        )
         try:
-            session = with_scheduled_card_relations(base).get(pk=session_id)
+            session = with_scheduled_card_relations(
+                public_scheduled_sessions(event_id)
+            ).get(pk=session_id)
         except Session.DoesNotExist:
             return None
         return _session_modal_dto(
@@ -335,7 +327,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             raise NotFoundError from exception
         if session.presenter is None:
             return None
-        return UserDTO.model_validate(session.presenter)
+        return user_dto(session.presenter)
 
     @staticmethod
     def lock(pk: int) -> None:
@@ -947,10 +939,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         results: list[UnscheduledSessionDTO] = []
         has_more = False
         for s in qs.order_by("title").iterator():
-            duration_minutes = _parse_iso8601_duration_minutes(s.duration)
+            minutes = duration_minutes(s.duration)
             if (
                 filters.max_duration_minutes is not None
-                and duration_minutes > filters.max_duration_minutes
+                and minutes > filters.max_duration_minutes
             ):
                 continue
             if len(results) >= UNSCHEDULED_LIST_LIMIT:
@@ -963,7 +955,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                     facilitator_name=s.facilitator_name,
                     category_name=s.category.name if s.category else "",
                     category_pk=s.category_id,
-                    duration_minutes=duration_minutes,
+                    duration_minutes=minutes,
                     participants_limit=s.participants_limit,
                 )
             )

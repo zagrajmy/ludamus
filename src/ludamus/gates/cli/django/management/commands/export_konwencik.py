@@ -7,24 +7,9 @@ tab from the current schedule, so running it repeatedly is free and one
 integration's failure does not stop the rest.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from ludamus.gates.cli.django.management.commands._sweep import SweepCommand
-from ludamus.inits.services import Services
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Command(SweepCommand):
     help = "Export the agenda of every sync-enabled event to Konwencik."
-
-    @staticmethod
-    def sweep(*, now: datetime) -> int:
-        return Services().konwencik_export.run_sweep(now=now)
-
-    @staticmethod
-    def report(handled: int) -> str:
-        return f"Exported {handled} integration(s) to Konwencik."
+    sweep = "export_konwencik"

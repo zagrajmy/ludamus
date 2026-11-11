@@ -11,8 +11,8 @@ from odf import teletype
 from odf.opendocument import load
 from odf.table import Table, TableCell, TableRow
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
-from ludamus.gates.web.django.chronology.panel.views.export import (
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.export import (
     ODS_CONTENT_TYPE,
     ProposalExportPageView,
     export_columns,

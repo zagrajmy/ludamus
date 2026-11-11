@@ -16,7 +16,7 @@ from django.core.management import call_command
 
 from ludamus.links.db.django.models import Connection, EventIntegration
 from ludamus.links.encryption import FernetEncryptor
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import KonwencikExportSettings
 from tests.integration.conftest import AgendaItemFactory, SessionFactory
 

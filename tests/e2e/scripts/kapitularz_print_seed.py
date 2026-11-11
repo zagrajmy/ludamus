@@ -20,7 +20,8 @@ from ludamus.links.db.django.models import (
     Track,
     User,
 )
-from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.sessions import SessionStatus
 
 EVENT_SLUG = "kapitularz-2025-anonymized"
 EVENT_START_HOUR = 10

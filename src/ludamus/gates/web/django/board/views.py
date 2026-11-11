@@ -21,8 +21,8 @@ from ludamus.gates.web.django.board.forms import (
     ListingResponseForm,
 )
 from ludamus.gates.web.django.pagination import windowed_pagination_context
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.listing import (
     LISTING_MESSAGE_MAX_LENGTH,
     ListingContact,

@@ -23,7 +23,7 @@ class TestRestrictedOptionalProcessing:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="crowd/user/privacy.html",
+            template_name="user/user/privacy.html",
             context_data={"profile_active_tab": "privacy"},
         )
         analytics_config = response.context["posthog_config"]

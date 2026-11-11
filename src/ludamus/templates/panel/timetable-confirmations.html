@@ -35,11 +35,11 @@
             {% if track_view %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {% translate "program items with a confirmed schedule in this track" as t_track_confirmed %}
-                    {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed %}
+                    {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed only %}
                     {% translate "facilitators in this track" as t_track_facilitators %}
-                    {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators %}
+                    {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators only %}
                     {% translate "facilitators nobody handles" as t_track_unclaimed %}
-                    {% include "components/stat_card.html" with value=track_view.unclaimed_facilitator_count label=t_track_unclaimed %}
+                    {% include "components/stat_card.html" with value=track_view.unclaimed_facilitator_count label=t_track_unclaimed only %}
                 </div>
                 {% if track_view.facilitators %}
                     <div class="flex flex-col gap-3">
@@ -62,13 +62,13 @@
             {% else %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {% translate "program items with a confirmed schedule" as t_confirmed %}
-                    {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed %}
+                    {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed only %}
                     {% translate "confirmation progress" as t_progress %}
-                    {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress %}
+                    {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress only %}
                     {% translate "facilitators taken on" as t_claimed %}
-                    {% include "components/stat_card.html" with value=dashboard.claimed_facilitator_count label=t_claimed %}
+                    {% include "components/stat_card.html" with value=dashboard.claimed_facilitator_count label=t_claimed only %}
                     {% translate "facilitators nobody handles" as t_unclaimed %}
-                    {% include "components/stat_card.html" with value=dashboard.unclaimed_facilitator_count label=t_unclaimed %}
+                    {% include "components/stat_card.html" with value=dashboard.unclaimed_facilitator_count label=t_unclaimed only %}
                 </div>
                 <section class="mb-8">
                     <h2 class="mb-3 text-base font-semibold">{% translate "By organizer" %}</h2>

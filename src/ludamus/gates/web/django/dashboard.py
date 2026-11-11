@@ -13,7 +13,6 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
@@ -25,8 +24,9 @@ from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.event.offers import flash_claim_result
 from ludamus.pacts.dashboard import SubscriptionAgeRestrictedError
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -166,10 +166,5 @@ class OfferClaimActionView(LoginRequiredMixin, View):
         # Every failure lands back on the dashboard: the lookup only ever
         # searched this member's own seats, and "not found" is as often a
         # double click or a party-mate's earlier claim as anything else.
-        if result.success:
-            messages.success(
-                request, _("Spot claimed — you are now confirmed for this session.")
-            )
-        else:
-            messages.error(request, _("This offer has expired or was already claimed."))
+        flash_claim_result(request, result)
         return redirect(reverse("web:dashboard"))

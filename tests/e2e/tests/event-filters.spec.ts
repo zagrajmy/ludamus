@@ -908,11 +908,11 @@ test.describe("Room filter", () => {
     await page.getByRole("combobox", { name: "Location" }).click();
     const options = page.getByRole("listbox", { name: "Location" }).getByRole("option");
     await expect(options.first()).toHaveText("Default Area — all rooms");
-    expect((await options.allTextContents()).slice(1, 4).map((text) => text.trim())).toEqual([
-      "Default Area — Miniature Painting",
-      "Default Area — RPG Table 1",
-      "Default Area — RPG Table 2",
-    ]);
+    // NOTE: allTextContents() on these options crashes Playwright 1.65's
+    // Firefox (159) page; reading each option through expect does not.
+    await expect(options.nth(1)).toHaveText("Default Area — Miniature Painting");
+    await expect(options.nth(2)).toHaveText("Default Area — RPG Table 1");
+    await expect(options.nth(3)).toHaveText("Default Area — RPG Table 2");
   });
 
   test("narrows the list to every room of the chosen venue", async ({ page }) => {

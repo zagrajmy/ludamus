@@ -29,7 +29,7 @@ follow the Decision hierarchy below.
 
 Load it whenever the change renders to a user. Concretely: editing anything under
 `src/ludamus/templates/`, the tessera tags in
-`src/ludamus/adapters/web/django/templatetags/tessera/`, or a view that returns
+`src/ludamus/gates/web/django/templatetags/tessera/`, or a view that returns
 a template/DTO that changes what the user sees. Don't wait for the word
 "design".
 

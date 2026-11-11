@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import TimeSlot
-from ludamus.pacts import TimeSlotDTO
+from ludamus.pacts.event import TimeSlotDTO
 from tests.integration.utils import (
     FormInitialMatcher,
     assert_login_required,
