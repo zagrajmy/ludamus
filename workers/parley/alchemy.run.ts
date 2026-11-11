@@ -47,6 +47,8 @@ const devPublicKey = createPublicKey(
 // strips the functions from a Worker's build plugins, so the Agents SDK
 // plugin that compiles them cannot run inside Alchemy's bundle. It compiles
 // the Worker's own modules here, leaving packages for Alchemy to bundle.
+// TODO: pass agents() as build.input.plugins again once a release carries
+// https://github.com/alchemy-run/alchemy/pull/3176.
 const compileDecorators = Effect.promise(async () => {
   const file = fileURLToPath(new URL("./.alchemy/decorated/index.js", import.meta.url));
   const build = await rolldown({
