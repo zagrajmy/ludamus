@@ -64,14 +64,20 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
 // Swap the session's card for the page's fresh one, so the board shows the
 // edit the moment the dialog is gone. Through htmx, so the new card is wired
 // like any swapped-in card (modal.ts binds its link on htmx:afterSwap).
+// A session past the day's turnover is drawn once per day it touches, every
+// piece under its id; each is swapped for the piece with its own start, or
+// one fetch would put both new pieces where the first old one stood.
 const refreshSessionCard = (sessionId: string): void => {
-  const selector = `[data-session-card="${sessionId}"]`;
-  if (!document.querySelector(selector)) return;
-  htmx.ajax("GET", globalThis.location.href, {
-    select: selector,
-    swap: "outerHTML",
-    target: selector,
-  });
+  const key = `[data-session-card="${sessionId}"]`;
+  for (const card of document.querySelectorAll<HTMLElement>(key)) {
+    const start = card.querySelector<HTMLElement>("[data-start]")?.dataset.start;
+    const selector = start ? `${key}:has([data-start="${start}"])` : key;
+    htmx.ajax("GET", globalThis.location.href, {
+      select: selector,
+      swap: "outerHTML",
+      target: selector,
+    });
+  }
 };
 
 // A save answers with the session-saved event and no content: close the

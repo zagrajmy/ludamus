@@ -113,19 +113,19 @@ def _space_range_name(names: list[str | None]) -> str | None:
     return first if first == last else f"{first} - {last}"
 
 
-def _span(item: AgendaItemDTO) -> tuple[datetime, datetime]:
-    return (item.start_time, item.end_time)
+def _span(item: AgendaItemDTO) -> tuple[float, float]:
+    return (item.start_time.timestamp(), item.end_time.timestamp())
 
 
 def _spaceless_lanes(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
     # Nothing keeps sessions without a space apart in time, and tiles sharing
     # a column paint over each other, so each lane takes the next session
-    # that starts once its last one has ended.
+    # that starts once its last one has ended. Compared as instants, as the
+    # rows are: on the night the clocks go back the wall clock overlaps.
     lanes: list[list[AgendaItemDTO]] = []
     for item in sorted(items, key=_span):
-        free = next(
-            (lane for lane in lanes if lane[-1].end_time <= item.start_time), None
-        )
+        start, _ = _span(item)
+        free = next((lane for lane in lanes if _span(lane[-1])[1] <= start), None)
         if free is None:
             lanes.append([item])
         else:

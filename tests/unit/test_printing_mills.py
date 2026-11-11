@@ -171,6 +171,36 @@ class TestBuildTimetable:
         assert [row.minutes for row in page.rows] == [60]
         assert [(t.row, t.span) for t in page.tiles] == [(1, 1)]
 
+    def test_spaceless_sessions_overlapping_across_the_autumn_fold_take_two_lanes(self):
+        # Read off the wall clock, "02:00–02:30 (CET)" ends before "02:45
+        # (CEST)" starts; as instants it runs an hour past it.
+        tz = ZoneInfo("Europe/Warsaw")
+        night = AgendaItemDTO(
+            pk=1,
+            schedule_confirmed=True,
+            start_time=datetime(2026, 10, 25, 2, 0, tzinfo=tz, fold=0),
+            end_time=datetime(2026, 10, 25, 2, 30, tzinfo=tz, fold=1),
+            space_id=None,
+            session_title="Night",
+        )
+        late = AgendaItemDTO(
+            pk=2,
+            schedule_confirmed=True,
+            start_time=datetime(2026, 10, 25, 2, 45, tzinfo=tz, fold=0),
+            end_time=datetime(2026, 10, 25, 2, 50, tzinfo=tz, fold=1),
+            space_id=None,
+            session_title="Late",
+        )
+        service = _service(spaces=[], items=[night, late])
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == [None, None]
+        assert sorted((t.session.title, t.col) for t in page.tiles) == [
+            ("Late", 2),
+            ("Night", 1),
+        ]
+
     def test_a_long_session_spans_the_rows_a_short_one_cuts(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [

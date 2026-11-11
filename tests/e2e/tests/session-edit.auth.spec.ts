@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 const SEEDED_DESCRIPTION = "A session its presenter can edit from the modal.";
 
@@ -50,34 +51,79 @@ test.describe("Editing a scheduled session from its modal", () => {
       await expect(dialog).toBeHidden();
     }
   });
+
+  test("an overnight session's rows each come back as their own day's", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const sessionId = await page.locator("[data-session-card]").evaluateAll((cards) => {
+      const days = new Map<string, Set<string>>();
+      for (const card of cards as HTMLElement[]) {
+        const id = card.dataset.sessionCard;
+        const day = card.querySelector<HTMLElement>("[data-day]")?.dataset.day;
+        if (id && day) days.set(id, (days.get(id) ?? new Set<string>()).add(day));
+      }
+      return [...days].find(([, seen]) => seen.size > 1)?.[0] ?? null;
+    });
+    if (!sessionId) throw new Error("The fixture needs an overnight session");
+    const rows = page.locator(`[data-session-card="${sessionId}"]`);
+    const startsOf = () =>
+      rows
+        .locator("[data-start]")
+        .evaluateAll((els) => els.map((el) => el.getAttribute("data-start")));
+    const starts = await startsOf();
+    expect(starts).toHaveLength(2);
+
+    const dialog = page.locator(`#session-${sessionId}`);
+    await rows.first().locator("a.session-link").press("Enter");
+    await expect(dialog).toBeVisible();
+    // What a save answers with; only a session's own presenter can save one
+    // from the modal, and this fixture's are not who browses it here.
+    await page.evaluate((id) => {
+      document.body.dispatchEvent(new CustomEvent("session-saved", { detail: { id: Number(id) } }));
+    }, sessionId);
+    await expect(dialog).toBeHidden();
+    await page.waitForLoadState("networkidle");
+
+    // One fresh row per day, not both pieces where the first one stood.
+    await expect(rows).toHaveCount(2);
+    expect(await startsOf()).toEqual(starts);
+    await attachArtifacts(test.info(), {
+      name: "overnight-session-refreshed",
+      region: rows.first(),
+      facts: { sessionId, starts },
+    });
+  });
 });
 
 test.describe("Editing a proposal still waiting for acceptance", () => {
   test.use({ storageState: path.join(__dirname, "..", ".auth-state-proposal-author.json") });
 
   test("its author edits it from their pending card", async ({ page }) => {
-    const title = `Still Waiting Table ${Date.now()}`;
+    const seeded = "Still Waiting Table";
+    const title = `${seeded} ${Date.now()}`;
     await page.goto("/event/facilitator-edit-demo/");
-    await page.getByRole("link", { name: "Edit proposal Still Waiting Table" }).click();
+    await page.getByRole("link", { name: `Edit proposal ${seeded}` }).click();
     await expect(page.getByRole("heading", { name: "Edit proposal", level: 1 })).toBeVisible();
 
-    await page.getByLabel("Title").fill(title);
-    await page.getByRole("button", { name: "Save changes" }).click();
+    try {
+      await page.getByLabel("Title").fill(title);
+      await page.getByRole("button", { name: "Save changes" }).click();
 
-    await expect(page).toHaveURL(/\/event\/facilitator-edit-demo\/$/);
-    await expect(page.getByText("Your changes are saved.")).toBeVisible();
-    const card = page.locator("[data-session-card]").filter({ hasText: title });
-    await expect(card).toBeVisible();
-    await attachArtifacts(test.info(), {
-      name: "pending-proposal-edited",
-      region: card,
-      facts: { title },
-    });
-
-    // Put the seeded title back, so a rerun finds the card by its name.
-    await page.getByRole("link", { name: `Edit proposal ${title}` }).click();
-    await page.getByLabel("Title").fill("Still Waiting Table");
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Your changes are saved.")).toBeVisible();
+      await expect(page).toHaveURL(/\/event\/facilitator-edit-demo\/$/);
+      await expect(page.getByText("Your changes are saved.")).toBeVisible();
+      const card = page.locator("[data-session-card]").filter({ hasText: title });
+      await expect(card).toBeVisible();
+      await attachArtifacts(test.info(), {
+        name: "pending-proposal-edited",
+        region: card,
+        facts: { title },
+      });
+    } finally {
+      // Put the seeded title back, saved or not, so a rerun finds the card.
+      await page.goto("/event/facilitator-edit-demo/");
+      await page.getByRole("link", { name: new RegExp(`^Edit proposal ${seeded}`) }).click();
+      await page.getByLabel("Title").fill(seeded);
+      await page.getByRole("button", { name: "Save changes" }).click();
+      await expect(page.getByText("Your changes are saved.")).toBeVisible();
+    }
   });
 });
