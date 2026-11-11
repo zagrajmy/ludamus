@@ -89,6 +89,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": sphere.name,
             "canWrite": True,
             "canModerate": False,
+            "sessionId": None,
         },
         {
             "id": f"session:{sphere.pk}:{confirmed.pk}",
@@ -96,6 +97,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Mothership",
             "canWrite": True,
             "canModerate": False,
+            "sessionId": confirmed.pk,
         },
         {
             "id": f"session:{sphere.pk}:{facilitated.pk}",
@@ -103,6 +105,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Workshop",
             "canWrite": False,
             "canModerate": False,
+            "sessionId": facilitated.pk,
         },
     ]
     assert payload["agentHost"] == "parley.example.com"

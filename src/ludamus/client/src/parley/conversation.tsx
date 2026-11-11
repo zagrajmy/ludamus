@@ -19,7 +19,7 @@ import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
 import { counterpart, roomKind } from "./conversations";
 import { counted, moment, number, when } from "./format";
-import { DRAG_HEADER, ICON_BUTTON } from "./header";
+import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
 import { type Muted, useRoom, withReactions } from "./use-room";
@@ -531,7 +531,7 @@ export function Conversation({
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
-      <header className={`${DRAG_HEADER} border-b border-border`} data-parley-drag>
+      <TitleBar className="border-b border-border">
         {back !== null && (
           <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
@@ -581,7 +581,7 @@ export function Conversation({
         >
           <Icon className="size-5" name="Close" />
         </button>
-      </header>
+      </TitleBar>
       {offline && (
         <p
           className="flex items-center gap-2 bg-warning-bg px-4 py-2 text-xs font-medium text-warning-text"

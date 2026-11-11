@@ -167,6 +167,8 @@ export type Room = {
   conversation?: ConversationInfo;
   id: string;
   kind: "conversation" | "session" | "sphere";
+  // The programme point a session room is about.
+  sessionId: number | null;
   title: string;
 };
 export type Bootstrap = {

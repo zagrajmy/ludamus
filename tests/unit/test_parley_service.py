@@ -96,6 +96,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
                 "title": "Bachanalia",
                 "canWrite": True,
                 "canModerate": False,
+                "sessionId": None,
             },
             {
                 "id": "session:45:981",
@@ -103,6 +104,7 @@ def test_bootstrap_signs_a_member_role_with_their_own_sessions() -> None:
                 "title": "Mothership",
                 "canWrite": False,
                 "canModerate": False,
+                "sessionId": 981,
             },
         ],
         "canMessage": False,

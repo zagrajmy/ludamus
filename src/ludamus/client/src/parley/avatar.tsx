@@ -11,7 +11,8 @@ function palette(name: string): string {
   return "bg-warm-400 text-neutral-900 dark:bg-warm-800 dark:text-neutral-50";
 }
 
-// People are discs; rooms are rounded squares, so a list tells them apart.
+// People are discs. In the chat's lists every row's face is a rounded square,
+// a person's too, nested in the curve of the window around it.
 export function Avatar({
   className = "size-8 text-xs",
   name,

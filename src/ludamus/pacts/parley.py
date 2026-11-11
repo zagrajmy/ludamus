@@ -26,7 +26,7 @@ class ParleyRoomDTO(BaseModel):
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
-    session_id: int | None = Field(default=None, exclude=True)
+    session_id: int | None = Field(default=None, serialization_alias="sessionId")
     ends_at: int | None = Field(default=None, exclude=True)
 
 
