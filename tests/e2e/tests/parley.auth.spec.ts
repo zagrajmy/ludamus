@@ -51,6 +51,27 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await expect(launcher).toHaveAttribute("aria-expanded", "true");
   await analyzePageAccessibility(page);
 
+  // The arrow keys walk the list; Home and End jump to its ends.
+  const zagrajmy = rooms.getByRole("button", { name: /Zagrajmy/u });
+  const mothership = rooms.getByRole("button", { name: /Mothership/u });
+  await expect(zagrajmy).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(zagrajmy).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(zagrajmy).toBeFocused();
+  // Any other key leaves focus where it is.
+  await page.keyboard.press("PageDown");
+  await expect(zagrajmy).toBeFocused();
+  const closeAt = async () =>
+    (await panel.getByRole("button", { name: "Close chat" }).boundingBox())!;
+  const listClose = await closeAt();
+
   // The window does not trap the page: Escape out there is the page's own.
   const pageLink = page.getByRole("main").getByRole("link").first();
   await pageLink.focus();
@@ -61,6 +82,8 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await rooms.getByRole("button", { name: /Zagrajmy/u }).click();
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
   await expect(panel.getByLabel("Message", { exact: true })).toBeFocused();
+  // Close stays put from the list into a conversation.
+  expect(await closeAt()).toEqual(listClose);
   await analyzePageAccessibility(page);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-desktop.png" });
 
@@ -99,6 +122,13 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   };
   const before = (await panel.boundingBox())!;
   expect(before.x).toBeGreaterThan(16);
+  // It grows out of the chat button.
+  const button = (await launcher.boundingBox())!;
+  const origin = await panel.evaluate((element) => getComputedStyle(element).transformOrigin);
+  expect(origin.split(" ").map((value) => Math.round(Number.parseFloat(value)))).toEqual([
+    Math.round(button.x + button.width / 2 - before.x),
+    Math.round(button.y + button.height / 2 - before.y),
+  ]);
 
   // A press without a move leaves it where it is.
   const grip = (await header.boundingBox())!;

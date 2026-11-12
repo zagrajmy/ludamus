@@ -543,7 +543,7 @@ export function Conversation({
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
-      <TitleBar className="border-b border-border">
+      <TitleBar>
         {back !== null && (
           <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
@@ -565,9 +565,14 @@ export function Conversation({
               <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-(--parley-surface)" />
             )}
           </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-[0.9375rem] leading-tight font-semibold">{room.title}</h2>
-            <p aria-live="polite" className="truncate text-xs text-foreground-muted">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h2 className="truncate text-[0.9375rem] font-semibold text-box-trim-both">
+              {room.title}
+            </h2>
+            <p
+              aria-live="polite"
+              className="truncate text-xs text-foreground-muted text-box-trim-both"
+            >
               {kind}
               {presence > 0 && !offline && ` · ${counted(copy, "presence", presence)}`}
             </p>
