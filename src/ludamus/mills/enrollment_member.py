@@ -297,7 +297,6 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
                     seat_held=offered and flags.needs_accept,
                     offer_pending=offered and not flags.needs_accept,
                     has_time_conflict=pk in overlapping,
-                    is_host=pk in session.host_ids,
                     membership=flags,
                 )
             )

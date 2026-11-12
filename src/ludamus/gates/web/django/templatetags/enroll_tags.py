@@ -55,7 +55,7 @@ _BADGE_CLASSES = {
 }
 
 
-def _badge(data: SessionUserParticipationData) -> Badge:
+def _badge(data: SessionUserParticipationData, *, is_host: bool) -> Badge:
     if data.user_enrolled:
         return Badge("success", _("Already enrolled"))
     if data.seat_held:
@@ -64,7 +64,7 @@ def _badge(data: SessionUserParticipationData) -> Badge:
         return Badge("warning", _("Spot offered"))
     if data.user_waiting:
         return Badge("warning", _("On the waiting list"))
-    if data.is_host:
+    if is_host:
         return Badge("muted", _("Runs this session"))
     if data.has_time_conflict:
         return Badge("danger", _("Time conflict"))
@@ -79,6 +79,7 @@ def enroll_row_state(
     form: forms.Form,
     data: SessionUserParticipationData,
     viewer_pk: int | None = None,
+    host_ids: frozenset[int] = frozenset(),
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
     choices = (
@@ -94,7 +95,8 @@ def enroll_row_state(
     includable = (
         EnrollmentChoice.ENROLL in choices or EnrollmentChoice.WAITLIST in choices
     )
-    badge = _badge(data)
+    is_host = data.user.pk in host_ids
+    badge = _badge(data, is_host=is_host)
     field_name = f"user_{data.user.pk}"
 
     if in_or_holding:
@@ -112,7 +114,7 @@ def enroll_row_state(
             occupies_seat=(data.user_enrolled or data.seat_held or data.offer_pending),
         )
 
-    if data.is_host:
+    if is_host:
         reason = _("Runs this session")
     elif data.has_time_conflict:
         reason = _("Time conflict")

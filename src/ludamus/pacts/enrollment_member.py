@@ -55,7 +55,6 @@ class SessionUserParticipationData:
     seat_held: bool = False
     offer_pending: bool = False
     has_time_conflict: bool = False
-    is_host: bool = False
     membership: PartyMemberFlags = PartyMemberFlags()
 
 

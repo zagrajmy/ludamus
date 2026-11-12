@@ -136,7 +136,7 @@
                         </div>
                         <ul class="divide-y divide-border border-t border-border">
                             {% for row in user_data %}
-                                {% enroll_row_state form=form data=row viewer_pk=request.user.pk as state %}
+                                {% enroll_row_state form=form data=row viewer_pk=request.user.pk host_ids=session.host_ids as state %}
                                 <li data-enroll-row
                                     data-current-in="{% if state.checked %}1{% else %}0{% endif %}"
                                     data-occupies-seat="{% if state.occupies_seat %}1{% else %}0{% endif %}">
@@ -227,7 +227,7 @@
                             {# viewer joining (seat or waiting list), else a plain #}
                             {# confirm for roster management. enroll-preview.ts keeps #}
                             {# it truthful as boxes toggle. #}
-                            {% enroll_row_state form=form data=user_data.0 viewer_pk=request.user.pk as viewer_state %}
+                            {% enroll_row_state form=form data=user_data.0 viewer_pk=request.user.pk host_ids=session.host_ids as viewer_state %}
                             {% if viewer_state.box_checked and not viewer_state.checked and not viewer_state.disabled %}
                                 {% if seats.seats_left > 0 %}
                                     {% translate "Join this session" as cta_label %}

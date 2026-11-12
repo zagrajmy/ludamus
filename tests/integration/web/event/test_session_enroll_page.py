@@ -103,7 +103,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -144,7 +143,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -223,7 +221,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         offer_pending=True,
@@ -482,7 +479,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -779,7 +775,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,  # User is not enrolled in THIS session
                         user_waiting=False,
                         has_time_conflict=True,
@@ -1680,7 +1675,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1736,7 +1730,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1794,7 +1787,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1877,7 +1869,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=True,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1931,7 +1922,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=True,
                         has_time_conflict=False,
@@ -2010,7 +2000,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2072,7 +2061,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,  # User is not enrolled in THIS session
                         user_waiting=False,
                         has_time_conflict=True,
@@ -2124,7 +2112,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2181,7 +2168,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2248,7 +2234,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2293,7 +2278,6 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
-                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,

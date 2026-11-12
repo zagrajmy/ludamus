@@ -268,7 +268,6 @@ def participation_row(
     seat_held=False,
     offer_pending=False,
     has_time_conflict=False,
-    is_host=False,
     is_member=False,
     needs_accept=False,
     blocked=False,
@@ -280,7 +279,6 @@ def participation_row(
         seat_held=seat_held,
         offer_pending=offer_pending,
         has_time_conflict=has_time_conflict,
-        is_host=is_host,
         membership=PartyMemberFlags(
             is_member=is_member, needs_accept=needs_accept, blocked=blocked
         ),
@@ -336,12 +334,7 @@ def enroll_page_context(*, viewer, agenda_item, **overrides):
     # and no participation yet.
     return (
         enroll_context(
-            session=agenda_item.session,
-            user_data=[
-                participation_row(
-                    viewer, is_host=viewer.pk == agenda_item.session.presenter_id
-                )
-            ],
+            session=agenda_item.session, user_data=[participation_row(viewer)]
         )
         | overrides
     )
