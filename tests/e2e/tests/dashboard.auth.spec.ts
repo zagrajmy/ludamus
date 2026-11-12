@@ -53,7 +53,7 @@ test.describe("Dashboard", () => {
   });
 
   for (const width of [375, 1440]) {
-    test(`keeps your spheres with the agenda and past events last at ${width}px`, async ({
+    test(`keeps your spheres with the agenda, rows lined up, and past events last at ${width}px`, async ({
       page,
     }, testInfo) => {
       await page.setViewportSize({ width, height: 1080 });
@@ -78,9 +78,12 @@ test.describe("Dashboard", () => {
       expect(boxes.spheres!.y).toBeGreaterThanOrEqual(boxes.agenda!.y + boxes.agenda!.height);
       expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
       expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.discover!.y + boxes.discover!.height);
-      if (width >= 1024)
+      if (width >= 1024) {
         expect(boxes.forYou!.x).toBeGreaterThan(boxes.spheres!.x + boxes.spheres!.width);
-      else expect(boxes.forYou!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
+        expect(boxes.forYou!.y).toBe(boxes.agenda!.y);
+        expect(boxes.discover!.y).toBe(boxes.spheres!.y);
+      } else
+        expect(boxes.forYou!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
       const main = page.getByRole("main");
       await page.setViewportSize({
         width,
