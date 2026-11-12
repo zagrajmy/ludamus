@@ -206,7 +206,7 @@ def test_a_heavy_participant_s_pass_still_fits_a_cookie(
                 user=active_user,
                 status=SessionParticipationStatus.CONFIRMED,
             )
-    caplog.set_level(logging.ERROR, logger="ludamus.mills.parley")
+    caplog.set_level(logging.WARNING, logger="ludamus.mills.parley")
 
     response = authenticated_client.get(reverse("parley_bootstrap"))
 

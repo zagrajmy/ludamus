@@ -31,8 +31,10 @@ class ParleyRoomDTO(BaseModel):
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
-    # When the event the room belongs to ends; the organizers' room has none.
+    # When the event the room belongs to ends and starts; the organizers'
+    # room has neither.
     ends_at: int | None = Field(default=None, exclude=True)
+    starts_at: int | None = Field(default=None, exclude=True)
     # "<kind>:<name>", as the Worker and the browser know the room.
     id: str = ""
 
@@ -521,8 +523,12 @@ class ParleyConversationRepositoryProtocol(Protocol):
     @staticmethod
     def party_ids_of(user_id: int) -> list[int]: ...
 
+    # Every party, and every party a chat was kept for after it was gone.
     @staticmethod
     def list_party_ids() -> list[int]: ...
+
+    @staticmethod
+    def list_party_chat_ids() -> list[int]: ...
 
     # Holds the party until the transaction ends, so its chat is synced by
     # one change at a time.
@@ -592,5 +598,7 @@ class ParleyPartyChatProtocol(Protocol):
     def sync_party(self, party_id: int) -> None: ...
 
     def sync_parties_of(self, user_id: int) -> None: ...
+
+    def parties_of(self, user_id: int) -> list[int]: ...
 
     def open_existing_chats(self) -> int: ...

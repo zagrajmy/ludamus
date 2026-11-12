@@ -105,6 +105,11 @@ def _managed(
     }
 
 
+def _away(room: ParleyRoomDTO, at: int) -> int:
+    """How far the room's event is from now; nothing while it is on."""
+    return max((room.starts_at or 0) - at, at - (room.ends_at or 0), 0)
+
+
 def _fitted(
     rooms: list[ParleyRoomDTO],
     fits: Callable[[list[ParleyRoomDTO]], bool],
@@ -113,22 +118,19 @@ def _fitted(
     """Drop the rooms of the events furthest from now until the pass fits.
 
     A browser silently drops a cookie past its size, so a pass that cannot
-    fit them all keeps what is on now: the events that ended go first, the
-    longest over first, then the ones furthest ahead.
+    fit them all keeps the events nearest now; an event on now is never
+    dropped.
     """
-    ends = {_event_key(room): room.ends_at or 0 for room in rooms if _granted(room)}
     at = int(now.timestamp())
-    ended = sorted(
-        (key for key, end in ends.items() if end <= at), key=ends.__getitem__
-    )
-    ahead = sorted(
-        (key for key, end in ends.items() if end > at),
-        key=ends.__getitem__,
+    away = {_event_key(room): _away(room, at) for room in rooms if _granted(room)}
+    droppable = sorted(
+        (key for key, distance in away.items() if distance > 0),
+        key=away.__getitem__,
         reverse=True,
     )
     dropped: set[str] = set()
     kept = rooms
-    for key in ended + ahead:
+    for key in droppable:
         if fits(kept):
             break
         dropped.add(key)
@@ -208,12 +210,15 @@ class ParleyService:
         rooms = _fitted(
             access.rooms, lambda kept: len(sign(kept)) <= PARLEY_PASS_MAX_LENGTH, now
         )
-        if len(rooms) < len(access.rooms):
-            logger.error(
-                "parley pass over its size: user=%s kept=%s of %s rooms",
+        capability_token = sign(rooms)
+        fits = len(capability_token) <= PARLEY_PASS_MAX_LENGTH
+        if len(rooms) < len(access.rooms) or not fits:
+            logger.warning(
+                "parley pass over its size: user=%s kept=%s of %s rooms fits=%s",
                 access.user_id,
                 len(rooms),
                 len(access.rooms),
+                fits,
             )
         logger.info(
             "parley pass issued: user=%s rooms=%s conversations=%s managed=%s",
@@ -237,7 +242,7 @@ class ParleyService:
             ),
             conversations=conversations,
             blocked=self._conversations.list_blocked(user_id),
-            capability_token=sign(rooms),
+            capability_token=capability_token,
             agent_host=self._agent_host,
         )
 

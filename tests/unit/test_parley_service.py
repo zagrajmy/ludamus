@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -30,6 +31,7 @@ from ludamus.pacts.user import AgeBand
 from ludamus.specs.parley import PARLEY_PASS_MAX_LENGTH, PARLEY_TOKEN_LIFETIME
 
 NOW = datetime(2026, 8, 6, 12, tzinfo=UTC)
+EVENT_LENGTH = 10 * 3600
 USER_ID = 123
 
 
@@ -128,7 +130,15 @@ class LengthSigner:
         return "t" * (100 + self.per_event * len(getattr(claims, "events", {})))
 
 
-def _event(pk, *, sphere=45, ends_at=1_786_100_000, can_write=True, can_moderate=False):
+def _event(
+    pk,
+    *,
+    sphere=45,
+    ends_at=1_786_100_000,
+    starts_at=None,
+    can_write=True,
+    can_moderate=False,
+):
     return ParleyRoomDTO(
         kind=ParleyRoomKind.EVENT,
         sphere_id=sphere,
@@ -136,6 +146,7 @@ def _event(pk, *, sphere=45, ends_at=1_786_100_000, can_write=True, can_moderate
         title=f"Event {pk}",
         can_write=can_write,
         can_moderate=can_moderate,
+        starts_at=ends_at - EVENT_LENGTH if starts_at is None else starts_at,
         ends_at=ends_at,
     )
 
@@ -151,6 +162,7 @@ def _session(
         title=f"Session {pk}",
         can_write=can_write,
         can_moderate=can_moderate,
+        starts_at=ends_at - EVENT_LENGTH,
         ends_at=ends_at,
     )
 
@@ -299,8 +311,37 @@ def test_a_pass_too_long_for_a_cookie_keeps_the_event_on_now_over_those_far_ahea
 
     assert result is not None
     assert sorted(signer.signed[-1].events) == sorted(
-        ["45:99", *(f"45:{pk}" for pk in range(1, 19))]
+        ["45:99", "45:98", *(f"45:{pk}" for pk in range(1, 18))]
     )
+
+
+def test_a_long_event_on_now_outlasts_a_short_one_starting_soon() -> None:
+    now = int(NOW.timestamp())
+    long_running = _event(1, starts_at=now - 30 * 24 * 3600, ends_at=now + 24 * 3600)
+    soon = _event(2, starts_at=now + 3600, ends_at=now + 3 * 3600)
+    access = Access([long_running, soon])
+    service, signer = _bootstrapping(access, signer=LengthSigner(per_event=1000))
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert [room.id for room in result.rooms] == ["event:45:1"]
+    assert list(signer.signed[-1].events) == ["45:1"]
+
+
+def test_a_pass_kept_over_its_size_by_events_on_now_says_so(caplog) -> None:
+    now = int(NOW.timestamp())
+    on_now = [
+        _event(pk, starts_at=now - 3600, ends_at=now + 3600) for pk in range(1, 4)
+    ]
+    service, _ = _bootstrapping(Access(on_now), signer=LengthSigner(per_event=1000))
+    caplog.set_level(logging.WARNING, logger="ludamus.mills.parley")
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert len(result.rooms) == len(on_now)
+    assert "fits=False" in caplog.text
 
 
 def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None:

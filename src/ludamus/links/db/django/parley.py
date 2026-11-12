@@ -104,6 +104,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 title=event.name,
                 can_write=event.end_time > window.writable_after,
                 can_moderate=event.sphere_id in moderated,
+                starts_at=int(event.start_time.timestamp()),
                 ends_at=int(event.end_time.timestamp()),
             )
             for event in _events(
@@ -122,6 +123,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                     and session.event.end_time > window.writable_after
                 ),
                 can_moderate=session.event.sphere_id in moderated,
+                starts_at=int(session.event.start_time.timestamp()),
                 ends_at=int(session.event.end_time.timestamp()),
             )
             for session in (
