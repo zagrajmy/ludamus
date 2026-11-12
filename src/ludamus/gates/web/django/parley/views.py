@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.decorators.cache import never_cache
@@ -165,6 +166,13 @@ def _conversation_copy() -> dict[str, str]:
         "removeSelected": _("Remove %(name)s"),
         "directMessage": _("Direct message"),
         "requests": _("Requests"),
+        "onThisPage": _("On this page"),
+        "allChats": _("All chats"),
+        "messagingNeedsAge": _(
+            "To message people directly, confirm you're 16 or older."
+        ),
+        "confirmAge": _("Confirm your age"),
+        "messagingUnder16": _("Direct messages open once you turn 16."),
         "requestFrom": _("Wants to message you"),
         "requestQuestion": _("%(name)s wants to message you."),
         "accept": _("Accept"),
@@ -241,6 +249,7 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
     response_data = payload.model_dump(mode="json", by_alias=True)
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
+    response_data["ageUrl"] = reverse("user:profile-privacy")
     return JsonResponse(response_data)
 
 

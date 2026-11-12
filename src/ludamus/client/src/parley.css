@@ -1,14 +1,46 @@
+/* The chat window floats over the page: a step lighter than the page in
+   dark mode, where a shadow alone barely shows, with a top-edge highlight. */
+:root {
+  --parley-width: 23.75rem;
+  --parley-height: min(35rem, 100dvh - 6rem);
+  --parley-surface: var(--color-bg-secondary);
+  --parley-elevation:
+    0 1px 2px rgb(37 34 32 / 0.06), 0 12px 32px -8px rgb(37 34 32 / 0.18),
+    0 32px 64px -24px rgb(37 34 32 / 0.18);
+}
+
+.dark {
+  --parley-surface: #1b1b1b;
+  --parley-elevation:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 2px 4px rgb(0 0 0 / 0.5),
+    0 16px 40px -8px rgb(0 0 0 / 0.75), 0 40px 80px -24px rgb(0 0 0 / 0.85);
+}
+
 @layer components {
   /* Parley's window rises out of the chat button's corner on the same spring
      the consent card and modals use, cut shorter for a corner-sized surface.
-     React mounts the frame fresh for each view, so @starting-style supplies
-     the from-state on every open and every list/room switch. */
+     @starting-style supplies the from-state each time the window opens. */
   .parley-frame {
     transform-origin: bottom right;
     transition:
-      opacity 0.24s var(--ease-spring-a-bit),
-      transform 0.24s var(--ease-spring-a-bit),
-      filter 120ms ease;
+      opacity 0.18s var(--ease-spring-a-bit),
+      transform 0.18s var(--ease-spring-a-bit),
+      filter 0.18s ease-out;
+  }
+
+  /* The chat button: shaded from below and lit from above so it reads as a
+     raised disc. The template renders it before Parley loads, so its look
+     lives here rather than in either. */
+  .parley-launcher {
+    color: white;
+    box-shadow:
+      inset 0 -4px 8px rgb(120 20 0 / 0.35),
+      inset 0 2px 3px rgb(255 255 255 / 0.3),
+      0 10px 15px -3px rgb(0 0 0 / 0.25);
+  }
+
+  .dark .parley-launcher {
+    color: var(--color-neutral-950);
   }
 
   @starting-style {

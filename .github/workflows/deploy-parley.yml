@@ -78,4 +78,4 @@ jobs:
           # account's Secrets Store.
           CLOUDFLARE_ACCOUNT_ID: add2b427b034a6073f63a849af7de160
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: aube exec varlock run -- alchemy deploy --stage "$STAGE" --yes
+        run: aube exec -- varlock run -- alchemy deploy --stage "$STAGE" --yes

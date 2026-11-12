@@ -57,6 +57,9 @@
    on <html> before paint and panel-chrome.ts toggles it. */
 @custom-variant folded (:root[data-folded] &);
 @custom-variant panel (.panel-shell &);
+/* Room for the chat to float as a window; parley/use-floating-window.ts
+   matches the same query. */
+@custom-variant float (@media (min-width: 40rem) and (min-height: 30rem));
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;

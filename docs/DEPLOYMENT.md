@@ -302,7 +302,30 @@ mise run build-frontend       # Build production CSS + JS
 mise run gunicorn             # Gunicorn (4 workers, 2 threads, :8000)
 ```
 
-## Moving users from Auth0 to WorkOS
+## 7. Staging (test.zagrajmy.net)
+
+Staging holds one PR at a time. Putting a PR there takes the `staging` label
+off every other PR.
+
+- Label a same-repo, non-draft PR `staging`. Each push to it redeploys; a push
+  that lands mid-deploy cancels the older run, and a run that finds the PR
+  moved on or merged says "Staging deploy skipped" in its job summary.
+- Or dispatch by hand, label not needed:
+
+  ```bash
+  # the PR's current head
+  gh workflow run deploy-staging.yml --ref main -f pr_number=123
+  # any commit
+  gh workflow run deploy-staging.yml --ref main -f sha=<commit>
+  ```
+
+  With `pr_number`, the run fails for a `sha` that is not the PR head and for
+  fork, closed or draft PRs. With only `sha`, drafts deploy, but forks fail,
+  and so does a commit on several open PRs until you pass `pr_number`.
+
+Logic: `scripts/github-staging.mts`, tested by `mise run test:staging-script`.
+
+## 8. Moving users from Auth0 to WorkOS
 
 A one-time cutover. The code links old accounts itself, so the steps are
 data and dashboard work:

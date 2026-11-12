@@ -67,6 +67,10 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         return User.objects.filter(_eligible(), pk=user_id).exists()
 
     @staticmethod
+    def read_age_band(user_id: int) -> AgeBand:
+        return AgeBand(User.objects.values_list("age_band", flat=True).get(pk=user_id))
+
+    @staticmethod
     def exists(user_id: int) -> bool:
         return User.objects.filter(pk=user_id).exists()
 

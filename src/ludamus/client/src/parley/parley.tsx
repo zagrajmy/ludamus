@@ -1,8 +1,6 @@
 import {
   type Dispatch,
   type ReactNode,
-  type Ref,
-  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -18,7 +16,7 @@ import { Conversation, type RequestAnswers } from "./conversation";
 import { asRoom, conversationsApi, counterpart, refusal, roomKind } from "./conversations";
 import { type Blocks, Details } from "./details";
 import { ago, counted } from "./format";
-import { IconButton, PanelHeader } from "./header";
+import { IconButton, PanelHeader, TitleBar } from "./header";
 import { Icon } from "./icons";
 import { BlockedPeople, NewGroup, NewMessage } from "./people";
 import {
@@ -30,15 +28,33 @@ import {
   type RoomActivity,
 } from "./protocol";
 import { type Activity, useActivity } from "./use-activity";
+import { useFloatingWindow } from "./use-floating-window";
 
-type View =
+type OpenView =
   | { kind: "blocked" }
-  | { kind: "closed" }
   | { kind: "compose" }
   | { kind: "details"; roomId: string }
+  // Not chosen yet: this page's room, else the only room, else the list.
+  | { kind: "entry" }
   | { kind: "group" }
   | { kind: "list" }
   | { kind: "room"; roomId: string };
+// Closed, the chat keeps what was open for the button to bring back.
+type View = OpenView | { kind: "closed"; left: OpenView };
+type Shown = Exclude<View, { kind: "entry" }>;
+
+const ENTRY: OpenView = { kind: "entry" };
+// What the chat button does; anything else that closes the chat is only
+// ever pressed while it is open.
+const toggled = (view: View): View =>
+  view.kind === "closed" ? view.left : { kind: "closed", left: view };
+
+// A room gone since it was opened falls back like an unchosen one.
+function settle(view: View, rooms: Room[], first: Room | undefined): Shown {
+  const gone = "roomId" in view && !rooms.some(({ id }) => id === view.roomId);
+  if (view.kind !== "entry" && !gone) return view;
+  return first === undefined ? { kind: "list" } : { kind: "room", roomId: first.id };
+}
 
 // What the shell says before the bootstrap (and its copy) has arrived; the
 // template renders it translated onto Parley's root.
@@ -46,30 +62,37 @@ type Shell = { closeLabel: string; connectionError: string; loading: string; ret
 
 const PASS_REFUSED_WINDOW = 5000;
 const LAUNCHER =
-  "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 grid size-11 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+  "parley-launcher fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 size-11 place-items-center rounded-full bg-primary transition-[background-color,transform] duration-150 hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+const SECTION = "px-2 pt-3 pb-1 text-xs font-semibold text-foreground-muted";
 
 function Launcher({
   expanded,
   label,
-  launcher,
   onClick,
   unreadLabel,
   unreadRooms,
 }: {
   expanded: boolean;
   label: string;
-  launcher: Ref<HTMLButtonElement>;
   onClick: () => void;
   unreadLabel: string;
   unreadRooms: number;
 }) {
+  // Focus left with the closed chat comes back here; anywhere else, it stays.
+  const launcher = useRef<HTMLButtonElement>(null);
+  const wasExpanded = useRef(expanded);
+  useEffect(() => {
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (wasExpanded.current && !expanded && lost) launcher.current?.focus();
+    wasExpanded.current = expanded;
+  }, [expanded]);
   return (
     <button
       aria-controls="parley-panel"
       aria-describedby={unreadRooms > 0 ? "parley-unread" : undefined}
       aria-expanded={expanded}
       aria-label={label}
-      className={`${LAUNCHER} ${expanded ? "max-sm:hidden" : ""}`}
+      className={`${LAUNCHER} ${expanded ? "hidden float:grid" : "grid"}`}
       onClick={onClick}
       ref={launcher}
       type="button"
@@ -88,19 +111,34 @@ function Launcher({
   );
 }
 
-// The room list pops over the chat button; the conversation docks as a
-// window on the page's bottom edge beside it. Phones get both full screen.
-function Frame({ children, label, room }: { children: ReactNode; label: string; room: boolean }) {
+// One window for every view: on a large enough screen it floats over the
+// page, dragged by its header; anything smaller gets it full screen.
+function Frame({
+  children,
+  close,
+  label,
+}: {
+  children: ReactNode;
+  close: () => void;
+  label: string;
+}) {
+  const { drag, frame, placed } = useFloatingWindow();
   return (
     <div
       aria-label={label}
-      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-bg-secondary text-foreground sm:inset-auto sm:w-95 sm:border sm:border-border sm:shadow-xl ${
-        room
-          ? "sm:right-19 sm:bottom-0 sm:h-[min(35rem,calc(100dvh-1.5rem))] sm:rounded-t-2xl sm:border-b-0"
-          : "sm:right-4 sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)] sm:max-h-[min(30rem,calc(100dvh-6.25rem))] sm:rounded-2xl"
+      className={`parley-frame fixed inset-0 z-50 flex flex-col overflow-hidden bg-(--parley-surface) text-foreground float:inset-auto float:h-(--parley-height) float:w-(--parley-width) float:rounded-[20px] float:border float:border-border float:shadow-(--parley-elevation) ${
+        placed === undefined
+          ? "float:right-4 float:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)]"
+          : "float:top-(--parley-y) float:left-(--parley-x)"
       }`}
       id="parley-panel"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented) close();
+      }}
+      onPointerDown={drag}
+      ref={frame}
       role="dialog"
+      style={placed}
     >
       {children}
     </div>
@@ -113,6 +151,7 @@ function RoomList({
   close,
   compose,
   current,
+  here,
   open,
   rooms,
 }: {
@@ -121,6 +160,8 @@ function RoomList({
   close: () => void;
   compose: (() => void) | null;
   current: string | null;
+  // The room of the page being looked at, kept on top.
+  here: Room | undefined;
   open: (room: Room) => void;
   rooms: Room[];
 }) {
@@ -133,9 +174,12 @@ function RoomList({
     .map((room, order) => ({ order, room, seen: activity[room.id] }))
     .toSorted((a, b) => (b.seen?.at ?? 0) - (a.seen?.at ?? 0) || a.order - b.order);
   // Someone asking to talk waits on top until answered.
+  const pinned = sorted.filter(({ room }) => room.id === here?.id);
   const requests = sorted.filter(({ room }) => room.conversation?.state === "request");
-  const others = sorted.filter(({ room }) => room.conversation?.state !== "request");
-  const firstId = (requests[0] ?? others[0])?.room.id;
+  const others = sorted.filter(
+    ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
+  );
+  const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
     const { conversation } = room;
@@ -147,12 +191,12 @@ function RoomList({
       <li key={room.id}>
         <button
           aria-current={room.id === current ? "true" : undefined}
-          className={`flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          className={`flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
           onClick={() => open(room)}
           ref={room.id === firstId ? firstRoom : undefined}
           type="button"
         >
-          <Avatar className="size-12 text-sm" name={room.title} src={face} />
+          <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
           <span className="min-w-0 flex-1">
             <span
               className={`block truncate text-[0.9375rem] ${unread ? "font-bold" : "font-medium"}`}
@@ -167,7 +211,7 @@ function RoomList({
             </span>
           </span>
           {unread && (
-            <span className="size-3 shrink-0 rounded-full bg-primary">
+            <span className="size-2 shrink-0 rounded-full bg-primary">
               <span className="sr-only">{copy.unread}</span>
             </span>
           )}
@@ -187,17 +231,41 @@ function RoomList({
       </PanelHeader>
       <nav
         aria-label={copy.roomsLabel}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
       >
-        {requests.length > 0 && (
+        {pinned.length > 0 && (
           <>
-            <h3 className="px-2 py-1 text-xs font-semibold text-foreground-muted">
-              {copy.requests}
-            </h3>
-            <ul className="mb-2 border-b border-border pb-2">{requests.map(row)}</ul>
+            <h3 className={SECTION}>{copy.onThisPage}</h3>
+            <ul>{pinned.map(row)}</ul>
           </>
         )}
+        {requests.length > 0 && (
+          <>
+            <h3 className={SECTION}>{copy.requests}</h3>
+            <ul>{requests.map(row)}</ul>
+          </>
+        )}
+        {(pinned.length > 0 || requests.length > 0) && others.length > 0 && (
+          <h3 className={SECTION}>{copy.allChats}</h3>
+        )}
         <ul>{others.map(row)}</ul>
+        {bootstrap.ageGate !== null && (
+          <p className="mx-0.5 mt-2 rounded-[14px] bg-bg-tertiary px-3 py-2.5 text-sm text-foreground-secondary">
+            {bootstrap.ageGate === "under_16" ? (
+              copy.messagingUnder16
+            ) : (
+              <>
+                {copy.messagingNeedsAge}{" "}
+                <a
+                  className="font-medium text-coral-700 underline underline-offset-2 dark:text-coral-300"
+                  href={bootstrap.ageUrl}
+                >
+                  {copy.confirmAge}
+                </a>
+              </>
+            )}
+          </p>
+        )}
       </nav>
     </>
   );
@@ -222,17 +290,17 @@ function Inbox({
 function Connected({
   bootstrap,
   inbox,
-  launcher,
   launcherLabel,
   onPassClosed,
+  pageSession,
   setView,
   view,
 }: {
   bootstrap: Bootstrap;
   inbox: Activity;
-  launcher: RefObject<HTMLButtonElement | null>;
   launcherLabel: string;
   onPassClosed: () => void;
+  pageSession: string;
   setView: Dispatch<SetStateAction<View>>;
   view: View;
 }) {
@@ -250,11 +318,16 @@ function Connected({
     ...conversations.map((conversation) => asRoom(conversation, copy.typingSomeone)),
   ];
   const activity = { ...sphere.activity, ...inbox.activity };
+  const here = rooms.find(({ sessionId }) => sessionId !== null && `${sessionId}` === pageSession);
   const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
-  const roomId = view.kind === "room" || view.kind === "details" ? view.roomId : null;
+  const shown = settle(view, rooms, here ?? single);
+  const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
+  useEffect(() => {
+    if (roomId !== null) setCurrent(roomId);
+  }, [roomId]);
   const unreadRooms = rooms.filter(
-    ({ id }) => activity[id]?.unread === true && !(view.kind === "room" && view.roomId === id),
+    ({ id }) => activity[id]?.unread === true && !(shown.kind === "room" && roomId === id),
   ).length;
 
   const refresh = useCallback(async () => {
@@ -281,10 +354,10 @@ function Connected({
     async (id: string) => {
       const answer = await refresh();
       if (!answer.ok || answer.value.some((conversation) => conversation.id === id)) return true;
-      setView((shown) =>
-        (shown.kind === "room" || shown.kind === "details") && shown.roomId === id
+      setView((current) =>
+        (current.kind === "room" || current.kind === "details") && current.roomId === id
           ? { kind: "list" }
-          : shown,
+          : current,
       );
       return false;
     },
@@ -302,14 +375,8 @@ function Connected({
     setView({ kind: "list" });
   };
 
-  const close = useCallback(() => {
-    setView({ kind: "closed" });
-    launcher.current?.focus();
-  }, [launcher, setView]);
-  const open = (target: Room) => {
-    setCurrent(target.id);
-    setView({ kind: "room", roomId: target.id });
-  };
+  const close = useCallback(() => setView(toggled), [setView]);
+  const open = (target: Room) => setView({ kind: "room", roomId: target.id });
   const opened = (conversation: ConversationInfo) => {
     upsert(conversation);
     open(asRoom(conversation, copy.typingSomeone));
@@ -318,28 +385,13 @@ function Connected({
 
   // Into the details and back, focus follows: to their back button, then
   // to the button that opened them.
-  const shown = useRef(view.kind);
+  const previous = useRef(shown.kind);
   useEffect(() => {
-    if (view.kind === "details") detailsBack.current?.focus();
-    else if (view.kind === "room" && shown.current === "details") detailsTrigger.current?.focus();
-    shown.current = view.kind;
-  }, [view.kind]);
-
-  useEffect(() => {
-    if (view.kind === "closed") return;
-    const keydown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) close();
-    };
-    document.addEventListener("keydown", keydown);
-    return () => document.removeEventListener("keydown", keydown);
-  }, [close, view.kind]);
-
-  const toggle = () => {
-    if (["blocked", "compose", "group", "list"].includes(view.kind)) return close();
-    if (view.kind === "room" || view.kind === "details" || single === undefined)
-      return setView({ kind: "list" });
-    open(single);
-  };
+    if (shown.kind === "details") detailsBack.current?.focus();
+    else if (shown.kind === "room" && previous.current === "details")
+      detailsTrigger.current?.focus();
+    previous.current = shown.kind;
+  }, [shown.kind]);
 
   // A block changes who may write where, so the list is asked again.
   const blocks: Blocks = {
@@ -386,105 +438,103 @@ function Connected({
   return (
     <>
       <Launcher
-        expanded={view.kind !== "closed"}
+        expanded={shown.kind !== "closed"}
         label={launcherLabel}
-        launcher={launcher}
-        onClick={toggle}
+        onClick={() => setView(toggled)}
         unreadLabel={counted(copy, "unreadCount", unreadRooms)}
         unreadRooms={unreadRooms}
       />
-      {view.kind === "list" && (
-        <Frame label={copy.title} room={false}>
-          <RoomList
-            activity={activity}
-            bootstrap={bootstrap}
-            close={close}
-            compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
-            current={current}
-            open={open}
-            rooms={rooms}
-          />
-        </Frame>
-      )}
-      {view.kind === "compose" && (
-        <Frame label={copy.title} room={false}>
-          <NewMessage
-            api={api}
-            back={toList}
-            blocked={blocked.length}
-            bootstrap={bootstrap}
-            close={close}
-            newGroup={() => setView({ kind: "group" })}
-            showBlocked={() => setView({ kind: "blocked" })}
-            started={opened}
-          />
-        </Frame>
-      )}
-      {view.kind === "blocked" && (
-        <Frame label={copy.title} room={false}>
-          <BlockedPeople
-            back={() => setView({ kind: "compose" })}
-            bootstrap={bootstrap}
-            close={close}
-            people={blocked}
-            unblock={blocks.unblock}
-          />
-        </Frame>
-      )}
-      {view.kind === "group" && (
-        <Frame label={copy.title} room={false}>
-          <NewGroup
-            api={api}
-            back={() => setView({ kind: "compose" })}
-            bootstrap={bootstrap}
-            close={close}
-            created={opened}
-          />
-        </Frame>
-      )}
-      {room !== undefined && (
-        <Frame label={copy.title} room>
-          {/* The details cover the thread without closing its socket. */}
-          <div className={view.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
-            <Conversation
-              answers={answersFor(room)}
-              back={single === undefined ? toList : null}
-              blocked={blockedIds}
+      {shown.kind !== "closed" && (
+        <Frame close={close} label={copy.title}>
+          {shown.kind === "list" && (
+            <RoomList
+              activity={activity}
               bootstrap={bootstrap}
               close={close}
-              details={
-                room.conversation === undefined
-                  ? null
-                  : {
-                      open: () => setView({ kind: "details", roomId: room.id }),
-                      trigger: detailsTrigger,
-                    }
-              }
-              key={room.id}
-              // A direct conversation blocks from its details and its request.
-              onBlock={
-                bootstrap.canMessage && room.conversation?.kind !== "direct" ? blocks.block : null
-              }
-              onPassClosed={onPassClosed}
-              onRead={(messageId) =>
-                (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
-              }
-              onRefused={() => refused(room.id)}
-              room={room}
+              compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
+              current={current}
+              here={here}
+              open={open}
+              rooms={rooms}
             />
-          </div>
-          {view.kind === "details" && room.conversation !== undefined && (
-            <Details
+          )}
+          {shown.kind === "compose" && (
+            <NewMessage
               api={api}
-              back={() => setView({ kind: "room", roomId: room.id })}
-              backRef={detailsBack}
-              blocks={blocks}
+              back={toList}
+              blocked={blocked.length}
               bootstrap={bootstrap}
               close={close}
-              conversation={room.conversation}
-              left={() => drop(room.id)}
-              updated={upsert}
+              newGroup={() => setView({ kind: "group" })}
+              showBlocked={() => setView({ kind: "blocked" })}
+              started={opened}
             />
+          )}
+          {shown.kind === "blocked" && (
+            <BlockedPeople
+              back={() => setView({ kind: "compose" })}
+              bootstrap={bootstrap}
+              close={close}
+              people={blocked}
+              unblock={blocks.unblock}
+            />
+          )}
+          {shown.kind === "group" && (
+            <NewGroup
+              api={api}
+              back={() => setView({ kind: "compose" })}
+              bootstrap={bootstrap}
+              close={close}
+              created={opened}
+            />
+          )}
+          {room !== undefined && (
+            <>
+              {/* The details cover the thread without closing its socket. */}
+              <div className={shown.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+                <Conversation
+                  answers={answersFor(room)}
+                  back={single === undefined ? toList : null}
+                  blocked={blockedIds}
+                  bootstrap={bootstrap}
+                  close={close}
+                  details={
+                    room.conversation === undefined
+                      ? null
+                      : {
+                          open: () => setView({ kind: "details", roomId: room.id }),
+                          trigger: detailsTrigger,
+                        }
+                  }
+                  key={room.id}
+                  // A direct conversation blocks from its details and its request.
+                  onBlock={
+                    bootstrap.canMessage && room.conversation?.kind !== "direct"
+                      ? blocks.block
+                      : null
+                  }
+                  onPassClosed={onPassClosed}
+                  onRead={(messageId) =>
+                    (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
+                  }
+                  onRefused={() => refused(room.id)}
+                  room={room}
+                />
+              </div>
+              {shown.kind === "details" && room.conversation !== undefined && (
+                <Details
+                  api={api}
+                  back={() => setView({ kind: "room", roomId: room.id })}
+                  backRef={detailsBack}
+                  blocks={blocks}
+                  bootstrap={bootstrap}
+                  close={close}
+                  conversation={room.conversation}
+                  left={() => drop(room.id)}
+                  updated={upsert}
+                />
+              )}
+            </>
           )}
         </Frame>
       )}
@@ -496,18 +546,19 @@ function Parley({
   bootstrapUrl,
   initialOpen,
   launcherLabel,
+  pageSession,
   shell,
 }: {
   bootstrapUrl: string;
   initialOpen: boolean;
   launcherLabel: string;
+  pageSession: string;
   shell: Shell;
 }) {
-  const [view, setView] = useState<View>({ kind: initialOpen ? "list" : "closed" });
+  const [view, setView] = useState<View>(initialOpen ? ENTRY : { kind: "closed", left: ENTRY });
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const launcher = useRef<HTMLButtonElement>(null);
   const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
   // The launcher's unread badge needs the room activity before anyone opens
@@ -545,11 +596,6 @@ function Parley({
         if (!active) return;
         loadedAt.current = Date.now();
         setBootstrap(data);
-        const only = data.rooms.length === 1 && !data.canMessage ? data.rooms[0] : undefined;
-        if (only !== undefined)
-          setView((current) =>
-            current.kind === "list" ? { kind: "room", roomId: only.id } : current,
-          );
       } catch {
         // NOTE: a background connect that fails stays quiet; opening the chat
         // re-runs this effect and shows the error if it fails again.
@@ -580,9 +626,9 @@ function Parley({
         bootstrap={bootstrap}
         inbox={inbox}
         key={bootstrap.capabilityToken}
-        launcher={launcher}
         launcherLabel={launcherLabel}
         onPassClosed={passClosed}
+        pageSession={pageSession}
         setView={setView}
         view={view}
       />
@@ -595,32 +641,21 @@ function Parley({
     );
   }
 
-  const close = () => {
-    setView({ kind: "closed" });
-    launcher.current?.focus();
-  };
+  const close = () => setView(toggled);
   return (
     <>
       <Launcher
         expanded={wanted}
         label={launcherLabel}
-        launcher={launcher}
-        onClick={() => (wanted ? close() : setView({ kind: "list" }))}
+        onClick={() => setView(toggled)}
         unreadLabel=""
         unreadRooms={0}
       />
       {wanted && (
-        <Frame label={launcherLabel} room={false}>
-          <div className="flex justify-end px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-2">
-            <button
-              aria-label={shell.closeLabel}
-              className="grid size-10 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus"
-              onClick={close}
-              type="button"
-            >
-              <Icon className="size-5" name="Close" />
-            </button>
-          </div>
+        <Frame close={close} label={launcherLabel}>
+          <TitleBar className="justify-end">
+            <IconButton icon="Close" label={shell.closeLabel} onClick={close} />
+          </TitleBar>
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-10 text-center">
             {failed ? (
               <div className="contents" role="alert">
@@ -656,7 +691,13 @@ function Parley({
 // own launcher would stay up a moment after the chat began loading, and a
 // click on it then would be lost: its loader has already started, closed.
 export function mountParley(element: HTMLElement, initialOpen: boolean): void {
-  const { closeLabel = "", connectionError = "", loading = "", retry = "" } = element.dataset;
+  const {
+    closeLabel = "",
+    connectionError = "",
+    loading = "",
+    pageSession = "",
+    retry = "",
+  } = element.dataset;
   const root = createRoot(element);
   flushSync(() =>
     root.render(
@@ -666,6 +707,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
+        pageSession={pageSession}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,
     ),
