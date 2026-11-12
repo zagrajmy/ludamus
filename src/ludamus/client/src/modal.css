@@ -187,6 +187,10 @@
   animation-duration: calc(var(--vt-morph-duration) * 0.3);
 }
 
+:root:has(dialog.modal[id^="session-"][open])::view-transition-new(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.3);
+}
+
 /* components/cover-heading.html is three groups. The picture is nested in the
    sheet so the sheet clips it. Both crops are drawn at the group's width and
    centred, which puts the two images pixel on pixel: the cross-fade only
