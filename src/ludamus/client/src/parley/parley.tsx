@@ -16,7 +16,7 @@ import { Conversation, type RequestAnswers } from "./conversation";
 import { asRoom, conversationsApi, counterpart, refusal, roomKind } from "./conversations";
 import { type Blocks, Details } from "./details";
 import { ago, counted } from "./format";
-import { IconButton, PanelHeader } from "./header";
+import { IconButton, PanelHeader, TitleBar } from "./header";
 import { Icon } from "./icons";
 import { BlockedPeople, NewGroup, NewMessage } from "./people";
 import {
@@ -35,22 +35,26 @@ type OpenView =
   | { kind: "blocked" }
   | { kind: "compose" }
   | { kind: "details"; roomId: string }
+  // Not chosen yet: this page's room, else the only room, else the list.
+  | { kind: "entry" }
   | { kind: "group" }
   | { kind: "list" }
   | { kind: "room"; roomId: string };
 // Closed, the chat keeps what was open for the button to bring back.
-type View = OpenView | { kind: "closed"; left: OpenView | null };
+type View = OpenView | { kind: "closed"; left: OpenView };
+type Shown = Exclude<View, { kind: "entry" }>;
 
-const closed = (shown: View): View =>
-  shown.kind === "closed" ? shown : { kind: "closed", left: shown };
+const ENTRY: OpenView = { kind: "entry" };
+// What the chat button does; anything else that closes the chat is only
+// ever pressed while it is open.
+const toggled = (view: View): View =>
+  view.kind === "closed" ? view.left : { kind: "closed", left: view };
 
-// Where the chat opens: this page's own room, else the only room there is.
-function entryRoom(bootstrap: Bootstrap, pageRoom: string): { here?: Room; single?: Room } {
-  const { canMessage, conversations, rooms } = bootstrap;
-  return {
-    here: rooms.find(({ id }) => id === pageRoom),
-    single: rooms.length === 1 && !canMessage && conversations.length === 0 ? rooms[0] : undefined,
-  };
+// A room gone since it was opened falls back like an unchosen one.
+function settle(view: View, rooms: Room[], first: Room | undefined): Shown {
+  const gone = "roomId" in view && !rooms.some(({ id }) => id === view.roomId);
+  if (view.kind !== "entry" && !gone) return view;
+  return first === undefined ? { kind: "list" } : { kind: "room", roomId: first.id };
 }
 
 // What the shell says before the bootstrap (and its copy) has arrived; the
@@ -75,11 +79,12 @@ function Launcher({
   unreadLabel: string;
   unreadRooms: number;
 }) {
-  // Focus comes back here once the chat closes and the button shows again.
+  // Focus left with the closed chat comes back here; anywhere else, it stays.
   const launcher = useRef<HTMLButtonElement>(null);
   const wasExpanded = useRef(expanded);
   useEffect(() => {
-    if (wasExpanded.current && !expanded) launcher.current?.focus();
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (wasExpanded.current && !expanded && lost) launcher.current?.focus();
     wasExpanded.current = expanded;
   }, [expanded]);
   return (
@@ -109,7 +114,15 @@ function Launcher({
 
 // One window for every view: on a large enough screen it floats over the
 // page, dragged by its header; anything smaller gets it full screen.
-function Frame({ children, label }: { children: ReactNode; label: string }) {
+function Frame({
+  children,
+  close,
+  label,
+}: {
+  children: ReactNode;
+  close: () => void;
+  label: string;
+}) {
   const { drag, frame, placed } = useFloatingWindow();
   return (
     <div
@@ -120,6 +133,9 @@ function Frame({ children, label }: { children: ReactNode; label: string }) {
           : "float:top-(--parley-y) float:left-(--parley-x)"
       }`}
       id="parley-panel"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented) close();
+      }}
       onPointerDown={drag}
       ref={frame}
       role="dialog"
@@ -310,20 +326,18 @@ function AllFeeds({
 function Connected({
   bootstrap,
   feeds,
-  here,
   launcherLabel,
   onPassClosed,
+  pageRoom,
   setView,
-  single,
   view,
 }: {
   bootstrap: Bootstrap;
   feeds: Feeds;
-  here: Room | undefined;
   launcherLabel: string;
   onPassClosed: () => void;
+  pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
-  single: Room | undefined;
   view: View;
 }) {
   const { copy, user } = bootstrap;
@@ -343,10 +357,16 @@ function Connected({
     {},
     ...Object.values(feeds).map((feed) => feed.activity),
   ) as Record<string, RoomActivity>;
-  const roomId = view.kind === "room" || view.kind === "details" ? view.roomId : null;
+  const here = rooms.find(({ id }) => id === pageRoom);
+  const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
+  const shown = settle(view, rooms, here ?? single);
+  const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
+  useEffect(() => {
+    if (roomId !== null) setCurrent(roomId);
+  }, [roomId]);
   const unreadRooms = rooms.filter(
-    ({ id }) => activity[id]?.unread === true && !(view.kind === "room" && view.roomId === id),
+    ({ id }) => activity[id]?.unread === true && !(shown.kind === "room" && roomId === id),
   ).length;
 
   const refresh = useCallback(async () => {
@@ -373,10 +393,10 @@ function Connected({
     async (id: string) => {
       const answer = await refresh();
       if (!answer.ok || answer.value.some((conversation) => conversation.id === id)) return true;
-      setView((shown) =>
-        (shown.kind === "room" || shown.kind === "details") && shown.roomId === id
+      setView((current) =>
+        (current.kind === "room" || current.kind === "details") && current.roomId === id
           ? { kind: "list" }
-          : shown,
+          : current,
       );
       return false;
     },
@@ -394,11 +414,8 @@ function Connected({
     setView({ kind: "list" });
   };
 
-  const close = useCallback(() => setView(closed), [setView]);
-  const open = (target: Room) => {
-    setCurrent(target.id);
-    setView({ kind: "room", roomId: target.id });
-  };
+  const close = useCallback(() => setView(toggled), [setView]);
+  const open = (target: Room) => setView({ kind: "room", roomId: target.id });
   const opened = (conversation: ConversationInfo) => {
     upsert(conversation);
     open(asRoom(conversation, copy.typingSomeone));
@@ -407,34 +424,13 @@ function Connected({
 
   // Into the details and back, focus follows: to their back button, then
   // to the button that opened them.
-  const shown = useRef(view.kind);
+  const previous = useRef(shown.kind);
   useEffect(() => {
-    if (view.kind === "details") detailsBack.current?.focus();
-    else if (view.kind === "room" && shown.current === "details") detailsTrigger.current?.focus();
-    shown.current = view.kind;
-  }, [view.kind]);
-
-  useEffect(() => {
-    if (view.kind === "closed") return;
-    const keydown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) close();
-    };
-    document.addEventListener("keydown", keydown);
-    return () => document.removeEventListener("keydown", keydown);
-  }, [close, view.kind]);
-
-  // The chat button reopens what was last open, else this page's room.
-  const toggle = () => {
-    if (view.kind !== "closed") return close();
-    const { left } = view;
-    const gone =
-      (left?.kind === "room" || left?.kind === "details") &&
-      !rooms.some(({ id }) => id === left.roomId);
-    if (left !== null && !gone) return setView(left);
-    const first = here ?? single;
-    if (first !== undefined) return open(first);
-    setView({ kind: "list" });
-  };
+    if (shown.kind === "details") detailsBack.current?.focus();
+    else if (shown.kind === "room" && previous.current === "details")
+      detailsTrigger.current?.focus();
+    previous.current = shown.kind;
+  }, [shown.kind]);
 
   // A block changes who may write where, so the list is asked again.
   const blocks: Blocks = {
@@ -481,15 +477,15 @@ function Connected({
   return (
     <>
       <Launcher
-        expanded={view.kind !== "closed"}
+        expanded={shown.kind !== "closed"}
         label={launcherLabel}
-        onClick={toggle}
+        onClick={() => setView(toggled)}
         unreadLabel={counted(copy, "unreadCount", unreadRooms)}
         unreadRooms={unreadRooms}
       />
-      {view.kind !== "closed" && (
-        <Frame label={copy.title}>
-          {view.kind === "list" && (
+      {shown.kind !== "closed" && (
+        <Frame close={close} label={copy.title}>
+          {shown.kind === "list" && (
             <RoomList
               activity={activity}
               bootstrap={bootstrap}
@@ -501,7 +497,7 @@ function Connected({
               rooms={rooms}
             />
           )}
-          {view.kind === "compose" && (
+          {shown.kind === "compose" && (
             <NewMessage
               api={api}
               back={toList}
@@ -513,7 +509,7 @@ function Connected({
               started={opened}
             />
           )}
-          {view.kind === "blocked" && (
+          {shown.kind === "blocked" && (
             <BlockedPeople
               back={() => setView({ kind: "compose" })}
               bootstrap={bootstrap}
@@ -522,7 +518,7 @@ function Connected({
               unblock={blocks.unblock}
             />
           )}
-          {view.kind === "group" && (
+          {shown.kind === "group" && (
             <NewGroup
               api={api}
               back={() => setView({ kind: "compose" })}
@@ -534,7 +530,7 @@ function Connected({
           {room !== undefined && (
             <>
               {/* The details cover the thread without closing its socket. */}
-              <div className={view.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+              <div className={shown.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
                 <Conversation
                   answers={answersFor(room)}
                   back={single === undefined ? toList : null}
@@ -560,7 +556,7 @@ function Connected({
                   room={room}
                 />
               </div>
-              {view.kind === "details" && room.conversation !== undefined && (
+              {shown.kind === "details" && room.conversation !== undefined && (
                 <Details
                   api={api}
                   back={() => setView({ kind: "room", roomId: room.id })}
@@ -594,9 +590,7 @@ function Parley({
   pageRoom: string;
   shell: Shell;
 }) {
-  const [view, setView] = useState<View>(
-    initialOpen ? { kind: "list" } : { kind: "closed", left: null },
-  );
+  const [view, setView] = useState<View>(initialOpen ? ENTRY : { kind: "closed", left: ENTRY });
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -637,12 +631,6 @@ function Parley({
         if (!active) return;
         loadedAt.current = Date.now();
         setBootstrap(data);
-        const { here, single } = entryRoom(data, pageRoom);
-        const first = here ?? single;
-        if (first !== undefined)
-          setView((current) =>
-            current.kind === "list" ? { kind: "room", roomId: first.id } : current,
-          );
       } catch {
         // NOTE: a background connect that fails stays quiet; opening the chat
         // re-runs this effect and shows the error if it fails again.
@@ -653,7 +641,7 @@ function Parley({
     return () => {
       active = false;
     };
-  }, [attempt, bootstrap, bootstrapUrl, failed, pageRoom, visible, wanted]);
+  }, [attempt, bootstrap, bootstrapUrl, failed, visible, wanted]);
 
   useEffect(() => {
     if (bootstrap === null) return;
@@ -668,7 +656,6 @@ function Parley({
   }, [bootstrap]);
 
   if (bootstrap !== null) {
-    const { here, single } = entryRoom(bootstrap, pageRoom);
     const spheres = [...new Set(bootstrap.rooms.map(sphereOf).filter((sphere) => sphere !== null))];
     return (
       <AllFeeds
@@ -681,11 +668,10 @@ function Parley({
           <Connected
             bootstrap={bootstrap}
             feeds={feeds}
-            here={here}
             launcherLabel={launcherLabel}
             onPassClosed={passClosed}
+            pageRoom={pageRoom}
             setView={setView}
-            single={single}
             view={view}
           />
         )}
@@ -693,29 +679,21 @@ function Parley({
     );
   }
 
-  // Nothing was open yet, so the button opens this page's room once in.
-  const close = () => setView({ kind: "closed", left: null });
+  const close = () => setView(toggled);
   return (
     <>
       <Launcher
         expanded={wanted}
         label={launcherLabel}
-        onClick={() => (wanted ? close() : setView({ kind: "list" }))}
+        onClick={() => setView(toggled)}
         unreadLabel=""
         unreadRooms={0}
       />
       {wanted && (
-        <Frame label={launcherLabel}>
-          <div className="flex justify-end px-2 pt-[max(0.5rem,env(safe-area-inset-top))] float:pt-2">
-            <button
-              aria-label={shell.closeLabel}
-              className="grid size-10 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus"
-              onClick={close}
-              type="button"
-            >
-              <Icon className="size-5" name="Close" />
-            </button>
-          </div>
+        <Frame close={close} label={launcherLabel}>
+          <TitleBar className="justify-end">
+            <IconButton icon="Close" label={shell.closeLabel} onClick={close} />
+          </TitleBar>
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-10 text-center">
             {failed ? (
               <div className="contents" role="alert">

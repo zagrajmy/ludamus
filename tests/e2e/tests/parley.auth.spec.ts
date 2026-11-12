@@ -51,6 +51,13 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await expect(launcher).toHaveAttribute("aria-expanded", "true");
   await analyzePageAccessibility(page);
 
+  // The window does not trap the page: Escape out there is the page's own.
+  const pageLink = page.getByRole("main").getByRole("link").first();
+  await pageLink.focus();
+  await page.keyboard.press("Escape");
+  await expect(rooms).toBeVisible();
+  await expect(pageLink).toBeFocused();
+
   await rooms.getByRole("button", { name: /Zagrajmy/u }).click();
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
   await expect(panel.getByLabel("Message", { exact: true })).toBeFocused();
@@ -80,8 +87,6 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   await page.emulateMedia({ reducedMotion: "reduce" });
   await routeBootstrap(page);
   await FakeWorker.install(page);
-  // Whatever an older build left behind, the window still opens.
-  await page.addInitScript(() => localStorage.setItem("parley.window", "{"));
   await page.goto("/");
   const launcher = launcherOf(page);
   await launcher.click();
@@ -140,6 +145,32 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   await page.mouse.move(200, 300, { steps: 4 });
   await page.mouse.up();
   expect(await panel.boundingBox()).toEqual({ height: 844, width: 390, x: 0, y: 0 });
+});
+
+test("With storage refused, the chat window still opens and moves", async ({ page }) => {
+  await routeBootstrap(page);
+  await FakeWorker.install(page);
+  await page.addInitScript(() => {
+    const { getItem } = Storage.prototype;
+    Storage.prototype.getItem = function (key) {
+      if (key === "parley.window") throw new DOMException("Storage is off.", "SecurityError");
+      return getItem.call(this, key);
+    };
+  });
+  await page.goto("/");
+  await launcherOf(page).click();
+  const panel = panelOf(page);
+  const grip = (await panel.locator("header").first().boundingBox())!;
+  await page.mouse.move(grip.x + 120, grip.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 2000, grip.y - 2000, { steps: 6 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => {
+      const { x, y } = (await panel.boundingBox())!;
+      return [Math.round(x), Math.round(y)];
+    })
+    .toEqual([16, 16]);
 });
 
 test("On a programme point's page the chat opens on its room, kept on top of the list", async ({

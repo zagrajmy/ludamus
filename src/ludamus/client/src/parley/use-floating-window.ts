@@ -1,8 +1,10 @@
 import { type CSSProperties, type PointerEvent, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 // NOTE: the same screens as the `float` variant in index.css.
 const FLOATING = "(min-width: 40rem) and (min-height: 30rem)";
 const SPOT_KEY = "parley.window";
+const SLOP = 4;
 
 type Spot = { x: number; y: number };
 
@@ -33,21 +35,30 @@ export function useFloatingWindow() {
     const target = event.target as Element;
     const handle = target.closest<HTMLElement>("[data-parley-drag]");
     if (
+      !event.isPrimary ||
       event.button !== 0 ||
       handle === null ||
-      target.closest("button, a, input, textarea") !== null ||
+      target.closest("a, button, input, label, select, textarea, [role=button]") !== null ||
       !matchMedia(FLOATING).matches
     )
       return;
     const box = frame.current!.getBoundingClientRect();
     const grip = { x: event.clientX - box.left, y: event.clientY - box.top };
-    const move = (moved: globalThis.PointerEvent) =>
-      setSpot({ x: moved.clientX - grip.x, y: moved.clientY - grip.y });
+    let last: Spot | null = null;
+    const move = (moved: globalThis.PointerEvent) => {
+      const spot = { x: moved.clientX - grip.x, y: moved.clientY - grip.y };
+      // A click that wobbles is still a click.
+      if (last === null && Math.hypot(spot.x - box.left, spot.y - box.top) < SLOP) return;
+      last = spot;
+      setSpot(spot);
+    };
+    // Saved where the edges stopped it, not where the pointer went.
     const stop = () => {
       handle.removeEventListener("pointermove", move);
-      if (frame.current === null) return;
+      const moved = last;
+      if (moved === null || frame.current === null) return;
+      flushSync(() => setSpot(moved));
       const { left, top } = frame.current.getBoundingClientRect();
-      if (left === box.left && top === box.top) return;
       setSpot({ x: left, y: top });
       saveSpot({ x: left, y: top });
     };
