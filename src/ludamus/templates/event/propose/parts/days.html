@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n tessera %}
 <div id="wizard-content" class="card card-body max-w-2xl mx-auto">
     {% include "event/propose/parts/_proposal_description.html" %}
     {% include "event/propose/parts/_stepper.html" %}
@@ -15,7 +15,13 @@
                 {% for entry in day_descriptors %}
                     <div>
                         <h3 class="text-sm font-medium text-foreground mb-2">{{ entry.day|date:"l, d M" }}</h3>
-                        {% include "components/choice-chips.html" with name="availability" options=entry.parts only %}
+                        <div class="flex flex-wrap gap-2">
+                            {% for part in entry.parts %}
+                                {% with "availability-"|add:part.value as part_id %}
+                                    {% tessera_checkbox_toggle id=part_id name="availability" value=part.value label=part.label checked=part.is_selected %}
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
                     </div>
                 {% endfor %}
             </div>

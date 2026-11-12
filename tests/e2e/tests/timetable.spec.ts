@@ -179,8 +179,9 @@ test.describe("Timetable", () => {
     await page.getByRole("button", { name: "Assign" }).click();
     // Parts of a day have hours, so the hint paints the band the facilitator
     // offered. This session offered a morning on each of the two days.
-    await expect(days.nth(0).locator(".timetable-offered").first()).toBeVisible();
-    await expect(days.nth(1).locator(".timetable-offered").first()).toBeVisible();
+    const offered = { name: /^Suits the facilitator / };
+    await expect(days.nth(0).getByRole("img", offered).first()).toBeVisible();
+    await expect(days.nth(1).getByRole("img", offered).first()).toBeVisible();
     await days
       .nth(1)
       .locator(".timetable-column.assign-mode-active")

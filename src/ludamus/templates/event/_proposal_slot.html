@@ -14,7 +14,7 @@
         {% if extra %}
             <span class="shrink-0 text-foreground-muted">
                 {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
-                <span class="sr-only" data-overflow-days>
+                <span class="sr-only">
                     {% for entry in data.offered_times|slice:"1:" %}{{ entry.day|date:"l, j E" }} {{ entry.part|day_part }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 </span>
             </span>

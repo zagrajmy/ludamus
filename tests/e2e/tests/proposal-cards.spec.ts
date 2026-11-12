@@ -57,9 +57,11 @@ test.describe("Proposal cards", () => {
       .locator('[data-time-slot="pending-proposals"] .session')
       .filter({ hasText: "Open Table Proposal" });
     await expect(card).toContainText("+2 more");
-    // The visible row has room for one day; the rest are read out, because a
-    // title tooltip cannot fire under the card's pointer-events-none wrapper.
-    await expect(card.locator("[data-overflow-days]")).not.toBeEmpty();
+    // The visible row has room for one day (a morning); the rest are read
+    // out, because a title tooltip cannot fire under the card's
+    // pointer-events-none wrapper.
+    await expect(card).toContainText("evening");
+    await expect(card).toContainText("afternoon");
   });
 
   test("a proposal is not offered to the enrollment filters", async ({ page }) => {

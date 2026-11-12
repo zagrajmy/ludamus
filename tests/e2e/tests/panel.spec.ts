@@ -957,9 +957,8 @@ test.describe("Backoffice Panel", () => {
           name: "When could you host?",
         }),
       ).toBeVisible();
-      // The chip is the label: a proposer clicks the word, not the box behind it.
       const evening = page.getByRole("checkbox", { name: "Evening" });
-      await page.locator("label", { has: evening }).click();
+      await evening.check();
       await expect(evening).toBeChecked();
       await page.getByRole("button", { name: /Continue/ }).click();
 
@@ -1040,8 +1039,7 @@ test.describe("Backoffice Panel", () => {
       await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
-      const morning = page.getByRole("checkbox", { name: "Morning" });
-      await page.locator("label", { has: morning }).click();
+      await page.getByRole("checkbox", { name: "Morning" }).check();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       await expect(

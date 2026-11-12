@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n tessera %}
 <fieldset>
     <legend class="text-lg font-semibold text-foreground mb-2">{% translate "When the facilitator could host" %}</legend>
     <p class="text-sm text-foreground-muted mb-4">
@@ -8,12 +8,11 @@
         {% for entry in availability_options %}
             <div>
                 <h4 class="text-sm font-medium text-foreground mb-2">{{ entry.day|date:"l, M j" }}</h4>
-                <div class="space-y-2">
+                <div class="flex flex-wrap gap-2">
                     {% for part in entry.parts %}
-                        <label class="flex items-center gap-2 text-sm py-2 rounded-md hover:bg-foreground/5">
-                            {% include "components/checkbox-input.html" with name="availability" value=part.value checked=part.is_selected only %}
-                            {{ part.label }}
-                        </label>
+                        {% with "availability-"|add:part.value as part_id %}
+                            {% tessera_checkbox_toggle id=part_id name="availability" value=part.value label=part.label checked=part.is_selected %}
+                        {% endwith %}
                     {% endfor %}
                 </div>
             </div>

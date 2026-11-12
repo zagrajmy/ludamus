@@ -12515,6 +12515,10 @@ msgstr "Sala za mała"
 msgid "Extends the day"
 msgstr "Wydłuża dzień"
 
+#: src/ludamus/templates/panel/timetable.html
+msgid "Suits the facilitator"
+msgstr "Pasuje twórcy programu"
+
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "New Track"

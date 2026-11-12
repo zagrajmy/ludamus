@@ -144,6 +144,7 @@ function renderAvailabilityOverlays(): void {
     const minutePx = pxPerMinute(cal);
     const pxPerMs = minutePx / 60_000;
     const totalHeightPx = totalMinutes * minutePx;
+    const utcOffsetMinutes = eventUtcOffsetMinutes(cal);
 
     for (const window of offered) {
       const startMs = new Date(window.start).getTime();
@@ -154,9 +155,13 @@ function renderAvailabilityOverlays(): void {
       const bottom = Math.min(totalHeightPx, (endMs - eventStartMs) * pxPerMs);
       if (bottom <= top) continue;
 
+      const label = `${grid().dataset.offeredLabel ?? ""} ${formatHm(new Date(startMs), utcOffsetMinutes)} – ${formatHm(new Date(endMs), utcOffsetMinutes)}`;
       for (const col of cal.querySelectorAll<HTMLElement>(".timetable-column")) {
         const band = document.createElement("div");
         band.className = "timetable-offered";
+        // Named, so the hours a facilitator offered reach assistive tech too.
+        band.setAttribute("role", "img");
+        band.setAttribute("aria-label", label);
         band.style.top = `calc(${top}px + 20px)`;
         band.style.height = `${bottom - top}px`;
         col.append(band);
