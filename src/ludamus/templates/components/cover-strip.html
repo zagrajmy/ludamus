@@ -11,11 +11,9 @@ against.
 Variables:
   url          the image to show; the caller decides which cover wins
   extra_class  layout classes from the caller (flex behaviour)
-  morph        optional view-transition group name (modal.ts setSubMorph)
 {% endcomment %}
 <img src="{{ url }}"
      alt=""
      width="640"
      height="360"
-     {% if morph %}data-morph="{{ morph }}"{% endif %}
      class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover {{ extra_class }}">

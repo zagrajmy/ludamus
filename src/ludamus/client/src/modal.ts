@@ -320,16 +320,16 @@ const closeModal = (
     if (animated && canMorph(card)) {
       morphTransition({
         before: () => {
-          setContainerMorph(dialog, true);
+          setMorph(dialog, true);
         },
         settle: () => {
-          setContainerMorph(card, false);
+          setMorph(card, false);
         },
         swap: () => {
           dialog.close();
-          setContainerMorph(dialog, false);
+          setMorph(dialog, false);
           releaseSessionCard(id);
-          setContainerMorph(card, true);
+          setMorph(card, true);
         },
       });
     } else {

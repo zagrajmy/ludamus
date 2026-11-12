@@ -12,6 +12,7 @@
         {# carries the surface colour: legible on the photo and on the tab bar. #}
         <button type="button"
                 data-modal-close="session-{{ data.session.pk }}"
+                data-morph="close"
                 aria-label="{% translate "Close" %}"
                 class="absolute top-2 right-2 z-20 size-11 flex items-center justify-center rounded-lg bg-bg-secondary/85 text-foreground shadow-sm backdrop-blur-sm hover:bg-bg-secondary">
             {% icon "x-mark" class="w-5 h-5" variant="mini" %}
@@ -25,25 +26,11 @@
         {% if cover_image_url %}
             {# NOTE: 100cqw/6 is the floor: the dropzone's safe zone is a #}
             {# 6:1 band, so no viewport crops this past the upload guide. #}
-            <div class="relative flex min-h-[max(min(13rem,30dvh),100cqw/6)] flex-col justify-end overflow-hidden bg-neutral-800">
-                <img src="{{ cover_image_url }}"
-                     alt=""
-                     width="640"
-                     height="360"
-                     class="absolute inset-0 size-full object-cover"
-                     data-morph="cover"
-                     data-session-cover>
-                <div class="relative ps-6 pe-14 pb-4">
-                    {# NOTE: the scrim is three times the title block's height #}
-                    {# at any line count, so the first line always sits where #}
-                    {# scrim-t is still 0.67 dark: 7:1 for white on a white cover. #}
-                    <div class="absolute inset-x-0 bottom-0 -top-[200%] scrim-t"
-                         aria-hidden="true"></div>
-                    <h3 id="session-{{ data.session.pk }}-title"
-                        class="relative text-2xl/tight font-semibold tracking-tight text-white text-balance wrap-anywhere text-shadow-sm"
-                        data-morph="title">{{ data.session.title }}</h3>
-                </div>
-            </div>
+            {% with pk=data.session.pk|stringformat:"d" %}
+                {% with title_id="session-"|add:pk|add:"-title" %}
+                    {% include "components/cover-heading.html" with url=cover_image_url title=data.session.title heading_id=title_id close_gap=True extra_class="min-h-[max(min(13rem,30dvh),100cqw/6)]" only %}
+                {% endwith %}
+            {% endwith %}
         {% else %}
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"

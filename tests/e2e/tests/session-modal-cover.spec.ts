@@ -44,7 +44,8 @@ const openSession = async (page: Page, title: string) => {
   return dialog;
 };
 
-const coverOf = (dialog: Locator) => dialog.locator("[data-session-cover]");
+const coverOf = (region: Locator) => region.locator("[data-cover-image]");
+const cardOf = (page: Page, title: string) => page.getByRole("article").filter({ hasText: title });
 
 const boxOf = async (locator: Locator) => {
   const box = await locator.boundingBox();
@@ -58,6 +59,7 @@ const coverLoaded = (cover: Locator) =>
     .toBeGreaterThan(0);
 
 const titleContrast = async (page: Page, title: Locator) => {
+  await title.scrollIntoViewIfNeeded();
   const clip = await title.evaluate((element: HTMLElement) => {
     element.style.color = "transparent";
     element.style.textShadow = "none";
@@ -115,8 +117,36 @@ const titleContrast = async (page: Page, title: Locator) => {
 };
 
 test.describe("Session modal cover", () => {
-  test("puts the title on a full-bleed cover", async ({ page }, testInfo) => {
+  test("prints the title on a covered card in white over the cover", async ({ page }) => {
     await page.goto(EVENT_URL);
+
+    const covered = cardOf(page, COVERED);
+    const cover = coverOf(covered);
+    await coverLoaded(cover);
+    const coverBox = await boxOf(cover);
+    const title = covered.getByRole("heading", { name: COVERED });
+    const titleBox = await boxOf(title);
+    expect(titleBox.y).toBeGreaterThan(coverBox.y);
+    expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(coverBox.y + coverBox.height);
+    await expect(title).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    const bare = cardOf(page, BARE);
+    await expect(coverOf(bare)).toHaveCount(0);
+    await expect(bare.getByRole("heading", { name: BARE })).not.toHaveCSS(
+      "color",
+      "rgb(255, 255, 255)",
+    );
+  });
+
+  test("opens on the card's cover heading, at the card's title size", async ({
+    page,
+  }, testInfo) => {
+    await page.goto(EVENT_URL);
+    const cardTitle = cardOf(page, COVERED).getByRole("heading", { name: COVERED });
+    const cardType = await cardTitle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { size: style.fontSize, weight: style.fontWeight };
+    });
     const dialog = await openSession(page, COVERED);
 
     const cover = coverOf(dialog);
@@ -126,11 +156,14 @@ test.describe("Session modal cover", () => {
 
     const dialogBox = await boxOf(dialog);
     const coverBox = await boxOf(cover);
-    const titleBox = await boxOf(dialog.getByRole("heading", { name: COVERED }));
-    expect(coverBox.width).toBeGreaterThanOrEqual(dialogBox.width - 2);
-    expect(coverBox.y - dialogBox.y).toBeLessThanOrEqual(1);
+    const title = dialog.getByRole("heading", { name: COVERED });
+    const titleBox = await boxOf(title);
+    expect(coverBox.width).toBeGreaterThanOrEqual(dialogBox.width - 12);
+    expect(coverBox.y - dialogBox.y).toBeLessThanOrEqual(6);
     expect(titleBox.y).toBeGreaterThan(coverBox.y);
     expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(coverBox.y + coverBox.height);
+    await expect(title).toHaveCSS("font-size", cardType.size);
+    await expect(title).toHaveCSS("font-weight", cardType.weight);
     await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
 
     await dialog.getByRole("tab", { name: /Participants/ }).click();
@@ -144,6 +177,63 @@ test.describe("Session modal cover", () => {
       region: dialog,
       facts: { coverSrc: await cover.getAttribute("src"), dialogBox, coverBox, titleBox },
     });
+  });
+
+  test("keeps the modal's parts inside the growing sheet mid-morph", async ({ page }) => {
+    await page.goto(EVENT_URL);
+    const supportsNesting = await page.evaluate(() =>
+      CSS.supports("view-transition-group", "nearest"),
+    );
+    test.skip(!supportsNesting, "Browser does not implement view-transition-group");
+
+    await page.addStyleTag({
+      content: ":root { --vt-morph-duration: 5s; --vt-morph-exit-duration: 5s; }",
+    });
+    await page.getByRole("link", { name: `Open details for ${COVERED}` }).press("Enter");
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some(
+          (animation) =>
+            (animation.effect as KeyframeEffect | null)?.pseudoElement ===
+            "::view-transition-group(session-morph)",
+        ),
+    );
+
+    const midway = await page.evaluate(() => {
+      const sheet = getComputedStyle(
+        document.documentElement,
+        "::view-transition-group(session-morph)",
+      );
+      const groups = Object.fromEntries(
+        [...document.querySelectorAll<HTMLElement>("dialog[open] [data-morph]")].map((element) => [
+          element.dataset.morph,
+          getComputedStyle(element).getPropertyValue("view-transition-group"),
+        ]),
+      );
+      const names = document
+        .getAnimations()
+        .map((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement)
+        .filter((pseudo) => pseudo?.startsWith("::view-transition-group("));
+      return { overflow: sheet.overflow, radius: sheet.borderTopLeftRadius, groups, names };
+    });
+
+    expect(midway.overflow).toBe("clip");
+    expect(midway.radius).toBe("16px");
+    expect(midway.groups).toMatchObject({
+      cover: "nearest",
+      close: "nearest",
+      tabs: "nearest",
+      scrim: "normal",
+      "cover-title": "normal",
+    });
+    expect(midway.names).toEqual(
+      expect.arrayContaining([
+        "::view-transition-group(morph-cover)",
+        "::view-transition-group(morph-scrim)",
+        "::view-transition-group(morph-cover-title)",
+      ]),
+    );
   });
 
   test("scrolls the cover away under a sticky tab bar on a phone", async ({ page }) => {
@@ -215,6 +305,18 @@ test.describe("Session modal cover", () => {
         for (const colorScheme of ["light", "dark"] as const) {
           await page.emulateMedia({ colorScheme });
           await page.goto(EVENT_URL);
+          const card = cardOf(page, COVERED);
+          await coverLoaded(coverOf(card));
+          const cardTitle = card.getByRole("heading", { name: COVERED });
+          const cardSeeded = await titleContrast(page, cardTitle);
+          await cardTitle.evaluate((element, text) => {
+            element.textContent = text;
+          }, LONG_TITLE);
+          const cardLong = await titleContrast(
+            page,
+            card.getByRole("heading", { name: LONG_TITLE }),
+          );
+
           const dialog = await openSession(page, COVERED);
           await coverLoaded(coverOf(dialog));
           const title = dialog.getByRole("heading", { name: COVERED });
@@ -224,7 +326,11 @@ test.describe("Session modal cover", () => {
             element.textContent = text;
           }, LONG_TITLE);
           const long = await titleContrast(page, open.getByRole("heading", { name: LONG_TITLE }));
-          results.push({ colorScheme, seeded, long });
+          results.push({
+            colorScheme,
+            card: { seeded: cardSeeded, long: cardLong },
+            modal: { seeded, long },
+          });
         }
 
         const factsPath = testInfo.outputPath(
@@ -235,9 +341,10 @@ test.describe("Session modal cover", () => {
           path: factsPath,
           contentType: "application/json",
         });
-        for (const { seeded, long } of results) {
-          expect(seeded.worst, JSON.stringify(results)).toBeGreaterThanOrEqual(4.5);
-          expect(long.worst, JSON.stringify(results)).toBeGreaterThanOrEqual(4.5);
+        for (const { card, modal } of results) {
+          for (const { worst } of [card.seeded, card.long, modal.seeded, modal.long]) {
+            expect(worst, JSON.stringify(results)).toBeGreaterThanOrEqual(4.5);
+          }
         }
       });
     }
