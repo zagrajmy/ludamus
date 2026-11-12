@@ -222,7 +222,11 @@ class World:
         )
 
     def list_party_ids(self):
-        return sorted({party for party, _ in self.parties})
+        kept = {row["party"] for row in self.conversations.values() if "party" in row}
+        return sorted({party for party, _ in self.parties} | kept)
+
+    def list_party_chat_ids(self):
+        return sorted(pk for pk, row in self.conversations.items() if "party" in row)
 
     def lock_party(self, party_id):
         pass
@@ -636,7 +640,17 @@ class TestPartyChats:
 
         assert [chats.open_existing_chats(), chats.open_existing_chats()] == [2, 2]
         assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
-        assert outbox.sent == [1]
+        # Each run sends every list again, in case the last delivery failed.
+        assert outbox.sent == [1, 1]
+
+    def test_lets_everyone_go_once_the_party_is_gone(self, chats, world, outbox):
+        world.parties = {(7, ME), (7, ADA), (7, BOB)}
+        chats.sync_party(7)
+        world.parties = set()
+
+        assert chats.open_existing_chats() == 1
+        assert world.states(1) == {ME: LEFT, ADA: LEFT, BOB: LEFT}
+        assert outbox.sent == [1, 1]
 
     def test_is_listed_for_someone_direct_messages_are_shut_to(self, chats, world):
         world.parties = {(7, ME), (7, ADA)}

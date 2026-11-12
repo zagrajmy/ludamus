@@ -414,6 +414,32 @@ class ParleyPartyChatService:
         self._outbox = outbox
 
     def sync_party(self, party_id: int) -> None:
+        if (conversation_id := self._sync(party_id)) is not None:
+            self._outbox.schedule(conversation_ids=[conversation_id])
+
+    def sync_parties_of(self, user_id: int) -> None:
+        """Bring the chats of this person's parties in step with them."""
+        for party_id in self.parties_of(user_id):
+            self.sync_party(party_id)
+
+    def parties_of(self, user_id: int) -> list[int]:
+        """List the parties whose chats hang on this person."""
+        return self._repository.party_ids_of(user_id)
+
+    def open_existing_chats(self) -> int:
+        """Sync every party's chat and send the Worker each one's member list.
+
+        Parties made before party chats get theirs, and a list whose delivery
+        failed before goes again, so running it twice is safe.
+        """
+        party_ids = self._repository.list_party_ids()
+        for party_id in party_ids:
+            self._sync(party_id)
+        self._outbox.schedule(conversation_ids=self._repository.list_party_chat_ids())
+        logger.info("parley party chats opened: parties=%s", len(party_ids))
+        return len(party_ids)
+
+    def _sync(self, party_id: int) -> int | None:
         with self._transaction.atomic():
             # SAFETY: a join and a leave synced at once would each write the
             # list they read, the older one last.
@@ -424,27 +450,14 @@ class ParleyPartyChatService:
             conversation_id = self._repository.set_party_members(
                 party_id=party_id, user_ids=members
             )
-            if conversation_id is not None:
-                logger.info(
-                    "parley party chat synced: party=%s conversation=%s members=%s",
-                    party_id,
-                    conversation_id,
-                    len(members),
-                )
-                self._outbox.schedule(conversation_ids=[conversation_id])
-
-    def sync_parties_of(self, user_id: int) -> None:
-        """Bring the chats of this person's parties in step with them."""
-        for party_id in self._repository.party_ids_of(user_id):
-            self.sync_party(party_id)
-
-    def open_existing_chats(self) -> int:
-        """Sync every party's chat, those made before party chats among them."""
-        party_ids = self._repository.list_party_ids()
-        for party_id in party_ids:
-            self.sync_party(party_id)
-        logger.info("parley party chats opened: parties=%s", len(party_ids))
-        return len(party_ids)
+        if conversation_id is not None:
+            logger.info(
+                "parley party chat synced: party=%s conversation=%s members=%s",
+                party_id,
+                conversation_id,
+                len(members),
+            )
+        return conversation_id
 
 
 def sign_membership(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, override
 
 from django import forms
 from django.contrib import admin, messages
@@ -197,6 +197,36 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("name", "user_type", "email", "discord_username")
     search_fields = ("name", "email")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+    @override
+    def save_model(
+        self, request: HttpRequest, obj: User, form: forms.ModelForm[User], change: bool
+    ) -> None:
+        super().save_model(request, obj, form, change)
+        # NOTE: who may chat, and which parties' chats someone is in, hang
+        # on these; the service pages that change them do the same.
+        if change and {"is_active", "age_band"} & set(form.changed_data):
+            _services().parley_revocations.revoke_user(user_id=obj.pk)
+
+    @override
+    def delete_model(self, request: HttpRequest, obj: User) -> None:
+        chats = _services().parley_party_chats
+        parties = chats.parties_of(obj.pk)
+        super().delete_model(request, obj)
+        for party_id in parties:
+            chats.sync_party(party_id)
+
+    @override
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
+        chats = _services().parley_party_chats
+        parties = {
+            party_id
+            for user_id in queryset.values_list("pk", flat=True)
+            for party_id in chats.parties_of(user_id)
+        }
+        super().delete_queryset(request, queryset)
+        for party_id in sorted(parties):
+            chats.sync_party(party_id)
 
     @admin.action(description="Send notification to selected users")
     def send_notification(

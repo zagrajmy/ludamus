@@ -75,15 +75,21 @@ def _writable(
 ) -> bool:
     if member.state != ParleyMemberState.ACTIVE:
         return False
-    if not _policy(conversation).one_to_one:
-        return True
-    # A direct conversation lives while the other person is in it and
-    # neither has blocked the other.
-    return all(
-        other.state != ParleyMemberState.LEFT
-        and not _blocked(member.user_id, other.user_id)
-        for other in others
-    )
+    policy = _policy(conversation)
+    if policy.one_to_one:
+        # A direct conversation lives while the other person is in it and
+        # neither has blocked the other.
+        return all(
+            other.state != ParleyMemberState.LEFT
+            and not _blocked(member.user_id, other.user_id)
+            for other in others
+        )
+    present = [other for other in others if other.state != ParleyMemberState.LEFT]
+    # Two in a party's chat are a direct message by another name, a block
+    # included.
+    if policy.pair_needs_direct and len(present) == 1:
+        return not _blocked(member.user_id, present[0].user_id)
+    return True
 
 
 class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
@@ -335,7 +341,18 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
 
     @staticmethod
     def list_party_ids() -> list[int]:
-        return list(Party.objects.order_by("pk").values_list("pk", flat=True))
+        orphaned = ParleyConversation.objects.filter(
+            party_id__isnull=False
+        ).values_list("party_id", flat=True)
+        return sorted({*Party.objects.values_list("pk", flat=True), *orphaned})
+
+    @staticmethod
+    def list_party_chat_ids() -> list[int]:
+        return list(
+            ParleyConversation.objects.filter(party_id__isnull=False)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
 
     @staticmethod
     def lock_party(party_id: int) -> None:
