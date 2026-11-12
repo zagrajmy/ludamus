@@ -1422,7 +1422,19 @@ def _create_session_covers_event(sphere: Sphere) -> None:
         title="Meeple Painting",
         slug="meeple-painting",
         presenter="Gallery GM",
-        description="Bring a brush; the meeples are on us.",
+        description=(
+            "Bring a brush; the meeples are on us.\n\n"
+            "We start with a base coat and a wash, then move on to "
+            "highlights and a simple two-tone cloak. Every table has "
+            "paints, water pots and spare brushes, so come empty-handed "
+            "if you like.\n\n"
+            "Painted meeples go home with you. Wear something you do "
+            "not mind getting a little colourful.\n\n"
+            "No experience needed. If you have painted before, bring "
+            "your own figures and we will help you push them further.\n\n"
+            "The last half hour is a quiet gallery walk: every table "
+            "lines up its work and we vote on a favourite."
+        ),
         seats=6,
         hour=1,
     )

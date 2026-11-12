@@ -37,7 +37,7 @@
         {% endif %}
         {% session_cover_image data.session as cover_image_url %}
         {% if cover_image_url %}
-            {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0" only %}
+            {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0" morph="cover" only %}
         {% endif %}
         <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none pt-4 print:px-3 print:pb-3 print:pt-2">
             <header>
