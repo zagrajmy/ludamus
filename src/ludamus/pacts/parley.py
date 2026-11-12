@@ -121,6 +121,8 @@ class ParleyCapabilityClaims(BaseModel):
     # Spheres whose every room this person moderates, so a manager's token
     # stays the same size however many rooms their sphere has.
     managed: list[str]
+    # Of those, the spheres whose organizers' room is open.
+    organizers: list[str]
     # Their own programme points and events in spheres they do not manage,
     # each by its room's name, "<sphere>:<pk>".
     sessions: dict[str, ParleyRoomGrant]

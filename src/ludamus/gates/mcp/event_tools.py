@@ -20,7 +20,7 @@ from ludamus.gates.mcp.inputs import (
     require_aware_datetime,
     validate_slug,
 )
-from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
+from ludamus.gates.mcp.organizer_context import actor_sphere, event_json, token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts.event import (
@@ -123,9 +123,10 @@ class _UpdateEventInput(BaseModel):
     parley_enabled: bool | None = Field(
         default=None,
         description=(
-            "Whether the event has a chat for everyone taking part; it shows "
-            "only while the sphere's own chat is on too (get_sphere). Turning "
-            "it off closes it at once. Omit to keep"
+            "Whether the event has a chat for everyone taking part; null "
+            "follows the sphere's parley_events_enabled; omit to keep. It "
+            "shows only while the sphere's parley_enabled is on too. "
+            "get_event returns what it comes to as parley_enabled_effective"
         ),
     )
 
@@ -184,7 +185,11 @@ def _apply_event_update(
     services.event_settings.update_general(
         sphere_id=actor_sphere(actor), slug=event.slug, data=data
     )
-    return token_event(services=services, actor=actor).model_dump_json(indent=2)
+    return event_json(
+        services=services,
+        actor=actor,
+        event=token_event(services=services, actor=actor),
+    )
 
 
 # Split by what a null means in the database: `_event_settings_cleared`
@@ -233,8 +238,6 @@ def _event_switches_kept(body: _UpdateEventInput) -> EventUpdateData:
         data["use_session_cover_placeholders"] = body.use_session_cover_placeholders
     if "use_participants_label" in sent and body.use_participants_label is not None:
         data["use_participants_label"] = body.use_participants_label
-    if "parley_enabled" in sent and body.parley_enabled is not None:
-        data["parley_enabled"] = body.parley_enabled
     return data
 
 
@@ -254,6 +257,8 @@ def _event_settings_cleared(body: _UpdateEventInput) -> EventUpdateData:
         data["proposal_end_time"] = body.proposal_end_time
     if "allow_facilitator_session_edit" in sent:
         data["allow_facilitator_session_edit"] = body.allow_facilitator_session_edit
+    if "parley_enabled" in sent:
+        data["parley_enabled"] = body.parley_enabled
     return data
 
 

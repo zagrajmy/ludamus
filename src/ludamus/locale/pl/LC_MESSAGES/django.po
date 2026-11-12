@@ -1831,6 +1831,28 @@ msgid "Disallow"
 msgstr "Nie pozwól"
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
+msgctxt "event chat"
+msgid "on"
+msgstr "włączony"
+
+#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
+msgctxt "event chat"
+msgid "off"
+msgstr "wyłączony"
+
+#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/forms.py
+msgctxt "event chat"
+msgid "On"
+msgstr "Włączony"
+
+#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
+#: src/ludamus/gates/web/django/forms.py
+msgctxt "event chat"
+msgid "Off"
+msgstr "Wyłączony"
+
+#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 msgid "An event with this slug already exists."
 msgstr "Wydarzenie o tym slugu już istnieje."
 
@@ -3576,6 +3598,7 @@ msgstr[3] "%(count)s osoby"
 
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/sphere/panel/sphere-settings.html
 msgid "Chat"
 msgstr "Czat"
 
@@ -4293,13 +4316,32 @@ msgstr "Włącz czat"
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid ""
-"Each programme point gets a room for its players and hosts, the sphere's "
-"team a room of its own, and each event whose organizers turn its chat on a "
-"chat for everyone taking part."
+"Signed-in people can talk in the rooms of the programme points they take "
+"part in. Turning it off closes every chat of the sphere."
 msgstr ""
-"Każdy punkt programu dostaje pokój dla graczy i twórców programu, zespół "
-"sfery własny pokój, a każde wydarzenie, któremu organizatorzy włączą czat, "
-"czat dla wszystkich uczestników."
+"Zalogowane osoby mogą rozmawiać w pokojach punktów programu, w których biorą "
+"udział. Wyłączenie zamyka wszystkie czaty sfery."
+
+#: src/ludamus/gates/web/django/sphere/panel/forms.py
+msgid "Organizers' room"
+msgstr "Pokój organizatorów"
+
+#: src/ludamus/gates/web/django/sphere/panel/forms.py
+msgid "A room only the sphere's team can read and write in."
+msgstr "Pokój, w którym czytać i pisać może tylko zespół sfery."
+
+#: src/ludamus/gates/web/django/sphere/panel/forms.py
+msgid "Event chats"
+msgstr "Czaty wydarzeń"
+
+#: src/ludamus/gates/web/django/sphere/panel/forms.py
+msgid ""
+"Default for the whole sphere: one chat per event for everyone with a place "
+"or on a waitlist, the hosts and the team. Events can override this setting."
+msgstr ""
+"Ustawienie domyślne dla całej sfery: jeden czat na wydarzenie dla wszystkich "
+"z miejscem lub na liście rezerwowej, twórców programu i zespołu. Wydarzenia "
+"mogą je nadpisać."
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid "Place event cover buttons at the bottom right"
@@ -14055,18 +14097,20 @@ msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid ""
+#~ "Each programme point gets a room for its players and hosts, the sphere's "
+#~ "team a room of its own, and each event whose organizers turn its chat on "
+#~ "a chat for everyone taking part."
+#~ msgstr ""
+#~ "Każdy punkt programu dostaje pokój dla graczy i twórców programu, zespół "
+#~ "sfery własny pokój, a każde wydarzenie, któremu organizatorzy włączą "
+#~ "czat, czat dla wszystkich uczestników."
+
+#~ msgid ""
 #~ "Each event gets a chat for everyone taking part, each programme point a "
 #~ "room for its players and hosts, and the sphere's team a room of its own."
 #~ msgstr ""
 #~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
 #~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
-
-#~ msgid ""
-#~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
-#~ "of the programme points they take part in."
-#~ msgstr ""
-#~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
-#~ "programu, w których biorą udział."
 
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
@@ -14287,9 +14331,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "LIVE"
 #~ msgstr "W TRAKCIE"
-
-#~ msgid "You're already on this sphere's team as a manager."
-#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
 
 #, python-format
 #~ msgid "%(name)s invited you to manage this sphere."
@@ -15056,9 +15097,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Empty or 0 = no limit"
 #~ msgstr "Puste pole lub 0 = bez limitu"
-
-#~ msgid "Open"
-#~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"

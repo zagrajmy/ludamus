@@ -69,9 +69,17 @@ def _events(
     taking_part = Session.objects.filter(
         Q(session_participations__user_id=user_id) | Q(facilitators__user_id=user_id)
     ).values("event_id")
-    return _retained_events(user_id, window).filter(
-        Q(sphere_id__in=managed) | Q(pk__in=taking_part), parley_enabled=True
+    # An event's own setting, else its sphere's.
+    chat_on = Q(parley_enabled=True) | Q(
+        parley_enabled__isnull=True, sphere__parley_events_enabled=True
     )
+    return _retained_events(user_id, window).filter(
+        chat_on, Q(sphere_id__in=managed) | Q(pk__in=taking_part)
+    )
+
+
+def _organizers_rooms(managed: set[int]) -> QuerySet[Sphere]:
+    return Sphere.objects.filter(pk__in=managed, parley_organizers_enabled=True)
 
 
 class ParleyRepository(ParleyRepositoryProtocol):
@@ -90,7 +98,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 can_write=True,
                 can_moderate=True,
             )
-            for sphere in Sphere.objects.filter(pk__in=managed).order_by("name", "pk")
+            for sphere in _organizers_rooms(managed).order_by("name", "pk")
         ]
         rooms.extend(
             ParleyRoomDTO(
@@ -137,7 +145,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
             return False
         managed = _managed_sphere_ids(user_id)
         return (
-            bool(managed)
+            _organizers_rooms(managed).exists()
             or _events(user_id=user_id, managed=managed, window=window).exists()
             or _sessions(user_id=user_id, managed=managed, window=window).exists()
         )

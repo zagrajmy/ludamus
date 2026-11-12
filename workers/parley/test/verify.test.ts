@@ -22,6 +22,7 @@ const valid = {
   retainFor: 2_592_000,
   events: { "3:9": { endsAt: 1_900_000_000, writable: true } },
   managed: [],
+  organizers: [],
   sessions: { "3:101": { endsAt: 1_900_000_000, writable: true } },
   sub: "7",
 };
@@ -58,6 +59,7 @@ describe("verifyCapability", () => {
   it.each([
     ["a managed sphere that is not an id", { managed: ["3:101"] }],
     ["managed spheres as a string", { managed: "3" }],
+    ["no organizers' rooms", { organizers: undefined }],
     ["no events", { events: undefined }],
     ["sessions as a list", { sessions: ["3:101"] }],
     ["a grant without an end", { sessions: { "3:101": { writable: true } } }],

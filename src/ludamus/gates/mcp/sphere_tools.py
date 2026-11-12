@@ -47,8 +47,22 @@ class _UpdateSphereSettingsInput(BaseModel):
         default=None,
         description=(
             "Whether the sphere has chat at all: its organizers' room, its "
-            "programme points' rooms and the chats of events that have one on. "
-            "Turning it off closes them at once."
+            "programme points' rooms and its events' chats. Turning it off "
+            "closes them at once."
+        ),
+    )
+    parley_organizers_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere's team has a room of its own. Turning it off "
+            "closes it at once."
+        ),
+    )
+    parley_events_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere's events have a chat unless an event says "
+            "otherwise (update_event parley_enabled)."
         ),
     )
     confirmed_encounters_disable: bool = Field(
@@ -74,6 +88,10 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["encounters_policy"] = self.encounters_policy
         if self.parley_enabled is not None:
             changes["parley_enabled"] = self.parley_enabled
+        if self.parley_organizers_enabled is not None:
+            changes["parley_organizers_enabled"] = self.parley_organizers_enabled
+        if self.parley_events_enabled is not None:
+            changes["parley_events_enabled"] = self.parley_events_enabled
         return changes
 
 

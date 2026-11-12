@@ -184,9 +184,19 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: EncountersPolicy
+
+
+class SphereChatSettings(TypedDict):
+    # The sphere's chat at all; its managers' own room; and whether its
+    # events have a chat unless an event says otherwise.
+    parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
 
 
 class SpherePanelServiceProtocol(Protocol):
@@ -202,7 +212,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
-        parley_enabled: bool,
+        chat: SphereChatSettings,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
@@ -236,6 +246,8 @@ class SphereDTO(BaseModel):
 
     allow_facilitator_session_edit: bool = True
     parley_enabled: bool = True
+    parley_organizers_enabled: bool = True
+    parley_events_enabled: bool = False
     event_cover_buttons_at_bottom: bool = False
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
@@ -249,6 +261,8 @@ class SphereDTO(BaseModel):
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
     parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: str

@@ -185,6 +185,7 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "name": "Ada",
         "avatar": "https://example.com/ada.png",
         "managed": [],
+        "organizers": [],
         "sessions": {
             "45:981": {"endsAt": 1_786_000_000, "writable": False},
             "7:5": {"endsAt": 1_786_200_000, "writable": True},
@@ -230,6 +231,7 @@ def test_bootstrap_names_the_spheres_a_manager_moderates_without_their_rooms() -
 
     claims = signer.sign.call_args.args[0]
     assert claims.managed == ["45", "7"]
+    assert claims.organizers == ["45"]
     assert claims.sessions == {}
     assert claims.events == {}
 

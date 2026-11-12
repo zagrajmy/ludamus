@@ -126,6 +126,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     assert claims["sub"] == str(active_user.pk)
     ends_at = int(event.end_time.timestamp())
     assert claims["managed"] == [str(elsewhere.pk)]
+    assert claims["organizers"] == [str(elsewhere.pk)]
     assert claims["sessions"] == {
         f"{sphere.pk}:{confirmed.pk}": {"endsAt": ends_at, "writable": True},
         f"{sphere.pk}:{facilitated.pk}": {"endsAt": ends_at, "writable": False},
@@ -168,6 +169,7 @@ def test_manager_token_does_not_grow_with_the_sphere(
     assert len(large["capabilityToken"]) < COOKIE_BUDGET
     claims = decode_segment(large["capabilityToken"].split(".")[1])
     assert claims["managed"] == [str(sphere.pk)]
+    assert claims["organizers"] == [str(sphere.pk)]
     assert (claims["sessions"], claims["events"]) == ({}, {})
 
 

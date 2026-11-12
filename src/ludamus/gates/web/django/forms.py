@@ -274,8 +274,13 @@ class EventSettingsForm(forms.Form):
             "rather than players."
         ),
     )
-    parley_enabled = forms.BooleanField(
+    parley_enabled = forms.ChoiceField(
         required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", pgettext_lazy("event chat", "On")),
+            ("false", pgettext_lazy("event chat", "Off")),
+        ],
         label=_("Event chat"),
         help_text=_(
             "When on, everyone with a place or on a waitlist, the hosts and the "

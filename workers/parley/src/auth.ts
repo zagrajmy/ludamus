@@ -87,6 +87,13 @@ function isGrants(value: unknown): value is Capability["sessions"] {
   );
 }
 
+function isSphereIds(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((sphere) => typeof sphere === "string" && /^\d+$/u.test(sphere))
+  );
+}
+
 async function verified(
   token: string,
   env: AuthEnv,
@@ -110,8 +117,8 @@ export async function verifyCapability(token: string, env: AuthEnv): Promise<Cap
     typeof payload.name !== "string" ||
     typeof payload.avatar !== "string" ||
     typeof payload.jti !== "string" ||
-    !Array.isArray(payload.managed) ||
-    !payload.managed.every((sphere) => typeof sphere === "string" && /^\d+$/u.test(sphere)) ||
+    !isSphereIds(payload.managed) ||
+    !isSphereIds(payload.organizers) ||
     !isSeconds(payload.readOnlyAfter) ||
     !isSeconds(payload.retainFor) ||
     !isGrants(payload.sessions) ||

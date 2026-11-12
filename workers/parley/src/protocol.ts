@@ -15,6 +15,8 @@ export type Capability = {
   jti: string;
   managed: readonly string[];
   name: string;
+  // Of the managed spheres, those whose organizers' room is open.
+  organizers: readonly string[];
   readOnlyAfter: number;
   retainFor: number;
   sessions: Record<string, RoomGrant>;

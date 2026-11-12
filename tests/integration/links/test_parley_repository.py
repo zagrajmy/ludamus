@@ -124,16 +124,22 @@ def test_a_manager_has_the_organizers_room_and_every_room_of_their_sphere(
     assert access.rooms[0].title == sphere.name
 
 
-def test_an_event_has_no_chat_until_its_organizers_turn_it_on(
-    sphere, active_user, now, window
+@pytest.mark.parametrize(
+    ("sphere_events", "own", "has_chat"),
+    (
+        (False, None, False),
+        (True, None, True),
+        (False, True, True),
+        (True, False, False),
+    ),
+    ids=["follows-a-sphere-without", "inherits", "overrides-on", "overrides-off"],
+)
+def test_an_event_s_chat_follows_its_sphere_unless_it_says_otherwise(
+    sphere, active_user, now, window, sphere_events, own, has_chat
 ):
-    end = now + timedelta(days=1)
-    event = EventFactory(
-        sphere=sphere,
-        publication_time=end - timedelta(days=3),
-        start_time=end - timedelta(hours=10),
-        end_time=end,
-    )
+    sphere.parley_events_enabled = sphere_events
+    sphere.save()
+    event = _event(sphere, now, parley_enabled=own)
     session = SessionFactory(event=event, category=None, status=SessionStatus.ACCEPTED)
     SessionParticipationFactory(
         session=session, user=active_user, status=SessionParticipationStatus.CONFIRMED
@@ -142,7 +148,29 @@ def test_an_event_has_no_chat_until_its_organizers_turn_it_on(
     access = ParleyRepository().read_access(user_id=active_user.pk, window=window)
 
     assert access is not None
-    assert [room.id for room in access.rooms] == [f"session:{sphere.pk}:{session.pk}"]
+    session_room = f"session:{sphere.pk}:{session.pk}"
+    event_room = f"event:{sphere.pk}:{event.pk}"
+    assert [room.id for room in access.rooms] == (
+        [event_room, session_room] if has_chat else [session_room]
+    )
+
+
+def test_a_sphere_that_closes_its_organizers_room_keeps_its_other_rooms(
+    sphere, active_user, now, window
+):
+    sphere.parley_organizers_enabled = False
+    sphere.save()
+    sphere.managers.add(active_user)
+    session = SessionFactory(event=_event(sphere, now), category=None)
+    repository = ParleyRepository()
+
+    access = repository.read_access(user_id=active_user.pk, window=window)
+
+    assert access is not None
+    assert [room.kind for room in access.rooms] == ["event", "session"]
+    assert access.rooms[1].id == f"session:{sphere.pk}:{session.pk}"
+    assert access.managed_sphere_ids == [sphere.pk]
+    assert repository.has_rooms(user_id=active_user.pk, window=window) is True
 
 
 def test_a_sphere_with_chat_off_offers_no_room_at_all(sphere, active_user, now, window):

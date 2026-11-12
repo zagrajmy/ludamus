@@ -60,6 +60,7 @@ function inSphere(capability: Capability, sphere: string): boolean {
 export function canRead(capability: Capability, room: Room): boolean {
   if (room.kind === "conversation") return true;
   if (room.kind === "sphere") return inSphere(capability, room.sphere);
+  if (room.kind === "organizers") return capability.organizers.includes(room.sphere);
   return manages(capability, room.sphere) || grant(capability, room) !== undefined;
 }
 

@@ -25,6 +25,7 @@ function capability(overrides: Partial<Capability> = {}): Capability {
     jti: "token",
     managed: [],
     name: "Ada",
+    organizers: [],
     readOnlyAfter: 48 * HOUR,
     retainFor: 30 * 24 * HOUR,
     sessions: { "3:101": { endsAt: 1_900_000_000, writable: true } },
@@ -33,7 +34,7 @@ function capability(overrides: Partial<Capability> = {}): Capability {
   };
 }
 
-const manager = capability({ events: {}, managed: ["3"], sessions: {} });
+const manager = capability({ events: {}, managed: ["3"], organizers: ["3"], sessions: {} });
 const feed = parseRoom("sphere", "3")!;
 const organizers = parseRoom("organizers", "3")!;
 const ownEvent = parseRoom("event", "3:9")!;
@@ -78,6 +79,13 @@ describe("a manager", () => {
       expect(canWrite(manager, room)).toBe(true);
       expect(canModerate(manager, room)).toBe(true);
     }
+  });
+
+  it("is kept out of the organizers' room once the sphere closes it", () => {
+    const closed = capability({ events: {}, managed: ["3"], sessions: {} });
+    expect(canRead(closed, organizers)).toBe(false);
+    expect(canWrite(closed, organizers)).toBe(false);
+    expect(canRead(closed, otherSession)).toBe(true);
   });
 
   it("gets nothing in another sphere", () => {

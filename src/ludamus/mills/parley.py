@@ -111,6 +111,11 @@ class ParleyService:
             name=access.user_name,
             avatar=access.user_avatar_url,
             managed=[str(sphere_id) for sphere_id in access.managed_sphere_ids],
+            organizers=[
+                room.name
+                for room in access.rooms
+                if room.kind == ParleyRoomKind.ORGANIZERS
+            ],
             sessions=_grants(access.rooms, ParleyRoomKind.SESSION),
             events=_grants(access.rooms, ParleyRoomKind.EVENT),
             read_only_after=int(PARLEY_SESSION_READ_ONLY_DELAY.total_seconds()),

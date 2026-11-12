@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from ludamus.mills.sphere import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.sphere import (
@@ -167,12 +169,20 @@ class TestSpherePanelServiceReads:
         assert _service().read(SPHERE_PK) == _sphere()
 
 
+CHAT_ON = {
+    "parley_enabled": True,
+    "parley_organizers_enabled": True,
+    "parley_events_enabled": True,
+}
+CHAT_OFF = dict.fromkeys(CHAT_ON, False)
+
+
 class TestSpherePanelServiceUpdateSettings:
     @staticmethod
-    def _update(service, **overrides):
+    def _update(service, *, chat=None, **overrides):
         kwargs = {
             "allow_facilitator_session_edit": False,
-            "parley_enabled": False,
+            "chat": CHAT_OFF | (chat or {}),
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": EncountersPolicy.MANAGERS,
         }
@@ -189,27 +199,33 @@ class TestSpherePanelServiceUpdateSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
-                    "parley_enabled": False,
+                    **CHAT_OFF,
                     "event_cover_buttons_at_bottom": True,
                     "encounters_policy": "managers",
                 },
             )
         ]
 
-    def test_turning_chat_off_takes_back_every_pass(self):
+    @pytest.mark.parametrize(
+        "switch",
+        ("parley_enabled", "parley_organizers_enabled", "parley_events_enabled"),
+    )
+    def test_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
         chat = FakeChat()
-        service = _service(chat=chat)
+        spheres = FakeSpheres(_sphere().model_copy(update={switch: True}))
 
-        self._update(service, parley_enabled=True)
-        self._update(service, parley_enabled=False)
+        self._update(_service(spheres=spheres, chat=chat), chat=CHAT_ON)
+        self._update(
+            _service(spheres=spheres, chat=chat), chat=CHAT_ON | {switch: False}
+        )
 
         assert chat.revoked == [SPHERE_PK]
 
     def test_saving_while_chat_is_off_revokes_nothing(self):
         chat = FakeChat()
-        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_OFF))
 
-        self._update(_service(spheres=spheres, chat=chat), parley_enabled=False)
+        self._update(_service(spheres=spheres, chat=chat))
 
         assert not chat.revoked
 
@@ -220,7 +236,7 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1] == {
             "allow_facilitator_session_edit": False,
-            "parley_enabled": False,
+            **CHAT_OFF,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": "managers",
             "logo": "",
@@ -295,26 +311,25 @@ class TestSpherePanelServicePatchSettings:
             )
         ]
 
-    def test_a_patch_turning_chat_off_takes_back_every_pass(self):
+    @pytest.mark.parametrize("switch", tuple(CHAT_ON))
+    def test_a_patch_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
         chat = FakeChat()
-        spheres = FakeSpheres()
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_ON))
 
         _service(spheres=spheres, chat=chat).patch_settings(
-            SPHERE_PK, changes={"parley_enabled": False}
+            SPHERE_PK, changes={switch: False}
         )
 
-        assert spheres.updates == [(SPHERE_PK, {"parley_enabled": False})]
+        assert spheres.updates == [(SPHERE_PK, {switch: False})]
         assert chat.revoked == [SPHERE_PK]
 
     def test_a_patch_turning_chat_on_takes_nothing_back(self):
         chat = FakeChat()
         spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
 
-        _service(spheres=spheres, chat=chat).patch_settings(
-            SPHERE_PK, changes={"parley_enabled": True}
-        )
+        _service(spheres=spheres, chat=chat).patch_settings(SPHERE_PK, changes=CHAT_ON)
 
-        assert spheres.updates == [(SPHERE_PK, {"parley_enabled": True})]
+        assert spheres.updates == [(SPHERE_PK, CHAT_ON)]
         assert not chat.revoked
 
     def test_an_empty_patch_writes_nothing(self):

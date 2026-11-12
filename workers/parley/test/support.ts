@@ -32,6 +32,7 @@ export function pass(
       retainFor: 2_592_000,
       events: {},
       managed: [],
+      organizers: [],
       sessions: { [`${sphere}:101`]: { endsAt: now() + 3_600, writable: true } },
       sub,
       ...extra,
@@ -42,7 +43,7 @@ export function pass(
 }
 
 export const manager = (sub: string, sphere: string, issuedAt = now()) =>
-  pass(sub, sphere, issuedAt, { managed: [sphere], sessions: {} });
+  pass(sub, sphere, issuedAt, { managed: [sphere], organizers: [sphere], sessions: {} });
 
 export type Socket = {
   call: <T = unknown>(method: string, input?: Record<string, unknown>) => Promise<T>;
