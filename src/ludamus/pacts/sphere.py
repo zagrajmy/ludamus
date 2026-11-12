@@ -43,6 +43,8 @@ class Capability(StrEnum):
     # is PANEL_WRITE.
     PANEL_WRITE = "panel_write"
     ERRATUM_ACK = "erratum_ack"
+    # Deleting messages and muting people in every chat room of the sphere.
+    CHAT_MODERATE = "chat_moderate"
 
 
 class SphereAccessDTO(BaseModel):
@@ -218,6 +220,7 @@ class SpherePanelServiceProtocol(Protocol):
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...
+    def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool: ...
     def patch_settings(
         self,
         sphere_id: int,

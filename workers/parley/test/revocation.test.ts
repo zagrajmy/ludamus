@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { REVOCATION_AUDIENCE } from "../src/auth";
-import { manager, now, open, pass, post } from "./support";
+import { eventGrant, manager, now, open, pass, post } from "./support";
 
 const revoke = (claims: Record<string, unknown>, audience = REVOCATION_AUDIENCE) =>
   post("/revoke", claims, audience);
@@ -10,7 +10,7 @@ describe("revocation", () => {
   it("closes the person's sockets in every room of the sphere", async () => {
     const issued = now() - 10;
     const member = await pass("7", "3", issued, {
-      events: { "3:9": { endsAt: now() + 3_600, writable: true } },
+      events: { "3:9": eventGrant({ "101": true }, { chat: true }) },
     });
     const sphere = await open("parley-sphere-agent/3", member);
     const session = await open("parley-session-agent/3:101", member);

@@ -177,12 +177,20 @@ export const bootstrap = {
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
   rooms: [
-    { canModerate: true, canWrite: true, id: "event:1:5", kind: "event", title: "Zagrajmy" },
+    {
+      canModerate: true,
+      canWrite: true,
+      id: "event:1:5",
+      kind: "event",
+      sphere: 1,
+      title: "Zagrajmy",
+    },
     {
       canModerate: true,
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      sphere: 1,
       title: "Mothership",
     },
   ],

@@ -11,9 +11,12 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts.parley import (
+    CONVERSATION_POLICIES,
     ParleyConversationDTO,
     ParleyConversationKind,
+    ParleyConversationPolicy,
     ParleyConversationRepositoryProtocol,
+    ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
     ParleyPartyCandidate,
@@ -48,6 +51,22 @@ def _blocked(first_id: int, second_id: int) -> bool:
     ).exists()
 
 
+def _policy(conversation: ParleyConversation) -> ParleyConversationPolicy:
+    return CONVERSATION_POLICIES[ParleyConversationKind(conversation.kind)]
+
+
+def _given_name(conversation: ParleyConversation) -> str:
+    # A party's chat goes by the party's name for as long as there is one.
+    if conversation.party_id is None:
+        return conversation.title
+    name = (
+        Party.objects.filter(pk=conversation.party_id)
+        .values_list("name", flat=True)
+        .first()
+    )
+    return name or ""
+
+
 def _writable(
     *,
     conversation: ParleyConversation,
@@ -56,7 +75,7 @@ def _writable(
 ) -> bool:
     if member.state != ParleyMemberState.ACTIVE:
         return False
-    if conversation.kind != ParleyConversationKind.DIRECT:
+    if not _policy(conversation).one_to_one:
         return True
     # A direct conversation lives while the other person is in it and
     # neither has blocked the other.
@@ -160,9 +179,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         )
 
     @staticmethod
-    def read_member(
-        *, conversation_id: int, user_id: int
-    ) -> tuple[ParleyConversationKind, ParleyMemberState, bool] | None:
+    def read_member(*, conversation_id: int, user_id: int) -> ParleyMembership | None:
         member = (
             ParleyConversationMember.objects.filter(
                 conversation_id=conversation_id, user_id=user_id
@@ -172,10 +189,10 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         )
         if member is None:
             return None
-        return (
-            ParleyConversationKind(member.conversation.kind),
-            ParleyMemberState(member.state),
-            member.is_admin,
+        return ParleyMembership(
+            kind=ParleyConversationKind(member.conversation.kind),
+            state=ParleyMemberState(member.state),
+            is_admin=member.is_admin,
         )
 
     @staticmethod
@@ -211,17 +228,13 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
     ) -> tuple[ParleyConversationKind, list[ParleyMemberSnapshot]]:
         conversation = ParleyConversation.objects.get(pk=conversation_id)
         # Everyone, the departed included: a direct conversation dies with
-        # either person's leaving. An account no longer eligible, disabled or
-        # under 16, is not on the list the Worker gets; a party's chat holds
-        # only those its own age rule let in.
+        # either person's leaving. An account that can no longer sign in, or
+        # one a kind needing direct messages no longer lets in, is not on the
+        # list the Worker gets.
         everyone = list(conversation.members.select_related("user"))
         eligible = set(
             User.objects.filter(
-                (
-                    _signs_in()
-                    if conversation.kind == ParleyConversationKind.PARTY
-                    else _eligible()
-                ),
+                _eligible() if _policy(conversation).needs_direct else _signs_in(),
                 pk__in=[member.user_id for member in everyone],
             ).values_list("pk", flat=True)
         )
@@ -234,6 +247,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
                     member=member,
                     others=[other for other in everyone if other.pk != member.pk],
                 ),
+                age_band=AgeBand(member.user.age_band),
             )
             for member in everyone
             if member.state in _PRESENT and member.user_id in eligible
@@ -293,9 +307,6 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
             conversation = ParleyConversation.objects.create(
                 kind=ParleyConversationKind.PARTY, party_id=party_id
             )
-        if party is not None and conversation.title != party.name:
-            conversation.title = party.name
-            conversation.save(update_fields=["title"])
         present = set(
             conversation.members.filter(state__in=_PRESENT).values_list(
                 "user_id", flat=True
@@ -315,20 +326,30 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         return conversation.pk
 
     @staticmethod
-    def parties_awaiting(user_id: int) -> list[int]:
-        in_chat = ParleyConversationMember.objects.filter(
-            user_id=user_id,
-            state=ParleyMemberState.ACTIVE,
-            conversation__party_id__isnull=False,
-        ).values("conversation__party_id")
-        return list(
-            PartyMembership.objects.filter(
-                member_id=user_id, status=PartyMembershipStatus.ACTIVE
-            )
-            .exclude(party_id__in=in_chat)
-            .order_by("party_id")
-            .values_list("party_id", flat=True)
+    def party_ids_of(user_id: int) -> list[int]:
+        member_of = PartyMembership.objects.filter(member_id=user_id).values_list(
+            "party_id", flat=True
         )
+        chats = ParleyConversationMember.objects.filter(
+            user_id=user_id, conversation__party_id__isnull=False
+        ).values_list("conversation__party_id", flat=True)
+        return sorted({*member_of, *chats})
+
+    @staticmethod
+    def list_party_ids() -> list[int]:
+        return list(Party.objects.order_by("pk").values_list("pk", flat=True))
+
+    @staticmethod
+    def lock_party(party_id: int) -> None:
+        list(Party.objects.select_for_update().filter(pk=party_id).values_list("pk"))
+
+    @staticmethod
+    def has_conversation(
+        *, user_id: int, kinds: frozenset[ParleyConversationKind]
+    ) -> bool:
+        return ParleyConversationMember.objects.filter(
+            user_id=user_id, state__in=_PRESENT, conversation__kind__in=kinds
+        ).exists()
 
 
 def _conversation_for(
@@ -346,8 +367,9 @@ def _conversation_for(
     return ParleyConversationDTO(
         id=f"conversation:{conversation.pk}",
         kind=ParleyConversationKind(conversation.kind),
-        title=conversation.title or _default_title(conversation, others, user_id),
-        name=conversation.title,
+        title=_given_name(conversation)
+        or _default_title(conversation, others, user_id),
+        name=_given_name(conversation),
         state=ParleyMemberState(own.state),
         can_write=_writable(
             conversation=conversation,
@@ -364,7 +386,7 @@ def _default_title(
     others: list[ParleyConversationMember],
     user_id: int,
 ) -> str:
-    if conversation.kind != ParleyConversationKind.DIRECT:
+    if not _policy(conversation).one_to_one:
         names = [member.user.get_full_name() for member in others]
         shown = ", ".join(names[:_NAMES_SHOWN])
         hidden = len(names) - _NAMES_SHOWN

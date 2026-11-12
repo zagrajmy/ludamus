@@ -43,10 +43,10 @@ if TYPE_CHECKING:
 class PartyService(PartyServiceProtocol):
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         parties: PartyRepositoryProtocol,
         notifier: PartyNotifierProtocol,
-        *,
         chat: ParleyPartyChatProtocol,
     ) -> None:
         self._transaction = transaction
@@ -63,12 +63,9 @@ class PartyService(PartyServiceProtocol):
 
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool:
         with self._transaction.atomic():
-            if not self._parties.rename(
+            return self._parties.rename(
                 leader_pk=leader_pk, party_pk=party_pk, name=name
-            ):
-                return False
-            self._chat.sync_party(party_pk)
-            return True
+            )
 
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome:
         with self._transaction.atomic():
@@ -169,7 +166,7 @@ class PartyService(PartyServiceProtocol):
                 membership_pk=membership_pk, user_pk=user_pk
             ):
                 return False
-            self._chat.sync_member(user_pk)
+            self._chat.sync_parties_of(user_pk)
             return True
 
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool:

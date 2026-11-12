@@ -1,25 +1,31 @@
-export type RoomGrant = { endsAt: number; writable: boolean };
+// One event's rooms on a pass: whether its own chat is open to this person,
+// and its programme points they are in, which end with it.
+export type EventGrant = {
+  chat: boolean;
+  endsAt: number;
+  // Each programme point by pk, and whether it still takes messages.
+  sessions: Record<string, boolean>;
+  // Whether the event's chat still takes messages.
+  writable: boolean;
+};
 
 // One pass for every sphere. It lists the spheres someone manages, whose
-// every room they moderate, and otherwise only their own events and
-// programme points, each by its room's name "<sphere>:<id>".
+// every room they moderate, and otherwise only their own events, each by
+// its room's name "<sphere>:<pk>".
 export type Capability = {
   aud: "parley";
   avatar: string;
   // Whether direct and group conversations are open to this person at all.
   direct?: boolean;
-  events: Record<string, RoomGrant>;
+  events: Record<string, EventGrant>;
   exp: number;
   iat: number;
   iss: "ludamus";
   jti: string;
-  managed: readonly string[];
+  managed: Record<string, { organizers: boolean }>;
   name: string;
-  // Of the managed spheres, those whose organizers' room is open.
-  organizers: readonly string[];
   readOnlyAfter: number;
   retainFor: number;
-  sessions: Record<string, RoomGrant>;
   sub: string;
 };
 
@@ -35,6 +41,8 @@ export type Membership = {
   iat: number;
   kind: ConversationKind;
   members: Member[];
+  // Whether only a pass with direct messages open gets in.
+  needsDirect: boolean;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub

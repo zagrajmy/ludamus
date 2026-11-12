@@ -50,15 +50,10 @@ def event_json(
     `parley_enabled` is the event's own choice, null when it follows the
     sphere; `parley_enabled_effective` is what that comes to.
     """
-    own = event.parley_enabled
-    effective = (
-        services.sphere_panel.read(actor_sphere(actor)).parley_events_enabled
-        if own is None
-        else own
-    )
+    on = services.sphere_panel.event_chat_on(sphere_id=actor_sphere(actor), event=event)
     view = _EventView.model_validate(event, from_attributes=True)
-    view.parley_enabled_effective = effective
-    return view.model_dump_json(indent=2)
+    effective: dict[str, object] = {"parley_enabled_effective": on}
+    return view.model_copy(update=effective).model_dump_json(indent=2)
 
 
 class _EventView(EventDTO):

@@ -12,6 +12,7 @@ from ludamus.pacts.parley import (
     ParleyConversationDTO,
     ParleyConversationError,
     ParleyConversationKind,
+    ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
     ParleyPartyCandidate,
@@ -108,7 +109,11 @@ class World:
     def read_member(self, *, conversation_id, user_id):
         if (member := self.members.get((conversation_id, user_id))) is None:
             return None
-        return self.conversations[conversation_id]["kind"], member[0], member[1]
+        return ParleyMembership(
+            kind=self.conversations[conversation_id]["kind"],
+            state=member[0],
+            is_admin=member[1],
+        )
 
     def count_active(self, conversation_id):
         return sum(
@@ -140,7 +145,12 @@ class World:
 
     def snapshot(self, conversation_id):
         return self.conversations[conversation_id]["kind"], [
-            ParleyMemberSnapshot(user_id=user, state=state, writable=state == ACTIVE)
+            ParleyMemberSnapshot(
+                user_id=user,
+                state=state,
+                writable=state == ACTIVE,
+                age_band=self.read_age_band(user),
+            )
             for user, state in self.states(conversation_id).items()
             if state != LEFT
         ]
@@ -200,15 +210,21 @@ class World:
             self.members[chat, user] = (ACTIVE, False)
         return chat
 
-    def parties_awaiting(self, user_id):
+    def party_ids_of(self, user_id):
         in_chat = {
-            row.get("party")
+            row["party"]
             for pk, row in self.conversations.items()
-            if self.states(pk).get(user_id) == ACTIVE
+            if "party" in row and user_id in self.states(pk)
         }
         return sorted(
-            {party for party, user in self.parties if user == user_id} - in_chat
+            {party for party, user in self.parties if user == user_id} | in_chat
         )
+
+    def list_party_ids(self):
+        return sorted({party for party, _ in self.parties})
+
+    def lock_party(self, party_id):
+        pass
 
 
 class Outbox:
@@ -594,21 +610,32 @@ class TestPartyChats:
         assert world.states(1) == {ME: LEFT, ADA: LEFT}
         assert outbox.sent == [1, 1]
 
-    def test_catches_up_with_the_parties_someone_is_not_in_the_chat_of_yet(
+    def test_follows_someone_into_and_out_of_their_parties_chats(
         self, chats, world, outbox
     ):
         world.parties = {(7, ME), (7, ADA), (8, KID), (8, ADA)}
 
-        chats.sync_member(KID)
-        chats.sync_member(ME)
-        chats.sync_member(ME)
+        chats.sync_parties_of(KID)
+        chats.sync_parties_of(ME)
+        chats.sync_parties_of(ME)
 
         assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
         assert outbox.sent == [1]
-        world.eligible.add(KID)
         world.ages = {KID: ADULT}
-        chats.sync_member(KID)
+        chats.sync_parties_of(KID)
         assert world.states(2) == {KID: ACTIVE, ADA: ACTIVE}
+        world.ages = {KID: TEEN}
+        chats.sync_parties_of(KID)
+        assert world.states(2) == {KID: LEFT, ADA: LEFT}
+
+    def test_opens_the_chats_of_every_party_made_before_them(
+        self, chats, world, outbox
+    ):
+        world.parties = {(7, ME), (7, ADA), (8, KID)}
+
+        assert [chats.open_existing_chats(), chats.open_existing_chats()] == [2, 2]
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
+        assert outbox.sent == [1]
 
     def test_is_listed_for_someone_direct_messages_are_shut_to(self, chats, world):
         world.parties = {(7, ME), (7, ADA)}
@@ -682,3 +709,36 @@ def test_the_member_list_is_signed_as_its_own_kind_of_token(world):
         {"user": "2", "state": REQUEST, "writable": False},
     ]
     assert claims.exp - claims.iat == MEMBERSHIP_TTL
+    assert claims.needs_direct is True
+
+
+@pytest.mark.parametrize(
+    ("members", "listed"),
+    (((ME, ADA), [ME, ADA]), ((ME, KID), []), ((ME, KID, ADA), [ME, KID, ADA])),
+    ids=["two-adults", "adult-and-teen", "three-with-a-teen"],
+)
+def test_a_party_chat_s_member_list_keeps_its_pair_rule_whoever_sends_it(
+    world, members, listed
+):
+    # The Worker hears the rule from every list, not only from a party sync:
+    # a block or an account closing resends the list too.
+    world.conversations[1] = {"kind": PARTY, "pair_key": None, "party": 7, "title": ""}
+    for member in members:
+        world.members[1, member] = (ACTIVE, False)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return "token"
+
+    sign_membership(
+        signer=Signer(),
+        repository=world,
+        conversation_id=1,
+        now=datetime(2026, 11, 10, 12, tzinfo=UTC),
+    )
+
+    assert [int(member["user"]) for member in signed[0].members] == listed
+    assert signed[0].needs_direct is False

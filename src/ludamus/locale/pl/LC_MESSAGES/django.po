@@ -1808,17 +1808,17 @@ msgid "Created %(name)s. It stays hidden until you publish it."
 msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
+#, python-brace-format
+msgid "Use sphere default (currently: {})"
+msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
+
+#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 msgid "allowed"
 msgstr "dozwolone"
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 msgid "disallowed"
 msgstr "niedozwolone"
-
-#: src/ludamus/gates/web/django/event/panel/views/event_settings.py
-#, python-brace-format
-msgid "Use sphere default (currently: {})"
-msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/forms.py

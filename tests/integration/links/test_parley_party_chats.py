@@ -1,4 +1,8 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
+from django.db import connection
 
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
@@ -47,7 +51,8 @@ def test_a_party_chat_follows_its_members_and_outlives_the_party(services, leade
         kid.pk: ParleyMemberState.ACTIVE,
     }
     services.parties.rename(leader_pk=leader.pk, party_pk=party_pk, name="Drużyna")
-    assert ParleyConversation.objects.get(party_id=party_pk).title == "Drużyna"
+    [chat] = services.parley_conversations.list_for(leader.pk)
+    assert (chat.title, chat.name) == ("Drużyna", "Drużyna")
 
     services.parties.leave(user_pk=friend.pk, party_pk=party_pk)
     assert set(_members(party_pk).values()) == {ParleyMemberState.LEFT}
@@ -56,9 +61,46 @@ def test_a_party_chat_follows_its_members_and_outlives_the_party(services, leade
     services.parties.join_via_link(token=token, user_pk=friend.pk)
     assert set(_members(party_pk).values()) == {ParleyMemberState.ACTIVE}
     services.parties.delete(leader_pk=leader.pk, party_pk=party_pk)
-    chat = ParleyConversation.objects.get(party_id=party_pk)
-    assert chat.title == "Drużyna"
+    assert ParleyConversation.objects.filter(party_id=party_pk).exists()
     assert set(_members(party_pk).values()) == {ParleyMemberState.LEFT}
+
+
+@pytest.mark.postgres
+@pytest.mark.django_db(transaction=True)
+def test_invites_accepted_at_once_all_land_in_the_one_chat(leader):
+    party_pk = Services().parties.create(leader_pk=leader.pk, name="Ekipa")
+    joiners = [UserFactory(age_band=AgeBand.SIXTEEN_PLUS) for _ in range(4)]
+    invites = {
+        user.pk: (
+            PartyMembership.objects.create(
+                party_id=party_pk, member=user, status=PartyMembershipStatus.INVITED
+            ).pk
+        )
+        for user in joiners
+    }
+    barrier = threading.Barrier(len(joiners))
+
+    def accept(user):
+        barrier.wait()
+        try:
+            return Services().parties.accept_invite(
+                user_pk=user.pk, membership_pk=invites[user.pk]
+            )
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=len(joiners)) as pool:
+        accepted = [
+            future.result()
+            for future in [pool.submit(accept, user) for user in joiners]
+        ]
+
+    assert all(accepted)
+
+    assert ParleyConversation.objects.filter(party_id=party_pk).count() == 1
+    assert _members(party_pk) == {
+        user.pk: ParleyMemberState.ACTIVE for user in (leader, *joiners)
+    }
 
 
 def test_an_accepted_invite_brings_the_member_into_the_chat(services, leader):
@@ -111,4 +153,4 @@ def test_nobody_leaves_or_renames_a_party_chat_but_through_the_party(services, l
             change()
 
     assert _members(party_pk)[friend.pk] == ParleyMemberState.ACTIVE
-    assert ParleyConversation.objects.get(pk=chat_pk).title == "Ekipa"
+    assert services.parley_conversations.list_for(friend.pk)[0].title == "Ekipa"

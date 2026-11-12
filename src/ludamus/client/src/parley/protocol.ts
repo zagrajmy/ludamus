@@ -172,6 +172,8 @@ export type Room = {
   conversation?: ConversationInfo;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
+  // The sphere a sphere's room belongs to; a conversation has none.
+  sphere?: number;
   title: string;
 };
 export type Bootstrap = {
@@ -234,11 +236,6 @@ export function passCloseHandlers(onPassClosed: () => void, onRefused: () => voi
     shouldReconnectOnClose: (event: CloseEvent) => !PASS_CLOSED.has(event.code),
   };
 }
-
-// The sphere a room belongs to, which its id names right after its kind; a
-// conversation belongs to none.
-export const sphereOf = (room: Room): string | null =>
-  room.kind === "conversation" ? null : room.id.split(":")[1]!;
 
 // Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
 // plain http/ws; everything else gets TLS.

@@ -2,11 +2,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.links.db.django.models import EventBan, Facilitator
+from ludamus.links.db.django.models import EventBan, Facilitator, SphereMembership
 from ludamus.links.db.django.parley import ParleyRepository
 from ludamus.pacts.enrollment import SessionParticipationStatus
-from ludamus.pacts.parley import ParleyTimeWindow
+from ludamus.pacts.parley import ParleyTeamSeat, ParleyTimeWindow
 from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.sphere import SphereRole
 from ludamus.specs.parley import (
     PARLEY_SESSION_READ_ONLY_DELAY,
     PARLEY_SESSION_RETENTION,
@@ -81,14 +82,14 @@ def test_a_member_has_their_events_and_programme_points_in_every_sphere(
     )
     _event(sphere, now, name="Someone else's")
 
-    access = ParleyRepository().read_access(user_id=active_user.pk, window=window)
+    access = ParleyRepository().read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset()
+    )
 
     assert access is not None
-    assert access.managed_sphere_ids == []
     assert sorted(_rooms(access)) == sorted(
         [
             (f"event:{sphere.pk}:{event.pk}", True, False),
-            (f"event:{elsewhere.pk}:{hosted_event.pk}", True, False),
             (f"event:{waitlist_event.sphere_id}:{waitlist_event.pk}", True, False),
             (f"session:{sphere.pk}:{confirmed.pk}", True, False),
             (f"session:{elsewhere.pk}:{hosted.pk}", False, False),
@@ -112,10 +113,11 @@ def test_a_manager_has_the_organizers_room_and_every_room_of_their_sphere(
     SessionFactory(event=expired, category=None, title="Expired")
     SessionFactory(event=_event(SphereFactory(), now), category=None, title="Foreign")
 
-    access = ParleyRepository().read_access(user_id=active_user.pk, window=window)
+    access = ParleyRepository().read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+    )
 
     assert access is not None
-    assert access.managed_sphere_ids == [sphere.pk]
     assert _rooms(access) == [
         (f"organizers:{sphere.pk}", True, True),
         (f"event:{sphere.pk}:{ended.pk}", False, True),
@@ -145,7 +147,9 @@ def test_an_event_s_chat_follows_its_sphere_unless_it_says_otherwise(
         session=session, user=active_user, status=SessionParticipationStatus.CONFIRMED
     )
 
-    access = ParleyRepository().read_access(user_id=active_user.pk, window=window)
+    access = ParleyRepository().read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset()
+    )
 
     assert access is not None
     session_room = f"session:{sphere.pk}:{session.pk}"
@@ -164,13 +168,19 @@ def test_a_sphere_that_closes_its_organizers_room_keeps_its_other_rooms(
     session = SessionFactory(event=_event(sphere, now), category=None)
     repository = ParleyRepository()
 
-    access = repository.read_access(user_id=active_user.pk, window=window)
+    access = repository.read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+    )
 
     assert access is not None
     assert [room.kind for room in access.rooms] == ["event", "session"]
     assert access.rooms[1].id == f"session:{sphere.pk}:{session.pk}"
-    assert access.managed_sphere_ids == [sphere.pk]
-    assert repository.has_rooms(user_id=active_user.pk, window=window) is True
+    assert (
+        repository.has_rooms(
+            user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+        )
+        is True
+    )
 
 
 def test_a_sphere_with_chat_off_offers_no_room_at_all(sphere, active_user, now, window):
@@ -184,11 +194,18 @@ def test_a_sphere_with_chat_off_offers_no_room_at_all(sphere, active_user, now, 
     )
     repository = ParleyRepository()
 
-    access = repository.read_access(user_id=active_user.pk, window=window)
+    access = repository.read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset()
+    )
 
     assert access is not None
-    assert (access.rooms, access.managed_sphere_ids) == ([], [])
-    assert repository.has_rooms(user_id=active_user.pk, window=window) is False
+    assert access.rooms == []
+    assert (
+        repository.has_rooms(
+            user_id=active_user.pk, window=window, moderated=frozenset()
+        )
+        is False
+    )
 
 
 @pytest.mark.parametrize("taking_part", ("manager", "player", "nobody"))
@@ -204,9 +221,49 @@ def test_says_whether_someone_has_any_room(
             status=SessionParticipationStatus.WAITING,
         )
 
-    has_rooms = ParleyRepository().has_rooms(user_id=active_user.pk, window=window)
+    has_rooms = ParleyRepository().has_rooms(
+        user_id=active_user.pk,
+        window=window,
+        moderated=frozenset({sphere.pk} if taking_part == "manager" else ()),
+    )
 
     assert has_rooms is (taking_part != "nobody")
+
+
+def test_lists_the_teams_of_spheres_with_chat_someone_is_on(sphere, active_user):
+    sphere.managers.add(active_user)
+    press = SphereFactory()
+    SphereMembership.objects.create(
+        sphere=press, user=active_user, role=SphereRole.COMMS
+    )
+    quiet = SphereFactory(parley_enabled=False)
+    quiet.managers.add(active_user)
+
+    seats = ParleyRepository().list_team_seats(active_user.pk)
+
+    assert seats == [
+        ParleyTeamSeat(sphere_id=sphere.pk, role=SphereRole.MANAGER),
+        ParleyTeamSeat(sphere_id=press.pk, role=SphereRole.COMMS),
+    ]
+
+
+def test_hosting_a_programme_point_not_yet_accepted_leaves_the_event_s_chat_shut(
+    sphere, active_user, now, window
+):
+    event = _event(sphere, now)
+    pending = SessionFactory(event=event, category=None, status=SessionStatus.PENDING)
+    pending.facilitators.add(
+        Facilitator.objects.create(
+            event=event, user=active_user, display_name=active_user.name, slug="ada"
+        )
+    )
+
+    access = ParleyRepository().read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset()
+    )
+
+    assert access is not None
+    assert [room.kind for room in access.rooms] == ["session"]
 
 
 @pytest.mark.parametrize("attribute", ("is_active", "user_type"))
@@ -219,5 +276,15 @@ def test_denies_disabled_or_inactive_accounts(sphere, active_user, window, attri
     active_user.save()
     repository = ParleyRepository()
 
-    assert repository.read_access(user_id=active_user.pk, window=window) is None
-    assert repository.has_rooms(user_id=active_user.pk, window=window) is False
+    assert (
+        repository.read_access(
+            user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+        )
+        is None
+    )
+    assert (
+        repository.has_rooms(
+            user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+        )
+        is False
+    )

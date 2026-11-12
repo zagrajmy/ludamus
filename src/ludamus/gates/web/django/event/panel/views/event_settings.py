@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -28,6 +27,7 @@ from ludamus.pacts.event import (
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
+    from django import forms
     from django.http import HttpResponse
 
     from ludamus.pacts.event import EventDTO
@@ -84,6 +84,18 @@ def _stored_images(event: EventDTO) -> dict[str, StoredFile | None]:
     }
 
 
+def _follow_sphere_choices(
+    form: EventSettingsForm, name: str, *, inherited: str, on: str, off: str
+) -> None:
+    # Null follows the sphere, which the first choice says the value of.
+    field = cast("forms.ChoiceField", form.fields[name])
+    field.choices = [
+        ("", _("Use sphere default (currently: {})").format(inherited)),
+        ("true", on),
+        ("false", off),
+    ]
+
+
 class EventSettingsPageView(EventPanelMixin, View):
     """Event settings page view."""
 
@@ -93,28 +105,28 @@ class EventSettingsPageView(EventPanelMixin, View):
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )
-        resolved = (
-            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        _follow_sphere_choices(
+            form,
+            "allow_facilitator_session_edit",
+            inherited=(
+                _("allowed")
+                if sphere.allow_facilitator_session_edit
+                else _("disallowed")
+            ),
+            on=_("Allow"),
+            off=_("Disallow"),
         )
-        edit_field = form.fields["allow_facilitator_session_edit"]
-        if isinstance(edit_field, forms.ChoiceField):
-            edit_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(resolved)),
-                ("true", _("Allow")),
-                ("false", _("Disallow")),
-            ]
-        chat = (
-            pgettext("event chat", "on")
-            if sphere.parley_events_enabled
-            else pgettext("event chat", "off")
+        _follow_sphere_choices(
+            form,
+            "parley_enabled",
+            inherited=(
+                pgettext("event chat", "on")
+                if sphere.parley_events_enabled
+                else pgettext("event chat", "off")
+            ),
+            on=pgettext("event chat", "On"),
+            off=pgettext("event chat", "Off"),
         )
-        chat_field = form.fields["parley_enabled"]
-        if isinstance(chat_field, forms.ChoiceField):
-            chat_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(chat)),
-                ("true", pgettext("event chat", "On")),
-                ("false", pgettext("event chat", "Off")),
-            ]
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context = self.panel_context()

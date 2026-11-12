@@ -30,10 +30,8 @@ export function pass(
       name: `Person ${sub}`,
       readOnlyAfter: 172_800,
       retainFor: 2_592_000,
-      events: {},
-      managed: [],
-      organizers: [],
-      sessions: { [`${sphere}:101`]: { endsAt: now() + 3_600, writable: true } },
+      events: { [`${sphere}:1`]: eventGrant({ "101": true }) },
+      managed: {},
       sub,
       ...extra,
     },
@@ -43,7 +41,16 @@ export function pass(
 }
 
 export const manager = (sub: string, sphere: string, issuedAt = now()) =>
-  pass(sub, sphere, issuedAt, { managed: [sphere], organizers: [sphere], sessions: {} });
+  pass(sub, sphere, issuedAt, { events: {}, managed: { [sphere]: { organizers: true } } });
+
+// An event on a pass, ending in an hour unless told otherwise, with the given
+// programme points and whether each takes messages.
+export function eventGrant(
+  sessions: Record<string, boolean> = {},
+  fields: { chat?: boolean; endsAt?: number; writable?: boolean } = {},
+) {
+  return { chat: false, endsAt: now() + 3_600, sessions, writable: true, ...fields };
+}
 
 export type Socket = {
   call: <T = unknown>(method: string, input?: Record<string, unknown>) => Promise<T>;

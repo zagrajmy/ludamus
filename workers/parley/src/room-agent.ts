@@ -58,7 +58,6 @@ export function roomAgent(env: Env, room: Room) {
     event: env.ParleyEventAgent,
     organizers: env.ParleyOrganizersAgent,
     session: env.ParleySessionAgent,
-    sphere: env.ParleySphereAgent,
   };
   return getAgentByName<Env, RoomAgent>(
     namespaces[room.kind] as unknown as DurableObjectNamespace<RoomAgent>,
@@ -487,6 +486,23 @@ export abstract class RoomAgent extends Agent<Env> {
     if (count >= maximum) return false;
     void this
       .sql`INSERT INTO rate_events (user_id, kind, created_at) VALUES (${userId}, ${kind}, ${now})`;
+    return true;
+  }
+
+  // Not @callable: staff, acting on a report from a room nobody moderates,
+  // delete over the Worker's own fetch. Answers whether the room has it.
+  deleteAsStaff(id: number): boolean {
+    this.purgeExpiredMessages();
+    const row = this.sql<{
+      deleted_at: number | null;
+    }>`SELECT deleted_at FROM messages WHERE id = ${id}`[0];
+    if (row === undefined) return false;
+    if (row.deleted_at === null) {
+      void this
+        .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = 'staff', deletion_reason = 'staff' WHERE id = ${id}`;
+      void this.sql`DELETE FROM reactions WHERE message_id = ${id}`;
+      this.emit({ type: "message.deleted", v: 1, payload: { id } });
+    }
     return true;
   }
 

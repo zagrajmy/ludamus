@@ -175,9 +175,13 @@ class FakeSpheres:
 class FakeChat:
     def __init__(self):
         self.revoked = []
+        self.aged = []
 
     def revoke_user(self, *, user_id):
         self.revoked.append(user_id)
+
+    def age_changed(self, *, user_id):
+        self.aged.append(user_id)
 
 
 def _service(*, users, claims=None, spheres=None, subscriptions=None, chat=None):
@@ -649,6 +653,18 @@ class TestAgeConfirmation:
         _service(users=users).confirm_age(user_slug=user.slug, age_band=declared)
 
         assert users.read(user.slug).privacy_revision != user.privacy_revision
+
+    def test_the_chat_hears_of_an_age_change_and_not_of_the_same_age(self):
+        # Who may be in someone's chats can hang on their age, the two-person
+        # party chat among them.
+        user = _user_dto(age_band=AgeBand.SIXTEEN_PLUS)
+        chat = FakeChat()
+        service = _service(users=FakeUsers(users=[user]), chat=chat)
+
+        service.confirm_age(user_slug=user.slug, age_band=AgeBand.SIXTEEN_PLUS)
+        service.confirm_age(user_slug=user.slug, age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
+
+        assert chat.aged == [user.pk]
 
     def test_reconfirming_the_same_age_preserves_browser_consent(self):
         user = _user_dto(age_band=AgeBand.SIXTEEN_PLUS)

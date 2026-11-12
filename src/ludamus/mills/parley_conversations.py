@@ -18,6 +18,7 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.parley import (
+    CONVERSATION_POLICIES,
     ParleyConversationError,
     ParleyConversationKind,
     ParleyMembershipClaims,
@@ -27,7 +28,7 @@ from ludamus.specs.parley import (
     PARLEY_DIRECT_AGE_BANDS,
     PARLEY_GROUP_MAX_MEMBERS,
     PARLEY_GROUP_TITLE_MAX_LENGTH,
-    PARLEY_PARTY_CHAT_PAIR,
+    PARLEY_PAIR,
     PARLEY_PEOPLE_SEARCH_LIMIT,
     PARLEY_PEOPLE_SEARCH_MIN_LENGTH,
 )
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
         ParleySignerProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.user import AgeBand
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +64,20 @@ def _pair_key(first_id: int, second_id: int) -> str:
     return f"{low}:{high}"
 
 
+def _pair_short_of_direct(age_bands: list[AgeBand]) -> bool:
+    return len(age_bands) == PARLEY_PAIR and any(
+        band not in PARLEY_DIRECT_AGE_BANDS for band in age_bands
+    )
+
+
 def party_chat_members(candidates: list[ParleyPartyCandidate]) -> list[int]:
     """Who talks in a party's chat: every active member, of any age.
 
     Nobody, though, in a party of fewer than two, or in a pair that could not
     message each other directly: their chat would be a direct message.
     """
-    if len(candidates) < PARLEY_PARTY_CHAT_PAIR or (
-        len(candidates) == PARLEY_PARTY_CHAT_PAIR
-        and any(c.age_band not in PARLEY_DIRECT_AGE_BANDS for c in candidates)
+    if len(candidates) < PARLEY_PAIR or _pair_short_of_direct(
+        [candidate.age_band for candidate in candidates]
     ):
         return []
     return [candidate.user_id for candidate in candidates]
@@ -79,11 +86,11 @@ def party_chat_members(candidates: list[ParleyPartyCandidate]) -> list[int]:
 def visible_conversations(
     conversations: list[ParleyConversationDTO], *, direct: bool
 ) -> list[ParleyConversationDTO]:
-    """Keep a party's chat for anyone in it, the rest once open to them."""
+    """Keep the conversations open to this person, by what each kind needs."""
     return [
         conversation
         for conversation in conversations
-        if direct or conversation.kind == ParleyConversationKind.PARTY
+        if direct or not CONVERSATION_POLICIES[conversation.kind].needs_direct
     ]
 
 
@@ -171,9 +178,9 @@ class ParleyConversationService:
             member = self._repository.read_member(
                 conversation_id=conversation_id, user_id=user_id
             )
-            if member is None or member[1] not in _PRESENT:
+            if member is None or member.state not in _PRESENT:
                 raise ParleyConversationError("not_found")
-            if member[0] == ParleyConversationKind.PARTY:
+            if not CONVERSATION_POLICIES[member.kind].self_managed:
                 raise ParleyConversationError("forbidden")
             self._repository.set_member(
                 conversation_id=conversation_id,
@@ -275,13 +282,13 @@ class ParleyConversationService:
         member = self._repository.read_member(
             conversation_id=conversation_id, user_id=user_id
         )
-        if member is None or member[1] not in _PRESENT:
+        if member is None or member.state not in _PRESENT:
             raise ParleyConversationError("not_found")
         # A request is answered before it is renamed; a party's chat goes by
         # the party's name.
         if (
-            member[1] != ParleyMemberState.ACTIVE
-            or member[0] == ParleyConversationKind.PARTY
+            member.state != ParleyMemberState.ACTIVE
+            or not CONVERSATION_POLICIES[member.kind].self_managed
         ):
             raise ParleyConversationError("forbidden")
         self._repository.set_title(conversation_id=conversation_id, title=name)
@@ -318,7 +325,7 @@ class ParleyConversationService:
             member = self._repository.read_member(
                 conversation_id=conversation_id, user_id=user_id
             )
-            if member is None or member[1] != ParleyMemberState.REQUEST:
+            if member is None or member.state != ParleyMemberState.REQUEST:
                 raise ParleyConversationError("not_found")
             self._repository.set_member(
                 conversation_id=conversation_id,
@@ -351,9 +358,9 @@ class ParleyConversationService:
         member = self._repository.read_member(
             conversation_id=conversation_id, user_id=user_id
         )
-        if member is None or member[1] not in _PRESENT:
+        if member is None or member.state not in _PRESENT:
             raise ParleyConversationError("not_found")
-        if member[0] != ParleyConversationKind.GROUP or not member[2]:
+        if member.kind != ParleyConversationKind.GROUP or not member.is_admin:
             raise ParleyConversationError("forbidden")
 
     def _reachable(self, user_id: int, other_id: int) -> bool:
@@ -373,7 +380,7 @@ class ParleyConversationService:
         member = self._repository.read_member(
             conversation_id=conversation_id, user_id=user_id
         )
-        return None if member is None else member[1]
+        return None if member is None else member.state
 
     def _kept(
         self, conversation_id: int, user_id: int, otherwise: ParleyMemberState
@@ -408,6 +415,9 @@ class ParleyPartyChatService:
 
     def sync_party(self, party_id: int) -> None:
         with self._transaction.atomic():
+            # SAFETY: a join and a leave synced at once would each write the
+            # list they read, the older one last.
+            self._repository.lock_party(party_id)
             members = party_chat_members(
                 self._repository.list_party_candidates(party_id)
             )
@@ -423,10 +433,18 @@ class ParleyPartyChatService:
                 )
                 self._outbox.schedule(conversation_ids=[conversation_id])
 
-    def sync_member(self, user_id: int) -> None:
-        """Bring this person into the chats of their parties they are not in yet."""
-        for party_id in self._repository.parties_awaiting(user_id):
+    def sync_parties_of(self, user_id: int) -> None:
+        """Bring the chats of this person's parties in step with them."""
+        for party_id in self._repository.party_ids_of(user_id):
             self.sync_party(party_id)
+
+    def open_existing_chats(self) -> int:
+        """Sync every party's chat, those made before party chats among them."""
+        party_ids = self._repository.list_party_ids()
+        for party_id in party_ids:
+            self.sync_party(party_id)
+        logger.info("parley party chats opened: parties=%s", len(party_ids))
+        return len(party_ids)
 
 
 def sign_membership(
@@ -437,6 +455,12 @@ def sign_membership(
     now: datetime,
 ) -> str:
     kind, members = repository.snapshot(conversation_id)
+    policy = CONVERSATION_POLICIES[kind]
+    talking = [member for member in members if member.state != ParleyMemberState.LEFT]
+    if policy.pair_needs_direct and _pair_short_of_direct(
+        [member.age_band for member in talking]
+    ):
+        members = []
     issued = int(now.timestamp())
     return signer.sign(
         ParleyMembershipClaims(
@@ -444,6 +468,7 @@ def sign_membership(
             aud="parley-membership",
             conversation=str(conversation_id),
             kind=kind,
+            needs_direct=policy.needs_direct,
             members=[
                 {
                     "user": str(member.user_id),

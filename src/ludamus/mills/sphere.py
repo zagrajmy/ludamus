@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.sphere import Capability, SphereSettingsOutcome
+from ludamus.specs.parley import event_chat_on
 from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
@@ -305,6 +306,13 @@ class SpherePanelService:
             if data:
                 self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
+
+    def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool:
+        """Whether the event's chat is on: its own choice, else the sphere's."""
+        return event_chat_on(
+            own=event.parley_enabled,
+            sphere_default=self._spheres.read(sphere_id).parley_events_enabled,
+        )
 
     def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
         data: SphereUpdateData = {"logo": logo}

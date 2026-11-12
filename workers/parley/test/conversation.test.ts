@@ -14,7 +14,12 @@ const sync = (
   members: { state: string; user: string; writable: boolean }[],
   kind = "group",
   issuedAt = now(),
-) => post("/conversations", { conversation, iat: issuedAt, kind, members }, MEMBERSHIP_AUDIENCE);
+) =>
+  post(
+    "/conversations",
+    { conversation, iat: issuedAt, kind, members, needsDirect: kind !== "party" },
+    MEMBERSHIP_AUDIENCE,
+  );
 
 const direct = (sub: string) => pass(sub, "3", now(), { direct: true });
 const say = (socket: Awaited<ReturnType<typeof open>>, body: string) =>
