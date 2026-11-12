@@ -126,7 +126,8 @@ export type IconName = keyof typeof paths;
 
 // Glyphs that fill their whole box are drawn a step smaller, so they sit
 // level with the lighter ones beside them, the close cross above all.
-const VIEW_BOX: Partial<Record<IconName, string>> = { Compose: "-2.5 -2.5 25 25" };
+// Compose is centred on its square, not on the pencil poking out of it.
+const VIEW_BOX: Partial<Record<IconName, string>> = { Compose: "-2.5 -2 25 25" };
 
 export function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) {
   return (
