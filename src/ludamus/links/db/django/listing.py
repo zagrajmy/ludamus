@@ -5,9 +5,26 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db.models import Case, Count, Prefetch, QuerySet, Value, When
+from django.db.models import (
+    Case,
+    CharField,
+    Exists,
+    F,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
 
-from ludamus.links.db.django.models import Listing, ListingResponse, Tag
+from ludamus.links.db.django.models import (
+    Listing,
+    ListingResponse,
+    Party,
+    PartyMembership,
+    Tag,
+)
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -18,17 +35,23 @@ from ludamus.pacts.listing import (
     ListingContact,
     ListingDTO,
     ListingNotification,
+    ListingPartyChoiceDTO,
     ListingRepositoryProtocol,
     ListingResponseDTO,
     ListingResponseRepositoryProtocol,
     ListingResponseStatus,
+    ListingResponseTab,
     ListingSeeking,
     ListingStatus,
     ListingTagDTO,
 )
+from ludamus.pacts.party import PartyMembershipStatus
 
 if TYPE_CHECKING:
     from datetime import datetime
+    from typing import TypedDict
+
+    from django_stubs_ext import WithAnnotations
 
     from ludamus.pacts.listing import (
         ListingCreateDict,
@@ -36,14 +59,79 @@ if TYPE_CHECKING:
         ListingWriteDict,
     )
 
+    class _Joined(TypedDict):
+        joined: bool
+        stage: str
 
-def _listings() -> QuerySet[Listing]:
-    return Listing.objects.select_related("author").prefetch_related(
-        Prefetch("picked_tags", queryset=Tag.objects.order_by("name"))
+    class _PartyFormed(TypedDict):
+        party_formed: bool
+
+    type _Response = WithAnnotations[ListingResponse, _Joined]
+    type _Listing = WithAnnotations[Listing, _PartyFormed]
+
+
+def _joined() -> Exists:
+    """Whether a response's user is an active member of a party tied to its listing.
+
+    A party is tied to a listing when the listing shows it up front or when
+    the author invited any responder to it, so joining by link counts too.
+    """
+    return Exists(
+        PartyMembership.objects.filter(
+            member_id=OuterRef("user_id"), status=PartyMembershipStatus.ACTIVE
+        ).filter(
+            Q(party_id=OuterRef("listing__party_id"))
+            | Q(party__listing_responses__listing_id=OuterRef("listing_id"))
+        )
     )
 
 
-def _dto(listing: Listing) -> ListingDTO:
+def _in_invited_party() -> Exists:
+    return Exists(
+        PartyMembership.objects.filter(
+            party_id=OuterRef("party_id"), member_id=OuterRef("user_id")
+        )
+    )
+
+
+def _stage() -> Case:
+    """Read the stored status, unless the membership behind an invite is gone.
+
+    Declining an invite, having it withdrawn, leaving or being removed all
+    happen on the party side and leave the stored status `invited`; such a
+    responder is waiting again.
+    """
+    return Case(
+        When(
+            Q(status=ListingResponseStatus.INVITED) & ~_in_invited_party(),
+            then=Value(ListingResponseStatus.WAITING.value),
+        ),
+        default=F("status"),
+        output_field=CharField(),
+    )
+
+
+def _responses() -> QuerySet[_Response]:
+    return ListingResponse.objects.select_related("user", "party").annotate(
+        joined=_joined(), stage=_stage()
+    )
+
+
+def _listings() -> QuerySet[_Listing]:
+    return (
+        Listing.objects.select_related("author")
+        .prefetch_related(
+            Prefetch("picked_tags", queryset=Tag.objects.order_by("name"))
+        )
+        .annotate(
+            party_formed=Exists(
+                _responses().filter(listing_id=OuterRef("pk"), joined=True)
+            )
+        )
+    )
+
+
+def _dto(listing: _Listing) -> ListingDTO:
     return ListingDTO(
         pk=listing.pk,
         sphere_id=listing.sphere_id,
@@ -64,10 +152,12 @@ def _dto(listing: Listing) -> ListingDTO:
         opened_at=listing.opened_at,
         header_image_url=listing.header_image_url,
         header_image_original_name=listing.header_image_original_name,
+        party_id=listing.party_id,
+        party_formed=listing.party_formed,
     )
 
 
-def _get(listings: QuerySet[Listing], **lookup: int) -> ListingDTO:
+def _get(listings: QuerySet[_Listing], **lookup: int) -> ListingDTO:
     try:
         return _dto(listings.get(**lookup))
     except Listing.DoesNotExist as exception:
@@ -167,22 +257,61 @@ class ListingRepository(ListingRepositoryProtocol):
         Listing.objects.filter(pk__in=pks).update(status=ListingStatus.CLOSED)
         return pks
 
+    @staticmethod
+    def party_member_names(party_id: int) -> list[str]:
+        return [
+            membership.member.full_name
+            for membership in (
+                PartyMembership.objects.filter(
+                    party_id=party_id, status=PartyMembershipStatus.ACTIVE
+                )
+                .select_related("member")
+                .order_by("pk")
+            )
+        ]
 
-def _response_dto(response: ListingResponse) -> ListingResponseDTO:
+    @staticmethod
+    def list_for_party(party_id: int) -> list[ListingDTO]:
+        listings = (
+            _listings()
+            .filter(Q(party_id=party_id) | Q(responses__party_id=party_id))
+            .exclude(status=ListingStatus.DRAFT)
+            .distinct()
+        )
+        return [_dto(listing) for listing in listings.order_by("-opened_at")]
+
+    @staticmethod
+    def led_parties(leader_id: int) -> list[ListingPartyChoiceDTO]:
+        return [
+            ListingPartyChoiceDTO(pk=pk, name=name)
+            for pk, name in (
+                Party.objects.filter(leader_id=leader_id)
+                .order_by("pk")
+                .values_list("pk", "name")
+            )
+        ]
+
+
+def _response_dto(response: _Response) -> ListingResponseDTO:
     return ListingResponseDTO(
         pk=response.pk,
         listing_id=response.listing_id,
         user_id=response.user_id,
         user_name=response.user.full_name,
         message=response.message,
-        status=ListingResponseStatus(response.status),
+        status=ListingResponseStatus(response.stage),
         decline_message=response.decline_message,
         creation_time=response.creation_time,
+        contact=ListingContact(response.contact),
+        party_name=response.party.name if response.party else "",
+        joined=response.joined,
     )
 
 
-def _responses() -> QuerySet[ListingResponse]:
-    return ListingResponse.objects.select_related("user")
+def _in_tab(tab: ListingResponseTab) -> Q:
+    if tab is ListingResponseTab.JOINED:
+        return Q(joined=True)
+    return Q(joined=False, stage=tab.value)
 
 
 class ListingResponseRepository(ListingResponseRepositoryProtocol):
@@ -203,28 +332,24 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
         return _response_dto(response) if response else None
 
     @staticmethod
-    def list_for_listing(
-        *, listing_id: int, status: ListingResponseStatus
+    def list_in_tab(
+        *, listing_id: int, tab: ListingResponseTab
     ) -> list[ListingResponseDTO]:
-        responses = _responses().filter(listing_id=listing_id, status=status)
+        responses = _responses().filter(_in_tab(tab), listing_id=listing_id)
         return [_response_dto(response) for response in responses.order_by("pk")]
 
     @staticmethod
-    def count_by_status(listing_id: int) -> dict[ListingResponseStatus, int]:
-        counts = dict(
-            ListingResponse.objects.filter(listing_id=listing_id)
-            .values("status")
-            .annotate(count=Count("pk"))
-            .values_list("status", "count")
-        )
-        return {status: counts.get(status, 0) for status in ListingResponseStatus}
+    def count_by_tab(listing_id: int) -> dict[ListingResponseTab, int]:
+        responses = _responses().filter(listing_id=listing_id)
+        return {
+            tab: responses.filter(_in_tab(tab)).count() for tab in ListingResponseTab
+        }
 
     @staticmethod
     def waiting_user_ids(listing_id: int) -> list[int]:
         return list(
-            ListingResponse.objects.filter(
-                listing_id=listing_id, status=ListingResponseStatus.WAITING
-            )
+            _responses()
+            .filter(listing_id=listing_id, stage=ListingResponseStatus.WAITING)
             .order_by("pk")
             .values_list("user_id", flat=True)
         )
@@ -236,10 +361,19 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
         )
 
     @staticmethod
+    def invite(*, pk: int, party_id: int) -> None:
+        ListingResponse.objects.filter(pk=pk).update(
+            status=ListingResponseStatus.INVITED, party_id=party_id
+        )
+
+    @staticmethod
     def dismiss_waiting(listing_ids: list[int]) -> list[ListingNotification]:
         waiting = list(
-            ListingResponse.objects.filter(
-                listing_id__in=listing_ids, status=ListingResponseStatus.WAITING
+            _responses()
+            .filter(
+                listing_id__in=listing_ids,
+                stage=ListingResponseStatus.WAITING,
+                joined=False,
             )
             .order_by("listing_id", "pk")
             .values_list("pk", "user_id", "listing_id", "listing__title")

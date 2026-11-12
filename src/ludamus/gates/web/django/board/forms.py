@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from django.http import QueryDict
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts.listing import BoardFiltersDict
+    from ludamus.pacts.listing import BoardFiltersDict, ListingPartyChoiceDTO
     from ludamus.pacts.tags import TagCategoryOptionsDTO
 
 SEEKING_LABELS = {
@@ -196,10 +196,26 @@ class ListingForm(forms.Form):
         *args: Any,
         tag_categories: list[TagCategoryOptionsDTO],
         contact_channels: list[ListingContact],
+        parties: list[ListingPartyChoiceDTO],
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.tag_categories = tag_categories
+        if parties:
+            self.fields["party"] = forms.TypedChoiceField(
+                label=_("Your party"),
+                required=False,
+                coerce=int,
+                empty_value=None,
+                choices=[
+                    ("", gettext("Don't show a party")),
+                    *((party.pk, _party_label(party)) for party in parties),
+                ],
+                help_text=_(
+                    "Its members show on the listing. Otherwise the party you "
+                    "form stays private."
+                ),
+            )
         self.fields["tags"] = forms.TypedMultipleChoiceField(
             label=_("Tags"),
             coerce=int,
@@ -237,3 +253,30 @@ class ListingForm(forms.Form):
                 "when_text", gettext("Give a date and time, or describe when.")
             )
         return cleaned
+
+
+NEW_PARTY = "new"
+
+
+def _party_label(party: ListingPartyChoiceDTO) -> str:
+    return party.name or gettext("Your party")
+
+
+class ListingInviteForm(forms.Form):
+    def __init__(
+        self, data: QueryDict | None = None, *, parties: list[ListingPartyChoiceDTO]
+    ) -> None:
+        super().__init__(data)
+        self.fields["party"] = forms.ChoiceField(
+            label=_("Party"),
+            choices=[
+                (NEW_PARTY, gettext("A new party")),
+                *((str(party.pk), _party_label(party)) for party in parties),
+            ],
+            initial=NEW_PARTY,
+            widget=forms.Select if parties else forms.HiddenInput,
+        )
+
+    def clean_party(self) -> int | None:
+        party = self.cleaned_data["party"]
+        return None if party == NEW_PARTY else int(party)

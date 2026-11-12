@@ -212,6 +212,23 @@ msgstr ""
 "skończą."
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/user/user/parties.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Your party"
+msgstr "Twoja drużyna"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Don't show a party"
+msgstr "Bez drużyny"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid ""
+"Its members show on the listing. Otherwise the party you form stays private."
+msgstr ""
+"Jej członkowie będą widoczni w ogłoszeniu. Bez tego drużyna, którą "
+"zbierzesz, pozostaje prywatna."
+
+#: src/ludamus/gates/web/django/board/forms.py
 #: src/ludamus/templates/board/detail.html
 msgid "Tags"
 msgstr "Tagi"
@@ -231,6 +248,14 @@ msgstr ""
 #: src/ludamus/gates/web/django/board/forms.py
 msgid "Give a date and time, or describe when."
 msgstr "Podaj datę i godzinę albo opisz, kiedy."
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "Party"
+msgstr "Drużyna"
+
+#: src/ludamus/gates/web/django/board/forms.py
+msgid "A new party"
+msgstr "Nowa drużyna"
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Add your Discord username to your profile, or pick another contact."
@@ -256,6 +281,10 @@ msgstr "Wiadomość może mieć najwyżej %(limit)d znaków."
 #: src/ludamus/gates/web/django/board/views.py
 msgid "They'll be told it's not this time."
 msgstr "Dostanie wiadomość „Nie tym razem”."
+
+#: src/ludamus/gates/web/django/board/views.py
+msgid "Invitation sent. They join once they accept it."
+msgstr "Zaproszenie wysłane. Dołączenie nastąpi po jego przyjęciu."
 
 #: src/ludamus/gates/web/django/board/views.py
 msgid "Listing published."
@@ -5256,15 +5285,6 @@ msgstr ""
 "zainteresowany, możesz zapisać się ponownie."
 
 #: src/ludamus/links/db/django/notifications.py
-msgid "their party"
-msgstr "swojej drużyny"
-
-#: src/ludamus/links/db/django/notifications.py
-#, python-format
-msgid "%(member)s invited you to %(party)s"
-msgstr "%(member)s zaprasza Cię do %(party)s"
-
-#: src/ludamus/links/db/django/notifications.py
 msgid ""
 "Join the party to enroll in events together — you move up waiting lists as "
 "one group. You decide about every enrollment unless you say otherwise."
@@ -5272,6 +5292,24 @@ msgstr ""
 "Dołącz do drużyny, aby zapisywać się na wydarzenia wspólnie — na listach "
 "oczekujących awansujecie jako jedna grupa. O każdym zapisie decydujesz Ty, "
 "chyba że postanowisz inaczej."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"You showed interest in %(listing)s. Accept the invitation to join the party, "
+"and you and the author see each other's contact."
+msgstr ""
+"Chodzi o ogłoszenie %(listing)s. Przyjmij zaproszenie do drużyny, a Ty i "
+"autor zobaczycie swoje kontakty."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(member)s invited you to %(party)s"
+msgstr "%(member)s zaprasza Cię do %(party)s"
+
+#: src/ludamus/links/db/django/notifications.py
+msgid "their party"
+msgstr "swojej drużyny"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6147,6 +6185,16 @@ msgstr "Otwórz czat"
 msgid "Board"
 msgstr "Ogłoszenia"
 
+#: src/ludamus/templates/board/_contact.html
+#, python-format
+msgid "Discord: %(address)s"
+msgstr "Discord: %(address)s"
+
+#: src/ludamus/templates/board/_contact.html
+#, python-format
+msgid "Email: %(address)s"
+msgstr "E-mail: %(address)s"
+
 #: src/ludamus/templates/board/_create_actions.html
 #, python-format
 msgid ""
@@ -6199,6 +6247,32 @@ msgstr ""
 "słowami albo jedno i drugie."
 
 #: src/ludamus/templates/board/_respond.html
+msgid "You're in the author's party."
+msgstr "Należysz do drużyny autora ogłoszenia."
+
+#: src/ludamus/templates/board/_respond.html
+#, python-format
+msgid "Author's Discord: %(address)s"
+msgstr "Discord autora ogłoszenia: %(address)s"
+
+#: src/ludamus/templates/board/_respond.html
+#, python-format
+msgid "Author's email: %(address)s"
+msgstr "E-mail autora ogłoszenia: %(address)s"
+
+#: src/ludamus/templates/board/_respond.html
+msgid ""
+"The author invited you to their party. Accept the invitation to swap "
+"contacts."
+msgstr ""
+"Masz zaproszenie do drużyny autora ogłoszenia. Przyjmij je, by wymienić się "
+"kontaktami."
+
+#: src/ludamus/templates/board/_respond.html
+msgid "See the invitation"
+msgstr "Zobacz zaproszenie"
+
+#: src/ludamus/templates/board/_respond.html
 msgid ""
 "You're interested. The author will add you to their party or let you know."
 msgstr "Zgłoszenie wysłane. Autor doda Cię do drużyny albo da znać."
@@ -6230,6 +6304,11 @@ msgstr "Szkic"
 
 #: src/ludamus/templates/board/_status.html
 msgctxt "listing status"
+msgid "Party formed"
+msgstr "Drużyna powstała"
+
+#: src/ludamus/templates/board/_status.html
+msgctxt "listing status"
 msgid "Ended"
 msgstr "Zakończone"
 
@@ -6241,6 +6320,14 @@ msgstr "Dodaj ogłoszenie"
 #: src/ludamus/templates/board/detail.html
 msgid "Posted by"
 msgstr "Autor"
+
+#: src/ludamus/templates/board/detail.html
+msgid "In your party"
+msgstr "W drużynie"
+
+#: src/ludamus/templates/board/detail.html
+msgid "Already in the party"
+msgstr "Już w drużynie"
 
 #: src/ludamus/templates/board/detail.html
 msgid "Contact for your party"
@@ -6279,9 +6366,10 @@ msgid "Edit listing"
 msgstr "Edytuj ogłoszenie"
 
 #: src/ludamus/templates/board/detail.html
+#: src/ludamus/templates/board/responses.html
 #, python-format
-msgid "Responses (%(waiting_count)s)"
-msgstr "Zgłoszenia (%(waiting_count)s)"
+msgid "Interested (%(count)s)"
+msgstr "Czekają (%(count)s)"
 
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
@@ -6344,13 +6432,35 @@ msgstr "Kontakty zobaczycie, gdy ktoś dołączy do Twojej drużyny."
 
 #: src/ludamus/templates/board/responses.html
 #, python-format
-msgid "Interested (%(count)s)"
-msgstr "Czekają (%(count)s)"
+msgid "Invited (%(count)s)"
+msgstr "Zaproszenia (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "In your party (%(count)s)"
+msgstr "W drużynie (%(count)s)"
 
 #: src/ludamus/templates/board/responses.html
 #, python-format
 msgid "Not this time (%(count)s)"
 msgstr "Nie tym razem (%(count)s)"
+
+#: src/ludamus/templates/board/responses.html
+#, python-format
+msgid "Invited to %(party)s. They join once they accept."
+msgstr "Zaproszenie do: %(party)s. Dołączenie nastąpi po jego przyjęciu."
+
+#: src/ludamus/templates/board/responses.html
+msgid "Invited to your party. They join once they accept."
+msgstr "Zaproszenie do Twojej drużyny. Dołączenie nastąpi po jego przyjęciu."
+
+#: src/ludamus/templates/board/responses.html
+msgid "Add to a new party"
+msgstr "Dodaj do nowej drużyny"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Add to party"
+msgstr "Dodaj do drużyny"
 
 #: src/ludamus/templates/board/responses.html
 msgid "Not this time"
@@ -6368,6 +6478,23 @@ msgstr "Nikt nie czeka na odpowiedź"
 msgid "People who click “I'm interested” on your listing show up here."
 msgstr ""
 "Tu pojawią się osoby, które klikną „Zgłaszam się” przy Twoim ogłoszeniu."
+
+#: src/ludamus/templates/board/responses.html
+msgid "No invitations waiting"
+msgstr "Brak oczekujących zaproszeń"
+
+#: src/ludamus/templates/board/responses.html
+msgid "People you add to a party wait here until they accept."
+msgstr "Osoby dodane do drużyny czekają tu, aż przyjmą zaproszenie."
+
+#: src/ludamus/templates/board/responses.html
+msgid "Nobody has joined yet"
+msgstr "Nikt jeszcze nie dołączył"
+
+#: src/ludamus/templates/board/responses.html
+msgid ""
+"Once someone accepts your invitation, you see each other's contact here."
+msgstr "Gdy ktoś przyjmie zaproszenie, zobaczycie tu nawzajem swoje kontakty."
 
 #: src/ludamus/templates/board/responses.html
 msgid "You haven't turned anyone down"
@@ -13609,11 +13736,6 @@ msgstr[3] "%(counter)s osoby"
 
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "Your party"
-msgstr "Twoja drużyna"
-
-#: src/ludamus/templates/user/user/parties.html
-#: src/ludamus/templates/user/user/party_detail.html
 #, python-format
 msgid "led by %(leader)s"
 msgstr "lider: %(leader)s"
@@ -13850,6 +13972,10 @@ msgid "Regenerate link"
 msgstr "Wygeneruj nowy link"
 
 #: src/ludamus/templates/user/user/party_detail.html
+msgid "From the board"
+msgstr "Z ogłoszeń"
+
+#: src/ludamus/templates/user/user/party_detail.html
 msgid "Sessions together"
 msgstr "Wspólne punkty programu"
 
@@ -14024,11 +14150,8 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
-
-#~ msgid "Give the group a name."
-#~ msgstr "Nadaj grupie nazwę."
+#~ msgid "Unnamed party"
+#~ msgstr "Drużyna bez nazwy"
 
 #~ msgid "yourself"
 #~ msgstr "siebie"
@@ -14129,6 +14252,16 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
+
+#, python-format
+#~ msgid "Responses (%(waiting_count)s)"
+#~ msgstr "Zgłoszenia (%(waiting_count)s)"
+
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
 
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"

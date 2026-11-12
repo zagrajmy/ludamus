@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         ListingDeclinedNotification,
         ListingInterestedNotification,
         ListingNotification,
+        ListingPartyInviteNotification,
     )
     from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
@@ -335,28 +336,53 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_party_invited(notification: PartyInviteNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
-            party = notification.party_name or _("their party")
-            title = _("%(member)s invited you to %(party)s") % {
-                "member": notification.actor_name,
-                "party": party,
-            }
-            body = _(
-                "Join the party to enroll in events together — you move up "
-                "waiting lists as one group. You decide about every enrollment "
-                "unless you say otherwise."
-            )
-            _deliver(
-                recipient,
-                Bell(
-                    kind=NotificationKind.PARTY_INVITE,
-                    title=title,
-                    body=body,
-                    url=absolute_url(
-                        reverse("web:crowd:profile-parties"),
-                        domain=settings.ROOT_DOMAIN,
-                    ),
+            DjangoUserNotifier._invite_to_party(
+                recipient=recipient,
+                actor_name=notification.actor_name,
+                party_name=notification.party_name,
+                body=_(
+                    "Join the party to enroll in events together — you move up "
+                    "waiting lists as one group. You decide about every enrollment "
+                    "unless you say otherwise."
                 ),
             )
+
+    @staticmethod
+    def notify_listing_party_invited(
+        notification: ListingPartyInviteNotification,
+    ) -> None:
+        with speaking_to(notification.recipient_user_id) as recipient:
+            DjangoUserNotifier._invite_to_party(
+                recipient=recipient,
+                actor_name=notification.author_name,
+                party_name=notification.party_name,
+                body=_(
+                    "You showed interest in %(listing)s. Accept the invitation to "
+                    "join the party, and you and the author see each other's "
+                    "contact."
+                )
+                % {"listing": notification.listing_title},
+            )
+
+    @staticmethod
+    def _invite_to_party(
+        *, recipient: Recipient, actor_name: str, party_name: str, body: str
+    ) -> None:
+        title = _("%(member)s invited you to %(party)s") % {
+            "member": actor_name,
+            "party": party_name or _("their party"),
+        }
+        _deliver(
+            recipient,
+            Bell(
+                kind=NotificationKind.PARTY_INVITE,
+                title=title,
+                body=body,
+                url=absolute_url(
+                    reverse("web:crowd:profile-parties"), domain=settings.ROOT_DOMAIN
+                ),
+            ),
+        )
 
     @staticmethod
     def notify_party_enrolled(notification: PartyEnrolledNotification) -> None:

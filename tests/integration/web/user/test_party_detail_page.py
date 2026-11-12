@@ -8,22 +8,31 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     EventBan,
+    ListingResponse,
     Party,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
+)
+from ludamus.pacts.listing import (
+    ListingContact,
+    ListingPartyContactDTO,
+    ListingResponseStatus,
+    ListingStatus,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.user import UserType, gravatar_url
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
+    ListingFactory,
     SessionFactory,
     SpaceFactory,
     UserFactory,
     sponsor_user,
 )
 from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.web.board.expected import listing_dto
 from tests.integration.web.user.test_profile_parties_page import _member_dto, _party_dto
 
 TEMPLATE = "user/user/party_detail.html"
@@ -49,6 +58,8 @@ def _context(party_dto, **overrides):
         "companion_form": ANY if party_dto.is_active_member else None,
         "invite_token": "",
         "history": [],
+        "listings": [],
+        "party_contacts": {},
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -513,4 +524,113 @@ class TestPartyDetailSessionHistory:
         assert card.is_full
         assert all(
             participation.user.pk < 0 for participation in card.session_participations
+        )
+
+
+class TestPartyDetailListings:
+    def test_links_the_listings_the_party_came_from(
+        self, authenticated_client, active_user, sphere
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        shown = ListingFactory(sphere=sphere, author=active_user, party=party)
+        ListingFactory(
+            sphere=sphere,
+            author=active_user,
+            party=party,
+            status=ListingStatus.DRAFT,
+            opened_at=None,
+        )
+        responded = ListingFactory(sphere=sphere, author=active_user)
+        ListingResponse.objects.create(
+            listing=responded,
+            user=UserFactory(),
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+                listings=[listing_dto(responded), listing_dto(shown)],
+            ),
+            template_name=TEMPLATE,
+        )
+
+    def test_the_leader_sees_the_contact_of_a_board_member(
+        self, authenticated_client, active_user, sphere
+    ):
+        player = UserFactory(email="ola@example.com")
+        party = sponsor_user(leader=active_user, member=player)
+        listing = ListingFactory(sphere=sphere, author=active_user, party=party)
+        ListingResponse.objects.create(
+            listing=listing,
+            user=player,
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(active_user, party), _member_dto(player, party)],
+                ),
+                invite_token=party.invite_token,
+                listings=[listing_dto(listing, party_formed=True)],
+                party_contacts={
+                    player.pk: ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address="ola@example.com"
+                    )
+                },
+            ),
+            template_name=TEMPLATE,
+        )
+
+    def test_a_board_member_sees_the_contact_of_the_leader(
+        self, authenticated_client, active_user, sphere
+    ):
+        gm = UserFactory(email="gm@example.com")
+        party = sponsor_user(leader=gm, member=active_user)
+        listing = ListingFactory(
+            sphere=sphere, author=gm, party=party, contact=ListingContact.EMAIL
+        )
+        ListingResponse.objects.create(
+            listing=listing,
+            user=active_user,
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(gm, party), _member_dto(active_user, party)],
+                ),
+                listings=[listing_dto(listing, party_formed=True)],
+                party_contacts={
+                    gm.pk: ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address="gm@example.com"
+                    )
+                },
+            ),
+            template_name=TEMPLATE,
         )

@@ -22,6 +22,12 @@
             {% tab "waiting" href=responses_url|add:"?tab=waiting" %}
                 {% blocktranslate with count=counts.waiting %}Interested ({{ count }}){% endblocktranslate %}
             {% end_tab %}
+            {% tab "invited" href=responses_url|add:"?tab=invited" %}
+                {% blocktranslate with count=counts.invited %}Invited ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
+            {% tab "joined" href=responses_url|add:"?tab=joined" %}
+                {% blocktranslate with count=counts.joined %}In your party ({{ count }}){% endblocktranslate %}
+            {% end_tab %}
             {% tab "declined" href=responses_url|add:"?tab=declined" %}
                 {% blocktranslate with count=counts.declined %}Not this time ({{ count }}){% endblocktranslate %}
             {% end_tab %}
@@ -39,7 +45,32 @@
                         {% if response.message %}
                             <p class="whitespace-pre-line break-words text-sm text-foreground-secondary">{{ response.message }}</p>
                         {% endif %}
-                        {% if response.status == "waiting" %}
+                        {% if response.joined %}
+                            <p class="break-words text-sm text-foreground-primary">
+                                {% include "board/_contact.html" with contact=response.contact address=response.contact_address only %}
+                            </p>
+                        {% elif response.status == "invited" %}
+                            <p class="break-words text-sm text-foreground-muted">
+                                {% if response.party_name %}
+                                    {% blocktranslate with party=response.party_name %}Invited to {{ party }}. They join once they accept.{% endblocktranslate %}
+                                {% else %}
+                                    {% translate "Invited to your party. They join once they accept." %}
+                                {% endif %}
+                            </p>
+                        {% elif response.status == "waiting" %}
+                            <form method="post"
+                                  action="{% url 'web:board:invite' pk=listing.pk response_pk=response.pk %}"
+                                  class="flex flex-col">
+                                {% csrf_token %}
+                                {% if invite_form.party.is_hidden %}
+                                    {{ invite_form.party }}
+                                    {% translate "Add to a new party" as t_invite %}
+                                {% else %}
+                                    {% tessera_field invite_form.party %}
+                                    {% translate "Add to party" as t_invite %}
+                                {% endif %}
+                                {% tessera_button text=t_invite %}
+                            </form>
                             <details>
                                 <summary class="cursor-pointer text-sm font-medium text-foreground-secondary hover:text-foreground-primary">
                                     {% translate "Not this time" %}
@@ -64,6 +95,12 @@
                 {% if active_tab == "waiting" %}
                     {% translate "Nobody is waiting for an answer" as t_empty_title %}
                     {% translate "People who click “I'm interested” on your listing show up here." as t_empty_text %}
+                {% elif active_tab == "invited" %}
+                    {% translate "No invitations waiting" as t_empty_title %}
+                    {% translate "People you add to a party wait here until they accept." as t_empty_text %}
+                {% elif active_tab == "joined" %}
+                    {% translate "Nobody has joined yet" as t_empty_title %}
+                    {% translate "Once someone accepts your invitation, you see each other's contact here." as t_empty_text %}
                 {% else %}
                     {% translate "You haven't turned anyone down" as t_empty_title %}
                 {% endif %}

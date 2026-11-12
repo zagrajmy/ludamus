@@ -31,4 +31,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
         views.ListingResponseDeclineActionView.as_view(),
         name="decline",
     ),
+    path(
+        "<int:pk>/responses/<int:response_pk>/do/invite",
+        views.ListingResponseInviteActionView.as_view(),
+        name="invite",
+    ),
 ]

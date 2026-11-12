@@ -147,6 +147,7 @@ def build_listings() -> ListingService:
         responses=repos.listing_responses,
         users=repos.active_users,
         tags=repos.tags,
+        parties=repos.parties,
         notifier=DjangoUserNotifier(),
     )
 

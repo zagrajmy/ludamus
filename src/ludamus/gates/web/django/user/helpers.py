@@ -121,5 +121,9 @@ def build_party_detail_context(
             else ""
         ),
         "history": history,
+        "listings": request.services.listings.party_listings(pk),
+        "party_contacts": request.services.listings.party_contacts(
+            party_id=pk, viewer_id=viewer_pk
+        ),
         "profile_active_tab": "parties",
     }

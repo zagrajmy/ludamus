@@ -1,11 +1,27 @@
 {% load i18n tessera %}
 {% comment %}
     The viewer's side of a listing they did not write. Variables: listing,
-    own_response, response_form.
+    own_response, response_form, author_contact.
 {% endcomment %}
 {% if own_response %}
     <div class="flex flex-col gap-2 border-t border-border pt-4">
-        {% if own_response.status == "waiting" %}
+        {% if own_response.joined %}
+            <p class="text-sm text-foreground-primary">{% translate "You're in the author's party." %}</p>
+            <p class="break-words text-sm text-foreground-secondary">
+                {% if listing.contact == "discord" %}
+                    {% blocktranslate with address=author_contact %}Author's Discord: {{ address }}{% endblocktranslate %}
+                {% else %}
+                    {% blocktranslate with address=author_contact %}Author's email: {{ address }}{% endblocktranslate %}
+                {% endif %}
+            </p>
+        {% elif own_response.status == "invited" %}
+            <p class="text-sm text-foreground-primary">
+                {% translate "The author invited you to their party. Accept the invitation to swap contacts." %}
+            </p>
+            {% url 'web:crowd:profile-parties' as parties_url %}
+            {% translate "See the invitation" as t_parties %}
+            {% tessera_button text=t_parties href=parties_url extra_class="w-full justify-center" %}
+        {% elif own_response.status == "waiting" %}
             <p class="text-sm text-foreground-primary">{% translate "You're interested. The author will add you to their party or let you know." %}</p>
             <form method="post" action="{% url 'web:board:withdraw' pk=listing.pk %}">
                 {% csrf_token %}

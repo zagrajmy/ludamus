@@ -17,9 +17,13 @@ from ludamus.pacts.listing import (
     ListingDTO,
     ListingInterestedNotification,
     ListingNotification,
+    ListingPartyChoiceDTO,
+    ListingPartyContactDTO,
+    ListingPartyInviteNotification,
     ListingResponseDTO,
     ListingResponsesDTO,
     ListingResponseStatus,
+    ListingResponseTab,
     ListingSeeking,
     ListingStatus,
     ListingStatusError,
@@ -43,6 +47,7 @@ _WRITE = {
     "starts_at": None,
     "when_text": "",
     "contact": ListingContact.DISCORD,
+    "party_id": None,
 }
 
 
@@ -50,6 +55,8 @@ class FakeListings:
     def __init__(self):
         self.rows: dict[int, ListingDTO] = {}
         self.tags: dict[int, list[int]] = {}
+        # pk -> (leader, name); shared with FakeParties, which stores parties.
+        self.parties: dict[int, tuple[int, str]] = {}
 
     def create(self, data):
         pk = len(self.rows) + 1
@@ -61,6 +68,7 @@ class FakeListings:
             opened_at=None,
             header_image_url="",
             header_image_original_name="",
+            party_formed=False,
             **data,
         )
         return pk
@@ -108,6 +116,19 @@ class FakeListings:
         for pk in stale:
             self.close(pk)
         return stale
+
+    def led_parties(self, leader_id):
+        return [
+            ListingPartyChoiceDTO(pk=pk, name=name)
+            for pk, (leader, name) in self.parties.items()
+            if leader == leader_id
+        ]
+
+    def list_for_party(self, party_id):
+        return [row for row in self.rows.values() if row.party_id == party_id]
+
+    def party_member_names(self, party_id):
+        return [f"member of {party_id}"]
 
     def read_many(self, pks):
         return [self.rows[pk] for pk in pks]
@@ -198,6 +219,9 @@ class FakeResponses:
             status=ListingResponseStatus.WAITING,
             decline_message="",
             creation_time=NOW,
+            contact=data["contact"],
+            party_name="",
+            joined=False,
         )
         return pk
 
@@ -227,35 +251,43 @@ class FakeResponses:
             None,
         )
 
-    def list_for_listing(self, *, listing_id, status):
+    def list_in_tab(self, *, listing_id, tab):
         return [
             response
             for response in self.rows.values()
-            if response.listing_id == listing_id and response.status is status
+            if response.listing_id == listing_id
+            and (
+                response.joined
+                if tab is ListingResponseTab.JOINED
+                else not response.joined and response.status.value == tab.value
+            )
         ]
 
-    def count_by_status(self, listing_id):
+    def count_by_tab(self, listing_id):
         return {
-            status: len(self.list_for_listing(listing_id=listing_id, status=status))
-            for status in ListingResponseStatus
+            tab: len(self.list_in_tab(listing_id=listing_id, tab=tab))
+            for tab in ListingResponseTab
         }
 
     def waiting_user_ids(self, listing_id):
         return [
             response.user_id
-            for response in self.list_for_listing(
-                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            for response in self.list_in_tab(
+                listing_id=listing_id, tab=ListingResponseTab.WAITING
             )
         ]
 
     def decline(self, *, pk, message):
         self._set(pk, status=ListingResponseStatus.DECLINED, decline_message=message)
 
+    def invite(self, *, pk, party_id):
+        self._set(pk, status=ListingResponseStatus.INVITED, party_name=str(party_id))
+
     def dismiss_waiting(self, listing_ids):
         dismissed = []
         for listing_id in listing_ids:
-            for response in self.list_for_listing(
-                listing_id=listing_id, status=ListingResponseStatus.WAITING
+            for response in self.list_in_tab(
+                listing_id=listing_id, tab=ListingResponseTab.WAITING
             ):
                 self._set(response.pk, status=ListingResponseStatus.NOT_CHOSEN)
                 dismissed.append(
@@ -274,6 +306,28 @@ class FakeResponses:
         self.rows[pk] = self.rows[pk].model_copy(update=changes)
 
 
+class FakeParties:
+    def __init__(self, listings):
+        self.listings = listings
+        self.members: set[tuple[int, int]] = set()
+        self.active: set[tuple[int, int]] = set()
+
+    def create(self, *, leader_pk, name):
+        pk = 100 + len(self.listings.parties)
+        self.listings.parties[pk] = (leader_pk, name)
+        self.members.add((pk, leader_pk))
+        self.active.add((pk, leader_pk))
+        return pk
+
+    def read_active_member_party(self, *, member_pk, party_pk):
+        return (party_pk, member_pk) if (party_pk, member_pk) in self.active else None
+
+    def get_or_create_membership(self, *, party_pk, user_pk):
+        created = (party_pk, user_pk) not in self.members
+        self.members.add((party_pk, user_pk))
+        return created
+
+
 class FakeNotifier:
     def __init__(self):
         self.sent: list[tuple[str, ListingNotification]] = []
@@ -290,14 +344,18 @@ class FakeNotifier:
     def notify_listing_changed(self, notification):
         self.sent.append(("changed", notification))
 
+    def notify_listing_party_invited(self, notification):
+        self.sent.append(("party_invited", notification))
 
-def _service(listings, *, responses=None, notifier=None, **profile):
+
+def _service(listings, *, responses=None, notifier=None, parties=None, **profile):
     return ListingService(
         transaction=FakeTransaction(),
         listings=listings,
         responses=responses or FakeResponses(),
         users=FakeUsers(**profile),
         tags=FakeTags(),
+        parties=parties or FakeParties(listings),
         notifier=notifier or FakeNotifier(),
     )
 
@@ -435,6 +493,9 @@ class TestDetail:
                 can_respond=True,
                 waiting_count=None,
                 open_for_days=30,
+                author_contact="",
+                party_members=[],
+                joined_responses=[],
             ),
             ListingDetailDTO(
                 listing=listing,
@@ -443,6 +504,9 @@ class TestDetail:
                 can_respond=False,
                 waiting_count=None,
                 open_for_days=30,
+                author_contact="",
+                party_members=[],
+                joined_responses=[],
             ),
         )
 
@@ -711,25 +775,44 @@ class TestDecline:
 
 
 class TestResponses:
-    def test_lists_responses_in_the_asked_status(self):
+    def test_lists_responses_in_the_asked_tab(self):
         listings, responses = FakeListings(), FakeResponses()
         listing = _open_listing(listings)
         waiting_pk = responses.add(listing.pk)
         responses.decline(pk=responses.add(listing.pk, user_id=4), message="")
 
         result = _service(listings, responses=responses).responses(
-            **_ids(listing), status=ListingResponseStatus.WAITING
+            **_ids(listing), tab=ListingResponseTab.WAITING
         )
 
         assert result == ListingResponsesDTO(
             listing=listing,
             responses=[responses.rows[waiting_pk]],
             counts={
-                ListingResponseStatus.WAITING: 1,
-                ListingResponseStatus.DECLINED: 1,
-                ListingResponseStatus.NOT_CHOSEN: 0,
+                ListingResponseTab.WAITING: 1,
+                ListingResponseTab.INVITED: 0,
+                ListingResponseTab.JOINED: 0,
+                ListingResponseTab.DECLINED: 1,
             },
+            parties=[],
         )
+
+    def test_shows_the_contact_only_of_who_joined(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses.invite(pk=responses.add(listing.pk), party_id=100)
+        responses.invite(pk=responses.add(listing.pk, user_id=AUTHOR_PK), party_id=100)
+        responses._set(1, joined=True)
+
+        result = _service(listings, responses=responses).responses(
+            **_ids(listing), tab=ListingResponseTab.JOINED
+        )
+        invited = _service(listings, responses=responses).responses(
+            **_ids(listing), tab=ListingResponseTab.INVITED
+        )
+
+        assert [r.contact_address for r in result.responses] == ["ola#1"]
+        assert [r.contact_address for r in invited.responses] == [""]
 
     def test_another_authors_listing_is_not_found(self):
         listings = FakeListings()
@@ -737,8 +820,281 @@ class TestResponses:
 
         with pytest.raises(NotFoundError):
             _service(listings).responses(
-                **_ids(listing), status=ListingResponseStatus.WAITING
+                **_ids(listing), tab=ListingResponseTab.WAITING
             )
+
+
+class TestAddToParty:
+    def _add(self, service, listing, response_pk, *, party_id=None):
+        service.add_to_party(
+            **_ids(listing), response_id=response_pk, party_id=party_id
+        )
+
+    def test_new_party_takes_the_listing_title_and_invites_them(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        parties = FakeParties(listings)
+        listing = _open_listing(listings)
+        response_pk = responses.add(listing.pk)
+
+        self._add(
+            _service(listings, responses=responses, notifier=notifier, parties=parties),
+            listing,
+            response_pk,
+        )
+
+        assert (
+            listings.parties,
+            parties.members,
+            responses.rows[response_pk].status,
+            notifier.sent,
+        ) == (
+            {100: (AUTHOR_PK, "Zew Cthulhu")},
+            {(100, AUTHOR_PK), (100, STRANGER_PK)},
+            ListingResponseStatus.INVITED,
+            [
+                (
+                    "party_invited",
+                    ListingPartyInviteNotification(
+                        recipient_user_id=STRANGER_PK,
+                        listing_id=listing.pk,
+                        listing_title="Zew Cthulhu",
+                        party_name="Zew Cthulhu",
+                        author_name="",
+                    ),
+                )
+            ],
+        )
+
+    def test_someone_already_in_the_party_is_not_invited_again(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        parties = FakeParties(listings)
+        listing = _open_listing(listings)
+        party_pk = parties.create(leader_pk=AUTHOR_PK, name="Wtorki")
+        parties.get_or_create_membership(party_pk=party_pk, user_pk=STRANGER_PK)
+        parties.active.add((party_pk, STRANGER_PK))
+        response_pk = responses.add(listing.pk)
+
+        self._add(
+            _service(listings, responses=responses, notifier=notifier, parties=parties),
+            listing,
+            response_pk,
+            party_id=party_pk,
+        )
+
+        assert (responses.rows[response_pk].status, notifier.sent) == (
+            ListingResponseStatus.INVITED,
+            [],
+        )
+
+    def test_a_pending_invite_still_hears_about_the_listing(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        parties = FakeParties(listings)
+        listing = _open_listing(listings)
+        party_pk = parties.create(leader_pk=AUTHOR_PK, name="Wtorki")
+        parties.get_or_create_membership(party_pk=party_pk, user_pk=STRANGER_PK)
+        response_pk = responses.add(listing.pk)
+
+        self._add(
+            _service(listings, responses=responses, notifier=notifier, parties=parties),
+            listing,
+            response_pk,
+            party_id=party_pk,
+        )
+
+        assert notifier.sent == [
+            (
+                "party_invited",
+                ListingPartyInviteNotification(
+                    recipient_user_id=STRANGER_PK,
+                    listing_id=listing.pk,
+                    listing_title="Zew Cthulhu",
+                    party_name="Wtorki",
+                    author_name="",
+                ),
+            )
+        ]
+
+    def test_a_party_the_author_does_not_lead_is_not_found(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        parties = FakeParties(listings)
+        listing = _open_listing(listings)
+        foreign_pk = parties.create(leader_pk=STRANGER_PK, name="")
+        response_pk = responses.add(listing.pk, user_id=4)
+
+        with pytest.raises(NotFoundError):
+            self._add(
+                _service(
+                    listings, responses=responses, notifier=notifier, parties=parties
+                ),
+                listing,
+                response_pk,
+                party_id=foreign_pk,
+            )
+
+        assert (
+            responses.rows[response_pk].status,
+            (foreign_pk, 4) in parties.members,
+            notifier.sent,
+        ) == (ListingResponseStatus.WAITING, False, [])
+
+    def test_refuses_a_response_no_longer_waiting(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        response_pk = responses.add(listing.pk)
+        responses.decline(pk=response_pk, message="")
+
+        with pytest.raises(ListingStatusError):
+            self._add(_service(listings, responses=responses), listing, response_pk)
+
+        assert not listings.parties
+
+    def test_response_to_another_listing_is_not_found(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        other_pk = responses.add(_open_listing(listings).pk)
+
+        with pytest.raises(NotFoundError):
+            self._add(_service(listings, responses=responses), listing, other_pk)
+
+        assert not listings.parties
+
+
+class TestShownParty:
+    def test_create_refuses_a_party_the_author_does_not_lead(self):
+        listings = FakeListings()
+        listings.parties[100] = (STRANGER_PK, "")
+
+        with pytest.raises(NotFoundError):
+            _service(listings).create(
+                _WRITE | {
+                    "sphere_id": SPHERE_PK,
+                    "author_id": AUTHOR_PK,
+                    "party_id": 100,
+                },
+                tag_ids=[],
+                publish_at=None,
+            )
+
+        assert not listings.rows
+
+    def test_update_refuses_switching_to_a_party_the_author_does_not_lead(self):
+        listings = FakeListings()
+        listings.parties[100] = (STRANGER_PK, "")
+        listing = _open_listing(listings)
+
+        with pytest.raises(NotFoundError):
+            _service(listings).update(
+                **_ids(listing), data=_WRITE | {"party_id": 100}, tag_ids=[]
+            )
+
+        assert listings.rows[listing.pk] == listing
+
+    def test_detail_names_the_members_of_the_shown_party(self):
+        listings = FakeListings()
+        listings.parties[100] = (AUTHOR_PK, "")
+        listing = _open_listing(listings, party_id=100)
+
+        detail = _service(listings).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=None
+        )
+
+        assert detail.party_members == ["member of 100"]
+
+    def test_a_joined_member_sees_the_authors_contact(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        detail = _service(listings, responses=responses, **DISCORD_ONLY).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+
+        assert detail.author_contact == "gm#1"
+
+    def test_the_author_sees_who_joined_and_how_to_reach_them(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        joined_pk = responses.add(listing.pk)
+        responses._set(joined_pk, joined=True)
+        responses.add(listing.pk, user_id=AUTHOR_PK + 10)
+
+        detail = _service(listings, responses=responses, **DISCORD_ONLY).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=AUTHOR_PK
+        )
+
+        assert [
+            (response.pk, response.contact_address)
+            for response in detail.joined_responses
+        ] == [(joined_pk, "ola#1")]
+
+    def test_a_viewer_who_is_not_the_author_sees_nobody_who_joined(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = _open_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        detail = _service(listings, responses=responses, **DISCORD_ONLY).detail(
+            pk=listing.pk, sphere_id=SPHERE_PK, viewer_id=STRANGER_PK
+        )
+
+        assert detail.joined_responses == []
+
+
+class TestPartyContacts:
+    @staticmethod
+    def _tied_listing(listings):
+        listings.parties[100] = (AUTHOR_PK, "")
+        return _open_listing(listings, party_id=100)
+
+    def test_the_author_gets_each_joined_responders_contact(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=AUTHOR_PK)
+
+        assert contacts == {
+            STRANGER_PK: ListingPartyContactDTO(
+                contact=ListingContact.DISCORD, address="ola#1"
+            )
+        }
+
+    def test_a_joined_responder_gets_the_authors_contact(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses._set(responses.add(listing.pk), joined=True)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=STRANGER_PK)
+
+        assert contacts == {
+            AUTHOR_PK: ListingPartyContactDTO(
+                contact=ListingContact.DISCORD, address="gm#1"
+            )
+        }
+
+    def test_a_responder_who_has_not_joined_gets_nothing(self):
+        listings, responses = FakeListings(), FakeResponses()
+        listing = self._tied_listing(listings)
+        responses.add(listing.pk)
+
+        contacts = _service(
+            listings, responses=responses, **DISCORD_ONLY
+        ).party_contacts(party_id=100, viewer_id=STRANGER_PK)
+
+        assert contacts == {}
+
+    def test_a_member_who_never_responded_gets_nothing(self):
+        listings = FakeListings()
+        self._tied_listing(listings)
+
+        contacts = _service(listings, **DISCORD_ONLY).party_contacts(
+            party_id=100, viewer_id=STRANGER_PK
+        )
+
+        assert contacts == {}
 
 
 def test_update_tells_waiting_responders_the_new_title():

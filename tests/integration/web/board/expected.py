@@ -8,9 +8,11 @@ from ludamus.pacts.listing import (
 )
 
 
-def listing_dto(listing):
+def listing_dto(listing, *, party_formed=False):
     listing = Listing.objects.select_related("author").get(pk=listing.pk)
     return ListingDTO(
+        party_id=listing.party_id,
+        party_formed=party_formed,
         pk=listing.pk,
         sphere_id=listing.sphere_id,
         author_id=listing.author_id,

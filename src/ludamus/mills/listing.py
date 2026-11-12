@@ -19,8 +19,11 @@ from ludamus.pacts.listing import (
     ListingDetailDTO,
     ListingInterestedNotification,
     ListingNotification,
+    ListingPartyContactDTO,
+    ListingPartyInviteNotification,
     ListingResponsesDTO,
     ListingResponseStatus,
+    ListingResponseTab,
     ListingServiceProtocol,
     ListingStatus,
     ListingStatusError,
@@ -36,14 +39,16 @@ if TYPE_CHECKING:
         ListingCreateDict,
         ListingDTO,
         ListingNotifierProtocol,
+        ListingPartyChoiceDTO,
         ListingRepositoryProtocol,
         ListingResponseDTO,
         ListingResponseRepositoryProtocol,
         ListingWriteDict,
     )
+    from ludamus.pacts.party import PartyRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.tags import TagDTO, TagRepositoryProtocol
-    from ludamus.pacts.user import UserRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +160,7 @@ class ListingService(ListingServiceProtocol):
         responses: ListingResponseRepositoryProtocol,
         users: UserRepositoryProtocol,
         tags: TagRepositoryProtocol,
+        parties: PartyRepositoryProtocol,
         notifier: ListingNotifierProtocol,
     ) -> None:
         self._transaction = transaction
@@ -162,6 +168,7 @@ class ListingService(ListingServiceProtocol):
         self._responses = responses
         self._users = users
         self._tags = tags
+        self._parties = parties
         self._notifier = notifier
 
     def create(
@@ -172,6 +179,8 @@ class ListingService(ListingServiceProtocol):
         publish_at: datetime | None,
     ) -> int:
         with self._transaction.atomic():
+            if data["party_id"] is not None:
+                self._check_party(data["author_id"], data["party_id"])
             pk = self._listings.create(data)
             self._listings.set_tags(pk=pk, tag_ids=tag_ids)
             if publish_at is not None:
@@ -202,6 +211,8 @@ class ListingService(ListingServiceProtocol):
             listing = self._listings.lock_authored(
                 pk=pk, sphere_id=sphere_id, author_id=author_id
             )
+            if data["party_id"] not in {None, listing.party_id}:
+                self._check_party(author_id, data["party_id"])
             self._listings.update(pk, data)
             self._listings.set_tags(pk=pk, tag_ids=tag_ids)
             if listing.status is not ListingStatus.DRAFT:
@@ -229,6 +240,11 @@ class ListingService(ListingServiceProtocol):
             if viewer_id is not None and not is_author
             else None
         )
+        author_contact = (
+            _address(self._users.read_by_id(listing.author_id), listing.contact)
+            if own_response is not None and own_response.joined
+            else ""
+        )
         return ListingDetailDTO(
             listing=listing,
             is_author=is_author,
@@ -236,11 +252,27 @@ class ListingService(ListingServiceProtocol):
             can_respond=viewer_id is not None
             and _can_respond(listing, user_id=viewer_id, own_response=own_response),
             waiting_count=(
-                self._responses.count_by_status(pk)[ListingResponseStatus.WAITING]
+                self._responses.count_by_tab(pk)[ListingResponseTab.WAITING]
                 if is_author
                 else None
             ),
             open_for_days=LISTING_OPEN_FOR.days,
+            author_contact=author_contact,
+            party_members=(
+                self._listings.party_member_names(listing.party_id)
+                if listing.party_id is not None
+                else []
+            ),
+            joined_responses=(
+                [
+                    self._with_contact(response)
+                    for response in self._responses.list_in_tab(
+                        listing_id=pk, tab=ListingResponseTab.JOINED
+                    )
+                ]
+                if is_author
+                else []
+            ),
         )
 
     def read_authored(self, *, pk: int, sphere_id: int, author_id: int) -> ListingDTO:
@@ -372,7 +404,7 @@ class ListingService(ListingServiceProtocol):
         with self._transaction.atomic():
             self._listings.lock(pk=pk, sphere_id=sphere_id)
             response = self._responses.read_own(listing_id=pk, user_id=user_id)
-            if response is None or response.status is not ListingResponseStatus.WAITING:
+            if response is None or not _waiting(response):
                 raise ListingStatusError
             self._responses.delete(response.pk)
         logger.info("User %s withdrew from listing %s", user_id, pk)
@@ -385,7 +417,7 @@ class ListingService(ListingServiceProtocol):
                 pk=pk, sphere_id=sphere_id, author_id=author_id
             )
             response = self._responses.read(pk=response_id, listing_id=pk)
-            if response.status is not ListingResponseStatus.WAITING:
+            if not _waiting(response):
                 raise ListingStatusError
             self._responses.decline(pk=response_id, message=message)
             self._notifier.notify_listing_declined(
@@ -398,16 +430,116 @@ class ListingService(ListingServiceProtocol):
             )
         logger.info("Response %s to listing %s declined", response_id, pk)
 
-    def responses(
-        self, *, pk: int, sphere_id: int, author_id: int, status: ListingResponseStatus
-    ) -> ListingResponsesDTO:
-        return ListingResponsesDTO(
-            listing=self._listings.read_authored(
+    def add_to_party(
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        author_id: int,
+        response_id: int,
+        party_id: int | None,
+    ) -> None:
+        with self._transaction.atomic():
+            listing = self._listings.lock_authored(
                 pk=pk, sphere_id=sphere_id, author_id=author_id
-            ),
-            responses=self._responses.list_for_listing(listing_id=pk, status=status),
-            counts=self._responses.count_by_status(pk),
+            )
+            response = self._responses.read(pk=response_id, listing_id=pk)
+            if not _waiting(response):
+                raise ListingStatusError
+            if party_id is None:
+                party_name = listing.title
+                party_id = self._parties.create(leader_pk=author_id, name=party_name)
+            else:
+                party_name = self._check_party(author_id, party_id).name
+            self._responses.invite(pk=response_id, party_id=party_id)
+            # NOTE: an active member has nothing to accept. Someone with a
+            # pending invite still hears that accepting shares their contact.
+            already_member = (
+                self._parties.read_active_member_party(
+                    member_pk=response.user_id, party_pk=party_id
+                )
+                is not None
+            )
+            self._parties.get_or_create_membership(
+                party_pk=party_id, user_pk=response.user_id
+            )
+            if not already_member:
+                self._notifier.notify_listing_party_invited(
+                    ListingPartyInviteNotification(
+                        recipient_user_id=response.user_id,
+                        listing_id=pk,
+                        listing_title=listing.title,
+                        party_name=party_name,
+                        author_name=listing.author_name,
+                    )
+                )
+        logger.info(
+            "Response %s to listing %s invited to party %s", response_id, pk, party_id
         )
+
+    def responses(
+        self, *, pk: int, sphere_id: int, author_id: int, tab: ListingResponseTab
+    ) -> ListingResponsesDTO:
+        listing = self._listings.read_authored(
+            pk=pk, sphere_id=sphere_id, author_id=author_id
+        )
+        return ListingResponsesDTO(
+            listing=listing,
+            responses=[
+                self._with_contact(response) if response.joined else response
+                for response in self._responses.list_in_tab(listing_id=pk, tab=tab)
+            ],
+            counts=self._responses.count_by_tab(pk),
+            parties=self._listings.led_parties(author_id),
+        )
+
+    def _with_contact(self, response: ListingResponseDTO) -> ListingResponseDTO:
+        address = _address(self._users.read_by_id(response.user_id), response.contact)
+        changes: dict[str, str] = {"contact_address": address}
+        return response.model_copy(update=changes)
+
+    def led_parties(self, author_id: int) -> list[ListingPartyChoiceDTO]:
+        return self._listings.led_parties(author_id)
+
+    def party_listings(self, party_id: int) -> list[ListingDTO]:
+        return self._listings.list_for_party(party_id)
+
+    def party_contacts(
+        self, *, party_id: int, viewer_id: int
+    ) -> dict[int, ListingPartyContactDTO]:
+        contacts: dict[int, ListingPartyContactDTO] = {}
+        for listing in self._listings.list_for_party(party_id):
+            if listing.author_id == viewer_id:
+                contacts |= {
+                    response.user_id: self._party_contact(
+                        response.user_id, response.contact
+                    )
+                    for response in self._responses.list_in_tab(
+                        listing_id=listing.pk, tab=ListingResponseTab.JOINED
+                    )
+                }
+                continue
+            own = self._responses.read_own(listing_id=listing.pk, user_id=viewer_id)
+            if own is not None and own.joined:
+                contacts[listing.author_id] = self._party_contact(
+                    listing.author_id, listing.contact
+                )
+        return contacts
+
+    def _party_contact(
+        self, user_id: int, contact: ListingContact
+    ) -> ListingPartyContactDTO:
+        return ListingPartyContactDTO(
+            contact=contact, address=_address(self._users.read_by_id(user_id), contact)
+        )
+
+    def _check_party(self, author_id: int, party_id: int) -> ListingPartyChoiceDTO:
+        party = next(
+            (p for p in self._listings.led_parties(author_id) if p.pk == party_id), None
+        )
+        if party is None:
+            raise NotFoundError
+        return party
 
     def _dismiss_waiting(self, listing_ids: list[int]) -> None:
         for notice in self._responses.dismiss_waiting(listing_ids):
@@ -442,6 +574,14 @@ def _can_respond(
         and listing.author_id != user_id
         and own_response is None
     )
+
+
+def _waiting(response: ListingResponseDTO) -> bool:
+    return response.status is ListingResponseStatus.WAITING and not response.joined
+
+
+def _address(user: UserDTO, contact: ListingContact) -> str:
+    return user.discord_username if contact is ListingContact.DISCORD else user.email
 
 
 def _changes(
