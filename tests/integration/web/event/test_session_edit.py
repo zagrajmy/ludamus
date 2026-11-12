@@ -200,6 +200,7 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
+            headers={"HX-Refresh": None},
             template_name=FRAGMENT,
             context_data={
                 "session": _expected_session(owned_session),
@@ -276,6 +277,7 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.OK,
+            headers={"HX-Refresh": "true"},
             template_name=FRAGMENT,
             context_data={
                 "session": _expected_session(owned_session),
@@ -288,6 +290,33 @@ class TestSessionEditViewPost:
         owned_session.refresh_from_db()
         assert owned_session.cover_image
         assert owned_session.cover_image_url.startswith("/media/sessions/")
+
+    def test_post_keeping_the_cover_does_not_reload_the_page(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            headers={"HX-Refresh": None},
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
 
     def test_post_replacing_cover_deletes_previous_file(
         self,
@@ -331,12 +360,25 @@ class TestSessionEditViewPost:
         old_name = owned_session.cover_image.name
 
         with django_capture_on_commit_callbacks(execute=True):
-            authenticated_client.post(
+            response = authenticated_client.post(
                 _url(event, owned_session),
                 data=self._data(**{"cover_image-clear": "on"}),
                 headers={"hx-request": "true"},
             )
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            headers={"HX-Refresh": "true"},
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": _url(event, owned_session),
+                "saved": True,
+            },
+        )
         owned_session.refresh_from_db()
         assert not owned_session.cover_image
         assert not storage.exists(old_name)
