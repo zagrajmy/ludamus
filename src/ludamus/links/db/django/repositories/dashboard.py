@@ -60,12 +60,10 @@ def _session_card(
     return DashboardCardDTO(
         title=session.title,
         url=absolute_url(
-            reverse(
-                "web:chronology:session-enrollment",
-                kwargs={"event_slug": event.slug, "session_id": session.pk},
-            ),
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
             domain=sphere.site.domain,
-        ),
+        )
+        + f"?session={session.pk}",
         start_time=item.start_time,
         origin_name=event.name,
         role=role,

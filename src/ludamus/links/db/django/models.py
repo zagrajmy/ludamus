@@ -1642,6 +1642,15 @@ class Session(SoftDeleteModel):
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
 
+    def host_user_ids(self) -> frozenset[int]:
+        # NOTE: an imported or organizer-entered GM is a facilitator linked to
+        # an account, not the presenter, so the presenter alone misses them.
+        linked = Facilitator.objects.filter(
+            sessions=self, user_id__isnull=False
+        ).values_list("user_id", flat=True)
+        presenter = () if self.presenter_id is None else (self.presenter_id,)
+        return frozenset((*linked, *presenter))
+
 
 class AgendaItem(models.Model):
     space = models.ForeignKey(

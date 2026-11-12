@@ -614,6 +614,8 @@ class SessionSeatingDTO(BaseModel):
     title: str
     participants_limit: int
     presenter_id: int | None = None
+    # The presenter and every account linked to a facilitator: never seated.
+    host_ids: frozenset[int] = frozenset()
     # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
     eligible_windows: list[EnrollmentWindowSnapshot]

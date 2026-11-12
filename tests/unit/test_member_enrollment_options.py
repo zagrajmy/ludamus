@@ -209,7 +209,7 @@ class TestSkipReason:
     def _reason(self, **overrides):
         values = {
             "user_id": 7,
-            "presenter_id": 1,
+            "host_ids": frozenset({1, 2}),
             "shadowbanned": False,
             "conflicted": False,
             "choice": EnrollmentChoice.ENROLL,
@@ -222,8 +222,10 @@ class TestSkipReason:
         ("overrides", "expected"),
         (
             ({}, None),
-            ({"presenter_id": None}, None),
+            ({"host_ids": frozenset()}, None),
             ({"user_id": 1}, SkipReason.SESSION_HOST),
+            # A facilitator linked to an account hosts as much as the presenter.
+            ({"user_id": 2}, SkipReason.SESSION_HOST),
             ({"shadowbanned": True, "conflicted": True}, SkipReason.NOT_AVAILABLE),
             ({"conflicted": True}, SkipReason.TIME_CONFLICT),
             # The waiting list takes nobody's seat, so a clash does not stop it.

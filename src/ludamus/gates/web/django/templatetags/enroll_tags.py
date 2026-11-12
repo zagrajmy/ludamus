@@ -64,6 +64,8 @@ def _badge(data: SessionUserParticipationData) -> Badge:
         return Badge("warning", _("Spot offered"))
     if data.user_waiting:
         return Badge("warning", _("On the waiting list"))
+    if data.is_host:
+        return Badge("muted", _("Runs this session"))
     if data.has_time_conflict:
         return Badge("danger", _("Time conflict"))
     if data.membership.blocked:
@@ -110,7 +112,9 @@ def enroll_row_state(
             occupies_seat=(data.user_enrolled or data.seat_held or data.offer_pending),
         )
 
-    if data.has_time_conflict:
+    if data.is_host:
+        reason = _("Runs this session")
+    elif data.has_time_conflict:
         reason = _("Time conflict")
     elif membership.blocked or (membership.is_member and not includable):
         reason = _("Access required")

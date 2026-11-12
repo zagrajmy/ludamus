@@ -4726,6 +4726,10 @@ msgid "Spot offered"
 msgstr "Zaproponowano miejsce"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
+msgid "Runs this session"
+msgstr "Prowadzi ten punkt programu"
+
+#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Time conflict"
 msgstr "Konflikt czasowy"
 
@@ -7379,6 +7383,7 @@ msgid "You organize this"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/dashboard/_role.html
+#: src/ludamus/templates/event/parts/session-modal.html
 msgid "You're running this"
 msgstr "Prowadzisz"
 
@@ -8726,6 +8731,10 @@ msgstr "Zgłoś ten punkt programu"
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Edit session"
 msgstr "Edytuj punkt programu"
+
+#: src/ludamus/templates/event/parts/session-modal.html
+msgid "Enroll others…"
+msgstr "Zapisz innych…"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Session full"

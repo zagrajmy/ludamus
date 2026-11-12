@@ -55,6 +55,7 @@ class SessionUserParticipationData:
     seat_held: bool = False
     offer_pending: bool = False
     has_time_conflict: bool = False
+    is_host: bool = False
     membership: PartyMemberFlags = PartyMemberFlags()
 
 
@@ -149,6 +150,7 @@ class EnrollSessionDTO(BaseModel):
     participants_limit: int
     presenter_id: int | None
     presenter: UserDTO | None
+    host_ids: frozenset[int] = frozenset()
     # None while the session is not on the timetable.
     agenda_item: EnrollAgendaDTO | None
     is_publicly_scheduled: bool

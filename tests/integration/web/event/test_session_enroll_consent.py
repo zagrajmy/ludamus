@@ -98,7 +98,7 @@ class TestDirectEnrollmentWithPowerOfAttorney:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(member, is_member=True),
                 ],
                 **_party_pills(
@@ -158,7 +158,7 @@ class TestHeldSeatForConsentingMember:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(member, is_member=True, needs_accept=True),
                 ],
                 **_party_pills(
@@ -344,7 +344,7 @@ class TestHeldSeatUnavailable:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(
                         member,
                         has_time_conflict=True,
@@ -407,7 +407,7 @@ class TestHeldSeatUnavailable:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(member, is_member=True),
                 ],
                 # The invitee is on the party — the enroll rows are what
@@ -574,7 +574,7 @@ class TestMemberAllowanceOnRestrictedEvent:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(member, is_member=True, blocked=True),
                 ],
                 **_party_pills(
@@ -608,7 +608,7 @@ class TestMemberAllowanceOnRestrictedEvent:
             context_data=enroll_context(
                 session=agenda_item.session,
                 user_data=[
-                    participation_row(active_user),
+                    participation_row(active_user, is_host=True),
                     participation_row(
                         member, is_member=True, needs_accept=True, blocked=True
                     ),

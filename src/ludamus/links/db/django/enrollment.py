@@ -136,6 +136,7 @@ class SeatRepository(SeatHolderLocks, SeatRepositoryProtocol):
             title=session.title,
             participants_limit=session.participants_limit,
             presenter_id=session.presenter_id,
+            host_ids=session.host_user_ids(),
             enrolled_count=SessionParticipation.objects.filter(
                 session_id=session.pk, status__in=OCCUPYING_PARTICIPATION_STATUSES
             ).count(),
@@ -759,6 +760,7 @@ class MemberEnrollmentRepository(SeatRepository, MemberEnrollmentRepositoryProto
             participants_limit=session.participants_limit,
             presenter_id=session.presenter_id,
             presenter=user_dto(session.presenter) if session.presenter else None,
+            host_ids=session.host_user_ids(),
             agenda_item=(
                 EnrollAgendaDTO(
                     start_time=agenda_item.start_time,

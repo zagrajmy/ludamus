@@ -196,7 +196,7 @@ def _if(option: EnrollOption, *, when: bool) -> tuple[EnrollOption, ...]:
 def skip_reason(
     *,
     user_id: int,
-    presenter_id: int | None,
+    host_ids: frozenset[int],
     shadowbanned: bool,
     conflicted: bool,
     choice: EnrollmentChoice,
@@ -208,7 +208,7 @@ def skip_reason(
     Returns:
         The reason the person is skipped, or None when they are seated.
     """
-    if presenter_id and user_id == presenter_id:
+    if user_id in host_ids:
         return SkipReason.SESSION_HOST
     # Shadowbanned: skipped with a neutral reason that reveals nothing.
     if shadowbanned:

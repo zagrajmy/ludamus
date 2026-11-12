@@ -70,6 +70,7 @@ def _page_context(viewer, agenda_item):
                 user_enrolled=False,
                 user_waiting=False,
                 has_time_conflict=False,
+                is_host=viewer.pk == agenda_item.session.presenter_id,
             )
         ],
     }

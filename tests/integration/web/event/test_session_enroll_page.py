@@ -19,6 +19,7 @@ from ludamus.gates.web.django.event.enroll_presentation import (
 from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
+    Facilitator,
     Notification,
     PartyMembership,
     SessionParticipation,
@@ -102,6 +103,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -142,6 +144,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -220,6 +223,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         offer_pending=True,
@@ -478,6 +482,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -774,6 +779,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,  # User is not enrolled in THIS session
                         user_waiting=False,
                         has_time_conflict=True,
@@ -896,6 +902,44 @@ class TestSessionEnrollPageView:
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_facilitator_linked_host_skipped(
+        self, authenticated_client, agenda_item, active_user
+    ):
+        # An imported GM is a facilitator tied to their account, not the
+        # presenter, and still runs the table.
+        session = agenda_item.session
+        session.presenter = None
+        session.save(update_fields=["presenter_id"])
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=session.event,
+                display_name=active_user.name,
+                slug="gm",
+                user=active_user,
+            )
+        )
+
+        response = authenticated_client.post(
+            self._get_url(session.pk, session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.WARNING,
+                    "Skipped (already enrolled or conflicts): Test User (session host)",
+                )
+            ],
+            url=f"/event/{session.event.slug}/",
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config", "party_companion")
@@ -1636,6 +1680,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1691,6 +1736,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1748,6 +1794,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1830,6 +1877,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=True,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -1883,6 +1931,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=True,
                         has_time_conflict=False,
@@ -1961,6 +2010,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2022,6 +2072,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,  # User is not enrolled in THIS session
                         user_waiting=False,
                         has_time_conflict=True,
@@ -2073,6 +2124,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2129,6 +2181,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2195,6 +2248,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,
@@ -2239,6 +2293,7 @@ class TestSessionEnrollPageView:
                 "user_data": [
                     SessionUserParticipationData(
                         user=UserDTO.model_validate(active_user),
+                        is_host=True,
                         user_enrolled=False,
                         user_waiting=False,
                         has_time_conflict=False,

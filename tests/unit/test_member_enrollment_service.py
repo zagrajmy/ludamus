@@ -88,6 +88,7 @@ def _session(*, windows=None, limit=4, enrolled=0, **overrides):
         "participants_limit": limit,
         "presenter_id": _PRESENTER_ID,
         "presenter": None,
+        "host_ids": frozenset({_PRESENTER_ID}),
         "agenda_item": EnrollAgendaDTO(
             start_time=datetime(2026, 7, 1, 10, tzinfo=UTC),
             end_time=datetime(2026, 7, 1, 12, tzinfo=UTC),
@@ -144,6 +145,7 @@ class FakeSeats:
             title=self.session.title,
             participants_limit=self.session.participants_limit,
             presenter_id=self.session.presenter_id,
+            host_ids=self.session.host_ids,
             enrolled_count=sum(
                 s in {Status.CONFIRMED, Status.OFFERED} for s in self.statuses.values()
             )
@@ -747,8 +749,8 @@ class TestSubmitExplicit:
         )
         peers.shadowban.banned_user_ids.assert_called_once_with(_PRESENTER_ID)
 
-    def test_the_presenter_is_never_seated_at_their_own_table(self):
-        repo = FakeSeats(session=_session(presenter_id=_VIEWER.pk))
+    def test_a_host_is_never_seated_at_their_own_table(self):
+        repo = FakeSeats(session=_session(host_ids=frozenset({_VIEWER.pk})))
 
         outcome = _submit(repo, _peers(), {_VIEWER.pk: "enroll"})
 

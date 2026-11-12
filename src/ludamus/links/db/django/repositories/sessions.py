@@ -244,6 +244,9 @@ def _session_modal_dto(
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
         ),
+        viewer_is_host=(
+            editor_user_id is not None and editor_user_id in session.host_user_ids()
+        ),
         can_edit=(
             edit_allowed
             and session.presenter_id is not None

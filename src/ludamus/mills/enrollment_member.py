@@ -297,6 +297,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
                     seat_held=offered and flags.needs_accept,
                     offer_pending=offered and not flags.needs_accept,
                     has_time_conflict=pk in overlapping,
+                    is_host=pk in session.host_ids,
                     membership=flags,
                 )
             )
@@ -580,7 +581,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
                 continue
             reason = skip_reason(
                 user_id=req.user.pk,
-                presenter_id=seating.presenter_id,
+                host_ids=seating.host_ids,
                 shadowbanned=req.user.pk in shadowbanned,
                 conflicted=req.user.pk in conflicted,
                 choice=req.choice,

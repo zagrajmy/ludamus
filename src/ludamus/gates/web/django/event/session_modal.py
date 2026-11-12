@@ -96,6 +96,10 @@ class SessionModalComponentView(View):
                 # after construction, so this is wrong on a card.
                 "enroll_actions": footer.actions,
                 "enroll_opens_at": footer.opens_at,
+                # A host who already holds a seat keeps the way to give it back.
+                "hosting": (
+                    dto.viewer_is_host and not (data.user_enrolled or data.user_waiting)
+                ),
             },
         )
 

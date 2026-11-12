@@ -70,14 +70,12 @@ logger = logging.getLogger(__name__)
 _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
 
 
-def _session_enrollment_url(event_slug: str, session_id: int) -> str:
-    return absolute_url(
-        reverse(
-            "web:chronology:session-enrollment",
-            kwargs={"event_slug": event_slug, "session_id": session_id},
-        ),
+def _session_url(event_slug: str, session_id: int) -> str:
+    event_url = absolute_url(
+        reverse("web:chronology:event", kwargs={"slug": event_slug}),
         domain=_session_host(session_id),
     )
+    return f"{event_url}?session={session_id}"
 
 
 def _session_host(session_id: int) -> str:
@@ -251,9 +249,7 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_promoted(notification: PromotionNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
-            url = _session_enrollment_url(
-                notification.event_slug, notification.session_id
-            )
+            url = _session_url(notification.event_slug, notification.session_id)
             title = _("You're in: a spot opened in %(session)s") % {
                 "session": notification.session_title
             }
@@ -325,9 +321,7 @@ class DjangoUserNotifier:
                     kind=NotificationKind.OFFER_EXPIRED,
                     title=title,
                     body=body,
-                    url=_session_enrollment_url(
-                        notification.event_slug, notification.session_id
-                    ),
+                    url=_session_url(notification.event_slug, notification.session_id),
                     payload={"session_id": notification.session_id},
                 ),
             )
@@ -361,9 +355,7 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_party_enrolled(notification: PartyEnrolledNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
-            url = _session_enrollment_url(
-                notification.event_slug, notification.session_id
-            )
+            url = _session_url(notification.event_slug, notification.session_id)
             title = _("%(leader)s enrolled you in %(session)s") % {
                 "leader": notification.actor_name,
                 "session": notification.session_title,
