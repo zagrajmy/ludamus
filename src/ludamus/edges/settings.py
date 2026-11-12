@@ -419,6 +419,9 @@ AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# The DSA point of contact (Art. 11, 12): named in the terms and on the notice
+# form, the reply-to of every moderation mail, and where staff alerts go.
+STAFF_EMAIL = "staff@zagrajmy.net"
 # Sender's postal address, printed under every opt-in (non-transactional) email.
 MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
 
