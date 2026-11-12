@@ -1,6 +1,6 @@
 import { type Env, PASS_HEADER, type Refusal } from "./board-room";
 import { parsePool } from "./dice";
-import { type Pass, verifyPass } from "./pass";
+import { type Pass, verifyDeletion, verifyPass } from "./pass";
 
 export { BoardRoom } from "./board-room";
 
@@ -34,13 +34,32 @@ async function passFor(request: Request, env: Env, board: string): Promise<Pass 
   }
 }
 
+async function mayDelete(request: Request, env: Env, board: string): Promise<boolean> {
+  const token = request.headers.get("Authorization")?.replace(/^Bearer /u, "");
+  if (token === undefined) return false;
+  try {
+    return (await verifyDeletion(token, env)) === board;
+  } catch {
+    return false;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS, status: 204 });
     const url = new URL(request.url);
     const [, board, action] =
-      /^\/rooms\/([\w-]{1,64})\/(connect|rolls?)$/u.exec(url.pathname) ?? [];
+      /^\/rooms\/([\w-]{1,64})\/(connect|delete|rolls?)$/u.exec(url.pathname) ?? [];
     if (board === undefined) return new Response("Not found", { headers: CORS, status: 404 });
+    if (action === "delete") {
+      if (request.method !== "POST")
+        return new Response("Not found", { headers: CORS, status: 404 });
+      if (!(await mayDelete(request, env, board))) {
+        return new Response("Forbidden", { headers: CORS, status: 403 });
+      }
+      await env.BoardRoom.get(env.BoardRoom.idFromName(board)).destroy(board);
+      return new Response(null, { headers: CORS, status: 204 });
+    }
     const pass = await passFor(request, env, board);
     if (pass === null) return new Response("Forbidden", { headers: CORS, status: 403 });
     const room = env.BoardRoom.get(env.BoardRoom.idFromName(board));

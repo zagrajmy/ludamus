@@ -2,6 +2,7 @@ import {
   DurableObjectSqliteSyncWrapper,
   SQLiteSyncStorage,
   TLSocketRoom,
+  TLSyncErrorCloseEventCode,
   TLSyncErrorCloseEventReason,
 } from "@tldraw/sync-core";
 import { DurableObject } from "cloudflare:workers";
@@ -14,6 +15,13 @@ import { MAX_PEOPLE, MIN_ROLL_INTERVAL_MS, ROLL_LOG_LENGTH } from "./limits";
 export type Env = PassEnv & { BoardRoom: DurableObjectNamespace<BoardRoom> };
 
 export type Refusal = "link-reset" | "full" | "too-fast";
+
+// NOTE: the tldraw client reads close code 4099 as final and hands the
+// reason to useSync as a TLRemoteSyncError, instead of retrying.
+const SOCKET_REFUSAL: Record<"full" | "link-reset", string> = {
+  full: TLSyncErrorCloseEventReason.ROOM_FULL,
+  "link-reset": TLSyncErrorCloseEventReason.FORBIDDEN,
+};
 
 export const PASS_HEADER = "X-Board-Pass";
 
@@ -28,12 +36,18 @@ function kind(sub: string): "guest" | "member" {
 }
 
 export class BoardRoom extends DurableObject<Env> {
-  private readonly room: TLSocketRoom<never, Person>;
-  private readonly lastRollAt = new Map<string, number>();
+  private room!: TLSocketRoom<never, Person>;
+  private lastRollAt = new Map<string, number>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    const sql = ctx.storage.sql;
+    this.open();
+  }
+
+  // NOTE: deleteAll drops the tables and leaves the old room holding rows
+  // that no longer exist, so deleting starts over from here.
+  private open() {
+    const sql = this.ctx.storage.sql;
     sql.exec(
       "CREATE TABLE IF NOT EXISTS board (id INTEGER PRIMARY KEY CHECK (id = 1), link INTEGER NOT NULL)",
     );
@@ -42,9 +56,10 @@ export class BoardRoom extends DurableObject<Env> {
     );
     this.room = new TLSocketRoom<never, Person>({
       storage: new SQLiteSyncStorage({
-        sql: new DurableObjectSqliteSyncWrapper(ctx.storage, { tablePrefix: "tldraw_" }),
+        sql: new DurableObjectSqliteSyncWrapper(this.ctx.storage, { tablePrefix: "tldraw_" }),
       }),
     });
+    this.lastRollAt = new Map();
   }
 
   private link(): number {
@@ -54,7 +69,7 @@ export class BoardRoom extends DurableObject<Env> {
 
   // A reset link carries a higher version. The first pass that shows it
   // moves the board on and puts out everyone who came in by the old link.
-  private admit(pass: Pass): Refusal | null {
+  private admit(pass: Pass): "link-reset" | null {
     const current = this.link();
     if (pass.link < current) return "link-reset";
     if (pass.link > current) {
@@ -81,7 +96,10 @@ export class BoardRoom extends DurableObject<Env> {
       this.admit(pass) ?? (this.room.getNumActiveSessions() >= MAX_PEOPLE ? "full" : null);
     if (refusal !== null) {
       log("board.refused", { board: pass.board, person: kind(pass.sub), reason: refusal });
-      return new Response(refusal, { status: refusal === "full" ? 429 : 403 });
+      const { 0: client, 1: server } = new WebSocketPair();
+      server.accept();
+      server.close(TLSyncErrorCloseEventCode, SOCKET_REFUSAL[refusal]);
+      return new Response(null, { status: 101, webSocket: client });
     }
     const { 0: client, 1: server } = new WebSocketPair();
     server.accept();
@@ -136,5 +154,15 @@ export class BoardRoom extends DurableObject<Env> {
         name: row.name as string,
         sub: row.sub as string,
       }));
+  }
+
+  async destroy(board: string) {
+    for (const session of this.room.getSessions()) {
+      this.room.closeSession(session.sessionId, TLSyncErrorCloseEventReason.NOT_FOUND);
+    }
+    this.room.close();
+    await this.ctx.storage.deleteAll();
+    this.open();
+    log("board.deleted", { board });
   }
 }

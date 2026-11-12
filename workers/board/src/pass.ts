@@ -41,3 +41,19 @@ export async function verifyPass(token: string, env: PassEnv): Promise<Pass> {
   }
   return { board, link: link as number, name, owner, sub };
 }
+
+export const DELETION_AUDIENCE = "board-deletion";
+
+// NOTE: its own audience keeps the two kinds apart: a pass cannot delete a
+// board, and a deletion token cannot open a socket or roll.
+export async function verifyDeletion(token: string, env: PassEnv): Promise<string> {
+  const publicKey = await importSPKI(env.BOARD_PUBLIC_KEY.replaceAll("\\n", "\n"), "RS256");
+  const { payload } = await jwtVerify(token, publicKey, {
+    algorithms: ["RS256"],
+    audience: DELETION_AUDIENCE,
+    issuer: env.JWT_ISSUER,
+    requiredClaims: ["exp"],
+  });
+  if (typeof payload.board !== "string") throw new Error("Invalid deletion token");
+  return payload.board;
+}

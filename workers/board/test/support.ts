@@ -40,6 +40,23 @@ export async function pass({
 
 const worker = (exports as unknown as { default: { fetch: typeof fetch } }).default;
 
+export async function deletion({
+  audience = "board-deletion",
+  board = "b1",
+  issuedAt = now(),
+}: { audience?: string; board?: string; issuedAt?: number } = {}) {
+  return new SignJWT({ board })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setAudience(audience)
+    .setIssuer("ludamus")
+    .setExpirationTime(issuedAt + 300)
+    .sign(await importPKCS8(testEnv.TEST_SIGNING_KEY, "RS256"));
+}
+
+export function destroy(board: string, token: string | null) {
+  return call(`/rooms/${board}/delete`, token, { method: "POST" });
+}
+
 export function call(path: string, token: string | null, init: RequestInit = {}) {
   return worker.fetch(
     new Request(`https://board.test${path}`, {
@@ -60,8 +77,11 @@ export async function open(board: string, token: string, sessionId = crypto.rand
     }),
   );
   const socket = (response as unknown as { webSocket: WebSocket | null }).webSocket;
+  const closure = new Promise<{ code: number; reason: string }>((resolve) =>
+    socket?.addEventListener("close", ({ code, reason }) => resolve({ code, reason })),
+  );
   socket?.accept();
-  return { response, socket };
+  return { closure, response, socket };
 }
 
 type SyncMessage = { data?: unknown; type: string };
@@ -69,7 +89,7 @@ type SyncMessage = { data?: unknown; type: string };
 // Speaks just enough of the tldraw sync protocol to become a connected
 // session, then collects what the room sends.
 export async function seat(board: string, token: string) {
-  const { response, socket } = await open(board, token);
+  const { closure, response, socket } = await open(board, token);
   if (socket === null) throw new Error(`refused: ${response.status}`);
   const received: SyncMessage[] = [];
   let closed = false;
@@ -88,7 +108,12 @@ export async function seat(board: string, token: string) {
     }),
   );
   await until(() => received.some((message) => message.type === "connect"));
-  return { isClosed: () => closed, received };
+  return {
+    closure,
+    isClosed: () => closed,
+    received,
+    send: (message: object) => socket.send(JSON.stringify(message)),
+  };
 }
 
 export async function until(condition: () => boolean) {
