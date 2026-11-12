@@ -17,9 +17,9 @@ test("a bookmark after the session ended asks to sign in again", async ({ contex
   // The e2e Auth0 tenant is a placeholder, so the sign-in navigation is
   // aborted: Chrome then keeps this page, and with it the star and the
   // client coverage of the branch. What the login view does with `next` is
-  // test_auth0_login_action.py's.
-  await page.route(/\/crowd\/auth0\/do\/login/, (route) => route.abort("aborted"));
-  const signIn = page.waitForRequest(/\/crowd\/auth0\/do\/login/);
+  // test_login_action.py's.
+  await page.route(/\/crowd\/auth\/do\/login/, (route) => route.abort("aborted"));
+  const signIn = page.waitForRequest(/\/crowd\/auth\/do\/login/);
   const errors: string[] = [];
   // NOTE: Chrome reports the 401 response itself as a console error; only
   // errors the page logs count here.

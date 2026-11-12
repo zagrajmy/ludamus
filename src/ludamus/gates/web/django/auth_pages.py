@@ -11,9 +11,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Auth0 sends short machine tokens on both params (tracking ids like
-# d9bd4fc6d133caf8b064, error codes like invalid_request); anything else on
-# these attacker-suppliable params is dropped rather than rendered or logged.
+# The login callback forwards AuthKit's error code here, and old Auth0 error
+# links carry a tracking id: short machine tokens (d9bd4fc6d133caf8b064,
+# invalid_request); anything else on these attacker-suppliable params is
+# dropped rather than rendered or logged.
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
@@ -32,7 +33,7 @@ def auth_error_page(request: RootRequest) -> TemplateResponse:
     error_code = _vetted_token(request, "error")
     if "tracking" in request.GET or "error" in request.GET:
         logger.warning(
-            "Auth0 error redirect: error=%s tracking=%s",
+            "Login error redirect: error=%s tracking=%s",
             error_code or "-",
             tracking or "-",
         )

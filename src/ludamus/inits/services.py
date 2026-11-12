@@ -35,6 +35,7 @@ from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.links.workos import WorkOSIdentityProvider
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
@@ -255,11 +256,17 @@ class Services:
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
+        api_key: str = settings.WORKOS_API_KEY
+        client_id: str = settings.WORKOS_CLIENT_ID
+        base_url: str = settings.WORKOS_BASE_URL
         return CrowdAuthService(
             transaction=self._transaction,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            identity=WorkOSIdentityProvider(
+                api_key=api_key, client_id=client_id, base_url=base_url or None
+            ),
             subscriptions=self._repos.sphere_subscriptions,
             chat=self.parley_revocations,
         )

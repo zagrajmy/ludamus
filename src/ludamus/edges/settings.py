@@ -29,9 +29,9 @@ env = environ.Env(
     SESSION_COOKIE_DOMAIN=(str, None),
     SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
-    AUTH0_CLIENT_ID=(str, ""),
-    AUTH0_CLIENT_SECRET=(str, ""),
-    AUTH0_DOMAIN=(str, ""),
+    WORKOS_API_KEY=(str, ""),
+    WORKOS_CLIENT_ID=(str, ""),
+    WORKOS_BASE_URL=(str, ""),
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
     GIT_COMMIT_SHA=(str, "unknown"),
@@ -414,9 +414,10 @@ LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
 )
 SITE_ID = env("SITE_ID")
 
-AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
-AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
-AUTH0_DOMAIN = env("AUTH0_DOMAIN")
+WORKOS_API_KEY = env("WORKOS_API_KEY")
+WORKOS_CLIENT_ID = env("WORKOS_CLIENT_ID")
+# Empty means the real API; dev and e2e point it at scripts/workos_simulator.py.
+WORKOS_BASE_URL = env("WORKOS_BASE_URL")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 # Sender's postal address, printed under every opt-in (non-transactional) email.
@@ -453,7 +454,7 @@ INTERNAL_IPS = [
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
 # that is a separate, larger effort, not covered here. font-src is 'self':
 # the Outfit font is self-hosted (src/ludamus/client/src/fonts). img-src
-# stays broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
+# stays broad because avatars come from arbitrary login-provider/gravatar hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: a violation report carries
 # document-uri verbatim, so aiming it at a third party would ship the tokens

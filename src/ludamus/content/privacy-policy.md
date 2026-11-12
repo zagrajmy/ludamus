@@ -31,13 +31,13 @@ W ramach świadczonych usług przetwarzamy następujące kategorie danych osobow
 
 - Nazwa wyświetlana (może być pseudonimem; przy logowaniu przez Google lub Facebook wypełniamy ją imieniem i nazwiskiem z tego konta, a nazwę można później zmienić w profilu)
 - Adres email
-- Unikalny identyfikator z systemu Auth0
+- Unikalny identyfikator z systemu logowania WorkOS (w kontach założonych przed 25.09.2026 także dawny identyfikator Auth0)
 - Adres zdjęcia profilowego pobrany od dostawcy logowania oraz wybór, czy zamiast niego pokazywać Gravatar
 - Nazwa użytkownika na Discordzie (opcjonalnie)
 - Nazwy wyświetlane osób dodanych do konta jako podopieczni
 - Zadeklarowany przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 
-Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygnuje z rejestracji na tym etapie lub nie spełnia wymogu wieku, Auth0 może już przetwarzać dane uwierzytelniania, a serwis — dane techniczne związane z logowaniem. Nie zbieramy daty urodzenia ani dokumentów tożsamości.
+Pytamy o przedział wieku po zalogowaniu przez WorkOS. Jeśli użytkownik zrezygnuje z rejestracji na tym etapie lub nie spełnia wymogu wieku, WorkOS może już przetwarzać dane uwierzytelniania, a serwis — dane techniczne związane z logowaniem. Nie zbieramy daty urodzenia ani dokumentów tożsamości.
 
 ### 2.2 Dane techniczne:
 
@@ -132,7 +132,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 
 - **OVH SAS** (Francja) - dostawca usług hostingowych
 - **Cloudflare, Inc.** (USA) - pośredniczy w całym ruchu do serwisu, chroniąc go przed atakami i przyspieszając ładowanie stron, więc widzi adres IP i przesyłane dane. Obsługuje też czat: przechowuje wiadomości, reakcje i członków rozmów z punktu 2.5 i dostarcza je na bieżąco do przeglądarek uczestników
-- **Auth0 / Okta** (USA, Unia Europejska) - dostawca usług uwierzytelniania. Logowanie przez Google lub Facebook oznacza, że wybrany dostawca dowiaduje się o korzystaniu z serwisu
+- **WorkOS** (USA) - dostawca usług uwierzytelniania. Logowanie przez Google lub Facebook oznacza, że wybrany dostawca dowiaduje się o korzystaniu z serwisu
 - **Dostawca poczty wychodzącej** - wysyłka powiadomień z punktu 3.2; widzi adres odbiorcy i treść wiadomości
 - **Google Cloud Storage** - przechowywanie plików przesłanych do serwisu
 
@@ -169,7 +169,7 @@ W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie
 
 Część danych może być przetwarzana poza Europejskim Obszarem Gospodarczym przez:
 
-- **Auth0 / Okta** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **WorkOS** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
 - **Google** - usługi z punktów 4.1 i 4.3, na podstawie odpowiednich zabezpieczeń zgodnych z RODO
 - **Cloudflare** - pośrednictwo w ruchu i czat z punktu 4.1, na podstawie odpowiednich zabezpieczeń zgodnych z RODO. Serwery czatu są uruchamiane blisko pierwszych uczestników rozmowy, zwykle w Europie, ale nie mamy na to gwarancji
 - **Automattic (Gravatar)** - pobranie awatara przez przeglądarkę osoby oglądającej profil

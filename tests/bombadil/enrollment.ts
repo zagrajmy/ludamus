@@ -17,7 +17,7 @@ export {
 } from "@antithesishq/bombadil/browser/defaults";
 
 // The default noHttpErrorCodes, minus the Auth0 hand-off: the e2e tenant is a
-// placeholder, so /crowd/auth0/ can only answer 500. Bombadil still lands
+// placeholder, so /crowd/auth/ can only answer 500. Bombadil still lands
 // there when a page sends a signed-out visitor to sign in.
 const response = extract((state) => {
   const [entry] = state.window.performance.getEntriesByType("navigation");
@@ -28,7 +28,7 @@ const response = extract((state) => {
 export const noHttpErrorCodes = always(
   () =>
     response.current === null ||
-    response.current.path.startsWith("/crowd/auth0/") ||
+    response.current.path.startsWith("/crowd/auth/") ||
     response.current.status < 400,
 );
 
