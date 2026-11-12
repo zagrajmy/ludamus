@@ -28,6 +28,7 @@ from ludamus.links.db.django.repositories.session_cards import EventScheduleRepo
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.staff_cases import StaffCaseRepository
 from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.links.db.django.users import (
@@ -291,3 +292,7 @@ class Repositories:
     @cached_property
     def encounter_invitees(self) -> EncounterInviteeRepository:
         return EncounterInviteeRepository()
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseRepository:
+        return StaffCaseRepository()

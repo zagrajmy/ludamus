@@ -54,6 +54,8 @@ class ParleyConversationKind(StrEnum):
     GROUP = "group"
     # A party's own, its members kept in step with the party's.
     PARTY = "party"
+    # A staff case's thread, its members kept in step with who is staff.
+    STAFF = "staff"
 
 
 class ParleyMemberState(StrEnum):

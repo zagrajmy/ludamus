@@ -46,6 +46,9 @@ class ParleyWorkerClient:
     def sync_conversation(self, token: str) -> None:
         self._post("/conversations", token)
 
+    def post_to_conversation(self, token: str) -> None:
+        self._post("/conversations/messages", token)
+
     def read_message(self, token: str, /) -> ParleyReportedMessage | None:
         body: dict[str, str] = {"token": token}
         try:

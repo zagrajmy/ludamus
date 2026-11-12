@@ -35,6 +35,14 @@ def _eligible() -> Q:
     return _signs_in() & Q(age_band=AgeBand.SIXTEEN_PLUS.value)
 
 
+def _admitted(kind: ParleyConversationKind) -> Q:
+    if kind == ParleyConversationKind.PARTY:
+        return _signs_in()
+    if kind == ParleyConversationKind.STAFF:
+        return _signs_in() & Q(is_staff=True)
+    return _eligible()
+
+
 def _person(user: User) -> ParleyPersonDTO:
     return ParleyPersonDTO(
         id=str(user.pk), name=user.get_full_name(), avatar_url=user.avatar_url
@@ -213,15 +221,11 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         # Everyone, the departed included: a direct conversation dies with
         # either person's leaving. An account no longer eligible, disabled or
         # under 16, is not on the list the Worker gets; a party's chat holds
-        # only those its own age rule let in.
+        # only those its own age rule let in, a case's only staff.
         everyone = list(conversation.members.select_related("user"))
         eligible = set(
             User.objects.filter(
-                (
-                    _signs_in()
-                    if conversation.kind == ParleyConversationKind.PARTY
-                    else _eligible()
-                ),
+                _admitted(ParleyConversationKind(conversation.kind)),
                 pk__in=[member.user_id for member in everyone],
             ).values_list("pk", flat=True)
         )

@@ -279,6 +279,9 @@ def report(request: RootHttpRequest) -> JsonResponse:
     )
     if not created:
         return JsonResponse({"error": "invalid_report"}, status=422)
+    request.services.staff_cases.open_for_chat_report(
+        reporter_id=data.user_id, room_id=data.room_id, message_id=data.message_id
+    )
     logger.info(
         "Parley message reported",
         extra={

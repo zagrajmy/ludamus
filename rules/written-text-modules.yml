@@ -4,6 +4,7 @@ severity: error
 files:
   - src/ludamus/links/db/django/announcements.py
   - src/ludamus/links/db/django/admin.py
+  - src/ludamus/links/db/django/staff_mail.py
 rule:
   any:
     - kind: identifier

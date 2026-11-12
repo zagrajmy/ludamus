@@ -51,6 +51,8 @@ logger = logging.getLogger(__name__)
 # an old one has no business being accepted later.
 _MEMBERSHIP_TTL_SECONDS = 600
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
+# Members follow the party, or who is staff; nobody joins, leaves or renames.
+_KEPT_BY_OTHERS = (ParleyConversationKind.PARTY, ParleyConversationKind.STAFF)
 
 
 def _pk(conversation_id: str) -> int:
@@ -79,11 +81,11 @@ def party_chat_members(candidates: list[ParleyPartyCandidate]) -> list[int]:
 def visible_conversations(
     conversations: list[ParleyConversationDTO], *, direct: bool
 ) -> list[ParleyConversationDTO]:
-    """Keep a party's chat for anyone in it, the rest once open to them."""
+    """Keep a party's or a case's chat for anyone in it, the rest once open."""
     return [
         conversation
         for conversation in conversations
-        if direct or conversation.kind == ParleyConversationKind.PARTY
+        if direct or conversation.kind in _KEPT_BY_OTHERS
     ]
 
 
@@ -173,7 +175,7 @@ class ParleyConversationService:
             )
             if member is None or member[1] not in _PRESENT:
                 raise ParleyConversationError("not_found")
-            if member[0] == ParleyConversationKind.PARTY:
+            if member[0] in _KEPT_BY_OTHERS:
                 raise ParleyConversationError("forbidden")
             self._repository.set_member(
                 conversation_id=conversation_id,
@@ -279,10 +281,7 @@ class ParleyConversationService:
             raise ParleyConversationError("not_found")
         # A request is answered before it is renamed; a party's chat goes by
         # the party's name.
-        if (
-            member[1] != ParleyMemberState.ACTIVE
-            or member[0] == ParleyConversationKind.PARTY
-        ):
+        if member[1] != ParleyMemberState.ACTIVE or member[0] in _KEPT_BY_OTHERS:
             raise ParleyConversationError("forbidden")
         self._repository.set_title(conversation_id=conversation_id, title=name)
         return self._read(conversation_id, user_id)

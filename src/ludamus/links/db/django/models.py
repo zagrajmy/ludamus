@@ -260,6 +260,7 @@ class ParleyConversation(models.Model):
         DIRECT = "direct"
         GROUP = "group"
         PARTY = "party"
+        STAFF = "staff"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
     # NOTE: a party's chat, and the reports made in it, outlive the party, so
@@ -2399,3 +2400,114 @@ class ImportLogEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.integration_id}/{self.row_index} {self.status}"
+
+
+class StaffCase(models.Model):
+    """A report, notice, email or appeal staff handle; its pk is its number."""
+
+    class Kind(models.TextChoices):
+        CHAT_REPORT = "chat_report"
+        NOTICE = "notice"
+        APPEAL = "appeal"
+        EMAIL = "email"
+
+    class Status(models.TextChoices):
+        OPEN = "open"
+        WAITING = "waiting"
+        CLOSED = "closed"
+
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.OPEN
+    )
+    title = models.CharField(max_length=200, blank=True, default="")
+    child_safety = models.BooleanField(default=False)
+    assignee = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        limit_choices_to={"is_staff": True},
+    )
+    conversation = models.OneToOneField(
+        ParleyConversation, on_delete=models.PROTECT, related_name="staff_case"
+    )
+    external_email = models.EmailField(blank=True, default="")
+    external_name = models.CharField(max_length=255, blank=True, default="")
+    report = models.ForeignKey(
+        ParleyReport,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="staff_cases",
+    )
+    notice_id = models.PositiveBigIntegerField(null=True, blank=True)
+    decision = models.OneToOneField(
+        "StaffCaseDecision",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "staff_case"
+        indexes = (
+            models.Index(
+                fields=("status", "-created_at"), name="staff_case_status_idx"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Z-{self.pk} {self.kind}"
+
+
+class StaffCaseEmail(models.Model):
+    class Direction(models.TextChoices):
+        IN = "in"
+        OUT = "out"
+
+    case = models.ForeignKey(StaffCase, on_delete=models.CASCADE, related_name="emails")
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    # An inbound mail's Message-ID, or the token an outbound one was sent under.
+    message_id = models.CharField(max_length=255, unique=True)
+    address = models.EmailField()
+    name = models.CharField(max_length=255, blank=True, default="")
+    subject = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    attachments = models.JSONField(default=list, blank=True)
+    sent_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "staff_case_email"
+        ordering = ("created_at", "pk")
+
+    def __str__(self) -> str:
+        return f"Z-{self.case_id} {self.direction} {self.message_id}"
+
+
+class StaffCaseDecision(models.Model):
+    """What staff decided on a case; a later decision is its appeal's."""
+
+    case = models.ForeignKey(
+        StaffCase, on_delete=models.CASCADE, related_name="decisions"
+    )
+    action = models.CharField(max_length=20)
+    ground = models.CharField(max_length=20)
+    decided_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    decided_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "staff_case_decision"
+        ordering = ("decided_at", "pk")
+
+    def __str__(self) -> str:
+        return f"Z-{self.case_id} {self.action}"

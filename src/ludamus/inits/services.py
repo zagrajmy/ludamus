@@ -24,12 +24,13 @@ from ludamus.inits.dbos_scheduler import (
     parley_membership_outbox,
     parley_revocation_outbox,
 )
-from ludamus.inits.parley import parley_message_reader
+from ludamus.inits.parley import parley_message_reader, staff_thread
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.notifications import DjangoUserNotifier
+from ludamus.links.db.django.staff_mail import DjangoStaffMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
@@ -109,6 +110,7 @@ from ludamus.mills.sphere import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.staff_cases import StaffCaseService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -279,6 +281,16 @@ class Services:
     @cached_property
     def guilds(self) -> GuildService:
         return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseService:
+        return StaffCaseService(
+            transaction=self._transaction,
+            repository=self._repos.staff_cases,
+            thread=staff_thread(),
+            mailer=DjangoStaffMailer(),
+            memberships=parley_membership_outbox(),
+        )
 
     @cached_property
     def sphere_team(self) -> SphereTeamService:
