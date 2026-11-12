@@ -1,12 +1,29 @@
 import { importSPKI, jwtVerify } from "jose";
 
-import type { Capability, Lookup, Member, Membership, Revocation } from "./protocol";
+import type {
+  Capability,
+  Lookup,
+  Member,
+  Membership,
+  Revocation,
+  ThreadPost,
+  ThreadSource,
+} from "./protocol";
 
 const COOKIE_NAME = "parley_capability";
 // Its own audience, so neither kind of token can be passed off as the other.
 export const REVOCATION_AUDIENCE = "parley-revocation";
 export const MEMBERSHIP_AUDIENCE = "parley-membership";
 export const LOOKUP_AUDIENCE = "parley-message";
+export const POST_AUDIENCE = "parley-post";
+export const POSTED_MESSAGE_MAX = 4_000;
+const THREAD_SOURCES: readonly string[] = [
+  "case_opened",
+  "decision",
+  "email_in",
+  "email_out",
+  "note",
+] satisfies ThreadSource[];
 
 type AuthEnv = {
   JWT_AUDIENCE: string;
@@ -160,7 +177,10 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
   if (
     typeof payload.conversation !== "string" ||
     !/^\d+$/u.test(payload.conversation) ||
-    (payload.kind !== "direct" && payload.kind !== "group" && payload.kind !== "party") ||
+    (payload.kind !== "direct" &&
+      payload.kind !== "group" &&
+      payload.kind !== "party" &&
+      payload.kind !== "staff") ||
     !Array.isArray(payload.members) ||
     !payload.members.every(isMember)
   ) {
@@ -186,6 +206,37 @@ export async function verifyLookup(token: string, env: AuthEnv): Promise<Lookup>
     throw new Error("Invalid lookup");
   }
   return { messageId: payload.message, room: payload.room };
+}
+
+export async function verifyThreadPost(token: string, env: AuthEnv): Promise<ThreadPost> {
+  const payload = await verified(token, env, POST_AUDIENCE, ["exp", "iat"]);
+  if (
+    typeof payload.conversation !== "string" ||
+    !/^\d+$/u.test(payload.conversation) ||
+    typeof payload.author !== "string" ||
+    !/^(?:\d+|system|email)$/u.test(payload.author) ||
+    typeof payload.name !== "string" ||
+    typeof payload.body !== "string" ||
+    payload.body.trim().length === 0 ||
+    [...payload.body].length > POSTED_MESSAGE_MAX ||
+    typeof payload.source !== "string" ||
+    !THREAD_SOURCES.includes(payload.source) ||
+    typeof payload.nonce !== "string" ||
+    payload.nonce.length === 0 ||
+    payload.nonce.length > 100 ||
+    !isSeconds(payload.retainFor)
+  ) {
+    throw new Error("Invalid thread post");
+  }
+  return {
+    authorId: payload.author,
+    authorName: payload.name,
+    body: payload.body,
+    conversation: payload.conversation,
+    nonce: payload.nonce,
+    retainFor: payload.retainFor,
+    source: payload.source as ThreadSource,
+  };
 }
 
 async function tokenFromBody(request: Request): Promise<string | null> {
@@ -243,6 +294,19 @@ export async function lookupFromRequest(
     return await verifyLookup(token, env);
   } catch {
     return new Response("Invalid lookup", { status: 401 });
+  }
+}
+
+export async function threadPostFromRequest(
+  request: Request,
+  env: AuthEnv,
+): Promise<ThreadPost | Response> {
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
+  try {
+    return await verifyThreadPost(token, env);
+  } catch {
+    return new Response("Invalid thread post", { status: 401 });
   }
 }
 

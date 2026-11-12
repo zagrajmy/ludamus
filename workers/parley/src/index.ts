@@ -12,6 +12,7 @@ import {
   membershipFromRequest,
   originIsAllowed,
   revocationFromRequest,
+  threadPostFromRequest,
 } from "./auth";
 import { roomAgent } from "./room-agent";
 
@@ -57,6 +58,16 @@ export default {
         membership.conversation,
       );
       await room.sync(membership);
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname === "/conversations/messages" && request.method === "POST") {
+      const post = await threadPostFromRequest(request, env);
+      if (post instanceof Response) return post;
+      const room = await getAgentByName<Env, ParleyConversationAgent>(
+        env.ParleyConversationAgent,
+        post.conversation,
+      );
+      await room.post(post);
       return new Response(null, { status: 204 });
     }
     if (url.pathname === "/messages" && request.method === "POST") {

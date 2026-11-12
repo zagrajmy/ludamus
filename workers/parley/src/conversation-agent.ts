@@ -8,18 +8,28 @@ import type {
   Membership,
   Message,
   RpcError,
+  ThreadPost,
 } from "./protocol";
 
-import { NOT_A_MEMBER, RoomAgent, type Env } from "./room-agent";
+import { NOT_A_MEMBER, RoomAgent, type Env, type MessageRow } from "./room-agent";
 
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
-// A direct, group or party conversation. Django pushes who is in it; the
+// A direct, group, party or staff case conversation. Django pushes who is in it; the
 // room admits, and lets write, only the people on its latest list.
 export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";
 
   async onStart(): Promise<void> {
+    // NOTE: before the base class starts, whose sweep asks how long messages live here.
+    void this.sql`CREATE TABLE IF NOT EXISTS retention (
+      singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+      lifetime_ms INTEGER NOT NULL
+    )`;
+    void this.sql`CREATE TABLE IF NOT EXISTS posted (
+      message_id INTEGER PRIMARY KEY,
+      source TEXT NOT NULL
+    )`;
     await super.onStart();
     void this.sql`CREATE TABLE IF NOT EXISTS conversation (
       singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -33,11 +43,14 @@ export class ParleyConversationAgent extends RoomAgent {
     )`;
   }
 
-  // A party's chat keeps its own age rule in Django; the others need the
-  // pass to say conversations are open to this person at all.
+  // A party's chat keeps its own age rule in Django, a case's takes only
+  // staff; the others need the pass to say conversations are open to this
+  // person at all.
   protected async admits(capability: Capability): Promise<boolean> {
     const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
-    if (kind !== "party" && capability.direct !== true) throw new Error("Forbidden room");
+    if (kind !== "party" && kind !== "staff" && capability.direct !== true) {
+      throw new Error("Forbidden room");
+    }
     return this.member(capability.sub) !== undefined;
   }
 
@@ -65,6 +78,42 @@ export class ParleyConversationAgent extends RoomAgent {
       const sub = connection.state?.capability.sub;
       if (sub !== undefined && !present.has(sub)) connection.close(NOT_A_MEMBER, "Not a member");
     }
+  }
+
+  // Not @callable: Django writes system events, email and staff notes into a staff case's thread.
+  async post(post: ThreadPost): Promise<Message> {
+    if (post.conversation !== this.name) throw new Error("Post for another room");
+    void this
+      .sql`INSERT INTO retention (singleton, lifetime_ms) VALUES (1, ${post.retainFor * 1_000})
+      ON CONFLICT(singleton) DO UPDATE SET lifetime_ms = excluded.lifetime_ms`;
+    this.purgeExpiredMessages();
+    const existing = this
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${post.authorId} AND client_nonce = ${post.nonce}`[0];
+    if (existing !== undefined) return this.message(existing, { reactions: {}, reactors: {} });
+    const now = Date.now();
+    void this
+      .sql`INSERT INTO messages (author_id, author_name, author_avatar_url, body, client_nonce, created_at)
+      VALUES (${post.authorId}, ${post.authorName}, '', ${post.body}, ${post.nonce}, ${now})`;
+    const row = this
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${post.authorId} AND client_nonce = ${post.nonce}`[0]!;
+    void this.sql`INSERT INTO posted (message_id, source) VALUES (${row.id}, ${post.source})`;
+    const message = this.message(row, { reactions: {}, reactors: {} });
+    this.emit({ type: "message.created", v: 1, payload: message });
+    await this.scheduleSweep({ earliest: now, idempotent: true });
+    this.afterMessage(message);
+    return message;
+  }
+
+  protected messageLifetime(): number {
+    const kept = this.sql<{ lifetime_ms: number }>`SELECT lifetime_ms FROM retention`[0];
+    return kept?.lifetime_ms ?? super.messageLifetime();
+  }
+
+  protected purgeExpiredMessages(): void {
+    const cutoff = Date.now() - this.messageLifetime();
+    void this.sql`DELETE FROM posted
+      WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
+    super.purgeExpiredMessages();
   }
 
   protected writeError(capability: Capability): RpcError | null {

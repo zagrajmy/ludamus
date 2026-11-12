@@ -25,7 +25,7 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
-export type ConversationKind = "direct" | "group" | "party";
+export type ConversationKind = "direct" | "group" | "party" | "staff";
 
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
@@ -45,6 +45,18 @@ export type Reported = Pick<
 
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
+
+export type ThreadSource = "case_opened" | "decision" | "email_in" | "email_out" | "note";
+
+export type ThreadPost = {
+  authorId: string;
+  authorName: string;
+  body: string;
+  conversation: string;
+  nonce: string;
+  retainFor: number;
+  source: ThreadSource;
+};
 
 export type Revocation = {
   exp: number;

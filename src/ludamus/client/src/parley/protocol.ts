@@ -157,7 +157,7 @@ export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party";
+  kind: "direct" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;

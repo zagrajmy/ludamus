@@ -17,7 +17,7 @@ import type { ParleySphereAgent } from "./sphere-agent";
 import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
-import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
+import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage } from "./limits";
 import {
   NOT_A_MEMBER,
   PASS_EXPIRED,
@@ -82,7 +82,7 @@ export function revokes(
   );
 }
 
-type MessageRow = {
+export type MessageRow = {
   author_avatar_url: string;
   author_id: string;
   author_name: string;
@@ -528,7 +528,7 @@ export abstract class RoomAgent extends Agent<Env> {
   // NOTE: a table keyed by message id deletes its rows here, before the
   // messages that name them.
   protected purgeExpiredMessages(): void {
-    const cutoff = retentionCutoff();
+    const cutoff = Date.now() - this.messageLifetime();
     void this.sql`DELETE FROM reactions
       WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
     void this.sql`DELETE FROM messages WHERE created_at <= ${cutoff}`;
@@ -544,20 +544,24 @@ export abstract class RoomAgent extends Agent<Env> {
   // old, and never before `earliest`. A room with no messages sets none.
   // NOTE: a one-shot schedule stays listed until its callback returns, so
   // the sweep's own reschedule skips the dedup, which would find itself.
-  private async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
+  protected messageLifetime(): number {
+    return MESSAGE_LIFETIME_MS;
+  }
+
+  protected async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
     const oldest = this.sql<{
       created_at: number;
     }>`SELECT created_at FROM messages ORDER BY created_at LIMIT 1`[0];
     if (oldest === undefined) return;
     await this.schedule(
-      new Date(Math.max(oldest.created_at + MESSAGE_LIFETIME_MS, options.earliest)),
+      new Date(Math.max(oldest.created_at + this.messageLifetime(), options.earliest)),
       "sweepExpiredMessages",
       undefined,
       { idempotent: options.idempotent },
     );
   }
 
-  private message(
+  protected message(
     row: MessageRow,
     { reactions, reactors }: { reactions: Reactions; reactors: Reactors },
   ): Message {
