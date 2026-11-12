@@ -295,6 +295,28 @@ class TestSpherePanelServicePatchSettings:
             )
         ]
 
+    def test_a_patch_turning_chat_off_takes_back_every_pass(self):
+        chat = FakeChat()
+        spheres = FakeSpheres()
+
+        _service(spheres=spheres, chat=chat).patch_settings(
+            SPHERE_PK, changes={"parley_enabled": False}
+        )
+
+        assert spheres.updates == [(SPHERE_PK, {"parley_enabled": False})]
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_a_patch_turning_chat_on_takes_nothing_back(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        _service(spheres=spheres, chat=chat).patch_settings(
+            SPHERE_PK, changes={"parley_enabled": True}
+        )
+
+        assert spheres.updates == [(SPHERE_PK, {"parley_enabled": True})]
+        assert not chat.revoked
+
     def test_an_empty_patch_writes_nothing(self):
         spheres = FakeSpheres()
 

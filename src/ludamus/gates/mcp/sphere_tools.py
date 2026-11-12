@@ -43,6 +43,14 @@ class _UpdateSphereSettingsInput(BaseModel):
     encounters_policy: EncountersPolicy | None = Field(
         default=None, description="Who may organize encounters in the sphere"
     )
+    parley_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere has chat at all: its organizers' room, its "
+            "programme points' rooms and the chats of events that have one on. "
+            "Turning it off closes them at once."
+        ),
+    )
     confirmed_encounters_disable: bool = Field(
         default=False,
         description=(
@@ -64,6 +72,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["visibility"] = self.visibility
         if self.encounters_policy is not None:
             changes["encounters_policy"] = self.encounters_policy
+        if self.parley_enabled is not None:
+            changes["parley_enabled"] = self.parley_enabled
         return changes
 
 

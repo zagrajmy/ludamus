@@ -183,6 +183,7 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    parley_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: EncountersPolicy

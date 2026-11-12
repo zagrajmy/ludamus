@@ -667,6 +667,37 @@ class TestOrganizerToolsForMaintainers:
         assert other.visibility == "public"
         assert updated["visibility"] == "unlisted"
 
+    def test_turns_a_sphere_s_chat_and_one_event_s_chat_on(self, client, token, sphere):
+        sphere.parley_enabled = False
+        sphere.save()
+        event = EventFactory(sphere=sphere)
+        sibling = EventFactory(sphere=sphere)
+
+        def call(name, arguments):
+            return json.loads(tool_text(call_tool(client, token, name, arguments)))
+
+        assert call("get_sphere", {"sphere_id": sphere.pk})["parley_enabled"] is False
+        assert (
+            call("get_event", {"sphere_id": sphere.pk, "slug": event.slug})[
+                "parley_enabled"
+            ]
+            is False
+        )
+
+        call("update_sphere_settings", {"sphere_id": sphere.pk, "parley_enabled": True})
+        updated = call(
+            "update_event",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "parley_enabled": True},
+        )
+
+        sphere.refresh_from_db()
+        event.refresh_from_db()
+        sibling.refresh_from_db()
+        assert sphere.parley_enabled is True
+        assert (event.parley_enabled, sibling.parley_enabled) == (True, False)
+        assert updated["parley_enabled"] is True
+        assert call("get_sphere", {"sphere_id": sphere.pk})["parley_enabled"] is True
+
     def test_event_write_lands_in_the_named_event(self, client, token, sphere):
         event = EventFactory(sphere=sphere)
         sibling = EventFactory(sphere=sphere)

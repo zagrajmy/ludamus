@@ -120,6 +120,14 @@ class _UpdateEventInput(BaseModel):
             "omit to keep"
         ),
     )
+    parley_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the event has a chat for everyone taking part; it shows "
+            "only while the sphere's own chat is on too (get_sphere). Turning "
+            "it off closes it at once. Omit to keep"
+        ),
+    )
 
     @field_validator("slug")
     @classmethod
@@ -225,6 +233,8 @@ def _event_switches_kept(body: _UpdateEventInput) -> EventUpdateData:
         data["use_session_cover_placeholders"] = body.use_session_cover_placeholders
     if "use_participants_label" in sent and body.use_participants_label is not None:
         data["use_participants_label"] = body.use_participants_label
+    if "parley_enabled" in sent and body.parley_enabled is not None:
+        data["parley_enabled"] = body.parley_enabled
     return data
 
 
@@ -265,7 +275,8 @@ class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
     description = (
         "Update any of the token event's settings: name, slug, description, "
         "address, start/end times, publication, visibility, proposal windows, "
-        "and the programme flags. Only provided fields change. Images have their own "
+        "the programme flags and the event chat. Only provided fields change. "
+        "Images have their own "
         "tool (set_event_image)."
     )
     scope = ToolScope.ORGANIZER

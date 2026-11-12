@@ -260,6 +260,8 @@ class SpherePanelService:
             data["visibility"] = changes["visibility"]
         if (encounters_policy := changes.get("encounters_policy")) is not None:
             data["encounters_policy"] = encounters_policy.value
+        if (parley_enabled := changes.get("parley_enabled")) is not None:
+            data["parley_enabled"] = parley_enabled
 
         with self._transaction.atomic():
             if (
@@ -270,6 +272,8 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if parley_enabled is False and self._spheres.read(sphere_id).parley_enabled:
+                self._chat.revoke_sphere(sphere_id=sphere_id)
             if data:
                 self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
