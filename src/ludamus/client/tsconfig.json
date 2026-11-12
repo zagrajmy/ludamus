@@ -23,5 +23,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx"
+  ],
+  "exclude": [
+    "src/board/dev/harness.ts"
   ]
 }

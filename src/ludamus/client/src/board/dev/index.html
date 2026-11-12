@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="description" content="Development harness for the board client">
+        <title>Board harness</title>
+        <link rel="stylesheet" href="/src/index.css" />
+    </head>
+    <body class="bg-background">
+        <div data-board-root data-csrf-token="harness" data-license-key=""></div>
+        <script>
+            // NOTE: the harness passes its query string on to the fake bootstrap,
+            // which picks the person and the board from it.
+            const root = document.querySelector("[data-board-root]");
+            const query = new URLSearchParams(location.search);
+            root.dataset.bootstrapUrl = `/dev-board/bootstrap/?${query}`;
+            root.dataset.language = query.get("lang") ?? "en";
+            document.documentElement.lang = root.dataset.language;
+        </script>
+        <script type="module" src="/src/board/index.ts"></script>
+    </body>
+</html>

@@ -34,6 +34,8 @@
   "dependencies": {
     "@fortawesome/fontawesome-free": "6.7.2",
     "@shadcn/react": "0.2.0",
+    "@tldraw/assets": "5.6.0",
+    "@tldraw/sync": "5.6.0",
     "agents": "0.29.0",
     "cuelume": "0.1.0",
     "emojibase-data": "18.0.0",
@@ -43,6 +45,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "slugify": "1.6.9",
+    "tldraw": "5.6.0",
     "yace": "1.1.1"
   }
 }

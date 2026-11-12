@@ -4,6 +4,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
+import { boardHarness } from "./src/board/dev/harness";
+
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const fontAwesomeDir = dirname(
   fileURLToPath(import.meta.resolve("@fortawesome/fontawesome-free/package.json")),
@@ -68,6 +70,9 @@ const emojibase = (): Plugin => ({
 export default defineConfig({
   base: "/static/vite/",
   build: {
+    // NOTE: tldraw's fonts and translations stay files: the CSP's font-src
+    // and connect-src allow 'self' only, never data: URLs.
+    assetsInlineLimit: (file) => (file.includes("@tldraw/assets") ? false : undefined),
     emptyOutDir: true,
     manifest: "manifest.json",
     outDir: resolve(rootDir, "../static/vite"),
@@ -76,6 +81,7 @@ export default defineConfig({
         actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         avatar: resolve(rootDir, "src/avatar.ts"),
+        board: resolve(rootDir, "src/board/index.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
         "color-field": resolve(rootDir, "src/color-field.ts"),
@@ -134,7 +140,15 @@ export default defineConfig({
   define: {
     __KONWENCIK_ICON_STYLES__: JSON.stringify(konwencikIconStyles),
   },
-  plugins: [djangoTemplateReload(), emojibase(), tailwindcss()],
+  // NOTE: the dependency pre-bundler cannot follow @tldraw/assets' `?url`
+  // imports; Vite serves the package as it is instead.
+  optimizeDeps: { exclude: ["@tldraw/assets"] },
+  plugins: [
+    boardHarness({ worker: process.env.BOARD_DEV_WORKER ?? "http://localhost:8788" }),
+    djangoTemplateReload(),
+    emojibase(),
+    tailwindcss(),
+  ],
   server: {
     cors: {
       origin: /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,
