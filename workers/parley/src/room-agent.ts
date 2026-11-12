@@ -264,6 +264,9 @@ export abstract class RoomAgent extends Agent<Env> {
     return { ok: true, value: { id: messageId } };
   }
 
+  // TODO(#1755): a moderator's delete and mute owe the author a statement of
+  // reasons (DSA Art. 17); Django's StatementOfReasonsService sends it once
+  // the Worker reports these actions back.
   @callable()
   deleteMessage(input: { messageId?: unknown }): RpcResult<{ id: number }> {
     const capability = this.currentCapability();
