@@ -129,23 +129,25 @@
                             <input type="hidden"
                                    name="timeoption_{{ row.index }}"
                                    value="{{ group.option }}">
-                            <input type="date"
-                                   name="timeday_{{ row.index }}"
-                                   value="{{ entry.day }}"
-                                   aria-label="{% translate "Day" %}"
-                                   class="min-w-0 flex-1 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                            <select name="timepart_{{ row.index }}"
-                                    aria-label="{% translate "Part of day" %}"
-                                    class="min-w-0 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                <option value="morning"
-                                        {% if entry.part == "morning" %}selected{% endif %}>{% translate "Morning" %}</option>
-                                <option value="afternoon"
-                                        {% if entry.part == "afternoon" %}selected{% endif %}>{% translate "Afternoon" %}</option>
-                                <option value="evening"
-                                        {% if entry.part == "evening" %}selected{% endif %}>{% translate "Evening" %}</option>
-                                <option value="night"
-                                        {% if entry.part == "night" %}selected{% endif %}>{% translate "Night" %}</option>
-                            </select>
+                            {% with index=row.index|stringformat:"s" %}
+                                <div class="min-w-0 flex-1">
+                                    {% translate "Day" as t_day %}
+                                    {% include "components/text-field.html" with input_type="date" name="timeday_"|add:index value=entry.day aria_label=t_day only %}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    {% translate "Part of day" as t_part_of_day %}
+                                    {% select name="timepart_"|add:index aria_label=t_part_of_day %}
+                                        <option value="morning"
+                                                {% if entry.part == "morning" %}selected{% endif %}>{% translate "Morning" %}</option>
+                                        <option value="afternoon"
+                                                {% if entry.part == "afternoon" %}selected{% endif %}>{% translate "Afternoon" %}</option>
+                                        <option value="evening"
+                                                {% if entry.part == "evening" %}selected{% endif %}>{% translate "Evening" %}</option>
+                                        <option value="night"
+                                                {% if entry.part == "night" %}selected{% endif %}>{% translate "Night" %}</option>
+                                    {% end_select %}
+                                </div>
+                            {% endwith %}
                             <button type="button"
                                     data-time-remove
                                     class="shrink-0 text-foreground-muted hover:text-foreground"
