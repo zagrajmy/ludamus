@@ -46,6 +46,7 @@ const party: Conversation = {
   isAdmin: false,
   kind: "party",
   members: [me, ada, kuba],
+  mentionable: [ada.id, kuba.id],
   name: "Drużyna Pierścienia",
   state: "active",
   title: "Drużyna Pierścienia",

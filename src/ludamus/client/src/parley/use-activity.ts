@@ -40,8 +40,12 @@ export function useActivity(
     const listener = (raw: MessageEvent<string>) => {
       const event = JSON.parse(raw.data) as Event;
       if (event.type === "room.activity") {
-        const { at, roomId } = event.payload as { at: number; roomId: string };
-        setActivity((current) => ({ ...current, [roomId]: { at, unread: true } }));
+        const { at, mentionedBy, roomId } = event.payload as {
+          at: number;
+          mentionedBy?: string[];
+          roomId: string;
+        };
+        setActivity((current) => ({ ...current, [roomId]: { at, mentionedBy, unread: true } }));
       }
       if (event.type === "unread.changed") {
         const { roomId, unread } = event.payload as { roomId: string; unread: boolean };

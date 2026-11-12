@@ -147,6 +147,7 @@ function Frame({
 
 function RoomList({
   activity,
+  blocked,
   bootstrap,
   close,
   compose,
@@ -157,6 +158,7 @@ function RoomList({
   showBlocked,
 }: {
   activity: Record<string, RoomActivity>;
+  blocked: Set<string>;
   bootstrap: Bootstrap;
   close: () => void;
   compose: (() => void) | null;
@@ -184,6 +186,8 @@ function RoomList({
   const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
+    // A mention from someone this person blocked stays as hidden as its message.
+    const mentioned = (seen?.mentionedBy ?? []).some((id) => !blocked.has(id));
     const { conversation } = room;
     const face =
       conversation?.kind === "direct"
@@ -208,7 +212,13 @@ function RoomList({
             <span
               className={`block truncate text-xs ${unread ? "font-semibold text-foreground" : "text-foreground-muted"}`}
             >
-              {conversation?.state === "request" ? copy.requestFrom : roomKind(copy, room)}
+              {conversation?.state === "request" ? (
+                copy.requestFrom
+              ) : mentioned ? (
+                <span className="text-coral-700 dark:text-coral-300">{copy.mentionedYou}</span>
+              ) : (
+                roomKind(copy, room)
+              )}
               {seen !== undefined && seen.at > 0 && ` · ${ago(seen.at)}`}
             </span>
           </span>
@@ -490,6 +500,7 @@ function Connected({
           {shown.kind === "list" && (
             <RoomList
               activity={activity}
+              blocked={blockedIds}
               bootstrap={bootstrap}
               close={close}
               compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}

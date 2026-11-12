@@ -101,9 +101,20 @@ export class ParleyConversationAgent extends RoomAgent {
           await inbox.recordActivity({
             authorId: message.authorId,
             latestMessageId: message.id,
+            mentions: message.mentions,
             roomId: this.roomId,
           });
         }),
+      ),
+    );
+  }
+
+  protected mentionable(capability: Capability): ReadonlySet<string> {
+    return new Set(
+      this.sql<{
+        user_id: string;
+      }>`SELECT user_id FROM members WHERE user_id != ${capability.sub}`.map(
+        (member) => member.user_id,
       ),
     );
   }

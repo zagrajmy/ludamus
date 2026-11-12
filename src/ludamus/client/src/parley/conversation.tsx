@@ -21,6 +21,7 @@ import { counterpart, roomKind } from "./conversations";
 import { counted, moment, number, when } from "./format";
 import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
+import { encodeMentions, matching, MentionList, mentionQuery } from "./mentions";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
 import { type Muted, useRoom, withReactions } from "./use-room";
 
@@ -257,8 +258,27 @@ export function Conversation({
   const closeButton = useRef<HTMLButtonElement>(null);
   const typingSince = useRef(0);
   const wasMuted = useRef(false);
-  const { length } = [...body.trim()];
+  const [picked, setPicked] = useState<Person[]>([]);
+  const [caret, setCaret] = useState(0);
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const [active, setActive] = useState(0);
+  const placeCaret = useRef<number | null>(null);
+  const encoded = encodeMentions(body, picked);
+  const { length } = [...encoded.body.trim()];
   const tooLong = length > LIMIT;
+  const members = room.conversation?.members ?? [];
+  const names = new Map(members.map((person) => [person.id, person.name]));
+  const mentionable = new Set(room.conversation?.mentionable);
+  const query = mentionQuery(body, caret);
+  const offered =
+    query === null || query.start === dismissed
+      ? []
+      : matching(
+          members.filter(({ id }) => mentionable.has(id) && !blocked.has(id)),
+          query.query,
+        );
+  const shownActive = Math.min(active, offered.length - 1);
+  const highlighted = offered[shownActive];
 
   useEffect(() => {
     if (wasMuted.current && muted === null) setNotice(copy.writingRestored);
@@ -319,7 +339,43 @@ export function Conversation({
     if (field === null) return;
     field.style.height = "auto";
     field.style.height = `${Math.min(field.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+    if (placeCaret.current !== null) {
+      field.setSelectionRange(placeCaret.current, placeCaret.current);
+      setCaret(placeCaret.current);
+      placeCaret.current = null;
+    }
   }, [body]);
+
+  const choose = (person: Person) => {
+    const { start } = query!;
+    const inserted = `@${person.name} `;
+    placeCaret.current = start + inserted.length;
+    setBody(body.slice(0, start) + inserted + body.slice(caret));
+    setPicked((current) => [...current.filter(({ id }) => id !== person.id), person]);
+    setActive(0);
+  };
+  const keydown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (highlighted !== undefined) {
+      const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 };
+      if (event.key in moves) {
+        event.preventDefault();
+        setActive((shownActive + moves[event.key]! + offered.length) % offered.length);
+        return;
+      }
+      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+        event.preventDefault();
+        choose(highlighted);
+        return;
+      }
+      if (event.key === "Escape") {
+        // NOTE: preventDefault keeps the panel's own Escape (close chat) out of it.
+        event.preventDefault();
+        setDismissed(query!.start);
+        return;
+      }
+    }
+    submitOnEnter(event);
+  };
 
   const tidy = (id: number) =>
     setMessages((current) =>
@@ -334,7 +390,7 @@ export function Conversation({
     setSending(true);
     setNotice(null);
     const result = await withTimeout(
-      agent.call<Result<Message>>("sendMessage", [{ body, nonce: crypto.randomUUID() }]),
+      agent.call<Result<Message>>("sendMessage", [{ ...encoded, nonce: crypto.randomUUID() }]),
     );
     setSending(false);
     if (result.ok) {
@@ -342,6 +398,8 @@ export function Conversation({
         current.some(({ id }) => id === result.value.id) ? current : [...current, result.value],
       );
       setBody("");
+      setPicked([]);
+      setDismissed(null);
       setError(null);
       typingSince.current = 0;
     } else if (result.code === "muted") setMuted((current) => current ?? { until: null });
@@ -495,18 +553,35 @@ export function Conversation({
         </label>
         {/* The send button sits inside the field's border; pe-12 keeps text clear of it. */}
         <div className="relative">
+          {highlighted !== undefined && (
+            <MentionList
+              active={shownActive}
+              choose={choose}
+              id="parley-mentions"
+              label={copy.mentionPeople}
+              people={offered}
+            />
+          )}
           <textarea
+            aria-activedescendant={
+              highlighted === undefined ? undefined : `parley-mentions-${highlighted.id}`
+            }
+            aria-autocomplete={members.length > 0 ? "list" : undefined}
+            aria-controls={highlighted === undefined ? undefined : "parley-mentions"}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
             onChange={(event) => {
               setBody(event.target.value);
+              setCaret(event.target.selectionStart);
+              setActive(0);
               // A refused send speaks of the draft it was; editing makes it stale.
               setError(null);
               announceTyping(event.target.value);
             }}
-            onKeyDown={submitOnEnter}
+            onKeyDown={keydown}
+            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
             placeholder={copy.writePlaceholder}
             ref={composer}
             rows={1}
@@ -663,6 +738,7 @@ export function Conversation({
                       message={message}
                       moderate={(id) => void moderate(id)}
                       mute={(id, action) => void mute(id, action)}
+                      nameOf={(id) => names.get(id) ?? copy.typingSomeone}
                       pick={(messageId, anchor) => setPicking({ anchor, messageId })}
                       react={
                         room.canWrite && muted === null

@@ -4069,6 +4069,14 @@ msgid "People"
 msgstr "Osoby"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "Mentioned you"
+msgstr "Wzmianka o tobie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "People in this conversation"
+msgstr "Osoby w tej rozmowie"
+
+#: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/sphere/panel/team.html
 msgid "(you)"
 msgstr "(Ty)"

@@ -39,8 +39,9 @@ past its year however late the alarm runs. A room's alarm sweeps its storage
 once the oldest message is due, and then at most daily while any remain; a
 room with no messages sets none. A sphere's room activity and read positions,
 and a person's inbox, drop entries a year old the same way, so no unread flag
-outlives its message. Event and session rooms go sooner on top of that:
-read-only 48 hours after their event ends, and deleted whole 30 days after.
+outlives its message, and neither does a mention. Event and session rooms go
+sooner on top of that: read-only 48 hours after their event ends, and deleted
+whole 30 days after.
 Django clears its own copy of a reported message on the same one-year rule.
 
 ## Inputs

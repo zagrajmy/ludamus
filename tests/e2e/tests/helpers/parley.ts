@@ -9,6 +9,7 @@ export type Conversation = {
   isAdmin: boolean;
   kind: "direct" | "group" | "party";
   members: Person[];
+  mentionable: string[];
   name: string;
   state: "active" | "request";
   title: string;
@@ -96,6 +97,8 @@ export const bootstrap = {
     membersLabel: "People",
     membersMany: "%(count)s members",
     membersOne: "%(count)s member",
+    mentionedYou: "Mentioned you",
+    mentionPeople: "People in this conversation",
     messageActions: "Message actions",
     messageLabel: "Message",
     messageListLabel: "Messages",
@@ -251,6 +254,7 @@ export type Reply =
   | "reject"
   | "silent";
 type Handler = (input: Record<string, unknown>, url: string) => Reply;
+type Activity = { at: number; mentionedBy?: string[]; unread: boolean };
 
 // Stands in for the chat Worker's Durable Object sockets. Every call
 // succeeds unless a handler says otherwise: getActivity returns the given
@@ -261,12 +265,9 @@ export class FakeWorker {
   readonly sockets: WebSocketRoute[] = [];
   private readonly handlers = new Map<string, Handler>();
 
-  constructor(private readonly activity: Record<string, { at: number; unread: boolean }> = {}) {}
+  constructor(private readonly activity: Record<string, Activity> = {}) {}
 
-  static async install(
-    page: Page,
-    activity: Record<string, { at: number; unread: boolean }> = {},
-  ): Promise<FakeWorker> {
+  static async install(page: Page, activity: Record<string, Activity> = {}): Promise<FakeWorker> {
     const worker = new FakeWorker(activity);
     await page.routeWebSocket(/^wss?:\/\/[^/]+\/agents\//u, (socket) => worker.accept(socket));
     return worker;
@@ -344,6 +345,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions?: string[];
   nonce: string;
   reactions?: Record<string, string[]>;
   reactors?: Record<string, string>;

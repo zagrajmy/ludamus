@@ -63,6 +63,8 @@ export type Copy = Record<
   | "membersLabel"
   | "membersMany"
   | "membersOne"
+  | "mentionedYou"
+  | "mentionPeople"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
@@ -160,6 +162,8 @@ export type ConversationInfo = {
   isAdmin: boolean;
   kind: "direct" | "group" | "party";
   members: Person[];
+  // Ids of the members this member may mention.
+  mentionable: string[];
   // The name its members gave it; empty when they gave none.
   name: string;
   state: "active" | "request";
@@ -202,6 +206,8 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  // Whom the body's "<@id>" tokens mention; older messages have none.
+  mentions?: string[];
   nonce: string;
   // Each reaction's people, in the order they reacted, and the names they
   // reacted under; a Worker older than reactions sends neither.
@@ -214,7 +220,8 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-export type RoomActivity = { at: number; unread: boolean };
+// mentionedBy: who mentioned this person in what is still unread.
+export type RoomActivity = { at: number; mentionedBy?: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

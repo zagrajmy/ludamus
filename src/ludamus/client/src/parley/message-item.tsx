@@ -5,6 +5,7 @@ import type { Bootstrap, Message, Room } from "./protocol";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
+import { MentionedText } from "./mentions";
 import { ReactionChips, reactionPalette } from "./reactions";
 
 export type MuteAction = "restore" | number | null;
@@ -15,8 +16,8 @@ export type Confirm = (request: { accept: string; question: string; run: () => v
 
 const HOUR = 3_600_000;
 
-function MessageBody({ body }: { body: string }) {
-  const parts = body.split(/(https?:\/\/[^\s]+)/giu);
+function Linked({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/giu);
   return (
     <>
       {parts.map((part, index) =>
@@ -57,6 +58,7 @@ export function MessageItem({
   message,
   moderate,
   mute,
+  nameOf,
   pick,
   react,
   remove,
@@ -77,6 +79,8 @@ export function MessageItem({
   message: Message;
   moderate: (id: number) => void;
   mute: (id: string, action: MuteAction) => void;
+  // A mentioned person's name as it is now.
+  nameOf: (id: string) => string;
   // Opens the full emoji set beside an element, for this message.
   pick: (id: number, anchor: HTMLElement) => void;
   // Toggles one of this person's reactions; null where they may not react.
@@ -216,7 +220,19 @@ export function MessageItem({
           >
             {own || hidden ? null : <span className="sr-only">{message.authorName}: </span>}
             {hidden && copy.blockedMessage}
-            {!hidden && (deleted ? copy.deletedMessage : <MessageBody body={message.body} />)}
+            {!hidden &&
+              (deleted ? (
+                copy.deletedMessage
+              ) : (
+                <MentionedText
+                  body={message.body}
+                  mentions={message.mentions ?? []}
+                  nameOf={nameOf}
+                  own={own}
+                  render={(text, key) => <Linked key={key} text={text} />}
+                  userId={bootstrap.user.id}
+                />
+              ))}
             <time className="sr-only" dateTime={new Date(message.createdAt).toISOString()}>
               {" "}
               {clock(message.createdAt)}
