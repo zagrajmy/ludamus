@@ -25,7 +25,10 @@ Art. 28). Notes, not legal advice. Background and plans: #1755.
 1. Open the record in the admin and read it. For a chat report the admin
    holds the message as it was when reported.
 2. Act on the content first, if it calls for it: delete the session or
-   encounter, or the account, in the admin.
+   encounter, or the account, in the admin. A reported chat message goes
+   with **Delete the reported messages for everyone** on _Parley reports_,
+   which asks for the ground and decision text, deletes the message, and
+   closes all its reports as actioned the way step 3 does.
 3. Select the record, run **Decide on selected notices** (or **chat
    reports**), and fill in:
    - **Actioned** or **Rejected**;
