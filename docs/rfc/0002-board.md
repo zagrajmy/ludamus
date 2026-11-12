@@ -23,7 +23,7 @@ whiteboards and prefers that to Roll20. The first version is therefore
 - Shared **places** let everyone jump to a sheet or a handout with one tap.
 - It works on a phone first.
 
-Everything else (things hidden by the game master, PDF import, tokens,
+Everything else (the game master's private layer, PDF import, tokens,
 clocks, cards, links to encounters,
 parties and Parley chat) comes in later slices and only if play shows the
 need.
@@ -47,7 +47,7 @@ Consequences:
 - A sheet is not a hidden form. It is an image on the canvas like any
   handout, and everyone sees it.
 - A game master is optional, and a board works with none. A game master
-  has one extra power: to hide things from the players (phase 2).
+  has one extra power: a private layer that the players do not see (phase 2).
 - No voice, video, marketplace, compendium or dynamic lighting.
 
 ## The first version in detail
@@ -130,41 +130,46 @@ width first and tested there first, and the desktop view is the adaptation.
   the dice code only, and the dice code loads after the canvas is usable.
 - The desktop view puts the same controls in a side rail.
 
-## Hidden things (phase 2)
+## The private layer (phase 2)
 
-A game master can hide things from the players: notes on a map, a
-monster's sheet, the next handout.
+A game master can keep things on the board that the players do not see:
+notes on a map, a monster's sheet, the next handout.
 
 - **Who is a game master.** The creator of a board can turn on "I am the
   game master" and can give the same role to other people. A board with
-  no game master has no hidden things.
-- **Hiding.** A game master selects any shapes and chooses "Hide from
-  players". On the game master's screen they stay visible with a dashed
-  outline and a small "hidden" mark. Players do not see them and cannot
-  select them. "Reveal" shows them to everyone.
-- **Hidden places.** A place on a hidden shape is hidden too, and appears
-  in the players' list at the moment of the reveal.
-- **This is a property of a shape, not a separate layer.** A game master
-  hides a note where it lies on the map. There is no second canvas to
-  keep aligned and no layer switcher.
+  no game master has no private layer.
+- **Two layers, one switch.** The board has a public layer and a private
+  layer above it. A game master switches between them with one control in
+  the bar. Hiding is never an action on a single object.
+- **The switch is visible.** On the private layer the whole canvas changes:
+  a coloured edge around the screen and a label, "Private layer. Players
+  do not see this." A game master cannot mistake one layer for the other.
+- **Working on the private layer.** Everything a game master draws, types
+  or drops there belongs to the private layer. The public layer stays
+  visible underneath, dimmed and not selectable, so a private note sits
+  exactly where it belongs on the map.
+- **Working on the public layer.** A game master sees private things as
+  faint ghosts that cannot be selected. Players see nothing of them.
+- **Reveal.** A game master selects things on the private layer and
+  chooses "Move to the board". "Move to the private layer" does the
+  reverse.
+- **Places.** A place on the private layer appears only in a game master's
+  list. It appears for the players when its shape moves to the board.
 
 ### How secret is it
 
-There are two levels, and they differ much in cost.
+The private layer is a **screen**, not a vault (decided 2026-11-12). Every
+device receives every shape, and a player's client does not draw the
+private ones. This is like a cardboard game master's screen: it stops
+looking, not a determined player who opens the browser's developer tools.
 
-1. **A screen (proposed).** Every device receives every shape, and a
-   player's client does not draw the hidden ones. This is like a cardboard
-   game master's screen: it stops looking, not a determined player who
-   opens the browser's developer tools. tldraw supports per-client
-   visibility, so this is a small feature.
-2. **A vault.** Hidden shapes never reach a player's device. Plain tldraw
-   sync sends the whole document to everyone, so this needs a second,
-   game-master-only document drawn over the first, or a filter inside the
-   sync server. This is the same problem as private hands of cards, and it
-   would be solved once for both.
+Each shape records its layer in its own metadata, and tldraw draws or
+skips a shape per client. The server refuses a write to a private shape
+from a person who is not a game master.
 
-The proposal is the screen, with honest wording in the interface. The
-vault waits until cards need it. See O-1.
+A vault, where private shapes never reach a player's device, would need a
+second document or a filter in the sync server. It is the same problem as
+private hands of cards and waits until cards need it.
 
 ## Architecture
 
@@ -318,9 +323,9 @@ Progress, 2026-11-12:
    reset the link and see the guest removed.
    The run saves screenshots of both screens as its artifact.
 
-### Phase 2 — hidden things, paper and pieces
+### Phase 2 — private layer, paper and pieces
 
-- Hidden things, as described in "Hidden things" below.
+- The private layer, as described in "The private layer" above.
 - Drop a PDF: each page becomes a locked image on the canvas.
 - Tokens: an image cropped to a circle that snaps to the grid. Hex grid.
 - Clocks (a segmented circle that fills on tap) and counters.
@@ -340,8 +345,6 @@ Progress, 2026-11-12:
 
 ## Open questions
 
-- **O-1 Hidden things.** Is the "screen" level of secrecy enough, or must a
-  hidden thing never reach a player's device?
 - **O-2 Licence fallback.** If tldraw refuses the hobby licence: pay for a
   commercial licence, or change to an open-source canvas (Excalidraw is
   MIT)? The dice, the pass and the Django slice do not depend on tldraw,
