@@ -273,6 +273,15 @@ Each phase ends with something a group can play on.
 
 ### Phase 0 — gates (about 2 days)
 
+Progress, 2026-11-12:
+
+- Done: tldraw sync 5.6 runs in a Durable Object with SQLite storage. A
+  desktop browser and a phone-sized browser drew on the same board and
+  received the same server roll.
+- Decided: development starts without a licence key. The maintainer
+  applies for the hobby licence before the first production deploy.
+- Open: the 3D dice spike, and the licence texts.
+
 - Apply for the tldraw licence. Read both licence texts for the AGPL
   question.
 - Spike: tldraw sync in a Durable Object with SQLite storage, opened from
@@ -283,7 +292,8 @@ Each phase ends with something a group can play on.
 
 ### Phase 1 — tldraw with dice (the first version)
 
-1. Worker skeleton: `workers/board` copied from Parley's toolchain,
+1. (Done, with the roll endpoint of step 5.) Worker skeleton:
+   `workers/board` copied from Parley's toolchain,
    pass verification, the `BoardRoom` object, sync over WebSocket. Vitest:
    a valid pass connects; a wrong audience, an expired pass and an old
    link version are refused.
