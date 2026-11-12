@@ -259,7 +259,7 @@ NEW_PARTY = "new"
 
 
 def _party_label(party: ListingPartyChoiceDTO) -> str:
-    return party.name or gettext("Unnamed party")
+    return party.name or gettext("Your party")
 
 
 class ListingInviteForm(forms.Form):
@@ -273,6 +273,8 @@ class ListingInviteForm(forms.Form):
                 (NEW_PARTY, gettext("A new party")),
                 *((str(party.pk), _party_label(party)) for party in parties),
             ],
+            initial=NEW_PARTY,
+            widget=forms.Select if parties else forms.HiddenInput,
         )
 
     def clean_party(self) -> int | None:

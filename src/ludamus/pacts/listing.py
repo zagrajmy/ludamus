@@ -136,6 +136,7 @@ class ListingResponseDTO(BaseModel):
     user_id: int
     user_name: str
     message: str
+    # NOTE: invited reads as waiting once their membership in that party is gone.
     status: ListingResponseStatus
     decline_message: str
     creation_time: datetime

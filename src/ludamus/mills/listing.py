@@ -404,7 +404,7 @@ class ListingService(ListingServiceProtocol):
         with self._transaction.atomic():
             self._listings.lock(pk=pk, sphere_id=sphere_id)
             response = self._responses.read_own(listing_id=pk, user_id=user_id)
-            if response is None or response.status is not ListingResponseStatus.WAITING:
+            if response is None or not _waiting(response):
                 raise ListingStatusError
             self._responses.delete(response.pk)
         logger.info("User %s withdrew from listing %s", user_id, pk)
@@ -417,7 +417,7 @@ class ListingService(ListingServiceProtocol):
                 pk=pk, sphere_id=sphere_id, author_id=author_id
             )
             response = self._responses.read(pk=response_id, listing_id=pk)
-            if response.status is not ListingResponseStatus.WAITING:
+            if not _waiting(response):
                 raise ListingStatusError
             self._responses.decline(pk=response_id, message=message)
             self._notifier.notify_listing_declined(
@@ -444,7 +444,7 @@ class ListingService(ListingServiceProtocol):
                 pk=pk, sphere_id=sphere_id, author_id=author_id
             )
             response = self._responses.read(pk=response_id, listing_id=pk)
-            if response.status is not ListingResponseStatus.WAITING:
+            if not _waiting(response):
                 raise ListingStatusError
             if party_id is None:
                 party_name = listing.title
@@ -452,11 +452,18 @@ class ListingService(ListingServiceProtocol):
             else:
                 party_name = self._check_party(author_id, party_id).name
             self._responses.invite(pk=response_id, party_id=party_id)
-            # NOTE: someone already in the party, or invited to it, has nothing
-            # to accept.
-            if self._parties.get_or_create_membership(
+            # NOTE: an active member has nothing to accept. Someone with a
+            # pending invite still hears that accepting shares their contact.
+            already_member = (
+                self._parties.read_active_member_party(
+                    member_pk=response.user_id, party_pk=party_id
+                )
+                is not None
+            )
+            self._parties.get_or_create_membership(
                 party_pk=party_id, user_pk=response.user_id
-            ):
+            )
+            if not already_member:
                 self._notifier.notify_listing_party_invited(
                     ListingPartyInviteNotification(
                         recipient_user_id=response.user_id,
@@ -567,6 +574,10 @@ def _can_respond(
         and listing.author_id != user_id
         and own_response is None
     )
+
+
+def _waiting(response: ListingResponseDTO) -> bool:
+    return response.status is ListingResponseStatus.WAITING and not response.joined
 
 
 def _address(user: UserDTO, contact: ListingContact) -> str:

@@ -310,12 +310,17 @@ class FakeParties:
     def __init__(self, listings):
         self.listings = listings
         self.members: set[tuple[int, int]] = set()
+        self.active: set[tuple[int, int]] = set()
 
     def create(self, *, leader_pk, name):
         pk = 100 + len(self.listings.parties)
         self.listings.parties[pk] = (leader_pk, name)
         self.members.add((pk, leader_pk))
+        self.active.add((pk, leader_pk))
         return pk
+
+    def read_active_member_party(self, *, member_pk, party_pk):
+        return (party_pk, member_pk) if (party_pk, member_pk) in self.active else None
 
     def get_or_create_membership(self, *, party_pk, user_pk):
         created = (party_pk, user_pk) not in self.members
@@ -866,6 +871,7 @@ class TestAddToParty:
         listing = _open_listing(listings)
         party_pk = parties.create(leader_pk=AUTHOR_PK, name="Wtorki")
         parties.get_or_create_membership(party_pk=party_pk, user_pk=STRANGER_PK)
+        parties.active.add((party_pk, STRANGER_PK))
         response_pk = responses.add(listing.pk)
 
         self._add(
@@ -879,6 +885,34 @@ class TestAddToParty:
             ListingResponseStatus.INVITED,
             [],
         )
+
+    def test_a_pending_invite_still_hears_about_the_listing(self):
+        listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()
+        parties = FakeParties(listings)
+        listing = _open_listing(listings)
+        party_pk = parties.create(leader_pk=AUTHOR_PK, name="Wtorki")
+        parties.get_or_create_membership(party_pk=party_pk, user_pk=STRANGER_PK)
+        response_pk = responses.add(listing.pk)
+
+        self._add(
+            _service(listings, responses=responses, notifier=notifier, parties=parties),
+            listing,
+            response_pk,
+            party_id=party_pk,
+        )
+
+        assert notifier.sent == [
+            (
+                "party_invited",
+                ListingPartyInviteNotification(
+                    recipient_user_id=STRANGER_PK,
+                    listing_id=listing.pk,
+                    listing_title="Zew Cthulhu",
+                    party_name="Wtorki",
+                    author_name="",
+                ),
+            )
+        ]
 
     def test_a_party_the_author_does_not_lead_is_not_found(self):
         listings, responses, notifier = FakeListings(), FakeResponses(), FakeNotifier()

@@ -250,10 +250,6 @@ msgid "Give a date and time, or describe when."
 msgstr "Podaj datę i godzinę albo opisz, kiedy."
 
 #: src/ludamus/gates/web/django/board/forms.py
-msgid "Unnamed party"
-msgstr "Drużyna bez nazwy"
-
-#: src/ludamus/gates/web/django/board/forms.py
 msgid "Party"
 msgstr "Drużyna"
 
@@ -6438,12 +6434,12 @@ msgid "Invited to your party. They join once they accept."
 msgstr "Zaproszenie do Twojej drużyny. Dołączenie nastąpi po jego przyjęciu."
 
 #: src/ludamus/templates/board/responses.html
-msgid "Add to party"
-msgstr "Dodaj do drużyny"
-
-#: src/ludamus/templates/board/responses.html
 msgid "Add to a new party"
 msgstr "Dodaj do nowej drużyny"
+
+#: src/ludamus/templates/board/responses.html
+msgid "Add to party"
+msgstr "Dodaj do drużyny"
 
 #: src/ludamus/templates/board/responses.html
 msgid "Not this time"
@@ -14132,6 +14128,9 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Unnamed party"
+#~ msgstr "Drużyna bez nazwy"
 
 #~ msgid "yourself"
 #~ msgstr "siebie"

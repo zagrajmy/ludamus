@@ -5,7 +5,18 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db.models import Case, Exists, OuterRef, Prefetch, Q, QuerySet, Value, When
+from django.db.models import (
+    Case,
+    CharField,
+    Exists,
+    F,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
 
 from ludamus.links.db.django.models import (
     Listing,
@@ -50,6 +61,7 @@ if TYPE_CHECKING:
 
     class _Joined(TypedDict):
         joined: bool
+        stage: str
 
     class _PartyFormed(TypedDict):
         party_formed: bool
@@ -74,9 +86,34 @@ def _joined() -> Exists:
     )
 
 
+def _in_invited_party() -> Exists:
+    return Exists(
+        PartyMembership.objects.filter(
+            party_id=OuterRef("party_id"), member_id=OuterRef("user_id")
+        )
+    )
+
+
+def _stage() -> Case:
+    """Read the stored status, unless the membership behind an invite is gone.
+
+    Declining an invite, having it withdrawn, leaving or being removed all
+    happen on the party side and leave the stored status `invited`; such a
+    responder is waiting again.
+    """
+    return Case(
+        When(
+            Q(status=ListingResponseStatus.INVITED) & ~_in_invited_party(),
+            then=Value(ListingResponseStatus.WAITING.value),
+        ),
+        default=F("status"),
+        output_field=CharField(),
+    )
+
+
 def _responses() -> QuerySet[_Response]:
     return ListingResponse.objects.select_related("user", "party").annotate(
-        joined=_joined()
+        joined=_joined(), stage=_stage()
     )
 
 
@@ -262,7 +299,7 @@ def _response_dto(response: _Response) -> ListingResponseDTO:
         user_id=response.user_id,
         user_name=response.user.full_name,
         message=response.message,
-        status=ListingResponseStatus(response.status),
+        status=ListingResponseStatus(response.stage),
         decline_message=response.decline_message,
         creation_time=response.creation_time,
         contact=ListingContact(response.contact),
@@ -274,7 +311,7 @@ def _response_dto(response: _Response) -> ListingResponseDTO:
 def _in_tab(tab: ListingResponseTab) -> Q:
     if tab is ListingResponseTab.JOINED:
         return Q(joined=True)
-    return Q(joined=False, status=tab.value)
+    return Q(joined=False, stage=tab.value)
 
 
 class ListingResponseRepository(ListingResponseRepositoryProtocol):
@@ -311,9 +348,8 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
     @staticmethod
     def waiting_user_ids(listing_id: int) -> list[int]:
         return list(
-            ListingResponse.objects.filter(
-                listing_id=listing_id, status=ListingResponseStatus.WAITING
-            )
+            _responses()
+            .filter(listing_id=listing_id, stage=ListingResponseStatus.WAITING)
             .order_by("pk")
             .values_list("user_id", flat=True)
         )
@@ -336,7 +372,7 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
             _responses()
             .filter(
                 listing_id__in=listing_ids,
-                status=ListingResponseStatus.WAITING,
+                stage=ListingResponseStatus.WAITING,
                 joined=False,
             )
             .order_by("listing_id", "pk")

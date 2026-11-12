@@ -25,6 +25,7 @@ from ludamus.pacts.listing import (
     ListingDeclinedNotification,
     ListingInterestedNotification,
     ListingNotification,
+    ListingPartyInviteNotification,
 )
 from ludamus.pacts.party import (
     HeldSeatNotification,
@@ -171,6 +172,12 @@ _SAMPLES = {
     ],
     "notify_listing_not_chosen": [lambda r: ListingNotification(**r.listing)],
     "notify_listing_changed": [lambda r: ListingNotification(**r.listing)],
+    "notify_listing_party_invited": [
+        lambda r, party=party: ListingPartyInviteNotification(
+            **r.listing, party_name=party, author_name="Kasia"
+        )
+        for party in ("", "Smoki")
+    ],
     "notify_sphere_event_published": [
         lambda r: SphereEventPublishedNotification(
             subscription_id=r.subscription.pk,

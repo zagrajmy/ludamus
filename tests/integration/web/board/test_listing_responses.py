@@ -56,7 +56,7 @@ def _invite(response):
     )
 
 
-def _response_dto(response, *, joined=False, contact_address=""):
+def _response_dto(response, *, joined=False, contact_address="", status=None):
     response = ListingResponse.objects.select_related("user", "party").get(
         pk=response.pk
     )
@@ -70,7 +70,7 @@ def _response_dto(response, *, joined=False, contact_address=""):
         user_id=response.user_id,
         user_name=response.user.full_name,
         message=response.message,
-        status=ListingResponseStatus(response.status),
+        status=status or ListingResponseStatus(response.status),
         decline_message=response.decline_message,
         creation_time=response.creation_time,
     )
@@ -305,6 +305,29 @@ class TestListingWithdrawActionView:
             url=_detail(listing),
         )
         assert ListingResponse.objects.get().status == ListingResponseStatus.DECLINED
+
+    def test_someone_in_the_party_keeps_their_response(
+        self, authenticated_client, active_user, sphere
+    ):
+        author = UserFactory()
+        listing = ListingFactory(
+            sphere=sphere, author=author, party=_party(author, active_user)
+        )
+        ListingResponse.objects.create(
+            listing=listing, user=active_user, contact=ListingContact.EMAIL
+        )
+
+        response = authenticated_client.post(
+            reverse("web:board:withdraw", kwargs={"pk": listing.pk})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.ERROR, STALE),),
+            url=_detail(listing),
+        )
+        assert ListingResponse.objects.exists()
 
 
 class TestListingResponsesPageView:
@@ -565,6 +588,41 @@ class TestListingResponseInviteActionView:
             url=_responses(listing),
         )
         assert not Party.objects.exists()
+
+    def test_a_declined_party_invite_puts_them_back_under_interested(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        party = _party(active_user, name="Wtorki")
+        stale = ListingResponse.objects.create(
+            listing=listing,
+            user=UserFactory(),
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        page = authenticated_client.get(_responses(listing))
+        authenticated_client.post(_invite(stale), {"party": str(party.pk)})
+
+        assert_response(
+            page,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing),
+                "responses": [
+                    _response_dto(stale, status=ListingResponseStatus.WAITING)
+                ],
+                "counts": _counts(waiting=1),
+                "active_tab": "waiting",
+                "decline_form": ANY,
+                "invite_form": ANY,
+            },
+            template_name="board/responses.html",
+        )
+        assert PartyMembership.objects.get(party=party, member=stale.user).status == (
+            PartyMembershipStatus.INVITED
+        )
 
 
 class TestJoinedResponders:

@@ -62,11 +62,12 @@
                                   action="{% url 'web:board:invite' pk=listing.pk response_pk=response.pk %}"
                                   class="flex flex-col">
                                 {% csrf_token %}
-                                {% tessera_field invite_form.party %}
-                                {% if invite_form.fields.party.choices|length > 1 %}
-                                    {% translate "Add to party" as t_invite %}
-                                {% else %}
+                                {% if invite_form.party.is_hidden %}
+                                    {{ invite_form.party }}
                                     {% translate "Add to a new party" as t_invite %}
+                                {% else %}
+                                    {% tessera_field invite_form.party %}
+                                    {% translate "Add to party" as t_invite %}
                                 {% endif %}
                                 {% tessera_button text=t_invite %}
                             </form>
