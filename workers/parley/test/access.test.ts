@@ -42,7 +42,10 @@ function capability(overrides: Partial<Capability> = {}): Capability {
   };
 }
 
-const manager = capability({ events: {}, managed: { "3": { organizers: true } } });
+const manager = capability({
+  events: { "3:9": event({}) },
+  managed: { "3": { organizers: true } },
+});
 const organizers = parseRoom("organizers", "3")!;
 const ownEvent = parseRoom("event", "3:9")!;
 const otherEvent = parseRoom("event", "3:10")!;
@@ -79,12 +82,26 @@ describe("parseRoom", () => {
 });
 
 describe("a manager", () => {
-  it("reads, writes and moderates every room of their sphere without listing it", () => {
-    for (const room of [organizers, ownEvent, otherEvent, ownSession, otherSession]) {
+  it("reads, writes and moderates every programme point of their sphere without listing it", () => {
+    for (const room of [organizers, ownEvent, ownSession, otherSession]) {
       expect(canRead(manager, room)).toBe(true);
       expect(canWrite(manager, room)).toBe(true);
       expect(canModerate(manager, room)).toBe(true);
     }
+  });
+
+  it("enters an event's chat only on its grant, which says when it closes", () => {
+    expect(canRead(manager, otherEvent)).toBe(false);
+    const archived = capability({
+      events: { "3:9": event({}, { writable: false }) },
+      managed: { "3": { organizers: true } },
+    });
+    expect(canRead(archived, ownEvent)).toBe(true);
+    expect(canWrite(archived, ownEvent)).toBe(false);
+    expect(lifecycleOf(manager, ownEvent)).toEqual({
+      deleteAt: ENDS + 30 * 24 * HOUR,
+      readOnlyAt: ENDS + 48 * HOUR,
+    });
   });
 
   it("is kept out of the organizers' room once the sphere closes it", () => {

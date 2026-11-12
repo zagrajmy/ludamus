@@ -10,8 +10,8 @@ import {
 import { canSeeRoom, inSphere, roomFromId } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
+import { closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
-  PASS_EXPIRED,
   PASS_REVOKED,
   type Capability,
   type ConnectionState,
@@ -20,7 +20,7 @@ import {
   type RpcResult,
   type ServerEvent,
 } from "./protocol";
-import { revokes, roomAgent, type Env } from "./room-agent";
+import { roomAgent, type Env } from "./room-agent";
 
 type Admission = Pick<Capability, "exp" | "iat" | "sub"> & { roomId: string };
 
@@ -61,6 +61,12 @@ export class ParleySphereAgent extends Agent<Env> {
       expires_at INTEGER NOT NULL,
       PRIMARY KEY (user_id, room_id)
     )`;
+    // NOTE: a sphere used to hold a room of its own; its messages go with
+    // it. The daily sweep that kept them finds no callback and ends.
+    void this.sql`DROP TABLE IF EXISTS reactions`;
+    void this.sql`DROP TABLE IF EXISTS messages`;
+    void this.sql`DROP TABLE IF EXISTS restrictions`;
+    void this.sql`DROP TABLE IF EXISTS rate_events`;
   }
 
   async onConnect(
@@ -77,12 +83,7 @@ export class ParleySphereAgent extends Agent<Env> {
   }
 
   closeRevoked(revocation: Pick<Revocation, "revokedBefore" | "sub">): void {
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const capability = connection.state?.capability;
-      if (capability !== undefined && revokes(revocation, capability)) {
-        connection.close(PASS_REVOKED, "Access revoked");
-      }
-    }
+    closeRevokedIn(this.getConnections<ConnectionState>(), revocation);
   }
 
   admit(admission: Admission): boolean {
@@ -213,31 +214,18 @@ export class ParleySphereAgent extends Agent<Env> {
   }
 
   private currentCapability(): Capability {
-    const connection = getCurrentAgent<ParleySphereAgent>()
-      .connection as Connection<ConnectionState>;
-    const { capability } = connection.state!;
-    if (capability.exp * 1_000 <= Date.now()) {
-      connection.close(PASS_EXPIRED, "Pass expired");
-      throw new Error("Pass expired");
-    }
-    return capability;
+    return passOf(getCurrentAgent<ParleySphereAgent>().connection as Connection<ConnectionState>);
   }
 
   private emit(event: ServerEvent): void {
-    this.emitWhere(event, () => true);
+    sendWhere(this.getConnections<ConnectionState>(), event);
   }
 
   private emitTo(userId: string, event: ServerEvent): void {
-    this.emitWhere(event, (capability) => capability.sub === userId);
-  }
-
-  private emitWhere(event: ServerEvent, include: (capability: Capability) => boolean): void {
-    const message = JSON.stringify(event);
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const capability = connection.state?.capability;
-      if (capability === undefined || !include(capability)) continue;
-      if (capability.exp * 1_000 <= Date.now()) connection.close(PASS_EXPIRED, "Pass expired");
-      else connection.send(message);
-    }
+    sendWhere(
+      this.getConnections<ConnectionState>(),
+      event,
+      (capability) => capability.sub === userId,
+    );
   }
 }

@@ -18,9 +18,9 @@ import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } f
 import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
 import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
+import { closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
   NOT_A_MEMBER,
-  PASS_EXPIRED,
   PASS_REVOKED,
   type Capability,
   type ConnectionState,
@@ -65,21 +65,7 @@ export function roomAgent(env: Env, room: Room) {
   );
 }
 
-function passExpired(capability: Capability): boolean {
-  return capability.exp * 1_000 <= Date.now();
-}
-
 export { NOT_A_MEMBER };
-
-export function revokes(
-  revocation: Pick<Revocation, "revokedBefore" | "sub">,
-  capability: Capability,
-) {
-  return (
-    (revocation.sub === "*" || revocation.sub === capability.sub) &&
-    capability.iat < revocation.revokedBefore
-  );
-}
 
 type MessageRow = {
   author_avatar_url: string;
@@ -194,12 +180,7 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   closeRevoked(revocation: Pick<Revocation, "revokedBefore" | "sub">): void {
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const capability = connection.state?.capability;
-      if (capability !== undefined && revokes(revocation, capability)) {
-        connection.close(PASS_REVOKED, "Access revoked");
-      }
-    }
+    closeRevokedIn(this.getConnections<ConnectionState>(), revocation);
   }
 
   onClose(): void {
@@ -414,16 +395,9 @@ export abstract class RoomAgent extends Agent<Env> {
   protected afterMessage(_message: Message): void {}
 
   protected currentCapability(): Capability {
-    const connection = getCurrentAgent<RoomAgent>().connection as
-      | Connection<ConnectionState>
-      | undefined;
-    const state = connection?.state;
-    if (connection === undefined || !state?.admitted) throw new Error("Missing capability");
-    if (passExpired(state.capability)) {
-      connection.close(PASS_EXPIRED, "Pass expired");
-      throw new Error("Pass expired");
-    }
-    return state.capability as Capability;
+    return passOf(
+      getCurrentAgent<RoomAgent>().connection as Connection<ConnectionState> | undefined,
+    );
   }
 
   protected moderates(capability: Capability): boolean {
@@ -432,23 +406,15 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   protected emit(event: ServerEvent): void {
-    this.emitWhere(event, () => true);
+    sendWhere(this.getConnections<ConnectionState>(), event);
   }
 
   protected emitTo(userId: string, event: ServerEvent): void {
-    this.emitWhere(event, (capability) => capability.sub === userId);
-  }
-
-  // A socket outlives the pass it opened with; once that pass expires the
-  // socket is closed rather than kept reading on it.
-  private emitWhere(event: ServerEvent, include: (capability: Capability) => boolean): void {
-    const message = JSON.stringify(event);
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const state = connection.state;
-      if (!state?.admitted || !include(state.capability)) continue;
-      if (passExpired(state.capability)) connection.close(PASS_EXPIRED, "Pass expired");
-      else connection.send(message);
-    }
+    sendWhere(
+      this.getConnections<ConnectionState>(),
+      event,
+      (capability) => capability.sub === userId,
+    );
   }
 
   protected writeError(capability: Capability): Extract<RpcResult<never>, { ok: false }> | null {

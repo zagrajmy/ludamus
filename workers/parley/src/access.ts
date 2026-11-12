@@ -68,16 +68,20 @@ export function inSphere(capability: Capability, sphere: string): boolean {
   );
 }
 
-// A conversation's own member list decides who is in it.
+// A conversation's own member list decides who is in it. An event's chat
+// takes a grant even from its moderators: the grant says it is on and when
+// it ends, and Django leaves it out for an event that bans them.
 export function canRead(capability: Capability, room: Room): boolean {
   if (room.kind === "conversation") return true;
   if (room.kind === "organizers") return capability.managed[room.sphere]?.organizers === true;
+  if (room.kind === "event") return grant(capability, room) !== undefined;
   return manages(capability, room.sphere) || grant(capability, room) !== undefined;
 }
 
 export function canWrite(capability: Capability, room: Room): boolean {
   if (!canRead(capability, room)) return false;
   if (room.kind === "conversation" || room.kind === "organizers") return true;
+  if (room.kind === "event") return grant(capability, room)?.writable === true;
   return manages(capability, room.sphere) || grant(capability, room)?.writable === true;
 }
 
