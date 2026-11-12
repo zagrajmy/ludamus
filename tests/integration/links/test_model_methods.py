@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from django.core.exceptions import ValidationError
 
+from ludamus.links.db.django.enrollment import MemberEnrollmentRepository
 from ludamus.links.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
@@ -194,18 +195,6 @@ class TestAgendaItem:
             == f"{title} by {name} (True)"
         )
 
-    @pytest.mark.parametrize(("start_hour", "end_hour", "overlaps"), _WINDOWS)
-    def test_overlaps_with_agrees_from_either_side(
-        self, *, start_hour: float, end_hour: float, overlaps: bool
-    ):
-        item = AgendaItem(start_time=_at(10), end_time=_at(12))
-        other = AgendaItem(start_time=_at(start_hour), end_time=_at(end_hour))
-
-        assert (item.overlaps_with(other), other.overlaps_with(item)) == (
-            overlaps,
-            overlaps,
-        )
-
 
 class TestSessionManagerConflictedUserIds:
     @staticmethod
@@ -247,6 +236,50 @@ class TestSessionManagerConflictedUserIds:
         result = Session.objects.conflicted_user_ids(candidate, [seated.pk, waiting.pk])
 
         assert result == {seated.pk}
+
+
+class TestOverlappingUserIds:
+    # The enroll page's "time conflict" flag: any row at all, waiting
+    # included, in a session whose slot overlaps.
+    @staticmethod
+    def _scheduled(event, *, start_hour: float, end_hour: float) -> Session:
+        return AgendaItemFactory(
+            session=SessionFactory(event=event, category=None),
+            start_time=_at(start_hour),
+            end_time=_at(end_hour),
+        ).session
+
+    @pytest.mark.parametrize(("start_hour", "end_hour", "overlaps"), _WINDOWS)
+    def test_a_row_overlaps_exactly_when_the_windows_do(
+        self, event, *, start_hour: float, end_hour: float, overlaps: bool
+    ):
+        candidate = self._scheduled(event, start_hour=10, end_hour=12)
+        other = self._scheduled(event, start_hour=start_hour, end_hour=end_hour)
+        user = UserFactory()
+        SessionParticipation.objects.create(
+            session=other, user=user, status=SessionParticipationStatus.WAITING
+        )
+
+        result = MemberEnrollmentRepository.overlapping_user_ids(
+            session_id=candidate.pk, user_ids=[user.pk]
+        )
+
+        assert result == ({user.pk} if overlaps else set())
+
+    def test_an_unscheduled_session_overlaps_nothing(self, event):
+        candidate = SessionFactory(event=event, category=None)
+        other = self._scheduled(event, start_hour=10, end_hour=12)
+        user = UserFactory()
+        SessionParticipation.objects.create(
+            session=other, user=user, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        assert (
+            MemberEnrollmentRepository.overlapping_user_ids(
+                session_id=candidate.pk, user_ids=[user.pk]
+            )
+            == set()
+        )
 
 
 class TestProposalCategory:

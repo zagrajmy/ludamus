@@ -3,37 +3,35 @@
 from django.db.transaction import non_atomic_requests
 from django.urls import include, path
 
-from ludamus.gates.web.django.chronology.panel.views import (
+from ludamus.gates.web.django.event.panel.views import (
     bans,
     cfp,
     columns,
+    confirmations,
+    discount_settings,
     discounts,
+    enrollment_settings,
+    errata,
+    event_create,
     event_settings,
     export,
+    facilitator_actions,
+    facilitator_edit,
     facilitators,
     google_docs_import,
     index,
     integrations,
+    konwencik_export,
+    mcp_token,
     personal_data_fields,
+    print_redirects,
+    proposal_category_settings,
     proposal_edit,
     proposals,
     session_fields,
     timetable,
     tracks,
     venues,
-)
-from ludamus.gates.web.django.event.panel.views import (
-    confirmations,
-    discount_settings,
-    enrollment_settings,
-    errata,
-    event_create,
-    facilitator_actions,
-    facilitator_edit,
-    konwencik_export,
-    mcp_token,
-    print_redirects,
-    proposal_category_settings,
 )
 
 app_name = "panel"  # pylint: disable=invalid-name

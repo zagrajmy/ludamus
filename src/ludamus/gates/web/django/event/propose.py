@@ -11,9 +11,8 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
-from django.utils.translation import get_language
+from django.utils.translation import get_language, gettext_lazy
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.dynamic_fields import (
@@ -35,8 +34,8 @@ from ludamus.gates.web.django.propose_cover import (
     stash_wizard_cover,
     wizard_cover_initial,
 )
+from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.pacts import NotFoundError, RedirectError
 from ludamus.pacts.availability import (
     AvailabilityDTO,
     DayPart,
@@ -44,6 +43,7 @@ from ludamus.pacts.availability import (
     availability_value,
     offered_parts_by_day,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
@@ -56,10 +56,9 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import (
-        EventDTO,
-        EventProposalSettingsDTO,
-        OrganizerFieldDTO,
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
     )

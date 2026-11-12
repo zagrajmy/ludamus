@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.mills.submissions.mapping import SlugCollisionError, generate_unique_slug
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
@@ -20,44 +20,44 @@ from ludamus.pacts.event import (
     EventConfirmationsServiceProtocol,
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
+    EventListItemDTO,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventRepositoryProtocol,
     EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    EventStatsData,
     LandingConventionDTO,
     LandingServiceProtocol,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
+    PanelStatsDTO,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.slugs import SlugCollisionError, unique_slug
+from ludamus.pacts.timetable import (
     AgendaItemRepositoryProtocol,
     ConfirmationCountsRow,
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    EventStatsData,
-    FacilitatorRepositoryProtocol,
-    NotFoundError,
-    PanelStatsDTO,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SphereRepositoryProtocol,
-    TrackRepositoryProtocol,
 )
-from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_GROUP, STATUS_ORDER
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
-    from ludamus.pacts.legacy import CacheProtocol, EventUpdateData
+    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.event import EventUpdateData
+    from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,36 @@ def require_session_in_event(
     *, sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
 ) -> EventDTO:
     if (event := sessions.read_event(session_pk)).pk != event_pk:
+        raise NotFoundError
+    return event
+
+
+def check_event_dates(
+    *, start_time: datetime, end_time: datetime, publication_time: datetime | None
+) -> None:
+    """Refuse dates the event table's check constraints would refuse.
+
+    Raises:
+        EventDatesInvalidError: the end is not after the start.
+        EventPublicationInvalidError: the event would publish after it starts.
+    """
+    if end_time <= start_time:
+        raise EventDatesInvalidError
+    if publication_time is not None and publication_time > start_time:
+        raise EventPublicationInvalidError
+
+
+def require_event_in_sphere(
+    *, events: EventRepositoryProtocol, event_pk: int, sphere_id: int
+) -> EventDTO:
+    event = events.read(event_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused event %s of sphere %s to a request from sphere %s",
+            event_pk,
+            event.sphere_id,
+            sphere_id,
+        )
         raise NotFoundError
     return event
 
@@ -454,8 +484,9 @@ class EventPanelService(EventPanelServiceProtocol):
     def __init__(self, events: EventRepositoryProtocol) -> None:
         self._events = events
 
-    def load_context(self, sphere_id: int, slug: str) -> EventPanelContextDTO:
-        current_event = self._events.read_by_slug(slug, sphere_id)
+    def load_context(
+        self, *, sphere_id: int, current_event: EventDTO
+    ) -> EventPanelContextDTO:
         stats_data = self._events.get_stats_data(current_event.pk)
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),
@@ -547,11 +578,11 @@ class EventsService(EventsServiceProtocol):
     def create(
         self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
     ) -> EventDTO:
-        if data["end_time"] <= data["start_time"]:
-            raise EventDatesInvalidError
-        publication_time = data["publication_time"]
-        if publication_time is not None and publication_time > data["start_time"]:
-            raise EventPublicationInvalidError
+        check_event_dates(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            publication_time=data["publication_time"],
+        )
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
             source = (
@@ -560,9 +591,11 @@ class EventsService(EventsServiceProtocol):
                 else self._events.read_in_sphere(based_on_id, sphere_id)
             )
             try:
-                slug = data["slug"] or generate_unique_slug(
+                slug = data["slug"] or unique_slug(
                     data["name"],
-                    lambda candidate: self._events.slug_exists(sphere_id, candidate),
+                    exists=lambda candidate: self._events.slug_exists(
+                        sphere_id, candidate
+                    ),
                     fallback="event",
                 )
             except SlugCollisionError as error:

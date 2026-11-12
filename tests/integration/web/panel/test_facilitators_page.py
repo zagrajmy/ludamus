@@ -7,7 +7,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AccreditationType,
@@ -20,11 +20,8 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import (
-    FacilitatorListItemDTO,
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-)
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import (
     EventFactory,

@@ -11,6 +11,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.urls import get_resolver
+from django.utils.module_loading import import_string
 from django.utils.timezone import get_current_timezone, localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
@@ -63,12 +64,15 @@ register(AnonymousUserFactory)
 
 @pytest.fixture(scope="session", autouse=True)
 def _urlconf_loaded():
-    # Load the whole URLconf while the clock is real. It imports the MCP tools
-    # module, which builds pydantic TypeAdapters at import time, and pydantic
+    # Load the whole URLconf and the middleware chain while the clock is real.
+    # They import modules that build pydantic models and TypeAdapters at
+    # import time (the MCP tools, the repository registry), and pydantic
     # cannot generate a schema for the datetime class freezegun swaps in. A
-    # test that freezes time before the first reverse() would otherwise fail on
+    # test that freezes time before the first request would otherwise fail on
     # whichever xdist worker happens to run it first.
     assert get_resolver().reverse_dict is not None
+    for middleware in django_settings.MIDDLEWARE:
+        import_string(middleware)
 
 
 @pytest.fixture(autouse=True)
@@ -165,9 +169,8 @@ def sixteen_plus_user(active_user):
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
-        django_get_or_create = ("username",)
 
-    username = Faker("user_name")
+    username = Sequence(lambda n: f"user{n}")
     email = Sequence(lambda n: f"user{n}@example.com")
     # Verified by default, mirroring production after the grandfathering
     # migration; suppression tests flip it off explicitly.
@@ -351,7 +354,6 @@ class EncounterRSVPFactory(DjangoModelFactory):
 
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
-    ip_address = Faker("ipv4")
 
 
 class EncounterInviteeFactory(DjangoModelFactory):
@@ -488,7 +490,10 @@ def non_root_sphere(settings, faker):
 
 @pytest.fixture(name="event")
 def event_fixture(sphere):
-    now = datetime.now(UTC)
+    # NOTE: noon keeps the proposal window's wall-clock times clear of the
+    # 02:00 hour a DST switch skips or repeats, which forms reject as
+    # ambiguous when a test posts them back.
+    now = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
     midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
@@ -601,8 +606,9 @@ def encounter_with_rsvps(sphere):
 
 @pytest.fixture(autouse=True)
 def _empty_cache():
-    # The locmem cache outlives a test's rolled-back database, so a cached
-    # landing count would leak into the next test's assertions.
+    # The locmem cache outlives a test's rolled-back database: a cached
+    # landing count or a rate-limit window reserved by one test would leak
+    # into the next test's assertions.
     cache.clear()
 
 

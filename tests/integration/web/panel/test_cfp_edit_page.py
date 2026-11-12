@@ -10,7 +10,9 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import OrganizerFieldDTO, PromotionMode, ProposalCategoryDTO
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.conftest import EventFactory, SessionFactory
 from tests.integration.utils import (
     FormErrorsMatcher,

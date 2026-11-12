@@ -1,40 +1,57 @@
 from datetime import UTC, date, datetime, timedelta
-from unittest.mock import MagicMock, call
+from types import SimpleNamespace
 
 import pytest
 
-from ludamus.mills.propose import ProposeSessionService
+from ludamus.mills.propose.wizard import ProposeSessionService
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
-from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import (
-    FacilitatorData,
-    FacilitatorDTO,
-    NotFoundError,
-    OrganizerFieldDTO,
-    PersonalDataFieldValueData,
-    SessionData,
-    SessionFieldValueData,
-    SessionStatus,
-    TrackDTO,
-)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventProposalSettingsDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.propose import (
     AccountAnswersDTO,
     EarlierSessionDTO,
     ProposeRepos,
     ReusableSessionRecord,
 )
-from ludamus.specs.proposal import (
-    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
-    PROPOSAL_RATE_LIMIT_SECONDS,
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH
+from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
+from tests.unit.factories import (
+    FakeTransaction,
+    category,
+    event_dto,
+    track_dto,
+    user_dto,
 )
-from tests.unit.factories import event_dto
 
-EXPECTED_SESSION_ID = 99
-FACILITATOR_PK = 10
+EVENT_PK = 1
+OTHER_EVENT_PK = 2
+SPHERE_ID = 1
+USER_PK = 5
+USER_SLUG = "ada"
 OWN_TRACK_PK = 7
 FOREIGN_TRACK_PK = 999
-USER_PK = 5
-USER_SLUG = "bob"
+CATEGORY_PK = 3
+
+
+def _event(pk=EVENT_PK):
+    now = datetime.now(tz=UTC)
+    return event_dto(
+        end_time=now + timedelta(days=7),
+        pk=pk,
+        proposal_end_time=now + timedelta(days=1),
+        proposal_start_time=now - timedelta(days=1),
+        publication_time=now - timedelta(days=2),
+        start_time=now + timedelta(days=5),
+    )
+
+
+def _field(pk, slug, field_type="text"):
+    return OrganizerFieldDTO(
+        field_type=field_type, name=slug, order=0, pk=pk, question="Q", slug=slug
+    )
 
 
 class FakeCache:
@@ -50,110 +67,221 @@ class FakeCache:
         self.timeouts[key] = timeout
 
 
-def _event(pk=1):
-    now = datetime.now(tz=UTC)
-    return event_dto(
-        description="Test",
-        end_time=now + timedelta(days=7),
-        name="Test Event",
-        pk=pk,
-        proposal_end_time=now + timedelta(days=1),
-        proposal_start_time=now - timedelta(days=1),
-        publication_time=now - timedelta(days=2),
-        slug="test-event",
-        start_time=now + timedelta(days=5),
-    )
+class FakeSessions:
+    def __init__(self) -> None:
+        self.rows: dict[int, dict] = {}
+
+    def slug_exists(self, event_id, slug):
+        return any(
+            (row["data"]["event_id"], row["data"]["slug"]) == (event_id, slug)
+            for row in self.rows.values()
+        )
+
+    def create(self, data, *, availability, facilitator_ids):
+        pk = len(self.rows) + 100
+        self.rows[pk] = {
+            "data": dict(data),
+            "availability": list(availability),
+            "facilitator_ids": list(facilitator_ids),
+            "track_ids": [],
+            "field_values": {},
+        }
+        return pk
+
+    def save_field_values(self, session_id, values):
+        for value in values:
+            assert value["session_id"] == session_id
+            self.rows[session_id]["field_values"][value["field_id"]] = value["value"]
+
+    def set_session_tracks(self, session_pk, track_pks):
+        self.rows[session_pk]["track_ids"] = list(track_pks)
 
 
-def _facilitator(*, user_id=None, display_name="Anon Host"):
-    return FacilitatorDTO(
-        accreditation_type="none",
-        display_name=display_name,
-        event_id=1,
-        pk=FACILITATOR_PK,
-        slug="anon-host",
-        user_id=user_id,
-    )
+class FakeFacilitators:
+    def __init__(self, *rows: FacilitatorDTO) -> None:
+        self.rows = {row.pk: row for row in rows}
+
+    def read_by_user_and_event(self, user_id, event_id):
+        for row in self.rows.values():
+            if (row.user_id, row.event_id) == (user_id, event_id):
+                return row
+        raise NotFoundError
+
+    def slug_exists(self, event_id, slug):
+        return any((r.event_id, r.slug) == (event_id, slug) for r in self.rows.values())
+
+    def create(self, data):
+        pk = len(self.rows) + 10
+        self.rows[pk] = FacilitatorDTO(accreditation_type="none", pk=pk, **data)
+        return self.rows[pk]
 
 
-def _user():
-    user = MagicMock(pk=USER_PK)
-    user.name = "Ada"
-    return user
+class FakeFields:
+    def __init__(self, *fields: OrganizerFieldDTO) -> None:
+        self.by_event = {EVENT_PK: list(fields)}
+
+    def list_by_event(self, event_id):
+        return self.by_event.get(event_id, [])
+
+    def read_by_slug(self, event_id, slug):
+        for field in self.list_by_event(event_id):
+            if field.slug == slug:
+                return field
+        raise NotFoundError
 
 
-def _field(pk, slug):
-    return OrganizerFieldDTO(
-        field_type="text", name=slug, order=0, pk=pk, question="Q", slug=slug
-    )
+class FakePersonalValues:
+    def __init__(self) -> None:
+        self.rows: dict[tuple[int, int, int], object] = {}
+
+    def save(self, entries):
+        for entry in entries:
+            key = (entry["facilitator_id"], entry["event_id"], entry["field_id"])
+            self.rows[key] = entry["value"]
+
+    def read_for_facilitator_event(self, facilitator_id, event_id):
+        return {
+            str(field_id): value
+            for (fid, eid, field_id), value in self.rows.items()
+            if (fid, eid) == (facilitator_id, event_id)
+        }
 
 
-def _session_data(**overrides):
+class FakeUsers:
+    """Holds one profile and fills its handle only while empty, like the repo."""
+
+    def __init__(self, user) -> None:
+        self.user = user
+
+    def read(self, slug):
+        assert slug == self.user.slug
+        return self.user
+
+    def read_by_id(self, pk):
+        assert pk == self.user.pk
+        return self.user
+
+    def fill_discord_username(self, slug, handle):
+        if slug != self.user.slug or self.user.discord_username:
+            return False
+        self.user = self.user.model_copy(update={"discord_username": handle})
+        return True
+
+
+class FakeTracks:
+    def __init__(self) -> None:
+        self.public = [
+            track_dto(pk=OWN_TRACK_PK, event_id=EVENT_PK),
+            track_dto(pk=FOREIGN_TRACK_PK, event_id=OTHER_EVENT_PK),
+        ]
+
+    def list_public_by_event(self, event_id):
+        return [track for track in self.public if track.event_id == event_id]
+
+
+class FakeEventCatalogue:
+    """The event, its proposal settings and its categories, keyed by event."""
+
+    def __init__(self) -> None:
+        self.events = {("konwent", SPHERE_ID): _event()}
+        self.settings = {
+            EVENT_PK: EventProposalSettingsDTO(
+                allow_anonymous_proposals=True, description="Propose!", pk=EVENT_PK
+            )
+        }
+        self.categories = {EVENT_PK: [category(pk=CATEGORY_PK)]}
+        self.session_requirements = {CATEGORY_PK: ["session requirement"]}
+        self.asked_availability = {CATEGORY_PK: True}
+
+    def read_by_slug(self, slug, sphere_id):
+        return self.events[slug, sphere_id]
+
+    def read_by_event(self, event_id):
+        return self.settings[event_id]
+
+    def read_or_create_by_event(self, event_id):
+        return self.settings.setdefault(
+            event_id,
+            EventProposalSettingsDTO(
+                allow_anonymous_proposals=False, description="", pk=event_id
+            ),
+        )
+
+    def list_by_event(self, event_id):
+        return self.categories[event_id]
+
+    def read(self, pk, event_id):
+        return next(c for c in self.categories[event_id] if c.pk == pk)
+
+    def list_session_field_requirements(self, category_id):
+        return self.session_requirements[category_id]
+
+    def asks_availability(self, category_id):
+        return self.asked_availability[category_id]
+
+
+class FakeReusableSessions:
+    def __init__(self, *records: ReusableSessionRecord) -> None:
+        self.records = list(records)
+
+    def list_reusable(self, *, user_id, sphere_id, exclude_event_id, limit):
+        assert (user_id, sphere_id, exclude_event_id) == (USER_PK, 1, EVENT_PK)
+        return self.records[:limit]
+
+
+class World(SimpleNamespace):
+    """Every repo the wizard writes through, holding what it was given."""
+
+    def __init__(self, *, user=None, facilitators=(), session_fields=(), personal=()):
+        super().__init__(
+            catalogue=FakeEventCatalogue(),
+            sessions=FakeSessions(),
+            facilitators=FakeFacilitators(*facilitators),
+            session_fields=FakeFields(*session_fields),
+            personal_fields=FakeFields(*personal),
+            personal_values=FakePersonalValues(),
+            users=FakeUsers(
+                user or user_dto(pk=USER_PK, slug=USER_SLUG, name="Ada", email="a@x.z")
+            ),
+            reusable=FakeReusableSessions(),
+            cache=FakeCache(),
+        )
+
+    def service(self) -> ProposeSessionService:
+        return ProposeSessionService(
+            transaction=FakeTransaction(),
+            repos=ProposeRepos(
+                events=self.catalogue,
+                event_proposal_settings=self.catalogue,
+                categories=self.catalogue,
+                tracks=FakeTracks(),
+                sessions=self.sessions,
+                reusable_sessions=self.reusable,
+                session_fields=self.session_fields,
+                personal_fields=self.personal_fields,
+                personal_data_field_values=self.personal_values,
+                facilitators=self.facilitators,
+                users=self.users,
+            ),
+            cache=self.cache,
+        )
+
+    def submit(self, wizard_data, *, as_user=False, **kwargs):
+        if as_user:
+            kwargs |= {"user_id": USER_PK, "user_slug": USER_SLUG}
+        return self.service().submit(_event(), wizard_data, language="pl", **kwargs)
+
+    def only_session(self):
+        assert len(self.sessions.rows) == 1, self.sessions.rows
+        return next(iter(self.sessions.rows.values()))
+
+
+def _wizard(**overrides):
     return {
         "category_id": 3,
         "session_data": {"title": "Test Session", "facilitator_name": "Anon Host"},
         **overrides,
     }
-
-
-def _expected_session(**overrides):
-    data = SessionData(
-        event_id=1,
-        presenter_id=None,
-        facilitator_name="Anon Host",
-        category_id=3,
-        title="Test Session",
-        slug="test-session",
-        description="",
-        duration="",
-        participants_limit=0,
-        min_age=0,
-        contact_email="",
-        contact_language="pl",
-        status=SessionStatus.PENDING,
-    )
-    data.update(overrides)
-    return data
-
-
-@pytest.fixture(name="repos")
-def repos_fixture():
-    return ProposeRepos(
-        events=MagicMock(),
-        event_proposal_settings=MagicMock(),
-        categories=MagicMock(),
-        tracks=MagicMock(),
-        sessions=MagicMock(),
-        reusable_sessions=MagicMock(),
-        session_fields=MagicMock(),
-        personal_fields=MagicMock(),
-        personal_data_field_values=MagicMock(),
-        facilitators=MagicMock(),
-        users=MagicMock(),
-    )
-
-
-@pytest.fixture(name="submitting_repos")
-def submitting_repos_fixture(repos):
-    repos.sessions.slug_exists.return_value = False
-    repos.facilitators.slug_exists.return_value = False
-    repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
-    repos.facilitators.create.return_value = _facilitator()
-    repos.sessions.create.return_value = EXPECTED_SESSION_ID
-    repos.tracks.list_public_by_event.return_value = [
-        TrackDTO.model_construct(pk=OWN_TRACK_PK, event_id=1)
-    ]
-    return repos
-
-
-@pytest.fixture(name="cache")
-def cache_fixture():
-    return FakeCache()
-
-
-@pytest.fixture(name="service")
-def service_fixture(repos, cache):
-    return ProposeSessionService(transaction=MagicMock(), repos=repos, cache=cache)
 
 
 class TestSubmit:
@@ -164,54 +292,58 @@ class TestSubmit:
             {"category_id": 1},
         ),
     )
-    def test_raises_value_error_when_title_missing(self, service, wizard_data):
+    def test_a_proposal_without_a_title_is_refused(self, wizard_data):
+        world = World()
+
         with pytest.raises(ValueError, match=r"^session_data must contain 'title'$"):
-            service.submit(
-                _event(), wizard_data, user_id=None, user_slug=None, language="pl"
-            )
+            world.submit(wizard_data)
 
-    def test_anonymous_creates_facilitator_without_user(
-        self, service, submitting_repos
-    ):
-        result = service.submit(
-            _event(), _session_data(), user_id=None, user_slug=None, language="pl"
+        assert not world.sessions.rows
+        assert not world.facilitators.rows
+
+    def test_anonymous_creates_facilitator_without_user(self):
+        world = World()
+
+        result = world.submit(_wizard())
+
+        (facilitator,) = world.facilitators.rows.values()
+        assert (facilitator.display_name, facilitator.slug, facilitator.user_id) == (
+            "Anon Host",
+            "anon-host",
+            None,
         )
-
-        assert result.session_id == EXPECTED_SESSION_ID
+        session = world.sessions.rows[result.session_id]
         assert result.title == "Test Session"
-        submitting_repos.users.read.assert_not_called()
-        submitting_repos.facilitators.read_by_user_and_event.assert_not_called()
-        submitting_repos.facilitators.slug_exists.assert_called_once_with(
-            1, "anon-host"
-        )
-        submitting_repos.facilitators.create.assert_called_once_with(
-            FacilitatorData(
-                event_id=1, user_id=None, display_name="Anon Host", slug="anon-host"
-            )
-        )
-        submitting_repos.sessions.slug_exists.assert_called_once_with(1, "test-session")
-        submitting_repos.sessions.create.assert_called_once_with(
-            _expected_session(), availability=[], facilitator_ids=[FACILITATOR_PK]
-        )
-        submitting_repos.sessions.save_field_values.assert_not_called()
-        submitting_repos.personal_data_field_values.save.assert_not_called()
-        submitting_repos.tracks.list_public_by_event.assert_not_called()
-        submitting_repos.sessions.set_session_tracks.assert_not_called()
+        assert session["facilitator_ids"] == [facilitator.pk]
+        assert session["data"] == {
+            "event_id": EVENT_PK,
+            "presenter_id": None,
+            "facilitator_name": "Anon Host",
+            "category_id": 3,
+            "title": "Test Session",
+            "slug": "test-session",
+            "description": "",
+            "duration": "",
+            "participants_limit": 0,
+            "min_age": 0,
+            "contact_email": "",
+            "contact_language": "pl",
+            "status": SessionStatus.PENDING,
+        }
+        assert (session["track_ids"], session["field_values"]) == ([], {})
+        assert not world.personal_values.rows
 
-    def test_passes_every_wizard_answer_into_the_session(
-        self, service, submitting_repos
-    ):
+    def test_passes_every_wizard_answer_into_the_session(self):
+        world = World()
         cover_image = object()
 
-        service.submit(
-            _event(),
+        world.submit(
             {
                 "category_id": 3,
                 "contact_email": "host@example.com",
-                "availability": ["2026-07-10:evening", "not-a-pair"],
+                "availability": ["2026-07-10:evening", "not-a-day:evening"],
                 "session_data": {
                     "title": "Test Session",
-                    "facilitator_name": "Anon Host",
                     "description": "Long one",
                     "duration": "2h 30min",
                     "participants_limit": "12",
@@ -219,510 +351,240 @@ class TestSubmit:
                 },
             },
             cover_image=cover_image,
-            user_id=None,
-            user_slug=None,
-            language="pl",
         )
 
-        submitting_repos.sessions.create.assert_called_once_with(
-            _expected_session(
-                description="Long one",
-                duration="PT2H30M",
-                participants_limit=12,
-                min_age=18,
-                contact_email="host@example.com",
-                cover_image=cover_image,
-            ),
-            availability=[AvailabilityDTO(day=date(2026, 7, 10), part=DayPart.EVENING)],
-            facilitator_ids=[FACILITATOR_PK],
-        )
+        session = world.only_session()
+        assert session["availability"] == [
+            AvailabilityDTO(day=date(2026, 7, 10), part=DayPart.EVENING)
+        ]
+        data = session["data"]
+        assert (
+            data["description"],
+            data["duration"],
+            data["participants_limit"],
+            data["min_age"],
+            data["contact_email"],
+            data["cover_image"],
+        ) == ("Long one", "PT2H30M", 12, 18, "host@example.com", cover_image)
 
-    def test_retries_slug_until_it_is_free(self, service, submitting_repos):
-        submitting_repos.sessions.slug_exists.side_effect = [True, False]
+    def test_a_taken_title_gets_a_slug_of_its_own(self):
+        world = World()
 
-        service.submit(
-            _event(), _session_data(), user_id=None, user_slug=None, language="pl"
-        )
+        world.submit(_wizard())
+        world.submit(_wizard())
 
-        first, second = submitting_repos.sessions.slug_exists.call_args_list
-        assert first == call(1, "test-session")
-        assert second.args[0] == 1
-        assert second.args[1].startswith("test-session-")
-        create_data = submitting_repos.sessions.create.call_args.args[0]
-        assert create_data["slug"] == second.args[1]
+        first, second = (row["data"]["slug"] for row in world.sessions.rows.values())
+        assert first == "test-session"
+        assert second.startswith("test-session-")
 
-    def test_logged_in_user_reuses_their_facilitator(self, service, submitting_repos):
-        submitting_repos.users.read.return_value = UserDTO.model_construct(
-            pk=USER_PK, name="Bob Host"
-        )
-        submitting_repos.facilitators.read_by_user_and_event.side_effect = None
-        submitting_repos.facilitators.read_by_user_and_event.return_value = (
-            _facilitator(user_id=USER_PK, display_name="Bob Host")
-        )
-
-        service.submit(
-            _event(),
-            {"category_id": 3, "session_data": {"title": "Test Session"}},
+    def test_logged_in_user_reuses_their_facilitator_and_is_the_presenter(self):
+        own = FacilitatorDTO(
+            accreditation_type="none",
+            display_name="Ada GM",
+            event_id=EVENT_PK,
+            pk=1,
+            slug="ada-gm",
             user_id=USER_PK,
-            user_slug=USER_SLUG,
-            language="pl",
         )
+        world = World(facilitators=[own])
 
-        submitting_repos.users.read.assert_called_once_with(USER_SLUG)
-        submitting_repos.facilitators.read_by_user_and_event.assert_called_once_with(
-            USER_PK, 1
-        )
-        submitting_repos.facilitators.create.assert_not_called()
-        submitting_repos.sessions.create.assert_called_once_with(
-            _expected_session(presenter_id=USER_PK, facilitator_name="Bob Host"),
-            availability=[],
-            facilitator_ids=[FACILITATOR_PK],
-        )
+        world.submit({"category_id": 3, "session_data": {"title": "T"}}, as_user=True)
 
-    def test_logged_in_user_without_facilitator_gets_one_created(
-        self, service, submitting_repos
-    ):
-        submitting_repos.users.read.return_value = UserDTO.model_construct(
-            pk=USER_PK, name="Bob Host"
-        )
+        session = world.only_session()
+        assert list(world.facilitators.rows) == [own.pk]
+        assert session["facilitator_ids"] == [own.pk]
+        assert (
+            session["data"]["presenter_id"],
+            session["data"]["facilitator_name"],
+        ) == (USER_PK, "Ada")
 
-        service.submit(
-            _event(),
-            {"category_id": 3, "session_data": {"title": "Test Session"}},
+    def test_a_facilitator_of_another_event_is_not_reused(self):
+        elsewhere = FacilitatorDTO(
+            accreditation_type="none",
+            display_name="Ada",
+            event_id=OTHER_EVENT_PK,
+            pk=1,
+            slug="ada",
             user_id=USER_PK,
-            user_slug=USER_SLUG,
-            language="pl",
         )
+        world = World(facilitators=[elsewhere])
 
-        submitting_repos.facilitators.read_by_user_and_event.assert_called_once_with(
-            USER_PK, 1
-        )
-        submitting_repos.facilitators.create.assert_called_once_with(
-            FacilitatorData(
-                event_id=1, user_id=USER_PK, display_name="Bob Host", slug="bob-host"
-            )
+        world.submit({"category_id": 3, "session_data": {"title": "T"}}, as_user=True)
+
+        (linked,) = world.only_session()["facilitator_ids"]
+        created = world.facilitators.rows[linked]
+        assert (created.event_id, created.user_id, created.display_name) == (
+            EVENT_PK,
+            USER_PK,
+            "Ada",
         )
 
     @pytest.mark.parametrize(
         ("user_id", "user_slug"), ((USER_PK, None), (None, USER_SLUG))
     )
-    def test_half_identified_user_is_treated_as_anonymous(
-        self, service, submitting_repos, user_id, user_slug
-    ):
-        service.submit(
-            _event(),
-            {"category_id": 3, "session_data": {"title": "Test Session"}},
+    def test_half_identified_user_is_treated_as_anonymous(self, user_id, user_slug):
+        world = World()
+
+        world.submit(
+            {"category_id": 3, "session_data": {"title": "T"}},
             user_id=user_id,
             user_slug=user_slug,
-            language="pl",
         )
 
-        submitting_repos.users.read.assert_not_called()
-        create_data = submitting_repos.sessions.create.call_args.args[0]
-        assert create_data["presenter_id"] is None
-        assert not create_data["facilitator_name"]
+        data = world.only_session()["data"]
+        assert data["presenter_id"] is None
+        assert not data["facilitator_name"]
 
-    def test_skips_blank_session_and_personal_answers(self, service, submitting_repos):
-        submitting_repos.session_fields.read_by_slug.side_effect = (
-            lambda _event_id, slug: _field({"system": 55, "notes": 56}[slug], slug)
-        )
-        submitting_repos.personal_fields.read_by_slug.side_effect = (
-            lambda _event_id, slug: _field({"email": 1, "phone": 2}[slug], slug)
+    def test_stores_only_answers_to_known_fields_that_say_something(self):
+        world = World(
+            session_fields=[_field(55, "system"), _field(56, "notes")],
+            personal=[_field(1, "email"), _field(2, "phone")],
         )
 
-        result = service.submit(
-            _event(),
+        world.submit(
             {
                 "category_id": 1,
                 "session_data": {
-                    "title": "Test Session",
+                    "title": "T",
                     "facilitator_name": "Anon Host",
                     "session_notes": "   ",
                     "session_notes_custom": "typed",
                     "session_system": "D&D",
+                    "session_players": 4,
+                    "session_gone": "old",
                 },
                 "personal_data": {
                     "other": "ignored",
                     "personal_phone": "",
                     "personal_phone_custom": "typed",
                     "personal_email": "a@x.z",
+                    "personal_gone": "old",
                 },
-            },
-            user_id=None,
-            user_slug=None,
-            language="pl",
+            }
         )
 
-        assert result.session_id == EXPECTED_SESSION_ID
-        submitting_repos.session_fields.read_by_slug.assert_called_once_with(
-            1, "system"
-        )
-        submitting_repos.sessions.save_field_values.assert_called_once_with(
-            EXPECTED_SESSION_ID,
-            [
-                SessionFieldValueData(
-                    session_id=EXPECTED_SESSION_ID, field_id=55, value="D&D"
-                )
-            ],
-        )
-        submitting_repos.personal_fields.read_by_slug.assert_called_once_with(
-            1, "email"
-        )
-        submitting_repos.personal_data_field_values.save.assert_called_once_with(
-            [
-                PersonalDataFieldValueData(
-                    facilitator_id=FACILITATOR_PK, event_id=1, field_id=1, value="a@x.z"
-                )
-            ]
-        )
+        assert world.only_session()["field_values"] == {55: "D&D"}
+        (facilitator,) = world.facilitators.rows
+        assert world.personal_values.rows == {(facilitator, EVENT_PK, 1): "a@x.z"}
 
-    def test_skips_answers_to_unknown_fields(self, service, submitting_repos):
-        def read_session_field(_event_id, slug):
-            if slug == "gone":
-                raise NotFoundError
-            return _field(55, slug)
+    def test_stores_nothing_when_no_answer_matches_a_field(self):
+        world = World()
 
-        def read_personal_field(_event_id, slug):
-            if slug == "gone":
-                raise NotFoundError
-            return _field(1, slug)
-
-        submitting_repos.session_fields.read_by_slug.side_effect = read_session_field
-        submitting_repos.personal_fields.read_by_slug.side_effect = read_personal_field
-
-        service.submit(
-            _event(),
+        world.submit(
             {
                 "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "facilitator_name": "Anon Host",
-                    "session_gone": "old",
-                    "session_system": "D&D",
-                },
-                "personal_data": {"personal_gone": "old", "personal_email": "a@x.z"},
-            },
-            user_id=None,
-            user_slug=None,
-            language="pl",
+                "session_data": {"title": "T", "session_ghost": "boo"},
+                "personal_data": {"personal_ghost": "boo"},
+            }
         )
 
-        submitting_repos.sessions.save_field_values.assert_called_once_with(
-            EXPECTED_SESSION_ID,
-            [
-                SessionFieldValueData(
-                    session_id=EXPECTED_SESSION_ID, field_id=55, value="D&D"
-                )
-            ],
-        )
-        submitting_repos.personal_data_field_values.save.assert_called_once_with(
-            [
-                PersonalDataFieldValueData(
-                    facilitator_id=FACILITATOR_PK, event_id=1, field_id=1, value="a@x.z"
-                )
-            ]
-        )
+        assert world.only_session()["field_values"] == {}
+        assert not world.personal_values.rows
 
-    def test_keeps_only_tracks_of_the_current_event(self, service, submitting_repos):
-        result = service.submit(
-            _event(),
-            _session_data(track_pks=[OWN_TRACK_PK, FOREIGN_TRACK_PK]),
-            user_id=None,
-            user_slug=None,
-            language="pl",
-        )
+    @pytest.mark.parametrize(
+        ("asked", "attached"),
+        (([OWN_TRACK_PK, FOREIGN_TRACK_PK], [OWN_TRACK_PK]), ([FOREIGN_TRACK_PK], [])),
+    )
+    def test_keeps_only_tracks_of_the_current_event(self, asked, attached):
+        world = World()
 
-        submitting_repos.tracks.list_public_by_event.assert_called_once_with(1)
-        submitting_repos.sessions.set_session_tracks.assert_called_once_with(
-            result.session_id, [OWN_TRACK_PK]
-        )
+        world.submit(_wizard(track_pks=asked))
 
-    def test_attaches_no_tracks_when_all_are_foreign(self, service, submitting_repos):
-        service.submit(
-            _event(),
-            _session_data(track_pks=[FOREIGN_TRACK_PK]),
-            user_id=None,
-            user_slug=None,
-            language="pl",
+        assert world.only_session()["track_ids"] == attached
+
+
+class TestSavedPersonalData:
+    def test_is_empty_for_anonymous_or_users_without_a_facilitator(self):
+        service = World().service()
+
+        assert service.get_saved_personal_data(event_id=EVENT_PK, user_id=None) == {}
+        assert service.get_saved_personal_data(event_id=EVENT_PK, user_id=USER_PK) == {}
+
+    def test_comes_from_the_users_facilitator_in_this_event(self):
+        world = World(personal=[_field(1, "email")])
+        world.submit(_wizard(personal_data={"personal_email": "a@x.z"}), as_user=True)
+        world.submit(_wizard(personal_data={"personal_email": "anon@x.z"}))
+
+        saved = world.service().get_saved_personal_data(
+            event_id=EVENT_PK, user_id=USER_PK
         )
 
-        submitting_repos.sessions.set_session_tracks.assert_not_called()
-
-    def test_skips_int_session_answers(self, service, submitting_repos):
-        submitting_repos.session_fields.read_by_slug.return_value = _field(55, "system")
-
-        service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "facilitator_name": "Anon Host",
-                    "session_players": 4,
-                    "session_system": "D&D",
-                },
-            },
-            user_id=None,
-            user_slug=None,
-            language="pl",
-        )
-
-        submitting_repos.session_fields.read_by_slug.assert_called_once_with(
-            1, "system"
-        )
-
-
-class TestGetSavedPersonalData:
-    def test_returns_empty_for_anonymous(self, service, repos):
-        result = service.get_saved_personal_data(event_id=1, user_id=None)
-
-        assert result == {}
-        repos.personal_data_field_values.read_for_facilitator_event.assert_not_called()
-        repos.facilitators.read_by_user_and_event.assert_not_called()
-
-    def test_returns_empty_when_user_has_no_facilitator(self, service, repos):
-        repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
-
-        result = service.get_saved_personal_data(event_id=1, user_id=USER_PK)
-
-        assert result == {}
-        repos.facilitators.read_by_user_and_event.assert_called_once_with(USER_PK, 1)
-        repos.personal_data_field_values.read_for_facilitator_event.assert_not_called()
-
-    def test_reads_values_of_the_users_facilitator(self, service, repos):
-        repos.facilitators.read_by_user_and_event.return_value = _facilitator(
-            user_id=USER_PK
-        )
-        repos.personal_data_field_values.read_for_facilitator_event.return_value = {
-            "email": "a@x.z"
-        }
-
-        result = service.get_saved_personal_data(event_id=1, user_id=USER_PK)
-
-        assert result == {"email": "a@x.z"}
-        repos.facilitators.read_by_user_and_event.assert_called_once_with(USER_PK, 1)
-        repos.personal_data_field_values.read_for_facilitator_event.assert_called_once_with(
-            FACILITATOR_PK, 1
-        )
+        assert saved == {"1": "a@x.z"}
 
 
 class TestCheckRateLimit:
-    def test_allows_first_submission(self, service, cache):
-        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is True
-        assert cache.store == {"proposal_rate:1:1.2.3.4": 1}
-        assert cache.timeouts == {
+    def test_allows_first_submission(self):
+        world = World()
+
+        assert world.service().check_rate_limit(ip="1.2.3.4", event_id=1) is True
+        assert world.cache.timeouts == {
             "proposal_rate:1:1.2.3.4": PROPOSAL_RATE_LIMIT_SECONDS
         }
 
-    def test_blocks_second_submission(self, service, cache):
-        cache.store["proposal_rate:1:1.2.3.4"] = 1
+    def test_blocks_a_second_submission_from_the_same_ip_and_event_only(self):
+        service = World().service()
+        service.check_rate_limit(ip="1.2.3.4", event_id=1)
 
         assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is False
-
-    def test_allows_different_event(self, service, cache):
-        cache.store["proposal_rate:1:1.2.3.4"] = 1
-
         assert service.check_rate_limit(ip="1.2.3.4", event_id=2) is True
-
-    def test_blocks_a_second_submission_from_the_same_ip(self, service, cache):
-        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is True
-        assert service.check_rate_limit(ip="1.2.3.4", event_id=1) is False
-        assert "proposal_rate:1:1.2.3.4" in cache.store
-
-
-class TestSubmitEdgeCases:
-    def test_requires_a_title(self, service, submitting_repos):
-        with pytest.raises(ValueError, match="title"):
-            service.submit(
-                _event(), {"category_id": 1, "session_data": {}}, language="pl"
-            )
-
-        submitting_repos.sessions.create.assert_not_called()
-
-    def test_logged_in_user_reuses_their_facilitator_and_is_the_presenter(
-        self, service, submitting_repos
-    ):
-        submitting_repos.users.read.return_value = _user()
-        submitting_repos.facilitators.read_by_user_and_event.side_effect = None
-        submitting_repos.facilitators.read_by_user_and_event.return_value = (
-            _facilitator()
-        )
-
-        service.submit(
-            _event(),
-            {"category_id": 1, "session_data": {"title": "T"}},
-            cover_image=MagicMock(name="cover"),
-            user_id=USER_PK,
-            user_slug="ada",
-            language="pl",
-        )
-
-        submitting_repos.facilitators.create.assert_not_called()
-        create_data = submitting_repos.sessions.create.call_args.args[0]
-        assert create_data["presenter_id"] == USER_PK
-        assert create_data["facilitator_name"] == "Ada"
-        assert "cover_image" in create_data
-
-    def test_logged_in_user_without_a_facilitator_gets_one(
-        self, service, submitting_repos
-    ):
-        submitting_repos.users.read.return_value = _user()
-        submitting_repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
-
-        service.submit(
-            _event(),
-            {"category_id": 1, "session_data": {"title": "T"}},
-            user_id=USER_PK,
-            user_slug="ada",
-            language="pl",
-        )
-
-        created = submitting_repos.facilitators.create.call_args.args[0]
-        assert created["user_id"] == USER_PK
-        assert created["display_name"] == "Ada"
-
-    def test_only_foreign_tracks_attaches_none(self, service, submitting_repos):
-        service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {"title": "T"},
-                "track_pks": [FOREIGN_TRACK_PK],
-            },
-            language="pl",
-        )
-
-        submitting_repos.sessions.set_session_tracks.assert_not_called()
-
-    def test_ignores_write_in_helpers_builtins_and_unknown_fields(
-        self, service, submitting_repos
-    ):
-        submitting_repos.session_fields.read_by_slug.side_effect = NotFoundError
-        submitting_repos.personal_fields.read_by_slug.side_effect = NotFoundError
-
-        service.submit(
-            _event(),
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "T",
-                    "session_system_custom": "Homebrew",
-                    "session_players": 4,
-                    "session_ghost": "boo",
-                },
-                "personal_data": {
-                    "other": "x",
-                    "personal_diet_custom": "vegan",
-                    "personal_diet": "",
-                    "personal_ghost": "boo",
-                },
-            },
-            language="pl",
-        )
-
-        submitting_repos.sessions.save_field_values.assert_not_called()
-        submitting_repos.personal_data_field_values.save.assert_not_called()
+        assert service.check_rate_limit(ip="5.6.7.8", event_id=1) is True
 
 
 class TestReads:
-    def test_getters_read_through_their_repos(self, service, repos):
-        assert service.get_event("slug", 1) is repos.events.read_by_slug.return_value
-        assert (
-            service.get_proposal_settings(1)
-            is repos.event_proposal_settings.read_by_event.return_value
-        )
-        assert (
-            service.get_or_create_proposal_settings(1)
-            is repos.event_proposal_settings.read_or_create_by_event.return_value
-        )
-        assert service.get_categories(1) is repos.categories.list_by_event.return_value
-        assert service.get_category(2, 1) is repos.categories.read.return_value
-        assert (
-            service.get_personal_fields(1)
-            is repos.personal_fields.list_by_event.return_value
-        )
-        assert (
-            service.get_session_requirements(2)
-            is repos.categories.list_session_field_requirements.return_value
-        )
-        assert (
-            service.asks_availability(2)
-            is repos.categories.asks_availability.return_value
-        )
-        assert (
-            service.get_public_tracks(1)
-            is repos.tracks.list_public_by_event.return_value
-        )
-        repos.events.read_by_slug.assert_called_once_with("slug", 1)
-        repos.event_proposal_settings.read_by_event.assert_called_once_with(1)
-        repos.event_proposal_settings.read_or_create_by_event.assert_called_once_with(1)
-        repos.categories.list_by_event.assert_called_once_with(1)
-        repos.categories.read.assert_called_once_with(2, 1)
-        repos.personal_fields.list_by_event.assert_called_once_with(1)
-        repos.categories.list_session_field_requirements.assert_called_once_with(2)
-        repos.categories.asks_availability.assert_called_once_with(2)
-        repos.tracks.list_public_by_event.assert_called_once_with(1)
+    def test_wizard_steps_read_the_event_asked_for(self):
+        # NOTE: these are hand-offs to the repositories; the fakes key every
+        # answer by the id passed in, so a swapped or dropped id fails here.
+        world = World()
+        service = world.service()
 
-    def test_saved_personal_data_is_empty_for_anonymous_or_new_users(
-        self, service, repos
-    ):
-        assert service.get_saved_personal_data(event_id=1, user_id=None) == {}
-
-        repos.facilitators.read_by_user_and_event.side_effect = NotFoundError
-        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {}
-
-    def test_saved_personal_data_comes_from_the_users_facilitator(self, service, repos):
-        repos.facilitators.read_by_user_and_event.side_effect = None
-        repos.facilitators.read_by_user_and_event.return_value = _facilitator()
-        repos.personal_data_field_values.read_for_facilitator_event.return_value = {
-            "email": "a@x.z"
-        }
-
-        assert service.get_saved_personal_data(event_id=1, user_id=USER_PK) == {
-            "email": "a@x.z"
-        }
-        assert (
-            repos.personal_data_field_values.read_for_facilitator_event.call_args.args
-            == (FACILITATOR_PK, 1)
+        assert service.get_event("konwent", SPHERE_ID).pk == EVENT_PK
+        assert service.get_proposal_settings(EVENT_PK).description == "Propose!"
+        assert service.get_or_create_proposal_settings(OTHER_EVENT_PK).pk == (
+            OTHER_EVENT_PK
         )
+        assert [c.pk for c in service.get_categories(EVENT_PK)] == [CATEGORY_PK]
+        assert service.get_category(CATEGORY_PK, EVENT_PK).pk == CATEGORY_PK
+        assert service.get_session_requirements(CATEGORY_PK) == ["session requirement"]
+        assert service.asks_availability(CATEGORY_PK) is True
+        assert [t.pk for t in service.get_public_tracks(EVENT_PK)] == [OWN_TRACK_PK]
 
+    def test_personal_fields_are_the_events_own(self):
+        world = World(personal=[_field(1, "email")])
 
-def _discord_field(slug="dc"):
-    return OrganizerFieldDTO(
-        field_type="discord", name=slug, order=0, pk=3, question="Q", slug=slug
-    )
+        assert [f.slug for f in world.service().get_personal_fields(EVENT_PK)] == [
+            "email"
+        ]
+        assert world.service().get_personal_fields(OTHER_EVENT_PK) == []
 
 
 class TestAccountAnswers:
-    def test_anonymous_proposer_has_none(self, service):
+    def test_anonymous_proposer_has_none(self):
         assert (
-            service.get_account_answers(user_id=None, fields=[_discord_field()])
+            World()
+            .service()
+            .get_account_answers(user_id=None, fields=[_field(3, "dc", "discord")])
             == AccountAnswersDTO()
         )
 
-    def test_profile_handle_answers_only_discord_fields(self, service, repos):
-        repos.users.read_by_id.side_effect = {
-            USER_PK: MagicMock(email="ada@x.z", discord_username="ada_gm")
-        }.__getitem__
+    @pytest.mark.parametrize(
+        ("handle", "personal_data"), (("ada_gm", {"personal_dc": "ada_gm"}), ("", {}))
+    )
+    def test_the_profile_handle_answers_only_discord_fields(
+        self, handle, personal_data
+    ):
+        world = World(
+            user=user_dto(
+                pk=USER_PK, slug=USER_SLUG, email="ada@x.z", discord_username=handle
+            )
+        )
 
-        answers = service.get_account_answers(
-            user_id=USER_PK, fields=[_discord_field(), _field(4, "phone")]
+        answers = world.service().get_account_answers(
+            user_id=USER_PK, fields=[_field(3, "dc", "discord"), _field(4, "phone")]
         )
 
         assert answers == AccountAnswersDTO(
-            email="ada@x.z", personal_data={"personal_dc": "ada_gm"}
+            email="ada@x.z", personal_data=personal_data
         )
-
-    def test_no_profile_handle_answers_nothing(self, service, repos):
-        repos.users.read_by_id.return_value = MagicMock(
-            email="ada@x.z", discord_username=""
-        )
-
-        answers = service.get_account_answers(
-            user_id=USER_PK, fields=[_discord_field()]
-        )
-
-        assert answers.personal_data == {}
 
 
 def _reusable(pk: int, *, presented: bool = True) -> ReusableSessionRecord:
@@ -742,32 +604,20 @@ def _reusable(pk: int, *, presented: bool = True) -> ReusableSessionRecord:
     )
 
 
-class FakeReusableSessions:
-    def __init__(self, sessions):
-        self.sessions = sessions
-
-    def list_reusable(self, **_):
-        return self.sessions
-
-
 class TestListReusableSessions:
-    @staticmethod
-    def _service(repos, sessions):
-        return ProposeSessionService(
-            transaction=MagicMock(),
-            repos=repos._replace(reusable_sessions=FakeReusableSessions(sessions)),
-            cache=FakeCache(),
+    def test_offers_an_anonymous_proposer_nothing(self):
+        world = World()
+        world.reusable.records = [_reusable(1)]
+
+        assert (
+            world.service().list_reusable_sessions(user_id=None, event=_event()) == []
         )
 
-    def test_offers_an_anonymous_proposer_nothing(self, repos):
-        service = self._service(repos, [_reusable(1)])
+    def test_keeps_organizer_only_answers_only_where_the_user_presented(self):
+        world = World()
+        world.reusable.records = [_reusable(1), _reusable(2, presented=False)]
 
-        assert service.list_reusable_sessions(user_id=None, event=event_dto()) == []
-
-    def test_keeps_organizer_only_answers_only_where_the_user_presented(self, repos):
-        service = self._service(repos, [_reusable(1), _reusable(2, presented=False)])
-
-        found = service.list_reusable_sessions(user_id=USER_PK, event=event_dto())
+        found = world.service().list_reusable_sessions(user_id=USER_PK, event=_event())
 
         assert [s.field_values for s in found] == [
             {"system": "Fate", "notes": "Bring a socket"},
@@ -775,87 +625,44 @@ class TestListReusableSessions:
         ]
 
 
-class FakeUsers:
-    """Holds one profile handle and fills it only while empty, like the repo."""
-
-    def __init__(self, handle=""):
-        self.handle = handle
-        self.user = _user()
-        self.user.slug = "ada"
-
-    def read(self, _slug):
-        return self.user
-
-    def fill_discord_username(self, slug, handle):
-        if slug != self.user.slug or self.handle:
-            return False
-        self.handle = handle
-        return True
-
-
 class TestProfileDiscordFill:
     @staticmethod
-    def _submit(service, repos, handle):
-        repos.facilitators.read_by_user_and_event.return_value = _facilitator()
-        repos.personal_fields.read_by_slug.side_effect = lambda _event_id, slug: (
-            _discord_field(slug) if slug == "dc" else _field(4, slug)
-        )
-        service.submit(
-            _event(),
+    def _submit(world, handle):
+        world.submit(
             {
                 "category_id": 1,
                 "session_data": {"title": "T"},
                 "personal_data": {"personal_phone": "+48 1", "personal_dc": handle},
             },
-            user_id=USER_PK,
-            user_slug="ada",
-            language="pl",
+            as_user=True,
         )
 
     @staticmethod
-    def _service(repos, users):
-        return ProposeSessionService(
-            transaction=MagicMock(),
-            repos=repos._replace(users=users),
-            cache=FakeCache(),
+    def _world(handle=""):
+        return World(
+            user=user_dto(pk=USER_PK, slug=USER_SLUG, discord_username=handle),
+            personal=[_field(4, "phone"), _field(3, "dc", "discord")],
         )
 
-    def test_fills_the_empty_profile_handle_with_the_answer(self, submitting_repos):
-        users = FakeUsers()
+    @pytest.mark.parametrize(
+        ("answer", "stored"),
+        (
+            (" ada ", "ada"),
+            ("a", "a"),
+            ("x" * PROFILE_DISCORD_USERNAME_MAX_LENGTH,) * 2,
+            ("x" * (PROFILE_DISCORD_USERNAME_MAX_LENGTH + 1), ""),
+        ),
+    )
+    def test_an_empty_profile_handle_takes_an_answer_that_fits(self, answer, stored):
+        world = self._world()
 
-        self._submit(self._service(submitting_repos, users), submitting_repos, " ada ")
+        self._submit(world, answer)
 
-        assert users.handle == "ada"
+        assert world.users.user.discord_username == stored
 
-    def test_fills_a_one_character_handle(self, submitting_repos):
-        users = FakeUsers()
+    def test_keeps_a_handle_the_profile_already_has(self):
+        world = self._world(handle="ada_gm")
 
-        self._submit(self._service(submitting_repos, users), submitting_repos, "a")
+        self._submit(world, "bob")
 
-        assert users.handle == "a"
-
-    def test_fills_a_handle_of_the_profile_max_length(self, submitting_repos):
-        users = FakeUsers()
-        handle = "x" * PROFILE_DISCORD_USERNAME_MAX_LENGTH
-
-        self._submit(self._service(submitting_repos, users), submitting_repos, handle)
-
-        assert users.handle == handle
-
-    def test_keeps_a_handle_the_profile_already_has(self, submitting_repos):
-        users = FakeUsers(handle="ada_gm")
-
-        self._submit(self._service(submitting_repos, users), submitting_repos, "bob")
-
-        assert users.handle == "ada_gm"
-
-    def test_skips_a_handle_too_long_for_the_profile(self, submitting_repos):
-        users = FakeUsers()
-
-        self._submit(
-            self._service(submitting_repos, users),
-            submitting_repos,
-            "x" * (PROFILE_DISCORD_USERNAME_MAX_LENGTH + 1),
-        )
-
-        assert not users.handle
+        assert world.users.user.discord_username == "ada_gm"

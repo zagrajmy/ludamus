@@ -1,0 +1,1173 @@
+"""Google Docs Import panel section.
+
+An import integration is a dumb connection + capability owned by Chronology;
+this section is where the (hardcoded) Google Docs import is configured
+(per-question mapping) and run. Integrations settings never reference import.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import date
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from urllib.parse import urlencode
+
+from django.contrib import messages
+from django.http import HttpResponse
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.views.generic.base import View
+from pydantic import ValidationError
+
+from ludamus.gates.web.django.event.panel.import_durations import (
+    OptionDuration,
+    duration_values_from_post,
+    option_durations,
+)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.panel import PanelRequest, import_tab_urls
+from ludamus.gates.web.django.request_ids import parse_id
+from ludamus.pacts.availability import DayPart
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    InvalidDurationError,
+)
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.propose import (
+    AvailabilitySpec,
+    EntityRef,
+    FieldDefinition,
+    FieldDefinitions,
+    ImportLogStatus,
+    ImportSettings,
+    MissingKeyColumnsError,
+    QuestionTarget,
+    QuestionValue,
+)
+from ludamus.pacts.slugs import slugify
+
+if TYPE_CHECKING:
+    from django.http import QueryDict
+
+    from ludamus.pacts.event import EventDTO
+    from ludamus.pacts.fields import SessionFieldType
+    from ludamus.pacts.integrations import EventIntegrationDTO, SourceQuestion
+
+SESSION_COLUMNS = (
+    "title",
+    "description",
+    "duration",
+    "participants_limit",
+    "contact_email",
+)
+AVAILABILITY_TARGET = "session.availability"
+ENTITY_TARGETS = ("track", "category")
+# NOTE: `int` refuses a string over 4300 digits (CPython's int_max_str_digits);
+# no form has a row index anywhere near this long.
+_MAX_ROW_INDEX_DIGITS = 9
+
+
+class OptionTime(TypedDict):
+    day: str
+    part: str
+
+
+class OptionTimes(TypedDict):
+    option: str
+    times: list[OptionTime]
+
+
+class OptionEntity(TypedDict):
+    option: str
+    name: str
+    slug: str
+
+
+class OverrideRow(TypedDict):
+    raw: str
+    replacement: str
+
+
+class RecipeRow(TypedDict):
+    index: int
+    question: str
+    selected: str
+    confirmed: bool
+    field_name: str
+    field_slug: str
+    field_type: str
+    is_multiple: bool
+    allow_custom: bool
+    options: str
+    option_times: list[OptionTimes]
+    option_entities: list[OptionEntity]
+    option_durations: list[OptionDuration]
+    overrides: list[OverrideRow]
+    catchall_name: str
+    catchall_slug: str
+
+
+class SummaryRow(TypedDict):
+    index: int
+    status: Literal["confirmed", "ignored", "unconfirmed"]
+    question: str
+    mapping: str
+    details: str
+
+
+class EditNavOption(TypedDict):
+    index: int
+    question: str
+
+
+class EditNav(TypedDict):
+    index: int
+    total: int
+    position: int
+    prev_index: int | None
+    next_index: int | None
+    options: list[EditNavOption]
+
+
+def _active_integration(
+    integrations: list[EventIntegrationDTO], pk: int | None
+) -> EventIntegrationDTO | None:
+    if pk is None:
+        return integrations[0] if integrations else None
+    return next((i for i in integrations if i.pk == pk), None)
+
+
+def _import_integrations(
+    request: PanelRequest, event_pk: int
+) -> list[EventIntegrationDTO]:
+    return [
+        i
+        for i in request.services.event_integrations.list_for_event(
+            event_pk, IntegrationKind.IMPORT
+        )
+        if i.implementation == IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+    ]
+
+
+def _row(
+    *,
+    index: int,
+    question: SourceQuestion,
+    target: QuestionTarget | None,
+    definitions: FieldDefinitions,
+) -> RecipeRow:
+    field_name = ""
+    field_slug = ""
+    # Pre-fill the new-field setup from the source question; a saved definition
+    # (the operator's edits) overrides it.
+    setup: FieldDefinition | SourceQuestion = question
+    if target is None:
+        # Never decided: default to a new session field that mirrors the source
+        # question, so its form setup is visible and ready to save. The operator
+        # re-points anything that should be a built-in field, personal field, or
+        # deliberately unmapped.
+        selected = "session-field"
+        field_name = question.title
+        field_slug = slugify(question.title)
+    elif target.to and (
+        target.to.startswith("session.")
+        or target.to == "facilitator.display_name"
+        or target.to in ENTITY_TARGETS
+    ):
+        selected = target.to
+    elif target.to and target.to.startswith("personal."):
+        selected = "personal-field"
+        field_slug = target.to.removeprefix("personal.")
+        setup, field_name = _field_row_setup(
+            definition=definitions.personal_fields.get(field_slug),
+            slug=field_slug,
+            question=question,
+        )
+    elif target.to and target.to.startswith("field."):
+        selected = "session-field"
+        field_slug = target.to.removeprefix("field.")
+        setup, field_name = _field_row_setup(
+            definition=definitions.session_fields.get(field_slug),
+            slug=field_slug,
+            question=question,
+        )
+    else:
+        selected = "ignore"
+    field_type, multiple = _setup_type(setup)
+    return {
+        "index": index,
+        "question": question.title,
+        "selected": selected,
+        "confirmed": bool(target and target.confirmed),
+        "field_name": field_name,
+        "field_slug": field_slug,
+        "field_type": field_type,
+        "is_multiple": multiple,
+        "allow_custom": setup.allow_custom,
+        "options": "\n".join(setup.options),
+        # Always built from the source options so the (hidden) editors are ready
+        # the moment the operator switches this row to "Available days" or a
+        # track/category target.
+        "option_times": _option_times(question, target),
+        "option_entities": _option_entities(question, target),
+        "option_durations": option_durations(question, target),
+        "overrides": _override_rows(target),
+        "catchall_name": target.catchall.name if target and target.catchall else "",
+        "catchall_slug": target.catchall.slug if target and target.catchall else "",
+    }
+
+
+def _edit_nav(rows: list[RecipeRow], current: int) -> EditNav:
+    total = len(rows)
+    return {
+        "index": current,
+        "total": total,
+        "position": current + 1,
+        "prev_index": current - 1 if current > 0 else None,
+        "next_index": current + 1 if current + 1 < total else None,
+        "options": [{"index": r["index"], "question": r["question"]} for r in rows],
+    }
+
+
+def _edit_row(raw: str | None, rows: list[RecipeRow]) -> RecipeRow | None:
+    # The summary linked to ?edit=<index>; ignore anything non-numeric or out of
+    # range and fall back to the full list view.
+    if (index := parse_id(raw)) is None:
+        return None
+    if index < len(rows):
+        return rows[index]
+    return None
+
+
+def _summary_row(
+    *,
+    index: int,
+    question: SourceQuestion,
+    target: QuestionTarget | None,
+    definitions: FieldDefinitions,
+) -> SummaryRow:
+    if target is not None and target.confirmed:
+        status: Literal["confirmed", "ignored", "unconfirmed"] = "confirmed"
+    elif target is not None and target.ignore:
+        status = "ignored"
+    else:
+        status = "unconfirmed"
+    return {
+        "index": index,
+        "status": status,
+        "question": question.title,
+        "mapping": _mapping_label(target, definitions),
+        "details": _details_label(target, definitions),
+    }
+
+
+_FIXED_MAPPING_LABELS = {
+    AVAILABILITY_TARGET: lambda: _("Available days"),
+    "track": lambda: _("Track"),
+    "category": lambda: _("Category"),
+    "facilitator.display_name": lambda: _("Facilitator — Display name"),
+}
+
+
+def _mapping_label(target: QuestionTarget | None, definitions: FieldDefinitions) -> str:
+    if target is None or (not target.to and not target.ignore):
+        return ""
+    if target.ignore and not target.to:
+        return _("Don't import")
+    to = target.to or ""
+    if (fixed := _FIXED_MAPPING_LABELS.get(to)) is not None:
+        return fixed()
+    if to.startswith("session."):
+        col = to.removeprefix("session.").replace("_", " ")
+        return _("Proposal — %(col)s") % {"col": col.capitalize()}
+    if to.startswith("facilitator."):
+        part = to.removeprefix("facilitator.").replace("_", " ")
+        return _("Facilitator — %(part)s") % {"part": part.capitalize()}
+    return _field_mapping_label(to, definitions)
+
+
+def _field_mapping_label(to: str, definitions: FieldDefinitions) -> str:
+    if to.startswith("personal."):
+        slug = to.removeprefix("personal.")
+        name = _definition_name(definitions.personal_fields.get(slug), slug)
+        return _("Personal field — %(name)s") % {"name": name}
+    if to.startswith("field."):
+        slug = to.removeprefix("field.")
+        name = _definition_name(definitions.session_fields.get(slug), slug)
+        return _("Session field — %(name)s") % {"name": name}
+    return ""
+
+
+def _details_label(target: QuestionTarget | None, definitions: FieldDefinitions) -> str:
+    if target is None or target.ignore or not target.to:
+        return ""
+    to = target.to
+    if to == AVAILABILITY_TARGET:
+        return _("%(count)d day mappings") % {"count": len(target.values)}
+    if to == "session.duration":
+        return _("%(count)d mappings") % {"count": len(target.values)}
+    if to in ENTITY_TARGETS:
+        return _("%(count)d mappings") % {"count": len(target.values)}
+    if to.startswith(("personal.", "field.")):
+        slug = to.split(".", 1)[1]
+        store = (
+            definitions.personal_fields
+            if to.startswith("personal.")
+            else definitions.session_fields
+        )
+        if (definition := store.get(slug)) is None:
+            return ""
+        if definition.type == "select":
+            return _("Select — %(count)d options") % {"count": len(definition.options)}
+        if definition.type == "checkbox":
+            return _("Checkbox")
+        return _("Text")
+    return ""
+
+
+def _definition_name(definition: FieldDefinition | None, slug: str) -> str:
+    if definition is None or not definition.name:
+        return slug
+    return definition.name
+
+
+def _field_row_setup(
+    *, definition: FieldDefinition | None, slug: str, question: SourceQuestion
+) -> tuple[FieldDefinition | SourceQuestion, str]:
+    # A saved definition supplies both the form setup and the display name; with
+    # none, mirror the source question and fall back to the slug for the name.
+    if definition is None:
+        return question, slug
+    return definition, definition.name or slug
+
+
+def _setup_type(setup: FieldDefinition | SourceQuestion) -> tuple[str, bool]:
+    # FieldDefinition exposes `type`; SourceQuestion exposes `field_type`.
+    if isinstance(setup, FieldDefinition):
+        return setup.type, setup.multiple
+    return setup.field_type, setup.is_multiple
+
+
+def _option_times(
+    question: SourceQuestion, target: QuestionTarget | None
+) -> list[OptionTimes]:
+    # One editable group per source option, pre-filled with the times it maps
+    # to, or a single blank row to fill.
+    configured = target.values if target else {}
+    rows: list[OptionTimes] = []
+    for option in question.options:
+        spec = configured.get(option)
+        specs = spec if isinstance(spec, list) else [spec] if spec else []
+        times: list[OptionTime] = [
+            {"day": item.day.isoformat(), "part": item.part.value}
+            for item in specs
+            if isinstance(item, AvailabilitySpec)
+        ] or [{"day": "", "part": ""}]
+        rows.append({"option": option, "times": times})
+    return rows
+
+
+def _option_entities(
+    question: SourceQuestion, target: QuestionTarget | None
+) -> list[OptionEntity]:
+    # One row per source option, pre-filled with its configured track/category
+    # (name + slug) or defaulting to the option text and the slug derived from
+    # it, so the (hidden) editor is ready the moment the row becomes a track or
+    # category target.
+    configured = target.values if target else {}
+    rows: list[OptionEntity] = []
+    for option in question.options:
+        ref = configured.get(option)
+        if isinstance(ref, EntityRef):
+            rows.append({"option": option, "name": ref.name, "slug": ref.slug})
+        else:
+            rows.append({"option": option, "name": option, "slug": slugify(option)})
+    return rows
+
+
+def _override_rows(target: QuestionTarget | None) -> list[OverrideRow]:
+    # One row per saved override, plus a single blank row so the (hidden)
+    # editor is ready to fill the moment the operator opens it. Overrides are
+    # generic across every target type — applied to the raw cell text before
+    # any parser, `values` lookup, or pass-through copy.
+    rows: list[OverrideRow] = [
+        {"raw": raw, "replacement": replacement}
+        for raw, replacement in (target.overrides.items() if target else ())
+    ]
+    if not rows:
+        rows.append({"raw": "", "replacement": ""})
+    return rows
+
+
+def _overrides_from_post(post: QueryDict, index: int) -> dict[str, str]:
+    # Parallel arrays (raw / replacement) — drop rows with a blank raw key. A
+    # blank replacement is allowed: it substitutes the raw answer with an
+    # empty string, useful for clearing noise out of a free-text cell.
+    overrides: dict[str, str] = {}
+    rows = zip(
+        post.getlist(f"ovraw_{index}"),
+        post.getlist(f"ovreplacement_{index}"),
+        strict=False,
+    )
+    for raw, replacement in rows:
+        if not raw:
+            continue
+        overrides[raw] = replacement
+    return overrides
+
+
+def _field_type_from_post(post: QueryDict, index: int) -> SessionFieldType:
+    match (post.get(f"fieldtype_{index}") or "text").strip():
+        case "select":
+            return "select"
+        case "checkbox":
+            return "checkbox"
+        case _:
+            return "text"
+
+
+def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
+    return FieldDefinition(
+        name=(post.get(f"newname_{index}") or "").strip(),
+        type=_field_type_from_post(post, index),
+        multiple=bool(post.get(f"multiple_{index}")),
+        allow_custom=bool(post.get(f"allowcustom_{index}")),
+        options=[
+            line.strip()
+            for line in (post.get(f"options_{index}") or "").splitlines()
+            if line.strip()
+        ],
+    )
+
+
+def _store_definition(
+    *, settings: ImportSettings, target: QuestionTarget, post: QueryDict, index: int
+) -> None:
+    to = target.to or ""
+    if to.startswith("personal."):
+        settings.definitions.personal_fields[to.removeprefix("personal.")] = (
+            _definition_from_post(post, index)
+        )
+    elif to.startswith("field."):
+        settings.definitions.session_fields[to.removeprefix("field.")] = (
+            _definition_from_post(post, index)
+        )
+
+
+def _availability_values_from_post(
+    post: QueryDict, index: int
+) -> dict[str, QuestionValue]:
+    # The rows submit parallel arrays (one entry per row); regroup them by
+    # option, dropping blank and unparsable entries.
+    grouped: dict[str, list[AvailabilitySpec]] = {}
+    rows = zip(
+        post.getlist(f"timeoption_{index}"),
+        post.getlist(f"timeday_{index}"),
+        post.getlist(f"timepart_{index}"),
+        strict=False,
+    )
+    for option, raw_day, raw_part in rows:
+        if not (option and raw_day and raw_part):
+            continue
+        try:
+            entry = AvailabilitySpec(
+                day=date.fromisoformat(raw_day), part=DayPart(raw_part)
+            )
+        except ValueError:
+            continue
+        grouped.setdefault(option, []).append(entry)
+    return {
+        option: items[0] if len(items) == 1 else items
+        for option, items in grouped.items()
+    }
+
+
+def _entity_map_from_post(
+    post: QueryDict, index: int
+) -> tuple[dict[str, QuestionValue], EntityRef | None]:
+    # Per-option track/category rows submit parallel arrays; a blank name drops
+    # that option. The catchall is one name/slug pair for custom answers. Each
+    # slug falls back to the slug of its name when left blank.
+    values: dict[str, QuestionValue] = {}
+    rows = zip(
+        post.getlist(f"entoption_{index}"),
+        post.getlist(f"entname_{index}"),
+        post.getlist(f"entslug_{index}"),
+        strict=False,
+    )
+    for option, name, slug in rows:
+        clean_name = name.strip()
+        if not (option and clean_name):
+            continue
+        values[option] = EntityRef(
+            name=clean_name, slug=slug.strip() or slugify(clean_name)
+        )
+    catch_name = (post.get(f"entcatchname_{index}") or "").strip()
+    catch_slug = (post.get(f"entcatchslug_{index}") or "").strip()
+    catchall = (
+        EntityRef(name=catch_name, slug=catch_slug or slugify(catch_name))
+        if catch_name
+        else None
+    )
+    return values, catchall
+
+
+def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
+    choice = (post.get(f"target_{index}") or "ignore").strip()
+    overrides = _overrides_from_post(post, index)
+    if choice == AVAILABILITY_TARGET:
+        return QuestionTarget(
+            to=choice,
+            values=_availability_values_from_post(post, index),
+            overrides=overrides,
+        )
+    if choice in ENTITY_TARGETS:
+        values, catchall = _entity_map_from_post(post, index)
+        return QuestionTarget(
+            to=choice, values=values, catchall=catchall, overrides=overrides
+        )
+    if choice == "session.duration":
+        return QuestionTarget(
+            to=choice,
+            values=duration_values_from_post(post, index),
+            overrides=overrides,
+        )
+    if choice.startswith("session.") or choice == "facilitator.display_name":
+        return QuestionTarget(to=choice, overrides=overrides)
+    name = (post.get(f"newname_{index}") or "").strip()
+    slug = (post.get(f"newslug_{index}") or "").strip() or slugify(name)
+    if choice == "personal-field" and slug:
+        return QuestionTarget(to=f"personal.{slug}", overrides=overrides)
+    if choice == "session-field" and slug:
+        return QuestionTarget(to=f"field.{slug}", overrides=overrides)
+    return QuestionTarget(ignore=True)
+
+
+def _pretty_json(raw: str | None) -> str:
+    text = raw or "{}"
+    try:
+        return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+    except ValueError:
+        return text
+
+
+def _load_questions(
+    *, request: PanelRequest, event_pk: int, active: EventIntegrationDTO
+) -> list[SourceQuestion]:
+    # Cached snapshot keeps the Proposal / Review tabs off the Google Forms
+    # API on every request; the operator triggers an explicit reset via the
+    # "Refetch form" action. A cold integration (no snapshot yet) gets one
+    # transparent live-fetch that fills the snapshot without touching
+    # confirmed flags — only the explicit refetch resets those.
+    cached = request.services.event_integrations.get_cached_questions(
+        event_pk, active.pk
+    )
+    if cached or (
+        active.questions_snapshot_json and active.questions_snapshot_json != "[]"
+    ):
+        return cached
+    sphere_id = request.context.current_sphere_id
+    return request.services.event_integrations.populate_questions_snapshot(
+        sphere_id=sphere_id, event_id=event_pk, pk=active.pk
+    )
+
+
+class _ImportTabView(EventPanelMixin, View):
+    """Shared loading for the Google Docs import tabs (proposal / json / run)."""
+
+    request: PanelRequest
+    active_tab = ""
+
+    def _load(
+        self, slug: str, pk: int | None
+    ) -> tuple[dict[str, Any], EventDTO, EventIntegrationDTO | None] | HttpResponse:
+        context = self.panel_context()
+        context["active_nav"] = "import"
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        active = _active_integration(integrations, pk)
+        if integrations and active is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        context["active_integration"] = active
+        if active is not None:
+            context["active_tab"] = self.active_tab
+            context["tab_urls"] = import_tab_urls(slug, active.pk)
+        return context, self.current_event, active
+
+
+class EventImportProposalView(_ImportTabView):
+    """Proposal tab: the read-only summary of every question's mapping."""
+
+    active_tab = "proposal"
+
+    def get(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is not None:
+            questions = _load_questions(
+                request=self.request, event_pk=current_event.pk, active=active
+            )
+            settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+            context["summary_rows"] = [
+                _summary_row(
+                    index=index,
+                    question=q,
+                    target=settings.questions.get(q.title),
+                    definitions=settings.definitions,
+                )
+                for index, q in enumerate(questions)
+            ]
+        return TemplateResponse(self.request, "panel/import.html", context)
+
+
+class EventImportReviewView(_ImportTabView):
+    """Review tab: walk through each question's mapping one at a time."""
+
+    active_tab = "review"
+
+    def get(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is not None:
+            questions = _load_questions(
+                request=self.request, event_pk=current_event.pk, active=active
+            )
+            settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+            context["session_columns"] = SESSION_COLUMNS
+            context["max_duration_hours"] = MAX_DURATION_HOURS
+            context["max_duration_minutes"] = MAX_DURATION_MINUTES
+            context["rows"] = [
+                _row(
+                    index=index,
+                    question=q,
+                    target=settings.questions.get(q.title),
+                    definitions=settings.definitions,
+                )
+                for index, q in enumerate(questions)
+            ]
+            # Default to the first question when no ?edit is supplied or the
+            # value is invalid (non-numeric, out of range); the Review tab is
+            # never empty so the operator always lands on something actionable.
+            edit = _edit_row(self.request.GET.get("edit"), context["rows"])
+            if edit is None and context["rows"]:
+                edit = context["rows"][0]
+            context["edit_row"] = edit
+            context["edit_nav"] = (
+                _edit_nav(context["rows"], context["edit_row"]["index"])
+                if context["edit_row"]
+                else None
+            )
+        template = (
+            "panel/parts/import-review-region.html"
+            if self.request.headers.get("HX-Request")
+            else "panel/import-review.html"
+        )
+        return TemplateResponse(self.request, template, context)
+
+
+class EventImportRowSaveView(EventPanelMixin, View):
+    """Persist a single question's mapping and mark it confirmed."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        raw_index = (self.request.POST.get("index") or "").strip()
+        question = self.request.POST.get(f"question_{raw_index}") if raw_index else None
+        index = parse_id(raw_index)
+        if index is None or len(raw_index) > _MAX_ROW_INDEX_DIGITS or not question:
+            messages.error(self.request, _("Invalid row submission."))
+            return redirect("panel:import-review", slug=slug, pk=active.pk)
+        settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+        review_url = reverse(
+            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
+        )
+        try:
+            target = _target_from_post(self.request.POST, index)
+        except InvalidDurationError:
+            messages.error(
+                self.request,
+                _("Enter a length as whole hours (0-23) and minutes (0-59)."),
+            )
+            return redirect(f"{review_url}?edit={index}")
+        target.confirmed = True
+        settings.questions[question] = target
+        _store_definition(
+            settings=settings, target=target, post=self.request.POST, index=index
+        )
+        self.request.services.event_integrations.save_settings(
+            event_id=self.current_event.pk,
+            pk=active.pk,
+            settings_json=settings.model_dump_json(),
+        )
+        messages.success(self.request, _("Question saved."))
+        if self.request.POST.get("stay"):
+            # "Just save" — operator is iterating on this question (typically
+            # overrides) and wants to land back on the same edit view.
+            target_url = f"{review_url}?edit={index}"
+        else:
+            cached = self.request.services.event_integrations.get_cached_questions(
+                self.current_event.pk, active.pk
+            )
+            if (next_index := index + 1) < len(cached):
+                target_url = f"{review_url}?edit={next_index}"
+            else:
+                target_url = reverse(
+                    "panel:import-integration", kwargs={"slug": slug, "pk": active.pk}
+                )
+        if self.request.headers.get("HX-Request"):
+            response = HttpResponse(status=204)
+            response["HX-Redirect"] = target_url
+            return response
+        return redirect(target_url)
+
+
+class EventImportJsonView(_ImportTabView):
+    """JSON tab: edit the raw import settings blob directly."""
+
+    active_tab = "json"
+
+    def get(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, _current_event, active = loaded
+        if active is not None:
+            context["settings_json"] = _pretty_json(active.settings_json)
+        return TemplateResponse(self.request, "panel/import-json.html", context)
+
+    def post(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        raw = (self.request.POST.get("settings_json") or "").strip() or "{}"
+        previous = ImportSettings.model_validate_json(active.settings_json or "{}")
+        try:
+            new_settings = ImportSettings.model_validate_json(raw)
+        except ValidationError:
+            messages.error(self.request, _("Invalid import settings JSON."))
+            context["settings_json"] = raw
+            return TemplateResponse(self.request, "panel/import-json.html", context)
+        self.request.services.event_integrations.save_settings(
+            event_id=current_event.pk, pk=active.pk, settings_json=raw
+        )
+        # The cached snapshot reads the sheet's header row; mirror
+        # EventImportSettingsSaveView and refresh it when a raw JSON edit moves
+        # that row, so Proposal / Review render the new set.
+        if new_settings.header_row != previous.header_row:
+            self.request.services.event_integrations.populate_questions_snapshot(
+                sphere_id=self.request.context.current_sphere_id,
+                event_id=current_event.pk,
+                pk=active.pk,
+            )
+        messages.success(self.request, _("Import settings saved."))
+        return redirect("panel:import-json", slug=slug, pk=active.pk)
+
+
+class EventImportRunPageView(_ImportTabView):
+    """Import run tab: sheet settings + the import actions, with inferred status."""
+
+    active_tab = "run"
+
+    def get(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is not None:
+            settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+            cached = self.request.services.event_integrations.get_cached_questions(
+                current_event.pk, active.pk
+            )
+            # Unique-key columns name real sheet headers used to identify rows
+            # across refetches, so offer the cached header row. Fall back to the
+            # snapshot's question titles until the first refetch fills the cache.
+            available = list(
+                dict.fromkeys(
+                    settings.sheet_headers or [q.title for q in cached if q.title]
+                )
+            )
+            context["header_row"] = settings.header_row
+            context["unique_key_columns"] = settings.unique_key_columns
+            context["facilitator_key_columns"] = settings.facilitator_key_columns
+            context["available_columns"] = available
+            context["fields_imported"] = bool(cached)
+            context["fields_count"] = len(cached)
+            mappings = [t for t in settings.questions.values() if t.to or t.ignore]
+            context["mapping_total"] = len(mappings)
+            context["mapping_confirmed"] = sum(1 for t in mappings if t.confirmed)
+            context["no_columns_label"] = _("No columns selected.")
+        return TemplateResponse(self.request, "panel/import-run.html", context)
+
+
+_LOG_STATUS_FILTERS = {
+    "all": None,
+    "skipped": ImportLogStatus.SKIPPED,
+    "success": ImportLogStatus.SUCCESS,
+}
+
+
+def _log_pill_urls(*, slug: str, pk: int, search: str) -> dict[str, str]:
+    base = reverse("panel:import-log", kwargs={"slug": slug, "pk": pk})
+    urls: dict[str, str] = {}
+    for key in _LOG_STATUS_FILTERS:
+        query = {"status": key}
+        if search:
+            query["search"] = search
+        urls[key] = f"{base}?{urlencode(query)}"
+    return urls
+
+
+class EventImportLogPageView(_ImportTabView):
+    """Log tab: every attempt with its status, grouped errors and successes."""
+
+    active_tab = "log"
+
+    def get(
+        self, _request: PanelRequest, *, slug: str, pk: int | None = None
+    ) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, tuple):
+            return loaded
+        context, current_event, active = loaded
+        if active is None:
+            return TemplateResponse(self.request, "panel/import-log.html", context)
+        raw_status = (self.request.GET.get("status") or "all").strip()
+        status_key = raw_status if raw_status in _LOG_STATUS_FILTERS else "all"
+        status_filter = _LOG_STATUS_FILTERS[status_key]
+        search = (self.request.GET.get("search") or "").strip()
+        focus_pk = parse_id(self.request.GET.get("focus"))
+        # The repo filter already narrows by status when set; for grouping we
+        # always read both buckets so the counts stay accurate even when only
+        # one section renders.
+        entries = self.request.services.import_log.list_log_entries(
+            event_id=current_event.pk, pk=active.pk, search=search
+        )
+        # Each (integration, row_index) is unique now, so a simple split by
+        # status covers it — no per-row dedupe needed.
+        errors = [e for e in entries if e.status == ImportLogStatus.SKIPPED]
+        successes = [e for e in entries if e.status == ImportLogStatus.SUCCESS]
+        successes_open = status_filter == ImportLogStatus.SUCCESS
+        if focus_pk is not None:
+            focused = next((e for e in entries if e.pk == focus_pk), None)
+            if focused is not None and focused.status == ImportLogStatus.SUCCESS:
+                successes_open = True
+        context["log_status"] = status_key
+        context["log_search"] = search
+        context["log_focus_pk"] = focus_pk
+        context["log_filter_urls"] = _log_pill_urls(
+            slug=current_event.slug, pk=active.pk, search=search
+        )
+        context["log_show_errors"] = status_filter != ImportLogStatus.SUCCESS
+        context["log_show_successes"] = status_filter != ImportLogStatus.SKIPPED
+        context["log_successes_open"] = successes_open
+        context["log_errors"] = errors if context["log_show_errors"] else []
+        context["log_successes"] = successes if context["log_show_successes"] else []
+        context["log_total_attempts"] = len(entries)
+        context["log_success_count"] = len(successes)
+        context["log_error_count"] = len(errors)
+        return TemplateResponse(self.request, "panel/import-log.html", context)
+
+
+class EventImportSettingsSaveView(EventPanelMixin, View):
+    """Persist the sheet-level config (header row, unique-key cols).
+
+    Rendered inline on the Run tab; this endpoint is POST-only.
+    """
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        settings = ImportSettings.model_validate_json(active.settings_json or "{}")
+        previous_header_row = settings.header_row
+        header_row = parse_id(self.request.POST.get("header_row"))
+        if header_row is None or header_row < 1:
+            messages.error(self.request, _("Header row must be 1 or greater."))
+            return redirect("panel:import-run", slug=slug, pk=active.pk)
+        settings.header_row = header_row
+        # Trust the operator: any non-empty column name is a valid unique-key
+        # candidate.
+        settings.unique_key_columns = [
+            stripped
+            for col in self.request.POST.getlist("unique_key_columns")
+            if (stripped := col.strip())
+        ]
+        settings.facilitator_key_columns = [
+            stripped
+            for col in self.request.POST.getlist("facilitator_key_columns")
+            if (stripped := col.strip())
+        ]
+        self.request.services.event_integrations.save_settings(
+            event_id=self.current_event.pk,
+            pk=active.pk,
+            settings_json=settings.model_dump_json(),
+        )
+        # The cached snapshot reads the sheet's header row; refresh it when that
+        # row moves so the operator sees the new columns immediately on the
+        # Proposal / Review tabs without clicking "Reimport fields" separately.
+        if settings.header_row != previous_header_row:
+            sphere_id = self.request.context.current_sphere_id
+            self.request.services.event_integrations.populate_questions_snapshot(
+                sphere_id=sphere_id, event_id=self.current_event.pk, pk=active.pk
+            )
+        messages.success(self.request, _("Sheet settings saved."))
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+def _missing_columns_message(columns: list[str]) -> str:
+    return _(
+        "Import aborted: key columns not found in the sheet: %(columns)s. "
+        "Fix the key-column selection on the run tab, then try again."
+    ) % {"columns": ", ".join(columns)}
+
+
+class _ImportActionView(EventPanelMixin, View):
+    """Shared lookup for the import action buttons (run / test a row)."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        sphere_id = self.request.context.current_sphere_id
+        self._act(
+            sphere_id=sphere_id,
+            event_pk=self.current_event.pk,
+            integration_pk=active.pk,
+        )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+        raise NotImplementedError
+
+
+class EventImportRunActionView(_ImportActionView):
+    """Run the saved import recipe: create a proposal per source response."""
+
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+        try:
+            result = self.request.services.proposals_import.run(
+                sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
+            )
+        except MissingKeyColumnsError as exc:
+            messages.error(self.request, _missing_columns_message(exc.columns))
+            return
+        messages.success(
+            self.request, _("Created %(count)d proposals.") % {"count": result.created}
+        )
+        if result.duplicates:
+            messages.info(
+                self.request,
+                _("Skipped %(count)d responses already imported.") % {
+                    "count": result.duplicates
+                },
+            )
+        if result.skipped:
+            messages.warning(
+                self.request,
+                _("Skipped %(count)d responses with an invalid or unmapped answer.") % {
+                    "count": result.skipped
+                },
+            )
+
+
+class EventImportTestRowActionView(_ImportActionView):
+    """Import one random response so the recipe can be eyeballed before a run."""
+
+    def _act(self, *, sphere_id: int, event_pk: int, integration_pk: int) -> None:
+        try:
+            result = self.request.services.proposals_import.run_sample(
+                sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
+            )
+        except MissingKeyColumnsError as exc:
+            messages.error(self.request, _missing_columns_message(exc.columns))
+            return
+        if result.created:
+            messages.success(
+                self.request,
+                _(
+                    "Test import created one proposal from a random row. Review "
+                    "it, then delete it before running the full import."
+                ),
+            )
+        elif result.skipped:
+            messages.warning(
+                self.request,
+                _(
+                    "Test row was skipped because one of its mapped answers "
+                    "is invalid or has no mapping."
+                ),
+            )
+        else:
+            messages.info(self.request, _("No responses found to test."))
+
+
+class _EventImportLogActionView(EventPanelMixin, View):
+    """Base for actions that take an `entry_id` from the Log tab."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        if (entry_pk := parse_id(self.request.POST.get("entry_id"))) is None:
+            messages.error(self.request, _("Invalid log entry."))
+            return redirect("panel:import-log", slug=slug, pk=active.pk)
+        sphere_id = self.request.context.current_sphere_id
+        self._act(
+            sphere_id=sphere_id, event_pk=self.current_event.pk, entry_pk=entry_pk
+        )
+        return redirect("panel:import-log", slug=slug, pk=active.pk)
+
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+        raise NotImplementedError
+
+
+class EventImportLogRetryActionView(_EventImportLogActionView):
+    """Retry a single skipped log entry against the current recipe."""
+
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+        succeeded = self.request.services.import_log.retry_entry(
+            sphere_id=sphere_id, event_id=event_pk, entry_pk=entry_pk
+        )
+        if succeeded:
+            messages.success(self.request, _("Row imported."))
+        else:
+            messages.warning(self.request, _("Row still cannot be imported."))
+
+
+class EventImportLogReimportActionView(_EventImportLogActionView):
+    """Reapply the source row to the existing session for a success entry."""
+
+    def _act(self, *, sphere_id: int, event_pk: int, entry_pk: int) -> None:
+        succeeded = self.request.services.import_log.reimport_entry(
+            sphere_id=sphere_id, event_id=event_pk, entry_pk=entry_pk
+        )
+        if succeeded:
+            messages.success(self.request, _("Proposal reimported from source."))
+        else:
+            messages.warning(self.request, _("Reimport failed."))
+
+
+class EventImportRefetchView(EventPanelMixin, View):
+    """Pull a fresh question snapshot from the source form and drop confirmed."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        sphere_id = self.request.context.current_sphere_id
+        questions = self.request.services.event_integrations.refetch_questions(
+            sphere_id=sphere_id, event_id=self.current_event.pk, pk=active.pk
+        )
+        messages.success(
+            self.request,
+            _("Form refetched: %(count)d questions.") % {"count": len(questions)},
+        )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+class EventImportMissingFieldsView(EventPanelMixin, View):
+    """Refresh the snapshot, keep existing mappings; surface only new questions."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        sphere_id = self.request.context.current_sphere_id
+        _questions, missing = (
+            self.request.services.event_integrations.import_missing_questions(
+                sphere_id=sphere_id, event_id=self.current_event.pk, pk=active.pk
+            )
+        )
+        if missing:
+            messages.success(
+                self.request, _("Imported %(count)d new field(s).") % {"count": missing}
+            )
+        else:
+            messages.info(
+                self.request,
+                _("No new fields to import; every form question is already mapped."),
+            )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)
+
+
+class EventImportApplyFieldLayoutView(EventPanelMixin, View):
+    """Reconcile imported sessions' field values against the current recipe.
+
+    Adds values for newly mapped session/personal fields (read from the row
+    cached on each success log entry), drops values for fields no longer
+    mapped. Retained mappings keep their existing values untouched. Prunes
+    orphan SessionField / PersonalDataField records on the event.
+    """
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, *, slug: str, pk: int) -> HttpResponse:
+        integrations = _import_integrations(self.request, self.current_event.pk)
+        if (active := _active_integration(integrations, pk)) is None:
+            messages.error(self.request, _("Import integration not found."))
+            return redirect("panel:import", slug=slug)
+        result = self.request.services.import_field_layout.apply_field_layout(
+            self.current_event.pk, active.pk
+        )
+        messages.success(
+            self.request,
+            _(
+                "Field layout applied to %(sessions)d proposals: "
+                "+%(added)d / -%(removed)d session fields, "
+                "+%(p_added)d / -%(p_removed)d personal entries, "
+                "filled %(builtins)d missing built-in fields, "
+                "linked %(links)d missing facilitators / available days / tracks, "
+                "pruned %(pruned)d orphan field definitions."
+            )
+            % {
+                "sessions": result.sessions_processed,
+                "added": result.session_field_values.added,
+                "removed": result.session_field_values.removed,
+                "p_added": result.personal_entries.added,
+                "p_removed": result.personal_entries.removed,
+                "builtins": result.session_builtins_filled,
+                "links": result.session_links_filled,
+                "pruned": result.session_fields_pruned + result.personal_fields_pruned,
+            },
+        )
+        return redirect("panel:import-run", slug=slug, pk=active.pk)

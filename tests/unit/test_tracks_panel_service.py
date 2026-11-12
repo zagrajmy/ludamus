@@ -1,166 +1,24 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, call
 from uuid import UUID
 
 import pytest
 
 from ludamus.mills.tracks import TracksPanelService
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
-from ludamus.pacts.legacy import (
-    SpaceDTO,
-    TrackCreateData,
-    TrackDTO,
-    TrackListItemDTO,
-    TrackUpdateData,
-)
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.tracks import (
     DuplicateTrackNameError,
+    TrackDTO,
     TrackFormData,
+    TrackListItemDTO,
     TrackSelectionInvalidError,
 )
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import FakeTransaction
 
 EVENT_PK = 42
 SPHERE_ID = 3
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
-
-
-def _data(*, name="Alpha", is_public=True, space_pks=(), manager_pks=()):
-    return TrackFormData(
-        name=name,
-        is_public=is_public,
-        space_pks=list(space_pks),
-        manager_pks=list(manager_pks),
-    )
-
-
-class TestTracksPanelService:
-    @pytest.fixture
-    def transaction(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def tracks(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def spaces(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def spheres(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def service(self, transaction, tracks, spaces, spheres):
-        return TracksPanelService(
-            transaction=transaction, tracks=tracks, spaces=spaces, spheres=spheres
-        )
-
-    def test_create_writes_the_selection_scoped_and_sorted(
-        self, service, tracks, spaces, spheres
-    ):
-        spaces.list_by_event.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
-        spheres.list_managers.return_value = [MagicMock(pk=7), MagicMock(pk=8)]
-
-        created = service.create(
-            event_pk=42,
-            sphere_id=3,
-            data=_data(is_public=False, space_pks=(2, 1), manager_pks=(8, 7)),
-        )
-
-        assert created is tracks.create.return_value
-        spaces.list_by_event.assert_called_once_with(42)
-        spheres.list_managers.assert_called_once_with(3)
-        tracks.create.assert_called_once_with(
-            TrackCreateData(
-                event_pk=42,
-                name="Alpha",
-                is_public=False,
-                space_pks=[1, 2],
-                manager_pks=[7, 8],
-            )
-        )
-
-    def test_update_writes_the_selection_scoped_and_sorted(
-        self, service, tracks, spaces, spheres
-    ):
-        tracks.read_by_slug.return_value = MagicMock(pk=5)
-        spaces.list_by_event.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
-        spheres.list_managers.return_value = [MagicMock(pk=7)]
-
-        service.update(
-            event_pk=42,
-            sphere_id=3,
-            track_slug="alpha",
-            data=_data(name="Beta", space_pks=(2, 1), manager_pks=(7,)),
-        )
-
-        tracks.read_by_slug.assert_called_once_with(42, "alpha")
-        spaces.list_by_event.assert_called_once_with(42)
-        spheres.list_managers.assert_called_once_with(3)
-        tracks.update.assert_called_once_with(
-            5,
-            TrackUpdateData(
-                name="Beta", is_public=True, space_pks=[1, 2], manager_pks=[7]
-            ),
-        )
-
-    def test_find_or_create_refuses_a_foreign_space_even_when_the_name_is_taken(
-        self, service, tracks, spaces
-    ):
-        tracks.find_by_event_and_name.return_value = MagicMock(pk=5)
-        spaces.list_by_event.return_value = [MagicMock(pk=1)]
-
-        with pytest.raises(TrackSelectionInvalidError):
-            service.find_or_create(
-                event_pk=42, sphere_id=3, data=_data(space_pks=(99,))
-            )
-
-        tracks.create.assert_not_called()
-
-    def test_find_or_create_makes_the_track_when_the_name_is_free(
-        self, service, tracks, spaces, spheres
-    ):
-        created = MagicMock(pk=9)
-        tracks.find_by_event_and_name.return_value = None
-        tracks.create.return_value = created
-        spaces.list_by_event.return_value = []
-        spheres.list_managers.return_value = []
-
-        assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is created
-        tracks.create.assert_called_once_with(
-            TrackCreateData(
-                event_pk=42, name="Alpha", is_public=True, space_pks=[], manager_pks=[]
-            )
-        )
-
-    def test_find_or_create_reraises_when_the_race_winner_cannot_be_found(
-        self, service, tracks, spaces, spheres
-    ):
-        tracks.find_by_event_and_name.side_effect = [None, None]
-        tracks.create.side_effect = DuplicateTrackNameError
-        spaces.list_by_event.return_value = []
-        spheres.list_managers.return_value = []
-
-        with pytest.raises(DuplicateTrackNameError):
-            service.find_or_create(event_pk=42, sphere_id=3, data=_data())
-
-    def test_find_or_create_yields_to_the_winner_of_a_concurrent_create(
-        self, service, tracks, spaces, spheres
-    ):
-        winner = MagicMock(pk=11)
-        tracks.find_by_event_and_name.side_effect = [None, winner]
-        tracks.create.side_effect = DuplicateTrackNameError
-        spaces.list_by_event.return_value = []
-        spheres.list_managers.return_value = []
-
-        assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is winner
-        assert tracks.find_by_event_and_name.call_args_list == [
-            call(42, "Alpha"),
-            call(42, "Alpha"),
-        ]
 
 
 def _user(pk):
@@ -217,8 +75,11 @@ class FakeTracks:
     def __init__(self):
         # pk -> (TrackDTO, space_pks, manager_pks)
         self.rows: dict[int, tuple[TrackDTO, list[int], list[int]]] = {}
+        # NOTE: names a concurrent request inserts just before this one's
+        # create; None when that row is not visible to this transaction.
+        self.claimed_elsewhere: dict[str, TrackDTO | None] = {}
 
-    def _track(self, pk, *, name, is_public):
+    def make(self, pk, *, name, is_public):
         return TrackDTO(
             creation_time=NOW,
             event_id=EVENT_PK,
@@ -230,13 +91,17 @@ class FakeTracks:
         )
 
     def create(self, data):
+        if data["name"] in self.claimed_elsewhere:
+            if winner := self.claimed_elsewhere.pop(data["name"]):
+                self.rows[winner.pk] = (winner, [], [])
+            raise DuplicateTrackNameError
         pk = max(self.rows, default=0) + 1
-        track = self._track(pk, name=data["name"], is_public=data["is_public"])
+        track = self.make(pk, name=data["name"], is_public=data["is_public"])
         self.rows[pk] = (track, data["space_pks"], data["manager_pks"])
         return track
 
     def update(self, pk, data):
-        track = self._track(pk, name=data["name"], is_public=data["is_public"])
+        track = self.make(pk, name=data["name"], is_public=data["is_public"])
         self.rows[pk] = (track, data["space_pks"], data["manager_pks"])
 
     def delete(self, pk):
@@ -263,6 +128,16 @@ class FakeTracks:
 
     def list_space_pks_by_event(self, event_pk):
         return {track.pk: spaces for track, spaces, _m in self._tracks_of(event_pk)}
+
+    def list_by_event(self, event_pk):
+        return [track for track, _s, _m in self._tracks_of(event_pk)]
+
+    def list_by_manager(self, user_pk, event_pk=None):
+        return [
+            track
+            for track, _s, managers in self._tracks_of(event_pk)
+            if user_pk in managers
+        ]
 
     def list_by_event_with_assignments(self, event_pk):
         return [
@@ -326,6 +201,50 @@ class TestTracksPanelServiceOutcomes:
 
         assert found == existing
         assert tracks.rows[existing.pk][1] == [1, 2]
+
+    def test_find_or_create_makes_the_track_when_the_name_is_free(self):
+        tracks = FakeTracks()
+
+        made = _service(tracks).find_or_create(
+            event_pk=EVENT_PK, sphere_id=3, data=_form()
+        )
+
+        assert tracks.rows == {made.pk: (made, [1, 2], [8])}
+
+    def test_find_or_create_refuses_a_foreign_space_even_when_the_name_is_taken(self):
+        tracks = FakeTracks()
+        service = _service(tracks)
+        existing = service.create(event_pk=EVENT_PK, sphere_id=3, data=_form())
+
+        with pytest.raises(TrackSelectionInvalidError):
+            service.find_or_create(
+                event_pk=EVENT_PK, sphere_id=3, data=_form(space_pks=(99,))
+            )
+
+        assert list(tracks.rows) == [existing.pk]
+
+    def test_find_or_create_yields_to_the_winner_of_a_concurrent_create(self):
+        tracks = FakeTracks()
+        winner = tracks.make(11, name="Alpha", is_public=False)
+        tracks.claimed_elsewhere["Alpha"] = winner
+
+        found = _service(tracks).find_or_create(
+            event_pk=EVENT_PK, sphere_id=3, data=_form()
+        )
+
+        assert found == winner
+        assert list(tracks.rows) == [winner.pk]
+
+    def test_find_or_create_reraises_when_the_race_winner_cannot_be_found(self):
+        tracks = FakeTracks()
+        tracks.claimed_elsewhere["Alpha"] = None
+
+        with pytest.raises(DuplicateTrackNameError):
+            _service(tracks).find_or_create(
+                event_pk=EVENT_PK, sphere_id=3, data=_form()
+            )
+
+        assert not tracks.rows
 
     def test_update_replaces_name_flag_and_assignments(self):
         tracks = FakeTracks()
@@ -402,3 +321,46 @@ class TestTracksPanelServiceOutcomes:
             track,
         )
         assert (edit.selected_space_pks, edit.selected_manager_pks) == ([1, 2], [8])
+
+
+class TestTrackFilter:
+    @staticmethod
+    def _tracks(*rows):
+        tracks = FakeTracks()
+        for name, managers in rows:
+            tracks.create(_form(name=name, manager_pks=managers, space_pks=()))
+        return tracks
+
+    @staticmethod
+    def _filter(tracks, *, requested_pk=None, auto_select=False):
+        return _service(tracks).track_filter(
+            event_pk=EVENT_PK,
+            manager_id=7,
+            requested_pk=requested_pk,
+            auto_select=auto_select,
+        )
+
+    def test_the_organizers_own_tracks_come_first(self):
+        tracks = self._tracks(("Alpha", ()), ("Zulu", (7,)), ("Beta", (7,)))
+
+        result = self._filter(tracks)
+
+        assert [t.name for t in result.tracks] == ["Beta", "Zulu", "Alpha"]
+        assert (result.managed_pks, result.selected_pk) == ({2, 3}, None)
+
+    def test_a_sole_managed_track_is_picked_when_nothing_was_asked(self):
+        tracks = self._tracks(("Alpha", ()), ("Beta", (7,)))
+        beta = tracks.find_by_event_and_name(EVENT_PK, "Beta")
+
+        assert self._filter(tracks, auto_select=True).selected_pk == beta.pk
+
+    def test_a_requested_track_of_the_event_is_picked(self):
+        tracks = self._tracks(("Alpha", ()), ("Beta", (7,)))
+
+        assert self._filter(tracks, requested_pk=1).selected_pk == 1
+
+    def test_a_track_of_another_event_is_not_found(self):
+        tracks = self._tracks(("Alpha", ()))
+
+        with pytest.raises(NotFoundError):
+            self._filter(tracks, requested_pk=99)

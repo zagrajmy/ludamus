@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ContentChangeLog, SessionFieldValue
-from ludamus.pacts import ContentChangeLogDTO
+from ludamus.pacts.sessions import ContentChangeLogDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -14,7 +14,7 @@ from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
-    make_optional_session_field,
+    make_session_field,
     panel_context,
 )
 
@@ -118,7 +118,7 @@ class TestContentLogRevertActionView:
         self, panel_client, event, proposal_category
     ):
         session = _make_session(proposal_category)
-        field = make_optional_session_field(event=event, category=proposal_category)
+        field = make_session_field(event=event, category=proposal_category)
         _edit(
             panel_client,
             event,

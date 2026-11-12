@@ -5,7 +5,6 @@ from uuid import UUID
 import pytest
 
 from ludamus.mills.party import PartyService
-from ludamus.pacts.crowd import AgeBand, CompanionDTO, UserType
 from ludamus.pacts.party import (
     ENROLL_WITHOUT_PARTY,
     CompanionAddOutcome,
@@ -25,6 +24,7 @@ from ludamus.pacts.party import (
     PartyMemberDTO,
     PartyMembershipStatus,
 )
+from ludamus.pacts.user import AgeBand, CompanionDTO, UserType
 from tests.unit.factories import FakeTransaction
 
 VIEWER_PK = 1

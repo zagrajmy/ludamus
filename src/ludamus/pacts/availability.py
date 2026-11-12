@@ -14,10 +14,11 @@ from typing import NamedTuple
 
 from pydantic import BaseModel
 
-# A convention day ends when people go to sleep, not at midnight, so the small
-# hours belong to the evening they grew out of. Hours are counted from the
-# programme day's own midnight, which is why night runs 24-30 rather than 0-6.
-PROGRAMME_DAY_STARTS_AT_HOUR = 6
+from ludamus.pacts.sessions import PROGRAMME_DAY_STARTS_AT_HOUR
+
+# The small hours belong to the evening they grew out of. Hours are counted
+# from the programme day's own midnight, which is why night runs 24-30 rather
+# than 0-6.
 _HOURS_PER_DAY = 24
 
 

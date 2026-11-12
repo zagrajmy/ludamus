@@ -1,46 +1,33 @@
 import json as _json
-from contextlib import nullcontext
 from datetime import UTC, date, datetime
-from unittest.mock import MagicMock, call
 
 import pytest
 
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.mapping import dedup_ident
-from ludamus.pacts import (
-    FacilitatorDTO,
-    NotFoundError,
-    PersonalDataFieldValueData,
-    SessionFieldValueData,
-    SessionStatus,
-)
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.submissions import (
+from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     DuplicateValueError,
-    FieldDefinition,
-    FieldDefinitions,
-    ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogStatus,
-    ImportRepos,
     ImportRow,
-    ImportSettings,
     ProposalImportResult,
-    QuestionTarget,
     ValueDelta,
 )
-
-
-def _facilitator_match(pk, *, ident="", deleted_at=None):
-    return FacilitatorDTO.model_construct(pk=pk, ident=ident, deleted_at=deleted_at)
-
-
-def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
-    return [ImportRow(raw) for raw in raws]
+from tests.unit.import_fakes import (
+    ATTEMPTED_AT,
+    EVENT_ID,
+    INTEGRATION_PK,
+    SPHERE_ID,
+    FakeEventIntegrations,
+    ImportWorld,
+    StoredSession,
+    WorldTransaction,
+    import_repos,
+)
 
 
 class TestImportRow:
@@ -121,460 +108,275 @@ class TestImportRow:
         assert not row.has_column("Block")
 
 
-class _ImportServiceMocks:
-    @pytest.fixture
-    def transaction(self):
-        mock = MagicMock()
-        # savepoint() must propagate exceptions (the engine relies on
-        # RowSkippedError / DuplicateRowError escaping it); a bare MagicMock
-        # context manager would swallow them.
-        mock.savepoint.side_effect = nullcontext
-        return mock
+TITLE = {"Title": {"to": "session.title"}}
+NICK = {"Nick": {"to": "facilitator.display_name"}}
+FRI = {"to": "availability", "day": "2025-09-19", "part": "evening"}
+SAT = {"to": "availability", "day": "2025-09-20", "part": "morning"}
+FRI_OFFER = AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+SAT_OFFER = AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING)
+DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
-    @pytest.fixture
-    def event_integrations(self):
-        return MagicMock()
 
-    @pytest.fixture
-    def sessions(self):
-        mock = MagicMock()
-        mock.slug_exists.return_value = False
-        mock.find_id_by_ident.return_value = None
-        mock.find_ids_by_title_and_email.return_value = []
-        return mock
+def _ident(identity: str) -> str:
+    return dedup_ident(event_id=EVENT_ID, identity=identity)
 
-    @pytest.fixture
-    def session_fields(self):
-        return MagicMock()
 
-    @pytest.fixture
-    def personal_fields(self):
-        mock = MagicMock()
-        mock.read_by_slug.side_effect = NotFoundError
-        mock.create.side_effect = lambda _event_id, data: MagicMock(
-            pk=11, slug=data["slug"], name=data["name"]
-        )
-        return mock
+def _deps(world):
+    return {
+        "transaction": WorldTransaction(world),
+        "event_integrations": FakeEventIntegrations(world),
+        "repos": import_repos(world),
+    }
 
-    @pytest.fixture
-    def personal_data_field_values(self):
-        return MagicMock()
 
-    @pytest.fixture
-    def tracks(self):
-        return MagicMock()
+def _given(world, *, questions, responses, **settings):
+    world.settings = {"questions": questions, **settings}
+    world.responses = responses
 
-    @pytest.fixture
-    def categories(self):
-        return MagicMock()
 
-    @pytest.fixture
-    def facilitators(self):
-        mock = MagicMock()
-        mock.read_including_deleted.side_effect = NotFoundError
-        mock.find_by_ident.return_value = None
-        mock.slug_exists.return_value = False
-        mock.create.side_effect = lambda data: MagicMock(
-            pk=7, slug=data["slug"], display_name=data["display_name"]
-        )
-        return mock
+def _run(world, *, questions, responses, **settings) -> ProposalImportResult:
+    _given(world, questions=questions, responses=responses, **settings)
+    return ProposalImportService(**_deps(world)).run(
+        sphere_id=SPHERE_ID, event_id=EVENT_ID, integration_pk=INTEGRATION_PK
+    )
 
-    @pytest.fixture
-    def facilitator_change_logs(self):
-        return MagicMock()
 
-    @pytest.fixture
-    def log_entries(self):
-        return MagicMock()
+def _reasons(world) -> list[str]:
+    return [entry.reason for entry in world.entries()]
 
-    @pytest.fixture
-    def import_repos(
-        self,
-        sessions,
-        session_fields,
-        personal_fields,
-        personal_data_field_values,
-        tracks,
-        categories,
-        facilitators,
-        facilitator_change_logs,
-        log_entries,
-    ):
-        return ImportRepos(
-            sessions,
-            session_fields,
-            personal_fields,
-            personal_data_field_values,
-            tracks,
-            categories,
-            facilitators,
-            facilitator_change_logs,
-            log_entries,
+
+def _entry(**values) -> ImportLogEntryDTO:
+    defaults = {
+        "pk": 1,
+        "integration_id": INTEGRATION_PK,
+        "row_index": 0,
+        "status": ImportLogStatus.SUCCESS,
+        "reason": "",
+        "display_name": "",
+        "session_id": None,
+        "attempted_at": ATTEMPTED_AT,
+    }
+    return ImportLogEntryDTO(**(defaults | values))
+
+
+@pytest.fixture(name="world")
+def world_fixture():
+    return ImportWorld()
+
+
+class TestProposalImportService:
+    def test_run_creates_one_proposal_per_response(self, world):
+        result = _run(
+            world, questions=TITLE, responses=[{"Title": "My Talk"}, {"Title": "Two"}]
         )
 
+        assert result == ProposalImportResult(created=2, fields_created=0)
+        assert list(world.sessions.values()) == [
+            StoredSession(event_id=EVENT_ID, title="My Talk", slug="my-talk"),
+            StoredSession(event_id=EVENT_ID, title="Two", slug="two"),
+        ]
 
-class TestProposalImportService(_ImportServiceMocks):
-    @pytest.fixture
-    def service(self, transaction, event_integrations, import_repos):
-        return ProposalImportService(
-            transaction=transaction,
-            event_integrations=event_integrations,
-            repos=import_repos,
+    def test_run_gives_a_repeated_title_a_slug_of_its_own(self, world):
+        _run(world, questions=TITLE, responses=[{"Title": "Talk"}, {"Title": "Talk"}])
+
+        first, second = (s.slug for s in world.sessions.values())
+        assert first == "talk"
+        assert second.startswith("talk-")
+
+    def test_run_maps_description_target_and_defaults_empty_cells(self, world):
+        _run(
+            world,
+            questions=TITLE | {"Desc": {"to": "session.description"}},
+            responses=[{"Title": "A", "Desc": "About"}, {"Title": "B", "Desc": ""}],
         )
 
-    def test_run_creates_one_proposal_per_response(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        responses = [{"Title": "My Talk"}, {"Title": "Another"}]
-        event_integrations.fetch_responses.return_value = _rows(responses)
+        assert [s.description for s in world.sessions.values()] == ["About", ""]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == len(responses)
-        assert result.fields_created == 0
-        event_integrations.fetch_responses.assert_called_once_with(
-            sphere_id=1, event_id=2, pk=3
+    def test_run_maps_facilitator_display_name(self, world):
+        result = _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob"}],
         )
-        sessions.create.assert_any_call(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "My Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "my-talk",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
-        )
-
-    def test_run_maps_description_target_and_defaults_empty_cells(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Q1": {"to": "session.title"},'
-                ' "Q2": {"to": "session.description"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Q1": "Talk", "Q2": ""}]
-        )
-
-        result = service.run(sphere_id=5, event_id=6, integration_pk=7)
 
         assert result.created == 1
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 6,
-                "status": SessionStatus.PENDING,
-                "title": "Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "talk",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
+        session = world.only_session()
+        assert session.facilitator_name == "GM Bob"
+        (facilitator,) = world.facilitators.values()
+        assert session.facilitator_ids == [facilitator.pk]
+        assert (facilitator.display_name, facilitator.slug, facilitator.ident) == (
+            "GM Bob",
+            "gm-bob",
+            "",
+        )
+        assert facilitator.user_id is None
+
+    def test_run_dedupes_facilitator_by_ident_when_key_columns_set(self, world):
+        # The key cell's hash matches an existing record under another name,
+        # so it is reused rather than a second one minted.
+        known = world.add_facilitator(
+            display_name="Robert", slug="robert", ident=_ident("bob@x.z")
         )
 
-    def test_run_maps_facilitator_display_name(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob"}]
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert list(world.facilitators) == [known]
+        assert world.only_session().facilitator_ids == [known]
 
-        assert result.created == 1
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "My Talk",
-                "description": "",
-                "facilitator_name": "GM Bob",
-                "participants_limit": 0,
-                "slug": "my-talk",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[7],
-        )
-
-    def test_run_dedupes_facilitator_by_ident_when_key_columns_set(
-        self, service, event_integrations, sessions, facilitators
-    ):
-        # With a key column configured, the facilitator is matched by the hash
-        # of the key cell, not the display name — so the existing record (55) is
-        # reused and no new one is minted.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
-        )
-        facilitators.find_by_ident.return_value = _facilitator_match(55)
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        facilitators.create.assert_not_called()
-        facilitators.restore.assert_not_called()
-        facilitators.find_by_ident.assert_called_once_with(
-            2, dedup_ident(event_id=2, identity="bob@x.z")
-        )
-        assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
-
-    def test_run_restores_a_matched_facilitator(
-        self, service, event_integrations, sessions, facilitators
-    ):
+    def test_run_restores_a_matched_facilitator(self, world):
         # A deleted facilitator still holds its ident and slug, so the match
         # comes back to life instead of the run minting a colliding row.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
-        )
-        facilitators.find_by_ident.return_value = _facilitator_match(
-            55, deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        dead = world.add_facilitator(ident=_ident("bob@x.z"), deleted_at=DELETED_AT)
+
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert list(world.facilitators) == [dead]
+        assert world.facilitators[dead].deleted_at is None
+        assert world.only_session().facilitator_ids == [dead]
 
-        assert result.created == 1
-        facilitators.create.assert_not_called()
-        facilitators.restore.assert_called_once_with(55)
-        assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
-
-    def test_run_logs_the_restore_it_made(
-        self, service, event_integrations, facilitator_change_logs, facilitators
-    ):
+    def test_run_logs_the_restore_it_made(self, world):
         # Without this the panel shows the facilitator alive while History's
         # last word is still "deleted", with nobody having undone anything.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
-        )
-        facilitators.find_by_ident.return_value = _facilitator_match(
-            55, deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        dead = world.add_facilitator(ident=_ident("bob@x.z"), deleted_at=DELETED_AT)
+
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
 
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        facilitator_change_logs.create.assert_called_once_with(
+        assert world.facilitator_change_logs == [
             {
-                "event_id": 2,
-                "facilitator_id": 55,
+                "event_id": EVENT_ID,
+                "facilitator_id": dead,
                 "user_id": None,
                 "changes": [
                     {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
                 ],
             }
+        ]
+
+    def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(self, world):
+        # A slug match from a pre-key-column import (ident="") is adopted and
+        # stamped, so the transition doesn't duplicate the facilitator.
+        old = world.add_facilitator(display_name="GM Bob", slug="gm-bob")
+
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
 
-    def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(
-        self, service, event_integrations, sessions, facilitators
-    ):
-        # No record carries the ident yet, but a slug match exists from a
-        # pre-key-column import (ident=""): adopt it and stamp the ident so the
-        # transition doesn't duplicate the facilitator.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
-        )
-        facilitators.find_by_ident.return_value = None
-        facilitators.read_including_deleted.side_effect = None
-        facilitators.read_including_deleted.return_value = _facilitator_match(88)
+        assert list(world.facilitators) == [old]
+        assert world.facilitators[old].ident == _ident("bob@x.z")
+        assert world.only_session().facilitator_ids == [old]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+    def test_run_leaves_a_slug_twin_with_another_identity_alone(self, world):
+        # Same slug, different key hash: someone else who shares the name.
+        twin = world.add_facilitator(slug="gm-bob", ident=_ident("other@x.z"))
 
-        assert result.created == 1
-        facilitators.create.assert_not_called()
-        facilitators.restore.assert_not_called()
-        facilitators.set_ident.assert_called_once_with(
-            88, dedup_ident(event_id=2, identity="bob@x.z")
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
-        assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
 
-    def test_run_restores_a_deleted_facilitator_matched_by_slug(
-        self, service, event_integrations, sessions, facilitators
-    ):
+        assert world.facilitators[twin].ident == _ident("other@x.z")
+        (linked,) = world.only_session().facilitator_ids
+        assert linked != twin
+        assert world.facilitators[linked].ident == _ident("bob@x.z")
+        assert world.facilitators[linked].slug.startswith("gm-bob-")
+
+    def test_run_restores_a_deleted_facilitator_matched_by_slug(self, world):
         # The slug-match path reaches dead rows too, so it restores on the same
         # terms as the ident-match one.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob"}]
-        )
-        facilitators.read_including_deleted.side_effect = None
-        facilitators.read_including_deleted.return_value = _facilitator_match(
-            88, ident="a-prior-identity", deleted_at=datetime(2026, 1, 2, tzinfo=UTC)
+        dead = world.add_facilitator(
+            slug="gm-bob", ident="a-prior-identity", deleted_at=DELETED_AT
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob"}],
+        )
 
-        assert result.created == 1
-        facilitators.create.assert_not_called()
-        facilitators.restore.assert_called_once_with(88)
-        assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
+        assert list(world.facilitators) == [dead]
+        assert world.facilitators[dead].deleted_at is None
+        assert world.only_session().facilitator_ids == [dead]
 
     def test_run_reuses_a_facilitator_carrying_an_ident_when_no_key_columns(
-        self, service, event_integrations, facilitators
+        self, world
     ):
-        # No key columns configured, so this row has no identity of its own. The
-        # slug match keeps its identity from an earlier keyed run and is still
-        # the same person — plain display-name dedup applies.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob"}]
-        )
-        facilitators.read_including_deleted.side_effect = None
-        facilitators.read_including_deleted.return_value = _facilitator_match(
-            88, ident="a-prior-identity"
+        # Without key columns the row has no identity of its own, so plain
+        # display-name dedup applies and the match keeps its identity.
+        known = world.add_facilitator(slug="gm-bob", ident="a-prior-identity")
+
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob"}],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        facilitators.create.assert_not_called()
-        facilitators.restore.assert_not_called()
-        facilitators.set_ident.assert_not_called()
+        assert list(world.facilitators) == [known]
+        assert world.facilitators[known].ident == "a-prior-identity"
+        assert world.only_session().facilitator_ids == [known]
 
     def test_run_creates_a_facilitator_carrying_the_ident_when_nothing_matches(
-        self, service, event_integrations, facilitators
+        self, world
     ):
-        # No ident match and no slug match: a fresh facilitator is created and
-        # carries the ident so later reimports dedupe on it.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}],
+            facilitator_key_columns=["Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        (facilitator,) = world.facilitators.values()
+        assert (facilitator.slug, facilitator.ident) == ("gm-bob", _ident("bob@x.z"))
 
-        assert result.created == 1
-        facilitators.slug_exists.assert_called_once_with(2, "gm-bob")
-        facilitators.create.assert_called_once_with(
-            {
-                "display_name": "GM Bob",
-                "event_id": 2,
-                "slug": "gm-bob",
-                "ident": dedup_ident(event_id=2, identity="bob@x.z"),
-                "user_id": None,
-            }
+    def test_run_falls_back_to_a_generic_facilitator_slug(self, world):
+        _run(
+            world, questions=TITLE | NICK, responses=[{"Title": "Talk", "Nick": "!!!"}]
         )
 
-    def test_run_falls_back_to_a_generic_facilitator_slug(
-        self, service, event_integrations, facilitators
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "!!!"}]
-        )
+        (facilitator,) = world.facilitators.values()
+        assert facilitator.slug == "facilitator"
 
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        facilitators.read_including_deleted.assert_called_once_with(2, "facilitator")
-        facilitators.slug_exists.assert_called_once_with(2, "facilitator")
-        assert facilitators.create.call_args.args[0]["slug"] == "facilitator"
-
-    def test_run_skips_row_when_every_unique_key_cell_is_blank(
-        self, service, event_integrations, log_entries
-    ):
-        # Both rows leave the key column empty. Hashing "" would give them the
-        # same ident, so the second used to be reported as a duplicate of the
-        # first — two unrelated proposals merged into one.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"}}}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [
+    def test_run_skips_row_when_every_unique_key_cell_is_blank(self, world):
+        # Hashing "" would give both rows one ident, so the second used to be
+        # reported as a duplicate of the first — two proposals merged into one.
+        result = _run(
+            world,
+            questions=TITLE,
+            responses=[
                 {"Title": "First Talk", "Email": ""},
                 {"Title": "Second Talk", "Email": "   "},
-            ]
+            ],
+            unique_key_columns=["Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert _reasons(world) == ["unique-key columns are all blank: 'Email'"] * 2
+        assert result == ProposalImportResult(created=0, fields_created=0, skipped=2)
+        assert not world.sessions
 
-        reasons = [call.args[0].reason for call in log_entries.upsert.call_args_list]
-        assert reasons == ["unique-key columns are all blank: 'Email'"] * 2
-        assert result.created == 0
-        assert result.duplicates == 0
-        assert result.skipped == len(reasons)
-
-    def test_run_skips_row_when_every_one_of_several_key_cells_is_blank(
-        self, service, event_integrations, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"unique_key_columns": ["Timestamp", "Email"],'
-                ' "facilitator_key_columns": ["Mail", "Phone"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}}}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [
+    def test_run_skips_row_when_every_one_of_several_key_cells_is_blank(self, world):
+        result = _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[
                 {
                     "Title": "Talk",
                     "Timestamp": "",
@@ -591,1238 +393,684 @@ class TestProposalImportService(_ImportServiceMocks):
                     "Mail": "",
                     "Phone": " ",
                 },
-            ]
+            ],
+            unique_key_columns=["Timestamp", "Email"],
+            facilitator_key_columns=["Mail", "Phone"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        reasons = [call.args[0].reason for call in log_entries.upsert.call_args_list]
-        assert reasons == [
+        assert _reasons(world) == [
             "unique-key columns are all blank: 'Timestamp', 'Email'",
             "facilitator-key columns are all blank: 'Mail', 'Phone'",
         ]
-        assert result.skipped == len(reasons)
+        assert result.skipped == len(world.entries())
+        assert not world.sessions
 
-    def test_run_skips_row_when_every_facilitator_key_cell_is_blank(
-        self, service, event_integrations, log_entries
-    ):
-        # Same rule as the session unique key: configured key columns are
-        # required, so a row that leaves them all empty is skipped rather than
-        # silently falling back to display-name dedup.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [
+    def test_run_skips_row_when_every_facilitator_key_cell_is_blank(self, world):
+        # Configured key columns are required: a row leaving them all empty is
+        # skipped rather than silently falling back to display-name dedup.
+        result = _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[
                 {"Title": "First Talk", "Nick": "GM Bob", "Email": ""},
                 {"Title": "Second Talk", "Nick": "GM Ann", "Email": "   "},
-            ]
+            ],
+            facilitator_key_columns=["Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert _reasons(world) == ["facilitator-key columns are all blank: 'Email'"] * 2
+        assert result == ProposalImportResult(created=0, fields_created=0, skipped=2)
+        assert not world.facilitators
 
-        reasons = [call.args[0].reason for call in log_entries.upsert.call_args_list]
-        assert reasons == ["facilitator-key columns are all blank: 'Email'"] * 2
-        assert result.created == 0
-        assert result.duplicates == 0
-        assert result.skipped == len(reasons)
-
-    def test_run_skips_row_when_a_unique_key_column_is_ambiguous(
-        self, service, event_integrations, log_entries
+    @pytest.mark.parametrize(
+        ("questions", "key_columns"),
+        (
+            (TITLE, {"unique_key_columns": ["Email"]}),
+            (TITLE | NICK, {"facilitator_key_columns": ["Email"]}),
+        ),
+    )
+    def test_run_skips_row_when_a_key_column_is_ambiguous(
+        self, world, questions, key_columns
     ):
-        # The key column resolves to a deduped pair carrying different values.
-        # Reading the row raw would raise out of the whole run; the identity
-        # goes through the same single read point as every other cell, so the
-        # row is skipped and the rest of the sheet still imports.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"}}}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = [
-            ImportRow(
-                {"Title": "My Talk", "Email": "bob@x.z", "Email (2)": "robert@x.z"}
-            )
-        ]
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        assert result.skipped == 1
-        log_entries.upsert.assert_called_once()
-        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert upserted.status == ImportLogStatus.SKIPPED
-        assert "bob@x.z" in upserted.reason
-        assert "robert@x.z" in upserted.reason
-
-    def test_run_skips_row_when_a_facilitator_key_column_is_ambiguous(
-        self, service, event_integrations, log_entries
-    ):
-        # The key column resolves to a deduped pair carrying different values.
-        # Reading the row raw would raise out of the whole run; the identity
-        # goes through the same single read point as every other cell, so the
-        # row is skipped and the rest of the sheet still imports.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = [
-            ImportRow(
+        # The key column resolves to a deduped pair carrying different values;
+        # the row is skipped instead of the whole run raising.
+        result = _run(
+            world,
+            questions=questions,
+            responses=[
                 {
                     "Title": "My Talk",
                     "Nick": "GM Bob",
                     "Email": "bob@x.z",
                     "Email (2)": "robert@x.z",
+                },
+                {"Title": "Fine", "Nick": "GM Ann", "Email": "ann@x.z"},
+            ],
+            **key_columns,
+        )
+
+        assert (result.created, result.skipped) == (1, 1)
+        skipped, imported = world.entries()
+        assert skipped.status == ImportLogStatus.SKIPPED
+        assert "bob@x.z" in skipped.reason
+        assert "robert@x.z" in skipped.reason
+        assert world.sessions[imported.session_id].title == "Fine"
+
+    def test_run_applies_overrides_to_the_facilitator_identity(self, world):
+        # A typoed key cell is mapped onto its canonical form, so the row lands
+        # on the facilitator a correctly spelled row created.
+        known = world.add_facilitator(ident=_ident("bob@x.z"))
+
+        _run(
+            world,
+            questions=TITLE | NICK | {"Email": {"overrides": {"bob@x.zz": "bob@x.z"}}},
+            responses=[{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.zz"}],
+            facilitator_key_columns=["Email"],
+        )
+
+        assert world.only_session().facilitator_ids == [known]
+
+    @pytest.mark.parametrize(("cell", "stored"), (("anna@x.z", "anna@x.z"), ("", "")))
+    def test_run_maps_session_contact_email(self, world, cell, stored):
+        _run(
+            world,
+            questions=TITLE | {"Email": {"to": "session.contact_email"}},
+            responses=[{"Title": "My Talk", "Email": cell}],
+        )
+
+        assert world.only_session().contact_email == stored
+
+    def test_run_maps_session_duration_via_per_option_iso_lookup(self, world):
+        result = _run(
+            world,
+            questions=TITLE | {
+                "Len": {
+                    "to": "session.duration",
+                    "values": {"long": {"to": "duration", "iso": "PT1H30M"}},
                 }
-            )
-        ]
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        assert result.skipped == 1
-        log_entries.upsert.assert_called_once()
-        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert upserted.status == ImportLogStatus.SKIPPED
-        assert "bob@x.z" in upserted.reason
-        assert "robert@x.z" in upserted.reason
-
-    def test_run_applies_overrides_to_the_facilitator_identity(
-        self, service, event_integrations, facilitators
-    ):
-        # The operator maps a typoed key cell onto its canonical form; the
-        # identity hashes the cleaned value, so the row lands on the same
-        # facilitator as a row that spelled it correctly.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"},'
-                ' "Email": {"overrides": {"bob@x.zz": "bob@x.z"}}},'
-                ' "facilitator_key_columns": ["Email"]}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.zz"}]
-        )
-        facilitators.find_by_ident.return_value = _facilitator_match(55)
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        facilitators.find_by_ident.assert_called_once_with(
-            2, dedup_ident(event_id=2, identity="bob@x.z")
-        )
-
-    def test_run_maps_session_contact_email(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Email": "anna@example.com"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "My Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "my-talk",
-                "contact_email": "anna@example.com",
             },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
+            responses=[{"Title": "Talk", "Len": "long"}],
         )
 
-    def test_run_does_not_set_contact_email_when_cell_is_blank(
-        self, service, event_integrations, sessions
-    ):
-        # An empty email cell leaves contact_email out of SessionData; the
-        # model column defaults to "" on the DB side.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Email": ""}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        kwargs = sessions.create.call_args
-        assert "contact_email" not in kwargs.args[0]
-
-    def test_run_maps_session_duration_via_per_option_iso_lookup(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Len": {"to": "session.duration",'
-                ' "values": {"long": {"to": "duration", "iso": "PT1H30M"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Len": "long"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 0
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "talk",
-                "duration": "PT1H30M",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
-        )
+        assert (result.created, result.skipped) == (1, 0)
+        assert world.only_session().duration == "PT1H30M"
 
     def test_run_overrides_substitute_raw_duration_answer_before_values_lookup(
-        self, service, event_integrations, sessions
+        self, world
     ):
-        # Mirrors the operator's real JSON: free-text "105" is substituted to
-        # the canonical option text "105 minut" which is then resolved to ISO.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Len": {"to": "session.duration",'
-                ' "values": {"105 minut": {"to": "duration", "iso": "PT1H45M"}},'
-                ' "overrides": {"105": "105 minut"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Len": "105"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 0
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "talk",
-                "duration": "PT1H45M",
+        # Free-text "105" becomes the option "105 minut", then resolves to ISO.
+        _run(
+            world,
+            questions=TITLE | {
+                "Len": {
+                    "to": "session.duration",
+                    "values": {"105 minut": {"to": "duration", "iso": "PT1H45M"}},
+                    "overrides": {"105": "105 minut"},
+                }
             },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
+            responses=[{"Title": "Talk", "Len": "105"}],
         )
 
-    def test_run_skips_duplicate_rows_when_unique_key_columns_are_set(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Timestamp", "Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Name": {"to": "facilitator.display_name"}}}'
-            )
-        )
-        # First two rows hit no existing session → created. Third row repeats
-        # the first row's Timestamp+Email and finds the first row's session →
-        # counted as a duplicate, not a failure.
+        assert world.only_session().duration == "PT1H45M"
+
+    def test_run_skips_duplicate_rows_when_unique_key_columns_are_set(self, world):
+        # Rows three and four repeat rows one and two: they count as duplicates
+        # and their log entries point at the sessions already made.
         row_a = {
-            "Timestamp": "2026-06-04T10:00",
+            "Timestamp": "10:00",
             "Email": "a@x.z",
             "Title": "Tałk A",
             "Name": "Ann",
         }
         row_b = {
-            "Timestamp": "2026-06-04T10:30",
+            "Timestamp": "10:30",
             "Email": "b@x.z",
             "Title": "Talk B",
             "Name": "Bob",
         }
-        event_integrations.fetch_responses.return_value = _rows(
-            [row_a, row_b, row_a, row_b]
-        )
-        ident_a = dedup_ident(event_id=2, identity="2026-06-04T10:00-a@x.z")
-        ident_b = dedup_ident(event_id=2, identity="2026-06-04T10:30-b@x.z")
-        # find_id_by_ident misses for the first two rows, then finds the
-        # sessions those rows created.
-        sessions.find_id_by_ident.side_effect = [None, None, 11, 12]
-        sessions.create.side_effect = [11, 12]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        result = _run(
+            world,
+            questions=TITLE | {"Name": {"to": "facilitator.display_name"}},
+            responses=[row_a, row_b, row_a, row_b],
+            unique_key_columns=["Timestamp", "Email"],
+        )
 
         assert result == ProposalImportResult(
             created=2, fields_created=0, skipped=0, duplicates=2
         )
-        assert sessions.find_id_by_ident.call_args_list == [
-            call(2, ident_a),
-            call(2, ident_b),
-            call(2, ident_a),
-            call(2, ident_b),
+        session_a, session_b = world.sessions
+        assert [s.ident for s in world.sessions.values()] == [
+            _ident("10:00-a@x.z"),
+            _ident("10:30-b@x.z"),
         ]
-        sessions.set_ident.assert_not_called()
-        # A duplicate row writes a SUCCESS log entry pointing at the existing
-        # session, so the operator no longer sees a stale skip.
-        assert log_entries.upsert.call_args_list == [
-            call(
-                ImportLogEntryCreateData(
-                    integration_id=3,
-                    row_index=index,
-                    status=ImportLogStatus.SUCCESS,
-                    reason="",
-                    response_json=_json.dumps(row, ensure_ascii=False),
-                    title=row["Title"],
-                    display_name=row["Name"],
-                    session_id=session_id,
-                )
-            )
-            for index, row, session_id in (
-                (0, row_a, 11),
-                (1, row_b, 12),
-                (2, row_a, 11),
-                (3, row_b, 12),
-            )
+        assert [
+            (e.row_index, e.status, e.session_id, e.title, e.display_name)
+            for e in world.entries()
+        ] == [
+            (0, ImportLogStatus.SUCCESS, session_a, "Tałk A", "Ann"),
+            (1, ImportLogStatus.SUCCESS, session_b, "Talk B", "Bob"),
+            (2, ImportLogStatus.SUCCESS, session_a, "Tałk A", "Ann"),
+            (3, ImportLogStatus.SUCCESS, session_b, "Talk B", "Bob"),
         ]
+        assert world.entries()[2].response_json == _json.dumps(
+            row_a, ensure_ascii=False
+        )
 
     def test_run_stores_readable_slug_and_hashed_ident_on_unique_key_import(
-        self, service, event_integrations, sessions
+        self, world
     ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Timestamp", "Email"],'
-                ' "questions": {"Title": {"to": "session.title"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "My Talk"}]
+        _run(
+            world,
+            questions=TITLE,
+            responses=[{"Timestamp": "10:00", "Email": "a@x.z", "Title": "My Talk"}],
+            unique_key_columns=["Timestamp", "Email"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        session = world.only_session()
+        assert (session.slug, session.ident) == ("my-talk", _ident("10:00-a@x.z"))
 
-        assert result.created == 1
-        created_data = sessions.create.call_args.args[0]
-        # The slug stays the readable title-derived one; the ugly dedup key
-        # lives in ident.
-        assert created_data["slug"] == "my-talk"
-        assert created_data["ident"] == dedup_ident(
-            event_id=2, identity="2026-06-04T10:00-a@x.z"
-        )
-        sessions.find_id_by_ident.assert_called_once_with(2, created_data["ident"])
-        sessions.find_ids_by_title_and_email.assert_not_called()
-
-    def test_run_hashes_the_unique_key_cell_after_the_overrides(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email",'
-                ' "overrides": {"A@X.Z": "a@x.z"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Email": "A@X.Z"}]
+    def test_run_hashes_the_unique_key_cell_after_the_overrides(self, world):
+        _run(
+            world,
+            questions=TITLE | {
+                "Email": {
+                    "to": "session.contact_email",
+                    "overrides": {"A@X.Z": "a@x.z"},
+                }
+            },
+            responses=[{"Title": "My Talk", "Email": "A@X.Z"}],
+            unique_key_columns=["Email"],
         )
 
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert world.only_session().ident == _ident("a@x.z")
 
-        created_data = sessions.create.call_args.args[0]
-        assert created_data["ident"] == dedup_ident(event_id=2, identity="a@x.z")
+    def test_run_falls_back_to_a_generic_slug_for_an_unsluggable_title(self, world):
+        _run(world, questions=TITLE, responses=[{"Title": "!!!"}])
 
-    def test_run_falls_back_to_a_generic_slug_for_an_unsluggable_title(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "!!!"}])
+        assert world.only_session().slug == "proposal"
 
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
+    def test_run_hashes_the_unique_key_cells_unstripped(self, world):
+        # Trimming would give an already-imported row a second ident, and the
+        # row would fork into a duplicate session instead of matching its own.
+        world.add_session(title='"Tenebre"', ident=_ident('"Tenebre" '))
 
-        sessions.slug_exists.assert_called_once_with(2, "proposal")
-        assert sessions.create.call_args.args[0]["slug"] == "proposal"
-
-    def test_run_hashes_the_unique_key_cells_unstripped(
-        self, service, event_integrations, sessions
-    ):
-        # The identity hashes the cell exactly as the sheet holds it. Trimming
-        # it would give an already-imported row a second ident, and since the
-        # title+email fallback only looks at ident="" sessions, the row would
-        # fork into a duplicate session instead of matching its own.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Title"],'
-                ' "questions": {"Title": {"to": "session.title"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": '"Tenebre" '}]
+        result = _run(
+            world,
+            questions=TITLE,
+            responses=[{"Title": '"Tenebre" '}],
+            unique_key_columns=["Title"],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert (result.created, result.duplicates) == (0, 1)
+        assert len(world.sessions) == 1
 
-        assert result.created == 1
-        created_data = sessions.create.call_args.args[0]
-        assert created_data["ident"] == dedup_ident(event_id=2, identity='"Tenebre" ')
+    def test_run_adopts_preident_session_matching_title_and_email(self, world):
+        # A session imported before idents existed is found by title + email;
+        # the row is a duplicate and the session adopts the ident.
+        legacy = world.add_session(title="Talk", contact_email="a@x.z")
 
-    def test_run_adopts_preident_session_matching_title_and_email(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        # A session imported before the ident field existed (ident="") is
-        # found by title + contact email; the row counts as a duplicate and
-        # the legacy session adopts the ident so the fallback never fires
-        # again.
-        legacy_session_pk = 77
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email"}}}'
-            )
+        result = _run(
+            world,
+            questions=TITLE | {"Email": {"to": "session.contact_email"}},
+            responses=[{"Title": "Talk", "Email": "a@x.z"}],
+            unique_key_columns=["Email"],
         )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Email": "a@x.z"}]
-        )
-        sessions.find_ids_by_title_and_email.return_value = [legacy_session_pk]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        assert result.duplicates == 1
-        sessions.create.assert_not_called()
-        sessions.find_ids_by_title_and_email.assert_called_once_with(
-            event_id=2, title="Talk", contact_email="a@x.z"
-        )
-        sessions.set_ident.assert_called_once_with(
-            legacy_session_pk, dedup_ident(event_id=2, identity="a@x.z")
-        )
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
-                status=ImportLogStatus.SUCCESS,
-                reason="",
+        assert (result.created, result.duplicates) == (0, 1)
+        assert list(world.sessions) == [legacy]
+        assert world.sessions[legacy].ident == _ident("a@x.z")
+        assert world.entries() == [
+            _entry(
                 response_json='{"Title": "Talk", "Email": "a@x.z"}',
                 title="Talk",
-                display_name="",
-                session_id=legacy_session_pk,
+                session_id=legacy,
             )
-        )
-
-    def test_run_survives_ident_backfill_constraint_conflict(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        # A concurrent import claimed the adopted ident between the lookup
-        # and the backfill — the savepointed set_ident fails, but the row
-        # still counts as a duplicate and the run continues.
-        legacy_session_pk = 77
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Email": "a@x.z"}]
-        )
-        sessions.find_ids_by_title_and_email.return_value = [legacy_session_pk]
-        sessions.set_ident.side_effect = DatabaseConstraintError("duplicate ident")
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        assert result.duplicates == 1
-        entry: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert entry.status == ImportLogStatus.SUCCESS
-        assert entry.session_id == legacy_session_pk
-
-    def test_run_creates_when_title_and_email_match_is_ambiguous(
-        self, service, event_integrations, sessions
-    ):
-        # Two pre-ident sessions share the title+email pair (the very
-        # duplicates this change fixes) — refusing to guess, the row creates.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "session.contact_email"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Email": "a@x.z"}]
-        )
-        sessions.find_ids_by_title_and_email.return_value = [77, 78]
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.duplicates == 0
-        sessions.set_ident.assert_not_called()
-
-    def test_run_creates_row_with_empty_duration_when_respondent_left_it_blank(
-        self, service, event_integrations
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Len": {"to": "session.duration",'
-                ' "values": {"short": {"to": "duration", "iso": "PT30M"}}}}}'
-            )
-        )
-        # Form data is the source of truth: a blank answer is "respondent did
-        # not fill this in", not an operator misconfiguration, so the row goes
-        # in with an empty duration instead of being skipped.
-        rows = [{"Title": "Talk", "Len": ""}, {"Title": "Padded", "Len": "   "}]
-        event_integrations.fetch_responses.return_value = _rows(rows)
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == len(rows)
-        assert result.skipped == 0
-
-    def test_run_skips_row_when_duration_answer_has_no_mapping(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Len": {"to": "session.duration",'
-                ' "values": {"short": {"to": "duration", "iso": "PT30M"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Len": "long"}, {"Title": "Other", "Len": "short"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 1
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "Other",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "other",
-                "duration": "PT30M",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
-        )
-
-    def test_run_skips_row_when_duplicate_columns_carry_conflicting_values(
-        self, service, event_integrations, log_entries
-    ):
-        # The form had two "Genre" questions; the sheet exposes them as
-        # "Genre" and "Genre (2)". This respondent filled both — and with
-        # different values, so the importer cannot decide which to keep.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Genre": {"to": "field.genre"}}}'
-            ),
-        )
-        event_integrations.fetch_responses.return_value = [
-            ImportRow({"Title": "Talk", "Genre": "Fantasy", "Genre (2)": "Sci-Fi"})
         ]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+    def test_run_survives_ident_backfill_constraint_conflict(self, world):
+        # A concurrent import claims the ident between the lookup and the
+        # backfill: the backfill fails, the row still counts as a duplicate.
+        legacy = world.add_session(title="Talk", contact_email="a@x.z")
+        world.idents_claimed_concurrently.add(_ident("a@x.z"))
 
-        assert result.created == 0
-        assert result.skipped == 1
-        log_entries.upsert.assert_called_once()
-        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert upserted.status == ImportLogStatus.SKIPPED
-        assert "Genre" in upserted.reason
-        assert "Fantasy" in upserted.reason
-        assert "Sci-Fi" in upserted.reason
+        result = _run(
+            world,
+            questions=TITLE | {"Email": {"to": "session.contact_email"}},
+            responses=[{"Title": "Talk", "Email": "a@x.z"}],
+            unique_key_columns=["Email"],
+        )
 
-    def test_run_records_a_db_constraint_failure_as_a_skipped_row(
-        self, service, event_integrations, sessions, log_entries
+        assert (result.created, result.duplicates) == (0, 1)
+        assert not world.sessions[legacy].ident
+        (entry,) = world.entries()
+        assert (entry.status, entry.session_id) == (ImportLogStatus.SUCCESS, legacy)
+
+    def test_run_creates_when_title_and_email_match_is_ambiguous(self, world):
+        # Two pre-ident sessions share the pair — refusing to guess, it creates.
+        twins = [
+            world.add_session(title="Talk", contact_email="a@x.z") for _ in range(2)
+        ]
+
+        result = _run(
+            world,
+            questions=TITLE | {"Email": {"to": "session.contact_email"}},
+            responses=[{"Title": "Talk", "Email": "a@x.z"}],
+            unique_key_columns=["Email"],
+        )
+
+        assert (result.created, result.duplicates) == (1, 0)
+        assert [world.sessions[pk].ident for pk in twins] == ["", ""]
+        assert len(world.sessions) == len(twins) + 1
+
+    def test_run_creates_row_with_empty_duration_when_respondent_left_it_blank(
+        self, world
     ):
-        # A constraint the DB enforces (e.g. an over-long value) surfaces from
-        # the savepoint as DatabaseConstraintError; the row is recorded as a
-        # skip with the DB message rather than aborting the whole import.
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "My Talk"}])
-        sessions.create.side_effect = DatabaseConstraintError("value too long")
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        assert result.skipped == 1
-        log_entries.upsert.assert_called_once()
-        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert upserted.status == ImportLogStatus.SKIPPED
-        assert "value too long" in upserted.reason
-
-    def test_run_does_not_let_an_empty_cell_overwrite_a_resolved_built_in(
-        self, service, event_integrations, sessions
-    ):
-        # Two settings entries map to session.participants_limit — a legacy
-        # leftover from before the form-question dedup. The first holds the
-        # answer; the second's cell is empty. The empty cell must not reset
-        # participants_limit to 0 (the parser's "respondent left it blank"
-        # default).
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Limit": {"to": "session.participants_limit"},'
-                ' "Limit (2)": {"to": "session.participants_limit"}}}'
-            )
-        )
-        resolved_limit = 11
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Limit": str(resolved_limit), "Limit (2)": ""}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        sessions.create.assert_called_once()
-        created_data = sessions.create.call_args.args[0]
-        assert created_data["participants_limit"] == resolved_limit
-
-    def test_run_maps_participants_limit_passing_an_integer_through(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Cap": "8"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 0
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "Talk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 8,
-                "slug": "talk",
+        # A blank answer is "respondent did not fill this in", not a
+        # misconfiguration, so the row goes in with an empty duration.
+        result = _run(
+            world,
+            questions=TITLE | {
+                "Len": {
+                    "to": "session.duration",
+                    "values": {"short": {"to": "duration", "iso": "PT30M"}},
+                }
             },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
+            responses=[{"Title": "Talk", "Len": ""}, {"Title": "Pad", "Len": "   "}],
         )
 
-    def test_run_treats_blank_participants_limit_as_default_zero(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Cap": ""}]
-        )
+        assert (result.created, result.skipped) == (2, 0)
+        assert [s.duration for s in world.sessions.values()] == ["", ""]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 0
-        kwargs = sessions.create.call_args
-        zero_default = 0
-        assert kwargs.args[0]["participants_limit"] == zero_default
-
-    def test_run_skips_row_when_participants_limit_is_not_a_number(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Cap": "lots"}]
+    def test_run_skips_row_when_duration_answer_has_no_mapping(self, world):
+        result = _run(
+            world,
+            questions=TITLE | {
+                "Len": {
+                    "to": "session.duration",
+                    "values": {"short": {"to": "duration", "iso": "PT30M"}},
+                }
+            },
+            responses=[
+                {"Title": "Talk", "Len": "long"},
+                {"Title": "Ok", "Len": "short"},
+            ],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert (result.created, result.skipped) == (1, 1)
+        session = world.only_session()
+        assert (session.title, session.duration) == ("Ok", "PT30M")
 
-        assert result.created == 0
-        assert result.skipped == 1
-        sessions.create.assert_not_called()
-
-    def test_run_writes_skipped_log_entry_with_reason_and_snapshot(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            )
+    def test_run_skips_row_when_duplicate_columns_carry_conflicting_values(self, world):
+        # The form had two "Genre" questions and this respondent answered both
+        # differently, so the importer cannot decide which to keep.
+        result = _run(
+            world,
+            questions=TITLE | {"Genre": {"to": "field.genre"}},
+            responses=[{"Title": "Talk", "Genre": "Fantasy", "Genre (2)": "Sci-Fi"}],
         )
-        event_integrations.fetch_responses.return_value = _rows(
-            [
+
+        assert (result.created, result.skipped) == (0, 1)
+        (entry,) = world.entries()
+        assert entry.status == ImportLogStatus.SKIPPED
+        assert "Genre" in entry.reason
+        assert "Fantasy" in entry.reason
+        assert "Sci-Fi" in entry.reason
+
+    def test_run_rolls_back_a_row_the_database_rejects_and_logs_why(self, world):
+        # The facilitator is written before the over-long title fails; the
+        # row's savepoint takes it back and the run carries on.
+        result = _run(
+            world,
+            questions=TITLE | NICK,
+            responses=[
+                {"Title": "T" * 300, "Nick": "GM Bob"},
+                {"Title": "Fine", "Nick": ""},
+            ],
+        )
+
+        assert (result.created, result.skipped) == (1, 1)
+        assert not world.facilitators
+        assert world.only_session().title == "Fine"
+        skipped, _ = world.entries()
+        assert skipped.reason == "value too long for title"
+
+    def test_run_does_not_let_an_empty_cell_overwrite_a_resolved_built_in(self, world):
+        # Two legacy entries map to participants_limit; the second's empty cell
+        # must not reset the first's answer to the blank default.
+        resolved_limit = 11
+        _run(
+            world,
+            questions=TITLE | {
+                "Limit": {"to": "session.participants_limit"},
+                "Limit (2)": {"to": "session.participants_limit"},
+            },
+            responses=[
+                {"Title": "Talk", "Limit": str(resolved_limit), "Limit (2)": ""}
+            ],
+        )
+
+        assert world.only_session().participants_limit == resolved_limit
+
+    @pytest.mark.parametrize(
+        ("cap", "overrides", "stored"),
+        (
+            ("8", {}, 8),
+            ("", {}, 0),
+            ("maybe 8, maybe 10", {"maybe 8, maybe 10": "10"}, 10),
+        ),
+    )
+    def test_run_maps_participants_limit(self, world, cap, overrides, stored):
+        result = _run(
+            world,
+            questions=TITLE | {
+                "Cap": {"to": "session.participants_limit", "overrides": overrides}
+            },
+            responses=[{"Title": "Talk", "Cap": cap}],
+        )
+
+        assert (result.created, result.skipped) == (1, 0)
+        assert world.only_session().participants_limit == stored
+
+    def test_run_writes_skipped_log_entry_with_reason_and_snapshot(self, world):
+        result = _run(
+            world,
+            questions=TITLE | {"Cap": {"to": "session.participants_limit"}},
+            responses=[
                 {"Title": "Tałk", "Cap": "loads"},
                 {"Title": "Fine", "Cap": "4"},
                 {"Title": "Again", "Cap": "many"},
-            ]
+            ],
         )
-        sessions.create.return_value = 42
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result == ProposalImportResult(
             created=1, fields_created=0, skipped=2, duplicates=0
         )
-        assert log_entries.upsert.call_args_list == [
-            call(
-                ImportLogEntryCreateData(
-                    integration_id=3,
-                    row_index=0,
-                    status=ImportLogStatus.SKIPPED,
-                    reason="Cap: 'loads' is not an integer",
-                    response_json='{"Title": "Tałk", "Cap": "loads"}',
-                    title="Tałk",
-                    display_name="",
-                    session_id=None,
-                )
+        session_pk = next(iter(world.sessions))
+        assert world.entries() == [
+            _entry(
+                status=ImportLogStatus.SKIPPED,
+                reason="Cap: 'loads' is not an integer",
+                response_json='{"Title": "Tałk", "Cap": "loads"}',
+                title="Tałk",
             ),
-            call(
-                ImportLogEntryCreateData(
-                    integration_id=3,
-                    row_index=1,
-                    status=ImportLogStatus.SUCCESS,
-                    reason="",
-                    response_json='{"Title": "Fine", "Cap": "4"}',
-                    title="Fine",
-                    display_name="",
-                    session_id=42,
-                )
-            ),
-            call(
-                ImportLogEntryCreateData(
-                    integration_id=3,
-                    row_index=2,
-                    status=ImportLogStatus.SKIPPED,
-                    reason="Cap: 'many' is not an integer",
-                    response_json='{"Title": "Again", "Cap": "many"}',
-                    title="Again",
-                    display_name="",
-                    session_id=None,
-                )
-            ),
-        ]
-
-    def test_run_applies_overrides_before_parsing_participants_limit(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit",'
-                ' "overrides": {"maybe 8, maybe 10": "10"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Cap": "maybe 8, maybe 10"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.skipped == 0
-        kwargs = sessions.create.call_args
-        ten = 10
-        assert kwargs.args[0]["participants_limit"] == ten
-
-    def test_run_overrides_replace_title_pass_through(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title",'
-                ' "overrides": {"old": "new"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "old"}])
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        kwargs = sessions.create.call_args
-        assert kwargs.args[0]["title"] == "new"
-
-    def test_run_overrides_dont_touch_unmatched_cells(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title",'
-                ' "overrides": {"foo": "bar"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "untouched"}]
-        )
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        kwargs = sessions.create.call_args
-        assert kwargs.args[0]["title"] == "untouched"
-
-    def test_run_writes_success_log_entry_with_session_fk(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "Mój Talk"}])
-        session_pk = 42
-        sessions.create.return_value = session_pk
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
-                status=ImportLogStatus.SUCCESS,
-                reason="",
-                response_json='{"Title": "Mój Talk"}',
-                title="Mój Talk",
-                display_name="",
+            _entry(
+                pk=2,
+                row_index=1,
+                response_json='{"Title": "Fine", "Cap": "4"}',
+                title="Fine",
                 session_id=session_pk,
-            )
-        )
-
-    def test_run_sample_writes_log_entry_so_log_tab_shows_test_skips(
-        self, service, event_integrations, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Cap": "loads"}]
-        )
-
-        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        log_entries.upsert.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert created.status == ImportLogStatus.SKIPPED
-        assert created.reason == "Cap: 'loads' is not an integer"
-
-    def test_run_with_no_responses_creates_nothing(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(settings_json="{}")
-        event_integrations.fetch_responses.return_value = _rows([])
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        sessions.create.assert_not_called()
-
-    def test_run_sample_imports_exactly_one_row(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "One"}, {"Title": "Two"}, {"Title": "Three"}]
-        )
-
-        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert sessions.create.call_count == 1
-
-    def test_run_sample_with_no_responses_creates_nothing(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(settings_json="{}")
-        event_integrations.fetch_responses.return_value = _rows([])
-
-        result = service.run_sample(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 0
-        sessions.create.assert_not_called()
-
-    def test_run_attaches_availability_for_chosen_options(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"When": {"to": "session.availability", "values": {'
-                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
-                '"Sat": {"to": "availability", "day": "2025-09-20",'
-                ' "part": "morning"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri, Sat"}])
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert sessions.create.call_args.kwargs["availability"] == [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
-            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
+            ),
+            _entry(
+                pk=3,
+                row_index=2,
+                status=ImportLogStatus.SKIPPED,
+                reason="Cap: 'many' is not an integer",
+                response_json='{"Title": "Again", "Cap": "many"}',
+                title="Again",
+            ),
         ]
 
-    def test_run_attaches_every_part_of_a_multi_part_option(
-        self, service, event_integrations, sessions
+    @pytest.mark.parametrize(
+        ("overrides", "cell", "title"),
+        (({"old": "new"}, "old", "new"), ({"foo": "bar"}, "untouched", "untouched")),
+    )
+    def test_run_overrides_replace_only_matching_cells(
+        self, world, overrides, cell, title
     ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"When": {"to": "session.availability", "values": {'
-                '"All": [{"to": "availability", "day": "2025-09-19",'
-                ' "part": "evening"},'
-                '{"to": "availability", "day": "2025-09-20", "part": "morning"}]}}}}'
-            )
+        _run(
+            world,
+            questions={"Title": {"to": "session.title", "overrides": overrides}},
+            responses=[{"Title": cell}],
         )
-        event_integrations.fetch_responses.return_value = _rows([{"When": "All"}])
 
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
+        assert world.only_session().title == title
 
-        assert sessions.create.call_args.kwargs["availability"] == [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING),
-            AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING),
-        ]
-
-    def test_run_attaches_a_track_for_the_chosen_option(
-        self, service, event_integrations, sessions, tracks
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Suggested": {"to": "track", "values": {'
-                '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
-            )
+    def test_run_sample_writes_log_entry_so_log_tab_shows_test_skips(self, world):
+        _given(
+            world,
+            questions=TITLE | {"Cap": {"to": "session.participants_limit"}},
+            responses=[{"Title": "Talk", "Cap": "loads"}],
         )
-        event_integrations.fetch_responses.return_value = _rows([{"Suggested": "RPG"}])
-        tracks.get_or_create_by_slug.return_value = 301
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+        result = ProposalImportService(**_deps(world)).run_sample(
+            sphere_id=SPHERE_ID, event_id=EVENT_ID, integration_pk=INTEGRATION_PK
+        )
+
+        assert result.created == 0
+        assert _reasons(world) == ["Cap: 'loads' is not an integer"]
+
+    @pytest.mark.parametrize("method", ("run", "run_sample"))
+    def test_no_responses_create_nothing(self, world, method):
+        _given(world, questions=TITLE, responses=[])
+
+        result = getattr(ProposalImportService(**_deps(world)), method)(
+            sphere_id=SPHERE_ID, event_id=EVENT_ID, integration_pk=INTEGRATION_PK
+        )
+
+        assert result.created == 0
+        assert not world.sessions
+        assert not world.log_entries
+
+    def test_run_sample_imports_exactly_one_row(self, world):
+        titles = ["One", "Two", "Three"]
+        _given(world, questions=TITLE, responses=[{"Title": t} for t in titles])
+
+        result = ProposalImportService(**_deps(world)).run_sample(
+            sphere_id=SPHERE_ID, event_id=EVENT_ID, integration_pk=INTEGRATION_PK
+        )
 
         assert result.created == 1
-        tracks.get_or_create_by_slug.assert_called_once_with(2, "RPG", "rpg")
-        assert sessions.create.call_args.kwargs["track_ids"] == [301]
+        (entry,) = world.entries()
+        assert world.only_session().title == titles[entry.row_index]
 
-    def test_run_attaches_a_track_per_chosen_option(
-        self, service, event_integrations, sessions, tracks
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Suggested": {"to": "track", "values": {'
-                '"RPG": {"name": "RPG", "slug": "rpg"},'
-                '"LARP": {"name": "LARP", "slug": "larp"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Suggested": "RPG, LARP"}]
-        )
-        tracks.get_or_create_by_slug.side_effect = [301, 302]
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert tracks.get_or_create_by_slug.call_args_list == [
-            call(2, "RPG", "rpg"),
-            call(2, "LARP", "larp"),
-        ]
-        assert sessions.create.call_args.kwargs["track_ids"] == [301, 302]
-
-    def test_run_routes_a_custom_track_answer_to_the_catchall(
-        self, service, event_integrations, sessions, tracks
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Suggested": {"to": "track",'
-                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
-                ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Suggested": "Something custom"}]
-        )
-        tracks.get_or_create_by_slug.return_value = 399
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        tracks.get_or_create_by_slug.assert_called_once_with(2, "Inne", "inne")
-        assert sessions.create.call_args.kwargs["track_ids"] == [399]
-
-    def test_run_sets_the_category_for_the_chosen_option(
-        self, service, event_integrations, sessions, categories
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Kind": {"to": "category", "values": {'
-                '"RPG": {"name": "RPG session", "slug": "rpg"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Kind": "RPG"}])
-        category_pk = 401
-        categories.get_or_create_by_slug.return_value = category_pk
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        categories.get_or_create_by_slug.assert_called_once_with(
-            2, "RPG session", "rpg"
-        )
-        assert sessions.create.call_args.args[0]["category_id"] == category_pk
-
-    def test_run_routes_a_custom_category_answer_to_the_catchall(
-        self, service, event_integrations, sessions, categories
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Kind": {"to": "category",'
-                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}},'
-                ' "catchall": {"name": "Inne", "slug": "inne"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Kind": "Mystery"}])
-        category_pk = 499
-        categories.get_or_create_by_slug.return_value = category_pk
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        categories.get_or_create_by_slug.assert_called_once_with(2, "Inne", "inne")
-        assert sessions.create.call_args.args[0]["category_id"] == category_pk
-
-    def test_run_provisions_new_field_and_saves_value(
-        self, service, event_integrations, sessions, session_fields
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "RPG system": {"to": "field.system"}},'
-                ' "definitions": {"session_fields":'
-                ' {"system": {"name": "System", "type": "text"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "RPG system": "D&D"}]
-        )
-        session_fields.read_by_slug.side_effect = NotFoundError
-        session_fields.create.return_value = MagicMock(pk=55)
-        session_id = 7
-        sessions.create.return_value = session_id
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.fields_created == session_fields.create.call_count
-        # The target carries the slug; the definition carries the display name.
-        session_fields.read_by_slug.assert_called_once_with(2, "system")
-        session_fields.create.assert_called_once_with(
-            2,
-            {
-                "name": "System",
-                "slug": "system",
-                "question": "RPG system",
-                "field_type": "text",
-                "options": None,
-                "is_multiple": False,
-                "allow_custom": False,
-                "max_length": 255,
-                "help_text": "",
-                "icon": "",
-                "is_public": False,
+    def test_run_attaches_availability_for_chosen_options(self, world):
+        _run(
+            world,
+            questions={
+                "When": {
+                    "to": "session.availability",
+                    "values": {"Fri": FRI, "Sat": SAT},
+                }
             },
-        )
-        sessions.save_field_values.assert_called_once_with(
-            session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
+            responses=[{"When": "Fri, Sat"}, {"When": "Fri"}],
         )
 
-    def test_run_reuses_existing_field_by_slug(
-        self, service, event_integrations, sessions, session_fields
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"RPG system": "D&D"}])
-        session_fields.read_by_slug.return_value = MagicMock(pk=55)
-        session_id = 7
-        sessions.create.return_value = session_id
+        first, second = world.sessions.values()
+        assert first.availability == [FRI_OFFER, SAT_OFFER]
+        assert second.availability == [FRI_OFFER]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.fields_created == 0
-        session_fields.create.assert_not_called()
-        session_fields.read_by_slug.assert_called_once_with(2, "system")
-        sessions.save_field_values.assert_called_once_with(
-            session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
-        )
-
-    def test_run_skips_blank_session_field_answer(
-        self, service, event_integrations, sessions, session_fields
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"RPG system": "  "}])
-        session_fields.read_by_slug.return_value = MagicMock(pk=55)
-        sessions.create.return_value = 7
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        sessions.save_field_values.assert_not_called()
-
-    def test_run_provisions_session_field_from_its_definition(
-        self, service, event_integrations, sessions, session_fields
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"System": {"to": "field.system"}},'
-                ' "definitions": {"session_fields": {"system":'
-                ' {"name": "System", "type": "select", "multiple": true,'
-                ' "allow_custom": true, "options": ["D&D", "Warhammer"]}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"System": "D&D"}])
-        session_fields.read_by_slug.side_effect = NotFoundError
-        session_fields.create.return_value = MagicMock(pk=55)
-        sessions.create.return_value = 7
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        session_fields.create.assert_called_once_with(
-            2,
-            {
-                "name": "System",
-                "slug": "system",
-                "question": "System",
-                "field_type": "select",
-                "options": ["D&D", "Warhammer"],
-                "is_multiple": True,
-                "allow_custom": True,
-                "max_length": 255,
-                "help_text": "",
-                "icon": "",
-                "is_public": False,
+    def test_run_attaches_every_part_of_a_multi_part_option_once(self, world):
+        _run(
+            world,
+            questions={
+                "When": {
+                    "to": "session.availability",
+                    "values": {"All": [FRI, SAT], "Again": [FRI]},
+                }
             },
+            responses=[{"When": "All, Again"}],
         )
 
-    def test_run_provisions_a_personal_field_without_filling_values(
-        self, service, event_integrations, sessions, session_fields, personal_fields
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Phone": {"to": "personal.telefon"}},'
-                ' "definitions": {"personal_fields":'
-                ' {"telefon": {"name": "Telefon", "type": "text"}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Phone": "555"}]
-        )
-        personal_fields.read_by_slug.side_effect = NotFoundError
-        personal_fields.create.return_value = MagicMock(pk=99)
-        sessions.create.return_value = 7
+        assert world.only_session().availability == [FRI_OFFER, SAT_OFFER]
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+    def test_run_ignores_a_non_availability_spec_in_availability_values(self, world):
+        # An EntityRef-shaped value under an availability target is passed over.
+        _run(
+            world,
+            questions={
+                "When": {
+                    "to": "session.availability",
+                    "values": {"Fri": {"name": "Not a slot", "slug": "nope"}},
+                }
+            },
+            responses=[{"When": "Fri"}],
+        )
+
+        assert world.only_session().availability == []
+
+    def test_run_attaches_a_track_per_chosen_option(self, world):
+        _run(
+            world,
+            questions={
+                "Suggested": {
+                    "to": "track",
+                    "values": {
+                        "RPG": {"name": "RPG", "slug": "rpg"},
+                        "LARP": {"name": "LARP", "slug": "larp"},
+                        "Role-play": {"name": "RPG", "slug": "rpg"},
+                    },
+                }
+            },
+            responses=[{"Suggested": "RPG, LARP, Role-play"}],
+        )
+
+        assert world.track_slugs(world.only_session().track_ids) == ["rpg", "larp"]
+
+    def test_run_routes_a_custom_track_answer_to_the_catchall(self, world):
+        _run(
+            world,
+            questions={
+                "Suggested": {
+                    "to": "track",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                    "catchall": {"name": "Inne", "slug": "inne"},
+                }
+            },
+            responses=[{"Suggested": "Something custom"}],
+        )
+
+        assert world.track_slugs(world.only_session().track_ids) == ["inne"]
+        assert list(world.tracks.values()) == [(EVENT_ID, "Inne", "inne")]
+
+    @pytest.mark.parametrize(("answer", "slug"), (("RPG", "rpg"), ("Mystery", "inne")))
+    def test_run_sets_the_category_for_the_chosen_option(self, world, answer, slug):
+        _run(
+            world,
+            questions={
+                "Kind": {
+                    "to": "category",
+                    "values": {"RPG": {"name": "RPG session", "slug": "rpg"}},
+                    "catchall": {"name": "Inne", "slug": "inne"},
+                }
+            },
+            responses=[{"Kind": answer}],
+        )
+
+        assert world.category_slug(world.only_session().category_id) == slug
+
+    def test_run_provisions_new_field_and_saves_value(self, world):
+        result = _run(
+            world,
+            questions=TITLE | {"RPG system": {"to": "field.system"}},
+            responses=[{"Title": "My Talk", "RPG system": "D&D"}],
+            definitions={"session_fields": {"system": {"name": "System"}}},
+        )
 
         assert result.fields_created == 1
-        personal_fields.read_by_slug.assert_called_once_with(2, "telefon")
-        personal_fields.create.assert_called_once_with(
-            2,
-            {
-                "name": "Telefon",
-                "slug": "telefon",
-                "question": "Phone",
-                "field_type": "text",
-                "options": None,
-                "is_multiple": False,
-                "allow_custom": False,
-                "max_length": 255,
-                "help_text": "",
-                "is_public": False,
-                "is_required": False,
-                "order": 0,
+        (stored,) = world.session_fields.values()
+        assert stored.data == {
+            "name": "System",
+            "slug": "system",
+            "question": "RPG system",
+            "field_type": "text",
+            "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
+            "max_length": 255,
+            "help_text": "",
+            "icon": "",
+            "is_public": False,
+        }
+        assert world.field_answers(world.only_session()) == {"system": "D&D"}
+
+    def test_run_reuses_existing_field_by_slug(self, world):
+        world.add_session_field("system")
+
+        result = _run(
+            world,
+            questions={"RPG system": {"to": "field.system"}},
+            responses=[{"RPG system": "D&D"}, {"RPG system": "  "}],
+        )
+
+        assert result.fields_created == 0
+        assert len(world.session_fields) == 1
+        first, blank = world.sessions.values()
+        assert world.field_answers(first) == {"system": "D&D"}
+        assert world.field_answers(blank) == {}
+
+    def test_run_provisions_session_field_from_its_definition(self, world):
+        _run(
+            world,
+            questions={"System": {"to": "field.system"}},
+            responses=[{"System": "D&D"}],
+            definitions={
+                "session_fields": {
+                    "system": {
+                        "name": "System",
+                        "type": "select",
+                        "multiple": True,
+                        "allow_custom": True,
+                        "options": ["D&D", "Warhammer"],
+                    }
+                }
             },
         )
-        session_fields.create.assert_not_called()
-        sessions.save_field_values.assert_not_called()
 
-    def test_run_saves_the_personal_answers_the_facilitator_lacks(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        session_fields,
-        personal_fields,
-        personal_data_field_values,
-        log_entries,
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Nick": {"to": "facilitator.display_name"},'
-                ' "Phone": {"to": "personal.phone"},'
-                ' "Mail": {"to": "personal.mail"},'
-                ' "System": {"to": "field.system"}},'
-                ' "definitions": {"session_fields":'
-                ' {"system": {"name": "System", "type": "text"}},'
-                ' "personal_fields": {"phone": {"name": "Phone"},'
-                ' "mail": {"name": "Mail"}}}}'
-            )
+        (stored,) = world.session_fields.values()
+        assert {
+            key: stored.data[key]
+            for key in ("field_type", "options", "is_multiple", "allow_custom")
+        } == {
+            "field_type": "select",
+            "options": ["D&D", "Warhammer"],
+            "is_multiple": True,
+            "allow_custom": True,
+        }
+
+    def test_run_provisions_a_personal_field_without_filling_values(self, world):
+        # No facilitator on the row, so the answer has nobody to belong to.
+        result = _run(
+            world,
+            questions=TITLE | {"Phone": {"to": "personal.telefon"}},
+            responses=[{"Title": "My Talk", "Phone": "555"}],
+            definitions={"personal_fields": {"telefon": {"name": "Telefon"}}},
         )
-        event_integrations.fetch_responses.return_value = _rows(
-            [
+
+        assert result.fields_created == 1
+        (stored,) = world.personal_fields.values()
+        assert stored.data == {
+            "name": "Telefon",
+            "slug": "telefon",
+            "question": "Phone",
+            "field_type": "text",
+            "options": None,
+            "is_multiple": False,
+            "allow_custom": False,
+            "max_length": 255,
+            "help_text": "",
+            "is_public": False,
+            "is_required": False,
+            "order": 0,
+        }
+        assert not world.session_fields
+        assert not world.personal_values
+
+    def test_run_saves_the_personal_answers_the_facilitator_lacks(self, world):
+        # The facilitator already answered "mail" by hand; only the phone gap
+        # is filled.
+        bob = world.add_facilitator(display_name="GM Bob", slug="gm-bob")
+        mail = world.add_personal_field("mail")
+        world.personal_values[bob, EVENT_ID, mail] = "edited@x.z"
+
+        result = _run(
+            world,
+            questions=TITLE | NICK | {
+                "Phone": {"to": "personal.phone"},
+                "Mail": {"to": "personal.mail"},
+                "System": {"to": "field.system"},
+            },
+            responses=[
                 {
                     "Title": "Talk",
                     "Nick": "GM Bob",
@@ -1830,331 +1078,166 @@ class TestProposalImportService(_ImportServiceMocks):
                     "Mail": "b@x.z",
                     "System": "D&D",
                 }
-            ]
-        )
-        session_fields.read_by_slug.side_effect = NotFoundError
-        session_fields.create.return_value = MagicMock(pk=55)
-
-        def read_personal_field(_event_id, slug):
-            if slug != "mail":
-                raise NotFoundError
-            return MagicMock(pk=12)
-
-        personal_fields.read_by_slug.side_effect = read_personal_field
-        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = [
-            12
-        ]
-
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        log_entries.upsert.assert_called_once()
-        assert result == ProposalImportResult(
-            created=1, fields_created=2, skipped=0, duplicates=0
-        )
-        sessions.save_field_values.assert_called_once_with(
-            sessions.create.return_value,
-            [
-                SessionFieldValueData(
-                    session_id=sessions.create.return_value, field_id=55, value="D&D"
-                )
             ],
         )
-        personal_data_field_values.list_field_ids_for_facilitator_event.assert_called_once_with(
-            7, 2
-        )
-        personal_data_field_values.save.assert_called_once_with(
-            [
-                PersonalDataFieldValueData(
-                    facilitator_id=7, event_id=2, field_id=11, value="555"
-                )
-            ]
-        )
 
-    def test_run_skips_unmapped_question_when_provisioning_fields(
-        self, service, event_integrations, session_fields, personal_fields
-    ):
-        # A question left unmapped (no `to`) is passed over by provisioning —
-        # it provisions neither a session nor a personal field.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Notes": {"ignore": true}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "My Talk", "Notes": "ignored"}]
+        assert result == ProposalImportResult(created=1, fields_created=2)
+        assert world.personal_answers(bob) == {"mail": "edited@x.z", "phone": "555"}
+        assert world.field_answers(world.only_session()) == {"system": "D&D"}
+
+    def test_run_skips_unmapped_question_when_provisioning_fields(self, world):
+        result = _run(
+            world,
+            questions=TITLE | {"Notes": {"ignore": True}},
+            responses=[{"Title": "My Talk", "Notes": "ignored"}],
         )
 
-        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert result.created == 1
-        assert result.fields_created == 0
-        session_fields.create.assert_not_called()
-        personal_fields.create.assert_not_called()
-
-    def test_run_skips_availability_options_the_respondent_did_not_choose(
-        self, service, event_integrations, sessions
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"When": {"to": "session.availability", "values": {'
-                '"Fri": {"to": "availability", "day": "2025-09-19", "part": "evening"},'
-                '"Sat": {"to": "availability", "day": "2025-09-20",'
-                ' "part": "morning"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        # Only the chosen "Fri" evening is offered; "Sat" is skipped.
-        assert sessions.create.call_args.kwargs["availability"] == [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-
-    def test_run_ignores_a_non_availability_spec_in_availability_values(
-        self, service, event_integrations, sessions
-    ):
-        # Defensive: a value that isn't an AvailabilitySpec (here an
-        # EntityRef-shaped blob) under an availability target is passed over.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=(
-                '{"questions": {"When": {"to": "session.availability", "values": {'
-                '"Fri": {"name": "Not a day", "slug": "nope"}}}}}'
-            )
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"When": "Fri"}])
-
-        service.run(sphere_id=1, event_id=2, integration_pk=3)
-
-        assert sessions.create.call_args.kwargs["availability"] == []
+        assert (result.created, result.fields_created) == (1, 0)
+        assert not world.session_fields
+        assert not world.personal_fields
 
 
-class TestImportLogService(_ImportServiceMocks):
-    @pytest.fixture
-    def service(self, transaction, event_integrations, import_repos):
-        return ImportLogService(
-            transaction=transaction,
-            event_integrations=event_integrations,
-            repos=import_repos,
+def _retry(world, entry_pk) -> bool:
+    return ImportLogService(**_deps(world)).retry_entry(
+        sphere_id=SPHERE_ID, event_id=EVENT_ID, entry_pk=entry_pk
+    )
+
+
+def _reimport(world, entry_pk) -> bool:
+    return ImportLogService(**_deps(world)).reimport_entry(
+        sphere_id=SPHERE_ID, event_id=EVENT_ID, entry_pk=entry_pk
+    )
+
+
+def _logged(world, row, **values) -> int:
+    return world.add_log_entry(
+        response_json=_json.dumps(row, ensure_ascii=False),
+        title=row.get("Title", ""),
+        **{"status": ImportLogStatus.SUCCESS} | values,
+    )
+
+
+class TestImportLogService:
+    def test_retry_entry_overwrites_the_entry_when_row_now_succeeds(self, world):
+        _given(world, questions=TITLE, responses=[{"Title": "Tałk"}])
+        entry = _logged(
+            world, {"Title": "Talk"}, status=ImportLogStatus.SKIPPED, reason="stale"
         )
 
-    def test_retry_entry_writes_a_fresh_entry_when_row_now_succeeds(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="stale",
-            response_json='{"Title": "Talk"}',
-            title="Talk",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "Tałk"}])
-        retry_session_pk = 77
-        sessions.create.return_value = retry_session_pk
+        assert _retry(world, entry) is True
 
-        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is True
-        log_entries.read.assert_called_once_with(10)
-        assert event_integrations.get.call_args_list == [call(2, 3), call(2, 3)]
-        event_integrations.fetch_responses.assert_called_once_with(
-            sphere_id=1, event_id=2, pk=3
-        )
-        sessions.create.assert_called_once_with(
-            {
-                "event_id": 2,
-                "status": SessionStatus.PENDING,
-                "title": "Tałk",
-                "description": "",
-                "facilitator_name": "",
-                "participants_limit": 0,
-                "slug": "talk",
-            },
-            availability=[],
-            track_ids=[],
-            facilitator_ids=[],
-        )
-        # The entry at (integration_id, row_index) is upserted with the new
-        # success state — same row, replaces the prior skipped one.
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
-                status=ImportLogStatus.SUCCESS,
-                reason="",
+        session_pk, session = next(iter(world.sessions.items()))
+        assert (session.title, session.slug) == ("Tałk", "talk")
+        assert world.entries() == [
+            _entry(
+                pk=entry,
                 response_json='{"Title": "Tałk"}',
                 title="Tałk",
-                display_name="",
-                session_id=retry_session_pk,
+                session_id=session_pk,
             )
+        ]
+
+    def test_retry_entry_records_the_new_reason_when_row_still_skips(self, world):
+        _given(
+            world,
+            questions=TITLE | {"Cap": {"to": "session.participants_limit"}},
+            responses=[{"Title": "Tałk", "Cap": "loads"}],
+        )
+        entry = _logged(
+            world, {"Title": "Talk", "Cap": "loads"}, status=ImportLogStatus.SKIPPED
         )
 
-    def test_retry_entry_writes_fresh_skipped_entry_when_row_still_skips(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            ),
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="old",
-            response_json='{"Title": "Talk", "Cap": "loads"}',
-            title="Talk",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Tałk", "Cap": "loads"}]
-        )
+        assert _retry(world, entry) is False
 
-        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is False
-        sessions.create.assert_not_called()
-        # The entry at this row is upserted with the new reason.
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
+        assert not world.sessions
+        assert world.entries() == [
+            _entry(
+                pk=entry,
                 status=ImportLogStatus.SKIPPED,
                 reason="Cap: 'loads' is not an integer",
                 response_json='{"Title": "Tałk", "Cap": "loads"}',
                 title="Tałk",
-                display_name="",
-                session_id=None,
             )
-        )
+        ]
 
     def test_retry_entry_resolves_to_existing_session_when_ident_already_taken(
-        self, service, event_integrations, sessions, log_entries
+        self, world
     ):
-        # Operator fixed the override that originally skipped this row, but a
-        # sibling row with the same unique key has since been imported. Retry
-        # links the log entry to the existing session instead of leaving the
-        # stale skip reason in place.
-        existing_session_pk = 99
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"unique_key_columns": ["Email"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Email": {"to": "ignore", "ignore": true}}}'
-            ),
+        # A sibling row with the same unique key was imported since: retry
+        # links the entry to that session instead of leaving the stale skip.
+        existing = world.add_session(title="Talk", ident=_ident("a@x.z"))
+        row = {"Title": "Talk", "Email": "a@x.z"}
+        _given(
+            world,
+            questions=TITLE | {"Email": {"ignore": True}},
+            responses=[row],
+            unique_key_columns=["Email"],
         )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="Len: unmapped duration answer '105'",
-            response_json='{"Title": "Talk", "Email": "a@x.z"}',
-            title="Talk",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "Email": "a@x.z"}]
-        )
-        sessions.find_id_by_ident.return_value = existing_session_pk
+        entry = _logged(world, row, status=ImportLogStatus.SKIPPED, reason="stale")
 
-        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _retry(world, entry) is True
 
-        assert succeeded is True
-        sessions.create.assert_not_called()
-        log_entries.upsert.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert created.status == ImportLogStatus.SUCCESS
-        assert created.session_id == existing_session_pk
-        assert not created.reason
-
-    @staticmethod
-    def _empty_session():
-        return MagicMock(
-            title="",
-            description="",
-            facilitator_name="",
-            duration="",
-            contact_email="",
-            participants_limit=0,
-            category_id=None,
+        assert list(world.sessions) == [existing]
+        (logged,) = world.entries()
+        assert (logged.status, logged.session_id, logged.reason) == (
+            ImportLogStatus.SUCCESS,
+            existing,
+            "",
         )
 
-    def test_reimport_entry_fills_an_empty_builtin_on_the_existing_session(
-        self, service, event_integrations, sessions, log_entries
+    @pytest.mark.parametrize(
+        ("act", "session_title"), ((_retry, None), (_reimport, ""))
+    )
+    def test_a_row_gone_from_the_source_is_logged_as_skipped(
+        self, world, act, session_title
     ):
-        existing_session_pk = 42
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        _given(world, questions=TITLE, responses=[])
+        session = None if session_title is None else world.add_session(title="")
+        entry = _logged(
+            world,
+            {"Title": "Gone"},
+            row_index=4,
+            display_name="Someone",
+            session_id=session,
         )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk"}',
-            title="Talk",
-            session_id=existing_session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "Tałk"}])
-        sessions.read.return_value = self._empty_session()
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert act(world, entry) is False
 
-        assert succeeded is True
-        log_entries.read.assert_called_once_with(10)
-        assert event_integrations.get.call_args_list == [call(2, 3), call(2, 3)]
-        event_integrations.fetch_responses.assert_called_once_with(
-            sphere_id=1, event_id=2, pk=3
+        assert [s.title for s in world.sessions.values()] == (
+            [] if session is None else [""]
         )
-        # Existing session was updated, not re-created.
-        sessions.create.assert_not_called()
-        sessions.read.assert_called_once_with(existing_session_pk)
-        sessions.update.assert_called_once_with(existing_session_pk, {"title": "Tałk"})
-        # The existing entry is upserted with the latest attempted_at, but
-        # the session FK is preserved.
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
-                status=ImportLogStatus.SUCCESS,
+        assert world.entries() == [
+            _entry(
+                pk=entry,
+                row_index=4,
+                status=ImportLogStatus.SKIPPED,
+                reason="row no longer present in source",
+                response_json='{"Title": "Gone"}',
+                title="Gone",
+                display_name="Someone",
+                session_id=session,
+            )
+        ]
+
+    def test_reimport_entry_fills_an_empty_builtin_on_the_existing_session(self, world):
+        _given(world, questions=TITLE, responses=[{"Title": "Tałk"}])
+        session = world.add_session(title="")
+        entry = _logged(world, {"Title": "Talk"}, session_id=session)
+
+        assert _reimport(world, entry) is True
+
+        assert list(world.sessions) == [session]
+        assert world.sessions[session].title == "Tałk"
+        assert world.entries() == [
+            _entry(
+                pk=entry,
                 response_json='{"Title": "Tałk"}',
                 title="Tałk",
-                display_name="",
-                session_id=existing_session_pk,
+                session_id=session,
             )
-        )
+        ]
 
-    def test_reimport_entry_fills_every_empty_builtin_and_the_category(
-        self, service, event_integrations, sessions, categories, log_entries
-    ):
-        existing_session_pk = 42
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Desc": {"to": "session.description"},'
-                ' "Author": {"to": "facilitator.display_name"},'
-                ' "Len": {"to": "session.duration",'
-                ' "values": {"2h": {"to": "duration", "iso": "PT2H"}}},'
-                ' "Email": {"to": "session.contact_email"},'
-                ' "Cap": {"to": "session.participants_limit"},'
-                ' "Kind": {"to": "category",'
-                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
-            ),
-        )
+    def test_reimport_entry_fills_every_empty_builtin_and_the_category(self, world):
         row = {
             "Title": "Talk",
             "Desc": "Long",
@@ -2164,702 +1247,284 @@ class TestImportLogService(_ImportServiceMocks):
             "Cap": "6",
             "Kind": "RPG",
         }
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=existing_session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions={
+                "Title": {"to": "session.title"},
+                "Desc": {"to": "session.description"},
+                "Author": {"to": "facilitator.display_name"},
+                "Len": {
+                    "to": "session.duration",
+                    "values": {"2h": {"to": "duration", "iso": "PT2H"}},
+                },
+                "Email": {"to": "session.contact_email"},
+                "Cap": {"to": "session.participants_limit"},
+                "Kind": {
+                    "to": "category",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                },
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        categories.get_or_create_by_slug.return_value = 8
+        session = world.add_session(title="")
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        sessions.update.assert_called_once()
-        assert sessions.update.call_args.args[0] == existing_session_pk
-        assert sessions.update.call_args.args[1] == {
-            "title": "Talk",
-            "description": "Long",
-            "facilitator_name": "Ada",
-            "duration": "PT2H",
-            "contact_email": "a@x.z",
-            "participants_limit": 6,
-            "category_id": 8,
-        }
+        stored = world.sessions[session]
+        assert (
+            stored.title,
+            stored.description,
+            stored.facilitator_name,
+            stored.duration,
+            stored.contact_email,
+            stored.participants_limit,
+            world.category_slug(stored.category_id),
+        ) == ("Talk", "Long", "Ada", "PT2H", "a@x.z", 6, "rpg")
+
+    def test_reimport_entry_keeps_every_builtin_the_organiser_already_set(self, world):
+        row = {"Title": "Talk", "Desc": "Long", "Kind": "RPG"}
+        _given(
+            world,
+            questions=TITLE | {
+                "Desc": {"to": "session.description"},
+                "Kind": {
+                    "to": "category",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                },
+            },
+            responses=[row],
+        )
+        session = world.add_session(
+            title="Hand-edited", description="Mine", category_id=99
+        )
+        entry = _logged(world, row, session_id=session)
+
+        assert _reimport(world, entry) is True
+
+        stored = world.sessions[session]
+        assert (stored.title, stored.description, stored.category_id) == (
+            "Hand-edited",
+            "Mine",
+            99,
+        )
+        assert not world.categories
 
     def test_reimport_entry_links_the_facilitator_when_the_session_has_none(
-        self, service, event_integrations, sessions, log_entries
+        self, world
     ):
-        existing_session_pk = 42
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Author": {"to": "facilitator.display_name"}}}'
-            ),
-        )
         row = {"Title": "Talk", "Author": "Ada"}
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=existing_session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions=TITLE | {"Author": {"to": "facilitator.display_name"}},
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        sessions.read_facilitators.return_value = []
+        session = world.add_session(title="Talk")
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        sessions.read_facilitators.assert_called_once_with(existing_session_pk)
-        sessions.set_facilitators.assert_called_once_with(existing_session_pk, [7])
+        (ada,) = world.facilitators.values()
+        assert ada.display_name == "Ada"
+        assert world.sessions[session].facilitator_ids == [ada.pk]
 
     def test_reimport_entry_attaches_availability_and_tracks_when_the_session_has_none(
-        self, service, event_integrations, sessions, tracks, log_entries
+        self, world
     ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "When": {"to": "session.availability", "values": {'
-                '"Fri": {"to": "availability", "day": "2025-09-19",'
-                ' "part": "evening"}}},'
-                ' "Suggested": {"to": "track", "values": {'
-                '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
-            ),
-        )
         row = {"Title": "Talk", "When": "Fri", "Suggested": "RPG"}
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions=TITLE | {
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
+                "Suggested": {
+                    "to": "track",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                },
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        sessions.read_availability.return_value = []
-        sessions.read_track_ids.return_value = []
-        tracks.get_or_create_by_slug.return_value = 301
+        session = world.add_session(title="Talk")
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        sessions.read_availability.assert_called_once_with(42)
-        sessions.set_availability.assert_called_once_with(
-            42, [AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)]
-        )
-        sessions.read_track_ids.assert_called_once_with(42)
-        tracks.get_or_create_by_slug.assert_called_once_with(2, "RPG", "rpg")
-        sessions.set_session_tracks.assert_called_once_with(42, [301])
+        stored = world.sessions[session]
+        assert stored.availability == [FRI_OFFER]
+        assert world.track_slugs(stored.track_ids) == ["rpg"]
 
-    def test_reimport_entry_keeps_availability_and_tracks_already_linked(
-        self, service, event_integrations, sessions, tracks, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "When": {"to": "session.availability", "values": {'
-                '"Fri": {"to": "availability", "day": "2025-09-19",'
-                ' "part": "evening"}}},'
-                ' "Suggested": {"to": "track", "values": {'
-                '"RPG": {"name": "RPG", "slug": "rpg"}}}}}'
-            ),
-        )
+    def test_reimport_entry_keeps_availability_and_tracks_already_linked(self, world):
         row = {"Title": "Talk", "When": "Fri", "Suggested": "RPG"}
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions=TITLE | {
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
+                "Suggested": {
+                    "to": "track",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                },
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        sessions.read_availability.return_value = [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-        sessions.read_track_ids.return_value = [6]
+        session = world.add_session(
+            title="Talk", availability=[SAT_OFFER], track_ids=[6]
+        )
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        sessions.set_availability.assert_not_called()
-        tracks.get_or_create_by_slug.assert_not_called()
-        sessions.set_session_tracks.assert_not_called()
+        stored = world.sessions[session]
+        assert (stored.availability, stored.track_ids) == ([SAT_OFFER], [6])
+        assert not world.tracks
 
     def test_reimport_entry_keeps_the_attached_facilitator_and_its_personal_data(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        facilitators,
-        personal_data_field_values,
-        log_entries,
+        self, world
     ):
-        # The session is already linked to facilitator 99. The row now carries a
-        # different display_name (the facilitator was renamed in the panel), so
-        # re-resolving it would mint a fresh orphan and land the personal answer
-        # on that orphan. Instead the attached facilitator is kept and gets the
-        # data.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Author": {"to": "facilitator.display_name"},'
-                ' "Phone": {"to": "personal.phone"}},'
-                ' "definitions": {"personal_fields":'
-                ' {"phone": {"name": "Phone"}}}}'
-            ),
-        )
+        # The facilitator was renamed in the panel, so the row's display name
+        # no longer matches; re-resolving it would mint an orphan and hand it
+        # the personal answer. The attached facilitator keeps both.
         row = {"Title": "Talk", "Author": "Renamed Author", "Phone": "555"}
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions=TITLE | {
+                "Author": {"to": "facilitator.display_name"},
+                "Phone": {"to": "personal.phone"},
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        sessions.read_facilitators.return_value = [MagicMock(pk=99)]
-        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = (
-            []
-        )
+        attached = world.add_facilitator(display_name="Original", slug="original")
+        session = world.add_session(title="Talk", facilitator_ids=[attached])
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        # No orphan minted, and the existing link is left untouched.
-        facilitators.create.assert_not_called()
-        sessions.set_facilitators.assert_not_called()
-        # The personal answer lands on the attached facilitator, not a re-resolve.
-        personal_data_field_values.save.assert_called_once()
-        saved = personal_data_field_values.save.call_args.args[0]
-        assert [entry["facilitator_id"] for entry in saved] == [99]
+        assert list(world.facilitators) == [attached]
+        assert world.sessions[session].facilitator_ids == [attached]
+        assert world.personal_answers(attached) == {"phone": "555"}
 
     def test_reimport_entry_writes_no_personal_data_when_several_facilitators(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        facilitators,
-        personal_data_field_values,
-        log_entries,
+        self, world
     ):
-        # The organiser attached a second facilitator in the panel. The row's
-        # phone number belongs to one respondent and the link carries no order,
-        # so writing it would be a coin flip between two real people.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Author": {"to": "facilitator.display_name"},'
-                ' "Phone": {"to": "personal.phone"}},'
-                ' "definitions": {"personal_fields":'
-                ' {"phone": {"name": "Phone"}}}}'
-            ),
-        )
+        # The link carries no order, so writing the row's phone number would
+        # be a coin flip between two real people.
         row = {"Title": "Talk", "Author": "GM Bob", "Phone": "555"}
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=_json.dumps(row),
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _given(
+            world,
+            questions=TITLE | {
+                "Author": {"to": "facilitator.display_name"},
+                "Phone": {"to": "personal.phone"},
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([row])
-        sessions.read.return_value = self._empty_session()
-        sessions.read_facilitators.return_value = [MagicMock(pk=99), MagicMock(pk=100)]
+        pair = [world.add_facilitator(), world.add_facilitator()]
+        session = world.add_session(title="Talk", facilitator_ids=pair)
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        personal_data_field_values.save.assert_not_called()
-        facilitators.create.assert_not_called()
-        sessions.set_facilitators.assert_not_called()
+        assert not world.personal_values
+        assert list(world.facilitators) == pair
+        assert world.sessions[session].facilitator_ids == pair
 
-    def test_reimport_entry_keeps_a_title_the_organiser_already_set(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+    def test_reimport_entry_keeps_a_session_field_answer_already_stored(self, world):
+        row = {"Title": "Talk", "RPG system": "D&D", "Genre": "Horror"}
+        _given(
+            world,
+            questions=TITLE | {
+                "RPG system": {"to": "field.system"},
+                "Genre": {"to": "field.genre"},
+            },
+            responses=[row],
         )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk"}',
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        system = world.add_session_field("system")
+        session = world.add_session(title="Talk", field_values={system: "Pathfinder"})
+        entry = _logged(world, row, session_id=session)
+
+        assert _reimport(world, entry) is True
+
+        assert world.field_answers(world.sessions[session]) == {
+            "system": "Pathfinder",
+            "genre": "Horror",
+        }
+
+    def test_reimport_entry_falls_through_to_retry_when_session_deleted(self, world):
+        _given(world, questions=TITLE, responses=[{"Title": "Talk"}])
+        entry = _logged(world, {"Title": "Talk"}, session_id=None)
+
+        assert _reimport(world, entry) is True
+
+        fresh = world.only_session()
+        assert fresh.title == "Talk"
+        (logged,) = world.entries()
+        assert world.sessions[logged.session_id] is fresh
+
+    def test_reimport_writes_skipped_entry_when_the_update_skips_the_row(self, world):
+        # A now-invalid answer skips the row; the facilitator the update had
+        # already linked is rolled back and the entry keeps the session FK.
+        row = {"Title": "Tałk", "Name": "Ann", "Cap": "loads"}
+        _given(
+            world,
+            questions=TITLE | {
+                "Name": {"to": "facilitator.display_name"},
+                "Cap": {"to": "session.participants_limit"},
+            },
+            responses=[row],
         )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
-        session = self._empty_session()
-        session.title = "Hand-edited"
-        sessions.read.return_value = session
+        session = world.add_session(title="Tałk")
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is False
 
-        assert succeeded is True
-        sessions.update.assert_not_called()
-
-    def test_reimport_entry_keeps_a_session_field_answer_already_stored(
-        self, service, event_integrations, sessions, session_fields, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "RPG system": {"to": "field.system"}}}'
-            ),
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk", "RPG system": "D&D"}',
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "RPG system": "D&D"}]
-        )
-        session_fields.read_by_slug.return_value = MagicMock(pk=55)
-        sessions.read.return_value = self._empty_session()
-        sessions.read_field_values.return_value = [MagicMock(field_id=55)]
-
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is True
-        sessions.read_field_values.assert_called_once_with(42)
-        sessions.save_field_values.assert_not_called()
-
-    def test_reimport_entry_falls_through_to_retry_when_session_deleted(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk"}',
-            title="Talk",
-            session_id=None,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
-        fresh_session_pk = 99
-        sessions.create.return_value = fresh_session_pk
-
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is True
-        assert log_entries.read.call_args_list == [call(10), call(10)]
-        event_integrations.fetch_responses.assert_called_once_with(
-            sphere_id=1, event_id=2, pk=3
-        )
-        sessions.create.assert_called_once()
-        # Entry is recreated; the new log entry points to the fresh session.
-        log_entries.upsert.assert_called_once()
-        created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
-        assert created.session_id == fresh_session_pk
-
-    def test_reimport_saves_session_field_values_onto_existing_session(
-        self, service, event_integrations, sessions, session_fields, log_entries
-    ):
-        # A field.* mapping makes update_proposal write the session field
-        # value back onto the existing session.
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "System": {"to": "field.system"}},'
-                ' "definitions": {"session_fields":'
-                ' {"system": {"name": "System", "type": "text"}}}}'
-            ),
-        )
-        session_pk = 42
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk", "System": "D&D"}',
-            title="Talk",
-            session_id=session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Talk", "System": "D&D"}]
-        )
-
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is True
-        session_fields.read_by_slug.assert_called_once_with(2, "system")
-        sessions.save_field_values.assert_called_once_with(
-            session_pk,
-            [
-                SessionFieldValueData(
-                    session_id=session_pk,
-                    field_id=session_fields.read_by_slug.return_value.pk,
-                    value="D&D",
-                )
-            ],
-        )
-
-    def test_retry_returns_false_when_the_entry_is_missing(self, service, log_entries):
-        log_entries.read.side_effect = NotFoundError
-
-        assert service.retry_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-    def test_retry_returns_false_when_the_integration_is_missing(
-        self, service, event_integrations, log_entries
-    ):
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="x",
-            response_json="{}",
-            title="Talk",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.get.side_effect = NotFoundError
-
-        assert service.retry_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-        event_integrations.get.assert_called_once_with(2, 3)
-        event_integrations.fetch_responses.assert_not_called()
-        log_entries.upsert.assert_not_called()
-
-    def test_retry_returns_false_when_integration_does_not_match_entry(
-        self, service, event_integrations, log_entries
-    ):
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="x",
-            response_json="{}",
-            title="Talk",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        # The integration the repo returns is a different one than the entry's.
-        event_integrations.get.return_value = MagicMock(pk=999)
-
-        assert service.retry_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-    def test_retry_writes_skipped_entry_when_row_no_longer_in_source(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SKIPPED,
-            reason="old",
-            response_json='{"Title": "Gone"}',
-            title="Gone",
-            display_name="Someone",
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        # The source no longer carries the row.
-        event_integrations.fetch_responses.return_value = []
-
-        succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is False
-        sessions.create.assert_not_called()
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
-                status=ImportLogStatus.SKIPPED,
-                reason="row no longer present in source",
-                response_json='{"Title": "Gone"}',
-                title="Gone",
-                display_name="Someone",
-                session_id=None,
-            )
-        )
-
-    def test_reimport_writes_skipped_entry_when_row_no_longer_in_source(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=4,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Gone"}',
-            title="Gone",
-            display_name="Someone",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = []
-
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is False
-        sessions.update.assert_not_called()
-        sessions.create.assert_not_called()
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=4,
-                status=ImportLogStatus.SKIPPED,
-                reason="row no longer present in source",
-                response_json='{"Title": "Gone"}',
-                title="Gone",
-                display_name="Someone",
-                session_id=42,
-            )
-        )
-
-    def test_reimport_returns_false_when_the_entry_is_missing(
-        self, service, log_entries
-    ):
-        log_entries.read.side_effect = NotFoundError
-
-        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-    def test_reimport_returns_false_when_the_integration_is_missing(
-        self, service, event_integrations, log_entries
-    ):
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json="{}",
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.get.side_effect = NotFoundError
-
-        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-    def test_reimport_returns_false_when_integration_does_not_match_entry(
-        self, service, event_integrations, log_entries
-    ):
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json="{}",
-            title="Talk",
-            session_id=42,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.get.return_value = MagicMock(pk=999)
-
-        assert service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10) is False
-
-    def test_reimport_writes_skipped_entry_when_the_update_skips_the_row(
-        self, service, event_integrations, log_entries
-    ):
-        # A now-invalid mapped answer makes update_proposal skip the row; the
-        # existing session FK is preserved on the skipped log entry.
-        session_pk = 42
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Title": {"to": "session.title"},'
-                ' "Name": {"to": "facilitator.display_name"},'
-                ' "Cap": {"to": "session.participants_limit"}}}'
-            ),
-        )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}',
-            title="Tałk",
-            session_id=session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}]
-        )
-
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
-
-        assert succeeded is False
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
-                row_index=0,
+        assert world.sessions[session].facilitator_ids == []
+        assert world.entries() == [
+            _entry(
+                pk=entry,
                 status=ImportLogStatus.SKIPPED,
                 reason="Cap: 'loads' is not an integer",
                 response_json='{"Title": "Tałk", "Name": "Ann", "Cap": "loads"}',
                 title="Tałk",
                 display_name="Ann",
-                session_id=session_pk,
+                session_id=session,
             )
-        )
+        ]
 
-    def test_reimport_entry_locates_the_row_by_its_unique_key(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        session_pk = 42
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"unique_key_columns": ["Title"],'
-                ' "questions": {"Title": {"to": "session.title"},'
-                ' "Name": {"to": "facilitator.display_name"}}}'
-            ),
+    def test_reimport_entry_locates_the_row_by_its_unique_key(self, world):
+        # The sheet gained a row above this one; the unique key still finds it.
+        row = {"Title": "Talk", "Name": "Ann"}
+        _given(
+            world,
+            questions=TITLE | {"Name": {"to": "facilitator.display_name"}},
+            responses=[{"Title": "Other", "Name": "Bob"}, row],
+            unique_key_columns=["Title"],
         )
-        log_entries.read.return_value = ImportLogEntryDTO(
-            pk=10,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json='{"Title": "Talk", "Name": "Ann"}',
-            title="Talk",
-            session_id=session_pk,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        event_integrations.fetch_responses.return_value = _rows(
-            [{"Title": "Other", "Name": "Bob"}, {"Title": "Talk", "Name": "Ann"}]
-        )
-        sessions.read.return_value = self._empty_session()
-        sessions.read_facilitators.return_value = []
+        session = world.add_session(title="")
+        entry = _logged(world, row, session_id=session)
 
-        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+        assert _reimport(world, entry) is True
 
-        assert succeeded is True
-        sessions.update.assert_called_once_with(
-            session_pk, {"title": "Talk", "facilitator_name": "Ann"}
-        )
-        log_entries.upsert.assert_called_once_with(
-            ImportLogEntryCreateData(
-                integration_id=3,
+        stored = world.sessions[session]
+        assert (stored.title, stored.facilitator_name) == ("Talk", "Ann")
+        # NOTE: entries are keyed by row index, so the one logged at the old
+        # index stays as it was and the found row gets an entry of its own.
+        assert world.entries()[1:] == [
+            _entry(
+                pk=entry + 1,
                 row_index=1,
-                status=ImportLogStatus.SUCCESS,
                 response_json='{"Title": "Talk", "Name": "Ann"}',
                 title="Talk",
                 display_name="Ann",
-                session_id=session_pk,
+                session_id=session,
             )
-        )
+        ]
 
 
-class TestImportFieldLayoutService(_ImportServiceMocks):
-    pytestmark = pytest.mark.usefixtures("_layout_defaults")
+def _apply(world) -> ApplyFieldLayoutResult:
+    return ImportFieldLayoutService(**_deps(world)).apply_field_layout(
+        EVENT_ID, INTEGRATION_PK
+    )
 
-    @pytest.fixture
-    def service(self, transaction, event_integrations, import_repos):
-        return ImportFieldLayoutService(
-            transaction=transaction,
-            event_integrations=event_integrations,
-            repos=import_repos,
-        )
 
-    @pytest.fixture
-    def _layout_defaults(
-        self, sessions, session_fields, personal_fields, personal_data_field_values
-    ):
-        # Sane no-op returns for the reconciliation reads so each test only sets
-        # the handful of repo answers that steer the branch under test.
-        sessions.read_field_values.return_value = []
-        sessions.delete_field_values_for_fields.return_value = 0
-        sessions.read_facilitators.return_value = []
-        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = (
-            []
-        )
-        personal_data_field_values.delete_for_facilitator_fields.return_value = 0
-        session_fields.delete_orphans_for_event.return_value = 0
-        personal_fields.delete_orphans_for_event.return_value = 0
-
-    def _entry(self, *, session_id, response_json="{}"):
-        return ImportLogEntryDTO(
-            pk=1,
-            integration_id=3,
-            row_index=0,
-            status=ImportLogStatus.SUCCESS,
-            response_json=response_json,
-            title="Talk",
-            session_id=session_id,
-            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-
-    def test_apply_fills_every_gap_the_recipe_now_maps(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        session_fields,
-        personal_fields,
-        personal_data_field_values,
-        tracks,
-        categories,
-        facilitators,
-        log_entries,
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"Email": {"to": "session.contact_email"},'
-                ' "Author": {"to": "facilitator.display_name"},'
-                ' "Kind": {"to": "category",'
-                ' "values": {"RPG": {"name": "RPG", "slug": "rpg"}}},'
-                ' "When": {"to": "session.availability", "values": {'
-                '"Fri": {"to": "availability", "day": "2025-09-19",'
-                ' "part": "evening"}}},'
-                ' "Suggested": {"to": "track", "values": {'
-                '"LARP": {"name": "LARP", "slug": "larp"}}},'
-                ' "System": {"to": "field.system"},'
-                ' "Phone": {"to": "personal.phone"}},'
-                ' "definitions": {"session_fields":'
-                ' {"system": {"name": "System", "type": "text"}},'
-                ' "personal_fields": {"phone": {"name": "Phone"}}}}'
-            ),
-        )
+class TestImportFieldLayoutService:
+    def test_apply_fills_every_gap_the_recipe_now_maps(self, world):
         row = {
             "Email": "a@x.z",
             "Author": "Ada",
@@ -2869,278 +1534,175 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
             "System": "D&D",
             "Phone": "555",
         }
-        log_entries.list_for_integration.return_value = [
-            self._entry(session_id=5, response_json=_json.dumps(row))
-        ]
-        sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_availability.return_value = []
-        sessions.read_track_ids.return_value = []
-        sessions.read_facilitators.side_effect = [[], [MagicMock(pk=7)]]
-        session_fields.read_by_slug.return_value = MagicMock(pk=55)
-        categories.get_or_create_by_slug.return_value = 8
-        tracks.get_or_create_by_slug.return_value = 301
-        session_fields.delete_orphans_for_event.return_value = 3
-        personal_fields.delete_orphans_for_event.return_value = 4
+        _given(
+            world,
+            questions={
+                "Email": {"to": "session.contact_email"},
+                "Author": {"to": "facilitator.display_name"},
+                "Kind": {
+                    "to": "category",
+                    "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
+                },
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
+                "Suggested": {
+                    "to": "track",
+                    "values": {"LARP": {"name": "LARP", "slug": "larp"}},
+                },
+                "System": {"to": "field.system"},
+                "Phone": {"to": "personal.phone"},
+            },
+            responses=[],
+        )
+        session = world.add_session(title="Talk")
+        _logged(world, row, session_id=session)
+        _logged(world, row, row_index=1, status=ImportLogStatus.SKIPPED)
+        world.add_session_field("unused")
+        world.add_personal_field("unused")
 
-        result = service.apply_field_layout(2, 3)
+        result = _apply(world)
 
-        event_integrations.get.assert_called_once_with(2, 3)
-        log_entries.list_for_integration.assert_called_once_with(
-            3, status=ImportLogStatus.SUCCESS
-        )
-        assert sessions.read.call_args_list == [call(5), call(5)]
-        categories.get_or_create_by_slug.assert_called_once_with(2, "RPG", "rpg")
-        assert sessions.update.call_args_list == [
-            call(5, {"contact_email": "a@x.z"}),
-            call(5, {"category_id": 8}),
-        ]
-        assert sessions.read_facilitators.call_args_list == [call(5), call(5)]
-        facilitators.create.assert_called_once()
-        sessions.set_facilitators.assert_called_once_with(5, [7])
-        sessions.read_availability.assert_called_once_with(5)
-        sessions.set_availability.assert_called_once_with(
-            5, [AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)]
-        )
-        sessions.read_track_ids.assert_called_once_with(5)
-        tracks.get_or_create_by_slug.assert_called_once_with(2, "LARP", "larp")
-        sessions.set_session_tracks.assert_called_once_with(5, [301])
-        assert sessions.read_field_values.call_args_list == [call(5), call(5)]
-        sessions.save_field_values.assert_called_once_with(
-            5, [SessionFieldValueData(session_id=5, field_id=55, value="D&D")]
-        )
-        sessions.delete_field_values_for_fields.assert_called_once_with(5, [])
-        personal_data_field_values.list_field_ids_for_facilitator_event.assert_called_once_with(
-            7, 2
-        )
-        personal_data_field_values.save.assert_called_once_with(
-            [
-                PersonalDataFieldValueData(
-                    facilitator_id=7, event_id=2, field_id=11, value="555"
-                )
-            ]
-        )
-        personal_data_field_values.delete_for_facilitator_fields.assert_called_once_with(
-            7, []
-        )
-        session_fields.delete_orphans_for_event.assert_called_once_with(2)
-        personal_fields.delete_orphans_for_event.assert_called_once_with(2)
         assert result == ApplyFieldLayoutResult(
             sessions_processed=1,
             session_builtins_filled=2,
             session_links_filled=3,
             session_field_values=ValueDelta(added=1, removed=0),
             personal_entries=ValueDelta(added=1, removed=0),
-            session_fields_pruned=3,
-            personal_fields_pruned=4,
+            session_fields_pruned=1,
+            personal_fields_pruned=1,
         )
+        stored = world.sessions[session]
+        (ada,) = world.facilitators.values()
+        assert stored.contact_email == "a@x.z"
+        assert world.category_slug(stored.category_id) == "rpg"
+        assert stored.facilitator_ids == [ada.pk]
+        assert stored.availability == [FRI_OFFER]
+        assert world.track_slugs(stored.track_ids) == ["larp"]
+        assert world.field_answers(stored) == {"system": "D&D"}
+        assert world.personal_answers(ada.pk) == {"phone": "555"}
+        assert [f.slug for f in world.session_fields.values()] == ["system"]
+        assert [f.slug for f in world.personal_fields.values()] == ["phone"]
 
-    def test_apply_drops_values_the_recipe_no_longer_maps(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        session_fields,
-        personal_fields,
-        personal_data_field_values,
-        log_entries,
-    ):
-        event_integrations.get.return_value = MagicMock(
-            pk=3,
-            settings_json=(
-                '{"questions": {"System": {"to": "field.system"},'
-                ' "Phone": {"to": "personal.phone"}},'
-                ' "definitions": {"session_fields":'
-                ' {"system": {"name": "System", "type": "text"}},'
-                ' "personal_fields": {"phone": {"name": "Phone"}}}}'
-            ),
-        )
+    def test_apply_drops_values_the_recipe_no_longer_maps(self, world):
         row = {"System": "D&D", "Phone": "555"}
-        log_entries.list_for_integration.return_value = [
-            self._entry(session_id=5, response_json=_json.dumps(row)),
-            self._entry(session_id=6, response_json=_json.dumps(row)),
-        ]
-        sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_availability.return_value = [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-        sessions.read_track_ids.return_value = [1]
-        sessions.read_facilitators.return_value = [MagicMock(pk=7)]
-        session_fields.read_by_slug.return_value = MagicMock(pk=55)
-        sessions.read_field_values.return_value = [
-            MagicMock(field_id=55),
-            MagicMock(field_id=66),
-        ]
-        sessions.delete_field_values_for_fields.return_value = 1
-        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = [
-            11,
-            12,
-        ]
-        personal_data_field_values.delete_for_facilitator_fields.return_value = 1
-
-        result = service.apply_field_layout(2, 3)
-
-        sessions.save_field_values.assert_not_called()
-        assert sessions.delete_field_values_for_fields.call_args_list == [
-            call(5, [66]),
-            call(6, [66]),
-        ]
-        personal_data_field_values.save.assert_not_called()
-        assert (
-            personal_data_field_values.delete_for_facilitator_fields.call_args_list == [
-                call(7, [12]),
-                call(7, [12]),
-            ]
+        _given(
+            world,
+            questions={
+                "System": {"to": "field.system"},
+                "Phone": {"to": "personal.phone"},
+            },
+            responses=[],
         )
+        system = world.add_session_field("system")
+        genre = world.add_session_field("genre")
+        phone = world.add_personal_field("phone")
+        mail = world.add_personal_field("mail")
+        gm = world.add_facilitator()
+        world.personal_values[gm, EVENT_ID, phone] = "555"
+        world.personal_values[gm, EVENT_ID, mail] = "gm@x.z"
+        sessions = [
+            world.add_session(
+                title="Talk",
+                contact_email="x",
+                facilitator_ids=[gm],
+                field_values={system: "D&D", genre: "Horror"},
+            )
+            for _ in range(2)
+        ]
+        for index, session in enumerate(sessions):
+            _logged(world, row, row_index=index, session_id=session)
+
+        result = _apply(world)
+
         assert result == ApplyFieldLayoutResult(
             sessions_processed=2,
-            session_builtins_filled=0,
-            session_links_filled=0,
             session_field_values=ValueDelta(added=0, removed=2),
-            personal_entries=ValueDelta(added=0, removed=2),
-            session_fields_pruned=0,
-            personal_fields_pruned=0,
+            personal_entries=ValueDelta(added=0, removed=1),
+            session_fields_pruned=1,
+            personal_fields_pruned=1,
+        )
+        assert [world.field_answers(world.sessions[pk]) for pk in sessions] == [
+            {"system": "D&D"}
+        ] * 2
+        assert world.personal_answers(gm) == {"phone": "555"}
+
+    def test_apply_skips_entries_without_a_session(self, world):
+        _given(world, questions={}, responses=[])
+        _logged(world, {"Title": "Talk"}, session_id=None)
+
+        assert _apply(world).sessions_processed == 0
+
+    def test_apply_swallows_row_skip_in_builtins_and_keeps_present_links(self, world):
+        # The cached participants_limit is now invalid, so built-ins and the
+        # facilitator cannot resolve; category resolves to nothing; slots and
+        # tracks are already present.
+        _given(
+            world,
+            questions={
+                "Cap": {"to": "session.participants_limit"},
+                "Author": {"to": "facilitator.display_name"},
+                "Cat": {"to": "category"},
+            },
+            responses=[],
+        )
+        session = world.add_session(
+            title="Talk", availability=[SAT_OFFER], track_ids=[88]
+        )
+        _logged(
+            world, {"Cap": "loads", "Author": "Ada", "Cat": "Foo"}, session_id=session
         )
 
-    def test_apply_skips_entries_without_a_session(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        event_integrations.get.return_value = MagicMock(settings_json="{}")
-        log_entries.list_for_integration.return_value = [self._entry(session_id=None)]
+        result = _apply(world)
 
-        result = service.apply_field_layout(2, 3)
+        assert result == ApplyFieldLayoutResult(sessions_processed=1)
+        stored = world.sessions[session]
+        assert (stored.facilitator_ids, stored.category_id) == ([], None)
+        assert (stored.availability, stored.track_ids) == ([SAT_OFFER], [88])
 
-        assert result.sessions_processed == 0
-        sessions.read.assert_not_called()
-
-    def test_apply_swallows_row_skip_in_builtins_and_keeps_present_links(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        # The cached row's participants_limit is now invalid, so resolving
-        # built-ins (and facilitators) raises and is swallowed; category
-        # resolves to nothing; availability and tracks are already present.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=ImportSettings(
-                questions={
-                    "Cap": QuestionTarget(to="session.participants_limit"),
-                    "Cat": QuestionTarget(to="category"),
-                }
-            ).model_dump_json()
+    def test_apply_swallows_row_skips_resolving_category_slots_and_tracks(self, world):
+        # Conflicting duplicate columns make every entity resolution a row
+        # skip; each is swallowed and the session is still processed.
+        _given(
+            world,
+            questions={
+                "Cat": {"to": "category"},
+                "When": {"to": "session.availability"},
+                "Track": {"to": "track"},
+            },
+            responses=[],
         )
-        log_entries.list_for_integration.return_value = [
-            self._entry(session_id=5, response_json='{"Cap": "loads", "Cat": "Foo"}')
-        ]
-        sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_availability.return_value = [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-        sessions.read_track_ids.return_value = [88]
-
-        result = service.apply_field_layout(2, 3)
-
-        assert result.sessions_processed == 1
-        assert result.session_builtins_filled == 0
-        assert result.session_links_filled == 0
-        sessions.set_facilitators.assert_not_called()
-
-    def test_apply_swallows_row_skips_resolving_category_times_and_tracks(
-        self, service, event_integrations, sessions, log_entries
-    ):
-        # Conflicting duplicate columns make every entity resolution raise a
-        # row skip; each is swallowed and the session is still processed.
-        event_integrations.get.return_value = MagicMock(
-            settings_json=ImportSettings(
-                questions={
-                    "Cat": QuestionTarget(to="category"),
-                    "When": QuestionTarget(to="session.availability"),
-                    "Track": QuestionTarget(to="track"),
-                }
-            ).model_dump_json()
+        session = world.add_session(title="Talk")
+        _logged(
+            world,
+            {
+                "Cat": "A",
+                "Cat (2)": "B",
+                "When": "X",
+                "When (2)": "Y",
+                "Track": "M",
+                "Track (2)": "N",
+            },
+            session_id=session,
         )
-        log_entries.list_for_integration.return_value = [
-            self._entry(
-                session_id=5,
-                response_json=_json.dumps(
-                    {
-                        "Cat": "A",
-                        "Cat (2)": "B",
-                        "When": "X",
-                        "When (2)": "Y",
-                        "Track": "M",
-                        "Track (2)": "N",
-                    }
-                ),
-            )
-        ]
-        sessions.read.return_value = MagicMock(category_id=None, contact_email="")
-        sessions.read_availability.return_value = []
-        sessions.read_track_ids.return_value = []
 
-        result = service.apply_field_layout(2, 3)
+        result = _apply(world)
 
-        assert result.sessions_processed == 1
-        assert result.session_links_filled == 0
-        sessions.update.assert_not_called()
-        sessions.set_availability.assert_not_called()
-        sessions.set_session_tracks.assert_not_called()
+        assert result == ApplyFieldLayoutResult(sessions_processed=1)
+        assert world.sessions[session] == StoredSession(
+            event_id=EVENT_ID, title="Talk", slug=world.sessions[session].slug
+        )
 
+    @pytest.mark.parametrize(
+        ("phone", "answers"), (("555", {"phone": "555"}), ("  ", {}))
+    )
     def test_apply_adds_missing_personal_entries_for_a_facilitator(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        personal_data_field_values,
-        log_entries,
+        self, world, phone, answers
     ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=ImportSettings(
-                questions={"Phone": QuestionTarget(to="personal.phone")},
-                definitions=FieldDefinitions(
-                    personal_fields={"phone": FieldDefinition(name="Phone")}
-                ),
-            ).model_dump_json()
-        )
-        log_entries.list_for_integration.return_value = [
-            self._entry(session_id=5, response_json='{"Phone": "555"}')
-        ]
-        sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_availability.return_value = [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-        sessions.read_track_ids.return_value = [1]
-        sessions.read_facilitators.return_value = [MagicMock(pk=7)]
+        _given(world, questions={"Phone": {"to": "personal.phone"}}, responses=[])
+        gm = world.add_facilitator()
+        session = world.add_session(title="Talk", facilitator_ids=[gm])
+        _logged(world, {"Phone": phone}, session_id=session)
 
-        result = service.apply_field_layout(2, 3)
+        result = _apply(world)
 
-        assert result.personal_entries.added == 1
-        personal_data_field_values.save.assert_called_once()
-
-    def test_apply_skips_a_blank_personal_answer(
-        self,
-        service,
-        event_integrations,
-        sessions,
-        personal_data_field_values,
-        log_entries,
-    ):
-        event_integrations.get.return_value = MagicMock(
-            settings_json=ImportSettings(
-                questions={"Phone": QuestionTarget(to="personal.phone")},
-                definitions=FieldDefinitions(
-                    personal_fields={"phone": FieldDefinition(name="Phone")}
-                ),
-            ).model_dump_json()
-        )
-        log_entries.list_for_integration.return_value = [
-            self._entry(session_id=5, response_json='{"Phone": "  "}')
-        ]
-        sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
-        sessions.read_availability.return_value = [
-            AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-        ]
-        sessions.read_track_ids.return_value = [1]
-        sessions.read_facilitators.return_value = [MagicMock(pk=7)]
-
-        result = service.apply_field_layout(2, 3)
-
-        assert result.personal_entries.added == 0
-        personal_data_field_values.save.assert_not_called()
+        assert result.personal_entries.added == len(answers)
+        assert world.personal_answers(gm) == answers

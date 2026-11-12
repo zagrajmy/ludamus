@@ -18,7 +18,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
           path: ~/.local/share/aube/store
@@ -39,7 +39,7 @@ jobs:
   frontend-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/cache@v6
@@ -72,7 +72,7 @@ jobs:
   audit-deps:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise run dep:audit
 
@@ -93,14 +93,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
       # no-op on the SQLite backend used by the `test-unit` job below.
       - run: mise run test:postgres -- --cov
         env:
           COVERAGE_FILE: .coverage.postgres
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-postgres
           path: .coverage.postgres
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
 
       # The mills ratchet, before the combined run: tests/unit must cover
@@ -141,7 +141,7 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # NOTE: the browser install below is a no-op for browsers this cache
       # restored.
       - uses: actions/cache@v6
@@ -252,10 +252,32 @@ jobs:
           path: ./tests/e2e/playwright-report/
           retention-days: 30
 
+  # Parley's Worker: the e2e run fakes it, so only these exercise the real
+  # runtime (workerd, through the Workers Vitest pool).
+  test-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: workers/parley
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ~/.local/share/aube/store
+          key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
+          restore-keys: |
+            aube-${{ runner.os }}-
+      - uses: jdx/mise-action@v2
+      # Not --no-optional: workerd's platform binary is an optional dependency.
+      - run: aube install
+      - run: aube run typecheck
+      - run: aube run test
+
   # Named `test` because the branch ruleset requires that check; it now
   test:
     runs-on: ubuntu-latest
-    needs: [test-unit, test-postgres, test-e2e]
+    needs: [test-unit, test-postgres, test-e2e, test-worker]
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.
@@ -267,7 +289,7 @@ jobs:
           || contains(needs.*.result, 'skipped')
           || contains(needs.*.result, 'cancelled') }}
         run: exit 1
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
 
       - uses: actions/download-artifact@v4
@@ -289,7 +311,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ludamus
@@ -303,7 +325,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise run test:props:crosshair
 
@@ -315,7 +337,7 @@ jobs:
     continue-on-error: true
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
       - run: mise run test:bombadil

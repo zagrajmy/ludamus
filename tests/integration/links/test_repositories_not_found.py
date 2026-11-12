@@ -6,7 +6,6 @@ that are otherwise hard to reach from view-level integration tests.
 
 import pytest
 
-from ludamus.links.db.django.crowd import CompanionRepository
 from ludamus.links.db.django.models import ProposalCategory, Session, SessionField
 from ludamus.links.db.django.repositories import (
     EventIntegrationsRepository,
@@ -16,7 +15,9 @@ from ludamus.links.db.django.repositories import (
     SessionRepository,
     SphereRepository,
 )
-from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.links.db.django.users import CompanionRepository
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventUpdateData
 
 MISSING_ID = 99_999_999
 

@@ -4,9 +4,9 @@ from http import HTTPStatus
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.pacts import EventDTO
 from ludamus.pacts.availability import AvailabilityDTO, DayPart, part_of, programme_date
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.timetable import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,

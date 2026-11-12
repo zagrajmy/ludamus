@@ -8,10 +8,8 @@
     {% translate "Problems" %}
 {% endblock page_title %}
 {% block content %}
-    <!-- Timetable sub-page tabs -->
     {% tab_shell "panel/_timetable_tabs.html" %}
         {% tab_shell_body %}
-            <!-- Conflicts section -->
             <section class="mb-8" aria-labelledby="problems-conflicts">
                 <h2 id="problems-conflicts" class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
                 {% if conflicts_grouped %}

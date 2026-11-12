@@ -1,3 +1,5 @@
+import { postJson } from "./post-json";
+
 const list = document.getElementById("programme-space-list");
 
 const rows = (): HTMLElement[] =>
@@ -33,28 +35,20 @@ const saveOrder = async (focusAfterSave?: HTMLElement): Promise<void> => {
   for (const handle of list.querySelectorAll<HTMLButtonElement>("[data-programme-drag-handle]")) {
     handle.disabled = true;
   }
-  try {
-    const response = await fetch(list.dataset.reorderUrl ?? "", {
-      body: JSON.stringify({
-        space_ids: rows().map((row) => Number.parseInt(row.dataset.spaceId ?? "", 10)),
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": list.dataset.csrf ?? "",
-      },
-      method: "POST",
-    });
-    if (!response.ok) throw new Error("Reorder failed");
-    saving = false;
-    list.removeAttribute("aria-busy");
-    for (const handle of list.querySelectorAll<HTMLButtonElement>("[data-programme-drag-handle]")) {
-      handle.disabled = false;
-    }
-    focusAfterSave?.focus();
-  } catch {
-    globalThis.alert(list.dataset.reorderError ?? "Could not save the programme order.");
-    globalThis.location.reload();
+  // NOTE: a refused save leaves the new order on screen; the next move posts
+  // the whole order again, so it lands then.
+  await postJson({
+    body: { space_ids: rows().map((row) => Number.parseInt(row.dataset.spaceId ?? "", 10)) },
+    csrfFrom: list,
+    failure: list.dataset.reorderError ?? "",
+    url: list.dataset.reorderUrl ?? "",
+  });
+  saving = false;
+  list.removeAttribute("aria-busy");
+  for (const handle of list.querySelectorAll<HTMLButtonElement>("[data-programme-drag-handle]")) {
+    handle.disabled = false;
   }
+  focusAfterSave?.focus();
 };
 
 const moveRow = (row: HTMLElement, direction: -1 | 1, focusAfterSave: HTMLElement): void => {

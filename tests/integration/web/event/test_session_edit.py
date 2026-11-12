@@ -1,0 +1,738 @@
+from http import HTTPStatus
+from unittest.mock import ANY, patch
+
+import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+
+from ludamus.links.db.django.models import (
+    Notification,
+    Session,
+    SessionField,
+    SessionFieldOption,
+    SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
+from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.mills.sessions import SessionSelfEditService
+from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts.images import StoredFile
+from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.sessions import SessionDTO, SessionEditNotAllowedError
+from tests.integration.conftest import (
+    PNG_BYTES,
+    AgendaItemFactory,
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    SpaceFactory,
+    UserFactory,
+)
+from tests.integration.utils import (
+    FormFieldsMatcher,
+    FormInitialMatcher,
+    assert_response,
+    assert_response_404,
+)
+
+FRAGMENT = "event/parts/session-edit-form.html"
+
+
+def _expected_session(session):
+    session.refresh_from_db()
+    return SessionDTO.model_validate(session)
+
+
+@pytest.fixture(name="owned_session")
+def owned_session_fixture(event, active_user):
+    category = ProposalCategoryFactory(event=event)
+    return SessionFactory(
+        category=category,
+        presenter=active_user,
+        facilitator_name=active_user.name,
+        participants_limit=10,
+        min_age=0,
+        status="accepted",
+    )
+
+
+def _url(event, session):
+    return reverse(
+        "web:chronology:session-edit",
+        kwargs={"event_slug": event.slug, "session_id": session.pk},
+    )
+
+
+class TestSessionEditViewGet:
+    def test_owner_gets_form_fragment(self, authenticated_client, event, owned_session):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_stored_duration_prefills_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT1H30M"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                # The facilitator is offered hours and minutes, never the
+                # stored ISO.
+                "form": FormInitialMatcher(duration_hours=1, duration_minutes=30),
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_anonymous_redirected_to_login(self, client, event, owned_session):
+        url = _url(event, owned_session)
+
+        response = client.get(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
+
+    def test_non_owner_404(self, authenticated_client, event):
+        category = ProposalCategoryFactory(event=event)
+        other = UserFactory(username="other", email="other@example.com")
+        session = SessionFactory(category=category, presenter=other, status="accepted")
+
+        response = authenticated_client.get(_url(event, session))
+
+        assert_response_404(response)
+
+    def test_event_override_false_404(self, authenticated_client, event, owned_session):
+        event.allow_facilitator_session_edit = False
+        event.save()
+
+        response = authenticated_client.get(_url(event, owned_session))
+
+        assert_response_404(response)
+
+    def test_wrong_event_slug_404(
+        self, authenticated_client, sphere, owned_session, faker
+    ):
+        other_event = EventFactory(sphere=sphere, slug=faker.slug())
+        url = reverse(
+            "web:chronology:session-edit",
+            kwargs={"event_slug": other_event.slug, "session_id": owned_session.pk},
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response_404(response)
+
+    def test_sphere_default_false_no_override_404(
+        self, authenticated_client, event, owned_session, sphere
+    ):
+        sphere.allow_facilitator_session_edit = False
+        sphere.save()
+
+        response = authenticated_client.get(_url(event, owned_session))
+
+        assert_response_404(response)
+
+    def test_event_override_true_beats_sphere_false(
+        self, authenticated_client, event, owned_session, sphere
+    ):
+        sphere.allow_facilitator_session_edit = False
+        sphere.save()
+        event.allow_facilitator_session_edit = True
+        event.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+
+class TestSessionEditViewPost:
+    @staticmethod
+    def _data(**overrides):
+        data = {"title": "Updated title", "facilitator_name": "Updated name"}
+        data.update(overrides)
+        return data
+
+    def test_htmx_post_saves_and_returns_saved_fragment(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"
+        assert owned_session.facilitator_name == "Updated name"
+
+    def test_htmx_post_composes_duration_from_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url,
+            data=self._data(duration_hours="1", duration_minutes="30"),
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.duration == "PT1H30M"
+
+    def test_htmx_post_without_a_length_leaves_the_duration_unset(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT2H"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert not owned_session.duration
+
+    def test_post_uploads_cover_image(self, authenticated_client, event, owned_session):
+        url = _url(event, owned_session)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+
+        response = authenticated_client.post(
+            url, data=self._data(cover_image=image), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.cover_image
+        assert owned_session.cover_image_url.startswith("/media/sessions/")
+
+    def test_post_replacing_cover_deletes_previous_file(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
+    ):
+        owned_session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        storage = owned_session.cover_image.storage
+        old_name = owned_session.cover_image.name
+        new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
+
+        # The old blob goes only once the row change is committed.
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(cover_image=new_image),
+                headers={"hx-request": "true"},
+            )
+
+        owned_session.refresh_from_db()
+        assert owned_session.cover_image.name != old_name
+        assert not storage.exists(old_name)
+
+    def test_post_clears_cover_image(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        django_capture_on_commit_callbacks,
+    ):
+        owned_session.cover_image = SimpleUploadedFile(
+            "old.png", PNG_BYTES, content_type="image/png"
+        )
+        owned_session.save()
+        storage = owned_session.cover_image.storage
+        old_name = owned_session.cover_image.name
+
+        with django_capture_on_commit_callbacks(execute=True):
+            authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(**{"cover_image-clear": "on"}),
+                headers={"hx-request": "true"},
+            )
+
+        owned_session.refresh_from_db()
+        assert not owned_session.cover_image
+        assert not storage.exists(old_name)
+
+    def test_non_htmx_post_saves_and_redirects(
+        self, authenticated_client, event, owned_session
+    ):
+        response = authenticated_client.post(
+            _url(event, owned_session), data=self._data()
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_raising_the_limit_promotes_a_waiter(
+        self,
+        authenticated_client,
+        event,
+        owned_session,
+        waiter,
+        django_capture_on_commit_callbacks,
+    ):
+        # The presenter's own edit frees seats the way the organizer's does.
+        owned_session.participants_limit = 1
+        owned_session.save(update_fields=["participants_limit"])
+        AgendaItemFactory(session=owned_session, space=SpaceFactory(event=event))
+        SessionParticipation.objects.create(
+            session=owned_session,
+            user=UserFactory(username="filler", email="filler@example.com"),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        waiting = SessionParticipation.objects.create(
+            session=owned_session,
+            user=waiter,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _url(event, owned_session), data=self._data(participants_limit=2)
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
+        )
+        waiting.refresh_from_db()
+        assert waiting.status == SessionParticipationStatus.CONFIRMED
+        assert Notification.objects.filter(
+            recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
+        ).exists()
+
+    def test_post_update_not_allowed_returns_404(
+        self, authenticated_client, event, owned_session
+    ):
+        with patch.object(
+            SessionSelfEditService, "update", side_effect=SessionEditNotAllowedError()
+        ):
+            response = authenticated_client.post(
+                _url(event, owned_session),
+                data=self._data(),
+                headers={"hx-request": "true"},
+            )
+
+        assert_response_404(response)
+
+    def test_invalid_post_returns_fragment_without_saving(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+        original = owned_session.title
+
+        response = authenticated_client.post(
+            url,
+            data={"title": "", "facilitator_name": "Name", "participants_limit": "-1"},
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.title == original
+
+    def test_invalid_post_keeps_existing_cover_preview(
+        self, authenticated_client, event, owned_session
+    ):
+        save_replacing_files(
+            owned_session,
+            {
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                )
+            },
+        )
+        cover_url = owned_session.cover_image_url
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url,
+            data={"title": "", "facilitator_name": "Name"},
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                # The re-rendered form keeps the stored cover: a failed save
+                # must not look like the image was dropped.
+                "form": FormFieldsMatcher(
+                    cover_image={"initial": StoredFile(cover_url, "cover.png")}
+                ),
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_non_owner_404_no_write(self, authenticated_client, event):
+        category = ProposalCategoryFactory(event=event)
+        other = UserFactory(username="other", email="other@example.com")
+        session = SessionFactory(
+            category=category, presenter=other, title="Original", status="accepted"
+        )
+
+        response = authenticated_client.post(
+            _url(event, session), data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response_404(response)
+        assert Session.objects.get(pk=session.pk).title == "Original"
+
+    def test_opted_out_404_no_write(self, authenticated_client, event, owned_session):
+        event.allow_facilitator_session_edit = False
+        event.save()
+        original = owned_session.title
+
+        response = authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(),
+            headers={"hx-request": "true"},
+        )
+
+        assert_response_404(response)
+        owned_session.refresh_from_db()
+        assert owned_session.title == original
+
+    def test_htmx_post_replaces_existing_session_field_value(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value="D&D"
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_fields_submitted="1", session_field_system="Pathfinder"
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        values = SessionFieldValue.objects.filter(session=owned_session, field=field)
+        assert values.count() == 1
+        assert values.get().value == "Pathfinder"
+
+    def _make_fields(self, event):
+        genres = SessionField.objects.create(
+            event=event,
+            name="Genres",
+            question="Which genres?",
+            slug="genres",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        SessionFieldOption.objects.create(
+            field=genres, label="Horror", value="horror", order=0
+        )
+        SessionFieldOption.objects.create(
+            field=genres, label="Comedy", value="comedy", order=1
+        )
+        system = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="select",
+            allow_custom=True,
+            order=1,
+        )
+        SessionFieldOption.objects.create(
+            field=system, label="D&D", value="dnd", order=0
+        )
+        adult = SessionField.objects.create(
+            event=event,
+            name="18+",
+            question="Adult?",
+            slug="adult",
+            field_type="checkbox",
+            order=2,
+        )
+        notes = SessionField.objects.create(
+            event=event,
+            name="Notes",
+            question="Notes?",
+            slug="notes",
+            field_type="text",
+            allow_custom=True,
+            max_length=99,
+            order=3,
+        )
+        return genres, system, adult, notes
+
+    def test_get_renders_every_field_type(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, system, adult, notes = self._make_fields(event)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=genres, value=["horror"]
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=system, value="dnd"
+        )
+        SessionFieldValue.objects.create(session=owned_session, field=adult, value=True)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=notes, value="hello"
+        )
+
+        response = authenticated_client.get(_url(event, owned_session))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert 'name="session_field_genres"' in content
+        assert 'name="session_field_system_custom"' in content
+        assert 'name="session_field_adult"' in content
+
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="Genres",
+            question="Which genres?",
+            slug="genres",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value=["horror", "kobolds"]
+        )
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Genres",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="Horror",
+                                    order=0,
+                                    pk=option.pk,
+                                    value="horror",
+                                )
+                            ],
+                            order=0,
+                            pk=field.pk,
+                            question="Which genres?",
+                            slug="genres",
+                        ),
+                        "name_prefix": "session_field",
+                        # The stored write-in comes back split: the option on
+                        # the control, the rest beside it.
+                        "answer": FieldAnswer(value=["horror"], custom_value="kobolds"),
+                    }
+                ],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_htmx_post_merges_a_write_in_into_a_multi_value_field(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, _system, _adult, _notes = self._make_fields(event)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=genres, value=["horror", "kobolds"]
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_fields_submitted="1",
+                session_field_genres=["horror"],
+                session_field_genres_custom="kobolds; gore",
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        value = SessionFieldValue.objects.get(session=owned_session, field=genres).value
+        assert value == ["horror", "kobolds", "gore"]
+
+    def test_htmx_post_saves_every_field_type(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, system, adult, notes = self._make_fields(event)
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_fields_submitted="1",
+                session_field_genres=["horror", "comedy"],
+                session_field_system="",
+                session_field_system_custom="Pathfinder",
+                session_field_adult="true",
+                session_field_notes="Some notes",
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        get = SessionFieldValue.objects.get
+        assert get(session=owned_session, field=genres).value == ["horror", "comedy"]
+        assert get(session=owned_session, field=system).value == "Pathfinder"
+        assert get(session=owned_session, field=adult).value is True
+        assert get(session=owned_session, field=notes).value == "Some notes"
+
+    def test_partial_post_without_session_fields_marker_preserves_field_values(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(),
+            headers={"hx-request": "true"},
+        )
+
+        sfv = SessionFieldValue.objects.get(session=owned_session, field=field)
+        assert sfv.value == "Pathfinder"
+        owned_session.refresh_from_db()
+        assert owned_session.title == "Updated title"

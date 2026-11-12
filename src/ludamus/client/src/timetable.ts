@@ -1,4 +1,5 @@
 import { requestConfirm } from "./confirm";
+import { csrfToken } from "./post-json";
 
 interface OfferedWindow {
   end: string;
@@ -35,9 +36,6 @@ const columns = (): NodeListOf<HTMLElement> =>
 
 const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
   col.closest<HTMLElement>(".timetable-day-grid");
-
-const csrfToken = (): string =>
-  (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement).value;
 
 function pxPerMinute(cal: HTMLElement): number {
   const raw = getComputedStyle(cal).getPropertyValue("--minute-px").trim();
@@ -497,7 +495,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// Escape key
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && armed) {
     exitAssignMode();

@@ -5,14 +5,15 @@ from http import HTTPStatus
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
 
-from ludamus.pacts import EventDTO
 from ludamus.pacts.availability import (
     AvailabilityDTO,
     DayPart,
     part_window,
     programme_date,
 )
-from ludamus.pacts.legacy import AgendaItemDTO, SessionDTO
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.sessions import SessionDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -59,7 +60,7 @@ class TestTimetableSessionDetailPartView:
         *,
         agenda_item=None,
         back_url=None,
-        duration_minutes=60,
+        duration_minutes=0,
         availability=(),
     ):
         return {
@@ -164,7 +165,7 @@ class TestTimetableSessionDetailPartView:
     def test_ok_reads_duration_from_iso_value(
         self, panel_client, event, proposal_category
     ):
-        # The factory leaves `duration` unset, which falls back to 60; an
+        # The factory leaves `duration` unset, which reads as no duration; an
         # actual ISO value is what the hours-and-minutes parse runs on.
         session = SessionFactory(
             category=proposal_category,

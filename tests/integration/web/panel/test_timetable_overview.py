@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts.chronology import (
+from ludamus.pacts.timetable import (
     CapacityHoursDTO,
     HeatmapDayDTO,
     HeatmapDTO,

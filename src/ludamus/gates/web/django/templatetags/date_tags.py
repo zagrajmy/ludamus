@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import DateTimeRangeProtocol
+    from ludamus.pacts.time_ranges import DateTimeRangeProtocol
 
 register = template.Library()
 

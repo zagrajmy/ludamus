@@ -37,23 +37,20 @@ from ludamus.pacts.printing import (
     PrintTimetableRowDTO,
     PrintTimetableTileDTO,
 )
+from ludamus.pacts.time_ranges import overlaps
 
 if TYPE_CHECKING:
     from datetime import date, datetime
 
-    from ludamus.pacts import (
-        AgendaItemDTO,
-        AgendaItemRepositoryProtocol,
-        EventRepositoryProtocol,
-        SpaceDTO,
-        SpaceRepositoryProtocol,
-        TrackRepositoryProtocol,
-    )
+    from ludamus.pacts.event import EventRepositoryProtocol
     from ludamus.pacts.printing import (
         PrintablesNotifierProtocol,
         PrintablesReminderRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import AgendaItemDTO, AgendaItemRepositoryProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
+    from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4
@@ -70,8 +67,9 @@ def _to_session(item: AgendaItemDTO) -> PrintSessionDTO:
     return PrintSessionDTO(title=item.session_title, presenter_name=item.presenter_name)
 
 
-def _overlaps(item: AgendaItemDTO, start: datetime, end: datetime) -> bool:
-    return item.start_time < end and item.end_time > start
+def _in_range(item: AgendaItemDTO, time_range: tuple[datetime, datetime]) -> bool:
+    start, end = time_range
+    return overlaps(span=item, start=start, end=end)
 
 
 def _entry_start(entry: DoorCardEntryDTO) -> datetime:
@@ -116,11 +114,9 @@ def _timetable_pages(
     # sheet; none when there are no sessions. Rows are the stretches between
     # the instants the programme changes, so a session is one tile spanning
     # exactly the rows it covers — the shape of the event page's rooms view.
-    # A session across a sheet break is cut into a tile on each sheet. Time
-    # slots are proposer availability windows, not display units (see
-    # mills/timeslots.py), so they play no part here. Instants are keyed as
-    # timestamps: on the night the clocks go back two datetimes an hour apart
-    # compare equal.
+    # A session across a sheet break is cut into a tile on each sheet.
+    # Instants are keyed as timestamps: on the night the clocks go back two
+    # datetimes an hour apart compare equal.
     col = {space.pk: index + 1 for index, space in enumerate(spaces)}
     if not (items := [item for item in items if item.space_id in col]):
         return []
@@ -198,7 +194,7 @@ class PrintMaterialsService:
         )
         items = self._agenda_items.list_by_event(query.event_pk, public_only=True)
         if query.time_range is not None:
-            items = [item for item in items if _overlaps(item, *query.time_range)]
+            items = [item for item in items if _in_range(item, query.time_range)]
         items_by_space = self._group_by_space(items)
 
         cards: list[DoorCardDTO] = []
@@ -253,7 +249,7 @@ class PrintMaterialsService:
         )
         if query.time_range is not None:
             all_items = [
-                item for item in all_items if _overlaps(item, *query.time_range)
+                item for item in all_items if _in_range(item, query.time_range)
             ]
         # One sheet per day and space chunk that holds anything.
         space_pks = {space.pk for space in spaces}
@@ -294,7 +290,7 @@ class PrintMaterialsService:
             else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
-            items = [item for item in items if _overlaps(item, *query.time_range)]
+            items = [item for item in items if _in_range(item, query.time_range)]
         grouped = self._group_by_space(items)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []

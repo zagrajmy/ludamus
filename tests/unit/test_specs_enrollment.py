@@ -2,10 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    PromotionMode,
     PromotionStateDTO,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -47,7 +48,9 @@ def _state(waiting, *, seats=1, presenter_id=None):
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=presenter_id,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 

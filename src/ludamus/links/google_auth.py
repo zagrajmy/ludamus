@@ -16,7 +16,7 @@ from ludamus.links.retry import mount_retries
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
-    from ludamus.pacts.chronology import CheckResult
+    from ludamus.pacts.integrations import CheckResult
 
 
 class _CredentialsFactory(Protocol):

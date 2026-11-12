@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
-from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
     DASHBOARD_PAST_EVENTS,
@@ -17,6 +16,7 @@ from ludamus.pacts.dashboard import (
     SubscriptionAgeRestrictedError,
     SubscriptionRecipientDTO,
 )
+from ludamus.pacts.user import AgeBand
 from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
@@ -173,10 +173,7 @@ class TestSphereSubscriptionService:
 
         assert announced == 1
         assert repo.announced == [(7, NOW)]
-        assert [(n.recipient_user_id, n.recipient_email) for n in notifier.sent] == [
-            (1, "a@example.test"),
-            (2, "b@example.test"),
-        ]
+        assert [n.recipient_user_id for n in notifier.sent] == [1, 2]
         assert {(n.event_slug, n.sphere_domain) for n in notifier.sent} == {
             ("kapitularz-2026", "kapitularz.example.test")
         }

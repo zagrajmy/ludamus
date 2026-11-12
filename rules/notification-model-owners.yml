@@ -1,0 +1,23 @@
+id: notification-model-owners
+language: python
+severity: error
+files:
+  - src/**/*.py
+ignores:
+  - src/ludamus/links/db/django/delivery.py
+  - src/ludamus/links/db/django/notification_inbox.py
+  - src/ludamus/links/db/django/migrations/**
+# Any use of the model's name but its own class statement. Writing rows
+# is bell-row-writes', which exempts only delivery.
+rule:
+  kind: identifier
+  regex: ^Notification$
+  not:
+    inside:
+      kind: class_definition
+      field: name
+message: |
+  The Notification model is delivery's (rows, in their reader's language)
+  and the inbox's (reads and marking read). Ring the bell with `ring`
+  from links/db/django/delivery.py; read it through
+  links/db/django/notification_inbox.py.

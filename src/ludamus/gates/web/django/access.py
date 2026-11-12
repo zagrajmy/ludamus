@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from ludamus.pacts import RequestContext
-    from ludamus.pacts.multiverse import Capability, SphereRole
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.services import RequestContext, ServicesProtocol
+    from ludamus.pacts.sphere import Capability, SphereRole
 
 
 class _UserLike(Protocol):
@@ -43,21 +42,43 @@ class PanelAccess:
         return self.role is not None or self.is_superuser
 
     def allows(self, capability: Capability) -> bool:
-        # Superusers before roles: a superuser who also holds a narrow sphere
-        # role must not be demoted by it.
-        return self.is_superuser or capability in self.capabilities
+        return capability in self.capabilities
+
+
+@dataclass(frozen=True)
+class _AccessMemo:
+    key: tuple[bool, str | None, int]
+    access: PanelAccess
+
+
+# NOTE: the role lookup is an uncached query, and one panel request asks it from
+# the page check, the refusal and the sidebar's context processor.
+_MEMO_ATTR = "_ludamus_panel_access"
 
 
 def panel_access(request: _RequestWithServices) -> PanelAccess:
-    # The role lookup is an uncached query and a panel request asks more than
-    # once (page access, then the write capability), so it is resolved into
-    # one value the callers branch on.
+    key = (
+        request.user.is_authenticated,
+        request.context.current_user_slug,
+        request.context.current_sphere_id,
+    )
+    memo = getattr(request, _MEMO_ATTR, None)
+    if isinstance(memo, _AccessMemo) and memo.key == key:
+        return memo.access
+    access = _resolve_panel_access(request)
+    setattr(request, _MEMO_ATTR, _AccessMemo(key=key, access=access))
+    return access
+
+
+def _resolve_panel_access(request: _RequestWithServices) -> PanelAccess:
     sphere_access = None
     if request.user.is_authenticated and (
         user_slug := request.context.current_user_slug
     ):
         sphere_access = request.services.sphere_panel.access(
-            request.context.current_sphere_id, user_slug
+            request.context.current_sphere_id,
+            user_slug,
+            is_superuser=request.user.is_superuser,
         )
     return PanelAccess(
         role=sphere_access.role if sphere_access else None,

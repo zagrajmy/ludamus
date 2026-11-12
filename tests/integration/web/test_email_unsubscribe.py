@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereSubscription
-from ludamus.links.unsubscribe_tokens import DjangoSphereUnsubscribeTokenCodec
+from ludamus.links.signed_tokens import DjangoSphereUnsubscribeTokenCodec
 from ludamus.pacts.dashboard import SphereUnsubscribeTokenPayload
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
@@ -144,7 +144,7 @@ class TestAnnouncementEmailUnsubscribe:
         self, client, non_root_sphere, active_user
     ):
         SphereSubscription.objects.create(sphere=non_root_sphere, user=active_user)
-        token = DjangoSphereUnsubscribeTokenCodec.dumps(
+        token = DjangoSphereUnsubscribeTokenCodec().dumps(
             SphereUnsubscribeTokenPayload(
                 user_id=active_user.pk,
                 sphere_id=non_root_sphere.pk,

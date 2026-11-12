@@ -4,10 +4,15 @@ from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
-from ludamus.pacts import EncounterDTO, NotFoundError
-from ludamus.pacts.crowd import AgeBand, UserDTO, UserType
-from ludamus.pacts.encounter import EncounterInviteeDTO, EncountersPolicy, InviteeStatus
-from tests.unit.factories import FakeTransaction
+from ludamus.pacts.encounter import (
+    EncounterDTO,
+    EncounterInviteeDTO,
+    EncountersPolicy,
+    InviteeStatus,
+)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from tests.unit.factories import FakeTransaction, FakeUsers
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -68,26 +73,6 @@ class FakeSites:
 
     def read(self, sphere_id):
         return self.rows[sphere_id]
-
-
-class FakeUsers:
-    def __init__(self, users=()):
-        self.users = {user.pk: user for user in users}
-
-    def read_by_id(self, pk):
-        try:
-            return self.users[pk]
-        except KeyError:
-            raise NotFoundError from None
-
-    def read_by_ids(self, pks):
-        return [self.users[pk] for pk in pks if pk in self.users]
-
-    def read_by_email(self, email):
-        for user in self.users.values():
-            if user.email == email:
-                return user
-        raise NotFoundError
 
 
 class FakeSpheres:
@@ -160,15 +145,26 @@ class FakeEncounters:
         return self._visible(self.past, sphere_id, user_id)[:limit]
 
 
+class FakeCache:
+    def __init__(self):
+        self.entries = {}
+        self.timeouts = {}
+
+    def get(self, key):
+        return self.entries.get(key)
+
+    def set(self, key, value, timeout=None):
+        self.entries[key] = value
+        self.timeouts[key] = timeout
+
+
 class FakeRSVPs:
-    def __init__(self, signups=(), *, recent_ips=()):
+    def __init__(self, signups=()):
         # (encounter_id, user_id) pairs
         self.signups = list(signups)
-        self.recent_ips = set(recent_ips)
 
-    def create(self, encounter_id, ip_address, user_id):
+    def create(self, encounter_id, user_id):
         self.signups.append((encounter_id, user_id))
-        self.recent_ips.add(ip_address)
 
     def list_by_encounter(self, encounter_id):
         return [
@@ -183,10 +179,6 @@ class FakeRSVPs:
     def count_by_encounters(self, encounter_ids):
         counts = {pk: self.count_by_encounter(pk) for pk in encounter_ids}
         return {pk: count for pk, count in counts.items() if count}
-
-    def recent_rsvp_exists(self, ip_address, seconds=60):
-        del seconds
-        return ip_address in self.recent_ips
 
     def user_has_rsvpd(self, encounter_id, user_id):
         return (encounter_id, user_id) in self.signups
@@ -264,16 +256,20 @@ class FakeInvitees:
         key = self._key(encounter_id, email)
         return None if key is None else self.rows[key]
 
-    def count_accepted_without_signup(self, encounter_id):
-        return sum(
-            1
-            for invitee in self.list_by_encounter(encounter_id)
-            if invitee.status is InviteeStatus.ACCEPTED
-            and not (
-                invitee.user_id
-                and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+    def count_accepted_without_signup(self, encounter_ids):
+        counts = {
+            encounter_id: sum(
+                1
+                for invitee in self.list_by_encounter(encounter_id)
+                if invitee.status is InviteeStatus.ACCEPTED
+                and not (
+                    invitee.user_id
+                    and self.rsvps.user_has_rsvpd(encounter_id, invitee.user_id)
+                )
             )
-        )
+            for encounter_id in encounter_ids
+        }
+        return {pk: count for pk, count in counts.items() if count}
 
     def emails_invited_by_creator_since(self, creator_id, since):
         return {
@@ -345,17 +341,18 @@ class EncounterWorld:
         policy=EncountersPolicy.EVERYONE,
         encounters=(),
         signups=(),
-        recent_ips=(),
         users=None,
         invitees=(),
         invited_today=(),
     ):
         self.encounters = FakeEncounters(encounters)
-        self.rsvps = FakeRSVPs(signups, recent_ips=recent_ips)
+        self.rsvps = FakeRSVPs(signups)
         self.users = FakeUsers(
-            users
-            if users is not None
-            else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            *(
+                users
+                if users is not None
+                else [make_user(CREATOR_ID), make_user(OTHER_USER_ID)]
+            )
         )
         self.invitees = FakeInvitees(
             invitees,
@@ -372,6 +369,7 @@ class EncounterWorld:
             users=self.users,
             sites=self.sites,
             mailer=self.mailer,
+            cache=FakeCache(),
         )
 
     def service(self):

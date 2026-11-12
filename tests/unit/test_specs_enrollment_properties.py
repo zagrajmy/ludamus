@@ -14,10 +14,11 @@ from hypothesis import strategies as st
 
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
+    PromotionMode,
     PromotionStateDTO,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from ludamus.specs.enrollment import select_promotable_parties
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -50,7 +51,9 @@ def _state(waiting: list[WaitingParticipantDTO], *, seats: int) -> PromotionStat
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 
@@ -95,7 +98,11 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=draw(st.none() | st.sampled_from(_USERS)),
-        available_seats=draw(st.integers(min_value=0, max_value=6)),
+        seats=SessionSeatsDTO(
+            participants_limit=draw(st.integers(min_value=0, max_value=6)),
+            seating_percentage=None,
+            enrolled_count=0,
+        ),
         waiting=waiting,
         shadowbanned_user_ids=frozenset(
             draw(st.sets(st.sampled_from(_USERS), max_size=2))
@@ -145,7 +152,7 @@ def _initial_slots(state: PromotionStateDTO) -> dict[int, int]:
 def test_never_seats_more_than_the_seats_left(state):
     selected = select_promotable_parties(state)
 
-    assert sum(len(party) for party in selected) <= state.available_seats
+    assert sum(len(party) for party in selected) <= state.seats.seats_left
 
 
 @given(promotion_states())
@@ -170,6 +177,8 @@ def test_never_spends_more_slots_than_an_owner_has(state):
 @example(
     _state([_member(user_id=1, order=0, slots=0), _member(user_id=2, order=1)], seats=1)
 )
+# Both parties fit, so the first is charged before the second is judged.
+@example(_state([_member(user_id=1, order=0), _member(user_id=2, order=1)], seats=2))
 def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     selected = [_ids(party) for party in select_promotable_parties(state)]
     parties = _eligible_parties(state)
@@ -200,7 +209,7 @@ def test_promotes_the_head_of_the_line_when_it_fits(state):
     head = parties[0]
     needed = _slots_needed(head)
     slots = _initial_slots(state)
-    fits = len(head) <= state.available_seats and all(
+    fits = len(head) <= state.seats.seats_left and all(
         n <= slots[owner] for owner, n in needed.items()
     )
 

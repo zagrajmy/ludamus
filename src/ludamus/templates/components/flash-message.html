@@ -1,0 +1,22 @@
+{% load i18n tessera %}
+{% comment %}
+One flash: `level` is a message level tag (error, warning, success, info) and
+`text` what it says. flash.ts clones a blank error one from the page's
+#flash-templates, so a client-raised flash is this same markup.
+{% endcomment %}
+<div class="alert backdrop-blur-lg flex items-center {% if level == 'error' %}alert-danger{% elif level == 'warning' %}alert-warning{% elif level == 'success' %}alert-success{% else %}alert-info{% endif %}"
+     data-flash="{% if level == 'error' or level == 'warning' %}sticky{% else %}transient{% endif %}"
+     {% if level == 'error' or level == 'warning' %}role="alert" aria-live="assertive"{% else %}role="status" aria-live="polite"{% endif %}>
+    {% if level == "error" or level == "warning" %}
+        {% icon "exclamation-triangle" class="w-5 h-5 mr-3 shrink-0" %}
+    {% elif level == "success" %}
+        {% icon "check-circle" class="w-5 h-5 mr-3 shrink-0" %}
+    {% else %}
+        {% icon "information-circle" class="w-5 h-5 mr-3 shrink-0" %}
+    {% endif %}
+    <span class="text-sm" data-flash-text>{{ text }}</span>
+    <button type="button"
+            data-flash-dismiss
+            class="ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+            aria-label="{% translate "Dismiss" %}">{% icon "x-mark" class="w-4 h-4" %}</button>
+</div>

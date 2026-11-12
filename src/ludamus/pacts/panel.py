@@ -8,29 +8,44 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
-
 if TYPE_CHECKING:
     from ludamus.pacts.availability import AvailabilityDTO
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
-    from ludamus.pacts.event import FacilitatorListItemDTO
-    from ludamus.pacts.fields import OrganizerFieldDTO
-    from ludamus.pacts.guild import GuildRepositoryProtocol
-    from ludamus.pacts.legacy import (
+    from ludamus.pacts.event import EventRepositoryProtocol, FacilitatorListItemDTO
+    from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
+        FacilitatorRepositoryProtocol,
+    )
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
         PersonalDataFieldRepositoryProtocol,
+        PersonalDataFieldValueData,
         PersonalDataFieldValueRepositoryProtocol,
+        SessionFieldRepositoryProtocol,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.guild import GuildRepositoryProtocol
+    from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldRequirementDTO,
+    )
+    from ludamus.pacts.sessions import (
+        SessionContentEditData,
         SessionData,
         SessionDTO,
-        SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
-        TrackRepositoryProtocol,
     )
+    from ludamus.pacts.timetable import (
+        AgendaItemDTO,
+        AgendaItemRepositoryProtocol,
+        ScheduleChangeLogDTO,
+        ScheduleChangeLogRepositoryProtocol,
+    )
+    from ludamus.pacts.tracks import TrackDTO, TrackRepositoryProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 class SourceRowIdMissingError(Exception):
@@ -66,6 +81,21 @@ class PanelFieldProtocol(Protocol):
     name: str
     slug: str
     order: int
+
+
+FIELD_KEY_PREFIX = "field_"
+
+# Which built-in columns each list offers, in their default order. The gates
+# layer decides what they are called and how their cells render.
+FACILITATOR_BUILTIN_KEYS = (
+    "name",
+    "linked",
+    "guild",
+    "sessions",
+    "accreditation",
+    "organizer",
+)
+PROPOSAL_BUILTIN_KEYS = ("title", "host", "category", "status", "created")
 
 
 @dataclass
@@ -117,11 +147,11 @@ class ProposalListQuery:
 
     `raw_field_filters` is keyed by session-field pk with the value untouched
     from the query string; the service resolves it against the event's own
-    fields. `category`, `status`, and `sort` are raw request values too.
+    fields. `category_pk`, `status`, and `sort` are request values too.
     """
 
     search: str = ""
-    category: str = ""
+    category_pk: int | None = None
     status: str = ""
     track_pk: int | None = None
     multi_tracks: bool = False
@@ -133,13 +163,12 @@ class ProposalListQuery:
 class ProposalDraft:
     """A new proposal as the create form spelled it.
 
-    `base_slug` is the slugified title — the service uniquifies it.
+    The service slugs and uniquifies `data["title"]`.
     `field_values` holds parsed session-field answers keyed by field pk; the
     service attaches the session id once the row exists.
     """
 
     data: SessionData
-    base_slug: str
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
     track_ids: list[int] = field(default_factory=list)
@@ -200,16 +229,114 @@ class ProposalPanelRepos:
     tracks: TrackRepositoryProtocol
 
 
-class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):
-    @staticmethod
-    def lock(event_id: int) -> None: ...
+@dataclass
+class ProposalRecordRepos:
+    """What one proposal's page reads beside the event's own catalogue."""
+
+    agenda_items: AgendaItemRepositoryProtocol
+    schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+    personal_data_fields: PersonalDataFieldRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
+
+
+@dataclass
+class ProposalScheduleDTO:
+    """Where a proposal stands on the timetable, and how it got there."""
+
+    agenda_item: AgendaItemDTO | None
+    logs: list[ScheduleChangeLogDTO]
+    availability: list[AvailabilityDTO]
+
+
+@dataclass
+class ProposalDetailDTO:
+    """Read aggregate for one proposal's panel page."""
+
+    proposal: SessionDTO
+    category_name: str | None
+    tracks: list[TrackDTO]
+    field_values: list[SessionFieldValueDTO]
+    facilitators: list[FacilitatorDTO]
+    presenter: UserDTO | None
+    schedule: ProposalScheduleDTO
+
+
+@dataclass
+class ProposalFormFieldsDTO:
+    """The proposal form's category-dependent part.
+
+    `category` is the one the form renders fields for: the requested one if
+    the event has it, else the proposal's own, else the event's first.
+    `session_fields` names the answers the category no longer asks for, so it
+    is only read for an existing proposal.
+    """
+
+    proposal: SessionDTO | None
+    categories: list[ProposalCategoryDTO]
+    category: ProposalCategoryDTO | None
+    requirements: list[SessionFieldRequirementDTO]
+    field_values: list[SessionFieldValueDTO]
+    session_fields: list[OrganizerFieldDTO]
+
+
+@dataclass
+class ProposalAssignmentsDTO:
+    """What a proposal is assigned to now; empty for one not yet created."""
+
+    facilitators: list[FacilitatorDTO] = field(default_factory=list)
+    track_ids: list[int] = field(default_factory=list)
+    availability: list[AvailabilityDTO] = field(default_factory=list)
+
+
+@dataclass
+class ProposalFormDTO:
+    """Read aggregate for the proposal create/edit page.
+
+    The pickers offer the event's facilitators and tracks; the parts of days
+    on offer come from the event's own hours.
+    Personal data belongs to an existing proposal's facilitators, so a create
+    page reads none.
+    """
+
+    fields: ProposalFormFieldsDTO
+    facilitators: list[FacilitatorListItemDTO]
+    tracks: list[TrackDTO]
+    assigned: ProposalAssignmentsDTO
+    personal_data_fields: list[OrganizerFieldDTO]
+    personal_data_values: dict[int, dict[str, str | list[str] | bool]]
+
+
+@dataclass
+class ProposalEdit:
+    """An organizer's save of the proposal form: content, then personal data."""
+
+    content: SessionContentEditData
+    personal_data: dict[int, list[PersonalDataFieldValueData]] = field(
+        default_factory=dict
+    )
+
+
+class ProposalPageServiceProtocol(Protocol):
+    def detail(self, *, event_id: int, proposal_id: int) -> ProposalDetailDTO: ...
+    def form_fields(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormFieldsDTO: ...
+    def form(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormDTO: ...
+    def update(
+        self, *, event_id: int, proposal_id: int, user_id: int, edit: ProposalEdit
+    ) -> None: ...
+    def set_facilitators(
+        self, *, event_id: int, proposal_id: int, facilitator_ids: list[int]
+    ) -> None: ...
 
 
 @dataclass
 class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
-    events: FacilitatorPanelEventRepositoryProtocol
+    events: EventRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -261,12 +388,11 @@ class FacilitatorFilterOptionsDTO:
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
-    `values` holds parsed personal-data answers keyed by field pk;
-    `base_slug` is the slugified display name — the service uniquifies it.
+    `values` holds parsed personal-data answers keyed by field pk. The service
+    slugs `display_name` itself.
     """
 
     display_name: str
-    base_slug: str
     accreditation_type: str
     is_collective: bool = False
     organizer_id: int | None = None
@@ -297,17 +423,29 @@ class FacilitatorMergeData:
     keep_values_from: dict[int, int] = field(default_factory=dict)
 
 
+MIN_MERGE_FACILITATORS = 2
+
+
 @dataclass
 class FacilitatorMergeContextDTO:
     """Read aggregate for the merge reconcile screen.
 
-    `values` maps facilitator pk -> field slug -> that facilitator's answer,
-    so the screen can offer a per-attribute choice where sources disagree.
+    Each choice list offers a control only where the sources disagree, with the
+    target's own answer checked; an empty list means every source agrees, and
+    the matching `unanimous_*` value is what the merge keeps.
+    `accreditation_choices` holds (value, source names, checked);
+    `field_conflicts` holds per field (holder pk, answer, source names, checked).
     """
 
     facilitators: list[FacilitatorDTO]
-    fields: list[OrganizerFieldDTO]
-    values: dict[int, dict[str, str | list[str] | bool]]
+    target: FacilitatorDTO
+    name_choices: list[tuple[str, bool]]
+    unanimous_display_name: str | None
+    accreditation_choices: list[tuple[str, str, bool]]
+    unanimous_accreditation: str | None
+    field_conflicts: list[
+        tuple[OrganizerFieldDTO, list[tuple[int, str | list[str] | bool, str, bool]]]
+    ]
 
 
 class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
@@ -338,7 +476,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]: ...
     def merge_context(
-        self, *, event_id: int, facilitator_slugs: list[str]
+        self, *, event_id: int, facilitator_slugs: list[str], target_slug: str
     ) -> FacilitatorMergeContextDTO: ...
     def merge(
         self,

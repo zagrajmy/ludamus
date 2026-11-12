@@ -4,7 +4,7 @@ severity: error
 files:
   - src/ludamus/templates/**/*.html
 ignores:
-  - src/ludamus/templates/components/flash-messages.html
+  - src/ludamus/templates/components/flash-message.html
   - src/ludamus/templates/design.html
 rule:
   kind: attribute

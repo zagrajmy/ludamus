@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
     Party,
     PartyMembership,
-    ScheduleChangeAction,
     ScheduleChangeLog,
     SessionAvailability,
     SphereMembership,
@@ -24,8 +23,10 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.availability import DayPart
 from ludamus.pacts.discounts import DiscountMethod
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.sphere import SphereRole
+from ludamus.pacts.timetable import ScheduleChangeAction
 from tests.integration.conftest import EventFactory, SessionFactory
 
 
@@ -34,17 +35,17 @@ class TestEventIsPublished:
         event = EventFactory(
             sphere=sphere, publication_time=datetime.now(UTC) - timedelta(days=1)
         )
-        assert event.is_published is True
+        assert EventDTO.model_validate(event).is_published is True
 
     def test_not_published_when_publication_time_in_future(self, sphere):
         event = EventFactory(
             sphere=sphere, publication_time=datetime.now(UTC) + timedelta(days=1)
         )
-        assert event.is_published is False
+        assert EventDTO.model_validate(event).is_published is False
 
     def test_not_published_when_publication_time_is_none(self, sphere):
         event = EventFactory(sphere=sphere, publication_time=None)
-        assert event.is_published is False
+        assert EventDTO.model_validate(event).is_published is False
 
 
 class TestSphereClean:

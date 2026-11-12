@@ -9,7 +9,6 @@
                 hx-swap="outerHTML">← {% translate "Back" %}</button>
         <h3 class="font-semibold text-foreground text-sm">{% translate "Session details" %}</h3>
     </div>
-    <!-- Session title and host -->
     <div class="mb-3">
         <div class="font-medium text-foreground">{{ session.title }}</div>
         {% for facilitator in facilitators %}
@@ -23,7 +22,6 @@
         {% translate "View proposal" as t_view_proposal %}
         {% tessera_button t_view_proposal href=proposal_url button_type="button" variant="secondary" size="sm" icon="document-text" %}
     </div>
-    <!-- Meta: duration, capacity, age -->
     <div class="flex flex-wrap gap-3 text-xs text-foreground-muted mb-3">
         {% if duration_minutes %}
             <span>{% icon "clock" class="w-3.5 h-3.5 inline" %} {{ duration_minutes }} min</span>
@@ -35,11 +33,9 @@
             <span>{% icon "shield-exclamation" class="w-3.5 h-3.5 inline" %} {% blocktranslate with age=session.min_age %}{{ age }}+{% endblocktranslate %}</span>
         {% endif %}
     </div>
-    <!-- Description -->
     {% if session.description %}
         <div class="text-sm text-foreground-secondary mb-3 line-clamp-4">{{ session.description }}</div>
     {% endif %}
-    <!-- Current assignment -->
     <div class="mb-3">
         <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Assignment" %}</div>
         {% if agenda_item %}

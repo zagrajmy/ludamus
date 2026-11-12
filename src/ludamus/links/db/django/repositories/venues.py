@@ -6,7 +6,6 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max, Value, prefetch_related_objects
 from django.db.models.functions import Lower
 from django.utils import timezone
-from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
     DEFAULT_SPACE_NAME,
@@ -19,21 +18,21 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories import slugs
 from ludamus.links.db.django.repositories.constraints import violates_constraint
-from ludamus.pacts import (
-    NotFoundError,
-    SpaceDTO,
-    SpaceRepositoryProtocol,
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.tracks import (
+    DuplicateTrackNameError,
     TrackCreateData,
     TrackDTO,
+    TrackFormData,
     TrackListItemDTO,
     TrackRepositoryProtocol,
-    TrackUpdateData,
 )
-from ludamus.pacts.tracks import DuplicateTrackNameError
 from ludamus.pacts.venues import (
     ProgrammeSpaceRowDTO,
+    SpaceDTO,
     SpaceInputDTO,
     SpaceRecordDTO,
+    SpaceRepositoryProtocol,
     SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
     SpaceValidationError,
@@ -159,14 +158,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         ]
 
     @staticmethod
-    def read(pk: int) -> SpaceRecordDTO:
-        try:
-            space = Space.objects.get(pk=pk)
-        except Space.DoesNotExist as err:
-            raise NotFoundError from err
-        return SpaceRecordDTO.model_validate(space)
-
-    @staticmethod
     def read_in_event(event_id: int, pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(event_id=event_id, pk=pk)
@@ -179,7 +170,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO:
         Event.objects.select_for_update().get(pk=event_id)
-        slug = self.generate_unique_slug(event_id, parent_id, slugify(data.name))
+        slug = self.generate_unique_slug(event_id, parent_id, data.name)
         max_order = Space.objects.filter(
             event_id=event_id, parent_id=parent_id
         ).aggregate(top=Max("order"))["top"]
@@ -224,7 +215,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             space.name = data.name
             space.parent_id = parent_id
             space.slug = self.generate_unique_slug(
-                space.event_id, parent_id, slugify(data.name), exclude_pk=pk
+                space.event_id, parent_id, data.name, exclude_pk=pk
             )
         if parent_changed:
             # Append to the end of the new parent's sibling list.
@@ -324,14 +315,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @staticmethod
     def generate_unique_slug(
-        event_id: int,
-        parent_id: int | None,
-        base_slug: str,
-        exclude_pk: int | None = None,
+        event_id: int, parent_id: int | None, name: str, exclude_pk: int | None = None
     ) -> str:
         return slugs.generate_unique_slug(
             queryset=Space.objects.filter(event_id=event_id, parent_id=parent_id),
-            base_slug=base_slug,
+            name=name,
+            fallback="space",
             exclude_pk=exclude_pk,
         )
 
@@ -371,7 +360,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             event_id=event_id,
             parent_id=parent_id,
             name=clone_name,
-            slug=self.generate_unique_slug(event_id, parent_id, slugify(clone_name)),
+            slug=self.generate_unique_slug(event_id, parent_id, clone_name),
             capacity=source.capacity,
             description=source.description,
             location=source.location,
@@ -414,8 +403,7 @@ class TrackRepository(TrackRepositoryProtocol):
     @transaction.atomic
     def create(self, data: TrackCreateData) -> TrackDTO:
         Event.objects.select_for_update().get(pk=data["event_pk"])
-        base_slug = slugify(data["name"])
-        slug = self.generate_unique_slug(data["event_pk"], base_slug)
+        slug = self.generate_unique_slug(data["event_pk"], data["name"])
         try:
             track = Track.objects.create(
                 event_id=data["event_pk"],
@@ -467,7 +455,7 @@ class TrackRepository(TrackRepositoryProtocol):
         return Track.objects.create(event_id=event_id, slug=slug, name=name).pk
 
     @transaction.atomic
-    def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:
+    def update(self, pk: int, data: TrackFormData) -> TrackDTO:
         try:
             track = Track.objects.select_for_update().get(pk=pk)
             Event.objects.select_for_update().get(pk=track.event_id)
@@ -476,9 +464,8 @@ class TrackRepository(TrackRepositoryProtocol):
             raise NotFoundError(msg) from err
         needs_save = False
         if track.name != data["name"]:
-            base_slug = slugify(data["name"])
             track.slug = self.generate_unique_slug(
-                track.event_id, base_slug, exclude_pk=pk
+                track.event_id, data["name"], exclude_pk=pk
             )
             track.name = data["name"]
             needs_save = True
@@ -540,11 +527,12 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def generate_unique_slug(
-        event_id: int, base_slug: str, exclude_pk: int | None = None
+        event_id: int, name: str, exclude_pk: int | None = None
     ) -> str:
         return slugs.generate_unique_slug(
             queryset=Track.objects.filter(event_id=event_id),
-            base_slug=base_slug,
+            name=name,
+            fallback="track",
             exclude_pk=exclude_pk,
         )
 

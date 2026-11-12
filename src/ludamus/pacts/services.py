@@ -5,30 +5,15 @@ and reached from gates: the transaction adapter and the flat
 `request.services` namespace.
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
+
+from ludamus.pacts.sphere import SphereVisibility
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
-    from ludamus.pacts.chronology import (
-        EventIntegrationsServiceProtocol,
-        PartySessionHistoryServiceProtocol,
-        ProposalAcceptanceServiceProtocol,
-        ProposalStatusServiceProtocol,
-        SessionConfirmationServiceProtocol,
-        SessionContentEditServiceProtocol,
-        SessionDeletionServiceProtocol,
-        SessionModalServiceProtocol,
-        SessionSelfEditServiceProtocol,
-    )
-    from ludamus.pacts.crowd import (
-        ClaimServiceProtocol,
-        CompanionsServiceProtocol,
-        CrowdAuthServiceProtocol,
-        EmailVerificationServiceProtocol,
-        ProfileServiceProtocol,
-    )
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
         SphereSubscriptionServiceProtocol,
@@ -44,6 +29,7 @@ if TYPE_CHECKING:
         EnrollmentSettingsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.enrollment_member import MemberEnrollmentServiceProtocol
     from ludamus.pacts.errata import ErrataServiceProtocol
     from ludamus.pacts.event import (
         EventConfirmationsServiceProtocol,
@@ -51,25 +37,27 @@ if TYPE_CHECKING:
         EventsServiceProtocol,
         LandingServiceProtocol,
     )
+    from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
+    from ludamus.pacts.ids import SiteId, SphereId, UserId
+    from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
-    from ludamus.pacts.multiverse import (
-        AnnouncementsServiceProtocol,
-        ConnectionsServiceProtocol,
-        SitesServiceProtocol,
-        SpherePanelServiceProtocol,
-    )
     from ludamus.pacts.notifications import (
         NotificationsServiceProtocol,
         NotificationSubscriptionsServiceProtocol,
     )
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
+        ProposalPageServiceProtocol,
         ProposalPanelServiceProtocol,
+    )
+    from ludamus.pacts.parley import (
+        ParleyConversationServiceProtocol,
+        ParleyServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
@@ -77,9 +65,7 @@ if TYPE_CHECKING:
         PrintMaterialsServiceProtocol,
     )
     from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
-    from ludamus.pacts.propose import ProposeSessionServiceProtocol
-    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
-    from ludamus.pacts.submissions import (
+    from ludamus.pacts.propose import (
         CFPPersonalDataFieldServiceProtocol,
         CFPSessionFieldServiceProtocol,
         ImportFieldLayoutServiceProtocol,
@@ -87,6 +73,26 @@ if TYPE_CHECKING:
         PersonalDataFieldValueServiceProtocol,
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
+        ProposeSessionServiceProtocol,
+    )
+    from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
+    from ludamus.pacts.session_cards import (
+        PartySessionHistoryServiceProtocol,
+        SessionModalServiceProtocol,
+    )
+    from ludamus.pacts.sessions import (
+        ProposalAcceptanceServiceProtocol,
+        ProposalStatusServiceProtocol,
+        SessionConfirmationServiceProtocol,
+        SessionContentEditServiceProtocol,
+        SessionDeletionServiceProtocol,
+        SessionSelfEditServiceProtocol,
+    )
+    from ludamus.pacts.sphere import (
+        AnnouncementsServiceProtocol,
+        ConnectionsServiceProtocol,
+        SitesServiceProtocol,
+        SpherePanelServiceProtocol,
     )
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
@@ -96,6 +102,13 @@ if TYPE_CHECKING:
         TimetableServiceProtocol,
     )
     from ludamus.pacts.tracks import TracksPanelServiceProtocol
+    from ludamus.pacts.user import (
+        ClaimServiceProtocol,
+        CompanionsServiceProtocol,
+        CrowdAuthServiceProtocol,
+        EmailVerificationServiceProtocol,
+        ProfileServiceProtocol,
+    )
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -116,6 +129,10 @@ class TransactionProtocol(Protocol):
 
 
 class ServicesProtocol(Protocol):
+    @property
+    def parley(self) -> ParleyServiceProtocol: ...
+    @property
+    def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
@@ -149,6 +166,8 @@ class ServicesProtocol(Protocol):
     @property
     def session_modal(self) -> SessionModalServiceProtocol: ...
     @property
+    def event_schedule(self) -> EventScheduleServiceProtocol: ...
+    @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
@@ -160,7 +179,6 @@ class ServicesProtocol(Protocol):
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
-    @property
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
@@ -184,6 +202,8 @@ class ServicesProtocol(Protocol):
     @property
     def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
     @property
+    def proposal_page(self) -> ProposalPageServiceProtocol: ...
+    @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
     def proposal_acceptance(self) -> ProposalAcceptanceServiceProtocol: ...
@@ -199,6 +219,8 @@ class ServicesProtocol(Protocol):
     ) -> NotificationSubscriptionsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
+    @property
+    def member_enrollment(self) -> MemberEnrollmentServiceProtocol: ...
     @property
     def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
     @property
@@ -249,3 +271,26 @@ class ServicesProtocol(Protocol):
     def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+
+
+@dataclass
+class RequestContext:
+    current_site_id: SiteId
+    current_sphere_id: SphereId
+    root_site_id: SiteId
+    root_sphere_id: SphereId
+    current_user_slug: str | None = None
+    current_user_id: UserId | None = None
+    current_sphere_visibility: SphereVisibility = SphereVisibility.PUBLIC
+
+
+@dataclass
+class AuthenticatedRequestContext(RequestContext):
+    current_user_slug: str
+    current_user_id: UserId
+
+
+class RootRequestProtocol(Protocol):
+    path: str
+    services: ServicesProtocol
+    context: RequestContext

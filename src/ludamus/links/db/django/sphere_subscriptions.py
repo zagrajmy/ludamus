@@ -14,14 +14,14 @@ from django.conf import settings
 
 from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import Event, Sphere, SphereSubscription, User
-from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     SphereEventAnnouncementDTO,
     SphereSubscriptionRepositoryProtocol,
     SubscriptionRecipientDTO,
 )
-from ludamus.pacts.legacy import NotFoundError
-from ludamus.pacts.multiverse import SphereVisibility
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import SphereVisibility
+from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
     from datetime import datetime

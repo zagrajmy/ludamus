@@ -6,9 +6,9 @@ from django.urls import reverse
 from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import Facilitator
-from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
 from ludamus.pacts.availability import part_of, programme_date
-from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.timetable import UNSCHEDULED_LIST_LIMIT, UnscheduledSessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,

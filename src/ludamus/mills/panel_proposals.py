@@ -1,40 +1,56 @@
-"""The organizer's proposals list: filters, sorting, columns, and create path."""
+"""The organizer's proposals: the list, one proposal's page, and their writes."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
-    FIELD_KEY_PREFIX,
-    PROPOSAL_BUILTIN_KEYS,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
 )
-from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
+    FIELD_KEY_PREFIX,
+    PROPOSAL_BUILTIN_KEYS,
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
+    ProposalAssignmentsDTO,
+    ProposalDetailDTO,
     ProposalDraft,
+    ProposalFormDTO,
+    ProposalFormFieldsDTO,
     ProposalListContextDTO,
+    ProposalPageServiceProtocol,
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
+    ProposalScheduleDTO,
     SourceRowIdMissingError,
 )
+from ludamus.pacts.propose import is_empty_answer
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.submissions import is_empty_answer
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.slugs import unique_slug
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
-    from ludamus.pacts import (
-        OrganizerFieldDTO,
+    from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.panel import (
+        PanelColumnsContextDTO,
+        ProposalEdit,
+        ProposalListQuery,
+        ProposalRecordRepos,
+    )
+    from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+    from ludamus.pacts.propose import PersonalDataFieldValueServiceProtocol
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sessions import (
+        SessionContentEditServiceProtocol,
         SessionData,
         SessionDTO,
         SessionListItemDTO,
     )
-    from ludamus.pacts.panel import PanelColumnsContextDTO, ProposalListQuery
-    from ludamus.pacts.services import TransactionProtocol
 
 
 def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
@@ -82,9 +98,11 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         }
 
         categories = self._repos.proposal_categories.list_by_event(event_id)
-        category_pk = int(query.category) if query.category.isdigit() else None
-        if category_pk not in {c.pk for c in categories}:
-            category_pk = None
+        category_pk = (
+            query.category_pk
+            if query.category_pk in {c.pk for c in categories}
+            else None
+        )
 
         # Only a real status or the "scheduled" pseudo-filter narrows the list;
         # anything else (STATUS_ALL, junk) shows every proposal. Which status an
@@ -259,9 +277,9 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     ) -> int:
         self._validate_create_draft(event_id=event_id, draft=draft)
         slug = unique_slug(
-            base=draft.base_slug,
-            default="session",
+            draft.data.get("title", ""),
             exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
+            fallback="session",
         )
         payload: SessionData = {
             **draft.data,
@@ -288,3 +306,190 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if draft.availability:
             self._repos.sessions.set_availability(session_id, draft.availability)
         return session_id
+
+
+def _resolve_category(
+    categories: Sequence[ProposalCategoryDTO],
+    *,
+    requested_id: int | None,
+    proposal: SessionDTO | None,
+) -> ProposalCategoryDTO | None:
+    # The category drives which session fields render, but it is picked inside
+    # the same form: a submitted or swapped-in value wins, then the stored one
+    # (edit), then the event's first category (fresh create).
+    if not categories:
+        return None
+    if requested := next((c for c in categories if c.pk == requested_id), None):
+        return requested
+    if proposal is not None:
+        return next((c for c in categories if c.pk == proposal.category_id), None)
+    return categories[0]
+
+
+def _owned(requested: list[int] | None, owned: Iterable[int]) -> list[int] | None:
+    # None leaves an assignment untouched; ids the event does not own are
+    # dropped rather than written.
+    if requested is None:
+        return None
+    return sorted(set(requested) & set(owned))
+
+
+class ProposalPageService(ProposalPageServiceProtocol):
+    """One proposal's panel pages: its detail, its form, and the form's save.
+
+    Every method scopes the proposal id to the event before it reads or writes
+    anything, so a foreign id is NotFound with no side effect.
+    """
+
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: ProposalPanelRepos,
+        records: ProposalRecordRepos,
+        content_edit: SessionContentEditServiceProtocol,
+        personal_data: PersonalDataFieldValueServiceProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._repos = repos
+        self._records = records
+        self._content_edit = content_edit
+        self._personal_data = personal_data
+
+    def detail(self, *, event_id: int, proposal_id: int) -> ProposalDetailDTO:
+        sessions = self._repos.sessions
+        proposal = sessions.read_by_event(proposal_id, event_id)
+        categories = (
+            self._repos.proposal_categories.list_by_event(event_id)
+            if proposal.category_id is not None
+            else []
+        )
+        track_ids = set(sessions.read_track_ids(proposal_id))
+        return ProposalDetailDTO(
+            proposal=proposal,
+            category_name=next(
+                (c.name for c in categories if c.pk == proposal.category_id), None
+            ),
+            tracks=[
+                track
+                for track in self._repos.tracks.list_by_event(event_id)
+                if track.pk in track_ids
+            ],
+            field_values=sessions.read_field_values(proposal_id),
+            facilitators=sessions.read_facilitators(proposal_id),
+            presenter=sessions.read_presenter(proposal_id),
+            schedule=ProposalScheduleDTO(
+                agenda_item=self._records.agenda_items.read_by_session(proposal_id),
+                logs=self._records.schedule_change_logs.list_by_session(proposal_id),
+                availability=sessions.read_availability(proposal_id),
+            ),
+        )
+
+    def form_fields(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormFieldsDTO:
+        proposal = (
+            None
+            if proposal_id is None
+            else self._repos.sessions.read_by_event(proposal_id, event_id)
+        )
+        categories = self._repos.proposal_categories.list_by_event(event_id)
+        category = _resolve_category(
+            categories, requested_id=category_id, proposal=proposal
+        )
+        return ProposalFormFieldsDTO(
+            proposal=proposal,
+            categories=categories,
+            category=category,
+            requirements=(
+                self._repos.proposal_categories.list_session_field_requirements(
+                    category.pk
+                )
+                if category is not None
+                else []
+            ),
+            field_values=(
+                self._repos.sessions.read_field_values(proposal.pk) if proposal else []
+            ),
+            session_fields=(
+                self._repos.session_fields.list_by_event(event_id) if proposal else []
+            ),
+        )
+
+    def form(
+        self, *, event_id: int, proposal_id: int | None, category_id: int | None
+    ) -> ProposalFormDTO:
+        fields = self.form_fields(
+            event_id=event_id, proposal_id=proposal_id, category_id=category_id
+        )
+        assigned = ProposalAssignmentsDTO()
+        personal_fields: list[OrganizerFieldDTO] = []
+        if (proposal := fields.proposal) is not None:
+            sessions = self._repos.sessions
+            assigned = ProposalAssignmentsDTO(
+                facilitators=sessions.read_facilitators(proposal.pk),
+                track_ids=sessions.read_track_ids(proposal.pk),
+                availability=sessions.read_availability(proposal.pk),
+            )
+            personal_fields = self._records.personal_data_fields.list_by_event(event_id)
+        return ProposalFormDTO(
+            fields=fields,
+            facilitators=self._repos.facilitators.list_by_event(event_id),
+            tracks=self._repos.tracks.list_by_event(event_id),
+            assigned=assigned,
+            personal_data_fields=personal_fields,
+            personal_data_values=(
+                self._records.personal_data_field_values.list_values_for_facilitators(
+                    [f.pk for f in assigned.facilitators],
+                    [f.pk for f in personal_fields],
+                )
+                if assigned.facilitators and personal_fields
+                else {}
+            ),
+        )
+
+    def update(
+        self, *, event_id: int, proposal_id: int, user_id: int, edit: ProposalEdit
+    ) -> None:
+        # One savepoint around every write: a constraint or data error rolls
+        # the whole save back and re-raises as DatabaseConstraintError, which
+        # the caller shows as a form error with the input preserved.
+        with self._transaction.savepoint():
+            self._repos.sessions.read_by_event(proposal_id, event_id)
+            content = edit.content
+            self._content_edit.apply(
+                session_id=proposal_id,
+                event_id=event_id,
+                user_id=user_id,
+                data=replace(
+                    content,
+                    facilitator_ids=_owned(
+                        content.facilitator_ids,
+                        (
+                            f.pk
+                            for f in self._repos.facilitators.list_by_event(event_id)
+                        ),
+                    ),
+                    track_ids=_owned(
+                        content.track_ids,
+                        (t.pk for t in self._repos.tracks.list_by_event(event_id)),
+                    ),
+                ),
+            )
+            for facilitator_id, entries in edit.personal_data.items():
+                self._personal_data.update_personal_data(
+                    event_id=event_id,
+                    facilitator_id=facilitator_id,
+                    entries=entries,
+                    user_id=user_id,
+                )
+
+    def set_facilitators(
+        self, *, event_id: int, proposal_id: int, facilitator_ids: list[int]
+    ) -> None:
+        with self._transaction.atomic():
+            self._repos.sessions.read_by_event(proposal_id, event_id)
+            owned = {f.pk for f in self._repos.facilitators.list_by_event(event_id)}
+            self._repos.sessions.set_facilitators(
+                proposal_id, sorted(set(facilitator_ids) & owned)
+            )

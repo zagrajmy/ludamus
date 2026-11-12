@@ -16,18 +16,16 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorListItemDTO,
-    SessionDTO,
-    SessionStatus,
-    SpaceDTO,
-)
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.availability import part_of, programme_date
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
+)
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import (
     SessionPositionDTO,
     SpaceColumnDTO,
     SpaceGroupDTO,
@@ -35,7 +33,7 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.venues import SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -432,7 +430,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
         "schedule_logs": [],
         "field_values": [],
         "facilitators": [],
-        "presenter": UserDTO.model_validate(presenter),
+        "presenter": user_dto(presenter),
         "availability": [],
         "import_log_entry": None,
         "import_log_integration": None,
@@ -452,7 +450,9 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     )
 
 
-def make_optional_session_field(*, event, category, slug="system", name="System"):
+def make_session_field(
+    *, event, category, slug="system", name="System", is_required=False
+):
     field = SessionField.objects.create(
         event=event,
         name=name,
@@ -462,7 +462,7 @@ def make_optional_session_field(*, event, category, slug="system", name="System"
         order=0,
     )
     SessionFieldRequirement.objects.create(
-        category=category, field=field, is_required=False, order=0
+        category=category, field=field, is_required=is_required, order=0
     )
     return field
 
