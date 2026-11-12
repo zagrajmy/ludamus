@@ -16,8 +16,10 @@ from pydantic import BaseModel
 from ludamus.pacts.user import AgeBand
 
 # How much of each section a dashboard holds before it stops being a glance.
-# The agenda is uncapped: it is what this member already committed to, and
-# hiding part of that is worse than a long column.
+# The agenda is never cut, only folded: past this many rows the rest waits
+# behind a disclosure on the same page, so a long column does not push the
+# row of sections beside it down the screen. A held seat is never folded.
+DASHBOARD_AGENDA_GLANCE = 5
 DASHBOARD_SPHERE_FEED = 12
 DASHBOARD_OPEN_ENCOUNTERS = 8
 DASHBOARD_SPHERES_TO_DISCOVER = 6
@@ -76,8 +78,10 @@ class DashboardSphereDTO(BaseModel):
 
 
 class DashboardDTO(BaseModel):
-    # What this member holds or starred, soonest first.
+    # What this member holds or starred, soonest first: the rows in view,
+    # then the folded rest.
     agenda: list[DashboardCardDTO]
+    agenda_more: list[DashboardCardDTO]
     # Open encounters anyone may join, across every sphere.
     open_encounters: list[DashboardCardDTO]
     # What is coming up where this member already plays, minus their own rows.

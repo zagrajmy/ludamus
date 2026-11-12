@@ -20,6 +20,9 @@ test.describe("Dashboard", () => {
 
     const comingUp = page.getByRole("region", { name: "Coming up" });
     const card = comingUp.getByRole("link", { name: /Starred Dungeon Crawl/ });
+    await expect(card).toBeHidden();
+    await comingUp.getByText(/Show \d+ more/).click();
+    await expect(card).toBeVisible();
     await expect(card).toContainText("Foreign Programme");
     await expect(card).toContainText("Bookmarked · 5 spots left");
     await expect(card).toHaveAttribute(
