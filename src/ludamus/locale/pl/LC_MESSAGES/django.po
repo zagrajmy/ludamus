@@ -2696,6 +2696,11 @@ msgstr ""
 "ustawieniach wydarzenia."
 
 #: src/ludamus/gates/web/django/event/panel/views/timetable.py
+#: src/ludamus/gates/web/django/event/views.py
+msgid "There is already a session scheduled at this space and time."
+msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
+
+#: src/ludamus/gates/web/django/event/panel/views/timetable.py
 msgid "This placement is invalid."
 msgstr "To umiejscowienie jest nieprawidłowe."
 
@@ -2887,10 +2892,6 @@ msgstr "Zapisy otwarte"
 #, python-format
 msgid "Your enrollment opens %(day)s at %(time)s"
 msgstr "Twoje zapisy ruszają %(day)s o %(time)s"
-
-#: src/ludamus/gates/web/django/event/views.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/event/views.py
 #, python-brace-format

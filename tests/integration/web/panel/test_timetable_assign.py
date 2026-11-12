@@ -342,11 +342,7 @@ class TestTimetableAssignView:
             ),
         )
 
-        assert_response(
-            response,
-            HTTPStatus.UNPROCESSABLE_ENTITY,
-            content=(b"There is already a session scheduled at this space and time."),
-        )
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         assert not AgendaItem.objects.filter(session=challenger).exists()
 
     def test_reassigns_already_scheduled_session_to_new_slot(
