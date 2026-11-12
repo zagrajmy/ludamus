@@ -285,9 +285,15 @@ test("A moderator reports, deletes and mutes someone else's message", async ({ p
   ]);
   await page.keyboard.press("Escape");
 
+  // Nothing is sent until the reporter vouches for the report.
+  const vouch = panel.getByRole("alertdialog", { name: copy.reportMessage });
   await choose(copy.reportMessage);
+  await expect(vouch).toContainText(copy.reportConfirm);
+  expect(reports).toHaveLength(0);
+  await vouch.getByRole("button", { name: copy.reportMessage }).click();
   await expect(panel.getByRole("status").filter({ hasText: copy.reported })).toBeVisible();
   await choose(copy.reportMessage);
+  await vouch.getByRole("button", { name: copy.reportMessage }).click();
   await expect(panel.getByRole("alert")).toHaveText(copy.errorUnknown);
 
   await choose(copy.muteOneHour);

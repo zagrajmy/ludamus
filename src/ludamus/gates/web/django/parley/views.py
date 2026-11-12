@@ -103,7 +103,11 @@ def _copy() -> dict[str, str]:
         "unread": _("Unread"),
         "copyLink": _("Copy message link"),
         "reportMessage": _("Report message"),
-        "reported": _("Message reported."),
+        "reported": _("Message reported. Zagrajmy staff will write to you."),
+        "reportConfirm": _(
+            "Report this message to Zagrajmy staff? You confirm you are reporting"
+            " it in good faith and that the report is accurate."
+        ),
         "cancelLabel": _("Cancel"),
         "mutedUntil": _("Your writing access is muted until %(time)s."),
         "typingOne": _("%(name)s is typing…"),
@@ -258,6 +262,9 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
 def report(request: RootHttpRequest) -> JsonResponse:
     if request.context.current_user_id is None:
         return JsonResponse({"error": "authentication_required"}, status=401)
+    # DSA Art. 16(2)(d): the reporter vouches for the report.
+    if request.POST.get("good_faith") != "1":
+        return JsonResponse({"error": "invalid_report"}, status=422)
     try:
         data = ParleyReportData(
             sphere_id=request.context.current_sphere_id,
@@ -273,6 +280,9 @@ def report(request: RootHttpRequest) -> JsonResponse:
     )
     if not created:
         return JsonResponse({"error": "invalid_report"}, status=422)
+    request.services.chat_report_intake.take(
+        reporter_id=data.user_id, room_id=data.room_id, message_id=data.message_id
+    )
     logger.info(
         "Parley message reported",
         extra={

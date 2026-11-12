@@ -107,6 +107,7 @@ export type Copy = Record<
   | "removeLabel"
   | "removeMember"
   | "removeSelected"
+  | "reportConfirm"
   | "reported"
   | "reportMessage"
   | "requestFrom"

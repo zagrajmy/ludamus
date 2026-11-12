@@ -107,6 +107,10 @@ test("Someone blocked stays out of sight in a group and in the common room", asy
   // A conversation's messages are reported like any room's.
   await actionsOf(panel, "Ada says hi").click();
   await menuOf(page).getByRole("menuitem", { name: copy.reportMessage }).click();
+  await panel
+    .getByRole("alertdialog", { name: copy.reportMessage })
+    .getByRole("button", { name: copy.reportMessage })
+    .click();
   await expect(panel.getByText(copy.reported)).toBeVisible();
   expect(reports[0]).toContain("conversation:20");
 

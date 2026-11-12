@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+    <form method="post">
+        {% csrf_token %}
+        {% for item in items %}
+            <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+        {% endfor %}
+        <input type="hidden" name="action" value="{{ action }}">
+        <p>
+            {{ lead }}
+            {% for item in items %}{{ item }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+        <p>{{ consequence }}</p>
+        {{ form.as_p }}
+        <input type="submit" name="apply" value="{{ submit_label }}">
+        <a href="." class="button">Cancel</a>
+    </form>
+{% endblock content %}

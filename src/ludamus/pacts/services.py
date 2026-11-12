@@ -47,6 +47,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
+    from ludamus.pacts.moderation import (
+        ActiveRecipientsServiceProtocol,
+        ChatReportIntakeServiceProtocol,
+        ModerationDecisionServiceProtocol,
+        NoticeServiceProtocol,
+        StatementOfReasonsServiceProtocol,
+    )
     from ludamus.pacts.notifications import (
         NotificationsServiceProtocol,
         NotificationSubscriptionsServiceProtocol,
@@ -242,6 +249,16 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def notices(self) -> NoticeServiceProtocol: ...
+    @property
+    def chat_report_intake(self) -> ChatReportIntakeServiceProtocol: ...
+    @property
+    def statements_of_reasons(self) -> StatementOfReasonsServiceProtocol: ...
+    @property
+    def moderation_decisions(self) -> ModerationDecisionServiceProtocol: ...
+    @property
+    def active_recipients(self) -> ActiveRecipientsServiceProtocol: ...
     @property
     def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property
