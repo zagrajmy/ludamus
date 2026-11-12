@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -13,24 +14,24 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
     EventPublicationInvalidError,
     EventSlugConflictError,
-    LandingConventionDTO,
-    LandingStatsDTO,
-)
-from ludamus.pacts.legacy import (
-    EventDTO,
     EventStatsData,
     EventUpdateData,
-    NotFoundError,
+    LandingConventionDTO,
+    LandingStatsDTO,
     PanelStatsDTO,
-    TrackDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import FakeTransaction, event_dto, track_dto
+
+if TYPE_CHECKING:
+    from ludamus.pacts.tracks import TrackDTO
 
 SPHERE = 10
 OTHER_SPHERE = 11
@@ -239,12 +240,13 @@ class TestRequireInEvent:
         with pytest.raises(NotFoundError):
             require_session_in_event(sessions=sessions, session_pk=5, event_pk=EVENT)
 
-    def test_a_session_of_the_event_passes(self):
-        sessions = FakeSessions({5: _event(pk=EVENT)})
+    def test_a_session_of_the_event_yields_its_event(self):
+        event = _event(pk=EVENT)
+        sessions = FakeSessions({5: event})
 
         assert (
             require_session_in_event(sessions=sessions, session_pk=5, event_pk=EVENT)
-            is None
+            == event
         )
 
     def test_a_track_of_another_event_is_not_found(self):
@@ -341,7 +343,9 @@ class TestEventPanelService:
         events = FakeEvents([_event(), _event(pk=OTHER_EVENT, slug="other")])
         events.rows[3] = _event(pk=3, slug="foreign", sphere_id=OTHER_SPHERE)
 
-        context = EventPanelService(events).load_context(SPHERE, "conf")
+        context = EventPanelService(events).load_context(
+            sphere_id=SPHERE, current_event=events.rows[EVENT]
+        )
 
         assert context.current_event.pk == EVENT
         assert [e.pk for e in context.events] == [EVENT, OTHER_EVENT]

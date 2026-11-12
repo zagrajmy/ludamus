@@ -44,7 +44,7 @@ def _query_count(client, url):
     return len(ctx.captured_queries)
 
 
-@pytest.mark.usefixtures("_subscribed_session")
+@pytest.mark.usefixtures("_subscribed_session", "_settled_language")
 class TestConfirmationsQueryBounds:
     def test_dashboard_bounded_queries(
         self, authenticated_client, active_user, sphere, confirmations_scale_data

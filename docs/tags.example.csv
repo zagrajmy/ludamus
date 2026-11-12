@@ -1,0 +1,11 @@
+category,name,slug,parent
+activity,Mörk Borg,mork-borg,osr
+activity,TTRPG,ttrpg,
+activity,OSR,osr,ttrpg
+activity,Zew Cthulhu,,ttrpg
+activity,Gra planszowa,gra-planszowa,
+activity,Wsiąść do pociągu,wsiasc-do-pociagu,gra-planszowa
+genre,Horror,horror,
+genre,Fantasy,fantasy,
+experience,Początkujący,poczatkujacy,
+experience,Doświadczony,doswiadczony,

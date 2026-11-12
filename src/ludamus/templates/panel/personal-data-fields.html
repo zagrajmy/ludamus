@@ -9,118 +9,105 @@
     {% translate "CFP Fields" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}{{ current_event.name }}{% endif %}
+    {{ current_event.name }}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
-        {% url 'panel:personal-data-field-create' slug=current_event.slug as create_url %}
-        {% translate "New Field" as create_label %}
-        {% tessera_button create_label href=create_url icon="plus" %}
-    {% endif %}
+    {% url 'panel:personal-data-field-create' slug=current_event.slug as create_url %}
+    {% translate "New Field" as create_label %}
+    {% tessera_button create_label href=create_url icon="plus" %}
 {% endblock header_actions %}
 {% block content %}
     {# Assigned once: the same confirmation for every row. #}
     {% translate "Are you sure you want to delete this field?" as confirm_delete %}
-    {% if current_event %}
-        {% tab_shell "panel/_cfp_tabs.html" %}
-            {% tab_shell_body %}
-                <div class="alert backdrop-blur-lg alert-info mb-6">
-                    <div class="flex items-start gap-3">
-                        <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
-                        <div>
-                            <p class="text-sm font-medium">{% translate "What are Host Data Fields?" %}</p>
-                            <p class="text-sm mt-1">
-                                {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. Every proposer at the event is asked the same questions once, whatever they propose." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% if fields %}
-                    {% tessera_table %}
-                        <thead class="bg-bg-tertiary">
-                            <tr>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Name" context "place" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Type" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Answers" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Actions" %}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-bg-secondary divide-y divide-border">
-                            {% for entry in fields %}
-                                <tr class="hover:bg-bg-tertiary">
-                                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                        {{ entry.field.name }}
-                                        {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
-                                        {% if entry.field.is_required %}
-                                            <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-bg text-warning-text">
-                                                {% translate "Required" %}
+    {% tab_shell "panel/_cfp_tabs.html" %}
+        {% tab_shell_body %}
+            <div class="mb-6">
+                <h2 class="text-sm font-semibold">{% translate "What are Host Data Fields?" %}</h2>
+                <p class="text-sm text-foreground-muted mt-1">
+                    {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. Every proposer at the event is asked the same questions once, whatever they propose." %}
+                </p>
+            </div>
+            {% if fields %}
+                {% tessera_table %}
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Name" context "place" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Type" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Answers" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-bg-secondary divide-y divide-border">
+                        {% for entry in fields %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
+                                    {{ entry.field.name }}
+                                    {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
+                                    {% if entry.field.is_required %}
+                                        <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-bg text-warning-text">
+                                            {% translate "Required" %}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                    {% if entry.field.field_type == "select" %}
+                                        {% translate "Select" %}
+                                        <span class="text-foreground-muted">({{ entry.field.options|length }})</span>
+                                        {% if entry.field.is_multiple %}
+                                            <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info-text">
+                                                {% translate "Multiple" %}
                                             </span>
                                         {% endif %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {% if entry.field.field_type == "select" %}
-                                            {% translate "Select" %}
-                                            <span class="text-foreground-muted">({{ entry.field.options|length }})</span>
-                                            {% if entry.field.is_multiple %}
-                                                <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info-text">
-                                                    {% translate "Multiple" %}
-                                                </span>
-                                            {% endif %}
-                                            {% if entry.field.allow_custom %}
-                                                <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success-text">
-                                                    {% translate "Custom" %}
-                                                </span>
-                                            {% endif %}
-                                        {% elif entry.field.field_type == "checkbox" %}
-                                            {% translate "Checkbox" %}
-                                        {% elif entry.field.field_type == "discord" %}
-                                            {% translate "Discord username" %}
-                                        {% else %}
-                                            {% translate "Text" %}
+                                        {% if entry.field.allow_custom %}
+                                            <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success-text">
+                                                {% translate "Custom" %}
+                                            </span>
                                         {% endif %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {% if entry.answer_count %}
-                                            {{ entry.answer_count }}
-                                        {% else %}
-                                            <span class="text-foreground-muted italic">{% translate "No answers yet" %}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <a href="{% url 'panel:personal-data-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
-                                           data-row-action
-                                           class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                                        {% url 'panel:personal-data-field-delete' slug=current_event.slug field_slug=entry.field.slug as delete_url %}
-                                        {% include "components/_row_delete_action.html" with reason=undeletable_field_reasons|get_item:entry.field.pk action_url=delete_url confirm=confirm_delete csrf_token=csrf_token only %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    {% endtessera_table %}
-                {% else %}
-                    <div class="card p-8 text-center">
-                        <p class="text-foreground-muted">
-                            {% translate "No personal data fields defined. Add fields to collect host information." %}
-                        </p>
-                    </div>
-                {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
-    {% else %}
-        <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-        </div>
-    {% endif %}
+                                    {% elif entry.field.field_type == "checkbox" %}
+                                        {% translate "Checkbox" %}
+                                    {% elif entry.field.field_type == "discord" %}
+                                        {% translate "Discord username" %}
+                                    {% else %}
+                                        {% translate "Text" %}
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                    {% if entry.answer_count %}
+                                        {{ entry.answer_count }}
+                                    {% else %}
+                                        <span class="text-foreground-muted italic">{% translate "No answers yet" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="{% url 'panel:personal-data-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
+                                       data-row-action
+                                       class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                    {% url 'panel:personal-data-field-delete' slug=current_event.slug field_slug=entry.field.slug as delete_url %}
+                                    {% include "components/_row_delete_action.html" with reason=undeletable_field_reasons|get_item:entry.field.pk action_url=delete_url confirm=confirm_delete csrf_token=csrf_token only %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                {% end_tessera_table %}
+            {% else %}
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted">
+                        {% translate "No personal data fields defined. Add fields to collect host information." %}
+                    </p>
+                </div>
+            {% endif %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

@@ -1,6 +1,6 @@
 import { type Locator } from "@playwright/test";
 
-import { signInAsManager } from "./helpers/auth";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // Read-only over the `harbour-days` seed (bootstrap_confirmations.py): an
@@ -14,9 +14,7 @@ function badge(scope: Locator, label: string) {
 }
 
 test.describe("Proposal status badge", () => {
-  test.beforeEach(async ({ page }) => {
-    await signInAsManager(page);
-  });
+  test.use({ storageState: managerState });
 
   test("a placed session reads Scheduled on every panel page", async ({ page }) => {
     await page.goto(`${EVENT_URL}/proposals/?status=all`);

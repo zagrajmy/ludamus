@@ -23,7 +23,8 @@ from ludamus.links.db.django.models import (
     Session,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
-from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -183,6 +184,26 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(
                 event, basket=[adam], search_query="Adam", search_results=[nowak]
             ),
+        )
+
+    def test_basket_carries_the_organizer_name(self, panel_client, event):
+        organizer = UserFactory(name="Olga Organizer")
+        adam = _make_facilitator(
+            event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            organizer=organizer,
+        )
+
+        response = panel_client.get(
+            self.get_url(event), {"facilitator_slugs": ["adam-kowalski"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam]),
         )
 
     def test_add_and_remove_adjust_the_basket(self, panel_client, event):

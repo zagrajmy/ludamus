@@ -1,5 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
@@ -38,6 +38,33 @@ const djangoTemplateReload = (): Plugin => ({
   name: "django-template-reload",
 });
 
+// The chat's emoji picker reads Emojibase data from the site itself: the CSP
+// keeps connect-src to 'self', so the CDN Frimousse defaults to is out.
+const emojibaseDir = dirname(fileURLToPath(import.meta.resolve("emojibase-data/package.json")));
+const EMOJIBASE_FILES = ["en", "pl"].flatMap((locale) =>
+  ["data", "messages"].map((file) => `${locale}/${file}.json`),
+);
+const emojibase = (): Plugin => ({
+  configureServer(server) {
+    server.middlewares.use("/static/vite/emojibase/", (request, response, next) => {
+      const file = request.url?.slice(1);
+      if (file === undefined || !EMOJIBASE_FILES.includes(file)) return next();
+      response.setHeader("Content-Type", "application/json");
+      response.end(readFileSync(resolve(emojibaseDir, file)));
+    });
+  },
+  generateBundle() {
+    for (const file of EMOJIBASE_FILES) {
+      this.emitFile({
+        fileName: `emojibase/${file}`,
+        source: readFileSync(resolve(emojibaseDir, file)),
+        type: "asset",
+      });
+    }
+  },
+  name: "emojibase",
+});
+
 export default defineConfig({
   base: "/static/vite/",
   build: {
@@ -58,11 +85,13 @@ export default defineConfig({
         "design-page": resolve(rootDir, "src/design-page.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         dropzone: resolve(rootDir, "src/dropzone.ts"),
+        "duration-list": resolve(rootDir, "src/duration-list.ts"),
         "encounter-detail": resolve(rootDir, "src/encounter-detail.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
         "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
+        "field-picker": resolve(rootDir, "src/field-picker.ts"),
         "filter-autosubmit": resolve(rootDir, "src/filter-autosubmit.ts"),
         flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
@@ -70,16 +99,18 @@ export default defineConfig({
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         "konwencik-preview": resolve(rootDir, "src/konwencik-preview.ts"),
         landing: resolve(rootDir, "src/landing.ts"),
+        "markdown-editor": resolve(rootDir, "src/markdown-editor.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "multiselect-filter": resolve(rootDir, "src/multiselect-filter.ts"),
         "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
+        parley: resolve(rootDir, "src/parley/index.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
         "programme-space-order": resolve(rootDir, "src/programme-space-order.ts"),
         prologue: resolve(rootDir, "src/prologue.ts"),
-        "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
+        "propose-copy": resolve(rootDir, "src/propose-copy.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "schedule-fold": resolve(rootDir, "src/schedule-fold.ts"),
         "schedule-now": resolve(rootDir, "src/schedule-now.ts"),
@@ -87,6 +118,7 @@ export default defineConfig({
         "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
+        "show-when": resolve(rootDir, "src/show-when.ts"),
         sound: resolve(rootDir, "src/sound.ts"),
         "space-tree": resolve(rootDir, "src/space-tree.ts"),
         "staging-inbox": resolve(rootDir, "src/staging-inbox.ts"),
@@ -102,7 +134,7 @@ export default defineConfig({
   define: {
     __KONWENCIK_ICON_STYLES__: JSON.stringify(konwencikIconStyles),
   },
-  plugins: [djangoTemplateReload(), tailwindcss()],
+  plugins: [djangoTemplateReload(), emojibase(), tailwindcss()],
   server: {
     cors: {
       origin: /^https?:\/\/(localhost|127\.0\.0\.1|([a-z0-9-]+\.)+(localhost|local))(:\d+)?$/,

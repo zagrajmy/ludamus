@@ -21,8 +21,8 @@ from ludamus.pacts.team import (
 from ludamus.specs.permissions import INVITATION_LIFETIME
 
 if TYPE_CHECKING:
-    from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRole
     from ludamus.pacts.team import (
         SphereInvitationDTO,
         SphereTeamRepositoryProtocol,
@@ -54,7 +54,7 @@ class SphereTeamService(SphereTeamServiceProtocol):
     def invite(
         self, *, sphere_id: int, role: SphereRole, note: str, invited_by_id: int
     ) -> IssuedInvitationDTO:
-        token = secrets.token_urlsafe(32)
+        token = secrets.token_urlsafe()
         with self._transaction.atomic():
             invitation = self._team.create_invitation(
                 {
@@ -66,6 +66,27 @@ class SphereTeamService(SphereTeamServiceProtocol):
                     "expires_at": datetime.now(tz=UTC) + INVITATION_LIFETIME,
                 }
             )
+        return IssuedInvitationDTO(invitation=invitation, token=token)
+
+    def reissue(
+        self, *, sphere_id: int, pk: int, reissued_by_id: int
+    ) -> IssuedInvitationDTO | None:
+        token = secrets.token_urlsafe()
+        now = datetime.now(tz=UTC)
+        with self._transaction.atomic():
+            invitation = self._team.rotate_open_invitation(
+                sphere_id=sphere_id,
+                pk=pk,
+                rotation={
+                    "token_hash": token_hash(token),
+                    "created_by_id": reissued_by_id,
+                    "creation_time": now,
+                    "expires_at": now + INVITATION_LIFETIME,
+                },
+                now=now,
+            )
+        if invitation is None:
+            return None
         return IssuedInvitationDTO(invitation=invitation, token=token)
 
     def revoke(self, *, sphere_id: int, pk: int) -> bool:

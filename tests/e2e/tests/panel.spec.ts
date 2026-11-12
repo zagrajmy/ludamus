@@ -2,6 +2,7 @@ import { type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import { EMPTY_SPHERE } from "./helpers/urls";
 
@@ -93,16 +94,7 @@ test("panel sends a manager of an empty sphere to create its first event", async
 test.describe.configure({ mode: "serial" });
 
 test.describe("Backoffice Panel", () => {
-  test.beforeEach(async ({ page }) => {
-    // Log in via Django admin as the manager user.
-    // Use domcontentloaded — the login form is interactable at DCL and
-    // Firefox occasionally never fires `load` for this page, hanging the
-    // default goto until the test timeout (CI run 25398374365).
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   test("opens panel dashboard with sidebar and stats", async ({ page }) => {
     await page.goto("/panel/");
@@ -300,6 +292,42 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
   });
 
+  test("shows a rejected slug and end time next to their fields", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/settings/");
+
+    await page.getByLabel("Slug").fill("thornwood-days");
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("An event with this slug already exists.")).toBeVisible();
+    await expect(page.getByLabel("Slug")).toHaveValue("thornwood-days");
+
+    await page.getByLabel("Slug").fill("frostfire-con");
+    await page.getByLabel("End time").fill(await page.getByLabel("Start time").inputValue());
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("End time must be after start time.")).toBeVisible();
+  });
+
+  test("writes the proposal description as Markdown", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/settings/proposals/");
+
+    const description = page.getByRole("textbox", { name: "Proposal Description" });
+    const original = await description.inputValue();
+    try {
+      await description.fill("Bring **one-shots**");
+      await expect(
+        description.locator("xpath=following-sibling::pre[1]").locator(".mdhl-strong"),
+      ).toHaveText("**one-shots**");
+      await page.getByRole("button", { name: "Save Settings" }).click();
+
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+      await expect(description).toHaveValue("Bring **one-shots**");
+    } finally {
+      await page.goto("/panel/event/frostfire-con/settings/proposals/");
+      await description.fill(original);
+      await page.getByRole("button", { name: "Save Settings" }).click();
+      await expect(page.getByText("Proposal settings saved successfully.")).toBeVisible();
+    }
+  });
+
   // --- Step 2: Venues List, Create, Detail, Edit ---
 
   test("lists the space tree for the event", async ({ page }) => {
@@ -384,7 +412,14 @@ test.describe("Backoffice Panel", () => {
 
   test("edits a space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    const originalVenue = page.getByRole("listitem").filter({
+      has: page.getByText("Aurora Convention Hall", { exact: true }),
+    });
+    const galleryEdit = originalVenue.getByRole("link", {
+      name: "Edit Frost Gallery",
+      exact: true,
+    });
+    await galleryEdit.click();
 
     await expect(page.locator("#id_name")).toHaveValue("Frost Gallery");
 
@@ -392,8 +427,8 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
 
-    // Restore original capacity
-    await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
+    await galleryEdit.click();
+    await expect(page.locator("#id_capacity")).toHaveValue("40");
     await page.locator("#id_capacity").fill("30");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Space updated successfully.")).toBeVisible();
@@ -594,7 +629,10 @@ test.describe("Backoffice Panel", () => {
     await expect(requiredBox).toBeVisible();
     await page.locator("#id_field_type").selectOption("checkbox");
     await expect(requiredBox).toBeHidden();
-    await expect(requiredBox).not.toBeChecked();
+    // Out of the answer, so it can't submit; switching back keeps the tick.
+    await expect(requiredBox).toBeDisabled();
+    await page.locator("#id_field_type").selectOption("text");
+    await expect(requiredBox).toBeChecked();
 
     await page.goto("/panel/event/frostfire-con/cfp/session-fields/create/");
     const requirementSelect = firstCategoryRequirementSelect(page);
@@ -612,6 +650,20 @@ test.describe("Backoffice Panel", () => {
       disabled: true,
     });
     await expect(requirementSelect).toHaveValue("optional");
+  });
+
+  test("field create forms refuse a select without options", async ({ page }) => {
+    for (const path of ["personal-data", "session-fields"]) {
+      await page.goto(`/panel/event/frostfire-con/cfp/${path}/create/`);
+      await page.locator("#id_name").fill("Empty Select");
+      await page.locator("#id_question").fill("Pick one?");
+      await page.locator("#id_field_type").selectOption("select");
+      await page.getByRole("button", { name: "Create" }).click();
+
+      await expect(
+        page.getByText("Add at least one option, or allow custom values."),
+      ).toBeVisible();
+    }
   });
 
   test("cfp picker shows checkbox fields as optional only", async ({ page }, testInfo) => {
@@ -674,7 +726,7 @@ test.describe("Backoffice Panel", () => {
   test("shows time slots page", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
 
-    await expect(page.getByRole("heading", { name: "Time Slots" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Time Slots", exact: true })).toBeVisible();
   });
 
   test("creates, edits, and deletes a time slot", async ({ page }) => {

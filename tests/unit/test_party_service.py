@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
 from ludamus.mills.party import PartyService
-from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
     ENROLL_WITHOUT_PARTY,
     CompanionAddOutcome,
@@ -24,6 +24,7 @@ from ludamus.pacts.party import (
     PartyMemberDTO,
     PartyMembershipStatus,
 )
+from ludamus.pacts.user import AgeBand, CompanionDTO, UserType
 from tests.unit.factories import FakeTransaction
 
 VIEWER_PK = 1
@@ -496,6 +497,8 @@ def _party(pk, *, is_leader=False, members=()):
 
 def _companion_dto():
     return CompanionDTO(
+        privacy_revision=UUID(int=1),
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",

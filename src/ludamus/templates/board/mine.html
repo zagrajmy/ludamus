@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% load empty_state_tags %}
+{% block title %}
+    {% translate "My listings" %}
+{% endblock title %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <div class="max-w-3xl w-full mx-auto">
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-foreground">{% translate "My listings" %}</h1>
+            <div class="flex flex-wrap gap-2">
+                {% url 'web:board:index' as board_url %}
+                {% translate "Board" as t_board %}
+                {% tessera_button text=t_board href=board_url variant="secondary" %}
+                {% url 'web:board:create' as create_url %}
+                {% translate "Add listing" as t_add_listing %}
+                {% tessera_button text=t_add_listing href=create_url icon="plus" %}
+            </div>
+        </div>
+        {% if listings %}
+            <ul class="rounded-lg border border-border bg-bg-secondary divide-y divide-border overflow-hidden">
+                {% for listing in listings %}
+                    {% include "board/_card.html" with show_status=True %}
+                {% endfor %}
+            </ul>
+        {% else %}
+            {% translate "You have no listings yet" as t_empty_title %}
+            {% translate "Add one, and people looking for the same thing will find you on the board." as t_empty_text %}
+        {% empty_state icon="megaphone" title=t_empty_title text=t_empty_text %}
+        {% end_empty_state %}
+{% endif %}
+</div>
+{% endblock body %}

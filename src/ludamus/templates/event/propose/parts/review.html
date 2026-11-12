@@ -1,17 +1,20 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera django_vite %}
-<div id="wizard-content">
+{% load markdown_tags %}
+<div id="wizard-content" class="card card-body max-w-2xl mx-auto">
     {% include "event/propose/parts/_proposal_description.html" %}
     {% include "event/propose/parts/_stepper.html" %}
     {% if review|default:"" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "Review & Submit" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">{% translate "Please review your proposal before submitting." %}</p>
         <div class="space-y-4 break-words">
-            <div class="border border-border rounded-2xl p-5">
-                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Category" %}</h3>
-                <p class="text-foreground">{{ review.category_name }}</p>
-            </div>
+            {% if review.category_name %}
+                <div class="border border-border rounded-2xl p-5">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Category" %}</h3>
+                    <p class="text-foreground">{{ review.category_name }}</p>
+                </div>
+            {% endif %}
             <div class="border border-border rounded-2xl p-5">
                 <h3 class="text-sm font-medium text-foreground-muted mb-2">
                     {% translate "Session" context "proposal review heading" %}
@@ -33,8 +36,8 @@
                     {% if review.description %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Description" %}</dt>
-                            <dd class="text-foreground text-sm whitespace-pre-line">
-                                {{ review.description }}
+                            <dd class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground">
+                                {{ review.description|render_markdown }}
                             </dd>
                         </div>
                     {% endif %}
@@ -125,7 +128,7 @@
                     {% if review.contact_email %}
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
-                            <dd class="text-foreground">
+                            <dd class="text-foreground" data-ph-mask>
                                 {{ review.contact_email }}
                             </dd>
                         </div>

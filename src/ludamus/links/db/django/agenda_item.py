@@ -8,16 +8,17 @@ from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.links.db.django.session_visibility import public_scheduled_sessions
-from ludamus.pacts import (
+from ludamus.pacts.discounts import FacilitatorScheduleRow
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import (
     AgendaItemData,
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
     AgendaItemUpdateData,
-    NotFoundError,
-    SessionStatus,
+    ConfirmationCountsRow,
+    ConfirmationTotalsRow,
 )
-from ludamus.pacts.discounts import FacilitatorScheduleRow
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -72,6 +73,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         session_description=item.session.description,
         presenter_name=item.session.facilitator_name,
         session_duration_minutes=duration_minutes,
+        session_participants_limit=item.session.participants_limit,
         session_status=SessionStatus(item.session.status),
         category_name=(
             item.session.category.name if item.session.category is not None else None

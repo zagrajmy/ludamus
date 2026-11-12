@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from ludamus.mills import team as team_mills
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.team import (
     AcceptInvitationOutcome,
     InvitationPreviewDTO,
@@ -18,7 +18,7 @@ INVITATION_PK = 13
 MEMBER = TeamMemberDTO(
     user_id=INVITER_PK, name="Inviter", email=None, role=SphereRole.MANAGER
 )
-# secrets.token_urlsafe(32): 32 random bytes, base64-encoded without padding.
+# secrets.token_urlsafe() default: 32 random bytes, base64 without padding.
 URLSAFE_32_BYTES_LENGTH = 43
 HASH_OF_TOK = team_mills.token_hash("tok")
 
@@ -48,9 +48,9 @@ class StubTeam:
         self.open_invitation = open_invitation
         self.add_succeeds = add_succeeds
         self.created = []
-        self.added = []
-        self.accepted = []
+        self.writes = []
         self.clock = []
+        self.role_lookups = []
 
     @staticmethod
     def list_members(*, sphere_id):
@@ -58,7 +58,8 @@ class StubTeam:
 
     def list_open_invitations(self, *, sphere_id, now):
         self.clock.append(now)
-        return []
+        listed = self.open_invitation is not None and sphere_id == SPHERE_PK
+        return [self.open_invitation] if listed else []
 
     def create_invitation(self, data):
         self.created.append(data)
@@ -66,38 +67,71 @@ class StubTeam:
             update={"note": data["note"], "expires_at": data["expires_at"]}
         )
 
+    def rotate_open_invitation(self, *, sphere_id, pk, rotation, now):
+        self.clock.append(now)
+        if not self._is_open(sphere_id=sphere_id, pk=pk):
+            return None
+        self.created.append(rotation)
+        return self.open_invitation.model_copy(
+            update={"expires_at": rotation["expires_at"]}
+        )
+
     def delete_open_invitation(self, *, sphere_id, pk, now):
         self.clock.append(now)
-        return True
+        return self._is_open(sphere_id=sphere_id, pk=pk)
 
     @staticmethod
     def read_sphere_name(*, sphere_id):
         return f"Sphere {sphere_id}"
 
     def read_open_invitation(self, *, sphere_id, token_hash, now):
-        if self.open_invitation is None:
+        self.clock.append(now)
+        if not self._is_linked(sphere_id=sphere_id, token_hash=token_hash):
             return None
         return InvitationPreviewDTO(
             role=self.open_invitation.role, invited_by="Inviter"
         )
 
     def lock_open_invitation(self, *, sphere_id, token_hash, now):
-        # Only the digest of the link's token finds it.
-        return self.open_invitation if token_hash == HASH_OF_TOK else None
+        self.clock.append(now)
+        linked = self._is_linked(sphere_id=sphere_id, token_hash=token_hash)
+        return self.open_invitation if linked else None
 
     def read_member_role(self, *, sphere_id, user_id):
-        return self.member_role
+        self.role_lookups.append(user_id)
+        is_newcomer = (sphere_id, user_id) == (SPHERE_PK, NEWCOMER_PK)
+        return self.member_role if is_newcomer else None
 
     def add_member(self, *, sphere_id, user_id, role):
-        self.added.append((user_id, role))
+        self.writes.append(("add", sphere_id, user_id, role))
         return self.add_succeeds
 
     def mark_accepted(self, *, pk, user_id, now):
-        self.accepted.append((pk, user_id))
+        self.clock.append(now)
+        self.writes.append(("accept", pk, user_id))
+
+    def _is_open(self, *, sphere_id, pk):
+        return self.open_invitation is not None and (sphere_id, pk) == (
+            SPHERE_PK,
+            self.open_invitation.pk,
+        )
+
+    def _is_linked(self, *, sphere_id, token_hash):
+        # Only the digest of the link's token finds it.
+        return self.open_invitation is not None and (sphere_id, token_hash) == (
+            SPHERE_PK,
+            HASH_OF_TOK,
+        )
 
 
 def _service(team):
     return team_mills.SphereTeamService(transaction=FakeTransaction(), team=team)
+
+
+def _assert_judged_now(team, *, before, expected_calls):
+    after = datetime.now(tz=UTC)
+    assert len(team.clock) == expected_calls
+    assert all(before <= moment <= after for moment in team.clock)
 
 
 def _accept(service):
@@ -128,17 +162,51 @@ class TestInvite:
         assert first.invitation.expires_at <= datetime.now(tz=UTC) + timedelta(days=7)
         assert first.invitation.note == "Kasia, programme"
         assert team.created[0]["created_by_id"] == INVITER_PK
+        assert team.created[0]["sphere_id"] == SPHERE_PK
+
+
+class TestReissue:
+    def test_a_new_link_replaces_the_old_one_for_another_week(self):
+        team = StubTeam(open_invitation=_invitation(SphereRole.COMMS))
+        before = datetime.now(tz=UTC)
+
+        issued = _service(team).reissue(
+            sphere_id=SPHERE_PK, pk=INVITATION_PK, reissued_by_id=INVITER_PK
+        )
+
+        assert issued is not None
+        assert issued.invitation.role is SphereRole.COMMS
+        assert len(issued.token) == URLSAFE_32_BYTES_LENGTH
+        rotation = team.created[0]
+        assert rotation["token_hash"] == team_mills.token_hash(issued.token)
+        assert rotation["created_by_id"] == INVITER_PK
+        assert rotation["expires_at"] == rotation["creation_time"] + timedelta(days=7)
+        assert before <= rotation["creation_time"] == team.clock[0]
+
+    def test_an_invitation_no_longer_open_gets_no_link(self):
+        team = StubTeam(open_invitation=None)
+
+        issued = _service(team).reissue(
+            sphere_id=SPHERE_PK, pk=INVITATION_PK, reissued_by_id=INVITER_PK
+        )
+
+        assert issued is None
+        assert not team.created
 
 
 class TestAccept:
     def test_a_newcomer_joins_with_the_invited_role_and_spends_the_link(self):
         team = StubTeam(open_invitation=_invitation(SphereRole.COMMS))
+        before = datetime.now(tz=UTC)
 
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.JOINED
-        assert team.added == [(NEWCOMER_PK, SphereRole.COMMS)]
-        assert team.accepted == [(INVITATION_PK, NEWCOMER_PK)]
+        assert team.writes == [
+            ("add", SPHERE_PK, NEWCOMER_PK, SphereRole.COMMS),
+            ("accept", INVITATION_PK, NEWCOMER_PK),
+        ]
+        _assert_judged_now(team, before=before, expected_calls=2)
 
     def test_a_member_is_told_so_before_the_link_is_even_considered(self):
         # Their own spent link must not read as dead to them.
@@ -147,8 +215,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.ALREADY_MEMBER
-        assert not team.added
-        assert not team.accepted
+        assert not team.writes
 
     def test_a_link_that_is_not_open_grants_nothing(self):
         team = StubTeam(open_invitation=None)
@@ -156,7 +223,7 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.INVALID
-        assert not team.added
+        assert not team.writes
 
     def test_losing_the_race_to_a_second_link_leaves_this_one_unspent(self):
         team = StubTeam(open_invitation=_invitation(), add_succeeds=False)
@@ -164,17 +231,20 @@ class TestAccept:
         outcome = _accept(_service(team))
 
         assert outcome is AcceptInvitationOutcome.ALREADY_MEMBER
-        assert not team.accepted
+        assert team.writes == [("add", SPHERE_PK, NEWCOMER_PK, SphereRole.MANAGER)]
 
 
 class TestJoinPage:
     def test_a_signed_out_viewer_is_offered_the_link_with_no_role_looked_up(self):
         team = StubTeam(member_role=SphereRole.MANAGER, open_invitation=_invitation())
+        before = datetime.now(tz=UTC)
 
         page = _service(team).join_page(
             sphere_id=SPHERE_PK, token="tok", viewer_id=None
         )
 
+        _assert_judged_now(team, before=before, expected_calls=1)
+        assert not team.role_lookups
         assert page == JoinPageDTO(
             sphere_name=f"Sphere {SPHERE_PK}",
             invitation=InvitationPreviewDTO(
@@ -196,14 +266,13 @@ class TestJoinPage:
 
 class TestOpenInvitationsAreJudgedNow:
     def test_listing_and_withdrawing_pass_the_current_time(self):
-        team = StubTeam()
+        invitation = _invitation()
+        team = StubTeam(open_invitation=invitation)
         service = _service(team)
         before = datetime.now(tz=UTC)
 
         assert service.list_members(sphere_id=SPHERE_PK) == [MEMBER]
-        service.list_open_invitations(sphere_id=SPHERE_PK)
-        service.revoke(sphere_id=SPHERE_PK, pk=INVITATION_PK)
+        assert service.list_open_invitations(sphere_id=SPHERE_PK) == [invitation]
+        assert service.revoke(sphere_id=SPHERE_PK, pk=INVITATION_PK)
 
-        after = datetime.now(tz=UTC)
-        assert len(team.clock) == len(("list", "revoke"))
-        assert all(before <= moment <= after for moment in team.clock)
+        _assert_judged_now(team, before=before, expected_calls=2)

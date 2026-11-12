@@ -3,8 +3,8 @@ import pytest
 from ludamus.links.db.django.models import Facilitator
 from ludamus.links.db.django.repositories import SessionRepository
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.submissions import FacilitatorSessionCountsDTO
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.propose import FacilitatorSessionCountsDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,

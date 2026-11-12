@@ -11,20 +11,11 @@ cd "$CLAUDE_PROJECT_DIR"
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# Write the commit-credit guidance FIRST, before any install/network step that
-# can fail. Crediting the human who drove the session must not depend on a
-# successful bootstrap — when an install fails under `set -e`, everything below
-# it is skipped, so this has to come before that risk, not after it.
-if ! grep -q '^## Commits$' CLAUDE.local.md 2>/dev/null; then
-  # Credit whoever is driving this session, not Claude/Anthropic. The trailer
-  # name is the email local-part (best-effort); GitHub attributes by email.
-  human_email="${CLAUDE_CODE_USER_EMAIL:-}"
-  if [ -n "$human_email" ]; then
-    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human, not Claude/Anthropic. End commits with:\n\n    Co-authored-by: %s <%s>\n' \
-      "${human_email%@*}" "$human_email" >> CLAUDE.local.md
-  else
-    printf '@CLAUDE.md\n\n## Commits\n\nCo-author the human driving this session, not Claude/Anthropic.\n' >> CLAUDE.local.md
-  fi
+# NOTE: Cloud sessions get git identity and signing from GIT_CONFIG_GLOBAL.
+if git config --global --get user.email > /dev/null 2>&1 \
+  && ! grep -q '^## Git identity$' CLAUDE.local.md 2>/dev/null; then
+  printf '## Git identity\n\nGit author and commit signing are configured by the environment (%s). Commit as-is: do not set user.name/user.email, GIT_AUTHOR_*/GIT_COMMITTER_*, or --author. Add no Co-authored-by or Claude-Session trailers, and no "Generated with Claude Code" footer or session link in PR descriptions.\n' \
+    "${GIT_CONFIG_GLOBAL:-global git config}" >> CLAUDE.local.md
 fi
 
 # The sandbox egress proxy 403s every GitHub download, so activate the

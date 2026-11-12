@@ -4,6 +4,7 @@
 {% load django_vite %}
 {% load heroicons %}
 {% load meta_tags %}
+{% load tessera %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -36,11 +37,10 @@
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
             {% if not is_root_sphere %}• Zagrajmy{% endif %}
-        {% enddocument_title %}
+        {% end_document_title %}
         <title>{{ document_title }}</title>
         <meta name="description"
               content="{% block meta_description %}{{ default_description }}{% endblock meta_description %}">
-        <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website">
         <meta property="og:url" content="{{ request.build_absolute_uri }}">
         <meta property="og:site_name" content="{{ current_sphere.name }}">
@@ -52,7 +52,6 @@
         preview crawler rejects.{% endcomment %}
         <meta property="og:image"
               content="{% block og_image %}{% meta_image_url %}{% endblock og_image %}">
-        <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title"
               content="{% block twitter_title %}{{ document_title }}{% endblock twitter_title %}">
@@ -81,9 +80,7 @@
         {% endblock extra_head %}
     </head>
     <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground print:bg-white{% endblock body_class %}"
-          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}"
-          data-flash-region-label="{% translate "Notifications" %}"
-          data-flash-dismiss-label="{% translate "Dismiss" %}">
+          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}">
         {% comment %}
             App-shell scroll container: the document itself never scrolls, an
             inner element owns the scroll. A top-layer <dialog> then always
@@ -98,20 +95,12 @@
                     {% include "components/navbar.html" %}
                 {% endblock site_navbar %}
                 {% block main_region %}
-                    <!-- Flash Messages -->
                     {% if messages %}
-                        <div class="flash-region"
-                             role="region"
-                             aria-live="polite"
-                             aria-label="{% translate "Notifications" %}">
-                            {% include "components/flash-messages.html" %}
-                        </div>
+                        {% include "components/flash-region.html" %}
                     {% endif %}
-                    <!-- Main Content -->
                     {# A page whose first element is a full-bleed one drops the #}
                     {# padding it would otherwise start below; see event.html. #}
                     <main class="grow flex flex-col max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full mb-8{% block main_class %}{% endblock %}">
-                        <!-- Page Header -->
                         {% block header_section %}
                             <div class="mb-6 text-center">
                                 {% block header %}
@@ -161,28 +150,64 @@
                     </footer>
                 {% endblock site_footer %}
             {% endblock body_content %}
+            {% comment %}
+                Last child of #app-scroll on purpose: the card floats via a
+                sticky host, so scrolling over it chains into this scroller —
+                a fixed card outside it was a scroll dead zone (the document
+                itself never scrolls).
+            {% endcomment %}
+            {% if posthog_config %}
+                {% include "components/consent-banner.html" %}
+            {% endif %}
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {# What flash.ts clones for a flash it raises itself (flash-region.html). #}
+        <template id="flash-region-template">
+            {% include "components/flash-region.html" with messages="" %}
+        </template>
+        <template id="flash-error-template">
+            {% include "components/flash-message.html" with level="error" text="" only %}
+        </template>
+        <template id="flash-success-template">
+            {% include "components/flash-message.html" with level="success" text="" only %}
+        </template>
         {% block email_verification_banner %}
             {% if current_user and not current_user.email_verified and not request.COOKIES.hide_email_verification_banner %}
                 {% include "components/email-verification-banner.html" %}
             {% endif %}
         {% endblock email_verification_banner %}
+        {% if PARLEY_AVAILABLE and current_sphere.parley_enabled and current_user and current_user.is_active %}
+            <div data-parley-root
+                 data-ph-block
+                 data-bootstrap-url="{% url 'parley_bootstrap' %}"
+                 data-close-label="{% translate 'Close chat' %}"
+                 data-loading="{% translate 'Gathering conversations…' %}"
+                 data-connection-error="{% translate 'Could not connect to the chat.' %}"
+                 data-retry="{% translate 'Try again' %}">
+                <button type="button"
+                        data-parley-launcher
+                        aria-controls="parley-panel"
+                        aria-expanded="false"
+                        class="fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] grid size-11 place-items-center rounded-full bg-primary text-foreground-inverse shadow-lg hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                        aria-label="{% translate 'Open chat' %}">
+                    {% icon "chat-bubble-oval-left-ellipsis" variant="mini" class="size-5.5" %}
+                </button>
+            </div>
+        {% endif %}
         {% if posthog_config %}
-            {% include "components/consent-banner.html" %}
             {{ posthog_config|json_script:"posthog-config" }}
         {% endif %}
-        <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/actions.ts' %}
+        {% if PARLEY_AVAILABLE and current_sphere.parley_enabled and current_user and current_user.is_active %}
+            {% vite_asset 'src/parley/index.ts' %}
+        {% endif %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}
-        {% if posthog_config %}
-            {% vite_asset 'src/prologue.ts' %}
-        {% endif %}
+        {% vite_asset 'src/prologue.ts' %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>

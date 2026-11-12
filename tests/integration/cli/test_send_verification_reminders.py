@@ -4,7 +4,7 @@ from io import StringIO
 from django.core.management import call_command
 
 from ludamus.links.db.django.models import Notification
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import UserFactory
 
 

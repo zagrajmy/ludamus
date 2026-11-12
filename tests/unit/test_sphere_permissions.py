@@ -1,15 +1,16 @@
 from datetime import UTC, datetime
 
-from ludamus.mills.multiverse import SpherePanelService, can_write_programme
+from ludamus.mills.sphere import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.legacy import SiteDTO, SphereDTO
-from ludamus.pacts.multiverse import (
+from ludamus.pacts.sphere import (
     Capability,
+    SiteDTO,
+    SphereDTO,
     SphereRole,
     SphereSettingsOutcome,
     SphereVisibility,
 )
-from tests.unit.factories import FakeTransaction, event_dto, user_dto
+from tests.unit.factories import FakeTransaction, FakeUsers, event_dto, user_dto
 
 SPHERE_PK = 3
 OTHER_SPHERE_PK = 4
@@ -67,21 +68,22 @@ class FakeEncounters:
         return self._exists and sphere_id == SPHERE_PK
 
 
-class FakeUsers:
-    def __init__(self, *users):
-        self._users = {user.slug: user for user in users}
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
 
-    def read(self, slug):
-        return self._users[slug]
+    def revoke_sphere(self, *, sphere_id):
+        self.revoked.append(sphere_id)
 
 
-def _service(*, spheres=None, encounters=None, users=None):
+def _service(*, spheres=None, encounters=None, users=None, chat=None):
     return SpherePanelService(
         FakeTransaction(),
         spheres or FakeSpheres(),
         FakeEvents(),
         encounters or FakeEncounters(),
         users or FakeUsers(),
+        chat or FakeChat(),
     )
 
 
@@ -89,7 +91,7 @@ class TestSpherePanelServiceAccess:
     def test_manager_holds_panel_write(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
 
-        access = _service(spheres=spheres).access(SPHERE_PK, "boss")
+        access = _service(spheres=spheres).access(SPHERE_PK, "boss", is_superuser=False)
 
         assert access.role is SphereRole.MANAGER
         assert Capability.PANEL_WRITE in access.capabilities
@@ -97,15 +99,26 @@ class TestSpherePanelServiceAccess:
     def test_comms_holds_the_acknowledgement_but_not_panel_write(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "press"): SphereRole.COMMS})
 
-        access = _service(spheres=spheres).access(SPHERE_PK, "press")
+        access = _service(spheres=spheres).access(
+            SPHERE_PK, "press", is_superuser=False
+        )
 
         assert access.capabilities == frozenset({Capability.ERRATUM_ACK})
 
     def test_stranger_holds_nothing(self):
-        access = _service().access(SPHERE_PK, "passer-by")
+        access = _service().access(SPHERE_PK, "passer-by", is_superuser=False)
 
         assert access.role is None
         assert not access.capabilities
+
+    def test_superuser_holds_every_capability_even_with_a_narrow_role(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "root"): SphereRole.COMMS})
+
+        access = _service(spheres=spheres).access(SPHERE_PK, "root", is_superuser=True)
+
+        assert access.role is SphereRole.COMMS
+        assert access.allows(Capability.PANEL_WRITE)
+        assert access.capabilities == frozenset(Capability)
 
     def test_manager_role_is_scoped_to_the_sphere(self):
         spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
@@ -159,6 +172,7 @@ class TestSpherePanelServiceUpdateSettings:
     def _update(service, **overrides):
         kwargs = {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": EncountersPolicy.MANAGERS,
         }
@@ -175,11 +189,29 @@ class TestSpherePanelServiceUpdateSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
+                    "parley_enabled": False,
                     "event_cover_buttons_at_bottom": True,
                     "encounters_policy": "managers",
                 },
             )
         ]
+
+    def test_turning_chat_off_takes_back_every_pass(self):
+        chat = FakeChat()
+        service = _service(chat=chat)
+
+        self._update(service, parley_enabled=True)
+        self._update(service, parley_enabled=False)
+
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_saving_while_chat_is_off_revokes_nothing(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        self._update(_service(spheres=spheres, chat=chat), parley_enabled=False)
+
+        assert not chat.revoked
 
     def test_empty_logo_removes_it(self):
         spheres = FakeSpheres()
@@ -188,6 +220,7 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1] == {
             "allow_facilitator_session_edit": False,
+            "parley_enabled": False,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": "managers",
             "logo": "",

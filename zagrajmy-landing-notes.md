@@ -377,9 +377,9 @@ Secondary CTA destination: `#events`
 - `src/ludamus/templates/components/event_card.html`: event cards are already
   good enough to reuse. Cover, date, session count, live/proposal/unpublished
   badges.
-- `src/ludamus/templates/chronology/event.html`: event detail pages have the
+- `src/ludamus/templates/event/event.html`: event detail pages have the
   real public product: cover, statuses, sessions, enrollment, proposal state.
-- `src/ludamus/templates/chronology/propose/base.html`: proposal wizard exists.
+- `src/ludamus/templates/event/propose/base.html`: proposal wizard exists.
 - `src/ludamus/templates/panel/index.html`: organizer dashboard shows sessions,
   hosts, rooms, proposals.
 - `src/ludamus/templates/panel/timetable.html`: scheduling grid, conflicts,

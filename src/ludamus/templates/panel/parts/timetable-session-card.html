@@ -16,7 +16,8 @@
     `duration_minutes` is how tall the block is here -- a session crossing
     midnight is clipped to the day it is drawn on -- while `data-duration`
     carries the session's real length, so a drag reschedules the whole session
-    rather than the fragment.
+    rather than the fragment. `data-start-minutes` and `data-duration-minutes`
+    state the fragment for the drop verdict in timetable.ts.
 {% endcomment %}
 {% timetable_tone pos.state as tone %}
 <button type="button"
@@ -24,6 +25,9 @@
         draggable="true"
         data-session-pk="{{ pos.agenda_item.session_id }}"
         data-duration="{{ pos.agenda_item.session_duration_minutes }}"
+        data-start-minutes="{{ pos.start_minutes }}"
+        data-duration-minutes="{{ pos.duration_minutes }}"
+        data-participants-limit="{{ pos.agenda_item.session_participants_limit }}"
         data-confirmed="{{ pos.agenda_item.schedule_confirmed|yesno:'true,false' }}"
         title="{{ pos.agenda_item.session_title }}"
         hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}{% querystring %}"

@@ -1,7 +1,7 @@
 """Derive the analytics redaction rules from the URLconf.
 
 The URLconf is the only place that knows which path segments are parameters,
-and it lives here. `links.analytics.redaction` applies what this registers, so
+and it lives here. `links.analytics.redaction` applies what this builds, so
 a route added with a `token` parameter is covered without anyone updating a
 second list — the hand-kept one had already missed /offer/.
 """
@@ -13,7 +13,7 @@ import re
 from django.urls import URLPattern, URLResolver, get_resolver
 from django.urls.resolvers import RoutePattern
 
-from ludamus.links.analytics import redaction
+from ludamus.pacts.analytics import SECRET_URL_KWARGS, RedactionRule
 
 # `<int:pk>`, `<slug:slug>`, `<token>` — the converter is optional.
 _PARAMETER = re.compile(r"<(?:[^:>]+:)?([^>]+)>")
@@ -25,11 +25,9 @@ _SEGMENT = "(?P<p{group}>[^/?#]+)"
 _JS_SEGMENT = "(?<p{group}>[^/?#]+)"
 
 
-def rule_for(route: str) -> redaction.Rule | None:
+def rule_for(route: str) -> RedactionRule | None:
     """Turn one route template into a substitution, or None if it holds no secret."""
-    if not any(
-        name in redaction.SECRET_URL_KWARGS for name in _PARAMETER.findall(route)
-    ):
+    if not any(name in SECRET_URL_KWARGS for name in _PARAMETER.findall(route)):
         return None
 
     pattern, js_pattern = ["/"], ["/"]
@@ -45,7 +43,7 @@ def rule_for(route: str) -> redaction.Rule | None:
         name = match.group(1)
         pattern.append(_SEGMENT.format(group=group))
         js_pattern.append(_JS_SEGMENT.format(group=group))
-        secret = name in redaction.SECRET_URL_KWARGS
+        secret = name in SECRET_URL_KWARGS
         # Ordinary parameters are kept, so redacting a token does not also cost
         # the event slug sitting beside it in the same route.
         python.append(f":{name}" if secret else f"\\g<p{group}>")
@@ -66,7 +64,7 @@ def rule_for(route: str) -> redaction.Rule | None:
     if route.endswith("/"):
         python.append("/")
         javascript.append("/")
-    return redaction.Rule(
+    return RedactionRule(
         re.compile("".join(pattern)),
         "".join(python),
         "".join(js_pattern),
@@ -90,13 +88,13 @@ def _routes(patterns: list[URLPattern | URLResolver], prefix: str = "") -> list[
     return resolved
 
 
-def build_redaction_rules() -> list[redaction.Rule]:
+def build_redaction_rules() -> list[RedactionRule]:
     """Walk the URLconf once and return a rule per secret-bearing route.
 
     Called on first use rather than at startup: `get_resolver()` imports every
     view, and there is no reason for `migrate` to pay for that.
     """
-    rules: dict[str, redaction.Rule] = {}
+    rules: dict[str, RedactionRule] = {}
     for route in _routes(get_resolver().url_patterns):
         if rule := rule_for(route):
             rules[rule.pattern.pattern] = rule

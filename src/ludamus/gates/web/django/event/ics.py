@@ -13,7 +13,7 @@ from ludamus.pacts.calendar import CalendarEntry, ics_document
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
 def event_calendar_entry(event: EventDTO, *, request: RootRequest) -> CalendarEntry:

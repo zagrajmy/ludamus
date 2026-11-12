@@ -1,0 +1,13 @@
+{% load tessera %}
+{% comment %}
+An icon-only sidebar entry for the header row beside the event picker, drawn
+like the fold button next to it. Same variables and same `aria-current`
+highlight contract as sidebar-link.html; `label` is the accessible name.
+{% endcomment %}
+<a href="{{ href }}"
+   {% if active %}aria-current="page"{% endif %}
+   aria-label="{{ label }}"
+   title="{{ label }}"
+   class="inline-flex items-center justify-center p-2 shrink-0 rounded-lg transition text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary aria-[current=page]:text-foreground aria-[current=page]:bg-bg-secondary dark:aria-[current=page]:bg-bg-tertiary">
+    {% icon icon class="size-5" %}
+</a>

@@ -52,12 +52,13 @@ RUN mise trust && mise install
 
 # Install frontend deps reproducibly from the aube workspace lockfile, scoped to
 # the client package. Copy only the manifests + lockfile first so a source-only
-# change reuses this cached node_modules layer. tests/e2e/package.json is needed
-# for the frozen-lockfile workspace integrity check even though --filter +
-# --no-optional keep its (Playwright) deps out of the image. Independent of the
+# change reuses this cached node_modules layer. The tests/e2e and workers/parley
+# manifests are needed for the frozen-lockfile workspace integrity check even
+# though --filter + --no-optional keep their deps out of the image. Independent of the
 # Python deps, so it lives in base and is built once for both stages.
 COPY --chown=appuser:appuser .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
 COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
+COPY --chown=appuser:appuser workers/parley/package.json ./workers/parley/
 COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
 # Retry to ride out transient registry stream errors: this install pulls from
 # the npm registry over the host's network, which occasionally stalls mid-stream
@@ -102,6 +103,25 @@ COPY --chown=appuser:appuser src ./src
 
 # Run Django commands that need source code
 RUN mise run build-frontend && mise run dj compilemessages
+
+# PostHog error tracking wants the source maps Vite already emits. The token
+# arrives as a BuildKit secret (never a layer, and scoped to this one RUN),
+# and the step degrades to a no-op unless BOTH the token and the project id
+# are present — a half-configured environment skips loudly instead of
+# failing the whole deploy. ARG alone suffices: build args are visible to
+# RUN in this stage, and an ENV would leak the id into runtime containers.
+# inject must run here, before the runtime collectstatic hashes the files
+# it annotates.
+ARG POSTHOG_CLI_ENV_ID
+# NOTE: BuildKit leaves secret mounts out of the cache key, so without this
+# flag a deploy that only adds the token would reuse the cached skip.
+ARG POSTHOG_SOURCEMAPS_ARMED
+RUN --mount=type=secret,id=posthog_cli_token,mode=0444 \
+    if [ -s /run/secrets/posthog_cli_token ] && [ -n "$POSTHOG_CLI_ENV_ID" ]; then \
+        POSTHOG_CLI_TOKEN="$(cat /run/secrets/posthog_cli_token)" mise run posthog-sourcemaps; \
+    else \
+        echo "posthog source maps skipped (need both the posthog_cli_token secret and POSTHOG_CLI_ENV_ID)"; \
+    fi
 
 # Expose port
 EXPOSE 8000

@@ -1,42 +1,30 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
-from ludamus.mills.crowd import EmailVerificationService
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import (
+from ludamus.mills.user import EmailVerificationService
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.user import (
     ChangeRequestOutcome,
     EmailTokenPayload,
     EmailVerificationAction,
     RedeemOutcome,
     VerificationRequestOutcome,
 )
-from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.email_verification import EMAIL_VERIFICATION_REMINDER_INTERVAL
-from tests.unit.factories import user_dto
+from tests.unit.factories import FakeTransaction, user_dto
 
 NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
 
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    def atomic(self):
-        return _atomic()
-
-    def savepoint(self):
-        return _atomic()
-
-
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=(), constraint_on_email=None):
+    def __init__(self, *, users=(), taken=(), constraint_on_email=None):
         self._users = {user.slug: user for user in users}
-        self._existing_emails = set(existing_emails)
+        # Unavailable address -> slug of the account holding or reserving it.
+        self._taken = dict(taken)
         self._constraint_on_email = constraint_on_email
         self.updated = []
         self.claimed = []
+        self.checked_at = []
 
     def read(self, slug):
         return self._users[slug]
@@ -58,8 +46,8 @@ class FakeUsers:
         )
 
     def email_unavailable(self, *, email, now, exclude_slug=None):
-        _ = (now, exclude_slug)
-        return email in self._existing_emails
+        self.checked_at.append(now)
+        return email in self._taken and self._taken[email] != exclude_slug
 
     def claim_verification_send(self, *, user_slug, now, throttle):
         user = self._users[user_slug]
@@ -270,6 +258,7 @@ class TestSendDueReminders:
         service = _service(FakeUsers(users=due), notifier=notifier, reminders=reminders)
 
         assert service.count_due(now=NOW) == 1
+        assert reminders.calls == [(NOW, EMAIL_VERIFICATION_REMINDER_INTERVAL)]
         assert not notifier.verifications
 
 
@@ -278,6 +267,7 @@ class TestRequestChange:
         users = FakeUsers(users=[_user(email="old@example.com", email_verified=True)])
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
+        before = datetime.now(UTC)
 
         outcome = service.request_change(
             user_slug="auth0user", new_address="new@example.com"
@@ -287,7 +277,7 @@ class TestRequestChange:
         slug, data = users.updated[0]
         assert slug == "auth0user"
         assert data["pending_email"] == "new@example.com"
-        assert data["email_verification_sent_at"] is not None
+        assert before <= data["email_verification_sent_at"] <= datetime.now(UTC)
         assert notifier.verifications[0].recipient_email == "new@example.com"
         assert notifier.change_requests[0].recipient_email == "old@example.com"
         assert notifier.change_requests[0].new_address == "new@example.com"
@@ -384,10 +374,10 @@ class TestRequestChange:
 
     def test_taken_address_is_rejected_without_writes(self):
         users = FakeUsers(
-            users=[_user(email="old@example.com")],
-            existing_emails={"taken@example.com"},
+            users=[_user(email="old@example.com")], taken={"taken@example.com": "other"}
         )
         service = _service(users)
+        before = datetime.now(UTC)
 
         outcome = service.request_change(
             user_slug="auth0user", new_address="taken@example.com"
@@ -395,6 +385,19 @@ class TestRequestChange:
 
         assert outcome == ChangeRequestOutcome.TAKEN
         assert not users.updated
+        assert before <= users.checked_at[0] <= datetime.now(UTC)
+
+    def test_recasing_own_address_is_not_taken_by_oneself(self):
+        users = FakeUsers(
+            users=[_user(email="Old@example.com")],
+            taken={"old@example.com": "auth0user"},
+        )
+
+        outcome = _service(users).request_change(
+            user_slug="auth0user", new_address="old@example.com"
+        )
+
+        assert outcome == ChangeRequestOutcome.REQUESTED
 
 
 class TestDescribe:

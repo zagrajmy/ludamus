@@ -11,16 +11,17 @@ import re
 from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
-from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
+from ludamus.gates.web.django.event.panel.views.google_docs_import import (
     SESSION_COLUMNS,
 )
+from ludamus.gates.web.django.panel import import_tab_urls
 from ludamus.links.db.django.models import (
     Facilitator,
     ImportLogEntry,
@@ -34,9 +35,9 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
-from ludamus.pacts.submissions import (
+from ludamus.pacts.integrations import IntegrationImplementationId
+from ludamus.pacts.propose import (
     EntityRef,
     ImportLogStatus,
     ImportSettings,
@@ -163,8 +164,10 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
         )
 
     def test_get_renders_no_questions_state_with_an_active_integration(
@@ -187,8 +190,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
@@ -225,8 +227,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
@@ -787,8 +788,10 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
             contains="No import integrations yet.",
         )
 
@@ -812,8 +815,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "review",
@@ -1183,8 +1185,11 @@ class TestEventImportRowSaveView:
             messages=[(messages.SUCCESS, "Question saved.")],
         )
 
+    # NOTE: urlencoded, because a multipart body refuses a field name as long as
+    # the last index before the view runs.
+    @pytest.mark.parametrize("index", ("abc", "²", "9" * 4301))
     def test_post_with_invalid_index_redirects_with_error(
-        self, panel_client, event, connection_with_secret
+        self, panel_client, event, connection_with_secret, index
     ):
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
@@ -1193,7 +1198,14 @@ class TestEventImportRowSaveView:
 
         response = panel_client.post(
             _row_save_url(event, integration),
-            data={"index": "abc", "target_0": "session.title"},
+            data=urlencode(
+                {
+                    "index": index,
+                    f"question_{index}": "Title",
+                    "target_0": "session.title",
+                }
+            ),
+            content_type="application/x-www-form-urlencoded",
         )
 
         assert_response(
@@ -1869,8 +1881,10 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=panel_context(event)
-            | {"active_nav": "import", "active_integration": None},
+            context_data=panel_context(event) | {
+                "active_nav": "import",
+                "active_integration": None,
+            },
             contains="No import integrations yet.",
         )
 
@@ -1892,8 +1906,7 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "json",
@@ -2004,8 +2017,7 @@ class TestEventImportJsonView:
             HTTPStatus.OK,
             template_name="panel/import-json.html",
             messages=[(messages.ERROR, "Invalid import settings JSON.")],
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "json",
@@ -2039,8 +2051,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",
@@ -2100,8 +2111,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",
@@ -2152,8 +2162,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=panel_context(event)
-            | {
+            context_data=panel_context(event) | {
                 "active_nav": "import",
                 "active_integration": integration_dto(integration),
                 "active_tab": "run",
@@ -3284,7 +3293,14 @@ class TestImportRowSavePostHelpers:
 
     @pytest.mark.parametrize(
         ("hours", "minutes"),
-        (("99", "30"), ("-5", "30"), ("1", "abc"), ("9" * 4301, "30")),
+        (
+            ("99", "30"),
+            ("-5", "30"),
+            ("1", "abc"),
+            ("9" * 4301, "30"),
+            ("²", "30"),
+            ("1", "\u0661\u0660"),
+        ),
     )
     def test_post_rejects_duration_the_steppers_would_not_allow(
         self, panel_client, event, connection_with_secret, hours, minutes

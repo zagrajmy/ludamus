@@ -9,34 +9,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from cryptography.hazmat.primitives import serialization
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 env = environ.Env(
-    # Domains
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
     SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
-    # Auth0
     AUTH0_CLIENT_ID=(str, ""),
     AUTH0_CLIENT_SECRET=(str, ""),
     AUTH0_DOMAIN=(str, ""),
-    # Database
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
-    # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     MEDIA_URL=(str, "/media/"),
@@ -59,7 +56,9 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
-    # Other
+    # Parley
+    PARLEY_AGENT_HOST=(str, ""),
+    PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -89,13 +88,13 @@ env = environ.Env(
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
+    MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
     ZEAL_RAISE=(bool, False),
 )
 
 
-# Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
 IS_STAGING = env("IS_STAGING")
@@ -114,16 +113,12 @@ CREDENTIALS_ENCRYPTION_KEY = env("CREDENTIALS_ENCRYPTION_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
-# Parse comma-separated allowed hosts for production
 ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
 
-# Append localhost and its subdomains for development
 if ENV == "development":
     ALLOWED_HOSTS.extend([".localhost", ".local", "localhost", "127.0.0.1"])
 
 SESSION_COOKIE_DOMAIN = env("SESSION_COOKIE_DOMAIN") or None
-
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -133,19 +128,18 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    # Third Party
     "django_extensions",
     "django_vite",
     "heroicons",
-    # First Party
-    "ludamus.adapters.web.django.apps.WebMainConfig",
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
     "ludamus.links.analytics.apps.AnalyticsConfig",
+    "ludamus.inits.apps.InitsConfig",
 ]
 
 MIDDLEWARE = [
+    "ludamus.inits.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
@@ -156,13 +150,20 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "ludamus.inits.RepositoryInjectionMiddleware",
+    "ludamus.gates.web.django.middlewares.AppMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "ludamus.gates.web.django.middlewares.RedirectErrorMiddleware",
+]
+
+# Run in this order by AppMiddleware, and only for paths outside
+# MIDDLEWARE_SKIP_PREFIXES.
+APP_MIDDLEWARE = [
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
-    "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.request_context.RequestContextMiddleware",
+    "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
     "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
     "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
+    "ludamus.inits.middleware.UserLanguageMiddleware",
 ]
 
 if DEBUG:
@@ -176,19 +177,6 @@ if DEBUG:
 # server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
 # the UI shows up in server output without failing unrelated UI tests.
 if DEBUG or IN_TESTS:
-    import zeal.patch
-
-    def _skip_zeal_generic_fk_patch() -> None:
-        # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
-        # so django-zeal 2.2.2 patching the field class raises AttributeError and
-        # takes app startup down with it. No model here declares a generic relation
-        # (tests/integration/test_no_generic_foreign_keys.py holds that line), so
-        # dropping this one patch costs no detection.
-        # ponytail: delete once django-zeal patches the descriptor; a model with a
-        # GenericForeignKey would need it back.
-        pass
-
-    zeal.patch.patch_generic_foreign_key = _skip_zeal_generic_fk_patch
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
     ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
@@ -237,7 +225,9 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
-                "ludamus.gates.web.django.context_processors.analytics",
+                "ludamus.gates.web.django.context_processors.board",
+                "ludamus.gates.web.django.context_processors.parley",
+                "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -380,7 +370,7 @@ MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# URL prefixes that skip middleware processing (UoW injection, context setup)
+# URL prefixes that skip APP_MIDDLEWARE (UoW injection, context setup)
 MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
@@ -414,12 +404,8 @@ STATIC_VERSION = COMMIT_SHA
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Auth
-
 AUTH_USER_MODEL = "db_main.User"
 LOGIN_URL = "/crowd/login-required/"
-
-# Sites
 
 ROOT_DOMAIN = env("ROOT_DOMAIN")
 # The conventions the landing and about pages show, in this order.
@@ -428,15 +414,17 @@ LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
 )
 SITE_ID = env("SITE_ID")
 
-# Auth0
-
 AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-# Support
-
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Sender's postal address, printed under every opt-in (non-transactional) email.
+MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
+
+# NOTE: the navbar links the board only where this is on. Readers cannot answer
+# a listing yet (#1526, #1527), so production keeps the board undiscovered.
+BOARD_PUBLIC = IS_STAGING
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only
@@ -514,31 +502,25 @@ PERMISSIONS_POLICY = (
 # else, so test_no_csp_headers_by_default's regression guard is unaffected.
 ENABLE_CSP = IS_PRODUCTION or env.bool("ENABLE_CSP", default=False)
 
-# Security Settings for Production
 if IS_PRODUCTION:
-    # HTTPS/SSL Settings
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
     USE_X_FORWARDED_PORT = True
 
-    # Security Headers
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
 
-    # HSTS Settings (HTTP Strict Transport Security)
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-    # Session Security
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
     SESSION_COOKIE_AGE = 3600 * 24 * 30  # 30 days
     SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-    # CSRF Security
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
     CSRF_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
@@ -550,16 +532,13 @@ if IS_PRODUCTION:
         else:
             CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
 
-    # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 
-    # File Upload Security
     FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
     DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 else:
-    # Development settings
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -647,7 +626,6 @@ if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
     else:
         DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
-# Cache configuration
 CACHES = (
     {
         "default": {
@@ -664,7 +642,6 @@ CACHES = (
     }
 )
 
-# Logging configuration
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -672,18 +649,31 @@ LOGGING = {
         "verbose": {
             "format": "[{levelname}] {asctime} {module} {message}",
             "style": "{",
-        }
+        },
+        "json": {"()": "ludamus.links.analytics.log_format.JsonFormatter"},
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
-    "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
+    # Production lines are read by machines (Coolify, PostHog) and queried by
+    # field; a terminal is read by a person.
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if IS_PRODUCTION else "verbose",
+        },
+        # PostHog Logs, over OTLP/HTTP, INFO and up; off without POSTHOG_API_KEY.
+        "posthog": {"()": "ludamus.links.analytics.log_shipping.posthog_handler"},
+    },
+    "root": {
+        "handlers": ["console", "posthog"],
+        "level": "INFO" if IS_PRODUCTION else "DEBUG",
+    },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
-        # The markdown lib logs every extension load at DEBUG on each call;
-        # render_markdown runs once per session, so on big event pages this
-        # floods the dev console and dominates render time. Quiet it.
-        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django": {
+            "handlers": ["console", "posthog"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "django.security": {
-            "handlers": ["console"],
+            "handlers": ["console", "posthog"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },
@@ -699,6 +689,56 @@ LOGGING = {
     },
 }
 
+# Parley
+PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+# NOTE: this pair is committed so laptops and e2e sign passes with no setup.
+# Anyone can read it, so a deployment that signs with it is refused.
+_PARLEY_DEV_KEY = BASE_DIR.parent.parent / "workers" / "parley" / "dev-signing-key.pem"
+_PARLEY_DEV_KEY_FINGERPRINT = (
+    "ea6891a6b117bb28a671edec882ab38b8a26a404ad2a8832fb247bcb7f35ab4e"
+)
+_PARLEY_DEV_ENVS = {"development", "test"}
+if (
+    not PARLEY_SIGNING_PRIVATE_KEY
+    and ENV in _PARLEY_DEV_ENVS
+    and _PARLEY_DEV_KEY.exists()
+):
+    PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+# A deployment's Worker serves parley.<ROOT_DOMAIN>; local runs name theirs,
+# and tests have none.
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST") or (
+    "" if ENV in _PARLEY_DEV_ENVS else f"parley.{ROOT_DOMAIN}"
+)
+if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
+    _PARLEY_KEY = serialization.load_pem_private_key(
+        PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
+    )
+    _PARLEY_FINGERPRINT = hashlib.sha256(
+        _PARLEY_KEY.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    ).hexdigest()
+    if _PARLEY_FINGERPRINT == _PARLEY_DEV_KEY_FINGERPRINT:
+        raise ImproperlyConfigured(
+            "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
+        )
+if PARLEY_AGENT_HOST:
+    # Same rule as links.parley_worker.is_local, which settings cannot import.
+    _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""
+    PARLEY_IS_LOCAL = _PARLEY_HOSTNAME in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    } or _PARLEY_HOSTNAME.endswith(".localhost")
+    PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
+    PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
+    CSP_POLICY["connect-src"].extend(
+        [
+            f"{PARLEY_HTTP_SCHEME}://{PARLEY_AGENT_HOST}",
+            f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
+        ]
+    )
+
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor
 # SHA-384 hashes use base64 encoding (SRI format)
@@ -713,7 +753,6 @@ VENDOR_DEPENDENCIES: list[dict[str, str]] = [
 
 VENDOR_STATIC_DIR = BASE_DIR / "static" / "vendor"
 
-# Vite asset pipeline
 DJANGO_VITE = {
     "default": {
         "dev_mode": ENV == "development" or ROOT_DOMAIN == "testserver",

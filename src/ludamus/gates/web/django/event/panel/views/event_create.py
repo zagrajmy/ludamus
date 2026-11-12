@@ -9,32 +9,29 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.forms import event_create_form
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventPanelAccessMixin,
-    EventPanelRequest,
-)
+from ludamus.gates.web.django.panel import PanelAccessMixin, PanelRequest
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventCreateData,
     EventDatesInvalidError,
     EventSlugConflictError,
 )
-from ludamus.pacts.legacy import NotFoundError
 
 if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse
 
-    from ludamus.pacts.legacy import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
-class EventCreatePageView(EventPanelAccessMixin, View):
-    request: EventPanelRequest
+class EventCreatePageView(PanelAccessMixin, View):
+    request: PanelRequest
 
-    def get(self, _request: EventPanelRequest) -> HttpResponse:
+    def get(self, _request: PanelRequest) -> HttpResponse:
         events = self._events()
         return self._render(event_create_form(events)(), events=events)
 
-    def post(self, _request: EventPanelRequest) -> HttpResponse:
+    def post(self, _request: PanelRequest) -> HttpResponse:
         events = self._events()
         form = event_create_form(events)(self.request.POST)
         if not form.is_valid():
@@ -65,8 +62,9 @@ class EventCreatePageView(EventPanelAccessMixin, View):
             return self._render(form, events=events)
         messages.success(
             self.request,
-            _("Created %(name)s. It stays hidden until you publish it.")
-            % {"name": event.name},
+            _("Created %(name)s. It stays hidden until you publish it.") % {
+                "name": event.name
+            },
         )
         return redirect("panel:event-index", slug=event.slug)
 

@@ -1,14 +1,21 @@
-# Guild pages, mounted into the sphere panel's namespace:
-# `multiverse/panel/urls.py` pulls these in with a namespace-less `include()`,
+# Team and guild pages, mounted into the sphere panel's namespace:
+# `sphere/panel/urls.py` pulls these in with a namespace-less `include()`,
 # so they stay reachable as `multiverse:panel:guild-*` while their definitions
-# sit next to the views they route to.
-from django.urls import path
+# sit next to the views they route to. `multiverse_urlpatterns` is the
+# `multiverse` namespace itself, which gates/web/django/urls.py mounts.
+from django.urls import URLPattern, URLResolver, include, path
 
 from ludamus.gates.web.django.sphere import guilds, team
+from ludamus.gates.web.django.sphere.team import JoinSpherePageView
 
 urlpatterns = [
     path("team/", team.TeamPageView.as_view(), name="team"),
     path("team/do/invite", team.TeamInviteActionView.as_view(), name="team-invite"),
+    path(
+        "team/invitations/<int:pk>/do/reissue",
+        team.TeamInviteReissueActionView.as_view(),
+        name="team-invite-reissue",
+    ),
     path(
         "team/invitations/<int:pk>/do/revoke",
         team.TeamInviteRevokeActionView.as_view(),
@@ -39,4 +46,12 @@ urlpatterns = [
         guilds.GuildFacilitatorRemoveActionView.as_view(),
         name="guild-facilitator-remove",
     ),
+]
+
+multiverse_urlpatterns: list[URLPattern | URLResolver] = [
+    path(
+        "panel/",
+        include("ludamus.gates.web.django.sphere.panel.urls", namespace="panel"),
+    ),
+    path("join/<str:token>/", JoinSpherePageView.as_view(), name="join"),
 ]

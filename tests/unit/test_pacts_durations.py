@@ -2,8 +2,10 @@ import pytest
 
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
     InvalidDurationError,
     build_duration,
+    duration_minutes,
     format_duration,
     normalize_duration,
     parse_duration,
@@ -16,6 +18,15 @@ def test_parse_duration_reads_an_unreadable_value_as_zero(stored: str) -> None:
     assert parse_duration(stored) == (0, 0)
 
 
+@pytest.mark.parametrize(
+    ("stored", "minutes"), (("PT1H30M", 90), ("PT45M", 45), ("", 0), (None, 0))
+)
+def test_duration_minutes_totals_hours_and_minutes(
+    stored: str | None, minutes: int
+) -> None:
+    assert duration_minutes(stored) == minutes
+
+
 class TestParseDurationPart:
     @pytest.mark.parametrize("raw", ("24", "-1", "1.5", "01x"))
     def test_out_of_range_or_not_a_number(self, raw: str) -> None:
@@ -25,6 +36,23 @@ class TestParseDurationPart:
     def test_overlong_digit_string_is_rejected(self) -> None:
         with pytest.raises(InvalidDurationError):
             parse_duration_part("1" * 20, maximum=MAX_DURATION_HOURS)
+
+    # `str.isdigit` is true for all of these; `int` also reads the Arabic-Indic.
+    @pytest.mark.parametrize("raw", ("²", "1²", "³", "\u0661", "\u0661\u0662"))
+    def test_a_digit_outside_ascii_is_refused(self, raw: str) -> None:
+        with pytest.raises(InvalidDurationError):
+            parse_duration_part(raw, maximum=MAX_DURATION_HOURS)
+
+    @pytest.mark.parametrize(
+        ("raw", "maximum", "expected"),
+        (
+            (" 23 ", MAX_DURATION_HOURS, MAX_DURATION_HOURS),
+            ("07", MAX_DURATION_MINUTES, 7),
+            ("", MAX_DURATION_MINUTES, 0),
+        ),
+    )
+    def test_ascii_digits_are_read(self, raw: str, maximum: int, expected: int) -> None:
+        assert parse_duration_part(raw, maximum=maximum) == expected
 
 
 class TestBuildDuration:

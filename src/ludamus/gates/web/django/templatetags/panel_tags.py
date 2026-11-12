@@ -9,7 +9,12 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from ludamus.gates.web.django.panel import PANEL_CAT_KEYS, PANEL_NAV_KEYS
+from ludamus.gates.web.django.panel import (
+    PANEL_CAT_KEYS,
+    PANEL_NAV_KEYS,
+    ProposalStatusLook,
+    proposal_status_look,
+)
 
 if TYPE_CHECKING:
     from django.template import Context
@@ -18,8 +23,15 @@ if TYPE_CHECKING:
 register = template.Library()
 
 
+# The label and colour of a proposal's status badge: the same words the list's
+# status filter and the export print.
+@register.simple_tag
+def proposal_status(status: str, *, is_scheduled: bool = False) -> ProposalStatusLook:
+    return proposal_status_look(status, is_scheduled=bool(is_scheduled))
+
+
 # One collapsible category of the panel sidebar, wrapping its links.
-@register.simple_block_tag
+@register.simple_block_tag(end_name="end_sidebar_cat")
 def sidebar_cat(
     content: SafeString, *, key: str, label: str, extra_class: str = ""
 ) -> SafeString:
@@ -50,6 +62,7 @@ def sidebar_link(
     label: str,
     key: str | None = None,
     new_tab: bool = False,
+    compact: bool = False,
     **url_kwargs: str,
 ) -> SafeString:
     if key is not None and key not in PANEL_NAV_KEYS:
@@ -72,8 +85,14 @@ def sidebar_link(
         )
         raise ImproperlyConfigured(msg)
 
+    # `compact` is the icon-only entry beside the event picker: the same
+    # destination contract, drawn as a header button rather than a list row.
     return render_to_string(
-        "panel/parts/sidebar-link.html",
+        (
+            "panel/parts/sidebar-header-link.html"
+            if compact
+            else "panel/parts/sidebar-link.html"
+        ),
         {
             "href": reverse(url, kwargs=url_kwargs),
             "icon": icon,

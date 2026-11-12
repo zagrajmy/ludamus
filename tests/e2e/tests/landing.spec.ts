@@ -184,6 +184,167 @@ test.describe("Landing", () => {
     });
   }
 
+  for (const { width, fontSize } of [
+    { width: 320, fontSize: 32 },
+    { width: 375, fontSize: 16 },
+    { width: 1920, fontSize: 24 },
+  ]) {
+    for (const language of ["en", "pl"]) {
+      test(`keeps the enrollment animation and print layout stable at ${width}px in ${language}`, async ({
+        page,
+      }, testInfo) => {
+        await page.setViewportSize({ width, height: 1080 });
+        await page
+          .context()
+          .addCookies([
+            { name: "django_language", value: language, url: testInfo.project.use.baseURL! },
+          ]);
+        await page.goto("/");
+        await page.evaluate(async (fontSize) => {
+          document.documentElement.style.fontSize = `${fontSize}px`;
+          await document.fonts.ready;
+        }, fontSize);
+
+        const enrollment = page.getByRole("region", {
+          name:
+            language === "pl"
+              ? "Grupa czeka razem i wchodzi razem"
+              : "A group waits together and enters together",
+        });
+        await expect(enrollment).toBeVisible();
+        const frames = await enrollment.evaluate(async (section) => {
+          const animations = section.getAnimations({ subtree: true });
+          for (const animation of animations) animation.pause();
+          const frames: { height: number; nextTop: number; contentFits: boolean }[] = [];
+          for (let time = 0; time <= 14000; time += 200) {
+            for (const animation of animations) animation.currentTime = time;
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            const box = section.getBoundingClientRect();
+            const next = section.nextElementSibling!.getBoundingClientRect();
+            const caption = section.querySelector(".p1-cap")!;
+            const column = caption.parentElement!;
+            frames.push({
+              height: box.height,
+              nextTop: next.top,
+              contentFits:
+                caption.getBoundingClientRect().bottom <= column.getBoundingClientRect().bottom + 1,
+            });
+          }
+          return frames;
+        });
+        expect(
+          Math.max(...frames.map((f) => f.height)) - Math.min(...frames.map((f) => f.height)),
+        ).toBeLessThan(1);
+        expect(
+          Math.max(...frames.map((f) => f.nextTop)) - Math.min(...frames.map((f) => f.nextTop)),
+        ).toBeLessThan(1);
+        expect(frames.every((f) => f.contentFits)).toBe(true);
+        const captionWrapping = await page.evaluate(() =>
+          CSS.supports("text-wrap-style", "pretty") ? "pretty" : "auto",
+        );
+        for (const caption of await enrollment.locator(".p1-cap > p").all()) {
+          await expect(caption).toHaveCSS("text-wrap-style", captionWrapping);
+        }
+        await enrollment.evaluate((section) => {
+          for (const animation of section.getAnimations({ subtree: true }))
+            animation.currentTime = 10000;
+        });
+        await attachArtifacts(testInfo, {
+          name: `enrollment-${width}-${language}`,
+          region: enrollment,
+          facts: { width, fontSize, language, frames },
+        });
+
+        const print = page.getByRole("region", {
+          name: language === "pl" ? "Ctrl+P i gotowe" : "Ctrl+P and done",
+        });
+        const papers = print.getByRole("img");
+        const boxes = await papers.evaluate((cluster) =>
+          [...cluster.children].map((paper) => {
+            const { left, right, top, bottom } = paper.getBoundingClientRect();
+            return { left, right, top, bottom };
+          }),
+        );
+        expect(Math.min(boxes[0].right, boxes[1].right)).toBeGreaterThanOrEqual(
+          Math.max(boxes[0].left, boxes[1].left),
+        );
+        expect(Math.min(boxes[0].bottom, boxes[1].bottom)).toBeGreaterThanOrEqual(
+          Math.max(boxes[0].top, boxes[1].top),
+        );
+        await attachArtifacts(testInfo, {
+          name: `print-${width}-${language}`,
+          region: print,
+          facts: { width, language, boxes },
+        });
+      });
+    }
+  }
+
+  for (const width of [375, 1440]) {
+    test(`shows the whole wide convention cover at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1080 });
+      await page.route("**/placeholder-images/03.webp", (route) =>
+        route.fulfill({
+          contentType: "image/svg+xml",
+          body: '<svg xmlns="http://www.w3.org/2000/svg" width="1268" height="468" viewBox="0 0 1268 468"><rect width="1268" height="468" fill="#245575"/><rect x="10" y="10" width="1248" height="448" fill="none" stroke="#f7d774" stroke-width="20"/><text x="634" y="220" fill="white" font-size="54" text-anchor="middle">Full cover, including both edges</text></svg>',
+        }),
+      );
+      await page.goto("/");
+      const proof = page.getByRole("region", { name: /^events$/i });
+      const covers = proof.locator("img");
+      await expect(covers).toHaveCount(3);
+      for (const cover of await covers.all()) {
+        await cover.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth))
+          .toBe(1268);
+        await expect(cover).toHaveCSS("object-fit", "cover");
+        const visibleFraction = await cover.evaluate((image: HTMLImageElement) => {
+          const { width, height } = image.getBoundingClientRect();
+          const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+          return Math.min(
+            width / (scale * image.naturalWidth),
+            height / (scale * image.naturalHeight),
+          );
+        });
+        expect(visibleFraction).toBeGreaterThan(0.99);
+        await cover.hover();
+        await expect(cover).toHaveCSS("transform", "none");
+      }
+      await attachArtifacts(testInfo, {
+        name: `landing-covers-${width}`,
+        region: proof,
+        facts: { width, sourceWidth: 1268, sourceHeight: 468 },
+      });
+    });
+  }
+
+  test("prints the final act without white schedule cards in dark mode", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/");
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    const grid = page.getByRole("group", { name: "The programme grid, scrollable sideways" });
+    await page.locator('label[for="k6"]').click();
+    const schedule = grid.getByText("Opening talk", { exact: true });
+    await expect(schedule).toBeVisible();
+    for (const card of await grid.locator(".chip").all()) {
+      await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    }
+    await grid.evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    );
+    await expect(schedule).toHaveCSS(
+      "color",
+      await grid.evaluate((el) => getComputedStyle(el).color),
+    );
+    await attachArtifacts(testInfo, {
+      name: "print-act-dark",
+      region: grid,
+      facts: { theme: "dark", act: 6 },
+    });
+  });
+
   test("#gracze deep link opens the player view directly", async ({ page }) => {
     await page.goto("/#gracze");
 
