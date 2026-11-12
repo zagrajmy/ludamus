@@ -63,6 +63,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Unit-test the iOS regression helpers
         run: mise run test:ios-helpers
+      - name: Unit-test the staging deploy resolver
+        run: mise run test:staging-script
       # Non-blocking: fallow surfaces dead code, duplication, and
       # complexity hotspots as a report without failing the build.
       - name: Analyze frontend TypeScript (fallow)

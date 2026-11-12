@@ -27,10 +27,12 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEvent"
   | "emptyGroup"
+  | "emptyOrganizers"
+  | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
-  | "emptySphere"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -43,6 +45,7 @@ export type Copy = Record<
   | "errorReactionRateLimited"
   | "errorTooMany"
   | "errorUnknown"
+  | "eventRoom"
   | "groupName"
   | "groupNeedsPeople"
   | "groupPeople"
@@ -85,6 +88,9 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizersRoom"
+  | "partyHint"
+  | "partyRoom"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
@@ -126,7 +132,6 @@ export type Copy = Record<
   | "sending"
   | "sendLabel"
   | "sessionRoom"
-  | "sphereRoom"
   | "title"
   | "typingMany"
   | "typingOne"
@@ -147,13 +152,13 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct or group conversation as its member sees it; members lists the
+// A direct, group or party conversation as its member sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "party";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -167,9 +172,9 @@ export type Room = {
   canWrite: boolean;
   conversation?: ConversationInfo;
   id: string;
-  kind: "conversation" | "session" | "sphere";
-  // The programme point a session room is about.
-  sessionId: number | null;
+  kind: "conversation" | "event" | "organizers" | "session";
+  // The sphere a sphere's room belongs to; a conversation has none.
+  sphere?: number;
   title: string;
 };
 export type Bootstrap = {
@@ -186,7 +191,6 @@ export type Bootstrap = {
   copy: Copy;
   csrfToken: string;
   rooms: Room[];
-  sphere: { id: string; name: string };
   user: { avatarUrl: string; id: string; name: string };
 };
 

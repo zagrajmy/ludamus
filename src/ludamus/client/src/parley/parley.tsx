@@ -27,7 +27,7 @@ import {
   type Room,
   type RoomActivity,
 } from "./protocol";
-import { type Activity, useActivity } from "./use-activity";
+import { type Activity, type Source, useActivity } from "./use-activity";
 import { useFloatingWindow } from "./use-floating-window";
 
 type OpenView =
@@ -154,6 +154,7 @@ function RoomList({
   here,
   open,
   rooms,
+  showBlocked,
 }: {
   activity: Record<string, RoomActivity>;
   bootstrap: Bootstrap;
@@ -164,6 +165,7 @@ function RoomList({
   here: Room | undefined;
   open: (room: Room) => void;
   rooms: Room[];
+  showBlocked: (() => void) | null;
 }) {
   const { copy } = bootstrap;
   const firstRoom = useRef<HTMLButtonElement>(null);
@@ -225,6 +227,9 @@ function RoomList({
   return (
     <>
       <PanelHeader back={null} close={close} closeLabel={copy.closeLabel} title={copy.roomsLabel}>
+        {showBlocked !== null && (
+          <IconButton icon="Block" label={copy.blockedPeople} onClick={showBlocked} />
+        )}
         {compose !== null && (
           <IconButton icon="Compose" label={copy.newMessage} onClick={compose} />
         )}
@@ -271,41 +276,45 @@ function RoomList({
   );
 }
 
-const NO_INBOX: Activity = { activity: {}, markRead: () => null };
+// Each sphere's feed by its id, and the inbox under INBOX.
+type Feeds = Record<string, Activity>;
+const INBOX = "inbox";
 
-// Only someone conversations are open to has an inbox; anyone else's would
-// be refused, and a refused pass sends the chat back for a new one.
-function Inbox({
+// One socket for a feed of news, which it hands up as it changes.
+function Feed({
   bootstrap,
-  children,
+  name,
   onPassClosed,
+  report,
+  source,
 }: {
   bootstrap: Bootstrap;
-  children: (inbox: Activity) => ReactNode;
+  name: string;
   onPassClosed: () => void;
+  report: (name: string, feed: Activity) => void;
+  source: Source;
 }) {
-  return children(useActivity(bootstrap, "inbox", onPassClosed));
+  const feed = useActivity(bootstrap, source, onPassClosed);
+  useEffect(() => report(name, feed), [feed, name, report]);
+  return null;
 }
 
 function Connected({
   bootstrap,
-  inbox,
   launcherLabel,
   onPassClosed,
-  pageSession,
+  pageRoom,
   setView,
   view,
 }: {
   bootstrap: Bootstrap;
-  inbox: Activity;
   launcherLabel: string;
   onPassClosed: () => void;
-  pageSession: string;
+  pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
   view: View;
 }) {
   const { copy, user } = bootstrap;
-  const sphere = useActivity(bootstrap, "sphere", onPassClosed);
   const api = useMemo(() => conversationsApi(bootstrap), [bootstrap]);
   const [conversations, setConversations] = useState(bootstrap.conversations);
   const [blocked, setBlocked] = useState(bootstrap.blocked);
@@ -317,8 +326,21 @@ function Connected({
     ...bootstrap.rooms,
     ...conversations.map((conversation) => asRoom(conversation, copy.typingSomeone)),
   ];
-  const activity = { ...sphere.activity, ...inbox.activity };
-  const here = rooms.find(({ sessionId }) => sessionId !== null && `${sessionId}` === pageSession);
+  const [feeds, setFeeds] = useState<Feeds>({});
+  const report = useCallback(
+    (name: string, feed: Activity) => setFeeds((known) => ({ ...known, [name]: feed })),
+    [],
+  );
+  // One feed for each sphere with a room here, and the inbox once there is
+  // a conversation to hear of; a socket each, however many rooms.
+  const spheres = [...new Set(bootstrap.rooms.map(({ sphere }) => String(sphere)))];
+  const listening = bootstrap.canMessage || conversations.length > 0;
+  const inboxActivity = feeds[INBOX]?.activity;
+  const activity = Object.assign(
+    {},
+    ...Object.values(feeds).map((feed) => feed.activity),
+  ) as Record<string, RoomActivity>;
+  const here = rooms.find(({ id }) => id === pageRoom);
   const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
   const shown = settle(view, rooms, here ?? single);
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
@@ -339,14 +361,14 @@ function Connected({
   // this person first, or added them to a group.
   const asked = useRef(new Set<string>());
   useEffect(() => {
-    const unknown = Object.keys(inbox.activity).filter(
+    const unknown = Object.keys(inboxActivity ?? {}).filter(
       (id) =>
         !asked.current.has(id) && !conversations.some((conversation) => conversation.id === id),
     );
     if (unknown.length === 0) return;
     for (const id of unknown) asked.current.add(id);
     void refresh();
-  }, [conversations, inbox.activity, refresh]);
+  }, [conversations, inboxActivity, refresh]);
   // A conversation that shuts this person out has either not heard of them
   // yet or dropped them; once the list says the latter, the room goes.
   // Answers whether they are still in it, so worth redialling.
@@ -437,6 +459,25 @@ function Connected({
 
   return (
     <>
+      {spheres.map((sphere) => (
+        <Feed
+          bootstrap={bootstrap}
+          key={sphere}
+          name={sphere}
+          onPassClosed={onPassClosed}
+          report={report}
+          source={{ sphere }}
+        />
+      ))}
+      {listening && (
+        <Feed
+          bootstrap={bootstrap}
+          name={INBOX}
+          onPassClosed={onPassClosed}
+          report={report}
+          source={{ inbox: true }}
+        />
+      )}
       <Launcher
         expanded={shown.kind !== "closed"}
         label={launcherLabel}
@@ -456,6 +497,11 @@ function Connected({
               here={here}
               open={open}
               rooms={rooms}
+              showBlocked={
+                !bootstrap.canMessage && blocked.length > 0
+                  ? () => setView({ kind: "blocked" })
+                  : null
+              }
             />
           )}
           {shown.kind === "compose" && (
@@ -472,7 +518,11 @@ function Connected({
           )}
           {shown.kind === "blocked" && (
             <BlockedPeople
-              back={() => setView({ kind: "compose" })}
+              back={
+                bootstrap.canMessage
+                  ? { label: copy.backToNewMessage, run: () => setView({ kind: "compose" }) }
+                  : { label: copy.backLabel, run: toList }
+              }
               bootstrap={bootstrap}
               close={close}
               people={blocked}
@@ -508,14 +558,13 @@ function Connected({
                   }
                   key={room.id}
                   // A direct conversation blocks from its details and its request.
-                  onBlock={
-                    bootstrap.canMessage && room.conversation?.kind !== "direct"
-                      ? blocks.block
-                      : null
-                  }
+                  onBlock={room.conversation?.kind === "direct" ? null : blocks.block}
                   onPassClosed={onPassClosed}
                   onRead={(messageId) =>
-                    (room.kind === "conversation" ? inbox : sphere).markRead(room.id, messageId)
+                    feeds[room.sphere === undefined ? INBOX : String(room.sphere)]?.markRead(
+                      room.id,
+                      messageId,
+                    )
                   }
                   onRefused={() => refused(room.id)}
                   room={room}
@@ -546,13 +595,13 @@ function Parley({
   bootstrapUrl,
   initialOpen,
   launcherLabel,
-  pageSession,
+  pageRoom,
   shell,
 }: {
   bootstrapUrl: string;
   initialOpen: boolean;
   launcherLabel: string;
-  pageSession: string;
+  pageRoom: string;
   shell: Shell;
 }) {
   const [view, setView] = useState<View>(initialOpen ? ENTRY : { kind: "closed", left: ENTRY });
@@ -621,23 +670,16 @@ function Parley({
   }, [bootstrap]);
 
   if (bootstrap !== null) {
-    const connected = (inbox: Activity) => (
+    return (
       <Connected
         bootstrap={bootstrap}
-        inbox={inbox}
         key={bootstrap.capabilityToken}
         launcherLabel={launcherLabel}
         onPassClosed={passClosed}
-        pageSession={pageSession}
+        pageRoom={pageRoom}
         setView={setView}
         view={view}
       />
-    );
-    if (!bootstrap.canMessage) return connected(NO_INBOX);
-    return (
-      <Inbox bootstrap={bootstrap} key={bootstrap.capabilityToken} onPassClosed={passClosed}>
-        {connected}
-      </Inbox>
     );
   }
 
@@ -695,7 +737,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
     closeLabel = "",
     connectionError = "",
     loading = "",
-    pageSession = "",
+    pageRoom = "",
     retry = "",
   } = element.dataset;
   const root = createRoot(element);
@@ -707,7 +749,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
-        pageSession={pageSession}
+        pageRoom={pageRoom}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,
     ),

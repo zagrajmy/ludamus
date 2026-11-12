@@ -64,6 +64,7 @@ Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygn
 - Treść wiadomości, czas jej napisania oraz nazwa wyświetlana i zdjęcie profilowe autora z chwili wysłania
 - Reakcje emoji wraz z nazwą wyświetlaną osoby, która ich użyła
 - Członkowie rozmów prywatnych i grupowych, prośby o rozmowę, nazwy nadane rozmowom
+- Członkowie czatów drużyn, ustalani na podstawie przynależności do drużyny
 - Miejsce, do którego przeczytano rozmowę (do wyświetlania liczby nieprzeczytanych wiadomości)
 - Osoby zablokowane przez użytkownika
 - Wiadomości usunięte przez moderatorów wraz z powodem oraz wyciszenia uczestników
@@ -124,13 +125,13 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 - **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO) - umową jest Regulamin akceptowany przy korzystaniu z serwisu
 - **Dane:** dane czatu z punktu 2.5 (poza zgłoszeniami i moderacją), nazwa wyświetlana i zdjęcie profilowe z punktu 2.1
-- **Opis:** wysyłanie, wyświetlanie i dostarczanie na bieżąco wiadomości w rozmowie sfery, rozmowach przy punktach programu oraz rozmowach prywatnych i grupowych, a także reakcje, liczniki nieprzeczytanych wiadomości i blokowanie innych użytkowników. Korzystanie z czatu jest dobrowolne
+- **Opis:** wysyłanie, wyświetlanie i dostarczanie na bieżąco wiadomości w czatach wydarzeń, czacie organizatorów sfery, rozmowach przy punktach programu, czatach drużyn oraz rozmowach prywatnych i grupowych, a także reakcje, liczniki nieprzeczytanych wiadomości i blokowanie innych użytkowników. Czaty wydarzeń działają, gdy organizatorzy włączą je dla całej sfery albo dla danego wydarzenia, a czat organizatorów, dopóki sfera go nie wyłączy. Czat drużyny obejmuje jej aktywnych członków w każdym wieku. Drużyna dwuosobowa, w której choć jedna osoba nie zadeklarowała wieku 16+, nie ma czatu, bo byłby on rozmową prywatną, a te są dostępne tylko od 16 lat. Korzystanie z czatu jest dobrowolne
 
 ### 3.8 Moderacja czatu i zgłoszenia
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
 - **Dane:** zgłoszenia wiadomości wraz z kopią treści, usunięcia wiadomości przez moderatorów, wyciszenia, czas wysłania ostatnich wiadomości i reakcji
-- **Opis:** ochrona użytkowników przed nękaniem i spamem oraz rozpatrywanie zgłoszeń. Kopię treści zachowujemy przy zgłoszeniu, aby dało się je rozpatrzyć także wtedy, gdy autor usunie wiadomość. Interes polega na utrzymaniu bezpiecznej rozmowy w serwisie
+- **Opis:** ochrona użytkowników przed nękaniem i spamem oraz rozpatrywanie zgłoszeń. Zgłoszenia z czatów drużyn i rozmów prywatnych lub grupowych, które nie należą do żadnej sfery, rozpatruje administrator serwisu. Kopię treści zachowujemy przy zgłoszeniu, aby dało się je rozpatrzyć także wtedy, gdy autor usunie wiadomość. Interes polega na utrzymaniu bezpiecznej rozmowy w serwisie
 
 ### 3.9 Rozpatrywanie zgłoszeń nielegalnych treści
 
@@ -168,8 +169,8 @@ Poniższe usługi podłącza i konfiguruje organizator danego wydarzenia, a dane
 - Organizatorzy widzą listy uczestników oraz odpowiedzi na pytania o dane osobowe skonfigurowane w danym wydarzeniu. Dane, z których korzystają na potrzeby swojego wydarzenia, administrują samodzielnie (punkt 1.2)
 - Program wydarzenia wraz z nazwami twórców programu jest publiczny
 - Odpowiedzi na pytania oznaczone przez organizatora jako publiczne są widoczne dla wszystkich
-- Wiadomości czatu, wraz z nazwą wyświetlaną i zdjęciem profilowym autora oraz tym, kto na nie zareagował, widzą osoby w danej rozmowie: w rozmowie sfery — zalogowani użytkownicy tej sfery, przy punkcie programu — jego uczestnicy i prowadzący, w rozmowie prywatnej lub grupowej — jej członkowie
-- Osoby zarządzające sferą widzą rozmowy sfery i wszystkich jej punktów programu, mogą w nich usuwać wiadomości i wyciszać uczestników. Zgłoszenia wiadomości rozpatruje administrator serwisu
+- Wiadomości czatu, wraz z nazwą wyświetlaną i zdjęciem profilowym autora oraz tym, kto na nie zareagował, widzą osoby w danej rozmowie: w czacie wydarzenia — osoby z potwierdzonym miejscem lub na liście rezerwowej w którymkolwiek punkcie jego programu, twórcy punktów przyjętych do programu i osoby zarządzające sferą, w czacie organizatorów — osoby zarządzające sferą, przy punkcie programu — jego uczestnicy i prowadzący, w czacie drużyny — jej aktywni członkowie w każdym wieku (drużyna dwuosobowa z osobą poniżej 16 lat lub bez deklaracji wieku nie ma czatu), w rozmowie prywatnej lub grupowej — jej członkowie
+- Osoby zarządzające sferą widzą czat organizatorów, czaty wydarzeń i rozmowy przy wszystkich punktach programu tej sfery, mogą w nich usuwać wiadomości i wyciszać uczestników. Zgłoszenia wiadomości rozpatruje administrator serwisu
 
 ### 4.5 Organy publiczne:
 
@@ -203,7 +204,7 @@ Dane osobowe przechowujemy:
 
 - **Dane konta:** do momentu usunięcia konta przez użytkownika lub na jego żądanie
 - **Historia aktywności:** do momentu usunięcia konta
-- **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
+- **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Czaty wydarzeń i rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
 - **Zgłoszenia nielegalnych treści, decyzje i uzasadnienia:** przez 3 lata od decyzji, aby móc rozpatrzyć odwołanie i wykazać, jak sprawa została załatwiona
 - **Logi techniczne:** maksymalnie 12 miesięcy
 - **Historia zmian w panelu organizatora i logi importu programu:** przez czas trwania wydarzenia i 12 miesięcy po jego zakończeniu. Są to zapisy tego, kto wprowadził zmianę, więc pozostają także po usunięciu opisywanego wpisu

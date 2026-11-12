@@ -61,7 +61,7 @@ function actionsOf(panel: Locator, body: string): Locator {
 
 const menuOf = (page: Page): Locator => page.getByRole("menu", { name: copy.messageActions });
 
-test("Someone blocked stays out of sight in a group and in the common room", async ({ page }) => {
+test("Someone blocked stays out of sight in a group and in an event chat", async ({ page }) => {
   await routeBootstrap(page, [{ blocked: [kuba], canMessage: true, conversations: [crew] }]);
   const now = Date.now();
   const worker = (await FakeWorker.install(page)).on("loadBefore", () => ({
@@ -114,12 +114,16 @@ test("Someone blocked stays out of sight in a group and in the common room", asy
   await expect(panel.getByText(copy.reported)).toBeVisible();
   expect(reports[0]).toContain("conversation:20");
 
-  // In the common room too, and a blocked typist is never announced.
+  // In an event chat too, and a blocked typist is never announced.
   await panel.getByRole("button", { name: copy.backLabel }).click();
   await roomButton(panel, "Zagrajmy").click();
   await expect(panel.getByText("Ada says hi")).toBeVisible();
-  worker.push("typing.changed", { expiresAt: now + 60_000, userId: kuba.id }, /sphere-agent/u);
-  worker.push("typing.changed", { expiresAt: now + 60_000, userId: ada.id }, /sphere-agent/u);
+  worker.push(
+    "typing.changed",
+    { expiresAt: now + 60_000, userId: kuba.id },
+    /parley-event-agent/u,
+  );
+  worker.push("typing.changed", { expiresAt: now + 60_000, userId: ada.id }, /parley-event-agent/u);
   await expect(panel.getByText(`${ada.name} is typing…`)).toBeVisible();
 
   await actionsOf(panel, "Ada says hi").click();
@@ -199,5 +203,47 @@ test("Blocked people are unblocked from a conversation's details or their own li
   await expect(panel).toBeHidden();
   await launcherOf(page).click();
   await panel.getByRole("button", { name: copy.newMessage }).click();
+  await expect(panel.getByRole("button", { name: copy.blockedPeople })).toHaveCount(0);
+});
+
+test("Someone who cannot message still finds the people they blocked in a room", async ({
+  page,
+}) => {
+  await routeBootstrap(page, [{ blocked: [], canMessage: false }]);
+  (await FakeWorker.install(page)).on("loadBefore", () => ({
+    ok: true,
+    value: [
+      message({
+        authorId: ada.id,
+        authorName: ada.name,
+        body: "Ada says hi",
+        createdAt: Date.now(),
+        id: 1,
+      }),
+    ],
+  }));
+  await routeApi(page, {
+    "blocks/": [{ status: 204 }],
+    "blocks/7/remove/": [{ status: 204 }],
+  });
+
+  await page.goto("/");
+  await launcherOf(page).click();
+  const panel = panelOf(page);
+  await expect(panel.getByRole("button", { name: copy.blockedPeople })).toHaveCount(0);
+  await roomButton(panel, "Zagrajmy").click();
+  await actionsOf(panel, "Ada says hi").click();
+  await menuOf(page)
+    .getByRole("menuitem", { name: `Block ${ada.name}` })
+    .click();
+  await panel.getByRole("alertdialog").getByRole("button", { name: copy.block }).click();
+  await expect(panel.getByText(copy.blockedMessage)).toBeVisible();
+
+  await panel.getByRole("button", { name: copy.backLabel }).click();
+  await panel.getByRole("button", { name: copy.blockedPeople }).click();
+  await panel.getByRole("button", { name: `Unblock ${ada.name}` }).click();
+  await expect(panel.getByRole("status")).toHaveText(`${ada.name} unblocked.`);
+  await panel.getByRole("button", { name: copy.backLabel }).click();
+  await expect(panel.getByRole("navigation", { name: copy.roomsLabel })).toBeVisible();
   await expect(panel.getByRole("button", { name: copy.blockedPeople })).toHaveCount(0);
 });

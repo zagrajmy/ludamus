@@ -294,6 +294,7 @@ class StatementOfReasonsServiceProtocol(Protocol):
 
 
 class ModerationDecisionServiceProtocol(Protocol):
+    def check(self, verdict: ModerationVerdict) -> None: ...
     def decide_notices(
         self,
         *,

@@ -180,7 +180,7 @@
                 {% include "components/email-verification-banner.html" %}
             {% endif %}
         {% endblock email_verification_banner %}
-        {% if PARLEY_AVAILABLE and current_sphere.parley_enabled and current_user and current_user.is_active %}
+        {% if current_user and current_user.is_active and PARLEY_OPEN %}
             <div data-parley-root
                  data-ph-block
                  data-bootstrap-url="{% url 'parley_bootstrap' %}"
@@ -188,7 +188,7 @@
                  data-loading="{% translate 'Gathering conversations…' %}"
                  data-connection-error="{% translate 'Could not connect to the chat.' %}"
                  data-retry="{% translate 'Try again' %}"
-                 data-page-session="{% block parley_session %}{% endblock parley_session %}">
+                 data-page-room="{% block parley_room %}{% endblock parley_room %}">
                 <button type="button"
                         data-parley-launcher
                         aria-controls="parley-panel"
@@ -205,7 +205,7 @@
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/actions.ts' %}
-        {% if PARLEY_AVAILABLE and current_sphere.parley_enabled and current_user and current_user.is_active %}
+        {% if current_user and current_user.is_active and PARLEY_OPEN %}
             {% vite_asset 'src/parley/index.ts' %}
         {% endif %}
         {% vite_asset 'src/app-scroll.ts' %}

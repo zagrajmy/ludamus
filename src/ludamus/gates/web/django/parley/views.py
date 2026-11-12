@@ -58,9 +58,13 @@ def _copy() -> dict[str, str]:
         "closeLabel": _("Close chat"),
         "loading": _("Gathering conversations…"),
         "offline": _("Connection lost. Reconnecting…"),
-        "emptySphere": _(
+        "emptyEvent": _(
             "Quiet in here. Say hello before someone starts a rules debate."
         ),
+        "emptyOrganizers": _(
+            "Just the organizers in here. Plan away, nobody else can read it."
+        ),
+        "emptyParty": _("Your party's own chat. Say hello to everyone."),
         "emptySession": _("You found the table first. Leave a note for the others."),
         "readOnly": _("You can read this conversation, but not write in it."),
         "emptyReadOnly": _("Nobody has written here yet."),
@@ -92,7 +96,12 @@ def _copy() -> dict[str, str]:
         "messageActions": _("Message actions"),
         "linkCopied": _("Link copied."),
         "sessionRoom": _("Programme point"),
-        "sphereRoom": _("Common room"),
+        "eventRoom": _("Event chat"),
+        "organizersRoom": _("Organizers"),
+        "partyRoom": _("Party"),
+        "partyHint": _(
+            "Everyone in your party is here. To leave this chat, leave the party."
+        ),
         "moderatorDelete": _("Delete as moderator"),
         "muteOneHour": _("Mute for 1 hour"),
         "muteOneDay": _("Mute for 24 hours"),
@@ -244,9 +253,7 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "authentication_required"}, status=401)
 
     payload = request.services.parley.bootstrap(
-        sphere_id=request.context.current_sphere_id,
-        user_id=request.context.current_user_id,
-        now=datetime.now(tz=UTC),
+        user_id=request.context.current_user_id, now=datetime.now(tz=UTC)
     )
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
@@ -267,7 +274,6 @@ def report(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "invalid_report"}, status=422)
     try:
         data = ParleyReportData(
-            sphere_id=request.context.current_sphere_id,
             user_id=request.context.current_user_id,
             room_id=request.POST["room_id"],
             message_id=int(request.POST["message_id"]),
@@ -288,7 +294,6 @@ def report(request: RootHttpRequest) -> JsonResponse:
         extra={
             "message_id": data.message_id,
             "room_id": data.room_id,
-            "sphere_id": data.sphere_id,
             "user_id": data.user_id,
         },
     )

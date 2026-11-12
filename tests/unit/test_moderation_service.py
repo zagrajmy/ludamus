@@ -657,6 +657,38 @@ class TestModerationDecisionService:
         assert result.decided == len(mailer.outcomes) == 1 + 1 + 1
         assert len(result.statements) == len(mailer.statements) == 1
 
+    def test_reports_of_one_message_under_older_separate_cases_explain_it_once(self):
+        reports = FakeReports(
+            _report(1, case_id=None), _report(2, case_id=8, reporter_id=5)
+        )
+        mailer = FakeMailer()
+
+        result = self._service(reports=reports, mailer=mailer).decide_chat_reports(
+            report_ids=[1, 2], verdict=_actioned()
+        )
+
+        assert len(mailer.outcomes) == 1 + 1
+        assert len(result.statements) == len(mailer.statements) == 1
+
+    def test_a_rejected_chat_report_tells_its_reporter_and_nobody_else(self):
+        mailer = FakeMailer()
+
+        result = self._service(
+            reports=FakeReports(_report()), mailer=mailer
+        ).decide_chat_reports(
+            report_ids=[1], verdict=_actioned(status=ModerationStatus.REJECTED)
+        )
+
+        assert [o.status for o in mailer.outcomes] == [ModerationStatus.REJECTED]
+        assert not result.statements
+
+    def test_a_verdict_is_checked_before_anything_acts_on_it(self):
+        service = self._service()
+
+        service.check(_actioned())
+        with pytest.raises(InvalidVerdictError):
+            service.check(_actioned(legal_provision=""))
+
     def test_a_chat_report_already_closed_or_without_an_author_explains_nothing(self):
         reports = FakeReports(_report(1), _report(2, reported_user_id=None))
         reports.decisions[1] = {}

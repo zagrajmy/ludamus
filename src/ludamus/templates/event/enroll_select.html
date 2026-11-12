@@ -8,7 +8,7 @@
 {% block title %}
     {% translate "Enrollment" %} • {{ session.title }}
 {% endblock title %}
-{% block parley_session %}{{ session.pk }}{% endblock parley_session %}
+{% block parley_room %}session:{{ current_sphere.pk }}:{{ session.pk }}{% endblock parley_room %}
 {% block header_section %}
 {% endblock header_section %}
 {% block body %}

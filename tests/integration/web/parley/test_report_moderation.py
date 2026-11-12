@@ -11,9 +11,10 @@ MESSAGE_ID = 42
 
 
 @pytest.fixture(name="chat_sphere")
-def chat_sphere_fixture(sphere):
+def chat_sphere_fixture(sphere, active_user):
     sphere.parley_enabled = True
     sphere.save()
+    sphere.managers.add(active_user)
     return sphere
 
 
@@ -23,7 +24,7 @@ def _report(client, sphere, **extra):
         data={
             "message_id": MESSAGE_ID,
             "reason": "Insults",
-            "room_id": f"sphere:{sphere.pk}",
+            "room_id": f"organizers:{sphere.pk}",
         }
         | extra,
     )
@@ -60,7 +61,7 @@ def test_a_report_opens_a_case_and_tells_staff_once(
         f"[Z-{report.case_id}] New chat report",
     )
     assert alert.body == (
-        f"Chat room: sphere:{chat_sphere.pk}\n\n"
+        f"Chat room: organizers:{chat_sphere.pk}\n\n"
         "Explanation:\nInsults\n\n"
         "Decide in the admin:"
         f" https://testserver/admin/db_main/parleyreport/{report.pk}/change/"
@@ -76,7 +77,9 @@ def test_a_second_reporter_joins_the_message_case_without_a_second_alert(
 ):
     with django_capture_on_commit_callbacks(execute=True):
         _report(authenticated_client, chat_sphere, good_faith="1")
-        client.force_login(UserFactory())
+        second = UserFactory()
+        chat_sphere.managers.add(second)
+        client.force_login(second)
         _report(client, chat_sphere, good_faith="1")
 
     first, second = ParleyReport.objects.order_by("pk")

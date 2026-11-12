@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, ClassVar, Protocol, override
 
 from django import forms
 from django.contrib import admin, messages
@@ -65,12 +68,8 @@ class _Wiring:
 _wiring = _Wiring()
 
 
-def register_services(make_services: Callable[[], ServicesProtocol]) -> None:
-    """Hand the admin its services. Called once, at startup, by `inits`.
-
-    The admin runs outside the app middleware, so its requests carry no
-    services of their own.
-    """
+def register(*, make_services: Callable[[], ServicesProtocol]) -> None:
+    """Hand over what admin actions run: Django builds the admin itself."""
     _wiring.services = make_services
 
 
@@ -326,6 +325,100 @@ def decide_chat_reports(
     )
 
 
+class RemovalForm(forms.Form):
+    ground = forms.ChoiceField(
+        choices=MODERATION_GROUND_CHOICES,
+        help_text="The law, or the point of § 4.1 the message broke.",
+    )
+    legal_provision = forms.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH,
+        required=False,
+        help_text=(
+            "Required when the ground is the law: the provision broken, e.g."
+            " art. 190 § 1 Kodeksu karnego."
+        ),
+    )
+    decision_text = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 5}),
+        max_length=DECISION_TEXT_MAX_LENGTH,
+        help_text=_DECISION_TEXT_HELP,
+    )
+
+    def verdict(self) -> ModerationVerdict:
+        data = self.cleaned_data
+        return ModerationVerdict(
+            status=ModerationStatus.ACTIONED,
+            decision=ModerationDecision.CONTENT_REMOVED,
+            ground=ModerationGround(data["ground"]),
+            legal_provision=data["legal_provision"],
+            decision_text=data["decision_text"],
+        )
+
+
+@admin.action(
+    description="Delete the reported messages for everyone", permissions=["change"]
+)
+def delete_reported_messages(
+    modeladmin: _ActionAdmin, request: HttpRequest, queryset: QuerySet[ParleyReport]
+) -> HttpResponse | None:
+    form = RemovalForm(request.POST if "apply" in request.POST else None)
+    if form.is_valid():
+        verdict = form.verdict()
+        services = _services()
+        try:
+            services.moderation_decisions.check(verdict)
+        except InvalidVerdictError as error:
+            form.add_error(None, str(error))
+        else:
+            messages_reported = set(queryset.values_list("room_id", "message_id"))
+            result = services.parley.delete_reported(
+                report_ids=list(queryset.values_list("pk", flat=True)),
+                now=datetime.now(UTC),
+            )
+            modeladmin.message_user(request, f"Deleted {result.deleted} message(s).")
+            if result.failed:
+                modeladmin.message_user(
+                    request,
+                    f"{result.failed} could not be deleted: the chat Worker did"
+                    " not answer.",
+                    messages.ERROR,
+                )
+            # NOTE: deleting resolves every report of each message it reached;
+            # those are the reports this decision closes.
+            removed = [
+                pk
+                for pk, room_id, message_id in ParleyReport.objects.filter(
+                    status=ModerationStatus.OPEN, resolved_at__isnull=False
+                ).values_list("pk", "room_id", "message_id")
+                if (room_id, message_id) in messages_reported
+            ]
+            if removed:
+                _report_statements(
+                    modeladmin,
+                    request,
+                    services.moderation_decisions.decide_chat_reports(
+                        report_ids=removed, verdict=verdict
+                    ),
+                )
+            return None
+    return _action_page(
+        request,
+        modeladmin=modeladmin,
+        form=form,
+        items=queryset,
+        copy=_ActionCopy(
+            action="delete_reported_messages",
+            lead="Deleting for everyone the messages reported in:",
+            consequence=(
+                "Each deleted message closes its reports as actioned: every"
+                " reporter hears the outcome and its author gets a statement of"
+                " reasons."
+            ),
+            submit_label="Delete messages",
+        ),
+    )
+
+
 def _never(
     _modeladmin: _ActionAdmin, _request: HttpRequest, _obj: Model | None = None
 ) -> bool:
@@ -366,22 +459,49 @@ admin.site.register(
 # would only take with a type: ignore.
 admin.site.register(
     ParleyReport,
+    actions=(decide_chat_reports, delete_reported_messages),
     list_display=(
         "created_at",
         "room_id",
+        "sphere",
         "reporter",
         "reported_user",
         "body",
         "status",
         "resolved_at",
     ),
-    list_filter=(("resolved_at", admin.EmptyFieldListFilter), "status"),
-    list_select_related=("reporter", "reported_user"),
+    # A report with no sphere came from a party's chat or a conversation.
+    list_filter=(
+        "status",
+        ("resolved_at", admin.EmptyFieldListFilter),
+        ("sphere", admin.EmptyFieldListFilter),
+    ),
+    list_select_related=("reporter", "reported_user", "sphere"),
     search_fields=("body", "author_name", "room_id"),
-    # What the room said stays as reported. The decide action is the only way
-    # to close a report, so a closed one has always mailed its outcome.
-    has_change_permission=_never,
-    actions=(decide_chat_reports,),
+    # What the room said stays as reported. Only the actions close a report,
+    # so a closed one has always mailed its outcome.
+    readonly_fields=(
+        "sphere",
+        "conversation",
+        "reporter",
+        "room_id",
+        "message_id",
+        "reason",
+        "reported_user",
+        "author_name",
+        "body",
+        "written_at",
+        "deleted_at",
+        "created_at",
+        "resolved_at",
+        "case",
+        "status",
+        "decision",
+        "ground",
+        "legal_provision",
+        "suspended_until",
+        "decision_text",
+    ),
 )
 
 
@@ -460,6 +580,36 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("name", "user_type", "email", "discord_username")
     search_fields = ("name", "email")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+    @override
+    def save_model(
+        self, request: HttpRequest, obj: User, form: forms.ModelForm[User], change: bool
+    ) -> None:
+        super().save_model(request, obj, form, change)
+        # NOTE: who may chat, and which parties' chats someone is in, hang
+        # on these; the service pages that change them do the same.
+        if change and {"is_active", "age_band"} & set(form.changed_data):
+            _services().parley_revocations.revoke_user(user_id=obj.pk)
+
+    @override
+    def delete_model(self, request: HttpRequest, obj: User) -> None:
+        chats = _services().parley_party_chats
+        parties = chats.parties_of(obj.pk)
+        super().delete_model(request, obj)
+        for party_id in parties:
+            chats.sync_party(party_id)
+
+    @override
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
+        chats = _services().parley_party_chats
+        parties = {
+            party_id
+            for user_id in queryset.values_list("pk", flat=True)
+            for party_id in chats.parties_of(user_id)
+        }
+        super().delete_queryset(request, queryset)
+        for party_id in sorted(parties):
+            chats.sync_party(party_id)
 
     @admin.action(description="Send notification to selected users")
     def send_notification(

@@ -362,6 +362,15 @@ class ModerationDecisionService:
         self._statements = statements
         self._mailer = mailer
 
+    @staticmethod
+    def check(verdict: ModerationVerdict) -> None:
+        """Refuse a verdict before anything acts on it.
+
+        Raises:
+            InvalidVerdictError: the verdict does not hold together.
+        """
+        _decision_record(verdict)
+
     def decide_notices(
         self,
         *,
@@ -422,6 +431,9 @@ class ModerationDecisionService:
         """
         record = _decision_record(verdict)
         decided, statements = 0, []
+        # A message's reports filed before cases were shared may sit under
+        # several cases; its author still hears about it once.
+        explained: set[tuple[int, str, int]] = set()
         with self._transaction.atomic():
             for pk in report_ids:
                 report = self._reports.read(pk)
@@ -437,13 +449,17 @@ class ModerationDecisionService:
                         reporter_id=report.reporter_id,
                     )
                 )
-                if report.reported_user_id is not None and (
-                    issued := self._explain(
-                        record,
-                        verdict=verdict,
-                        user_id=report.reported_user_id,
-                        case_id=case_id,
-                    )
+                if report.reported_user_id is None:
+                    continue
+                key = (report.reported_user_id, report.room_id, report.message_id)
+                if key in explained:
+                    continue
+                explained.add(key)
+                if issued := self._explain(
+                    record,
+                    verdict=verdict,
+                    user_id=report.reported_user_id,
+                    case_id=case_id,
                 ):
                     statements.append(issued)
         logger.info(

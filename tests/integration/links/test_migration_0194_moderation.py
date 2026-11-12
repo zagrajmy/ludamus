@@ -6,7 +6,7 @@ from django.apps import apps
 from ludamus.links.db.django.models import ParleyReport
 from tests.integration.conftest import UserFactory
 
-migration = import_module("ludamus.links.db.django.migrations.0193_moderation_notices")
+migration = import_module("ludamus.links.db.django.migrations.0194_moderation_notices")
 
 
 def _report(sphere, *, message_id, resolved_at):

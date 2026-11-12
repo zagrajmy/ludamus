@@ -19,7 +19,7 @@ def close_resolved_chat_reports(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0192_remove_encounterrsvp_ip_address")]
+    dependencies = [("db_main", "0193_parley_room_model")]
 
     operations = [
         migrations.CreateModel(

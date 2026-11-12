@@ -7,7 +7,7 @@ export type Conversation = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "party";
   members: Person[];
   name: string;
   state: "active" | "request";
@@ -15,7 +15,7 @@ export type Conversation = {
 };
 
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
-// sphere 1 with its common room and one read-only programme point.
+// sphere 1 with its event's chat and one read-only programme point.
 export const bootstrap = {
   ageGate: null as "unconfirmed" | "under_16" | null,
   agentHost: "localhost:8787",
@@ -37,6 +37,9 @@ export const bootstrap = {
     messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
     messagingUnder16: "Direct messages open once you turn 16.",
     onThisPage: "On this page",
+    organizersRoom: "Organizers",
+    partyHint: "Everyone in your party is here. To leave this chat, leave the party.",
+    partyRoom: "Party",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",
     blockedMessage: "A message from someone you blocked.",
@@ -59,8 +62,10 @@ export const bootstrap = {
     emptyDirect: "Say hello. Until they accept, they will see only your first message.",
     emptyGroup: "A brand new group. Say hello to everyone.",
     emptyReadOnly: "Nobody has written here yet.",
+    emptyEvent: "Quiet in here. Say hello before someone starts a rules debate.",
+    emptyOrganizers: "Just the organizers in here. Plan away, nobody else can read it.",
+    emptyParty: "Your party's own chat. Say hello to everyone.",
     emptySession: "You found the table first. Leave a note for the others.",
-    emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
     errorArchived: "This conversation is archived.",
     errorForbidden: "You do not have permission to do that.",
     errorInvalid: "That message could not be sent.",
@@ -73,6 +78,7 @@ export const bootstrap = {
     errorReactionRateLimited: "Too many reactions. Wait a moment and try again.",
     errorTooMany: "A group can have up to 50 people.",
     errorUnknown: "Something went wrong. Try again.",
+    eventRoom: "Event chat",
     groupName: "Name (optional)",
     groupNeedsPeople: "Add at least one person.",
     groupPeople: "People in the group",
@@ -154,7 +160,6 @@ export const bootstrap = {
     sending: "Sending…",
     sendLabel: "Send message",
     sessionRoom: "Programme point",
-    sphereRoom: "Common room",
     title: "Chat",
     typingMany: "Several people are typing…",
     typingOne: "%(name)s is typing…",
@@ -177,9 +182,9 @@ export const bootstrap = {
     {
       canModerate: true,
       canWrite: true,
-      id: "sphere:1",
-      kind: "sphere",
-      sessionId: null as number | null,
+      id: "event:1:5",
+      kind: "event",
+      sphere: 1,
       title: "Zagrajmy",
     },
     {
@@ -187,18 +192,17 @@ export const bootstrap = {
       canWrite: false,
       id: "session:1:42",
       kind: "session",
-      sessionId: 42 as number | null,
+      sphere: 1,
       title: "Mothership",
     },
   ],
-  sphere: { id: "1", name: "Zagrajmy" },
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },
 };
 
 export type Bootstrap = typeof bootstrap;
 type Room = Bootstrap["rooms"][number];
 
-export const sphereRoom: Room = bootstrap.rooms[0];
+export const eventRoom: Room = bootstrap.rooms[0];
 export const sessionRoom: Room = bootstrap.rooms[1];
 
 // A pass the client can read its expiry from; the signature is never checked
