@@ -1,0 +1,50 @@
+{% load csp_tags %}
+{% load i18n %}
+{% load static %}
+{% load django_vite %}
+{% load tessera %}
+{% get_current_language as LANGUAGE_CODE %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1, viewport-fit=cover">
+        {% comment %}The link is the key to the board: no search engine may keep it.{% endcomment %}
+        <meta name="robots" content="noindex, nofollow">
+        <title>{{ board.title }} • {{ current_sphere.name }}</title>
+        <link rel="icon" type="image/svg+xml" href="{% static favicon %}">
+        {% include "components/theme_init.html" %}
+        {% vite_hmr_client %}
+        <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
+    </head>
+    <body class="font-sans antialiased bg-background text-foreground overflow-hidden">
+        {% if current_user %}
+            {% url 'web:boards:index' as exit_url %}
+            {% translate "My boards" as exit_label %}
+        {% else %}
+            {% url 'web:index' as exit_url %}
+            {% blocktranslate asvar exit_label with sphere=current_sphere.name %}Back to {{ sphere }}{% endblocktranslate %}
+        {% endif %}
+        {% comment %}The client replaces what is inside once it starts; until
+        then, and if it never does, the way back is right here.{% endcomment %}
+        <div data-board-root
+             data-ph-block
+             data-ph-no-capture
+             data-bootstrap-url="{% url 'web:boards:bootstrap' share_code=board.share_code %}"
+             data-csrf-token="{{ csrf_token }}"
+             data-license-key="{{ license_key }}"
+             data-language="{{ LANGUAGE_CODE }}"
+             data-exit-url="{{ exit_url }}"
+             data-exit-label="{{ exit_label }}"
+             class="fixed inset-0">
+            <div class="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
+                <h1 class="text-xl font-semibold text-foreground">{{ board.title }}</h1>
+                <p class="text-sm text-foreground-secondary">{% translate "Opening the board…" %}</p>
+                {% tessera_button text=exit_label href=exit_url variant="secondary" icon="arrow-left" %}
+            </div>
+        </div>
+        {% include "components/theme_script.html" %}
+        {% vite_asset 'src/board/index.ts' %}
+    </body>
+</html>

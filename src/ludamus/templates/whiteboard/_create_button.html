@@ -1,0 +1,7 @@
+{% load i18n tessera %}
+{% comment %}Starting a board takes no form: it gets a dated name, renamed later.{% endcomment %}
+<form method="post" action="{% url 'web:boards:create' %}">
+    {% csrf_token %}
+    {% translate "New board" as t_new_board %}
+    {% tessera_button text=t_new_board icon="plus" full_width_mobile=False %}
+</form>

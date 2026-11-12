@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
+from ludamus.pacts.board import BOARD_TITLE_MAX_LENGTH
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
 from ludamus.pacts.enrollment import (
@@ -2046,6 +2047,42 @@ class EncounterInviteMailing(models.Model):
 
     def __str__(self) -> str:
         return f"{self.count} by {self.creator_id}"
+
+
+class Board(models.Model):
+    sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="boards")
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="boards")
+    title = models.CharField(max_length=BOARD_TITLE_MAX_LENGTH)
+    share_code = models.CharField(max_length=32, unique=True)
+    # Moves on with every link reset; the Worker drops older connections.
+    link_version = models.PositiveIntegerField(default=0)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "board"
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class BoardVisit(models.Model):
+    """A signed-in person opened a board, so it is on their list."""
+
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="visits")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    last_opened_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "board_visit"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("board", "user"), name="board_visit_unique_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} on {self.board_id}"
 
 
 class EventPanelSettings(models.Model):

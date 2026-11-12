@@ -21,6 +21,7 @@ from zeal import zeal_context
 from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Board,
     Encounter,
     EncounterInvitee,
     EncounterRSVP,
@@ -327,6 +328,16 @@ class EncounterFactory(DjangoModelFactory):
     place = Faker("city")
     max_participants = 6
     share_code = LazyAttribute(lambda __: token_urlsafe(4)[:6])
+
+
+class BoardFactory(DjangoModelFactory):
+    class Meta:
+        model = Board
+
+    sphere = SubFactory(SphereFactory)
+    creator = SubFactory(UserFactory)
+    title = Faker("sentence", nb_words=3)
+    share_code = Sequence(lambda n: f"board{n:07d}")
 
 
 class ListingFactory(DjangoModelFactory):

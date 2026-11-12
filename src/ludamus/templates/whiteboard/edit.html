@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Rename board" %}
+{% endblock title %}
+{% block header %}
+{% endblock header %}
+{% block body %}
+    <div class="max-w-xl w-full mx-auto">
+        <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-6">{% translate "Rename board" %}</h1>
+        <form method="post" class="card">
+            <div class="card-body space-y-4">
+                {% csrf_token %}
+                {% tessera_form form %}
+                <div class="flex flex-wrap justify-end gap-2">
+                    {% url 'web:boards:index' as boards_url %}
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button text=t_cancel href=boards_url variant="secondary" %}
+                    {% translate "Save name" as t_save %}
+                    {% tessera_button text=t_save %}
+                </div>
+            </div>
+        </form>
+    </div>
+{% endblock body %}

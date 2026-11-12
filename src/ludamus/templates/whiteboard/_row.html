@@ -1,0 +1,59 @@
+{% load i18n tessera %}
+{% comment %}
+    One board on "My boards". Variables: board (BoardListItemDTO). Its creator
+    gets the menu that changes it; anyone else only opens it.
+{% endcomment %}
+{% url 'web:boards:board' share_code=board.share_code as board_url %}
+<li class="flex items-center gap-3 px-4 py-3">
+    <a href="{{ board_url }}"
+       class="flex min-w-0 grow flex-col gap-0.5 rounded-md py-1 focus-visible:outline-2 focus-visible:outline-primary">
+        <span class="break-words font-semibold text-foreground-primary">{{ board.title }}</span>
+        <span class="text-sm text-foreground-secondary">
+            {% if board.is_owner %}
+                {% translate "Yours" %} ·
+            {% endif %}
+            {% blocktranslate with when=board.last_opened_at|timesince trimmed %}
+                Opened {{ when }} ago
+            {% endblocktranslate %}
+        </span>
+    </a>
+    {% if board.is_owner %}
+        {% with pk_text=board.pk|stringformat:"s" %}
+            {% with menu_id="board-menu-"|add:pk_text reset_form="board-reset-"|add:pk_text delete_form="board-delete-"|add:pk_text %}
+                {% translate "Board actions" as t_actions %}
+                {% tessera_action_dropdown id=menu_id label=t_actions hover=False align="end" trigger_class="grid size-11 place-items-center text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground hover:bg-bg-tertiary aria-expanded:text-foreground" %}
+                    {% icon "ellipsis-vertical" class="size-5" %}
+                    {% action_dropdown_menu %}
+                    {% tessera_copy board_url variant="menu-item" origin=True %}
+                        {% icon "clipboard-document" variant="mini" class="h-4 w-4 inline opacity-60" %}
+                        {% translate "Copy link" %}
+                    {% end_tessera_copy %}
+                    {% url 'web:boards:edit' pk=board.pk as edit_url %}
+                    {% translate "Rename" as t_rename %}
+                    {% tessera_action_dropdown_item t_rename href=edit_url icon="pencil-square" %}
+                    {% translate "Reset link" as t_reset %}
+                    {% translate "Guests with the old link drop off" as t_reset_detail %}
+                    {% tessera_action_dropdown_item t_reset form=reset_form icon="arrow-path" detail=t_reset_detail %}
+                    {% translate "Delete" as t_delete %}
+                    {% tessera_action_dropdown_item t_delete form=delete_form icon="trash" %}
+                {% end_tessera_action_dropdown %}
+                <form id="{{ reset_form }}"
+                      method="post"
+                      action="{% url 'web:boards:reset-link' pk=board.pk %}"
+                      hidden
+                      data-confirm="{% blocktranslate with title=board.title %}Give “{{ title }}” a new link? The old link stops working, and guests who came by it drop off the board.{% endblocktranslate %}"
+                      data-confirm-action="{% translate "Reset link" %}">
+                    {% csrf_token %}
+                </form>
+                <form id="{{ delete_form }}"
+                      method="post"
+                      action="{% url 'web:boards:delete' pk=board.pk %}"
+                      hidden
+                      data-confirm="{% blocktranslate with title=board.title %}Delete “{{ title }}”? Its link stops working for everyone. This cannot be undone.{% endblocktranslate %}"
+                      data-confirm-action="{% translate "Delete board" %}">
+                    {% csrf_token %}
+                </form>
+            {% endwith %}
+        {% endwith %}
+    {% endif %}
+</li>

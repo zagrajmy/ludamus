@@ -29,6 +29,11 @@ case "$root_host" in
     else
       echo "[dev] portless alias failed; the chat stays on localhost:8787" >&2
     fi
+    if aubr portless alias "board.${root_host%.localhost}" 8788 --force >&2; then
+      export BOARD_HOST="board.$ROOT_DOMAIN"
+    else
+      echo "[dev] portless alias failed; the board stays on localhost:8788" >&2
+    fi
     ;;
 esac
 

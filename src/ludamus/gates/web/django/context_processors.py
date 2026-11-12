@@ -71,6 +71,14 @@ def parley(_request: HttpRequest) -> dict[str, bool]:
     return {"PARLEY_AVAILABLE": bool(agent_host and private_key)}
 
 
+def whiteboard(_request: HttpRequest) -> dict[str, bool]:
+    # The board signs its passes with Parley's key; without a Worker host or
+    # that key no board could connect, so every board page 404s.
+    host: str = settings.BOARD_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    return {"BOARD_AVAILABLE": bool(host and private_key)}
+
+
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,

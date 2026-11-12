@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
+from ludamus.inits.board import board_worker
 from ludamus.inits.builders import (
     build_credentials_decryptor,
     build_credentials_encryptor,
@@ -35,6 +36,7 @@ from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.mills.board import BoardService
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
@@ -156,6 +158,17 @@ class Services:
     def __init__(self) -> None:
         self._repos = Repositories()
         self._transaction = DjangoTransaction()
+
+    @cached_property
+    def boards(self) -> BoardService:
+        signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        return BoardService(
+            transaction=self._transaction,
+            boards=self._repos.boards,
+            signer=JwtSigner(signing_private_key),
+            cache=DjangoCache(),
+            worker=board_worker(),
+        )
 
     @cached_property
     def parley(self) -> ParleyService:

@@ -3,6 +3,7 @@ from functools import cached_property
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.announcements import AnnouncementFanoutRepository
+from ludamus.links.db.django.board import BoardRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
 from ludamus.links.db.django.enrollment import (
@@ -87,6 +88,10 @@ class Repositories:
     @cached_property
     def tags(self) -> TagRepository:
         return TagRepository()
+
+    @cached_property
+    def boards(self) -> BoardRepository:
+        return BoardRepository()
 
     @cached_property
     def listings(self) -> ListingRepository:

@@ -13,6 +13,7 @@ from ludamus.pacts.sphere import SphereVisibility
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.board import BoardServiceProtocol
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
@@ -130,6 +131,8 @@ class TransactionProtocol(Protocol):
 
 
 class ServicesProtocol(Protocol):
+    @property
+    def boards(self) -> BoardServiceProtocol: ...
     @property
     def parley(self) -> ParleyServiceProtocol: ...
     @property
