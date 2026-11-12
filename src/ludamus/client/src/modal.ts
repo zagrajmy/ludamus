@@ -115,6 +115,7 @@ const closesWithoutTransition = (): boolean => prefersReducedMotion() || isApple
 // tappable — the root's snapshot would otherwise stand in for every element on
 // it, and a snapshot takes no taps.
 const ROOT_PAGE_LIVE = "vt-page-live";
+const ROOT_SESSION_MORPH = "vt-session-morph";
 
 // NOTE: lib.dom declares startViewTransition on every Document; Firefox
 // before 144 has none.
@@ -191,13 +192,19 @@ const morphTransition = (steps: {
   settle: () => void;
   swap: () => void;
 }): Promise<void> => {
+  const root = document.documentElement;
+  const settle = () => {
+    root.classList.remove(ROOT_SESSION_MORPH);
+    steps.settle();
+  };
   steps.before();
+  root.classList.add(ROOT_SESSION_MORPH);
   const transition = startViewTransition(steps.swap);
   if (!transition) {
-    steps.settle();
+    settle();
     return Promise.resolve();
   }
-  return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
+  return transition.finished.catch(ignoreSkippedTransition).finally(settle);
 };
 
 // The plain exit: the dialog's own snapshot animates out (modal.css). Whether

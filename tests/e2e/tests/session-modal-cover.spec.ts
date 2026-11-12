@@ -236,6 +236,75 @@ test.describe("Session modal cover", () => {
     );
   });
 
+  test("lands the opening morph on its final frame without a jump", async ({ page }) => {
+    await page.goto(EVENT_URL);
+    const supportsNesting = await page.evaluate(() =>
+      CSS.supports("view-transition-group", "nearest"),
+    );
+    test.skip(!supportsNesting, "Browser does not implement view-transition-group");
+
+    await page.addStyleTag({ content: ":root { --vt-morph-duration: 4s; }" });
+    await page.getByRole("link", { name: `Open details for ${COVERED}` }).press("Enter");
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some(
+          (animation) =>
+            (animation.effect as KeyframeEffect | null)?.pseudoElement ===
+            "::view-transition-group(session-morph)",
+        ),
+    );
+    await page.waitForTimeout(2000);
+
+    const midway = await page.evaluate(() => {
+      const byPseudo = (pseudo: string) =>
+        document
+          .getAnimations()
+          .find(
+            (animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement === pseudo,
+          );
+      const endOf = (animation: Animation | undefined) =>
+        Number(animation?.effect?.getComputedTiming().endTime ?? Number.NaN);
+      const root = document.documentElement;
+      return {
+        coverBlend: getComputedStyle(root, "::view-transition-new(morph-cover)").mixBlendMode,
+        coverLeadMs:
+          endOf(byPseudo("::view-transition-group(session-morph)")) -
+          endOf(byPseudo("::view-transition-new(morph-cover)")),
+        sheetShadow: getComputedStyle(root, "::view-transition-group(session-morph)").boxShadow,
+      };
+    });
+    expect(midway.coverBlend).toBe("normal");
+    expect(midway.coverLeadMs).toBeGreaterThan(0);
+    expect(midway.sheetShadow).not.toBe("none");
+
+    const pageBehind = { x: 0, y: 300, width: 40, height: 300 };
+    const meanLuminance = (png: Buffer) =>
+      page.evaluate(
+        async (src) => {
+          const image = new Image();
+          image.src = src;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext("2d")!;
+          context.drawImage(image, 0, 0);
+          const { data } = context.getImageData(0, 0, image.width, image.height);
+          let sum = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          }
+          return sum / (data.length / 4);
+        },
+        `data:image/png;base64,${png.toString("base64")}`,
+      );
+    const midwayPage = await meanLuminance(await page.screenshot({ clip: pageBehind }));
+    await settleViewTransitions(page);
+    const settledPage = await meanLuminance(await page.screenshot({ clip: pageBehind }));
+    expect(Math.abs(midwayPage - settledPage)).toBeLessThan(2);
+  });
+
   test("scrolls the cover away under a sticky tab bar on a phone", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.phone);
     await page.goto(EVENT_URL);

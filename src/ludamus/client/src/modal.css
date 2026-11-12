@@ -177,6 +177,32 @@
 ::view-transition-group(session-morph) {
   overflow: clip;
   border-radius: 1rem;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / calc(0.1 * var(--vt-sheet-lift))),
+    0 4px 6px -4px rgb(0 0 0 / calc(0.1 * var(--vt-sheet-lift)));
+}
+
+/* The clip above also cuts the dialog's own shadow-lg out of its snapshot, so
+   the group draws it, rising with the card into the sheet. It is animated on
+   ::view-transition because the group's own animation belongs to the UA. */
+@property --vt-sheet-lift {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+:root.vt-session-morph:has(dialog.modal[id^="session-"][open])::view-transition {
+  animation: vt-sheet-lift var(--vt-morph-duration) var(--vt-morph-ease) both;
+}
+
+:root.vt-session-morph:not(:has(dialog.modal[id^="session-"][open]))::view-transition {
+  animation: vt-sheet-lift var(--vt-morph-duration) var(--vt-morph-ease) reverse both;
+}
+
+@keyframes vt-sheet-lift {
+  to {
+    --vt-sheet-lift: 1;
+  }
 }
 
 /* Opening, the card is the old snapshot. At its own size it fades in place;
@@ -213,13 +239,21 @@
   mix-blend-mode: normal;
 }
 
+/* The UA's own cross-fade animates plus-lighter blending, which beats the
+   declaration above: over the opaque crop it lightened the cover until the
+   last frame. Both fades are written out, and land before the morph ends. */
 :root:has(dialog.modal[id^="session-"][open])::view-transition-old(morph-cover),
 :root:not(:has(dialog.modal[id^="session-"][open]))::view-transition-new(morph-cover) {
   animation: none;
 }
 
+:root:has(dialog.modal[id^="session-"][open])::view-transition-new(morph-cover) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.8) var(--vt-morph-ease) both;
+}
+
 :root:not(:has(dialog.modal[id^="session-"][open]))::view-transition-old(morph-cover) {
   z-index: 1;
+  animation: vt-fade-out calc(var(--vt-morph-duration) * 0.8) var(--vt-morph-ease) both;
 }
 
 /* The scrim is a vertical gradient, so stretching it to the group is lossless. */
@@ -325,6 +359,12 @@
 
 @keyframes vt-chrome-in {
   from {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-out {
+  to {
     opacity: 0;
   }
 }
