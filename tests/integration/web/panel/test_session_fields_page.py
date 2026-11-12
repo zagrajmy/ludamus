@@ -3,8 +3,7 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SessionField, SessionFieldRequirement
-from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.legacy import FieldUsageSummary
+from ludamus.pacts.fields import FieldUsageSummary, OrganizerFieldDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.mills.listing import ListingService
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import (
     BoardCategoryFacetDTO,
     BoardSearchDTO,

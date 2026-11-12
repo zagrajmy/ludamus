@@ -14,7 +14,6 @@ from django.db.models import Prefetch, Q
 from ludamus.links.db.django.companions import companions_of
 from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.party import (
     InvitablePartyDTO,
@@ -29,6 +28,7 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     PartyRepositoryProtocol,
 )
+from ludamus.pacts.user import CompanionDTO, UserType
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.models import User

@@ -11,20 +11,30 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.calendar import PartStat
+from ludamus.pacts.calendar import (
+    CalendarEntry,
+    PartStat,
+    google_calendar_url,
+    ics_document,
+    outlook_calendar_url,
+)
 from ludamus.pacts.encounter import (
+    EncounterCalendarLinks,
     EncounterInvite,
     EncounterInviteReason,
     InviteeStatus,
     InviteLimitError,
+    spots_remaining,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
     CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY,
     ENCOUNTER_DEFAULT_DURATION,
+    ENCOUNTER_RSVP_THROTTLE_SECONDS,
     INVITEE_WINDOW,
     INVITEES_PER_CREATOR_PER_DAY,
     INVITEES_PER_NEW_CREATOR_PER_DAY,
@@ -34,14 +44,15 @@ from ludamus.specs.encounter import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.cache import CacheProtocol
     from ludamus.pacts.encounter import (
         EncounterDTO,
         EncounterInviteeRepositoryProtocol,
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import SitesServiceProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +70,37 @@ _INVITEE_PARTSTAT = {
 
 def encounter_calendar_uid(share_code: str) -> str:
     return f"{share_code}{_UID_DOMAIN}"
+
+
+def encounter_end(encounter: EncounterDTO) -> datetime:
+    return encounter.end_time or encounter.start_time + ENCOUNTER_DEFAULT_DURATION
+
+
+def _calendar_entry(encounter: EncounterDTO, page_url: str) -> CalendarEntry:
+    return CalendarEntry(
+        uid=encounter_calendar_uid(encounter.share_code),
+        title=encounter.title,
+        start=encounter.start_time,
+        end=encounter_end(encounter),
+        url=page_url,
+        location=encounter.place or "",
+        description=encounter.description or "",
+    )
+
+
+def encounter_ics(encounter: EncounterDTO, page_url: str) -> str:
+    return ics_document(
+        _calendar_entry(encounter, page_url), stamped_at=datetime.now(tz=UTC)
+    )
+
+
+def encounter_calendar_links(
+    encounter: EncounterDTO, page_url: str
+) -> EncounterCalendarLinks:
+    entry = _calendar_entry(encounter, page_url)
+    return EncounterCalendarLinks(
+        google=google_calendar_url(entry), outlook=outlook_calendar_url(entry)
+    )
 
 
 def encounter_share_code(uid: str) -> str:
@@ -103,12 +145,24 @@ class EncounterGuests:
         users: UserRepositoryProtocol,
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
+        cache: CacheProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
         self._users = users
         self._sites = sites
         self._mailer = mailer
+        self._cache = cache
+
+    def recently_rsvpd(self, ip_address: str) -> bool:
+        # The address lives in the cache for the length of the window and
+        # nowhere else. Reserving it here rather than reading a stored IP is
+        # what keeps the throttle from needing a column that outlives it.
+        key = f"encounter_rsvp_rate:{sha256(ip_address.encode()).hexdigest()}"
+        if self._cache.get(key) is not None:
+            return True
+        self._cache.set(key, 1, timeout=ENCOUNTER_RSVP_THROTTLE_SECONDS)
+        return False
 
     def has_room(self, encounter: EncounterDTO, *, email: str) -> bool:
         if not (limit := encounter.max_participants):
@@ -117,16 +171,14 @@ class EncounterGuests:
         # turns that spot into a signup rather than taking a second one.
         if self.invitees.read_status(encounter.pk, email) is InviteeStatus.ACCEPTED:
             return True
-        taken = self._rsvps.count_by_encounter(encounter.pk)
-        return taken + self.invitees.count_accepted_without_signup(encounter.pk) < limit
+        guests = self.invitees.count_accepted_without_signup([encounter.pk])
+        taken = self._rsvps.count_by_encounter(encounter.pk) + guests.get(
+            encounter.pk, 0
+        )
+        return spots_remaining(limit=limit, taken=taken) != 0
 
     def admit(
-        self,
-        encounter: EncounterDTO,
-        *,
-        email: str,
-        user: UserDTO | None,
-        ip_address: str | None,
+        self, encounter: EncounterDTO, *, email: str, user: UserDTO | None
     ) -> bool:
         """Take a spot for `email`: a signup for an account, else the invite.
 
@@ -136,7 +188,7 @@ class EncounterGuests:
         if not self.has_room(encounter, email=email):
             return False
         if user is not None:
-            self._rsvps.create(encounter.pk, ip_address, user.pk)
+            self._rsvps.create(encounter.pk, user.pk)
         self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
         )
@@ -274,8 +326,7 @@ class EncounterGuests:
                     uid=encounter_calendar_uid(encounter.share_code),
                     sequence=sequence,
                     encounter=encounter,
-                    end_time=encounter.end_time
-                    or encounter.start_time + ENCOUNTER_DEFAULT_DURATION,
+                    end_time=encounter_end(encounter),
                     organizer_name=(creator.name if creator else "") or sphere.name,
                     attendee_name=guest.name,
                     attendee_email=guest.email,

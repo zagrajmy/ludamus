@@ -1,4 +1,4 @@
-"""Answer shaping for dynamic fields: a multi-value field holds a list."""
+"""Answer shaping for imported dynamic fields: a multi-value field holds a list."""
 
 from __future__ import annotations
 
@@ -6,10 +6,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Collection
-
-type FieldAnswer = str | list[str] | bool
-
-WRITE_IN_SEPARATOR = ";"
 
 
 def split_imported_answers(raw: str, known: Collection[str]) -> list[str]:
@@ -29,40 +25,3 @@ def split_imported_answers(raw: str, known: Collection[str]) -> list[str]:
             pending.clear()
     values.extend(value for value in pending if value)
     return [value for index, value in enumerate(values) if value not in values[:index]]
-
-
-def merge_custom(
-    *, chosen: FieldAnswer | None, custom: str, is_multiple: bool
-) -> FieldAnswer:
-    if isinstance(chosen, bool):
-        return chosen
-    if not is_multiple:
-        return chosen or custom
-    values = (
-        [value for value in chosen if isinstance(value, str)]
-        if isinstance(chosen, list)
-        else []
-    )
-    for part in (part.strip() for part in custom.split(WRITE_IN_SEPARATOR)):
-        if part and part not in values:
-            values.append(part)
-    return values
-
-
-def split_stored(
-    *, stored: FieldAnswer | None, known: Collection[str], is_multiple: bool
-) -> tuple[str | list[str], str]:
-    if not isinstance(stored, str | list):
-        return ([] if is_multiple else ""), ""
-    values = (
-        [value for value in stored if isinstance(value, str)]
-        if isinstance(stored, list)
-        else [stored]
-    )
-    chosen = [value for value in values if value in known]
-    custom = f"{WRITE_IN_SEPARATOR} ".join(
-        value for value in values if value not in known
-    )
-    if is_multiple:
-        return chosen, custom
-    return (chosen[0] if chosen else ""), custom

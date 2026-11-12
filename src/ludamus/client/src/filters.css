@@ -131,7 +131,7 @@
     color: var(--color-primary);
   }
 
-  /* The event page's filter popover (chronology/event.html). The same
+  /* The event page's filter popover (event/event.html). The same
      .filter-panel as the organizer's inline disclosure above, but hung off
      its toggle: these outrank the base rules by the wrapper's extra class,
      so the panel is a positioned dropdown here and stays a grid-row reveal

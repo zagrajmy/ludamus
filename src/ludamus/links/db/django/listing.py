@@ -18,7 +18,7 @@ from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import (
     ListingBoardRowDTO,
     ListingContact,

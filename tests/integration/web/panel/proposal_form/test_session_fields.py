@@ -6,9 +6,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
-    OrphanFieldValue,
-)
+from ludamus.gates.web.django.event.panel.views.proposal_edit import OrphanFieldValue
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -19,7 +17,7 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     SessionFieldValue,
 )
-from ludamus.pacts import FieldAnswer, OrganizerFieldDTO
+from ludamus.pacts.fields import FieldAnswer, OrganizerFieldDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     facilitator_list_item_dto,

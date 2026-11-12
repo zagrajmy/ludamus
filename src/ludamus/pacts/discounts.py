@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ludamus.pacts.event import FacilitatorListItemDTO
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import FacilitatorDTO
+    from ludamus.pacts.facilitators import FacilitatorDTO
 
 
 class DiscountKind(StrEnum):

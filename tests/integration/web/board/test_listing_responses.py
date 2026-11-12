@@ -10,7 +10,6 @@ from ludamus.links.db.django.models import (
     Party,
     PartyMembership,
 )
-from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.listing import (
     ListingContact,
     ListingResponseDTO,
@@ -18,6 +17,7 @@ from ludamus.pacts.listing import (
     ListingResponseTab,
     ListingStatus,
 )
+from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.party import PartyMembershipStatus
 from tests.integration.conftest import ListingFactory, UserFactory
 from tests.integration.utils import (

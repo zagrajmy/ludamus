@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import math
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
+from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, get_args
 from uuid import uuid4
 
 from django.conf import settings
@@ -19,18 +18,21 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
-from ludamus.pacts import (
+from ludamus.pacts.discounts import DiscountKind, DiscountMethod
+from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
+from ludamus.pacts.enrollment import (
     OCCUPYING_PARTICIPATION_STATUSES,
-    NotificationKind,
     PromotionMode,
     SessionParticipationStatus,
-    SessionStatus,
+    open_windows,
 )
-from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, AgeBand, UserType
-from ludamus.pacts.discounts import DiscountKind, DiscountMethod
-from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.fields import (
+    DEFAULT_FIELD_MAX_LENGTH,
+    PersonalFieldType,
+    SessionFieldType,
+)
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
-from ludamus.pacts.legacy import EventVisibility
 from ludamus.pacts.listing import (
     LISTING_TEXT_MAX_LENGTH,
     LISTING_TITLE_MAX_LENGTH,
@@ -39,25 +41,29 @@ from ludamus.pacts.listing import (
     ListingSeeking,
     ListingStatus,
 )
-from ludamus.pacts.multiverse import SphereRole, SphereVisibility
-from ludamus.pacts.notifications import SubscriptionSource
+from ludamus.pacts.notifications import NotificationKind, SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
+from ludamus.pacts.propose import AccreditationType, ImportLogStatus
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.sphere import SphereRole, SphereVisibility
 from ludamus.pacts.tags import (
     TAG_NAME_MAX_LENGTH,
     TAG_PATH_SEPARATOR,
     TAG_SLUG_MAX_LENGTH,
 )
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
+from ludamus.pacts.timetable import ScheduleChangeAction
+from ludamus.pacts.user import (
+    MAX_AVATAR_URL_LENGTH,
+    PROFILE_DISCORD_USERNAME_MAX_LENGTH,
+    AgeBand,
+    UserType,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
 
-    from ludamus.pacts.crowd import UserDTO
 
-
-MAX_SLUG_RETRIES = 10
-RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
 # The one sentence for the leaf-parent rule: raised by Space.clean, carried to
@@ -162,7 +168,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     discord_username = models.CharField(
         _("Discord username"),
-        max_length=150,
+        max_length=PROFILE_DISCORD_USERNAME_MAX_LENGTH,
         blank=True,
         help_text=_("Your Discord username for session coordination"),
     )
@@ -247,6 +253,85 @@ class Shadowban(models.Model):
 REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety repo
 
 
+class ParleyConversation(models.Model):
+    """A chat between people, apart from any sphere: a direct one or a group."""
+
+    class Kind(models.TextChoices):
+        DIRECT = "direct"
+        GROUP = "group"
+
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    title = models.CharField(max_length=80, blank=True, default="")
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    # One direct conversation per pair: "<lower pk>:<higher pk>". Groups have
+    # none, and any number of them may share members.
+    pair_key = models.CharField(max_length=41, null=True, blank=True, unique=True)
+
+    class Meta:
+        db_table = "parley_conversation"
+
+    def __str__(self) -> str:
+        return f"Parley {self.kind} conversation {self.pk}"
+
+
+class ParleyConversationMember(models.Model):
+    class State(models.TextChoices):
+        ACTIVE = "active"
+        # Reached by someone they have not talked to yet; reads, cannot write
+        # until they accept.
+        REQUEST = "request"
+        LEFT = "left"
+
+    conversation = models.ForeignKey(
+        ParleyConversation, on_delete=models.CASCADE, related_name="members"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_memberships"
+    )
+    state = models.CharField(max_length=10, choices=State.choices)
+    is_admin = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "parley_conversation_member"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("conversation", "user"),
+                name="parley_conversation_member_unique_user",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} is {self.state} in conversation {self.conversation_id}"
+
+
+class ParleyBlock(models.Model):
+    """No direct conversation between the two, and neither adds the other to a group."""
+
+    blocker = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocks"
+    )
+    blocked = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_blocked_by"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "parley_block"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("blocker", "blocked"), name="parley_block_unique_pair"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.blocker_id} blocks {self.blocked_id}"
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
@@ -263,6 +348,64 @@ class EventBan(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id} banned from event {self.event_id}"
+
+
+class ParleyReport(models.Model):
+    # A sphere's room, or a conversation: exactly one of the two.
+    sphere = models.ForeignKey(
+        "Sphere",
+        on_delete=models.CASCADE,
+        related_name="parley_reports",
+        null=True,
+        blank=True,
+    )
+    conversation = models.ForeignKey(
+        "ParleyConversation",
+        on_delete=models.CASCADE,
+        related_name="reports",
+        null=True,
+        blank=True,
+    )
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="parley_reports"
+    )
+    room_id = models.CharField(max_length=64)
+    message_id = models.PositiveBigIntegerField()
+    reason = models.CharField(max_length=REASON_MAX_LENGTH, blank=True, default="")
+    # The message as its room kept it when reported: the room is the only
+    # other place it lives, and staff cannot read it there.
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="parley_reports_against",
+        null=True,
+        blank=True,
+    )
+    author_name = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    written_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_report"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("reporter", "room_id", "message_id"),
+                name="parley_report_unique_reporter_message",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(sphere__isnull=False, conversation__isnull=True)
+                    | models.Q(sphere__isnull=True, conversation__isnull=False)
+                ),
+                name="parley_report_sphere_or_conversation",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"Parley report {self.pk} for {self.room_id}:{self.message_id}"
 
 
 class Party(models.Model):
@@ -514,6 +657,7 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    parley_enabled = models.BooleanField(default=True)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -696,9 +840,7 @@ class GuildMembership(models.Model):
 
 
 class Event(models.Model):
-    # Owner
     sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="events")
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
@@ -712,17 +854,14 @@ class Event(models.Model):
     logo_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
-    # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
-    # Publication time
     publication_time = models.DateTimeField(blank=True, null=True)
     visibility = models.CharField(
         max_length=20,
         choices=[(v.value, v.name.title()) for v in EventVisibility],
         default=EventVisibility.PUBLIC,
     )
-    # Proposal times
     proposal_start_time = models.DateTimeField(blank=True, null=True)
     proposal_end_time = models.DateTimeField(blank=True, null=True)
     # Printables reminder: when an organizer first opened a print-ready page, and
@@ -782,50 +921,8 @@ class Event(models.Model):
     def logo_url(self) -> str:
         return self.logo.url if self.logo else ""
 
-    @property
-    def is_proposal_active(self) -> bool:
-        return (
-            self.proposal_start_time is not None
-            and self.proposal_end_time is not None
-            and (
-                self.proposal_start_time < datetime.now(tz=UTC) < self.proposal_end_time
-            )
-        )
-
-    @property
-    def is_live(self) -> bool:
-        return self.start_time < datetime.now(tz=UTC) < self.end_time
-
-    @property
-    def is_ended(self) -> bool:
-        return self.end_time < datetime.now(tz=UTC)
-
-    @property
-    def is_published(self) -> bool:
-        return (
-            self.publication_time is not None
-            and self.publication_time <= datetime.now(tz=UTC)
-        )
-
-    @property
-    def is_open(self) -> bool:
-        """Whether anyone with the link may open the event's pages."""
-        return self.is_published or self.visibility == EventVisibility.UNLISTED
-
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
-        return [config for config in self.enrollment_configs.all() if config.is_active]
-
-    def get_allowance_enrollment_configs(self) -> list[EnrollmentConfig]:
-        if active := self.get_active_enrollment_configs():
-            return active
-        now = datetime.now(tz=UTC)
-        ended = [
-            config for config in self.enrollment_configs.all() if config.end_time <= now
-        ]
-        if not ended:
-            return []
-        latest = max(ended, key=lambda config: (config.end_time, config.pk))
-        return [latest]
+        return open_windows(self.enrollment_configs.all(), now=datetime.now(tz=UTC))
 
     def get_eligible_enrollment_configs(
         self, session: Session
@@ -904,10 +1001,6 @@ class EnrollmentConfig(models.Model):
     def __str__(self) -> str:
         return f"Enrollment config for {self.event.name}"
 
-    @property
-    def is_active(self) -> bool:
-        return self.start_time < datetime.now(tz=UTC) < self.end_time
-
     def is_session_eligible(self, session: Session) -> bool:
         """Check if session is eligible for enrollment under this config.
 
@@ -936,22 +1029,6 @@ class EnrollmentConfig(models.Model):
             return start_time is not None and start_time < self.end_time
 
         return True
-
-
-def effective_participants_limit(
-    *, participants_limit: int, eligible_configs: Collection[EnrollmentConfig]
-) -> int:
-    """Scale a session's limit by the most liberal window that can seat it.
-
-    Returns:
-        The seats on offer now: 0 for a session that takes no enrollment, the
-        limit itself when no window seats it.
-    """
-    if participants_limit == 0:
-        return 0
-    if percentage := max((c.percentage_slots for c in eligible_configs), default=0):
-        return math.ceil(participants_limit * percentage / 100)
-    return participants_limit
 
 
 class UserEnrollmentConfig(models.Model):
@@ -1018,12 +1095,9 @@ class DomainEnrollmentConfig(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        # Normalize domain to lowercase
         if self.domain:
             self.domain = self.domain.lower().strip()
-            # Remove @ prefix if present
             self.domain = self.domain.removeprefix("@")
-            # Basic domain validation
             if "." not in self.domain:
                 raise ValidationError(
                     "Please enter a valid domain (e.g. 'company.com')"
@@ -1039,19 +1113,15 @@ class Space(models.Model):
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
-    # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
     # Free-form metadata: building address, room number, floor, etc. Keeps the
     # description clean of structural location info.
     location = models.CharField(max_length=255, blank=True, default="")
-    # Ordering
     order = models.PositiveIntegerField(default=0)
     programme_order = models.PositiveIntegerField(default=0)
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 
@@ -1134,11 +1204,9 @@ class Space(models.Model):
 
 
 class TimeSlot(models.Model):
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="time_slots"
     )
-    # Time
     end_time = models.DateTimeField()
     start_time = models.DateTimeField()
 
@@ -1271,9 +1339,6 @@ class SessionManager(AliveManager["Session"]):
             .values_list("session_participations__user_id", flat=True)
         )
 
-    def has_conflicts(self, session: Session, user: UserDTO) -> bool:
-        return user.pk in self.conflicted_user_ids(session, [user.pk])
-
 
 class EventMap(models.Model):
     """One venue plan (a floor, a building) and the spaces drawn on it.
@@ -1325,7 +1390,6 @@ class EventMapPage(models.Model):
 class Session(SoftDeleteModel):
     """Session model."""
 
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="event_sessions"
     )
@@ -1351,7 +1415,6 @@ class Session(SoftDeleteModel):
         blank=True,
         related_name="sessions",
     )
-    # ID
     title = models.CharField(max_length=255)
     slug = models.SlugField()
     # Import idempotency key (hash of the source row's unique-key values).
@@ -1370,9 +1433,7 @@ class Session(SoftDeleteModel):
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
-    # Preferences
     time_slots = models.ManyToManyField(TimeSlot, blank=True)
-    # Status
     status = models.CharField(
         max_length=15,
         choices=[(item.value, item.name) for item in SessionStatus],
@@ -1381,10 +1442,8 @@ class Session(SoftDeleteModel):
     # The facilitator agreed to the placed time and room. Mirrors
     # AgendaItem.session_confirmed until that column is dropped.
     schedule_confirmed = models.BooleanField(default=False)
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
-    # Participants
     participants_limit = models.PositiveIntegerField()
     min_age = models.PositiveIntegerField(
         default=0, help_text="Minimum age requirement (0 = no restriction)"
@@ -1422,55 +1481,6 @@ class Session(SoftDeleteModel):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
-
-    @property
-    def enrolled_count(self) -> int:
-        # Use cached count if available from annotation, otherwise query
-        if hasattr(self, "enrolled_count_cached"):
-            return cast("int", self.enrolled_count_cached)
-        # CONFIRMED and OFFERED both hold a seat: an offered (but not yet
-        # claimed) seat must not be handed out twice.
-        return self.session_participations.filter(
-            status__in=OCCUPYING_PARTICIPATION_STATUSES
-        ).count()
-
-    @property
-    def waiting_count(self) -> int:
-        # Use cached count if available from annotation, otherwise query
-        if hasattr(self, "waiting_count_cached"):
-            return cast("int", self.waiting_count_cached)
-        return self.session_participations.filter(
-            status=SessionParticipationStatus.WAITING
-        ).count()
-
-    @property
-    def effective_participants_limit(self) -> int:
-        return effective_participants_limit(
-            participants_limit=self.participants_limit,
-            eligible_configs=self.event.get_eligible_enrollment_configs(self),
-        )
-
-    @property
-    def seats_left(self) -> int:
-        return max(0, self.effective_participants_limit - self.enrolled_count)
-
-    @property
-    def is_full(self) -> bool:
-        """Check if session is at capacity for enrollment."""
-        # "Full" means there was a seat and it is taken. A session that takes no
-        # enrollment never had one, and calling it full would offer its viewers
-        # a waiting list to join and warn a leaver that their seat passes to the
-        # next person waiting. The availability ladder closes those sessions one
-        # step earlier, on takes_enrollment.
-        if self.participants_limit == 0:
-            return False
-        return self.enrolled_count >= self.effective_participants_limit
-
-    @property
-    def is_enrollment_available(self) -> bool:
-        """Check if enrollment is available for this session under any active config."""
-        active_configs = self.event.get_active_enrollment_configs()
-        return any(config.is_session_eligible(self) for config in active_configs)
 
 
 class AgendaItem(models.Model):
@@ -1514,30 +1524,16 @@ class AgendaItem(models.Model):
         # What AgendaItemDTO reads; the session owns the flag.
         return self.session.schedule_confirmed
 
-    def overlaps_with(self, other_item: AgendaItem) -> bool:
-        return bool(
-            other_item.start_time
-            and other_item.end_time
-            and self.start_time
-            and self.end_time
-            and other_item.start_time < self.end_time
-            and self.start_time < other_item.end_time
-        )
-
 
 class ProposalCategory(models.Model):
-    # Owner
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="proposal_categories"
     )
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(blank=True, default="")
-    # Time
     start_time = models.DateTimeField(blank=True, null=True)
     end_time = models.DateTimeField(blank=True, null=True)
-    # Settings
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
     durations = models.JSONField(
@@ -1572,7 +1568,6 @@ class ProposalCategory(models.Model):
 
 
 class SessionParticipation(models.Model):
-    # Owner
     session = models.ForeignKey(
         Session, models.CASCADE, related_name="session_participations"
     )
@@ -1594,10 +1589,8 @@ class SessionParticipation(models.Model):
     enrolled_by = models.ForeignKey(
         User, models.SET_NULL, null=True, blank=True, related_name="enrollments_made"
     )
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
-    # Status
     status = models.CharField(
         max_length=15,
         choices=[(item.value, item.name) for item in SessionParticipationStatus],
@@ -1701,11 +1694,16 @@ class NotificationSubscription(models.Model):
         return f"{self.user_id} follows {self.sphere}"
 
 
-class PersonalDataFieldType(models.TextChoices):
-    TEXT = "text", "Text"
-    SELECT = "select", "Select"
-    CHECKBOX = "checkbox", "Checkbox"
-    DISCORD = "discord", "Discord username"
+_FIELD_TYPE_LABELS = {
+    "text": "Text",
+    "select": "Select",
+    "checkbox": "Checkbox",
+    "discord": "Discord username",
+}
+
+
+def _field_type_choices(kinds: tuple[str, ...]) -> list[tuple[str, str]]:
+    return [(kind, _FIELD_TYPE_LABELS[kind]) for kind in kinds]
 
 
 class PersonalDataField(models.Model):
@@ -1719,12 +1717,12 @@ class PersonalDataField(models.Model):
     slug = models.SlugField()
     field_type = models.CharField(
         max_length=20,
-        choices=PersonalDataFieldType.choices,
-        default=PersonalDataFieldType.TEXT,
+        choices=_field_type_choices(get_args(PersonalFieldType.__value__)),
+        default="text",
     )
     is_multiple = models.BooleanField(default=False)
     allow_custom = models.BooleanField(default=False)
-    max_length = models.PositiveIntegerField(default=50)
+    max_length = models.PositiveIntegerField(default=DEFAULT_FIELD_MAX_LENGTH)
     order = models.PositiveIntegerField(default=0)
     help_text = models.TextField(blank=True, default="")
     is_public = models.BooleanField(default=False)
@@ -1741,9 +1739,7 @@ class PersonalDataField(models.Model):
             # A required checkbox forces "yes", so the database refuses the
             # pair however the row gets written.
             models.CheckConstraint(
-                condition=~Q(
-                    field_type=PersonalDataFieldType.CHECKBOX, is_required=True
-                ),
+                condition=~Q(field_type="checkbox", is_required=True),
                 name="personal_data_field_checkbox_not_required",
             ),
         )
@@ -1805,12 +1801,6 @@ class PersonalDataFieldValue(models.Model):
         return f"{self.field.name}: {value_preview}"
 
 
-class SessionFieldType(models.TextChoices):
-    TEXT = "text", "Text"
-    SELECT = "select", "Select"
-    CHECKBOX = "checkbox", "Checkbox"
-
-
 class SessionField(models.Model):
     """Defines a session field for an event (e.g., RPG System, Genre)."""
 
@@ -1821,11 +1811,13 @@ class SessionField(models.Model):
     question = models.CharField(max_length=500)
     slug = models.SlugField()
     field_type = models.CharField(
-        max_length=20, choices=SessionFieldType.choices, default=SessionFieldType.TEXT
+        max_length=20,
+        choices=_field_type_choices(get_args(SessionFieldType.__value__)),
+        default="text",
     )
     is_multiple = models.BooleanField(default=False)
     allow_custom = models.BooleanField(default=False)
-    max_length = models.PositiveIntegerField(default=50)
+    max_length = models.PositiveIntegerField(default=DEFAULT_FIELD_MAX_LENGTH)
     order = models.PositiveIntegerField(default=0)
     help_text = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=50, blank=True)
@@ -1990,8 +1982,6 @@ class EncounterRSVP(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="encounter_rsvps"
     )
-    # NOTE: null for a signup that arrived as a calendar reply, not a request.
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2006,13 +1996,15 @@ class EncounterRSVP(models.Model):
         return str(self.user)
 
 
-class EncounterInvitee(models.Model):
-    class Status(models.TextChoices):
-        INVITED = "invited", _("Invited")
-        ACCEPTED = "accepted", _("Accepted")
-        DECLINED = "declined", _("Declined")
-        REMOVED = "removed", _("Removed")
+_INVITEE_STATUS_LABELS = {
+    InviteeStatus.INVITED: _("Invited"),
+    InviteeStatus.ACCEPTED: _("Accepted"),
+    InviteeStatus.DECLINED: _("Declined"),
+    InviteeStatus.REMOVED: _("Removed"),
+}
 
+
+class EncounterInvitee(models.Model):
     # NOTE: kept when the encounter is deleted, keyed to who sent it, so the
     # creator's daily invite limit survives deleting and recreating.
     encounter = models.ForeignKey(
@@ -2023,7 +2015,9 @@ class EncounterInvitee(models.Model):
     )
     email = models.EmailField()
     status = models.CharField(
-        max_length=8, choices=Status.choices, default=Status.INVITED
+        max_length=8,
+        choices=[(s.value, _INVITEE_STATUS_LABELS[s]) for s in InviteeStatus],
+        default=InviteeStatus.INVITED.value,
     )
     creation_time = models.DateTimeField(auto_now_add=True)
 
@@ -2089,16 +2083,12 @@ class EventPanelSettings(models.Model):
 class Track(models.Model):
     """Thematic track for organizing sessions within an event."""
 
-    # Owner
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="tracks")
-    # ID
     name = models.CharField(max_length=255)
     slug = models.SlugField()
-    # Settings
     is_public = models.BooleanField(default=True)
     spaces = models.ManyToManyField(Space, blank=True, related_name="tracks")
     managers = models.ManyToManyField(User, blank=True, related_name="managed_tracks")
-    # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 
@@ -2118,12 +2108,6 @@ class Track(models.Model):
         return self.name
 
 
-class ScheduleChangeAction(models.TextChoices):
-    ASSIGN = "assign", "Assign"
-    UNASSIGN = "unassign", "Unassign"
-    REVERT = "revert", "Revert"
-
-
 class ScheduleChangeLog(models.Model):
     """Audit trail for timetable assignment changes."""
 
@@ -2134,7 +2118,9 @@ class ScheduleChangeLog(models.Model):
         Session, on_delete=models.CASCADE, related_name="schedule_change_logs"
     )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    action = models.CharField(max_length=16, choices=ScheduleChangeAction.choices)
+    action = models.CharField(
+        max_length=16, choices=[(a.value, a.name.title()) for a in ScheduleChangeAction]
+    )
     old_space = models.ForeignKey(
         Space,
         on_delete=models.SET_NULL,

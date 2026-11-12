@@ -33,22 +33,11 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
-from ludamus.pacts.crowd import EMAIL_LINK_MAX_AGE, AgeBand
-from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import SubscriptionDTO
+from ludamus.pacts.notifications import NotificationKind, SubscriptionDTO
+from ludamus.pacts.user import EMAIL_LINK_MAX_AGE, AgeBand
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.recipients import Recipient
-    from ludamus.pacts.chronology import (
-        AnonymousProposalAcceptedNotification,
-        ProposalAcceptance,
-        ProposalAcceptedNotification,
-    )
-    from ludamus.pacts.crowd import (
-        EmailChangeCompletedNotification,
-        EmailChangeRequestedNotification,
-        EmailVerificationNotification,
-    )
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
     from ludamus.pacts.listing import (
@@ -65,6 +54,16 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.printing import PrintablesReadyNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
+    from ludamus.pacts.sessions import (
+        AnonymousProposalAcceptedNotification,
+        ProposalAcceptance,
+        ProposalAcceptedNotification,
+    )
+    from ludamus.pacts.user import (
+        EmailChangeCompletedNotification,
+        EmailChangeRequestedNotification,
+        EmailVerificationNotification,
+    )
 
 
 logger = logging.getLogger(__name__)

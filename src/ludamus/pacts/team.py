@@ -14,7 +14,7 @@ from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 
 INVITATION_NOTE_MAX_LENGTH = 100
 

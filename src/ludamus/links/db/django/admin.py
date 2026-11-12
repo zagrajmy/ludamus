@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
+    ParleyReport,
     ProposalCategory,
     Session,
     SessionFieldValue,
@@ -27,13 +28,46 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
+
+
+# NOTE: options in place of a ModelAdmin subclass, which strict mypy
+# would only take with a type: ignore.
+admin.site.register(
+    ParleyReport,
+    list_display=(
+        "created_at",
+        "room_id",
+        "reporter",
+        "reported_user",
+        "body",
+        "resolved_at",
+    ),
+    list_filter=(("resolved_at", admin.EmptyFieldListFilter),),
+    list_select_related=("reporter", "reported_user"),
+    search_fields=("body", "author_name", "room_id"),
+    # What the room said stays as reported; staff only mark it resolved.
+    readonly_fields=(
+        "sphere",
+        "conversation",
+        "reporter",
+        "room_id",
+        "message_id",
+        "reason",
+        "reported_user",
+        "author_name",
+        "body",
+        "written_at",
+        "deleted_at",
+        "created_at",
+    ),
+)
 
 
 @admin.register(AgendaItem)
@@ -224,7 +258,7 @@ class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(EncounterRSVP)
 class EncounterRSVPAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("encounter", "user", "ip_address", "creation_time")
+    list_display = ("encounter", "user", "creation_time")
     list_filter = ("encounter",)
 
 

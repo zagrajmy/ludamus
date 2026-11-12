@@ -11,7 +11,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Ahead of the app, which may call endpoints only the new Worker has.
+  parley:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-parley.yml
+    with:
+      environment: production-coolify
+      stage: prod
+      sha: ${{ github.sha }}
+    secrets: inherit
+
   deploy:
+    needs: parley
     permissions:
       contents: read
       packages: write

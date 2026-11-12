@@ -3,14 +3,14 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import AgendaItem, Event, Facilitator, Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.event import (
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
     ConfirmationSessionDTO,
     ConfirmationStatusGroupDTO,
+    EventDTO,
 )
-from ludamus.pacts.legacy import SessionStatus
+from ludamus.pacts.sessions import SessionStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,

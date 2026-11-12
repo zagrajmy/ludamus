@@ -13,20 +13,17 @@ from ludamus.links.db.django.agenda_item import (
     scheduled_item_count,
 )
 from ludamus.links.db.django.models import Facilitator, PersonalDataFieldValue
-from ludamus.pacts import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.facilitators import (
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
-    NotFoundError,
 )
 from ludamus.pacts.fields import TEXT_FIELD_KINDS
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
-from ludamus.pacts.submissions import (
-    FacilitatorListFilters,
-    FacilitatorSessionCountsDTO,
-)
+from ludamus.pacts.propose import FacilitatorListFilters, FacilitatorSessionCountsDTO
+from ludamus.pacts.timetable import ConfirmationCountsRow, ConfirmationFacilitatorRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
