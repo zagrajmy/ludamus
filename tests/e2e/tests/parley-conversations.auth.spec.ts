@@ -441,6 +441,11 @@ test("News from a conversation the list never had brings it in; one that shuts t
   await panel.getByRole("button", { name: copy.backLabel }).click();
   await roomButton(panel, "Surprise party").click();
   await expect(panel.getByRole("heading", { name: "Surprise party" })).toBeVisible();
+  await expect
+    .poll(() =>
+      worker.sockets.some((socket) => /parley-conversation-agent\/30\b/u.test(socket.url())),
+    )
+    .toBe(true);
   gone.add(surprise.id);
   delayMs = 1000;
   const asked = calls.length;

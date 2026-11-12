@@ -17,7 +17,9 @@ export type Conversation = {
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
 // sphere 1 with its common room and one read-only programme point.
 export const bootstrap = {
+  ageGate: null as "unconfirmed" | "under_16" | null,
   agentHost: "localhost:8787",
+  ageUrl: "/crowd/profile/privacy/",
   blocked: [] as Person[],
   canMessage: false,
   capabilityToken: "mock-token",
@@ -25,11 +27,16 @@ export const bootstrap = {
     accept: "Accept",
     addPeople: "Add people",
     addReaction: "Add a reaction",
+    allChats: "All chats",
     backLabel: "Back to conversations",
     backToConversation: "Back to the conversation",
     backToNewMessage: "Back to new message",
     block: "Block",
     blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
+    confirmAge: "Confirm your age",
+    messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
+    messagingUnder16: "Direct messages open once you turn 16.",
+    onThisPage: "On this page",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",
     blockedMessage: "A message from someone you blocked.",
@@ -165,12 +172,20 @@ export const bootstrap = {
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
   rooms: [
-    { canModerate: true, canWrite: true, id: "sphere:1", kind: "sphere", title: "Zagrajmy" },
+    {
+      canModerate: true,
+      canWrite: true,
+      id: "sphere:1",
+      kind: "sphere",
+      sessionId: null as number | null,
+      title: "Zagrajmy",
+    },
     {
       canModerate: true,
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      sessionId: 42 as number | null,
       title: "Mothership",
     },
   ],
