@@ -1,11 +1,12 @@
-# RFC 0002 — Tabletop (a whiteboard with dice)
+# RFC 0002 — Board (tablica): a whiteboard with dice
 
 **Status:** 🟡 draft, from an interview with the maintainer (2026-11-12)
 **Adds:** a shared whiteboard for playing roleplaying games online
-**Touches:** a new Worker (`workers/tabletop`), a new React entry in
-`src/ludamus/client`, a small Django slice (table records, pages, pass signing)
+**Touches:** a new Worker (`workers/board`), a new React entry in
+`src/ludamus/client`, a small Django slice (board records, pages, pass signing)
 
-"Tabletop" is a working name. See open question O-1.
+The feature is called the **board** (Polish: *tablica*). It is a vertical
+thing that a group looks at together, like a pinboard, not a table.
 
 ## TL;DR
 
@@ -13,15 +14,17 @@ The maintainer's group plays indie roleplaying games on plain tldraw
 whiteboards and prefers that to Roll20. The first version is therefore
 **tldraw with dice on it**, hosted inside Zagrajmy:
 
-- A signed-in Zagrajmy user creates a table. Anyone with the link joins,
+- A signed-in Zagrajmy user creates a board. Anyone with the link joins,
   with or without an account.
-- The table is a multiplayer tldraw canvas. Character sheets, handouts and
+- The board is a multiplayer tldraw canvas. Character sheets, handouts and
   maps are images on the canvas, and people draw on them.
 - 3D dice roll over the canvas. Everyone sees the same result, and the
   server picks it.
+- Shared **places** let everyone jump to a sheet or a handout with one tap.
 - It works on a phone first.
 
-Everything else (PDF import, tokens, clocks, cards, links to encounters,
+Everything else (things hidden by the game master, PDF import, tokens,
+clocks, cards, links to encounters,
 parties and Parley chat) comes in later slices and only if play shows the
 need.
 
@@ -35,36 +38,37 @@ rule system, and they are weak as whiteboards and on phones.
 
 The product principle that follows:
 
-> The table never knows which game you play. It gives the group a surface
+> The board never knows which game you play. It gives the group a surface
 > and a few physical-feeling objects, as a real table does.
 
 Consequences:
 
 - No rules engine, no form-based sheets, no initiative, no hit points.
-- No hidden layers. A sheet is an image on the canvas like any handout.
-- No game master role. The creator of a table has housekeeping rights only
-  (rename, reset the link, remove a guest, delete).
-- No voice, video, marketplace, compendium, fog of war or dynamic lighting.
+- A sheet is not a hidden form. It is an image on the canvas like any
+  handout, and everyone sees it.
+- A game master is optional, and a board works with none. A game master
+  has one extra power: to hide things from the players (phase 2).
+- No voice, video, marketplace, compendium or dynamic lighting.
 
 ## The first version in detail
 
-### Tables and people
+### Boards and people
 
 - **Create:** only a signed-in user, inside a sphere. Creation is one
   action with no form. The title defaults to a generated name and is
   editable in place later.
-- **Join:** the link is `/t/<share_code>/`, the same shape as the encounter
+- **Join:** the link is `/b/<share_code>/`, the same shape as the encounter
   link `/e/<share_code>/`. A signed-in user enters directly. A guest types
   a display name once, and the browser remembers it.
-- **Rights:** everyone at the table can draw, move things, upload images
-  and roll dice. Guests cannot create or delete tables.
-- **Housekeeping:** the creator can rename the table, remove a person,
-  reset the link (which removes every guest), and delete the table.
-- **My tables:** a signed-in user sees a list of tables they created or
+- **Rights:** everyone at the board can draw, move things, upload images
+  and roll dice. Guests cannot create or delete boards.
+- **Housekeeping:** the creator can rename the board, remove a person,
+  reset the link (which removes every guest), and delete the board.
+- **My boards:** a signed-in user sees a list of boards they created or
   joined.
 
-A table is its own record. It does not belong to an encounter, a session
-or a party. Later slices link those to a table, never the reverse.
+A board is its own record. It does not belong to an encounter, a session
+or a party. Later slices link those to a board, never the reverse.
 
 ### Canvas
 
@@ -72,6 +76,31 @@ The canvas is the stock tldraw editor with multiplayer sync. tldraw already
 has the parts the group uses: images, drawing on top of images, text,
 locking a shape, and a grid mode that snaps shapes to a square grid. The
 first version adds no custom shapes.
+
+### Places
+
+A board gets large, and a phone screen is small. A **place** (Polish:
+*miejsce*) is a named spot on the board that anyone can jump to.
+
+- Any shape can become a place: select it, choose "Add to places", and
+  type a name. Examples: "Ania's sheet", "Basic moves", "The map".
+- To mark an area, draw a tldraw frame around it and make the frame a
+  place.
+- Places are shared. The whole group sees one list, so a game master can
+  prepare places for the players before the game.
+- The list opens from the bottom bar. One tap moves the view to the place
+  and zooms to fit it.
+- A place follows its shape when the shape moves, and it goes away when
+  the shape is deleted.
+- Each person can star one place as "mine". A starred place sits first in
+  that person's list. The star is the only private part.
+
+The name is "places" and not "bookmarks" for two reasons. tldraw already
+calls its link-preview shape a bookmark, and Zagrajmy already has session
+bookmarks.
+
+A place is stored as a name in the shape's own metadata. tldraw sync
+carries it like any other shape property, so places need no server work.
 
 ### Dice
 
@@ -82,7 +111,7 @@ first version adds no custom shapes.
   until the next roll or a tap.
 - A roll log keeps who rolled, the pool, each die and the total. It
   survives a reload.
-- The table does not interpret a roll. It shows the dice and the sum, and
+- The board does not interpret a roll. It shows the dice and the sum, and
   the group reads them by the rules of its game.
 - People who prefer reduced motion get the result without the animation.
 
@@ -94,52 +123,88 @@ width first and tested there first, and the desktop view is the adaptation.
 - The canvas fills the screen. One bottom bar holds dice, roll log and
   people. Each opens as a sheet that slides up over the canvas.
 - Every control is reachable with one thumb and is at least 44 px.
-- A whole game is playable from a phone: create a table, share the link
+- A whole game is playable from a phone: create a board, share the link
   through the phone's share menu, add a sheet from the camera or the photo
   library, draw on it, and roll.
-- The page is fast on a mobile connection. The table page loads tldraw and
+- The page is fast on a mobile connection. The board page loads tldraw and
   the dice code only, and the dice code loads after the canvas is usable.
 - The desktop view puts the same controls in a side rail.
 
+## Hidden things (phase 2)
+
+A game master can hide things from the players: notes on a map, a
+monster's sheet, the next handout.
+
+- **Who is a game master.** The creator of a board can turn on "I am the
+  game master" and can give the same role to other people. A board with
+  no game master has no hidden things.
+- **Hiding.** A game master selects any shapes and chooses "Hide from
+  players". On the game master's screen they stay visible with a dashed
+  outline and a small "hidden" mark. Players do not see them and cannot
+  select them. "Reveal" shows them to everyone.
+- **Hidden places.** A place on a hidden shape is hidden too, and appears
+  in the players' list at the moment of the reveal.
+- **This is a property of a shape, not a separate layer.** A game master
+  hides a note where it lies on the map. There is no second canvas to
+  keep aligned and no layer switcher.
+
+### How secret is it
+
+There are two levels, and they differ much in cost.
+
+1. **A screen (proposed).** Every device receives every shape, and a
+   player's client does not draw the hidden ones. This is like a cardboard
+   game master's screen: it stops looking, not a determined player who
+   opens the browser's developer tools. tldraw supports per-client
+   visibility, so this is a small feature.
+2. **A vault.** Hidden shapes never reach a player's device. Plain tldraw
+   sync sends the whole document to everyone, so this needs a second,
+   game-master-only document drawn over the first, or a filter inside the
+   sync server. This is the same problem as private hands of cards, and it
+   would be solved once for both.
+
+The proposal is the screen, with honest wording in the interface. The
+vault waits until cards need it. See O-1.
+
 ## Architecture
 
-The tabletop follows Parley's shape: Django renders the page and signs a
+The board follows Parley's shape: Django renders the page and signs a
 pass, a React island runs in the page, and a Worker with Durable Objects
 holds the live state.
 
 ```text
-browser ── GET /t/<code>/ ──────────────▶ Django (page, pass, table record)
+browser ── GET /b/<code>/ ──────────────▶ Django (page, pass, board record)
    │
-   ├── WebSocket  /rooms/<table id> ────▶ Worker ─▶ Durable Object (one per table)
-   ├── POST       /rooms/<table id>/roll ▶ Worker ─▶   tldraw sync room + roll log
+   ├── WebSocket  /rooms/<board id> ────▶ Worker ─▶ Durable Object (one per board)
+   ├── POST       /rooms/<board id>/roll ▶ Worker ─▶   tldraw sync room + roll log
    └── PUT / GET  /assets/<key> ─────────▶ Worker ─▶ R2 bucket (images)
 ```
 
 ### Django slice
 
-- **Model `Table`:** sphere, creator, title, share code, link version,
+- **Model `Board`:** sphere, creator, title, share code, link version,
   created time. A second small table records which users joined, for the
-  "my tables" list.
-- **Layers:** DTOs and protocols in `pacts`, `TableService` in `mills`, the
-  repository in `links`, views in `gates/web/django/tabletop/`. Views call
-  `request.services.tables`.
-- **Pages:** the table page (public, full screen), the "my tables" list
+  "my boards" list.
+- **Layers:** DTOs and protocols in `pacts`, `BoardService` in `mills`, the
+  repository in `links`, views in `gates/web/django/board/`. Views call
+  `request.services.boards`.
+- **Pages:** the board page (public, full screen), the "my boards" list
   and the create action (signed-in).
 - **Pass:** a bootstrap endpoint returns a short-lived signed token, as
-  `parley_bootstrap` does. Claims: table id, link version, a person id
+  `parley_bootstrap` does. Claims: board id, link version, a person id
   (user id, or a random guest id kept in the Django session), display
   name, and whether the person is the creator. The token uses its own
-  audience, so a Parley pass cannot open a table and the reverse.
+  audience, so a Parley pass cannot open a board and the reverse.
 - **Feature switch:** the feature is off when the Worker host or the
   tldraw licence key is not configured, as `PARLEY_AVAILABLE` works today.
 
-### Worker (`workers/tabletop`)
+### Worker (`workers/board`)
 
 Same toolchain as `workers/parley`: TypeScript, `wrangler.json` for the
 runtime, Alchemy for deploys, Vitest with the Workers pool, varlock for
 inputs.
 
-- **`TableRoom` Durable Object, SQLite storage, one per table.** It wraps
+- **`BoardRoom` Durable Object, SQLite storage, one per board.** It wraps
   tldraw's `TLSocketRoom` from `@tldraw/sync-core` and persists the
   document in the object's SQLite storage.
 - **Roll endpoint.** The object draws each die with
@@ -147,20 +212,20 @@ inputs.
   it to every connection as a tldraw sync custom message. Rolls are not
   part of the tldraw document, so nobody can edit a result.
 - **Assets.** Uploads go to an R2 bucket under an unguessable key scoped to
-  the table. The Worker checks the pass, the content type (images only in
+  the board. The Worker checks the pass, the content type (images only in
   the first version) and a size limit.
-- **Limits.** A cap on connections per table, on upload size, on stored
-  bytes per table, and a rate limit on rolls and uploads per person.
+- **Limits.** A cap on connections per board, on upload size, on stored
+  bytes per board, and a rate limit on rolls and uploads per person.
 - **Reset and delete.** Django calls the Worker with a signed request when
-  the creator resets the link or deletes the table. The object drops
+  the creator resets the link or deletes the board. The object drops
   connections with an older link version, or deletes its storage and its
   R2 objects.
 - **Logs.** One wide event per connection, roll, upload and refusal, with
-  table id and person kind (member or guest), never the display name.
+  board id and person kind (member or guest), never the display name.
 
-### Client (`src/ludamus/client/src/tabletop/`)
+### Client (`src/ludamus/client/src/board/`)
 
-A new entry in the existing Vite build, loaded only by the table page.
+A new entry in the existing Vite build, loaded only by the board page.
 
 - `<Tldraw>` with `useSync` from `@tldraw/sync`, an asset store that
   uploads to the Worker, and the user's name and colour from the pass.
@@ -192,11 +257,11 @@ These are checked before the build starts (phase 0).
    allowances). Candidates: `@3d-dice/dice-box-threejs` and
    `@3d-dice/dice-box`. A one-day spike decides.
 4. **Abuse by anonymous guests.** A public link lets anyone upload images
-   to our storage. The limits above, the link reset and the per-table byte
+   to our storage. The limits above, the link reset and the per-board byte
    cap contain it. Image uploads stay behind the pass.
 5. **Sphere on a custom domain.** Parley keeps its pass in a
    `SameSite=Strict` cookie, which a custom domain cannot send. The
-   tabletop sends the pass on the WebSocket request instead, so a table
+   board sends the pass on the WebSocket request instead, so a board
    works on every sphere domain.
 6. **API drift.** The plan assumes current tldraw sync APIs
    (`TLSocketRoom`, SQLite storage for Durable Objects, custom messages,
@@ -218,41 +283,42 @@ Each phase ends with something a group can play on.
 
 ### Phase 1 — tldraw with dice (the first version)
 
-1. Worker skeleton: `workers/tabletop` copied from Parley's toolchain,
-   pass verification, the `TableRoom` object, sync over WebSocket. Vitest:
+1. Worker skeleton: `workers/board` copied from Parley's toolchain,
+   pass verification, the `BoardRoom` object, sync over WebSocket. Vitest:
    a valid pass connects; a wrong audience, an expired pass and an old
    link version are refused.
-2. Django slice: `Table` model with a reversible migration, service,
-   repository, bootstrap endpoint, create action, table page, guest name
-   step. Python tests: a guest cannot create; a foreign table id returns
+2. Django slice: `Board` model with a reversible migration, service,
+   repository, bootstrap endpoint, create action, board page, guest name
+   step. Python tests: a guest cannot create; a foreign board id returns
    404; resetting the link changes the version.
-3. Client: the tldraw island with sync, presence names, phone layout.
+3. Client: the tldraw island with sync, presence names, phone layout,
+   places.
 4. Assets: R2 bucket, upload and download routes, limits.
 5. Dice: roll endpoint, roll log storage, custom message, dice layer,
    tray, log, reduced-motion path.
 6. Housekeeping: rename, remove a person, reset link, delete, "my
-   tables" list.
+   boards" list.
 7. Delivery: Alchemy stack with staging and production stages, a deploy
    workflow beside `deploy-parley.yml`, CSP entries, `mise run start`
    wiring, strings in both languages.
 8. End-to-end test with Playwright and two browser contexts, one signed
-   in and one guest, at a phone viewport: create a table, join by link,
+   in and one guest, at a phone viewport: create a board, join by link,
    draw a shape in one and see it in the other, roll dice in one and read
-   the same result in both logs, reset the link and see the guest removed.
+   the same result in both logs, add a place in one and jump to it from the other,
+   reset the link and see the guest removed.
    The run saves screenshots of both screens as its artifact.
 
-### Phase 2 — paper and pieces
+### Phase 2 — hidden things, paper and pieces
 
+- Hidden things, as described in "Hidden things" below.
 - Drop a PDF: each page becomes a locked image on the canvas.
-- "My sheet": a person marks one shape as theirs, and one tap moves their
-  view to it.
 - Tokens: an image cropped to a circle that snaps to the grid. Hex grid.
 - Clocks (a segmented circle that fills on tap) and counters.
 
 ### Phase 3 — Zagrajmy links
 
-- An encounter can carry a table. Its page shows "Open the table".
-- A party can open a table, and the people list shows its members.
+- An encounter can carry a board. Its page shows "Open the board".
+- A party can open a board, and the people list shows its members.
 - The Parley conversation of the encounter or party opens from the
   bottom bar.
 
@@ -264,23 +330,23 @@ Each phase ends with something a group can play on.
 
 ## Open questions
 
-- **O-1 Name.** Parley is the chat. What is the table called, in Polish and
-  English?
+- **O-1 Hidden things.** Is the "screen" level of secrecy enough, or must a
+  hidden thing never reach a player's device?
 - **O-2 Licence fallback.** If tldraw refuses the hobby licence: pay for a
   commercial licence, or change to an open-source canvas (Excalidraw is
   MIT)? The dice, the pass and the Django slice do not depend on tldraw,
   so about half of phase 1 survives a change.
-- **O-3 Retention.** Default proposal: a table lives until its creator
-  deletes it, and a table nobody opened for 12 months is deleted after an
+- **O-3 Retention.** Default proposal: a board lives until its creator
+  deletes it, and a board nobody opened for 12 months is deleted after an
   e-mail to the creator.
 - **O-4 Guest uploads.** Default proposal: guests may upload images,
   because players bring their own sheets. The creator can turn it off per
-  table.
-- **O-5 Party.** What should a party's table do beyond listing members and
+  board.
+- **O-5 Party.** What should a party's board do beyond listing members and
   opening the party chat?
 
 ## Non-goals
 
 Rules automation, form-based character sheets, initiative and hit points,
-hidden layers and fog of war, voice and video, a content marketplace, and
-charging money for the tabletop.
+fog of war that follows tokens, voice and video, a content marketplace, and
+charging money for the board.
