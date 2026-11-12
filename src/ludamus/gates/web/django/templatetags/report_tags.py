@@ -12,9 +12,12 @@ register = template.Library()
 
 @register.simple_tag(takes_context=True)
 def report_url(context: template.Context, path: str = "", **query: str | int) -> str:
-    """Link the notice form with what to report filled in: this page, or `path`."""
+    """Link the notice form with what to report filled in: this page, or `path`.
+
+    The page goes in without its query string, which may carry a token.
+    """
     request: HttpRequest = context["request"]
-    target = request.build_absolute_uri(path or None)
+    target = request.build_absolute_uri(path or request.path)
     if query:
         target = f"{target}?{urlencode(query)}"
     return f"{reverse('report')}?{urlencode({'url': target})}"

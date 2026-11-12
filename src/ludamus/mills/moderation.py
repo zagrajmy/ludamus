@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -9,8 +10,11 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.moderation import (
     ContentNoticeSubmission,
     InvalidVerdictError,
+    IssuedStatement,
     ModerationDecision,
     ModerationDecisionDict,
+    ModerationDecisionsDTO,
+    ModerationGround,
     ModerationSource,
     ModerationStatus,
     MonthlyActiveRecipientsDTO,
@@ -26,11 +30,15 @@ from ludamus.specs.moderation import (
     ANONYMOUS_NOTICE_CATEGORIES,
     NOTICE_WINDOW_SECONDS,
     NOTICES_PER_ADDRESS,
+    RECEIPT_WINDOW_SECONDS,
+    RECEIPTS_PER_ADDRESS,
     URGENT_NOTICE_CATEGORIES,
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.cache import CacheProtocol
+    from datetime import date
+
+    from ludamus.pacts.cache import CounterProtocol
     from ludamus.pacts.moderation import (
         ActiveRecipientsRepositoryProtocol,
         ChatReportRepositoryProtocol,
@@ -56,13 +64,13 @@ class NoticeService:
         transaction: TransactionProtocol,
         cases: ModerationCaseRepositoryProtocol,
         notices: ContentNoticeRepositoryProtocol,
-        cache: CacheProtocol,
+        counter: CounterProtocol,
         mailer: ModerationMailerProtocol,
     ) -> None:
         self._transaction = transaction
         self._cases = cases
         self._notices = notices
-        self._cache = cache
+        self._counter = counter
         self._mailer = mailer
 
     def submit(
@@ -103,7 +111,7 @@ class NoticeService:
                     explanation=notice.explanation,
                 )
             )
-            if email:
+            if email and self._may_receipt(email):
                 self._mailer.send_receipt(
                     NoticeReceipt(
                         case_id=case_id,
@@ -126,13 +134,36 @@ class NoticeService:
             outcome=NoticeOutcome.CREATED, case_reference=case_reference(case_id)
         )
 
-    def _over_limit(self, ip_address: str) -> bool:
-        key = f"content_notice_rate:{sha256(ip_address.encode()).hexdigest()}"
-        sent = self._cache.get(key)
-        if (count := sent if isinstance(sent, int) else 0) >= NOTICES_PER_ADDRESS:
-            return True
-        self._cache.set(key, count + 1, timeout=NOTICE_WINDOW_SECONDS)
-        return False
+    def _over_limit(self, client_ip: str) -> bool:
+        key = f"content_notice_rate:{_digest(_sender(client_ip))}"
+        hits = self._counter.hit(key, window_seconds=NOTICE_WINDOW_SECONDS)
+        return hits > NOTICES_PER_ADDRESS
+
+    def _may_receipt(self, email: str) -> bool:
+        # The address is typed by whoever sends the form, so it may be
+        # someone else's; receipts to one address are capped.
+        key = f"content_notice_receipt:{_digest(email.casefold())}"
+        if self._counter.hit(key, window_seconds=RECEIPT_WINDOW_SECONDS) > (
+            RECEIPTS_PER_ADDRESS
+        ):
+            logger.warning("Notice receipt withheld: address over its daily cap")
+            return False
+        return True
+
+
+def _sender(client_ip: str) -> str:
+    """Name the sender by address; an IPv6 one by its /64, which one host holds."""
+    try:
+        address = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return client_ip
+    if isinstance(address, ipaddress.IPv6Address):
+        return str(ipaddress.IPv6Network(f"{address}/64", strict=False).network_address)
+    return str(address)
+
+
+def _digest(value: str) -> str:
+    return sha256(value.encode()).hexdigest()
 
 
 class ChatReportIntakeService:
@@ -158,8 +189,19 @@ class ChatReportIntakeService:
             )
             if report is None or report.case_id is not None:
                 return
-            case_id = self._cases.open()
+            # Everyone reporting one message joins one case, so its author
+            # gets one statement however many people reported it.
+            shared = self._reports.case_of_message(
+                room_id=room_id, message_id=message_id
+            )
+            case_id = shared if shared is not None else self._cases.open()
             if not self._reports.attach_case(pk=report.pk, case_id=case_id):
+                return
+            if shared is not None:
+                logger.info(
+                    "Chat report joined its message's case",
+                    extra={"case": case_reference(case_id), "report_id": report.pk},
+                )
                 return
             self._mailer.alert_staff(
                 StaffAlert(
@@ -198,11 +240,27 @@ class StatementOfReasonsService:
         self._statements = statements
         self._mailer = mailer
 
-    def issue(self, statement: StatementOfReasons) -> int:
+    def issue(self, statement: StatementOfReasons) -> IssuedStatement | None:
+        """Record and mail a statement; None when its case already holds one.
+
+        Raises:
+            InvalidVerdictError: no action was taken, or a term Art. 17(3)
+                needs is missing.
+        """
         if statement.decision == ModerationDecision.NO_ACTION:
             msg = "A statement of reasons explains an action taken."
             raise InvalidVerdictError(msg)
+        _check_terms(
+            decision=statement.decision,
+            ground=statement.ground,
+            legal_provision=statement.legal_provision,
+            suspended_until=statement.suspended_until,
+        )
         with self._transaction.atomic():
+            if statement.case_id is not None and self._statements.exists(
+                case_id=statement.case_id, user_id=statement.user_id
+            ):
+                return None
             case_id = (
                 statement.case_id
                 if statement.case_id is not None
@@ -214,12 +272,14 @@ class StatementOfReasonsService:
                     "user_id": statement.user_id,
                     "decision": statement.decision,
                     "ground": statement.ground,
+                    "legal_provision": statement.legal_provision.strip(),
+                    "suspended_until": statement.suspended_until,
                     "facts": statement.facts.strip(),
                     "from_report": statement.from_report,
                     "automated": statement.automated,
                 }
             )
-            self._mailer.send_statement(statement=statement, case_id=case_id)
+            mailed = self._mailer.send_statement(statement=statement, case_id=case_id)
         logger.info(
             "Statement of reasons issued",
             extra={
@@ -229,9 +289,27 @@ class StatementOfReasonsService:
                 "ground": statement.ground.value,
                 "from_report": statement.from_report,
                 "automated": statement.automated,
+                "mailed": mailed,
             },
         )
-        return case_id
+        return IssuedStatement(
+            case_id=case_id, user_id=statement.user_id, mailed=mailed
+        )
+
+
+def _check_terms(
+    *,
+    decision: ModerationDecision,
+    ground: ModerationGround | None,
+    legal_provision: str,
+    suspended_until: date | None,
+) -> None:
+    if ground == ModerationGround.ILLEGAL_CONTENT and not legal_provision.strip():
+        msg = "Name the provision of law the content breaks."
+        raise InvalidVerdictError(msg)
+    if decision == ModerationDecision.ACCOUNT_SUSPENDED and suspended_until is None:
+        msg = "Say until when the account is suspended."
+        raise InvalidVerdictError(msg)
 
 
 def _decision_record(verdict: ModerationVerdict) -> ModerationDecisionDict:
@@ -246,11 +324,19 @@ def _decision_record(verdict: ModerationVerdict) -> ModerationDecisionDict:
     if not verdict.decision_text.strip():
         msg = "Explain the decision; the reporter and the person affected read it."
         raise InvalidVerdictError(msg)
-    rejected = verdict.status == ModerationStatus.REJECTED
+    if not (rejected := verdict.status == ModerationStatus.REJECTED):
+        _check_terms(
+            decision=verdict.decision,
+            ground=verdict.ground,
+            legal_provision=verdict.legal_provision,
+            suspended_until=verdict.suspended_until,
+        )
     return {
         "status": verdict.status,
         "decision": ModerationDecision.NO_ACTION if rejected else verdict.decision,
         "ground": "" if rejected or verdict.ground is None else verdict.ground.value,
+        "legal_provision": "" if rejected else verdict.legal_provision.strip(),
+        "suspended_until": None if rejected else verdict.suspended_until,
         "decision_text": verdict.decision_text.strip(),
         "resolved_at": datetime.now(tz=UTC),
     }
@@ -282,9 +368,18 @@ class ModerationDecisionService:
         notice_ids: list[int],
         verdict: ModerationVerdict,
         affected_user_id: int | None,
-    ) -> int:
+    ) -> ModerationDecisionsDTO:
+        """Close notices with one verdict.
+
+        Raises:
+            InvalidVerdictError: the verdict does not hold together, or one
+                affected account is named for several notices.
+        """
         record = _decision_record(verdict)
-        decided = 0
+        if affected_user_id is not None and len(notice_ids) > 1:
+            msg = "Name an affected account only when deciding a single notice."
+            raise InvalidVerdictError(msg)
+        decided, statements = 0, []
         with self._transaction.atomic():
             for pk in notice_ids:
                 notice = self._notices.read(pk)
@@ -302,24 +397,31 @@ class ModerationDecisionService:
                             language=notice.language,
                         )
                     )
-                if affected_user_id is not None:
-                    self._explain(
+                if affected_user_id is not None and (
+                    issued := self._explain(
                         record,
                         verdict=verdict,
                         user_id=affected_user_id,
                         case_id=case_id,
                     )
+                ):
+                    statements.append(issued)
         logger.info(
             "Content notices decided",
             extra={"status": record["status"].value, "count": decided},
         )
-        return decided
+        return ModerationDecisionsDTO(decided=decided, statements=statements)
 
     def decide_chat_reports(
         self, *, report_ids: list[int], verdict: ModerationVerdict
-    ) -> int:
+    ) -> ModerationDecisionsDTO:
+        """Close chat reports with one verdict.
+
+        Raises:
+            InvalidVerdictError: the verdict does not hold together.
+        """
         record = _decision_record(verdict)
-        decided = 0
+        decided, statements = 0, []
         with self._transaction.atomic():
             for pk in report_ids:
                 report = self._reports.read(pk)
@@ -335,18 +437,20 @@ class ModerationDecisionService:
                         reporter_id=report.reporter_id,
                     )
                 )
-                if report.reported_user_id is not None:
-                    self._explain(
+                if report.reported_user_id is not None and (
+                    issued := self._explain(
                         record,
                         verdict=verdict,
                         user_id=report.reported_user_id,
                         case_id=case_id,
                     )
+                ):
+                    statements.append(issued)
         logger.info(
             "Chat reports decided",
             extra={"status": record["status"].value, "count": decided},
         )
-        return decided
+        return ModerationDecisionsDTO(decided=decided, statements=statements)
 
     def _case_of(self, case_id: int | None) -> int:
         return case_id if case_id is not None else self._cases.open()
@@ -358,15 +462,17 @@ class ModerationDecisionService:
         verdict: ModerationVerdict,
         user_id: int,
         case_id: int,
-    ) -> None:
+    ) -> IssuedStatement | None:
         if record["status"] != ModerationStatus.ACTIONED or verdict.ground is None:
-            return
-        self._statements.issue(
+            return None
+        return self._statements.issue(
             StatementOfReasons(
                 user_id=user_id,
                 case_id=case_id,
                 decision=record["decision"],
                 ground=verdict.ground,
+                legal_provision=record["legal_provision"],
+                suspended_until=record["suspended_until"],
                 facts=record["decision_text"],
                 from_report=True,
             )

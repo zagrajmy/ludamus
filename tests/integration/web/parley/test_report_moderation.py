@@ -4,6 +4,7 @@ import pytest
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ParleyReport
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 MESSAGE_ID = 42
@@ -64,3 +65,20 @@ def test_a_report_opens_a_case_and_tells_staff_once(
         "Decide in the admin:"
         f" https://testserver/admin/db_main/parleyreport/{report.pk}/change/"
     )
+
+
+def test_a_second_reporter_joins_the_message_case_without_a_second_alert(
+    client,
+    authenticated_client,
+    chat_sphere,
+    mailoutbox,
+    django_capture_on_commit_callbacks,
+):
+    with django_capture_on_commit_callbacks(execute=True):
+        _report(authenticated_client, chat_sphere, good_faith="1")
+        client.force_login(UserFactory())
+        _report(client, chat_sphere, good_faith="1")
+
+    first, second = ParleyReport.objects.order_by("pk")
+    assert second.case_id == first.case_id
+    assert len(mailoutbox) == 1

@@ -9,7 +9,7 @@ case's reference, so replies can be filed under it.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Protocol, TypedDict
 
@@ -19,6 +19,7 @@ NOTICE_URL_MAX_LENGTH = 2048
 NOTICE_EXPLANATION_MAX_LENGTH = 5000
 NOTICE_NAME_MAX_LENGTH = 255
 DECISION_TEXT_MAX_LENGTH = 5000
+LEGAL_PROVISION_MAX_LENGTH = 255
 
 
 def case_reference(case_id: int) -> str:
@@ -128,6 +129,7 @@ class ChatReportDTO(BaseModel):
     reporter_id: int
     reported_user_id: int | None
     room_id: str
+    message_id: int
     author_name: str
     body: str
     reason: str
@@ -139,12 +141,18 @@ class ModerationVerdict(BaseModel):
     decision: ModerationDecision
     ground: ModerationGround | None
     decision_text: str
+    # Art. 17(3)(d): the provision broken, when the ground is the law.
+    legal_provision: str = ""
+    # Art. 17(3)(a): how long a suspension lasts.
+    suspended_until: date | None = None
 
 
 class ModerationDecisionDict(TypedDict):
     status: ModerationStatus
     decision: ModerationDecision
     ground: str
+    legal_provision: str
+    suspended_until: date | None
     decision_text: str
     resolved_at: datetime
 
@@ -156,6 +164,8 @@ class StatementOfReasons(BaseModel):
     ground: ModerationGround
     facts: str
     from_report: bool
+    legal_provision: str = ""
+    suspended_until: date | None = None
     # NOTE: Art. 17(3)(c) asks whether automated means were used; none are yet.
     automated: bool = False
 
@@ -165,9 +175,23 @@ class StatementOfReasonsCreateDict(TypedDict):
     user_id: int
     decision: ModerationDecision
     ground: ModerationGround
+    legal_provision: str
+    suspended_until: date | None
     facts: str
     from_report: bool
     automated: bool
+
+
+class IssuedStatement(BaseModel):
+    case_id: int
+    user_id: int
+    # False when the account has no address on record to mail.
+    mailed: bool
+
+
+class ModerationDecisionsDTO(BaseModel):
+    decided: int
+    statements: list[IssuedStatement]
 
 
 class StaffAlert(BaseModel):
@@ -217,6 +241,10 @@ class ChatReportRepositoryProtocol(Protocol):
     ) -> ChatReportDTO | None: ...
     @staticmethod
     def read(pk: int) -> ChatReportDTO: ...
+
+    # The case another report of the same message is filed under, if any.
+    @staticmethod
+    def case_of_message(*, room_id: str, message_id: int) -> int | None: ...
     @staticmethod
     def attach_case(*, pk: int, case_id: int) -> bool: ...
     @staticmethod
@@ -226,6 +254,8 @@ class ChatReportRepositoryProtocol(Protocol):
 class StatementOfReasonsRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: StatementOfReasonsCreateDict) -> int: ...
+    @staticmethod
+    def exists(*, case_id: int, user_id: int) -> bool: ...
 
 
 class ActiveRecipientsRepositoryProtocol(Protocol):
@@ -241,7 +271,7 @@ class ModerationMailerProtocol(Protocol):
     @staticmethod
     def send_outcome(outcome: ReporterOutcome) -> None: ...
     @staticmethod
-    def send_statement(*, statement: StatementOfReasons, case_id: int) -> None: ...
+    def send_statement(*, statement: StatementOfReasons, case_id: int) -> bool: ...
 
 
 class MonthlyActiveRecipientsDTO(BaseModel):
@@ -260,7 +290,7 @@ class ChatReportIntakeServiceProtocol(Protocol):
 
 
 class StatementOfReasonsServiceProtocol(Protocol):
-    def issue(self, statement: StatementOfReasons) -> int: ...
+    def issue(self, statement: StatementOfReasons) -> IssuedStatement | None: ...
 
 
 class ModerationDecisionServiceProtocol(Protocol):
@@ -270,10 +300,10 @@ class ModerationDecisionServiceProtocol(Protocol):
         notice_ids: list[int],
         verdict: ModerationVerdict,
         affected_user_id: int | None,
-    ) -> int: ...
+    ) -> ModerationDecisionsDTO: ...
     def decide_chat_reports(
         self, *, report_ids: list[int], verdict: ModerationVerdict
-    ) -> int: ...
+    ) -> ModerationDecisionsDTO: ...
 
 
 class ActiveRecipientsServiceProtocol(Protocol):

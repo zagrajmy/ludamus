@@ -74,11 +74,11 @@ Informację, że ktoś właśnie pisze, przekazujemy na bieżąco osobom w tej s
 
 ### 2.6 Zgłoszenia nielegalnych treści i decyzje moderacyjne:
 
-- Imię lub nazwa i adres email osoby zgłaszającej (przy zgłoszeniu materiałów przedstawiających seksualne wykorzystywanie dzieci można ich nie podawać), a jeśli jest zalogowana — jej Konto
+- Imię lub nazwa i adres email osoby zgłaszającej (przy zgłoszeniu dotyczącym seksualnego wykorzystywania albo uwodzenia dziecka można ich nie podawać), a jeśli jest zalogowana — jej Konto
 - Adres zgłaszanej treści, kategoria i wyjaśnienie zgłoszenia, język strony, na której je wysłano, numer sprawy
 - Decyzja w sprawie zgłoszenia wraz z uzasadnieniem
 - Uzasadnienia decyzji wysłane osobom, których treści lub Kont decyzja dotyczy: co postanowiono, fakty, podstawa
-- Skrót adresu IP, przez godzinę po wysłaniu zgłoszenia, do ograniczenia liczby zgłoszeń z jednego adresu
+- Skrót adresu IP (dla IPv6 — jego sieci /64), przez godzinę po wysłaniu zgłoszenia, oraz skrót podanego adresu email, przez dobę, do ograniczenia liczby zgłoszeń z jednego adresu i potwierdzeń wysyłanych na jeden adres
 
 ## 3. CELE I PODSTAWY PRAWNE PRZETWARZANIA
 

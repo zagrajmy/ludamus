@@ -26,7 +26,11 @@ from ludamus.inits.dbos_scheduler import (
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
+from ludamus.links.cache import (
+    CacheAuthorizationCodeStore,
+    DjangoCache,
+    DjangoCacheCounter,
+)
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
@@ -614,7 +618,7 @@ class Services:
             transaction=self._transaction,
             cases=self._repos.moderation_cases,
             notices=self._repos.content_notices,
-            cache=DjangoCache(),
+            counter=DjangoCacheCounter(),
             mailer=DjangoModerationMailer(),
         )
 

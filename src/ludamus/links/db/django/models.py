@@ -42,6 +42,7 @@ from ludamus.pacts.listing import (
     ListingStatus,
 )
 from ludamus.pacts.moderation import (
+    LEGAL_PROVISION_MAX_LENGTH,
     NOTICE_EXPLANATION_MAX_LENGTH,
     NOTICE_NAME_MAX_LENGTH,
     NOTICE_URL_MAX_LENGTH,
@@ -427,6 +428,10 @@ class ContentNotice(models.Model):
     ground = models.CharField(
         max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
     )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
     decision_text = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -457,6 +462,10 @@ class StatementOfReasons(models.Model):
     )
     decision = models.CharField(max_length=32, choices=MODERATION_DECISION_CHOICES)
     ground = models.CharField(max_length=32, choices=MODERATION_GROUND_CHOICES)
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
     facts = models.TextField()
     from_report = models.BooleanField()
     automated = models.BooleanField(default=False)
@@ -525,6 +534,10 @@ class ParleyReport(models.Model):
     ground = models.CharField(
         max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
     )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
     decision_text = models.TextField(blank=True, default="")
 
     class Meta:

@@ -76,7 +76,8 @@ class ContentNoticeForm(forms.Form):
         required=False,
         help_text=_(
             "We confirm the report and send the decision here. Name and email may"
-            " be left out only for child sexual abuse material."
+            " be left out only when the report is about the sexual abuse or"
+            " grooming of a child."
         ),
     )
     good_faith = forms.BooleanField(

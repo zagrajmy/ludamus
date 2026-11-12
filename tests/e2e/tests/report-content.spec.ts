@@ -96,8 +96,8 @@ test("a report needs a name and email unless it is of child sexual abuse materia
   await expect(page.getByRole("heading", { name: "Report sent" })).toBeVisible();
 });
 
-test("the footer offers the form for the page being read", async ({ page }) => {
-  await page.goto("/about/");
+test("the footer offers the form for the page being read, without its query", async ({ page }) => {
+  await page.goto("/about/?token=not-for-the-form");
 
   const link = page.getByRole("contentinfo").getByRole("link", { name: "Report illegal content" });
   await link.click();

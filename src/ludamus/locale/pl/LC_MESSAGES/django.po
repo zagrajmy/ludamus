@@ -4212,11 +4212,11 @@ msgstr "Twój adres e-mail"
 #: src/ludamus/gates/web/django/report.py
 msgid ""
 "We confirm the report and send the decision here. Name and email may be left "
-"out only for child sexual abuse material."
+"out only when the report is about the sexual abuse or grooming of a child."
 msgstr ""
 "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres można "
-"pominąć tylko przy zgłoszeniu materiałów przedstawiających seksualne "
-"wykorzystywanie dzieci."
+"pominąć tylko w zgłoszeniu dotyczącym seksualnego wykorzystywania albo "
+"uwodzenia dziecka."
 
 #: src/ludamus/gates/web/django/report.py
 msgid ""
@@ -5416,6 +5416,55 @@ msgid "Decision on your report"
 msgstr "Decyzja w sprawie Twojego zgłoszenia"
 
 #: src/ludamus/links/db/django/moderation_mail.py
+#, python-format
+msgid "%(decision)s until %(date)s"
+msgstr "%(decision)s do %(date)s"
+
+#: src/ludamus/links/db/django/moderation_mail.py
+#, python-format
+msgid "%(ground)s, under %(provision)s"
+msgstr "%(ground)s, na podstawie: %(provision)s"
+
+#: src/ludamus/links/db/django/moderation_mail.py
+#, python-format
+msgid "Zagrajmy staff decided on %(decision)s."
+msgstr "Zespół Zagrajmy podjął decyzję: %(decision)s."
+
+#: src/ludamus/links/db/django/moderation_mail.py
+#, python-format
+msgid ""
+"What happened:\n"
+"%(facts)s"
+msgstr ""
+"Fakty i okoliczności:\n"
+"%(facts)s"
+
+#: src/ludamus/links/db/django/moderation_mail.py
+msgid "This decision followed a report from someone else."
+msgstr "Decyzja zapadła po zgłoszeniu od innej osoby."
+
+#: src/ludamus/links/db/django/moderation_mail.py
+msgid "We took this decision on our own initiative."
+msgstr "Decyzję podjęliśmy z własnej inicjatywy."
+
+#: src/ludamus/links/db/django/moderation_mail.py
+msgid "Automated means were used to find the content or reach this decision."
+msgstr ""
+"Do wykrycia treści lub podjęcia tej decyzji użyto środków zautomatyzowanych."
+
+#: src/ludamus/links/db/django/moderation_mail.py
+msgid ""
+"No automated means were used to find the content or reach this decision."
+msgstr ""
+"Do wykrycia treści ani do podjęcia tej decyzji nie użyto środków "
+"zautomatyzowanych."
+
+#: src/ludamus/links/db/django/moderation_mail.py
+#, python-format
+msgid "Ground: %(ground)s. Terms of Service: %(url)s"
+msgstr "Podstawa: %(ground)s. Regulamin: %(url)s"
+
+#: src/ludamus/links/db/django/moderation_mail.py
 msgid "New chat report"
 msgstr "Nowe zgłoszenie z czatu"
 
@@ -5482,45 +5531,6 @@ msgstr ""
 #: src/ludamus/links/db/django/moderation_mail.py
 msgid "We received your report"
 msgstr "Otrzymaliśmy Twoje zgłoszenie"
-
-#: src/ludamus/links/db/django/moderation_mail.py
-#, python-format
-msgid "Zagrajmy staff decided on %(decision)s."
-msgstr "Zespół Zagrajmy podjął decyzję: %(decision)s."
-
-#: src/ludamus/links/db/django/moderation_mail.py
-#, python-format
-msgid ""
-"What happened:\n"
-"%(facts)s"
-msgstr ""
-"Fakty i okoliczności:\n"
-"%(facts)s"
-
-#: src/ludamus/links/db/django/moderation_mail.py
-msgid "This decision followed a report from someone else."
-msgstr "Decyzja zapadła po zgłoszeniu od innej osoby."
-
-#: src/ludamus/links/db/django/moderation_mail.py
-msgid "We took this decision on our own initiative."
-msgstr "Decyzję podjęliśmy z własnej inicjatywy."
-
-#: src/ludamus/links/db/django/moderation_mail.py
-msgid "Automated means were used to find the content or reach this decision."
-msgstr ""
-"Do wykrycia treści lub podjęcia tej decyzji użyto środków zautomatyzowanych."
-
-#: src/ludamus/links/db/django/moderation_mail.py
-msgid ""
-"No automated means were used to find the content or reach this decision."
-msgstr ""
-"Do wykrycia treści ani do podjęcia tej decyzji nie użyto środków "
-"zautomatyzowanych."
-
-#: src/ludamus/links/db/django/moderation_mail.py
-#, python-format
-msgid "Ground: %(ground)s. Terms of Service: %(url)s"
-msgstr "Podstawa: %(ground)s. Regulamin: %(url)s"
 
 #: src/ludamus/links/db/django/moderation_mail.py
 msgid "A moderation decision about your account"
@@ -14415,6 +14425,14 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid ""
+#~ "We confirm the report and send the decision here. Name and email may be "
+#~ "left out only for child sexual abuse material."
+#~ msgstr ""
+#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
+#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
+#~ "seksualne wykorzystywanie dzieci."
 
 #~ msgid "Message reported."
 #~ msgstr "Wiadomość została zgłoszona."

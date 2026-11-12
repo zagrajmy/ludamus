@@ -79,6 +79,17 @@ class ChatReportRepository(ChatReportRepositoryProtocol):
             raise NotFoundError from exception
 
     @staticmethod
+    def case_of_message(*, room_id: str, message_id: int) -> int | None:
+        return (
+            ParleyReport.objects.filter(
+                room_id=room_id, message_id=message_id, case__isnull=False
+            )
+            .order_by("pk")
+            .values_list("case_id", flat=True)
+            .first()
+        )
+
+    @staticmethod
     def attach_case(*, pk: int, case_id: int) -> bool:
         return bool(
             ParleyReport.objects.filter(pk=pk, case__isnull=True).update(
@@ -99,6 +110,12 @@ class StatementOfReasonsRepository(StatementOfReasonsRepositoryProtocol):
     @staticmethod
     def create(data: StatementOfReasonsCreateDict) -> int:
         return StatementOfReasons.objects.create(**data).pk
+
+    @staticmethod
+    def exists(*, case_id: int, user_id: int) -> bool:
+        return StatementOfReasons.objects.filter(
+            case_id=case_id, user_id=user_id
+        ).exists()
 
 
 class ActiveRecipientsRepository(ActiveRecipientsRepositoryProtocol):

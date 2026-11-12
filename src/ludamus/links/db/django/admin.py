@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
@@ -36,8 +36,10 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.moderation import (
     DECISION_TEXT_MAX_LENGTH,
+    LEGAL_PROVISION_MAX_LENGTH,
     InvalidVerdictError,
     ModerationDecision,
+    ModerationDecisionsDTO,
     ModerationGround,
     ModerationStatus,
     ModerationVerdict,
@@ -90,9 +92,26 @@ _DECISION_TEXT_HELP = (
 )
 
 
-class StatementForm(forms.Form):
+class _StatementTermsForm(forms.Form):
+    legal_provision = forms.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH,
+        required=False,
+        help_text=(
+            "Required when the ground is the law: the provision broken, e.g."
+            " art. 286 § 1 Kodeksu karnego."
+        ),
+    )
+    suspended_until = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Required for a suspension: its last day.",
+    )
+
+
+class StatementForm(_StatementTermsForm):
     decision = forms.ChoiceField(choices=_ACTION_DECISIONS)
     ground = forms.ChoiceField(choices=MODERATION_GROUND_CHOICES)
+    field_order = ("decision", "ground", "legal_provision", "suspended_until")
     facts = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 5}),
         max_length=DECISION_TEXT_MAX_LENGTH,
@@ -100,7 +119,8 @@ class StatementForm(forms.Form):
     )
 
 
-class VerdictForm(forms.Form):
+class VerdictForm(_StatementTermsForm):
+    field_order = ("status", "decision", "ground", "legal_provision", "suspended_until")
     status = forms.ChoiceField(
         choices=[
             (ModerationStatus.ACTIONED.value, "Actioned: we acted on the content"),
@@ -132,6 +152,8 @@ class VerdictForm(forms.Form):
                 data["decision"] or ModerationDecision.NO_ACTION
             ),
             ground=ModerationGround(data["ground"]) if data["ground"] else None,
+            legal_provision=data["legal_provision"],
+            suspended_until=data["suspended_until"],
             decision_text=data["decision_text"],
         )
 
@@ -148,19 +170,28 @@ class NoticeVerdictForm(VerdictForm):
     def clean_affected_account(self) -> int | None:
         if not (identifier := self.cleaned_data["affected_account"].strip()):
             return None
-        user = User.objects.filter(
-            Q(username=identifier) | Q(email__iexact=identifier) | Q(slug=identifier)
-        ).first()
-        if user is None:
+        matches = list(
+            User.objects.filter(
+                Q(username=identifier)
+                | Q(email__iexact=identifier)
+                | Q(slug=identifier)
+            ).values_list("pk", flat=True)[:2]
+        )
+        if not matches:
             msg = "No account by that username or email."
             raise forms.ValidationError(msg)
-        return user.pk
+        if len(matches) > 1:
+            msg = "Several accounts match; give the username."
+            raise forms.ValidationError(msg)
+        return matches[0]
 
 
 class _ActionAdmin(Protocol):
     admin_site: AdminSite
 
-    def message_user(self, request: HttpRequest, message: str) -> None: ...
+    def message_user(
+        self, request: HttpRequest, message: str, level: int = ...
+    ) -> None: ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -196,6 +227,25 @@ def _action_page(
     )
 
 
+def _report_statements(
+    modeladmin: _ActionAdmin, request: HttpRequest, result: ModerationDecisionsDTO
+) -> None:
+    if mailed := sum(statement.mailed for statement in result.statements):
+        modeladmin.message_user(
+            request, f"Statement of reasons mailed to {mailed} user(s)."
+        )
+    if unreached := [s.user_id for s in result.statements if not s.mailed]:
+        names = ", ".join(
+            user.name or user.username
+            for user in User.objects.filter(pk__in=unreached).order_by("pk")
+        )
+        modeladmin.message_user(
+            request,
+            f"No address on record for {names}: reach them another way.",
+            messages.WARNING,
+        )
+
+
 _REPORT_CONSEQUENCE = (
     "Closing mails the reporter the outcome and how to challenge it. An"
     " actioned report also sends the person affected a statement of reasons."
@@ -208,16 +258,26 @@ def decide_notices(
 ) -> HttpResponse | None:
     form = NoticeVerdictForm(request.POST if "apply" in request.POST else None)
     if form.is_valid():
+        verdict = form.verdict()
+        affected = form.cleaned_data["affected_account"]
         try:
-            decided = _services().moderation_decisions.decide_notices(
+            result = _services().moderation_decisions.decide_notices(
                 notice_ids=list(queryset.values_list("pk", flat=True)),
-                verdict=form.verdict(),
-                affected_user_id=form.cleaned_data["affected_account"],
+                verdict=verdict,
+                affected_user_id=affected,
             )
         except InvalidVerdictError as error:
             form.add_error(None, str(error))
         else:
-            modeladmin.message_user(request, f"Decided {decided} notice(s).")
+            modeladmin.message_user(request, f"Decided {result.decided} notice(s).")
+            _report_statements(modeladmin, request, result)
+            if verdict.status == ModerationStatus.ACTIONED and affected is None:
+                modeladmin.message_user(
+                    request,
+                    "No statement of reasons went out: no affected account was"
+                    " named. Send one from Users if someone's content was acted on.",
+                    messages.WARNING,
+                )
             return None
     return _action_page(
         request,
@@ -240,14 +300,17 @@ def decide_chat_reports(
     form = VerdictForm(request.POST if "apply" in request.POST else None)
     if form.is_valid():
         try:
-            decided = _services().moderation_decisions.decide_chat_reports(
+            result = _services().moderation_decisions.decide_chat_reports(
                 report_ids=list(queryset.values_list("pk", flat=True)),
                 verdict=form.verdict(),
             )
         except InvalidVerdictError as error:
             form.add_error(None, str(error))
         else:
-            modeladmin.message_user(request, f"Decided {decided} chat report(s).")
+            modeladmin.message_user(
+                request, f"Decided {result.decided} chat report(s)."
+            )
+            _report_statements(modeladmin, request, result)
             return None
     return _action_page(
         request,
@@ -433,22 +496,34 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ) -> HttpResponse | None:
         form = StatementForm(request.POST if "apply" in request.POST else None)
         if form.is_valid():
+            data = form.cleaned_data
             statements = _services().statements_of_reasons
-            for user_id in queryset.values_list("pk", flat=True):
-                statements.issue(
-                    StatementOfReasonsData(
-                        user_id=user_id,
-                        case_id=None,
-                        decision=ModerationDecision(form.cleaned_data["decision"]),
-                        ground=ModerationGround(form.cleaned_data["ground"]),
-                        facts=form.cleaned_data["facts"],
-                        from_report=False,
+            try:
+                issued = [
+                    statement
+                    for user_id in queryset.values_list("pk", flat=True)
+                    if (
+                        statement := statements.issue(
+                            StatementOfReasonsData(
+                                user_id=user_id,
+                                case_id=None,
+                                decision=ModerationDecision(data["decision"]),
+                                ground=ModerationGround(data["ground"]),
+                                legal_provision=data["legal_provision"],
+                                suspended_until=data["suspended_until"],
+                                facts=data["facts"],
+                                from_report=False,
+                            )
+                        )
                     )
+                ]
+            except InvalidVerdictError as error:
+                form.add_error(None, str(error))
+            else:
+                _report_statements(
+                    self, request, ModerationDecisionsDTO(decided=0, statements=issued)
                 )
-            self.message_user(
-                request, f"Statement of reasons sent to {queryset.count()} user(s)."
-            )
-            return None
+                return None
         return _action_page(
             request,
             modeladmin=self,

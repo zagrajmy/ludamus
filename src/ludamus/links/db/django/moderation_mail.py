@@ -14,10 +14,12 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
+from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.delivery import compose_mail, send
+from ludamus.links.db.django.models import User
 from ludamus.links.db.django.recipients import Voice, speaking_to
 from ludamus.pacts.moderation import (
     ModerationDecision,
@@ -157,6 +159,49 @@ def _outcome_mail(speaker: Voice | Recipient, outcome: ReporterOutcome) -> Mail:
     )
 
 
+def _statement_body(statement: StatementOfReasons) -> str:
+    decision = _decision_label(statement.decision)
+    if statement.suspended_until is not None:
+        decision = _("%(decision)s until %(date)s") % {
+            "decision": decision,
+            "date": date_format(statement.suspended_until, "DATE_FORMAT"),
+        }
+    ground = _ground_label(statement.ground)
+    if statement.legal_provision:
+        ground = _("%(ground)s, under %(provision)s") % {
+            "ground": ground,
+            "provision": statement.legal_provision,
+        }
+    terms_url = absolute_url(reverse("terms-of-service"), domain=settings.ROOT_DOMAIN)
+    return "\n\n".join(
+        (
+            _("Zagrajmy staff decided on %(decision)s.") % {"decision": decision},
+            _("What happened:\n%(facts)s") % {"facts": statement.facts},
+            (
+                _("This decision followed a report from someone else.")
+                if statement.from_report
+                else _("We took this decision on our own initiative.")
+            ),
+            (
+                _(
+                    "Automated means were used to find the content or reach"
+                    " this decision."
+                )
+                if statement.automated
+                else _(
+                    "No automated means were used to find the content or reach"
+                    " this decision."
+                )
+            ),
+            _("Ground: %(ground)s. Terms of Service: %(url)s") % {
+                "ground": ground,
+                "url": terms_url,
+            },
+            _redress(),
+        )
+    )
+
+
 class DjangoModerationMailer(ModerationMailerProtocol):
     @staticmethod
     def alert_staff(alert: StaffAlert) -> None:
@@ -231,54 +276,30 @@ class DjangoModerationMailer(ModerationMailerProtocol):
         _send_after_commit(message, case_id=outcome.case_id, kind="outcome")
 
     @staticmethod
-    def send_statement(*, statement: StatementOfReasons, case_id: int) -> None:
-        with speaking_to(statement.user_id) as recipient:
+    def send_statement(*, statement: StatementOfReasons, case_id: int) -> bool:
+        # NOTE: Art. 17 asks for the statement wherever we can reach the
+        # person, so it goes to the address on record, proven or not.
+        on_record = (
+            User.objects.filter(pk=statement.user_id)
+            .values_list("email", flat=True)
+            .first()
+        )
+        with speaking_to(statement.user_id, mail_to=on_record or "") as recipient:
             if not recipient.can_mail:
                 logger.warning(
-                    "Statement of reasons not mailed: no deliverable address",
+                    "Statement of reasons not mailed: no address on record",
                     extra={
                         "case": case_reference(case_id),
                         "user_id": statement.user_id,
                     },
                 )
-                return
-            terms_url = absolute_url(
-                reverse("terms-of-service"), domain=settings.ROOT_DOMAIN
-            )
-            body = "\n\n".join(
-                (
-                    _("Zagrajmy staff decided on %(decision)s.") % {
-                        "decision": _decision_label(statement.decision)
-                    },
-                    _("What happened:\n%(facts)s") % {"facts": statement.facts},
-                    (
-                        _("This decision followed a report from someone else.")
-                        if statement.from_report
-                        else _("We took this decision on our own initiative.")
-                    ),
-                    (
-                        _(
-                            "Automated means were used to find the content or reach"
-                            " this decision."
-                        )
-                        if statement.automated
-                        else _(
-                            "No automated means were used to find the content or reach"
-                            " this decision."
-                        )
-                    ),
-                    _("Ground: %(ground)s. Terms of Service: %(url)s") % {
-                        "ground": _ground_label(statement.ground),
-                        "url": terms_url,
-                    },
-                    _redress(),
-                )
-            )
+                return False
             message = _compose(
                 recipient,
                 subject=_subject(
                     case_id, _("A moderation decision about your account")
                 ),
-                body=body,
+                body=_statement_body(statement),
             )
         _send_after_commit(message, case_id=case_id, kind="statement_of_reasons")
+        return True

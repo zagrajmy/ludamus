@@ -8,8 +8,9 @@ Art. 28). Notes, not legal advice. Background and plans: #1755.
 ## Where things arrive
 
 - **Notices of illegal content** come from the form at `/report/` (footer,
-  event pages, session modals). Anyone can send one; only child sexual abuse
-  material may come without a name and email. Admin: _Content notices_.
+  event pages, session modals). Anyone can send one; reports of child sexual
+  abuse or grooming may come without a name and email (Art. 16(2)(c)).
+  Admin: _Content notices_.
 - **Chat reports** come from "Report message" in the chat. Admin: _Parley
   reports_.
 - Each one opens a **case**. Its reference, `Z-<id>`, starts the subject of
@@ -29,13 +30,18 @@ Art. 28). Notes, not legal advice. Background and plans: #1755.
    reports**), and fill in:
    - **Actioned** or **Rejected**;
    - for actioned: what was done and the ground (the law, or the point of
-     § 4.1 of the terms);
+     § 4.1 of the terms). With the law as the ground, name the provision
+     (e.g. art. 286 § 1 Kodeksu karnego); with a suspension, its last day;
    - the decision text. Both the reporter and the person affected read it, so
      state the facts and never name the reporter;
-   - for a notice: the affected account, if there is one.
+   - for a notice: the affected account, if there is one. Decide one notice
+     at a time when you name it.
 4. The action mails the reporter the outcome and their redress options, and,
    for an actioned report with an affected account, sends that person a
-   statement of reasons (Art. 17). Closed reports cannot be edited.
+   statement of reasons (Art. 17) at the address on their account, proven
+   or not. Everyone who reported one chat message shares its case, and its
+   author gets one statement for it. The admin names anyone with no address
+   on record; reach them another way. Closed reports cannot be edited.
 5. Acting on content or an account without a report (something staff found
    themselves): on _Users_, run **Send a statement of reasons to selected
    users**. Before deleting an account, send it first, while the address is
