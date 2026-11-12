@@ -1,4 +1,4 @@
-{% load i18n tessera cfp_tags %}
+{% load i18n report_tags tessera cfp_tags %}
 {% session_cover_image data.session as cover_image_url %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal modal-capped max-w-200 w-[calc(100%-0.5rem)]"
@@ -92,6 +92,12 @@
                             <p class="text-sm text-foreground-secondary">{% translate "You are on the waiting list" %}</p>
                         {% endif %}
                     {% endif %}
+                    {% url 'web:chronology:event' slug=event.slug as event_url %}
+                    <p class="mt-6 text-xs text-foreground-muted">
+                        <a href="{% report_url event_url session=data.session.pk %}"
+                           rel="nofollow"
+                           class="underline decoration-foreground-muted/50 hover:text-primary">{% translate "Report this session" %}</a>
+                    </p>
                 </div>
                 {% if show_roster %}
                     {% include "event/parts/_session_participants_panel.html" %}
