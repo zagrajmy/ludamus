@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.parley import (
     REVOKE_EVERYONE,
+    ParleyAgeGate,
     ParleyBootstrapDTO,
     ParleyCapabilityClaims,
     ParleyConversationRepositoryProtocol,
@@ -25,6 +26,7 @@ from ludamus.pacts.parley import (
     ParleyTimeWindow,
     ParleyWorkerUnavailableError,
 )
+from ludamus.pacts.user import AgeBand
 from ludamus.specs.parley import (
     PARLEY_MESSAGE_LIFETIME,
     PARLEY_SESSION_READ_ONLY_DELAY,
@@ -40,6 +42,10 @@ logger = logging.getLogger(__name__)
 _CONVERSATION = "conversation:"
 # A lookup is signed for the one call that carries it.
 _LOOKUP_LIFETIME_SECONDS = 60
+_AGE_GATES = {
+    AgeBand.UNKNOWN: ParleyAgeGate.UNCONFIRMED,
+    AgeBand.THIRTEEN_TO_FIFTEEN: ParleyAgeGate.UNDER_16,
+}
 
 
 class ParleyService:
@@ -104,6 +110,11 @@ class ParleyService:
             },
             rooms=access.rooms,
             can_message=direct,
+            age_gate=(
+                None
+                if direct
+                else _AGE_GATES.get(self._conversations.read_age_band(user_id))
+            ),
             conversations=self._conversations.list_for(user_id) if direct else [],
             blocked=self._conversations.list_blocked(user_id) if direct else [],
             capability_token=self._signer.sign(claims),

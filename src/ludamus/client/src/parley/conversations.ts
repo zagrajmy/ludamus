@@ -76,6 +76,7 @@ export function asRoom(conversation: ConversationInfo, fallbackTitle: string): R
     conversation,
     id: conversation.id,
     kind: "conversation",
+    sessionId: null,
     title: conversation.title === "" ? fallbackTitle : conversation.title,
   };
 }
