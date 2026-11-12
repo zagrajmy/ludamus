@@ -169,8 +169,24 @@ class FakeNotifier:
         self.enrolled.append(notification)
 
 
-def _service(parties, notifier=None):
-    return PartyService(FakeTransaction(), parties, notifier or FakeNotifier())
+class FakeChat:
+    """Which parties' chats were brought in step, and for whom."""
+
+    def __init__(self):
+        self.parties = []
+        self.members = []
+
+    def sync_party(self, party_id):
+        self.parties.append(party_id)
+
+    def sync_member(self, user_id):
+        self.members.append(user_id)
+
+
+def _service(parties, notifier=None, chat=None):
+    return PartyService(
+        FakeTransaction(), parties, notifier or FakeNotifier(), chat=chat or FakeChat()
+    )
 
 
 def _lead():
@@ -218,6 +234,67 @@ class TestCrud:
             DeletePartyOutcome.DELETED
         )
         assert not parties.state.names
+
+
+class TestChat:
+    """A party's chat follows every change to who is in the party."""
+
+    def test_follows_a_rename_or_deletion_of_ones_own_party_only(self):
+        chat = FakeChat()
+        service = _service(FakeParties(), chat=chat)
+
+        service.rename(leader_pk=FOREIGN_LEADER_PK, party_pk=OWN_PARTY_PK, name="Y")
+        service.delete(leader_pk=FOREIGN_LEADER_PK, party_pk=OWN_PARTY_PK)
+        service.rename(leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, name="X")
+        service.delete(leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK)
+
+        assert chat.parties == [OWN_PARTY_PK, OWN_PARTY_PK]
+
+    def test_takes_in_whoever_joins_and_lets_go_of_whoever_leaves(self):
+        parties = FakeParties()
+        parties.state.invite_token = "tok"
+        chat = FakeChat()
+        service = _service(parties, chat=chat)
+
+        service.join_via_link(token="tok", user_pk=INVITEE_PK)
+        service.join_via_link(token="tok", user_pk=INVITEE_PK)
+        service.leave(user_pk=INVITEE_PK, party_pk=OWN_PARTY_PK)
+        service.leave(user_pk=INVITEE_PK, party_pk=OWN_PARTY_PK)
+
+        assert chat.parties == [OWN_PARTY_PK, OWN_PARTY_PK]
+
+    def test_takes_in_whoever_accepts_an_invite(self):
+        chat = FakeChat()
+        service = _service(FakeParties(), chat=chat)
+
+        service.accept_invite(user_pk=VIEWER_PK, membership_pk=MEMBERSHIP_PK)
+        service.accept_invite(user_pk=INVITEE_PK, membership_pk=MEMBERSHIP_PK)
+
+        assert chat.members == [INVITEE_PK]
+
+    @pytest.mark.parametrize(
+        ("removed", "synced"),
+        ((PartyMembershipStatus.ACTIVE, [OWN_PARTY_PK]), (None, [])),
+    )
+    def test_lets_go_of_an_active_member_the_leader_removes(self, removed, synced):
+        parties = FakeParties()
+        parties.remove_member = lambda **_kwargs: removed
+        chat = FakeChat()
+
+        _service(parties, chat=chat).remove_member(
+            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, membership_pk=MEMBERSHIP_PK
+        )
+
+        assert chat.parties == synced
+
+    def test_ignores_a_removed_invitation(self):
+        chat = FakeChat()
+
+        _service(FakeParties(), chat=chat).remove_member(
+            leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, membership_pk=MEMBERSHIP_PK
+        )
+
+        assert not chat.parties
 
 
 class TestInvite:

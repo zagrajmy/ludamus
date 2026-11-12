@@ -846,3 +846,22 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.use_participants_label is False
+
+    def test_turns_the_event_chat_off_and_back_on(self, panel_client, event):
+        assert event.parley_enabled is True
+
+        response = panel_client.post(self.get_url(event), data=self._post_data(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.parley_enabled is False
+        panel_client.post(
+            self.get_url(event), data=self._post_data(event, parley_enabled="on")
+        )
+        event.refresh_from_db()
+        assert event.parley_enabled is True

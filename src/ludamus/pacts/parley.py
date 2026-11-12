@@ -2,42 +2,44 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-if TYPE_CHECKING:
-    from ludamus.pacts.user import AgeBand
+from ludamus.pacts.user import AgeBand
 
 
 class ParleyRoomKind(StrEnum):
-    SPHERE = "sphere"
+    # A sphere's managers, among themselves.
+    ORGANIZERS = "organizers"
+    EVENT = "event"
     SESSION = "session"
 
 
-class ParleyRole(StrEnum):
-    MANAGER = "manager"
-    MEMBER = "member"
-
-
 class ParleyRoomDTO(BaseModel):
+    # "<kind>:<sphere>" for the organizers' room, "<kind>:<sphere>:<pk>" for
+    # an event's or a programme point's.
     id: str
     kind: ParleyRoomKind
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
-    session_id: int | None = Field(default=None, exclude=True)
+    # When the event the room belongs to ends; the organizers' room has none.
     ends_at: int | None = Field(default=None, exclude=True)
+
+    @property
+    def name(self) -> str:
+        """The room's id without its kind, as the Worker names it."""
+        return self.id.split(":", 1)[1]
 
 
 class ParleyAccessDTO(BaseModel):
-    sphere_id: int
-    sphere_name: str
     user_id: int
     user_name: str
     user_avatar_url: str
+    # Every room of every sphere with chat on that this person is in.
     rooms: list[ParleyRoomDTO]
-    is_manager: bool
+    managed_sphere_ids: list[int]
 
 
 class ParleyAgeGate(StrEnum):
@@ -50,6 +52,8 @@ class ParleyAgeGate(StrEnum):
 class ParleyConversationKind(StrEnum):
     DIRECT = "direct"
     GROUP = "group"
+    # A party's own, its members kept in step with the party's.
+    PARTY = "party"
 
 
 class ParleyMemberState(StrEnum):
@@ -87,7 +91,6 @@ class ParleyConversationDTO(BaseModel):
 class ParleyBootstrapDTO(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True)
 
-    sphere: dict[str, str]
     user: dict[str, str]
     rooms: list[ParleyRoomDTO]
     # Whether direct messages and groups are open to this person at all.
@@ -100,7 +103,7 @@ class ParleyBootstrapDTO(BaseModel):
     agent_host: str = Field(serialization_alias="agentHost")
 
 
-class ParleySessionGrant(BaseModel):
+class ParleyRoomGrant(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True)
 
     ends_at: int = Field(serialization_alias="endsAt")
@@ -113,13 +116,15 @@ class ParleyCapabilityClaims(BaseModel):
     iss: str
     aud: str
     sub: str
-    sphere: str
     name: str
     avatar: str
-    role: ParleyRole
-    # Only a member's own sessions: a manager's role covers every room of the
-    # sphere, so their token stays the same size however many rooms it has.
-    sessions: dict[str, ParleySessionGrant]
+    # Spheres whose every room this person moderates, so a manager's token
+    # stays the same size however many rooms their sphere has.
+    managed: list[str]
+    # Their own programme points and events in spheres they do not manage,
+    # each by its room's name, "<sphere>:<pk>".
+    sessions: dict[str, ParleyRoomGrant]
+    events: dict[str, ParleyRoomGrant]
     read_only_after: int = Field(serialization_alias="readOnlyAfter")
     retain_for: int = Field(serialization_alias="retainFor")
     # Whether this person may use direct and group conversations at all:
@@ -150,7 +155,6 @@ class ParleyRevocationClaims(BaseModel):
 
 
 class ParleyReportData(BaseModel):
-    sphere_id: int
     user_id: int
     room_id: str
     message_id: int = Field(gt=0)
@@ -211,8 +215,11 @@ class ParleyTimeWindow(BaseModel):
 class ParleyRepositoryProtocol(Protocol):
     @staticmethod
     def read_access(
-        *, sphere_id: int, user_id: int, window: ParleyTimeWindow
+        *, user_id: int, window: ParleyTimeWindow
     ) -> ParleyAccessDTO | None: ...
+
+    @staticmethod
+    def has_rooms(*, user_id: int, window: ParleyTimeWindow) -> bool: ...
 
     @staticmethod
     def save_report(report: ParleyReportRecord) -> None: ...
@@ -254,11 +261,15 @@ class ParleyRevocationServiceProtocol(Protocol):
 
     def revoke_sphere(self, *, sphere_id: int) -> None: ...
 
+    def revoke_event(self, *, event_id: int) -> None: ...
+
 
 class ParleyServiceProtocol(Protocol):
     def bootstrap(
-        self, *, sphere_id: int, user_id: int, now: datetime
+        self, *, user_id: int, now: datetime
     ) -> ParleyBootstrapDTO | None: ...
+
+    def is_open_to(self, *, user_id: int, now: datetime) -> bool: ...
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
 
@@ -283,6 +294,15 @@ class ParleyMemberSnapshot(BaseModel):
     user_id: int
     state: ParleyMemberState
     writable: bool
+
+
+class ParleyPartyCandidate(BaseModel):
+    """An active member of a party who can sign in, and the age they confirmed."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    age_band: AgeBand
 
 
 class ParleyConversationRepositoryProtocol(Protocol):
@@ -362,6 +382,19 @@ class ParleyConversationRepositoryProtocol(Protocol):
     @staticmethod
     def unblock(*, blocker_id: int, blocked_id: int) -> None: ...
 
+    @staticmethod
+    def list_party_candidates(party_id: int) -> list[ParleyPartyCandidate]: ...
+
+    # Makes these people, and no one else, the party chat's members, opening
+    # the chat if it has none yet; the chat's id when who is in it changed,
+    # else None.
+    @staticmethod
+    def set_party_members(*, party_id: int, user_ids: list[int]) -> int | None: ...
+
+    # Parties this person is an active member of whose chat they are not in.
+    @staticmethod
+    def parties_awaiting(user_id: int) -> list[int]: ...
+
 
 class ParleyMembershipOutboxProtocol(Protocol):
     # Sends the conversation's member list once the transaction commits.
@@ -412,3 +445,11 @@ class ParleyConversationServiceProtocol(Protocol):
     def block(self, *, user_id: int, blocked_id: int) -> None: ...
 
     def unblock(self, *, user_id: int, blocked_id: int) -> None: ...
+
+
+class ParleyPartyChatProtocol(Protocol):
+    """Keeps a party's chat in step with who is in the party."""
+
+    def sync_party(self, party_id: int) -> None: ...
+
+    def sync_member(self, user_id: int) -> None: ...

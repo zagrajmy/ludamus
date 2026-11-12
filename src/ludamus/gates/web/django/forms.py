@@ -274,6 +274,14 @@ class EventSettingsForm(forms.Form):
             "rather than players."
         ),
     )
+    parley_enabled = forms.BooleanField(
+        required=False,
+        label=_("Event chat"),
+        help_text=_(
+            "One chat for everyone with a place or on a waitlist, the hosts and "
+            "the organizers. Turning it off closes it at once."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

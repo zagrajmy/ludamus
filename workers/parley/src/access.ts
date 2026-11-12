@@ -1,87 +1,93 @@
-import type { Capability } from "./protocol";
+import type { Capability, RoomGrant } from "./protocol";
 
-export type Room =
-  | { id: string; kind: "conversation"; conversation: string }
-  | { id: string; kind: "session"; session: string; sphere: string }
-  | { id: string; kind: "sphere"; sphere: string };
+// A sphere's rooms are named after the sphere first, so the sphere a
+// manager's token covers can be checked against the room itself.
+export type SphereRoom =
+  | { id: string; kind: "event" | "session"; name: string; sphere: string }
+  | { id: string; kind: "organizers" | "sphere"; sphere: string };
+
+export type Room = { conversation: string; id: string; kind: "conversation" } | SphereRoom;
+
+export type RoomKind = Room["kind"];
 
 export type Lifecycle = { deleteAt: number; readOnlyAt: number };
 
 const SPHERE_NAME = /^(\d+)$/u;
-const SESSION_NAME = /^(\d+):(\d+)$/u;
+const ROOM_NAME = /^(\d+):(\d+)$/u;
+const KINDS: readonly string[] = ["conversation", "event", "organizers", "session", "sphere"];
 
-// A session room is named "<sphere>:<session>" so the sphere a manager's
-// token covers can be checked against the room itself.
-export function parseRoom(kind: Room["kind"], name: string): Room | null {
+export function parseRoom(kind: RoomKind, name: string): Room | null {
+  const id = `${kind}:${name}`;
   if (kind === "conversation") {
-    return SPHERE_NAME.test(name) ? { conversation: name, id: `conversation:${name}`, kind } : null;
+    return SPHERE_NAME.test(name) ? { conversation: name, id, kind } : null;
   }
-  if (kind === "sphere") {
+  if (kind === "organizers" || kind === "sphere") {
     const match = SPHERE_NAME.exec(name);
-    return match === null ? null : { id: `sphere:${name}`, kind, sphere: match[1] };
+    return match === null ? null : { id, kind, sphere: match[1] };
   }
-  const match = SESSION_NAME.exec(name);
-  return match === null
-    ? null
-    : { id: `session:${name}`, kind, session: match[2], sphere: match[1] };
+  const match = ROOM_NAME.exec(name);
+  return match === null ? null : { id, kind, name, sphere: match[1] };
 }
 
 // Any room by its full id, as Django names it.
 export function roomFromId(roomId: string): Room | null {
   const separator = roomId.indexOf(":");
   const kind = roomId.slice(0, separator);
-  if (kind !== "conversation" && kind !== "sphere" && kind !== "session") return null;
-  return parseRoom(kind, roomId.slice(separator + 1));
+  if (separator < 0 || !KINDS.includes(kind)) return null;
+  return parseRoom(kind as RoomKind, roomId.slice(separator + 1));
 }
 
-function parseRoomId(roomId: string): Room | null {
-  const separator = roomId.indexOf(":");
-  const kind = roomId.slice(0, separator);
-  if (separator < 0 || (kind !== "sphere" && kind !== "session")) return null;
-  return parseRoom(kind, roomId.slice(separator + 1));
+function manages(capability: Capability, sphere: string): boolean {
+  return capability.managed.includes(sphere);
 }
 
-function grant(capability: Capability, room: Room) {
-  return room.kind === "session" && Object.hasOwn(capability.sessions, room.session)
-    ? capability.sessions[room.session]
-    : undefined;
+function grant(capability: Capability, room: Room): RoomGrant | undefined {
+  if (room.kind !== "event" && room.kind !== "session") return undefined;
+  const grants = room.kind === "event" ? capability.events : capability.sessions;
+  return Object.hasOwn(grants, room.name) ? grants[room.name] : undefined;
 }
 
-// A conversation's own member list decides who is in it; the pass only says
-// whether conversations are open to this person at all.
-export function canRead(capability: Capability, room: Room): boolean {
-  if (room.kind === "conversation") return capability.direct === true;
-  if (room.sphere !== capability.sphere) return false;
+function inSphere(capability: Capability, sphere: string): boolean {
   return (
-    room.kind === "sphere" || capability.role === "manager" || grant(capability, room) !== undefined
+    manages(capability, sphere) ||
+    [...Object.keys(capability.events), ...Object.keys(capability.sessions)].some((name) =>
+      name.startsWith(`${sphere}:`),
+    )
   );
+}
+
+// A conversation's own member list decides who is in it.
+export function canRead(capability: Capability, room: Room): boolean {
+  if (room.kind === "conversation") return true;
+  if (room.kind === "sphere") return inSphere(capability, room.sphere);
+  return manages(capability, room.sphere) || grant(capability, room) !== undefined;
 }
 
 export function canWrite(capability: Capability, room: Room): boolean {
-  if (!canRead(capability, room)) return false;
-  // The member list says who may write in a conversation, and when.
-  if (room.kind === "conversation") return true;
-  return (
-    room.kind === "sphere" ||
-    capability.role === "manager" ||
-    grant(capability, room)?.writable === true
-  );
+  if (room.kind === "sphere" || !canRead(capability, room)) return false;
+  if (room.kind === "conversation" || room.kind === "organizers") return true;
+  return manages(capability, room.sphere) || grant(capability, room)?.writable === true;
 }
 
 export function canModerate(capability: Capability, room: Room): boolean {
-  return room.kind !== "conversation" && capability.role === "manager" && canRead(capability, room);
+  return room.kind !== "conversation" && room.kind !== "sphere" && manages(capability, room.sphere);
 }
 
 export function canSeeRoom(capability: Capability, roomId: string): boolean {
-  const room = parseRoomId(roomId);
-  return room !== null && canRead(capability, room);
+  const room = roomFromId(roomId);
+  return (
+    room !== null &&
+    room.kind !== "conversation" &&
+    room.kind !== "sphere" &&
+    canRead(capability, room)
+  );
 }
 
 export function lifecycleOf(capability: Capability, room: Room): Lifecycle | null {
-  const session = grant(capability, room);
-  if (session === undefined) return null;
+  const held = grant(capability, room);
+  if (held === undefined) return null;
   return {
-    deleteAt: session.endsAt + capability.retainFor,
-    readOnlyAt: session.endsAt + capability.readOnlyAfter,
+    deleteAt: held.endsAt + capability.retainFor,
+    readOnlyAt: held.endsAt + capability.readOnlyAfter,
   };
 }

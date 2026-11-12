@@ -28,7 +28,7 @@ test("The launcher counts unread conversations before the chat is ever opened", 
   page,
 }) => {
   await routeBootstrap(page);
-  await FakeWorker.install(page, { "sphere:1": { at: Date.now(), unread: true } });
+  await FakeWorker.install(page, { "event:1:5": { at: Date.now(), unread: true } });
 
   await page.goto("/");
   const launcher = launcherOf(page);
@@ -150,7 +150,7 @@ test("On a programme point's page the chat opens on its room, kept on top of the
   // NOTE: stands in for an enrolment page, whose template sets this.
   await page.addInitScript(() => {
     addEventListener("DOMContentLoaded", () => {
-      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageSession = "42";
+      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageRoom = "session:1:42";
     });
   });
   await page.goto("/");

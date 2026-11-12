@@ -27,69 +27,119 @@ from ludamus.pacts.user import UserType
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.db.models import QuerySet
+
+
+def _chat_user(user_id: int) -> User | None:
+    return User.objects.filter(
+        pk=user_id, is_active=True, user_type=UserType.ACTIVE
+    ).first()
+
+
+def _managed_sphere_ids(user_id: int) -> set[int]:
+    return set(
+        Sphere.objects.filter(parley_enabled=True, managers=user_id).values_list(
+            "pk", flat=True
+        )
+    )
+
+
+def _retained_events(user_id: int, window: ParleyTimeWindow) -> QuerySet[Event]:
+    return Event.objects.filter(
+        sphere__parley_enabled=True, end_time__gt=window.retained_after
+    ).exclude(pk__in=EventBan.objects.filter(user_id=user_id).values("event_id"))
+
+
+def _sessions(
+    *, user_id: int, managed: set[int], window: ParleyTimeWindow
+) -> QuerySet[Session]:
+    own = Q(
+        session_participations__user_id=user_id,
+        session_participations__status=SessionParticipationStatus.CONFIRMED,
+    ) | Q(facilitators__user_id=user_id)
+    return Session.objects.filter(
+        Q(event__sphere_id__in=managed) | own,
+        event__in=_retained_events(user_id, window),
+    ).distinct()
+
+
+def _events(
+    *, user_id: int, managed: set[int], window: ParleyTimeWindow
+) -> QuerySet[Event]:
+    taking_part = Session.objects.filter(
+        Q(session_participations__user_id=user_id) | Q(facilitators__user_id=user_id)
+    ).values("event_id")
+    return _retained_events(user_id, window).filter(
+        Q(sphere_id__in=managed) | Q(pk__in=taking_part), parley_enabled=True
+    )
+
 
 class ParleyRepository(ParleyRepositoryProtocol):
     @staticmethod
     def read_access(
-        *, sphere_id: int, user_id: int, window: ParleyTimeWindow
+        *, user_id: int, window: ParleyTimeWindow
     ) -> ParleyAccessDTO | None:
-        try:
-            sphere = Sphere.objects.get(pk=sphere_id, parley_enabled=True)
-            user = User.objects.get(
-                pk=user_id, is_active=True, user_type=UserType.ACTIVE
-            )
-        except Sphere.DoesNotExist, User.DoesNotExist:
+        if (user := _chat_user(user_id)) is None:
             return None
-
-        is_manager = user.is_superuser or sphere.managers.filter(pk=user_id).exists()
-        eligible = Q(
-            session_participations__user_id=user_id,
-            session_participations__status=SessionParticipationStatus.CONFIRMED,
-        ) | Q(facilitators__user_id=user_id)
-        sessions = Session.objects.filter(
-            event__sphere_id=sphere_id, event__end_time__gt=window.retained_after
-        ).exclude(
-            event_id__in=EventBan.objects.filter(user_id=user_id).values("event_id")
-        )
-        if not is_manager:
-            sessions = sessions.filter(eligible)
-
+        managed = _managed_sphere_ids(user_id)
         rooms = [
             ParleyRoomDTO(
-                id=f"sphere:{sphere.pk}",
-                kind=ParleyRoomKind.SPHERE,
+                id=f"organizers:{sphere.pk}",
+                kind=ParleyRoomKind.ORGANIZERS,
                 title=sphere.name,
                 can_write=True,
-                can_moderate=is_manager,
+                can_moderate=True,
             )
+            for sphere in Sphere.objects.filter(pk__in=managed).order_by("name", "pk")
         ]
         rooms.extend(
             ParleyRoomDTO(
-                id=f"session:{sphere.pk}:{session.pk}",
+                id=f"event:{event.sphere_id}:{event.pk}",
+                kind=ParleyRoomKind.EVENT,
+                title=event.name,
+                can_write=event.end_time > window.writable_after,
+                can_moderate=event.sphere_id in managed,
+                ends_at=int(event.end_time.timestamp()),
+            )
+            for event in _events(
+                user_id=user_id, managed=managed, window=window
+            ).order_by("start_time", "name", "pk")
+        )
+        rooms.extend(
+            ParleyRoomDTO(
+                id=f"session:{session.event.sphere_id}:{session.pk}",
                 kind=ParleyRoomKind.SESSION,
                 title=session.title,
                 can_write=(
                     session.status == SessionStatus.ACCEPTED
                     and session.event.end_time > window.writable_after
                 ),
-                can_moderate=is_manager,
-                session_id=session.pk,
+                can_moderate=session.event.sphere_id in managed,
                 ends_at=int(session.event.end_time.timestamp()),
             )
             for session in (
-                sessions.select_related("event")
-                .distinct()
+                _sessions(user_id=user_id, managed=managed, window=window)
+                .select_related("event")
                 .order_by("event__start_time", "title", "pk")
             )
         )
         return ParleyAccessDTO(
-            sphere_id=sphere.pk,
-            sphere_name=sphere.name,
             user_id=user.pk,
             user_name=user.get_full_name(),
             user_avatar_url=user.avatar_url,
             rooms=rooms,
-            is_manager=is_manager,
+            managed_sphere_ids=sorted(managed),
+        )
+
+    @staticmethod
+    def has_rooms(*, user_id: int, window: ParleyTimeWindow) -> bool:
+        if _chat_user(user_id) is None:
+            return False
+        managed = _managed_sphere_ids(user_id)
+        return (
+            bool(managed)
+            or _events(user_id=user_id, managed=managed, window=window).exists()
+            or _sessions(user_id=user_id, managed=managed, window=window).exists()
         )
 
     @staticmethod

@@ -44,16 +44,16 @@ describe("a reported message", () => {
   }, 20_000);
 
   it("is found in a sphere's room too, and missing where there is none", async () => {
-    const member = await open("parley-sphere-agent/31", await pass("7", "31"));
+    const member = await open("parley-session-agent/31:101", await pass("7", "31"));
     const sent = await member.call<Result>("sendMessage", {
-      body: "In the common room",
+      body: "At the table",
       nonce: crypto.randomUUID(),
     });
 
-    expect(await (await lookup("sphere:31", sent.value!.id)).json()).toMatchObject({
-      body: "In the common room",
+    expect(await (await lookup("session:31:101", sent.value!.id)).json()).toMatchObject({
+      body: "At the table",
     });
-    expect((await lookup("sphere:31", sent.value!.id + 1)).status).toBe(404);
+    expect((await lookup("session:31:101", sent.value!.id + 1)).status).toBe(404);
     expect((await lookup("party:31", 1)).status).toBe(404);
     member.socket.close();
   }, 20_000);

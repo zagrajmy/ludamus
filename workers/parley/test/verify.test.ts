@@ -20,9 +20,9 @@ const valid = {
   name: "Ada",
   readOnlyAfter: 172_800,
   retainFor: 2_592_000,
-  role: "member",
-  sessions: { "101": { endsAt: 1_900_000_000, writable: true } },
-  sphere: "3",
+  events: { "3:9": { endsAt: 1_900_000_000, writable: true } },
+  managed: [],
+  sessions: { "3:101": { endsAt: 1_900_000_000, writable: true } },
   sub: "7",
 };
 
@@ -47,22 +47,25 @@ beforeAll(async () => {
 describe("verifyCapability", () => {
   it("accepts a member and a manager token", async () => {
     await expect(verifyCapability(await sign(valid), env)).resolves.toMatchObject({
-      role: "member",
-      sphere: "3",
+      events: { "3:9": { endsAt: 1_900_000_000, writable: true } },
+      managed: [],
     });
     await expect(
-      verifyCapability(await sign({ ...valid, role: "manager", sessions: {} }), env),
-    ).resolves.toMatchObject({ role: "manager" });
+      verifyCapability(await sign({ ...valid, managed: ["3", "4"], sessions: {} }), env),
+    ).resolves.toMatchObject({ managed: ["3", "4"] });
   });
 
   it.each([
-    ["an unknown role", { role: "admin" }],
-    ["sessions as a list", { sessions: ["101"] }],
-    ["a grant without an end", { sessions: { "101": { writable: true } } }],
-    ["a grant with a string flag", { sessions: { "101": { endsAt: 1, writable: "yes" } } }],
-    ["a non-numeric session key", { sessions: { abc: { endsAt: 1, writable: true } } }],
+    ["a managed sphere that is not an id", { managed: ["3:101"] }],
+    ["managed spheres as a string", { managed: "3" }],
+    ["no events", { events: undefined }],
+    ["sessions as a list", { sessions: ["3:101"] }],
+    ["a grant without an end", { sessions: { "3:101": { writable: true } } }],
+    ["a grant with a string flag", { sessions: { "3:101": { endsAt: 1, writable: "yes" } } }],
+    ["a session key without its sphere", { sessions: { "101": { endsAt: 1, writable: true } } }],
+    ["a non-numeric event key", { events: { "3:abc": { endsAt: 1, writable: true } } }],
     ["no retention", { retainFor: undefined }],
-    ["the old per-room lists", { readOnlyAfter: undefined, rooms: ["sphere:3"] }],
+    ["the one-sphere pass", { managed: undefined, role: "member", sphere: "3" }],
   ])("rejects %s", async (_label, overrides) => {
     const token = await sign({ ...valid, ...overrides });
     await expect(verifyCapability(token, env)).rejects.toThrow();
@@ -116,7 +119,6 @@ describe("revokes", () => {
     exp: iat + 1,
     iat,
     iss: "ludamus",
-    role: "member",
     sub,
   });
 

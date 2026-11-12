@@ -1,7 +1,7 @@
 import { getAgentByName, routeAgentRequest } from "agents";
 
 import type { ParleyConversationAgent } from "./conversation-agent";
-import type { Env, RoomAgent } from "./room-agent";
+import type { Env } from "./room-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
 import { roomFromId } from "./access";
@@ -13,10 +13,11 @@ import {
   originIsAllowed,
   revocationFromRequest,
 } from "./auth";
+import { roomAgent } from "./room-agent";
 
 export { ParleyConversationAgent } from "./conversation-agent";
 export { ParleyInboxAgent } from "./inbox-agent";
-export { ParleySessionAgent } from "./session-agent";
+export { ParleyEventAgent, ParleyOrganizersAgent, ParleySessionAgent } from "./session-agent";
 export { ParleySphereAgent } from "./sphere-agent";
 
 export default {
@@ -63,16 +64,7 @@ export default {
       if (lookup instanceof Response) return lookup;
       const room = roomFromId(lookup.room);
       if (room === null) return new Response("Not found", { status: 404 });
-      const namespaces = {
-        conversation: env.ParleyConversationAgent,
-        session: env.ParleySessionAgent,
-        sphere: env.ParleySphereAgent,
-      };
-      const agent = await getAgentByName<Env, RoomAgent>(
-        namespaces[room.kind] as unknown as DurableObjectNamespace<RoomAgent>,
-        lookup.room.slice(lookup.room.indexOf(":") + 1),
-      );
-      const message = await agent.readMessage(lookup.messageId);
+      const message = await (await roomAgent(env, room)).readMessage(lookup.messageId);
       return message === null
         ? new Response("Not found", { status: 404 })
         : Response.json(message, { headers: { "Cache-Control": "no-store" } });

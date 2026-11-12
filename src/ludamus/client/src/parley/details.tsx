@@ -76,6 +76,7 @@ export function Details({
 }) {
   const { copy, user } = bootstrap;
   const group = conversation.kind === "group";
+  const party = conversation.kind === "party";
   const other = counterpart(conversation, user.id);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -178,7 +179,7 @@ export function Details({
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-4">
         {/* A request is answered before it is renamed. */}
-        {conversation.state === "active" && (
+        {conversation.state === "active" && !party && (
           <form className="px-2 pb-4" onSubmit={rename}>
             <label
               className="block pb-1 text-sm font-medium text-foreground-secondary"
@@ -209,7 +210,9 @@ export function Details({
           </form>
         )}
         <h3 className="px-2 pb-1 text-sm font-medium text-foreground-secondary">
-          {group ? counted(copy, "members", conversation.members.length) : copy.membersLabel}
+          {conversation.kind === "direct"
+            ? copy.membersLabel
+            : counted(copy, "members", conversation.members.length)}
         </h3>
         <ul>
           {conversation.members.map((person) => {
@@ -240,47 +243,51 @@ export function Details({
             );
           })}
         </ul>
-        <div className="mt-2 border-t border-border pt-2">
-          {group &&
-            conversation.isAdmin &&
-            (adding ? (
-              <div className="pb-2">
-                <PeoplePicker
-                  api={api}
-                  autoFocus
-                  busy={busy}
-                  copy={copy}
-                  exclude={new Set(conversation.members.map(({ id }) => id))}
-                  label={copy.addPeople}
-                  onPick={add}
+        {party ? (
+          <p className="px-2 pt-2 text-xs text-foreground-muted">{copy.partyHint}</p>
+        ) : (
+          <div className="mt-2 border-t border-border pt-2">
+            {group &&
+              conversation.isAdmin &&
+              (adding ? (
+                <div className="pb-2">
+                  <PeoplePicker
+                    api={api}
+                    autoFocus
+                    busy={busy}
+                    copy={copy}
+                    exclude={new Set(conversation.members.map(({ id }) => id))}
+                    label={copy.addPeople}
+                    onPick={add}
+                  />
+                </div>
+              ) : (
+                <Action icon="PersonAdd" label={copy.addPeople} onClick={() => setAdding(true)} />
+              ))}
+            {conversation.kind === "direct" &&
+              other !== undefined &&
+              (blocks.has(other.id) ? (
+                <Action
+                  icon="Block"
+                  label={copy.unblockPerson.replace("%(name)s", other.name)}
+                  onClick={() => unblock(other)}
                 />
-              </div>
-            ) : (
-              <Action icon="PersonAdd" label={copy.addPeople} onClick={() => setAdding(true)} />
-            ))}
-          {!group &&
-            other !== undefined &&
-            (blocks.has(other.id) ? (
-              <Action
-                icon="Block"
-                label={copy.unblockPerson.replace("%(name)s", other.name)}
-                onClick={() => unblock(other)}
-              />
-            ) : (
-              <Action
-                danger
-                icon="Block"
-                label={copy.blockPerson.replace("%(name)s", other.name)}
-                onClick={() => block(other)}
-              />
-            ))}
-          <Action
-            danger
-            icon="Leave"
-            label={group ? copy.leaveGroup : copy.leaveConversation}
-            onClick={leave}
-          />
-        </div>
+              ) : (
+                <Action
+                  danger
+                  icon="Block"
+                  label={copy.blockPerson.replace("%(name)s", other.name)}
+                  onClick={() => block(other)}
+                />
+              ))}
+            <Action
+              danger
+              icon="Leave"
+              label={group ? copy.leaveGroup : copy.leaveConversation}
+              onClick={leave}
+            />
+          </div>
+        )}
         {error !== null && (
           <p className="px-4 pt-2 text-xs text-danger-text" role="alert">
             {error}

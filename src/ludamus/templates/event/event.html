@@ -10,6 +10,7 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
+{% block parley_room %}event:{{ current_sphere.pk }}:{{ event.pk }}{% endblock parley_room %}
 {% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
 {% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
 {% block meta_description %}{{ link_preview.description|default:default_description }}{% endblock meta_description %}

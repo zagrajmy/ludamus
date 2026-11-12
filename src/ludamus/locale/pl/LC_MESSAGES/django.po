@@ -3048,6 +3048,19 @@ msgstr ""
 "zamiast graczy."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Event chat"
+msgstr "Czat wydarzenia"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"One chat for everyone with a place or on a waitlist, the hosts and the "
+"organizers. Turning it off closes it at once."
+msgstr ""
+"Wspólny czat dla wszystkich z miejscem lub na liście rezerwowej, "
+"prowadzących i organizatorów. Wyłączenie zamyka go od razu."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Proposal Description"
 msgstr "Opis zgłoszenia"
 
@@ -3562,6 +3575,7 @@ msgstr[2] "%(count)s osób"
 msgstr[3] "%(count)s osoby"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/panel/settings.html
 msgid "Chat"
 msgstr "Czat"
 
@@ -3580,6 +3594,15 @@ msgstr "Utracono połączenie. Łączymy ponownie…"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Quiet in here. Say hello before someone starts a rules debate."
 msgstr "Ale tu cicho. Przywitaj się, zanim ktoś zacznie dyskusję o zasadach."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Just the organizers in here. Plan away, nobody else can read it."
+msgstr ""
+"Tu są tylko organizatorzy. Planujcie śmiało, nikt inny tego nie przeczyta."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your party's own chat. Say hello to everyone."
+msgstr "Czat tylko dla waszej drużyny. Przywitaj się ze wszystkimi."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "You found the table first. Leave a note for the others."
@@ -3702,8 +3725,17 @@ msgid "Programme point"
 msgstr "Punkt programu"
 
 #: src/ludamus/gates/web/django/parley/views.py
-msgid "Common room"
-msgstr "Pokój wspólny"
+#: src/ludamus/templates/panel/tracks.html
+msgid "Organizers"
+msgstr "Organizatorzy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Party"
+msgstr "Drużyna"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Everyone in your party is here. To leave this chat, leave the party."
+msgstr "Jest tu cała twoja drużyna. Żeby opuścić ten czat, opuść drużynę."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Delete as moderator"
@@ -4261,11 +4293,11 @@ msgstr "Włącz czat"
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid ""
-"Signed-in people can talk in a room for the whole sphere and in the rooms of "
-"the programme points they take part in."
+"Each event gets a chat for everyone taking part, each programme point a room "
+"for its players and hosts, and the sphere's team a room of its own."
 msgstr ""
-"Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
-"programu, w których biorą udział."
+"Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
+"programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid "Place event cover buttons at the bottom right"
@@ -12742,10 +12774,6 @@ msgstr ""
 "bloków się w nim nie pojawiają."
 
 #: src/ludamus/templates/panel/tracks.html
-msgid "Organizers"
-msgstr "Organizatorzy"
-
-#: src/ludamus/templates/panel/tracks.html
 msgid "Private"
 msgstr "Prywatny"
 
@@ -14023,6 +14051,16 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid ""
+#~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
+#~ "of the programme points they take part in."
+#~ msgstr ""
+#~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
+#~ "programu, w których biorą udział."
+
+#~ msgid "Common room"
+#~ msgstr "Pokój wspólny"
 
 #~ msgid "Group name"
 #~ msgstr "Nazwa grupy"

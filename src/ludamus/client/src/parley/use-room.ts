@@ -56,8 +56,9 @@ const REDIAL_FROM = 1000;
 const REDIAL_MAX = 30_000;
 const AGENTS = {
   conversation: "ParleyConversationAgent",
+  event: "ParleyEventAgent",
+  organizers: "ParleyOrganizersAgent",
   session: "ParleySessionAgent",
-  sphere: "ParleySphereAgent",
 } as const;
 
 export const withReactions = (messages: Message[], change: ReactionChange): Message[] =>

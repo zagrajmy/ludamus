@@ -4,6 +4,7 @@ import logging
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
+from ludamus.mills.parley_conversations import visible_conversations
 from ludamus.pacts.parley import (
     REVOKE_EVERYONE,
     ParleyAgeGate,
@@ -20,8 +21,8 @@ from ludamus.pacts.parley import (
     ParleyRevocationClaims,
     ParleyRevocationOutboxProtocol,
     ParleyRevocationServiceProtocol,
-    ParleyRole,
-    ParleySessionGrant,
+    ParleyRoomGrant,
+    ParleyRoomKind,
     ParleySignerProtocol,
     ParleyTimeWindow,
     ParleyWorkerUnavailableError,
@@ -37,6 +38,12 @@ from ludamus.specs.parley import (
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from ludamus.pacts.parley import (
+        ParleyConversationDTO,
+        ParleyPartyChatProtocol,
+        ParleyRoomDTO,
+    )
+
 logger = logging.getLogger(__name__)
 
 _CONVERSATION = "conversation:"
@@ -48,52 +55,64 @@ _AGE_GATES = {
 }
 
 
+def _grants(
+    rooms: list[ParleyRoomDTO], kind: ParleyRoomKind
+) -> dict[str, ParleyRoomGrant]:
+    return {
+        room.name: ParleyRoomGrant(ends_at=room.ends_at, writable=room.can_write)
+        for room in rooms
+        if room.kind == kind and not room.can_moderate and room.ends_at is not None
+    }
+
+
 class ParleyService:
+    """One pass, and one list of chats, across every sphere someone is in."""
+
     def __init__(
         self,
         *,
         repository: ParleyRepositoryProtocol,
         conversations: ParleyConversationRepositoryProtocol,
+        party_chats: ParleyPartyChatProtocol,
         signer: ParleySignerProtocol,
         messages: ParleyMessageReaderProtocol,
         agent_host: str,
     ) -> None:
         self._repository = repository
         self._conversations = conversations
+        self._party_chats = party_chats
         self._signer = signer
         self._messages = messages
         self._agent_host = agent_host
 
-    def bootstrap(
-        self, *, sphere_id: int, user_id: int, now: datetime
-    ) -> ParleyBootstrapDTO | None:
-        access = self._repository.read_access(
-            sphere_id=sphere_id, user_id=user_id, window=self._window(now)
+    def is_open_to(self, *, user_id: int, now: datetime) -> bool:
+        """Whether this person has anywhere to chat at all."""
+        return (
+            self._conversations.is_eligible(user_id)
+            or self._repository.has_rooms(user_id=user_id, window=self._window(now))
+            or bool(self._visible_conversations(user_id, direct=False))
         )
+
+    def bootstrap(self, *, user_id: int, now: datetime) -> ParleyBootstrapDTO | None:
+        access = self._repository.read_access(user_id=user_id, window=self._window(now))
         if access is None:
+            return None
+        direct = self._conversations.is_eligible(user_id)
+        self._party_chats.sync_member(user_id)
+        conversations = self._visible_conversations(user_id, direct=direct)
+        if not (direct or access.rooms or conversations):
             return None
 
         issued_at = int(now.timestamp())
-        direct = self._conversations.is_eligible(user_id)
         claims = ParleyCapabilityClaims(
             iss="ludamus",
             aud="parley",
             sub=str(access.user_id),
-            sphere=str(access.sphere_id),
             name=access.user_name,
             avatar=access.user_avatar_url,
-            role=ParleyRole.MANAGER if access.is_manager else ParleyRole.MEMBER,
-            sessions=(
-                {}
-                if access.is_manager
-                else {
-                    str(room.session_id): ParleySessionGrant(
-                        ends_at=room.ends_at, writable=room.can_write
-                    )
-                    for room in access.rooms
-                    if room.session_id is not None and room.ends_at is not None
-                }
-            ),
+            managed=[str(sphere_id) for sphere_id in access.managed_sphere_ids],
+            sessions=_grants(access.rooms, ParleyRoomKind.SESSION),
+            events=_grants(access.rooms, ParleyRoomKind.EVENT),
             read_only_after=int(PARLEY_SESSION_READ_ONLY_DELAY.total_seconds()),
             retain_for=int(PARLEY_SESSION_RETENTION.total_seconds()),
             direct=direct,
@@ -101,8 +120,14 @@ class ParleyService:
             exp=int((now + PARLEY_TOKEN_LIFETIME).timestamp()),
             jti=token_urlsafe(18),
         )
+        logger.info(
+            "parley pass issued: user=%s rooms=%s conversations=%s managed=%s",
+            access.user_id,
+            len(access.rooms),
+            len(conversations),
+            len(access.managed_sphere_ids),
+        )
         return ParleyBootstrapDTO(
-            sphere={"id": str(access.sphere_id), "name": access.sphere_name},
             user={
                 "id": str(access.user_id),
                 "name": access.user_name,
@@ -115,8 +140,8 @@ class ParleyService:
                 if direct
                 else _AGE_GATES.get(self._conversations.read_age_band(user_id))
             ),
-            conversations=self._conversations.list_for(user_id) if direct else [],
-            blocked=self._conversations.list_blocked(user_id) if direct else [],
+            conversations=conversations,
+            blocked=self._conversations.list_blocked(user_id),
             capability_token=self._signer.sign(claims),
             agent_host=self._agent_host,
         )
@@ -131,8 +156,8 @@ class ParleyService:
             if (conversation_id := self._conversation_seen_by(data)) is None:
                 return False
             sphere_id = None
-        elif self._room_seen_by(data, now):
-            conversation_id, sphere_id = None, data.sphere_id
+        elif (sphere_id := self._sphere_of_room_seen_by(data, now)) is not None:
+            conversation_id = None
         else:
             return False
         try:
@@ -160,6 +185,13 @@ class ParleyService:
         )
         return True
 
+    def _visible_conversations(
+        self, user_id: int, *, direct: bool
+    ) -> list[ParleyConversationDTO]:
+        return visible_conversations(
+            self._conversations.list_for(user_id), direct=direct
+        )
+
     def _conversation_seen_by(self, data: ParleyReportData) -> int | None:
         # Anyone still in it, a request's recipient among them.
         key = data.room_id.removeprefix(_CONVERSATION)
@@ -171,11 +203,15 @@ class ParleyService:
         present = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
         return int(key) if member is not None and member[1] in present else None
 
-    def _room_seen_by(self, data: ParleyReportData, now: datetime) -> bool:
+    def _sphere_of_room_seen_by(
+        self, data: ParleyReportData, now: datetime
+    ) -> int | None:
         access = self._repository.read_access(
-            sphere_id=data.sphere_id, user_id=data.user_id, window=self._window(now)
+            user_id=data.user_id, window=self._window(now)
         )
-        return access is not None and data.room_id in {room.id for room in access.rooms}
+        if access is None or data.room_id not in {room.id for room in access.rooms}:
+            return None
+        return int(data.room_id.split(":")[1])
 
     def _lookup(self, data: ParleyReportData, now: datetime) -> str:
         issued_at = int(now.timestamp())
@@ -251,6 +287,10 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
 
     def revoke_sphere(self, *, sphere_id: int) -> None:
         self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)
+
+    def revoke_event(self, *, event_id: int) -> None:
+        if (sphere_id := self._repository.read_event_sphere_id(event_id)) is not None:
+            self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)
 
 
 def sign_revocations(

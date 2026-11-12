@@ -1,14 +1,15 @@
-import { callable, getAgentByName } from "agents";
+import { callable } from "agents";
 
-import type { Capability, Message, Revocation, RoomActivity, RpcResult } from "./protocol";
-import type { ParleySessionAgent } from "./session-agent";
+import type { Capability, Revocation, RoomActivity, RpcResult } from "./protocol";
 
-import { canSeeRoom } from "./access";
+import { canSeeRoom, roomFromId } from "./access";
 import { retentionCutoff } from "./limits";
-import { RoomAgent, type Env } from "./room-agent";
+import { RoomAgent, roomAgent } from "./room-agent";
 
 type Admission = Pick<Capability, "exp" | "iat" | "sub"> & { roomId: string };
 
+// A sphere's deny-list, and its feed of how the sphere's rooms are doing;
+// nobody writes in it.
 export class ParleySphereAgent extends RoomAgent {
   protected readonly roomPrefix = "sphere";
 
@@ -32,7 +33,7 @@ export class ParleySphereAgent extends RoomAgent {
       revoked_before INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`;
-    // Which session rooms hold a socket for whom, so a revocation reaches
+    // Which rooms hold a socket for whom, so a revocation reaches
     // only those instead of every room the sphere ever had.
     void this.sql`CREATE TABLE IF NOT EXISTS admissions (
       user_id TEXT NOT NULL,
@@ -46,10 +47,8 @@ export class ParleySphereAgent extends RoomAgent {
     return !this.isRevoked(capability);
   }
 
-  admitToSession(admission: Admission): boolean {
-    if (!admission.roomId.startsWith(`session:${this.name}:`) || this.isRevoked(admission)) {
-      return false;
-    }
+  admit(admission: Admission): boolean {
+    if (!this.holds(admission.roomId) || this.isRevoked(admission)) return false;
     void this.sql`INSERT INTO admissions (user_id, room_id, expires_at)
       VALUES (${admission.sub}, ${admission.roomId}, ${admission.exp})
       ON CONFLICT(user_id, room_id) DO UPDATE SET expires_at = MAX(expires_at, excluded.expires_at)`;
@@ -75,11 +74,9 @@ export class ParleySphereAgent extends RoomAgent {
           }>`SELECT room_id FROM admissions WHERE user_id = ${revocation.sub}`;
     const results = await Promise.allSettled(
       rooms.map(async ({ room_id }) => {
-        const session = await getAgentByName<Env, ParleySessionAgent>(
-          this.workerEnv.ParleySessionAgent,
-          room_id.slice("session:".length),
-        );
-        await session.closeRevoked(revocation);
+        const room = roomFromId(room_id);
+        if (room === null) return;
+        await (await roomAgent(this.workerEnv, room)).closeRevoked(revocation);
       }),
     );
     const failed = results.filter((result) => result.status === "rejected");
@@ -90,6 +87,16 @@ export class ParleySphereAgent extends RoomAgent {
         `Revocation reached ${rooms.length - failed.length} of ${rooms.length} rooms`,
       );
     }
+  }
+
+  private holds(roomId: string): boolean {
+    const room = roomFromId(roomId);
+    return (
+      room !== null &&
+      room.kind !== "conversation" &&
+      room.kind !== "sphere" &&
+      room.sphere === this.name
+    );
   }
 
   private isRevoked(capability: Pick<Capability, "iat" | "sub">): boolean {
@@ -161,12 +168,10 @@ export class ParleySphereAgent extends RoomAgent {
     return { ok: true, value: {} };
   }
 
-  // Not @callable: only a session room reaches this, over Durable Object
-  // RPC, so a browser cannot forge activity.
+  // Not @callable: only the sphere's own rooms reach this, over Durable
+  // Object RPC, so a browser cannot forge activity.
   recordActivity(input: { latestMessageId: number; roomId: string }): void {
-    if (!input.roomId.startsWith(`session:${this.name}:`)) {
-      throw new Error("Invalid room activity");
-    }
+    if (!this.holds(input.roomId)) throw new Error("Invalid room activity");
     void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
       VALUES (${input.roomId}, ${input.latestMessageId}, ${Date.now()})
       ON CONFLICT(room_id) DO UPDATE SET latest_message_id = MAX(latest_message_id, excluded.latest_message_id), updated_at = excluded.updated_at`;
@@ -174,17 +179,6 @@ export class ParleySphereAgent extends RoomAgent {
       type: "room.activity",
       v: 1,
       payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
-    });
-  }
-
-  protected afterMessage(message: Message): void {
-    void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
-      VALUES (${this.roomId}, ${message.id}, ${Date.now()})
-      ON CONFLICT(room_id) DO UPDATE SET latest_message_id = MAX(latest_message_id, excluded.latest_message_id), updated_at = excluded.updated_at`;
-    this.emit({
-      type: "room.activity",
-      v: 1,
-      payload: { at: message.createdAt, latestMessageId: message.id, roomId: this.roomId },
     });
   }
 }

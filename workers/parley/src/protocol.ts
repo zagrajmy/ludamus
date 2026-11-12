@@ -1,24 +1,23 @@
-export type RoomKind = "conversation" | "session" | "sphere";
+export type RoomGrant = { endsAt: number; writable: boolean };
 
-export type SessionGrant = { endsAt: number; writable: boolean };
-
-// The token holds a role, not a list of rooms: a manager covers every room of
-// the sphere, a member the sphere room plus the sessions they take part in.
+// One pass for every sphere. It lists the spheres someone manages, whose
+// every room they moderate, and otherwise only their own events and
+// programme points, each by its room's name "<sphere>:<id>".
 export type Capability = {
   aud: "parley";
   avatar: string;
   // Whether direct and group conversations are open to this person at all.
   direct?: boolean;
+  events: Record<string, RoomGrant>;
   exp: number;
   iat: number;
   iss: "ludamus";
   jti: string;
+  managed: readonly string[];
   name: string;
   readOnlyAfter: number;
   retainFor: number;
-  role: "manager" | "member";
-  sessions: Record<string, SessionGrant>;
-  sphere: string;
+  sessions: Record<string, RoomGrant>;
   sub: string;
 };
 
@@ -26,11 +25,13 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
+export type ConversationKind = "direct" | "group" | "party";
+
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
   conversation: string;
   iat: number;
-  kind: "direct" | "group";
+  kind: ConversationKind;
   members: Member[];
 };
 

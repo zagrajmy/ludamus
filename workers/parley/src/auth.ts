@@ -75,11 +75,11 @@ function isSeconds(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0;
 }
 
-function isSessionGrants(value: unknown): value is Capability["sessions"] {
+function isGrants(value: unknown): value is Capability["sessions"] {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   return Object.entries(value).every(
-    ([session, grant]) =>
-      /^\d+$/u.test(session) &&
+    ([room, grant]) =>
+      /^\d+:\d+$/u.test(room) &&
       typeof grant === "object" &&
       grant !== null &&
       isSeconds((grant as { endsAt?: unknown }).endsAt) &&
@@ -107,14 +107,15 @@ export async function verifyCapability(token: string, env: AuthEnv): Promise<Cap
   const payload = await verified(token, env, env.JWT_AUDIENCE);
   if (
     typeof payload.sub !== "string" ||
-    typeof payload.sphere !== "string" ||
     typeof payload.name !== "string" ||
     typeof payload.avatar !== "string" ||
     typeof payload.jti !== "string" ||
-    (payload.role !== "manager" && payload.role !== "member") ||
+    !Array.isArray(payload.managed) ||
+    !payload.managed.every((sphere) => typeof sphere === "string" && /^\d+$/u.test(sphere)) ||
     !isSeconds(payload.readOnlyAfter) ||
     !isSeconds(payload.retainFor) ||
-    !isSessionGrants(payload.sessions) ||
+    !isGrants(payload.sessions) ||
+    !isGrants(payload.events) ||
     (payload.direct !== undefined && typeof payload.direct !== "boolean")
   ) {
     throw new Error("Invalid capability");
@@ -159,7 +160,7 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
   if (
     typeof payload.conversation !== "string" ||
     !/^\d+$/u.test(payload.conversation) ||
-    (payload.kind !== "direct" && payload.kind !== "group") ||
+    (payload.kind !== "direct" && payload.kind !== "group" && payload.kind !== "party") ||
     !Array.isArray(payload.members) ||
     !payload.members.every(isMember)
   ) {

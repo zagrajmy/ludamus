@@ -27,10 +27,12 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEvent"
   | "emptyGroup"
+  | "emptyOrganizers"
+  | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
-  | "emptySphere"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -43,6 +45,7 @@ export type Copy = Record<
   | "errorReactionRateLimited"
   | "errorTooMany"
   | "errorUnknown"
+  | "eventRoom"
   | "groupName"
   | "groupNeedsPeople"
   | "groupPeople"
@@ -85,6 +88,9 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizersRoom"
+  | "partyHint"
+  | "partyRoom"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
@@ -125,7 +131,6 @@ export type Copy = Record<
   | "sending"
   | "sendLabel"
   | "sessionRoom"
-  | "sphereRoom"
   | "title"
   | "typingMany"
   | "typingOne"
@@ -146,13 +151,13 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct or group conversation as its member sees it; members lists the
+// A direct, group or party conversation as its member sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "party";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -166,7 +171,7 @@ export type Room = {
   canWrite: boolean;
   conversation?: ConversationInfo;
   id: string;
-  kind: "conversation" | "session" | "sphere";
+  kind: "conversation" | "event" | "organizers" | "session";
   title: string;
 };
 export type Bootstrap = {
@@ -183,7 +188,6 @@ export type Bootstrap = {
   copy: Copy;
   csrfToken: string;
   rooms: Room[];
-  sphere: { id: string; name: string };
   user: { avatarUrl: string; id: string; name: string };
 };
 
@@ -230,6 +234,11 @@ export function passCloseHandlers(onPassClosed: () => void, onRefused: () => voi
     shouldReconnectOnClose: (event: CloseEvent) => !PASS_CLOSED.has(event.code),
   };
 }
+
+// The sphere a room belongs to, which its id names right after its kind; a
+// conversation belongs to none.
+export const sphereOf = (room: Room): string | null =>
+  room.kind === "conversation" ? null : room.id.split(":")[1]!;
 
 // Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
 // plain http/ws; everything else gets TLS.

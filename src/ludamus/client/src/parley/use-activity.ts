@@ -15,19 +15,21 @@ export type Activity = {
   markRead: (roomId: string, messageId: number) => void;
 };
 
-// Which rooms have news: the sphere's rooms from the sphere's own agent,
-// one's conversations from one's inbox.
+// Where news of rooms comes from: each sphere's rooms from that sphere's
+// feed, one's conversations from one's inbox.
+export type Source = { inbox: true } | { sphere: string };
+
 export function useActivity(
   bootstrap: Bootstrap,
-  source: "inbox" | "sphere",
+  source: Source,
   onPassClosed: () => void,
 ): Activity {
   const url = agentUrl(bootstrap.agentHost);
   const [activity, setActivity] = useState<Record<string, RoomActivity>>({});
   const agent = useAgent({
-    agent: source === "inbox" ? "ParleyInboxAgent" : "ParleySphereAgent",
+    agent: "inbox" in source ? "ParleyInboxAgent" : "ParleySphereAgent",
     host: url.host,
-    name: source === "inbox" ? bootstrap.user.id : bootstrap.sphere.id,
+    name: "inbox" in source ? bootstrap.user.id : source.sphere,
     protocol: url.protocol === "https:" ? "wss" : "ws",
     ...passCloseHandlers(onPassClosed),
   });

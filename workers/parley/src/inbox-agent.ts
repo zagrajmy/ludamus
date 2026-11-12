@@ -38,7 +38,7 @@ export class ParleyInboxAgent extends Agent<Env> {
     context: ConnectionContext,
   ): Promise<void> {
     const capability = await capabilityFromRequest(context.request, this.env);
-    if (capability.direct !== true || capability.sub !== this.name) {
+    if (capability.sub !== this.name) {
       connection.close(PASS_REVOKED, "Not this person's inbox");
       return;
     }

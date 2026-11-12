@@ -1,6 +1,7 @@
 import {
   Agent,
   callable,
+  getAgentByName,
   getCurrentAgent,
   type AgentContext,
   type AgentNamespace,
@@ -10,10 +11,10 @@ import {
 
 import type { ParleyConversationAgent } from "./conversation-agent";
 import type { ParleyInboxAgent } from "./inbox-agent";
-import type { ParleySessionAgent } from "./session-agent";
+import type { ParleyEventAgent, ParleyOrganizersAgent, ParleySessionAgent } from "./session-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
-import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
+import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
 import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
@@ -43,10 +44,27 @@ export type Env = {
   // NOTE: routeAgentRequest serves each namespace under its binding name,
   // kebab-cased, and the browser addresses rooms by class name.
   ParleyConversationAgent: AgentNamespace<ParleyConversationAgent>;
+  ParleyEventAgent: AgentNamespace<ParleyEventAgent>;
   ParleyInboxAgent: AgentNamespace<ParleyInboxAgent>;
+  ParleyOrganizersAgent: AgentNamespace<ParleyOrganizersAgent>;
   ParleySessionAgent: AgentNamespace<ParleySessionAgent>;
   ParleySphereAgent: AgentNamespace<ParleySphereAgent>;
 };
+
+// The Durable Object behind any room, by the room Django named.
+export function roomAgent(env: Env, room: Room) {
+  const namespaces = {
+    conversation: env.ParleyConversationAgent,
+    event: env.ParleyEventAgent,
+    organizers: env.ParleyOrganizersAgent,
+    session: env.ParleySessionAgent,
+    sphere: env.ParleySphereAgent,
+  };
+  return getAgentByName<Env, RoomAgent>(
+    namespaces[room.kind] as unknown as DurableObjectNamespace<RoomAgent>,
+    room.id.slice(room.id.indexOf(":") + 1),
+  );
+}
 
 function passExpired(capability: Capability): boolean {
   return capability.exp * 1_000 <= Date.now();
@@ -97,7 +115,7 @@ function reactionsOf(rows: ReactionRow[]): { reactions: Reactions; reactors: Rea
 export abstract class RoomAgent extends Agent<Env> {
   protected readonly agentContext: AgentContext;
   protected readonly workerEnv: Env;
-  protected abstract readonly roomPrefix: "conversation" | "session" | "sphere";
+  protected abstract readonly roomPrefix: RoomKind;
 
   constructor(context: AgentContext, env: Env) {
     super(context, env);

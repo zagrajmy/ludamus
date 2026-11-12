@@ -65,6 +65,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
             cd.get("use_session_cover_placeholders")
         ),
         "use_participants_label": bool(cd.get("use_participants_label")),
+        "parley_enabled": bool(cd.get("parley_enabled")),
     }
     if (cover := resolve_uploaded_file_field(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
@@ -130,6 +131,7 @@ class EventSettingsPageView(EventPanelMixin, View):
                     self.current_event.use_session_cover_placeholders
                 ),
                 "use_participants_label": self.current_event.use_participants_label,
+                "parley_enabled": self.current_event.parley_enabled,
             }
         )
         self._apply_facilitator_choices(form)

@@ -30,9 +30,9 @@ export function pass(
       name: `Person ${sub}`,
       readOnlyAfter: 172_800,
       retainFor: 2_592_000,
-      role: "member",
-      sessions: { "101": { endsAt: now() + 3_600, writable: true } },
-      sphere,
+      events: {},
+      managed: [],
+      sessions: { [`${sphere}:101`]: { endsAt: now() + 3_600, writable: true } },
       sub,
       ...extra,
     },
@@ -40,6 +40,9 @@ export function pass(
     issuedAt,
   );
 }
+
+export const manager = (sub: string, sphere: string, issuedAt = now()) =>
+  pass(sub, sphere, issuedAt, { managed: [sphere], sessions: {} });
 
 export type Socket = {
   call: <T = unknown>(method: string, input?: Record<string, unknown>) => Promise<T>;

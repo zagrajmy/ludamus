@@ -40,7 +40,7 @@ describe("a member list", () => {
     await expect(verifyCapability(membership, env)).rejects.toThrow();
     for (const bad of [
       { conversation: "x", kind: "group", members },
-      { conversation: "1", kind: "party", members },
+      { conversation: "1", kind: "sphere", members },
       { conversation: "1", kind: "group", members: [{ state: "left", user: "7", writable: true }] },
       { conversation: "1", kind: "group", members: "7" },
     ]) {
@@ -69,6 +69,19 @@ describe("a conversation", () => {
     // Not on the list: the socket may redial, for the list may be on its way.
     await expect(stranger.closed).resolves.toBe(4404);
     await expect(minor.closed).resolves.not.toBe(4404);
+    member.socket.close();
+  }, 20_000);
+
+  it("of a party lets its members in whether or not direct messages are open to them", async () => {
+    const id = conversationId();
+    await sync(id, [{ state: "active", user: "7", writable: true }], "party");
+
+    const member = await open(`parley-conversation-agent/${id}`, await pass("7", "3"));
+    const stranger = await open(`parley-conversation-agent/${id}`, await pass("8", "3"));
+
+    expect(member.socket.readyState).toBe(WebSocket.OPEN);
+    expect(await say(member, "Who brings the dice?")).toMatchObject({ ok: true });
+    await expect(stranger.closed).resolves.toBe(4404);
     member.socket.close();
   }, 20_000);
 
@@ -129,12 +142,13 @@ describe("a conversation", () => {
 });
 
 describe("an inbox", () => {
-  it("is its owner's alone", async () => {
+  it("is its owner's alone, whatever their age", async () => {
     const someone = await open("parley-inbox-agent/7", await direct("8"));
     const minor = await open("parley-inbox-agent/7", await pass("7", "3"));
 
     await expect(someone.closed).resolves.toBe(4403);
-    await expect(minor.closed).resolves.toBe(4403);
+    expect(minor.socket.readyState).toBe(WebSocket.OPEN);
+    minor.socket.close();
   });
 
   it("hears of news in every conversation its owner is in, until read", async () => {

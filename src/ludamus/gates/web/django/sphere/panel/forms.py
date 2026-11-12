@@ -64,8 +64,9 @@ class SphereSettingsForm(forms.Form):
         required=False,
         label=_("Enable chat"),
         help_text=_(
-            "Signed-in people can talk in a room for the whole sphere and in the "
-            "rooms of the programme points they take part in."
+            "Each event gets a chat for everyone taking part, each programme point "
+            "a room for its players and hosts, and the sphere's team a room of "
+            "its own."
         ),
     )
     event_cover_buttons_at_bottom = forms.BooleanField(

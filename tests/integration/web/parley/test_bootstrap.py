@@ -6,8 +6,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Facilitator
+from ludamus.links.db.django.models import Facilitator, Party, PartyMembership
 from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.party import PartyMembershipStatus
 from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import (
@@ -15,6 +16,7 @@ from tests.integration.conftest import (
     SessionFactory,
     SessionParticipationFactory,
     SphereFactory,
+    UserFactory,
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.parley.helpers import decode_segment
@@ -37,7 +39,8 @@ def test_anonymous_bootstrap_is_unauthorized(client):
 
 
 @pytest.mark.usefixtures("parley_settings")
-def test_disabled_sphere_is_not_found(authenticated_client, sphere):
+def test_nowhere_to_chat_is_not_found(authenticated_client, sphere, active_user):
+    sphere.managers.add(active_user)
     sphere.parley_enabled = False
     sphere.save()
 
@@ -51,8 +54,6 @@ def test_disabled_sphere_is_not_found(authenticated_client, sphere):
 def test_returns_scoped_rooms_and_verifiable_capability(
     authenticated_client, active_user, event, parley_settings, sphere
 ):
-    sphere.parley_enabled = True
-    sphere.save()
     confirmed = SessionFactory(
         event=event, category=None, title="Mothership", status=SessionStatus.ACCEPTED
     )
@@ -71,12 +72,13 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     SessionFactory(
         event=EventFactory(sphere=SphereFactory()), category=None, title="Foreign"
     )
+    elsewhere = SphereFactory()
+    elsewhere.managers.add(active_user)
 
     response = authenticated_client.get(reverse("parley_bootstrap"))
 
     assert_response(response, HTTPStatus.OK)
     payload = response.json()
-    assert payload["sphere"] == {"id": str(sphere.pk), "name": sphere.name}
     assert payload["user"] == {
         "id": str(active_user.pk),
         "name": active_user.name,
@@ -84,9 +86,16 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     }
     assert payload["rooms"] == [
         {
-            "id": f"sphere:{sphere.pk}",
-            "kind": "sphere",
-            "title": sphere.name,
+            "id": f"organizers:{elsewhere.pk}",
+            "kind": "organizers",
+            "title": elsewhere.name,
+            "canWrite": True,
+            "canModerate": True,
+        },
+        {
+            "id": f"event:{sphere.pk}:{event.pk}",
+            "kind": "event",
+            "title": event.name,
             "canWrite": True,
             "canModerate": False,
         },
@@ -113,12 +122,14 @@ def test_returns_scoped_rooms_and_verifiable_capability(
     assert claims["iss"] == "ludamus"
     assert claims["aud"] == "parley"
     assert claims["sub"] == str(active_user.pk)
-    assert claims["sphere"] == str(sphere.pk)
     ends_at = int(event.end_time.timestamp())
-    assert claims["role"] == "member"
+    assert claims["managed"] == [str(elsewhere.pk)]
     assert claims["sessions"] == {
-        str(confirmed.pk): {"endsAt": ends_at, "writable": True},
-        str(facilitated.pk): {"endsAt": ends_at, "writable": False},
+        f"{sphere.pk}:{confirmed.pk}": {"endsAt": ends_at, "writable": True},
+        f"{sphere.pk}:{facilitated.pk}": {"endsAt": ends_at, "writable": False},
+    }
+    assert claims["events"] == {
+        f"{sphere.pk}:{event.pk}": {"endsAt": ends_at, "writable": True}
     }
     assert claims["readOnlyAfter"] == 48 * 3600
     assert claims["retainFor"] == 30 * 24 * 3600
@@ -134,21 +145,51 @@ def test_returns_scoped_rooms_and_verifiable_capability(
 def test_manager_token_does_not_grow_with_the_sphere(
     authenticated_client, active_user, event, sphere
 ):
-    sphere.parley_enabled = True
-    sphere.save()
     sphere.managers.add(active_user)
     SessionFactory(event=event, category=None)
 
     small = authenticated_client.get(reverse("parley_bootstrap")).json()
     SessionFactory.create_batch(200, event=event, category=None)
+    for _ in range(20):
+        EventFactory(
+            sphere=sphere, start_time=event.start_time, end_time=event.end_time
+        )
     large = authenticated_client.get(reverse("parley_bootstrap")).json()
 
-    assert len(large["rooms"]) == len(small["rooms"]) + 200
+    assert len(large["rooms"]) == len(small["rooms"]) + 220
     assert len(large["capabilityToken"]) == len(small["capabilityToken"])
     assert len(large["capabilityToken"]) < COOKIE_BUDGET
     claims = decode_segment(large["capabilityToken"].split(".")[1])
-    assert claims["role"] == "manager"
-    assert claims["sessions"] == {}
+    assert claims["managed"] == [str(sphere.pk)]
+    assert (claims["sessions"], claims["events"]) == ({}, {})
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_a_party_joined_before_its_chat_opened_has_one_now(
+    authenticated_client, active_user
+):
+    active_user.age_band = AgeBand.SIXTEEN_PLUS
+    active_user.save()
+    friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    party = Party.objects.create(leader=friend, name="Drużyna Pierścienia")
+    for member in (friend, active_user):
+        PartyMembership.objects.create(
+            party=party, member=member, status=PartyMembershipStatus.ACTIVE
+        )
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    [chat] = response.json()["conversations"]
+    assert (chat["kind"], chat["title"], chat["canWrite"]) == (
+        "party",
+        "Drużyna Pierścienia",
+        True,
+    )
+    assert {person["id"] for person in chat["members"]} == {
+        str(friend.pk),
+        str(active_user.pk),
+    }
 
 
 @pytest.mark.parametrize(
@@ -163,8 +204,7 @@ def test_manager_token_does_not_grow_with_the_sphere(
 def test_says_whether_age_keeps_direct_messages_shut(
     authenticated_client, active_user, sphere, age_band, can_message, age_gate
 ):
-    sphere.parley_enabled = True
-    sphere.save()
+    sphere.managers.add(active_user)
     active_user.age_band = age_band
     active_user.save()
 

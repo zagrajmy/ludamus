@@ -520,9 +520,14 @@ export function Conversation({
   };
   const { conversation } = room;
   const writableEmpty = {
-    conversation: conversation?.kind === "group" ? copy.emptyGroup : copy.emptyDirect,
+    conversation: {
+      direct: copy.emptyDirect,
+      group: copy.emptyGroup,
+      party: copy.emptyParty,
+    }[conversation?.kind ?? "direct"],
+    event: copy.emptyEvent,
+    organizers: copy.emptyOrganizers,
     session: copy.emptySession,
-    sphere: copy.emptySphere,
   }[room.kind];
   const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
   const kind = roomKind(copy, room);

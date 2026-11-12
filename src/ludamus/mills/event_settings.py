@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -46,10 +47,15 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
 
 class EventSettingsService(EventSettingsServiceProtocol):
     def __init__(
-        self, *, transaction: TransactionProtocol, repos: EventSettingsRepos
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: EventSettingsRepos,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._chat = chat
 
     def update_general(
         self, *, sphere_id: int, slug: str, data: EventUpdateData
@@ -71,6 +77,9 @@ class EventSettingsService(EventSettingsServiceProtocol):
             ):
                 raise EventSlugConflictError from exc
             raise
+        if current_event.parley_enabled and data.get("parley_enabled") is False:
+            logger.info("parley event chat turned off: event=%s", current_event.pk)
+            self._chat.revoke_event(event_id=current_event.pk)
 
     def _slug_held_by_other(
         self, *, slug: str | None, sphere_id: int, event_pk: int

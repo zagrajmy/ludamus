@@ -14,8 +14,8 @@ import { NOT_A_MEMBER, RoomAgent, type Env } from "./room-agent";
 
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
-// A direct or group conversation. Django pushes who is in it; the room
-// admits, and lets write, only the people on its latest list.
+// A direct, group or party conversation. Django pushes who is in it; the
+// room admits, and lets write, only the people on its latest list.
 export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";
 
@@ -33,7 +33,11 @@ export class ParleyConversationAgent extends RoomAgent {
     )`;
   }
 
+  // A party's chat keeps its own age rule in Django; the others need the
+  // pass to say conversations are open to this person at all.
   protected async admits(capability: Capability): Promise<boolean> {
+    const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
+    if (kind !== "party" && capability.direct !== true) throw new Error("Forbidden room");
     return this.member(capability.sub) !== undefined;
   }
 

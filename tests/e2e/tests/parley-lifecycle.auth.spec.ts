@@ -11,7 +11,7 @@ import {
   panelOf,
   passExpiring,
   routeBootstrap,
-  sphereRoom,
+  eventRoom,
 } from "./helpers/parley";
 
 test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
@@ -66,7 +66,7 @@ test("A pass the Worker will not take shows the connection error", async ({ page
 
 test("Opening the chat mid-connect keeps only the newer connection", async ({ page }) => {
   const served = await routeBootstrap(page, [
-    { delayMs: 1500, rooms: [{ ...sphereRoom, title: "Stale sphere" }] },
+    { delayMs: 1500, rooms: [{ ...eventRoom, title: "Stale sphere" }] },
     { delayMs: 300 },
   ]);
   await FakeWorker.install(page);
@@ -163,7 +163,7 @@ test("A pass is renewed before it expires", async ({ page }) => {
 });
 
 test("A sphere with one room opens it straight from the launcher", async ({ page }) => {
-  await routeBootstrap(page, [{ delayMs: 600, rooms: [sphereRoom] }]);
+  await routeBootstrap(page, [{ delayMs: 600, rooms: [eventRoom] }]);
   const worker = (await FakeWorker.install(page))
     .on("getActivity", () => ({ code: "forbidden", ok: false }))
     .on("loadBefore", () => ({ code: "invalid", ok: false }));
@@ -175,7 +175,7 @@ test("A sphere with one room opens it straight from the launcher", async ({ page
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
   await expect(panel.getByRole("button", { name: copy.backLabel })).toHaveCount(0);
   // A history that would not load leaves the room empty, not broken.
-  await expect(panel.getByText(copy.emptySphere)).toBeVisible();
+  await expect(panel.getByText(copy.emptyEvent)).toBeVisible();
   expect(worker.called("getActivity").length).toBeGreaterThan(0);
 
   // Keys other than Escape leave the window open.
@@ -197,7 +197,7 @@ test("A sphere with one room opens it straight from the launcher", async ({ page
 });
 
 test("A one-room sphere loaded in the background opens that room", async ({ page }) => {
-  const served = await routeBootstrap(page, [{ rooms: [sphereRoom] }]);
+  const served = await routeBootstrap(page, [{ rooms: [eventRoom] }]);
   await FakeWorker.install(page);
   await page.goto("/");
   await expect.poll(served.count).toBe(1);
@@ -213,7 +213,7 @@ test.describe("On a touch screen", () => {
     await routeBootstrap(page);
     await FakeWorker.install(page);
     await page.goto("/");
-    const panel = await openRoom(page, "Zagrajmy", copy.emptySphere);
+    const panel = await openRoom(page, "Zagrajmy", copy.emptyEvent);
     await expect(panel.getByRole("button", { name: copy.closeLabel })).toBeFocused();
   });
 });
@@ -222,7 +222,7 @@ test("The room list puts recent rooms first and counts the unread ones", async (
   const now = Date.parse("2026-11-10T15:00:00Z");
   await page.clock.setFixedTime(now);
   const rooms = [
-    sphereRoom,
+    eventRoom,
     ...["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"].map((title, index) => ({
       canModerate: false,
       canWrite: index !== 0,
@@ -244,7 +244,7 @@ test("The room list puts recent rooms first and counts the unread ones", async (
   await page.evaluate(() => document.documentElement.setAttribute("lang", ""));
   // The snapshot first, so the live event lands on top of it.
   await expect.poll(() => worker.called("getActivity").length).toBe(1);
-  worker.push("room.activity", { at: now - 60_000, latestMessageId: 3, roomId: "sphere:1" });
+  worker.push("room.activity", { at: now - 60_000, latestMessageId: 3, roomId: "event:1:5" });
   const launcher = launcherOf(page);
   await expect(launcher).toHaveAccessibleDescription("6 unread conversations");
 
@@ -275,7 +275,7 @@ test("The room list puts recent rooms first and counts the unread ones", async (
   // The open room does not count as unread.
   await list.nth(1).click();
   await expect(panel.getByRole("heading", { name: "Alpha" })).toBeVisible();
-  for (const id of ["sphere:1", "session:1:11"])
+  for (const id of ["event:1:5", "session:1:11"])
     worker.push("unread.changed", { roomId: id, unread: false });
   await expect(launcher).toHaveAccessibleDescription("1 unread conversation");
   await panel.getByRole("button", { name: copy.backLabel }).click();
@@ -340,7 +340,7 @@ test.describe("A Worker on another host", () => {
       await routeBootstrap(page, [{ agentHost }]);
       const worker = await FakeWorker.install(page);
       await page.goto("/");
-      await openRoom(page, "Zagrajmy", copy.emptySphere);
+      await openRoom(page, "Zagrajmy", copy.emptyEvent);
       const secure = agentHost === "parley.example.test";
       expect(
         worker.sockets.every((socket) => socket.url().startsWith(secure ? "wss:" : "ws:")),

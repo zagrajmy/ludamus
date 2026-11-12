@@ -44,13 +44,18 @@ admin.site.register(
     list_display=(
         "created_at",
         "room_id",
+        "sphere",
         "reporter",
         "reported_user",
         "body",
         "resolved_at",
     ),
-    list_filter=(("resolved_at", admin.EmptyFieldListFilter),),
-    list_select_related=("reporter", "reported_user"),
+    # A report with no sphere came from a party's chat or a conversation.
+    list_filter=(
+        ("resolved_at", admin.EmptyFieldListFilter),
+        ("sphere", admin.EmptyFieldListFilter),
+    ),
+    list_select_related=("reporter", "reported_user", "sphere"),
     search_fields=("body", "author_name", "room_id"),
     # What the room said stays as reported; staff only mark it resolved.
     readonly_fields=(

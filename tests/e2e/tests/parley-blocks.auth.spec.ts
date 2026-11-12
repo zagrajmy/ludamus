@@ -114,8 +114,12 @@ test("Someone blocked stays out of sight in a group and in the common room", asy
   await panel.getByRole("button", { name: copy.backLabel }).click();
   await roomButton(panel, "Zagrajmy").click();
   await expect(panel.getByText("Ada says hi")).toBeVisible();
-  worker.push("typing.changed", { expiresAt: now + 60_000, userId: kuba.id }, /sphere-agent/u);
-  worker.push("typing.changed", { expiresAt: now + 60_000, userId: ada.id }, /sphere-agent/u);
+  worker.push(
+    "typing.changed",
+    { expiresAt: now + 60_000, userId: kuba.id },
+    /parley-event-agent/u,
+  );
+  worker.push("typing.changed", { expiresAt: now + 60_000, userId: ada.id }, /parley-event-agent/u);
   await expect(panel.getByText(`${ada.name} is typing…`)).toBeVisible();
 
   await actionsOf(panel, "Ada says hi").click();

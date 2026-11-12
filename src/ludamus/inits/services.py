@@ -73,7 +73,10 @@ from ludamus.mills.notifications import (
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
-from ludamus.mills.parley_conversations import ParleyConversationService
+from ludamus.mills.parley_conversations import (
+    ParleyConversationService,
+    ParleyPartyChatService,
+)
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -164,6 +167,7 @@ class Services:
         return ParleyService(
             repository=self._repos.parley,
             conversations=self._repos.parley_conversations,
+            party_chats=self.parley_party_chats,
             signer=JwtSigner(signing_private_key),
             messages=parley_message_reader(),
             agent_host=agent_host,
@@ -172,6 +176,14 @@ class Services:
     @cached_property
     def parley_conversations(self) -> ParleyConversationService:
         return ParleyConversationService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
+    def parley_party_chats(self) -> ParleyPartyChatService:
+        return ParleyPartyChatService(
             transaction=self._transaction,
             repository=self._repos.parley_conversations,
             outbox=parley_membership_outbox(),
@@ -277,7 +289,10 @@ class Services:
     @cached_property
     def parties(self) -> PartyService:
         return PartyService(
-            self._transaction, self._repos.parties, DjangoUserNotifier()
+            self._transaction,
+            self._repos.parties,
+            DjangoUserNotifier(),
+            chat=self.parley_party_chats,
         )
 
     @cached_property
@@ -350,6 +365,7 @@ class Services:
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
             ),
+            chat=self.parley_revocations,
         )
 
     @cached_property
