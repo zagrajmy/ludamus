@@ -133,9 +133,7 @@ class TestCreate:
     def test_suffixes_a_taken_slug(self):
         guilds = FakeGuilds(taken_slugs={"topory"})
 
-        _service(guilds).create(
-            sphere_id=SPHERE_PK, base_slug="topory", data={"name": "Topory"}
-        )
+        _service(guilds).create(sphere_id=SPHERE_PK, data={"name": "Topory"})
 
         created = next(call for call in guilds.calls if call[0] == "create")
         assert created[2]["slug"] != "topory"
@@ -144,9 +142,7 @@ class TestCreate:
     def test_falls_back_to_default_for_an_unsluggable_name(self):
         guilds = FakeGuilds()
 
-        _service(guilds).create(
-            sphere_id=SPHERE_PK, base_slug="", data={"name": "。。。"}
-        )
+        _service(guilds).create(sphere_id=SPHERE_PK, data={"name": "!!!"})
 
         created = next(call for call in guilds.calls if call[0] == "create")
         assert created[2]["slug"] == "guild"
@@ -307,9 +303,7 @@ class TestCrudPassThrough:
     def test_create_uses_the_free_slug(self):
         guilds = FakeGuilds()
 
-        pk = _service(guilds).create(
-            sphere_id=SPHERE_PK, base_slug="topory", data={"name": "Topory"}
-        )
+        pk = _service(guilds).create(sphere_id=SPHERE_PK, data={"name": "Topory"})
 
         assert pk == GUILD_PK
         assert (

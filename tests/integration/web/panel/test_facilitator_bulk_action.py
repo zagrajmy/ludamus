@@ -7,10 +7,10 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views import (
+from ludamus.gates.web.django.event.panel.views import (
     facilitators as facilitators_views,
 )
-from ludamus.gates.web.django.chronology.panel.views.facilitators import (
+from ludamus.gates.web.django.event.panel.views.facilitators import (
     BULK_FACILITATOR_ACTIONS,
 )
 from ludamus.links.db.django.models import Facilitator

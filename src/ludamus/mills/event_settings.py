@@ -3,23 +3,23 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
+from ludamus.mills.event import check_event_dates
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventSlugConflictError
 from ludamus.pacts.event_settings import (
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
-    EventSlugTakenError,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.event_settings import (
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
-    from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -37,12 +37,11 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
         EventDatesInvalidError: the end would not be after the start.
         EventPublicationInvalidError: the event would publish after it starts.
     """
-    start = data.get("start_time", current.start_time)
-    if data.get("end_time", current.end_time) <= start:
-        raise EventDatesInvalidError
-    publication = data.get("publication_time", current.publication_time)
-    if publication is not None and publication > start:
-        raise EventPublicationInvalidError
+    check_event_dates(
+        start_time=data.get("start_time", current.start_time),
+        end_time=data.get("end_time", current.end_time),
+        publication_time=data.get("publication_time", current.publication_time),
+    )
 
 
 class EventSettingsService(EventSettingsServiceProtocol):
@@ -70,7 +69,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
             if self._slug_held_by_other(
                 slug=data.get("slug"), sphere_id=sphere_id, event_pk=current_event.pk
             ):
-                raise EventSlugTakenError from exc
+                raise EventSlugConflictError from exc
             raise
 
     def _slug_held_by_other(

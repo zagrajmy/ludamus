@@ -20,20 +20,20 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
     ReplyOutcome,
 )
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.pacts.calendar import CalendarReply
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.encounter import (
         EncounterDTO,
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
         ReplyAddressProtocol,
     )
-    from ludamus.pacts.multiverse import SitesServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SitesServiceProtocol
+    from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
 
 class EncounterReplyService(EncounterReplyServiceProtocol):
@@ -108,7 +108,7 @@ class EncounterReplyService(EncounterReplyServiceProtocol):
         status = self._guests.invitees.read_status(encounter.pk, email)
         if status not in {InviteeStatus.INVITED, InviteeStatus.DECLINED}:
             return ReplyOutcome.IGNORED
-        if self._guests.admit(encounter, email=email, user=user, ip_address=None):
+        if self._guests.admit(encounter, email=email, user=user):
             return ReplyOutcome.ACCEPTED
         guest = (
             guest_for(user)

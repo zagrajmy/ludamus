@@ -147,7 +147,7 @@ const reveal = (flash: HTMLElement): void => {
   });
 };
 
-export const initFlash = (flash: HTMLElement): void => {
+const initFlash = (flash: HTMLElement): void => {
   if (flash.dataset.flashInitialized === "true") return;
   flash.dataset.flashInitialized = "true";
   reveal(flash);
@@ -185,40 +185,28 @@ const wire = (): void => {
   }
 };
 
-// Programmatically raise a sticky error toast, reusing the same markup/behavior
-// as server-rendered flashes. The `.flash-region` toaster is only server-
-// rendered when there are messages, so create it on <body> (it's position:fixed)
-// when a client-side error needs to surface with no region present.
-export const pushErrorFlash = (message: string): void => {
-  let region = document.querySelector<HTMLElement>(".flash-region");
+const cloneTemplate = (id: string): HTMLElement | undefined => {
+  const node = document
+    .querySelector<HTMLTemplateElement>(`#${id}`)
+    ?.content.firstElementChild?.cloneNode(true);
+  return node instanceof HTMLElement ? node : undefined;
+};
+
+// Raise a toast with the server's own flash markup, cloned from base.html's
+// templates. The `.flash-region` toaster is only server-rendered when there
+// are messages, so an empty one goes on <body> (it's position:fixed) when a
+// client-side flash needs to surface with none present.
+export const pushFlash = (level: "error" | "success", message: string): void => {
+  let region = document.querySelector<HTMLElement>(".flash-region") ?? undefined;
   if (!region) {
-    region = document.createElement("div");
-    region.className = "flash-region";
-    region.setAttribute("role", "region");
-    region.setAttribute("aria-live", "polite");
-    region.setAttribute("aria-label", document.body.dataset.flashRegionLabel ?? "");
+    region = cloneTemplate("flash-region-template");
+    if (!region) return;
     document.body.append(region);
   }
-
-  const alert = document.createElement("div");
-  alert.className = "alert alert-danger backdrop-blur-lg flex items-center";
-  alert.dataset.flash = "sticky";
-  alert.setAttribute("role", "alert");
-  alert.setAttribute("aria-live", "assertive");
-
-  const text = document.createElement("span");
-  text.className = "text-sm";
-  text.textContent = message;
-
-  const dismiss = document.createElement("button");
-  dismiss.type = "button";
-  dismiss.dataset.flashDismiss = "";
-  dismiss.className =
-    "ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer";
-  dismiss.setAttribute("aria-label", document.body.dataset.flashDismissLabel ?? "");
-  dismiss.textContent = "✕";
-
-  alert.append(text, dismiss);
+  const alert = cloneTemplate(`flash-${level}-template`);
+  if (!alert) return;
+  const text = alert.querySelector<HTMLElement>("[data-flash-text]");
+  if (text) text.textContent = message;
   region.append(alert);
   initFlash(alert);
 };
@@ -235,10 +223,10 @@ const serverErrorMessage = (): string =>
 
 document.body.addEventListener("htmx:responseError", (event) => {
   const { xhr } = (event as CustomEvent<{ xhr?: XMLHttpRequest }>).detail;
-  if (xhr && xhr.status >= SERVER_ERROR_STATUS) pushErrorFlash(serverErrorMessage());
+  if (xhr && xhr.status >= SERVER_ERROR_STATUS) pushFlash("error", serverErrorMessage());
 });
 document.body.addEventListener("htmx:sendError", () => {
-  pushErrorFlash(serverErrorMessage());
+  pushFlash("error", serverErrorMessage());
 });
 
 if (document.readyState === "loading") {

@@ -1,7 +1,7 @@
 import pytest
 
 from ludamus.gates.web.django.templatetags.cfp_tags import field_value_list
-from ludamus.pacts import SessionFieldValueDTO
+from ludamus.pacts.fields import SessionFieldValueDTO
 
 
 def _field(value):

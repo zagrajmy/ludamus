@@ -9,7 +9,7 @@ from ludamus.links.db.django.models import (
     Session,
     SessionFieldRequirement,
 )
-from ludamus.pacts import SessionDTO
+from ludamus.pacts.sessions import SessionDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     make_proposal,

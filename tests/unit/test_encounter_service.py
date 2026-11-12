@@ -4,7 +4,6 @@ import pytest
 
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
-from ludamus.pacts import NotFoundError
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterData,
@@ -14,9 +13,11 @@ from ludamus.pacts.encounter import (
     InviteLimitError,
     RSVPOutcome,
 )
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import SphereRole
 from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
+    ENCOUNTER_RSVP_THROTTLE_SECONDS,
     INVITEE_RETENTION_AFTER_END,
 )
 from tests.unit.encounter_fakes import (
@@ -25,6 +26,7 @@ from tests.unit.encounter_fakes import (
     SPHERE_ID,
     START_TIME,
     EncounterWorld,
+    FakeCache,
     FakeEncounters,
     FakeInvitees,
     FakeMailer,
@@ -37,6 +39,8 @@ from tests.unit.encounter_fakes import (
 )
 from tests.unit.factories import FakeTransaction
 
+SHARE_CODE_LENGTH = 6
+
 
 def _service(
     *,
@@ -45,9 +49,10 @@ def _service(
     rsvps=None,
     users=None,
     spheres=None,
+    cache=None,
 ):
     rsvps = rsvps or FakeRSVPs()
-    users = users or FakeUsers([make_user(CREATOR_ID), make_user(OTHER_USER_ID)])
+    users = users or FakeUsers(make_user(CREATOR_ID), make_user(OTHER_USER_ID))
     sites = FakeSites(policy)
     return EncounterService(
         transaction=FakeTransaction(),
@@ -62,6 +67,7 @@ def _service(
             users=users,
             sites=sites,
             mailer=FakeMailer(),
+            cache=cache or FakeCache(),
         ),
     )
 
@@ -108,6 +114,14 @@ class TestEncounterPolicy:
 
         assert not service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
 
+    def test_a_superuser_may_create_under_the_managers_policy(self):
+        service = _service(
+            policy=EncountersPolicy.MANAGERS,
+            users=FakeUsers(make_user(CREATOR_ID, is_superuser=True)),
+        )
+
+        assert service.can_create(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
 
 class TestEncounterFeed:
     def test_a_sphere_with_encounters_off_has_an_empty_feed(self):
@@ -132,11 +146,9 @@ class TestEncounterFeed:
             ),
             rsvps=FakeRSVPs([(1, OTHER_USER_ID), (1, 30), (2, CREATOR_ID)]),
             users=FakeUsers(
-                [
-                    make_user(CREATOR_ID),
-                    make_user(30, name="Ola", full_name="Ola Nowak"),
-                    make_user(40, username="gm40"),
-                ]
+                make_user(CREATOR_ID),
+                make_user(30, name="Ola", full_name="Ola Nowak"),
+                make_user(40, username="gm40"),
             ),
         )
 
@@ -199,7 +211,10 @@ class TestEncounterDetail:
         )
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=OTHER_USER_ID
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=OTHER_USER_ID,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert detail.creator.pk == CREATOR_ID
@@ -212,7 +227,10 @@ class TestEncounterDetail:
         service = _service(encounters=FakeEncounters([make_encounter(1)]))
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=None
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=None,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert not detail.user_has_rsvpd
@@ -222,7 +240,10 @@ class TestEncounterDetail:
         service = _service(encounters=FakeEncounters([make_encounter(1)]))
 
         detail = service.build_detail(
-            share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=CREATOR_ID
+            share_code="CODE1",
+            sphere_id=SPHERE_ID,
+            current_user_id=CREATOR_ID,
+            page_url="https://example.test/e/CODE1",
         )
 
         assert detail.is_creator
@@ -240,7 +261,10 @@ class TestEncounterDetail:
 
         details = [
             world.service().build_detail(
-                share_code="CODE1", sphere_id=SPHERE_ID, current_user_id=user_id
+                share_code="CODE1",
+                sphere_id=SPHERE_ID,
+                current_user_id=user_id,
+                page_url="https://example.test/e/CODE1",
             )
             for user_id in (CREATOR_ID, OTHER_USER_ID)
         ]
@@ -278,6 +302,8 @@ class TestEncounterOwnership:
 
         assert created.title == "New night"
         assert encounters.rows == {created.pk: created}
+        assert len(created.share_code) == SHARE_CODE_LENGTH
+        assert created.share_code.isalnum()
 
     def test_a_manager_creates_under_the_managers_policy(self):
         encounters = FakeEncounters()
@@ -367,12 +393,31 @@ class TestEncounterRSVP:
         assert self._rsvp(service) == RSVPOutcome.FULL
         assert rsvps.signups == [(1, 30)]
 
-    def test_a_recent_signup_from_the_same_address_is_throttled(self):
-        rsvps = FakeRSVPs(recent_ips=["10.0.0.1"])
+    def test_a_second_signup_from_the_same_address_is_throttled(self):
+        rsvps = FakeRSVPs()
         service = _service(encounters=FakeEncounters([make_encounter(1)]), rsvps=rsvps)
 
-        assert self._rsvp(service) == RSVPOutcome.THROTTLED
-        assert not rsvps.signups
+        assert self._rsvp(service, user_id=OTHER_USER_ID) == RSVPOutcome.CREATED
+        assert self._rsvp(service, user_id=CREATOR_ID) == RSVPOutcome.THROTTLED
+        assert rsvps.signups == [(1, OTHER_USER_ID)]
+
+    def test_the_throttle_keeps_a_hashed_address_for_one_window(self):
+        cache = FakeCache()
+        service = _service(encounters=FakeEncounters([make_encounter(1)]), cache=cache)
+
+        self._rsvp(service, ip="10.0.0.1")
+
+        assert not any("10.0.0.1" in key for key in cache.entries)
+        assert list(cache.timeouts.values()) == [ENCOUNTER_RSVP_THROTTLE_SECONDS]
+
+    def test_a_different_address_is_not_throttled(self):
+        service = _service(encounters=FakeEncounters([make_encounter(1)]))
+
+        self._rsvp(service, user_id=OTHER_USER_ID, ip="10.0.0.1")
+
+        assert self._rsvp(service, user_id=CREATOR_ID, ip="10.0.0.2") == (
+            RSVPOutcome.CREATED
+        )
 
     def test_signing_up_twice_is_reported_not_duplicated(self):
         rsvps = FakeRSVPs([(1, OTHER_USER_ID)])
@@ -387,7 +432,6 @@ class TestEncounterRSVP:
 
         assert self._rsvp(service) == RSVPOutcome.CREATED
         assert rsvps.signups == [(1, 30), (1, OTHER_USER_ID)]
-        assert "10.0.0.1" in rsvps.recent_ips
 
     def test_cancel_removes_the_signup_declines_the_invite_and_says_so(self):
         email = make_user(OTHER_USER_ID).email

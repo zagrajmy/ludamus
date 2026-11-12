@@ -1,12 +1,3 @@
-{% load i18n %}
-{% if status == "pending" %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">{% translate "Pending" %}</span>
-{% elif status == "accepted" and is_scheduled %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">{% translate "Scheduled" %}</span>
-{% elif status == "accepted" %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Accepted" %}</span>
-{% elif status == "on_hold" %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">{% translate "On hold" %}</span>
-{% elif status == "rejected" %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">{% translate "Rejected" %}</span>
-{% endif %}
+{% load panel_tags %}
+{% proposal_status status is_scheduled=is_scheduled as look %}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ look.tone }}">{{ look.label }}</span>

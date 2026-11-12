@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 from ludamus.gates.mcp.inputs import EmptyInput
 from ludamus.gates.mcp.organizer_context import token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import KonwencikSettingsContext
 from ludamus.pacts.mcp import ToolScope
 

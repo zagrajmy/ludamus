@@ -11,9 +11,9 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Shadowban,
 )
-from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts import NotFoundError, SessionParticipationStatus
-from ludamus.pacts.crowd import UserDTO
+from ludamus.links.db.django.users import display_avatar_url, user_dto
+from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
 from ludamus.pacts.safety import (
     EventBanDTO,
@@ -195,16 +195,12 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
     def list_session_shadowbanned(
         *, viewer_id: UserId, session_id: SessionId
     ) -> list[SessionShadowbanWarningDTO]:
-        occupying = (
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.WAITING,
-            SessionParticipationStatus.OFFERED,
-        )
+        # Signed up in any form: someone waiting can still be seated beside
+        # the viewer, so the warning names them too.
         rows = (
             Shadowban.objects.filter(
                 owner_id=viewer_id,
                 target__session_participations__session_id=session_id,
-                target__session_participations__status__in=occupying,
             )
             .select_related("target")
             .distinct()
@@ -212,7 +208,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         )
         return [
             SessionShadowbanWarningDTO(
-                user=UserDTO.model_validate(row.target), shadowbanned_at=row.created_at
+                user=user_dto(row.target), shadowbanned_at=row.created_at
             )
             for row in rows
         ]
@@ -241,15 +237,11 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .values_list("pk", "shadowbanned__id")
             .distinct()
         )
-        occupying = (
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.WAITING,
-            SessionParticipationStatus.OFFERED,
-        )
+        # Any participation counts as being in the session, waiting included,
+        # as for list_session_shadowbanned.
         player_rows = (
             User.objects.filter(
                 session_participations__session_id=session_id,
-                session_participations__status__in=occupying,
                 shadowbanned__id__in=signed_up_ids,
             )
             .values_list("pk", "shadowbanned__id")
@@ -310,15 +302,15 @@ class EventBanRepository(EventBanRepositoryProtocol):
         }
 
     @staticmethod
-    def ban(*, event_id: EventId, identifier: str, reason: str) -> bool:
+    def ban(*, event_id: EventId, identifier: str, reason: str) -> UserId | None:
         if (user := _resolve_user(identifier)) is None:
-            return False
+            return None
         EventBan.objects.update_or_create(
             event_id=event_id,
             user=user,
             defaults={"reason": reason[:REASON_MAX_LENGTH]},
         )
-        return True
+        return UserId(user.pk)
 
     @staticmethod
     def unban(*, event_id: EventId, ban_id: EventBanId) -> None:

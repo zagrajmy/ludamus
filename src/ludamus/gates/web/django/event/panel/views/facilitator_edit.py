@@ -8,11 +8,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.event.panel.views.base import (
-    EventContextMixin,
-    EventPanelAccessMixin,
-    EventPanelRequest,
-)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_descriptors,
     personal_entries,
@@ -20,11 +16,13 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     stored_descriptors,
 )
 from ludamus.gates.web.django.forms import FacilitatorEditForm
-from ludamus.pacts import FacilitatorUpdateData, NotFoundError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.facilitators import FacilitatorUpdateData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.panel import PanelRequest
     from ludamus.pacts.guild import GuildMarkDTO, GuildServiceProtocol, GuildSummaryDTO
 
 
@@ -44,19 +42,17 @@ def _guild_attach(
     }
 
 
-class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
-    request: EventPanelRequest
+class FacilitatorEditPageView(EventPanelMixin, View):
+    request: PanelRequest
 
     def get(
-        self, _request: EventPanelRequest, slug: str, facilitator_slug: str
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 facilitator_slug=facilitator_slug,
                 include_deleted=False,
             )
@@ -78,22 +74,20 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
         context.update(
             _guild_attach(
                 guilds=self.request.services.guilds,
-                sphere_id=current_event.sphere_id,
+                sphere_id=self.current_event.sphere_id,
                 facilitator_pk=facilitator.pk,
             )
         )
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
 
     def post(
-        self, _request: EventPanelRequest, slug: str, facilitator_slug: str
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context = self.panel_context()
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk,
+                event_id=self.current_event.pk,
                 facilitator_slug=facilitator_slug,
                 include_deleted=False,
             )
@@ -104,7 +98,7 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
         facilitator = detail.facilitator
         form = FacilitatorEditForm(self.request.POST)
         all_personal_fields = self.request.services.facilitator_panel.list_fields(
-            current_event.pk
+            self.current_event.pk
         )
         fields_form = personal_fields_form(
             fields=all_personal_fields, data=self.request.POST
@@ -119,7 +113,7 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
             context.update(
                 _guild_attach(
                     guilds=self.request.services.guilds,
-                    sphere_id=current_event.sphere_id,
+                    sphere_id=self.current_event.sphere_id,
                     facilitator_pk=facilitator.pk,
                 )
             )
@@ -131,10 +125,10 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
             form=fields_form,
             fields=all_personal_fields,
             facilitator_id=facilitator.pk,
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
         )
         self.request.services.personal_data_field_values.update_facilitator(
-            event_id=current_event.pk,
+            event_id=self.current_event.pk,
             facilitator_id=facilitator.pk,
             data=FacilitatorUpdateData(
                 accreditation_type=form.cleaned_data["accreditation_type"],

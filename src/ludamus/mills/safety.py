@@ -6,6 +6,7 @@ from ludamus.pacts.safety import ShadowbanSignupNotification
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.safety import (
         EventBanDTO,
         EventBanRepositoryProtocol,
@@ -107,10 +108,15 @@ class ShadowbanService:
 
 class EventBanService:
     def __init__(
-        self, transaction: TransactionProtocol, repo: EventBanRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repo: EventBanRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repo = repo
+        self._chat = chat
 
     def list_for_event(self, event_id: EventId) -> list[EventBanDTO]:
         return self._repo.list_by_event(event_id)
@@ -127,9 +133,14 @@ class EventBanService:
         if not (identifier := identifier.strip()):
             return False
         with self._transaction.atomic():
-            return self._repo.ban(
+            user_id = self._repo.ban(
                 event_id=event_id, identifier=identifier, reason=reason.strip()
             )
+            if user_id is None:
+                return False
+            # The banned person's pass still lists the event's sessions.
+            self._chat.revoke_event_user(event_id=event_id, user_id=user_id)
+            return True
 
     def unban(self, *, event_id: EventId, ban_id: EventBanId) -> None:
         with self._transaction.atomic():

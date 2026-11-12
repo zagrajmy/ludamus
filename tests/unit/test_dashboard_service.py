@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
-from ludamus.pacts.crowd import AgeBand
 from ludamus.pacts.dashboard import (
     DASHBOARD_OPEN_ENCOUNTERS,
     DASHBOARD_PAST_EVENTS,
@@ -17,6 +16,7 @@ from ludamus.pacts.dashboard import (
     SubscriptionAgeRestrictedError,
     SubscriptionRecipientDTO,
 )
+from ludamus.pacts.user import AgeBand
 from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.calendar import CalendarReply, InviteMethod, PartStat
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.user import UserDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.images import UploadedFileProtocol
@@ -50,7 +50,6 @@ class EncounterRSVPDTO(BaseModel):
 
     creation_time: datetime
     encounter_id: int
-    ip_address: str | None
     pk: int
     user_id: int
 
@@ -70,12 +69,27 @@ class EncounterData(TypedDict, total=False):
     title: str
 
 
+def spots_remaining(*, limit: int, taken: int) -> int | None:
+    # A limit of 0 means no limit, so there is nothing to count down.
+    return max(0, limit - taken) if limit > 0 else None
+
+
 @dataclass
 class EncounterIndexItem:
     encounter: EncounterDTO
     rsvp_count: int
     is_mine: bool
     organizer_name: str
+    # Invitees without an account who accepted from their calendar: they
+    # hold a spot though they are not among the signups.
+    accepted_guest_count: int = 0
+
+    @property
+    def spots_remaining(self) -> int | None:
+        return spots_remaining(
+            limit=self.encounter.max_participants,
+            taken=self.rsvp_count + self.accepted_guest_count,
+        )
 
 
 @dataclass
@@ -111,17 +125,13 @@ class EncounterRepositoryProtocol(Protocol):
 
 class EncounterRSVPRepositoryProtocol(Protocol):
     @staticmethod
-    def create(
-        encounter_id: int, ip_address: str | None, user_id: int
-    ) -> EncounterRSVPDTO: ...
+    def create(encounter_id: int, user_id: int) -> EncounterRSVPDTO: ...
     @staticmethod
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int: ...
     @staticmethod
     def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
-    @staticmethod
-    def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
     @staticmethod
     def user_has_rsvpd(encounter_id: int, user_id: int) -> bool: ...
     @staticmethod
@@ -154,6 +164,12 @@ class EncounterInviteeDTO(BaseModel):
     user_id: int | None = None
 
 
+@dataclass(frozen=True)
+class EncounterCalendarLinks:
+    google: str
+    outlook: str
+
+
 class EncounterDetailContextDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,14 +185,16 @@ class EncounterDetailContextDTO(BaseModel):
     # Invitees without an account who accepted from their calendar: coming,
     # though not in `attendees`.
     accepted_guest_count: int = 0
+    calendar_links: EncounterCalendarLinks
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.
     @property
     def spots_remaining(self) -> int | None:
-        limit = self.encounter.max_participants
-        taken = self.rsvp_count + self.accepted_guest_count
-        return max(0, limit - taken) if limit > 0 else None
+        return spots_remaining(
+            limit=self.encounter.max_participants,
+            taken=self.rsvp_count + self.accepted_guest_count,
+        )
 
     @property
     def is_full(self) -> bool:
@@ -230,7 +248,12 @@ class EncounterInviteeRepositoryProtocol(Protocol):
     @staticmethod
     def read_status(encounter_id: int, email: str) -> InviteeStatus | None: ...
     @staticmethod
-    def count_accepted_without_signup(encounter_id: int) -> int: ...
+    def count_accepted_without_signup(encounter_ids: list[int]) -> dict[int, int]:
+        """Count, per encounter, the accepted invitees who never signed up.
+
+        Encounters without one are left out.
+        """
+
     @staticmethod
     def emails_invited_by_creator_since(
         creator_id: int, since: datetime
@@ -312,8 +335,14 @@ class EncounterServiceProtocol(Protocol):
     ) -> list[EncounterIndexItem]: ...
     def can_create(self, *, sphere_id: int, user_id: int) -> bool: ...
     def build_detail(
-        self, *, share_code: str, sphere_id: int, current_user_id: int | None
+        self,
+        *,
+        share_code: str,
+        sphere_id: int,
+        current_user_id: int | None,
+        page_url: str,
     ) -> EncounterDetailContextDTO: ...
+    def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str: ...
     def read_by_share_code(
         self, *, share_code: str, sphere_id: int
     ) -> EncounterDTO: ...

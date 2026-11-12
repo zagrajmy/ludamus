@@ -1,0 +1,869 @@
+from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
+
+import pytest
+from django.contrib import messages
+from django.contrib.messages import get_messages
+from django.urls import reverse
+
+from ludamus.inits.services import Services
+from ludamus.links.db.django.models import (
+    Notification,
+    Party,
+    PartyMembership,
+    SessionParticipation,
+    SessionParticipationStatus,
+    UserEnrollmentConfig,
+)
+from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    SessionFactory,
+    SpaceFactory,
+    UserFactory,
+)
+from tests.integration.utils import assert_response, input_tag
+from tests.integration.web.event.helpers import (
+    commit_before_seat_lock,
+    enroll_context,
+    participation_row,
+    party_context,
+    party_member,
+)
+
+
+def _url(agenda_item):
+    return reverse(
+        "web:chronology:session-enrollment",
+        kwargs={
+            "event_slug": agenda_item.session.event.slug,
+            "session_id": agenda_item.session.pk,
+        },
+    )
+
+
+def _led_party_with_member(leader, *, consent):
+    member = UserFactory(
+        username="member", name="Mira Member", email="mira@example.com"
+    )
+    party = Party.objects.create(leader=leader, name="Ekipa")
+    PartyMembership.objects.create(party=party, member=leader)
+    PartyMembership.objects.create(
+        party=party,
+        member=member,
+        consent_mode=consent,
+        status=PartyMembershipStatus.ACTIVE,
+    )
+    return party, member
+
+
+def _party_pills(party, *, leader, member, consent, extra=()):
+    # The two pills the page shows for the party `_led_party_with_member`
+    # makes: the leader first on the membership default, then the member on
+    # the consent mode the scenario is about.
+    return party_context(
+        party,
+        leader_name=leader.name,
+        members=[
+            party_member(
+                leader, is_leader=True, consent_mode=PartyConsentMode.ACCEPT_INVITES
+            ),
+            party_member(member, consent_mode=consent),
+            *extra,
+        ],
+    )
+
+
+def _reassign_presenter(agenda_item):
+    agenda_item.session.presenter = UserFactory(username="host", name="Host")
+    agenda_item.session.save()
+
+
+class TestDirectEnrollmentWithPowerOfAttorney:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offers_full_choices_for_trusting_member(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_BY_DEFAULT,
+                ),
+            ),
+            contains="Mira Member",
+            not_contains="Hold a seat",
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_enrolls_member_directly_and_notifies(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        expected = f"Enrolled: {member.name}"
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, expected)],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+        assert participation.party_id == party.pk
+        notification = Notification.objects.get(recipient=member)
+        assert notification.kind == NotificationKind.PARTY_ENROLLED
+        assert active_user.name in notification.title
+
+
+class TestHeldSeatForConsentingMember:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_get_offers_only_held_seat_choice(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True, needs_accept=True),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            # Ticking the box holds a seat the member must approve; the hint
+            # says so and there is no separate waiting-list control.
+            contains=["Mira Member", "needs their approval"],
+        )
+        content = " ".join(response.content.decode().split())
+        assert f'name="user_{member.pk}" value="include"' in content
+        assert 'value="waitlist"' not in content
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_holds_offered_seat_and_notifies(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                )
+            ],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.OFFERED
+        assert participation.party_id == party.pk
+        assert participation.claim_token
+        assert participation.offer_expires_at is not None
+        notification = Notification.objects.get(recipient=member)
+        assert notification.kind == NotificationKind.PARTY_SEAT_HELD
+        assert participation.claim_token in notification.url
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_member_claims_held_seat(
+        self, authenticated_client, client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+        participation = SessionParticipation.objects.get(user=member)
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+        # The test client is shared with the leader's earlier POST, so its
+        # flash is still queued ahead of the claim confirmation.
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (messages.SUCCESS, "Seat held (awaiting their approval): Mira Member"),
+                (
+                    messages.SUCCESS,
+                    "Spot claimed — you are now confirmed for this session.",
+                ),
+            ],
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_lapsed_held_seat_releases_only_their_seat(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        authenticated_client.post(
+            _url(agenda_item),
+            data={f"user_{active_user.pk}": "enroll", f"user_{member.pk}": "enroll"},
+        )
+        held = SessionParticipation.objects.get(user=member)
+        SessionParticipation.objects.filter(pk=held.pk).update(
+            offer_expires_at=datetime.now(UTC) - timedelta(minutes=1)
+        )
+
+        Services().waitlist_promotion.expire_offer(participation_id=held.pk)
+
+        assert not SessionParticipation.objects.filter(pk=held.pk).exists()
+        mine = SessionParticipation.objects.get(user=active_user)
+        assert mine.status == SessionParticipationStatus.CONFIRMED
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_member_with_own_participation_is_left_alone(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=member,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, user_enrolled=True, is_member=True, needs_accept=True
+                    ),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            contains="They manage their own enrollment",
+        )
+        content = " ".join(response.content.decode().split())
+        # A member who handles their own enrollment renders as a checked but
+        # untoggleable row, with the reason spelled out beside it.
+        tag = input_tag(content, member.pk)
+        assert "checked" in tag
+        assert "disabled" in tag
+
+
+class TestHeldSeatUnavailable:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_member_with_time_conflict_cannot_be_offered_a_seat(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        other = SessionFactory(event=agenda_item.session.event)
+        AgendaItemFactory(
+            session=other,
+            space=SpaceFactory(event=agenda_item.session.event),
+            start_time=agenda_item.start_time,
+            end_time=agenda_item.end_time,
+        )
+        SessionParticipation.objects.create(
+            session=other, user=member, status=SessionParticipationStatus.CONFIRMED
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member,
+                        has_time_conflict=True,
+                        is_member=True,
+                        needs_accept=True,
+                    ),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            contains=["Mira Member", "Time conflict"],
+            not_contains=f'id="user_{member.pk}_enroll"',
+        )
+
+    def test_hold_rejected_when_viewer_lacks_enrollment_access(
+        self, staff_client, staff_user, agenda_item, enrollment_config
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _, member = _led_party_with_member(
+            staff_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+
+        response = staff_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        texts = [str(m) for m in get_messages(response.wsgi_request)]
+        assert (
+            "Mira Member cannot enroll: enrollment access permission required" in texts
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_pending_invitee_is_not_listed(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        invitee = UserFactory(username="invited", name="Iga Invited")
+        PartyMembership.objects.create(
+            party=party,
+            member=invitee,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.INVITED,
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True),
+                ],
+                # The invitee is on the party — the enroll rows are what
+                # leaves them out, not the party pill.
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_BY_DEFAULT,
+                    extra=[
+                        party_member(
+                            invitee,
+                            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+                            status=PartyMembershipStatus.INVITED,
+                        )
+                    ],
+                ),
+            ),
+            contains="Mira Member",
+            not_contains="Iga Invited",
+        )
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_race_on_a_member_who_enrolled_themselves_skips(
+        self, monkeypatch, authenticated_client, active_user, agenda_item
+    ):
+        # The form offers the hold because the member has no seat when it is
+        # built; a competing request seats the member before this one takes
+        # the seat locks.
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        commit_before_seat_lock(
+            monkeypatch,
+            lambda: SessionParticipation.objects.create(
+                session=agenda_item.session,
+                user=member,
+                status=SessionParticipationStatus.CONFIRMED,
+            ),
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.WARNING,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        "Mira Member (manages their own enrollment)"
+                    ),
+                )
+            ],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+        assert Notification.objects.count() == 0
+
+
+class TestMemberSeatIsTheirOwn:
+    # The template dashes out the member's cancel radio; these forged POSTs
+    # prove the form enforces the same invariant server-side.
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_forged_cancel_for_enrolled_member_is_rejected(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=member,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "cancel"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        texts = [str(m) for m in get_messages(response.wsgi_request)]
+        assert f"Invalid choice for {member.name}: cancel" in texts
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_forged_cancel_for_waiting_member_is_rejected(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=member,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "cancel"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.WAITING
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_forged_waitlist_for_enrolled_member_is_rejected(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=member,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "waitlist"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+
+
+class TestMemberAllowanceOnRestrictedEvent:
+    @staticmethod
+    def _restrict_with_leader_access(enrollment_config, leader):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=leader.email,
+            allowed_slots=2,
+        )
+
+    def test_direct_member_without_slots_gets_no_choices(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        self._restrict_with_leader_access(enrollment_config, active_user)
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True, blocked=True),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_BY_DEFAULT,
+                ),
+            ),
+            contains=["Mira Member", "Access required"],
+            not_contains=[
+                f'id="user_{member.pk}_enroll"',
+                f'id="user_{member.pk}_waitlist"',
+            ],
+        )
+
+    def test_consenting_member_without_slots_gets_no_hold_choice(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        self._restrict_with_leader_access(enrollment_config, active_user)
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, is_member=True, needs_accept=True, blocked=True
+                    ),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            contains="Access required",
+            not_contains=f'id="user_{member.pk}_enroll"',
+        )
+
+    def test_post_enroll_for_member_without_slots_is_rejected(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        self._restrict_with_leader_access(enrollment_config, active_user)
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    def test_member_with_own_slots_can_be_enrolled(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        self._restrict_with_leader_access(enrollment_config, active_user)
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=member.email,
+            allowed_slots=1,
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[(messages.SUCCESS, f"Enrolled: {member.name}")],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.CONFIRMED
+
+
+class TestWayOutOfHeldSeat:
+    def _held_seat(self, authenticated_client, active_user, agenda_item):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "enroll"}
+        )
+        return party, member, SessionParticipation.objects.get(user=member)
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_member_declines_held_seat_from_claim_page(
+        self, authenticated_client, client, active_user, agenda_item
+    ):
+        _, member, participation = self._held_seat(
+            authenticated_client, active_user, agenda_item
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-decline",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (messages.SUCCESS, "Seat held (awaiting their approval): Mira Member"),
+                (messages.SUCCESS, "Offer declined — the seat was released."),
+            ],
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_leader_sees_held_seat_with_withdraw_option(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member, _ = self._held_seat(
+            authenticated_client, active_user, agenda_item
+        )
+
+        response = authenticated_client.get(_url(agenda_item))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, seat_held=True, is_member=True, needs_accept=True
+                    ),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            # The hold's own flash from the setup POST is rendered on this GET.
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                )
+            ],
+            contains="Seat held — awaiting their approval",
+        )
+        content = " ".join(response.content.decode().split())
+        # The held seat starts checked and stays toggleable, so unchecking it
+        # withdraws the seat.
+        tag = input_tag(content, member.pk)
+        assert "checked" in tag
+        assert "disabled" not in tag
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_leader_withdraws_held_seat(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member, _ = self._held_seat(authenticated_client, active_user, agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "cancel"}
+        )
+
+        # The client is shared with the setup POST, so its "Seat held"
+        # flash is still queued ahead of the cancellation confirmation.
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                ),
+                (messages.SUCCESS, f"Cancelled: {member.name}"),
+            ],
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_withdrawn_seat_rolls_on_to_the_waitlist(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        _, member, _ = self._held_seat(authenticated_client, active_user, agenda_item)
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save()
+        waiter = UserFactory(username="waiter2", email="waiter2@example.com")
+        waiting = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        authenticated_client.post(
+            _url(agenda_item), data={f"user_{member.pk}": "cancel"}
+        )
+
+        waiting.refresh_from_db()
+        assert waiting.status == SessionParticipationStatus.CONFIRMED
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+
+class TestHeldSeatViaDesiredState:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_desired_include_of_inviting_member_is_skipped_when_full(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        # A held seat must occupy a confirmed spot — there is no waitlisted form
+        # of it — so on a full session the member's include is skipped rather
+        # than turned into an error or a phantom offer.
+        _led_party_with_member(active_user, consent=PartyConsentMode.ACCEPT_INVITES)
+        _reassign_presenter(agenda_item)
+        session = agenda_item.session
+        session.participants_limit = 1
+        session.save(update_fields=["participants_limit"])
+        SessionParticipation.objects.create(
+            user=UserFactory(username="taken", email="taken@example.com"),
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        member = PartyMembership.objects.exclude(member=active_user).get().member
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"enroll_mode": "desired", f"user_{member.pk}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        assert not SessionParticipation.objects.filter(user=member).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_desired_include_holds_a_seat_when_there_is_room(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        # The checkbox flow reaches the same held-seat outcome as the explicit
+        # legacy post: an included ACCEPT_INVITES member gets an OFFERED spot.
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"enroll_mode": "desired", f"user_{member.pk}": "include"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.SUCCESS,
+                    f"Seat held (awaiting their approval): {member.name}",
+                )
+            ],
+        )
+        participation = SessionParticipation.objects.get(user=member)
+        assert participation.status == SessionParticipationStatus.OFFERED
+        assert participation.party_id == party.pk

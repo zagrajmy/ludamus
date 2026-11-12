@@ -14,7 +14,8 @@ export default async function globalTeardown() {
     throw new Error(
       `Client coverage did not reach the TypeScript sources (${files.length} files,` +
         ` ${unmapped.length} unmapped). The server was likely reused from a build without` +
-        " inline sourcemaps — stop it and let the e2e run start its own.",
+        " inline sourcemaps — stop it and let the e2e run start its own. Unmapped: " +
+        unmapped.map((file) => file.sourcePath).join(", "),
     );
   }
   // V8 coverage comes from chromium only, so a run that draws no chromium test

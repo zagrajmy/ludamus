@@ -7,7 +7,7 @@ import pytest
 from django.template import Context, Template, TemplateSyntaxError
 from heroicons import IconDoesNotExist
 
-from ludamus.adapters.web.django.templatetags.tessera.button import (
+from ludamus.gates.web.django.templatetags.tessera.button import (
     SIZE_CLASSES,
     VARIANT_CLASSES,
 )
@@ -47,14 +47,14 @@ class TestIcon:
         assert 'onload="alert(1)"' not in html
         assert "&quot;" in html or "&amp;quot;" in html
 
-    @patch("ludamus.adapters.web.django.templatetags.tessera.icon.settings")
+    @patch("ludamus.gates.web.django.templatetags.tessera.icon.settings")
     def test_missing_icon_raises_in_debug(self, mock_settings: object) -> None:
         mock_settings.DEBUG = True  # type: ignore[attr-defined]
         tpl = Template('{% load tessera %}{% icon "nonexistent-icon-xyz" %}')
         with pytest.raises(IconDoesNotExist):
             tpl.render(Context())
 
-    @patch("ludamus.adapters.web.django.templatetags.tessera.icon.settings")
+    @patch("ludamus.gates.web.django.templatetags.tessera.icon.settings")
     def test_missing_icon_returns_empty_in_prod(self, mock_settings: object) -> None:
         mock_settings.DEBUG = False  # type: ignore[attr-defined]
         tpl = Template('{% load tessera %}{% icon "nonexistent-icon-xyz" %}')

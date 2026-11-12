@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import logo_field
 from ludamus.gates.web.django.sphere.roles import ROLE_COPY
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.team import INVITATION_NOTE_MAX_LENGTH
 
 

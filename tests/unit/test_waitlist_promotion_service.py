@@ -11,13 +11,14 @@ from ludamus.pacts.enrollment import (
     ClaimResult,
     HeldSeatData,
     OfferDTO,
+    PromotionMode,
     PromotionNotification,
     PromotionResult,
     PromotionStateDTO,
     SeatHoldRequest,
+    SessionSeatsDTO,
     WaitingParticipantDTO,
 )
-from ludamus.pacts.legacy import PromotionMode
 from tests.unit.factories import FakeTransaction
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
@@ -34,7 +35,7 @@ pytestmark = pytest.mark.usefixtures("_frozen")
 @pytest.fixture
 def _frozen(monkeypatch):
     monkeypatch.setattr("ludamus.mills.enrollment._now", lambda: _NOW)
-    monkeypatch.setattr("ludamus.mills.enrollment._token", lambda: "tok-xyz")
+    monkeypatch.setattr("ludamus.mills.enrollment.mint_claim_token", lambda: "tok-xyz")
 
 
 class FakeRepo:
@@ -175,7 +176,9 @@ def _state(
         promotion_mode=mode,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
-        available_seats=seats,
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
         waiting=waiting,
     )
 
