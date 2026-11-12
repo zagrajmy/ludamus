@@ -383,7 +383,9 @@ class TestConnectionEditPageView:
         connection.refresh_from_db()
         stored = bytes(connection.secret)
         assert stored
-        assert b"abc" not in stored
+        # A Fernet token is base64, which never holds a quote; "abc" alone
+        # turns up in one by chance now and then.
+        assert b'"client"' not in stored
 
     def test_post_replace_secret_on_requires_secret(
         self, authenticated_client, active_user, sphere

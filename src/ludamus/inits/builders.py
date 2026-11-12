@@ -16,6 +16,7 @@ from django.conf import settings
 
 from ludamus.inits.config import credentials_key
 from ludamus.inits.repositories import Repositories
+from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.encounter_invites import DjangoEncounterInviteMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -32,6 +33,7 @@ from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.listing import ListingService
 from ludamus.mills.notifications import AnnouncementFanoutService
+from ludamus.mills.parley import ParleyReportRetentionService
 from ludamus.mills.printing import PrintablesReminderService
 from ludamus.mills.sphere import SitesService
 from ludamus.mills.user import EmailVerificationService
@@ -129,7 +131,12 @@ def build_encounter_guests(sites: SitesServiceProtocol) -> EncounterGuests:
         users=repos.active_users,
         sites=sites,
         mailer=DjangoEncounterInviteMailer(),
+        cache=DjangoCache(),
     )
+
+
+def build_parley_report_retention() -> ParleyReportRetentionService:
+    return ParleyReportRetentionService(repository=Repositories().parley)
 
 
 def build_listings() -> ListingService:

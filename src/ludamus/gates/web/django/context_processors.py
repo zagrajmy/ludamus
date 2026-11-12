@@ -63,6 +63,14 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
+def parley(_request: HttpRequest) -> dict[str, bool]:
+    # The sphere toggle only counts where the chat can sign passes and reach
+    # a Worker; elsewhere its button could never connect.
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    return {"PARLEY_AVAILABLE": bool(agent_host and private_key)}
+
+
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,

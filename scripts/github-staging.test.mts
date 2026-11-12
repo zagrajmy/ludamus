@@ -17,6 +17,7 @@ type MockOptions = {
   inputs?: {
     pr_number?: string;
     sha?: string;
+    skip_if_stale?: string;
   };
   labelName?: string;
   pr?: PullRequestLike;
@@ -46,9 +47,27 @@ const makeArgs = ({
   stagingPrs = [],
 }: MockOptions = {}): MockActionArgs => {
   const calls: Call[] = [];
+  let summaryLines: string[] = [];
+  const summary: ActionArgs["core"]["summary"] = {
+    addHeading: (text: string) => {
+      summaryLines.push(text);
+      return summary;
+    },
+    addRaw: (text: string) => {
+      summaryLines.push(text);
+      return summary;
+    },
+    write: async () => {
+      calls.push(["summary", ...summaryLines]);
+      summaryLines = [];
+      return summary;
+    },
+  };
   const core = {
     info: (message: string) => calls.push(["info", message]),
+    setFailed: (message: string) => calls.push(["failed", message]),
     setOutput: (name: string, value: string) => calls.push(["output", name, value]),
+    summary,
   };
   const github: ActionArgs["github"] = {
     paginate: async (
@@ -127,6 +146,7 @@ test("dispatches the labeled PR without mutating other labels", async () => {
         inputs: {
           pr_number: "2",
           sha: "head-sha",
+          skip_if_stale: "true",
         },
       },
     ],
@@ -154,6 +174,7 @@ test("redeploys a labeled PR on synchronize", async () => {
         inputs: {
           pr_number: "2",
           sha: "head-sha",
+          skip_if_stale: "true",
         },
       },
     ],
@@ -193,24 +214,81 @@ test("does not redeploy a fork PR on synchronize", async () => {
   assert.deepEqual(args.calls, [["info", "Skipping staging deploy for fork PR #3"]]);
 });
 
-test("stale explicit dispatch does not remove another PR staging label", async () => {
+const movedPr = {
+  head: { repo: { full_name: "owner/repo" }, sha: "new-head-sha" },
+  labels: [{ name: "staging" }],
+  number: 1,
+  state: "open",
+};
+
+test("dispatch with only a PR number deploys the PR head", async () => {
   const args = makeArgs({
-    currentPr: {
-      head: { repo: { full_name: "owner/repo" }, sha: "new-head-sha" },
-      labels: [{ name: "staging" }],
-      number: 1,
-      state: "open",
-    },
-    inputs: { pr_number: "1", sha: "old-head-sha" },
+    currentPr: movedPr,
+    inputs: { pr_number: "1" },
+    sha: "main-sha",
     stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
   });
 
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "old-head-sha"],
+    ["remove", 2],
+    ["info", "Removed staging from PR #2"],
+    ["output", "sha", "new-head-sha"],
+    ["output", "should_deploy", "true"],
+    ["info", "Deploying PR #1 at new-head-sha"],
+  ]);
+});
+
+test("explicit dispatch of a sha other than the PR head fails without touching labels", async () => {
+  const args = makeArgs({
+    currentPr: movedPr,
+    inputs: { pr_number: "1", sha: "old-head-sha" },
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  const message =
+    "PR #1 head new-head-sha does not match requested old-head-sha; leave sha empty to deploy the current head";
+  assert.deepEqual(args.calls, [
+    ["failed", message],
     ["output", "should_deploy", "false"],
-    ["info", "PR #1 head new-head-sha no longer matches requested old-head-sha"],
+    ["summary", "Staging deploy refused", message],
+  ]);
+});
+
+test("superseded label dispatch skips visibly without touching labels", async () => {
+  const args = makeArgs({
+    currentPr: movedPr,
+    inputs: { pr_number: "1", sha: "old-head-sha", skip_if_stale: "true" },
+    stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  const message = "PR #1 moved on to new-head-sha; old-head-sha is superseded";
+  assert.deepEqual(args.calls, [
+    ["info", message],
+    ["output", "should_deploy", "false"],
+    ["summary", "Staging deploy skipped", message],
+  ]);
+});
+
+test("label dispatch for a PR merged since skips visibly", async () => {
+  const args = makeArgs({
+    currentPr: { ...basePr, state: "closed" },
+    inputs: { pr_number: "2", sha: "head-sha", skip_if_stale: "true" },
+    stagingPrs: [{ number: 1, pull_request: {}, state: "open" }],
+  });
+
+  await staging.resolveDeploy(args);
+
+  const message = "PR #2 is not an open, non-draft pull request";
+  assert.deepEqual(args.calls, [
+    ["info", message],
+    ["output", "should_deploy", "false"],
+    ["summary", "Staging deploy skipped", message],
   ]);
 });
 
@@ -227,9 +305,9 @@ test("current explicit dispatch deploys and clears other staging labels", async 
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
     ["remove", 1],
     ["info", "Removed staging from PR #1"],
+    ["output", "sha", "head-sha"],
     ["output", "should_deploy", "true"],
     ["info", "Deploying PR #2 at head-sha"],
   ]);
@@ -245,9 +323,9 @@ test("explicit dispatch deploys an unlabeled PR and rips staging from others", a
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
     ["remove", 1],
     ["info", "Removed staging from PR #1"],
+    ["output", "sha", "head-sha"],
     ["output", "should_deploy", "true"],
     ["info", "Deploying PR #2 at head-sha"],
   ]);
@@ -268,9 +346,9 @@ test("explicit dispatch does not deploy fork pull requests", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
+    ["failed", "Refusing staging deploy for fork PR #2"],
     ["output", "should_deploy", "false"],
-    ["info", "Skipping staging deploy for fork PR #2"],
+    ["summary", "Staging deploy refused", "Refusing staging deploy for fork PR #2"],
   ]);
 });
 
@@ -289,9 +367,9 @@ test("explicit dispatch does not deploy an unlabeled fork PR", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
+    ["failed", "Refusing staging deploy for fork PR #2"],
     ["output", "should_deploy", "false"],
-    ["info", "Skipping staging deploy for fork PR #2"],
+    ["summary", "Staging deploy refused", "Refusing staging deploy for fork PR #2"],
   ]);
 });
 
@@ -305,9 +383,9 @@ test("explicit dispatch does not deploy draft pull requests", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
+    ["failed", "PR #2 is not an open, non-draft pull request"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is not an open, non-draft pull request"],
+    ["summary", "Staging deploy refused", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -321,9 +399,9 @@ test("explicit dispatch on closed pull request does not deploy or mutate labels"
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "head-sha"],
+    ["failed", "PR #2 is not an open, non-draft pull request"],
     ["output", "should_deploy", "false"],
-    ["info", "PR #2 is not an open, non-draft pull request"],
+    ["summary", "Staging deploy refused", "PR #2 is not an open, non-draft pull request"],
   ]);
 });
 
@@ -346,9 +424,9 @@ test("manual dispatch deploys the associated PR and clears other staging labels"
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
     ["remove", 1],
     ["info", "Removed staging from PR #1"],
+    ["output", "sha", "manual-sha"],
     ["output", "should_deploy", "true"],
     ["info", "Deploying PR #2 at manual-sha"],
   ]);
@@ -372,9 +450,9 @@ test("manual dispatch deploys an unlabeled PR and rips staging from the labeled 
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
     ["remove", 1],
     ["info", "Removed staging from PR #1"],
+    ["output", "sha", "manual-sha"],
     ["output", "should_deploy", "true"],
     ["info", "Deploying PR #2 at manual-sha"],
   ]);
@@ -393,11 +471,11 @@ test("manual dispatch of a commit without a PR clears every staging label", asyn
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
     ["remove", 1],
     ["remove", 2],
     ["info", "Removed staging from PR #1"],
     ["info", "Removed staging from PR #2"],
+    ["output", "sha", "manual-sha"],
     ["output", "should_deploy", "true"],
     ["info", "Deploying manual-sha"],
   ]);
@@ -423,10 +501,11 @@ test("manual dispatch with several associated PRs refuses without mutating label
 
   await staging.resolveDeploy(args);
 
+  const message = "Multiple open PRs for manual-sha; pass pr_number to disambiguate";
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
+    ["failed", message],
     ["output", "should_deploy", "false"],
-    ["info", "Multiple open PRs for manual-sha; pass pr_number to disambiguate"],
+    ["summary", "Staging deploy refused", message],
   ]);
 });
 
@@ -446,9 +525,9 @@ test("manual dispatch ignores fork pull requests", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
+    ["failed", "Refusing staging deploy for fork PR #1"],
     ["output", "should_deploy", "false"],
-    ["info", "Skipping staging deploy for fork PR #1"],
+    ["summary", "Staging deploy refused", "Refusing staging deploy for fork PR #1"],
   ]);
 });
 
@@ -476,7 +555,7 @@ test("manual dispatch deploys a draft PR", async () => {
   ]);
 });
 
-test("manual dispatch with invalid PR number is non-mutating", async () => {
+test("dispatch with invalid PR number fails without mutating labels", async () => {
   const args = makeArgs({
     inputs: { pr_number: "abc", sha: "manual-sha" },
     stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
@@ -485,13 +564,13 @@ test("manual dispatch with invalid PR number is non-mutating", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
+    ["failed", "Invalid pull request number: abc"],
     ["output", "should_deploy", "false"],
-    ["info", "Invalid pull request number: abc"],
+    ["summary", "Staging deploy refused", "Invalid pull request number: abc"],
   ]);
 });
 
-test("dispatch with non-positive PR number is non-mutating", async () => {
+test("dispatch with non-positive PR number fails without mutating labels", async () => {
   const args = makeArgs({
     inputs: { pr_number: "-1", sha: "manual-sha" },
     stagingPrs: [{ number: 2, pull_request: {}, state: "open" }],
@@ -500,9 +579,9 @@ test("dispatch with non-positive PR number is non-mutating", async () => {
   await staging.resolveDeploy(args);
 
   assert.deepEqual(args.calls, [
-    ["output", "sha", "manual-sha"],
+    ["failed", "Invalid pull request number: -1"],
     ["output", "should_deploy", "false"],
-    ["info", "Invalid pull request number: -1"],
+    ["summary", "Staging deploy refused", "Invalid pull request number: -1"],
   ]);
 });
 

@@ -1,0 +1,81 @@
+name: Deploy Parley
+
+# Parley's Worker, deployed with Alchemy from workers/parley/alchemy.run.ts.
+# Called by deploy-production.yml and deploy-staging.yml ahead of the app,
+# which calls endpoints only the new Worker may have. Alchemy diffs the
+# bundled source and settings against its state, so a deploy with nothing
+# changed in the Worker plans as a noop and uploads nothing.
+#
+# `vars` and `secrets` resolve against the GitHub Environment named by
+# `inputs.environment`, the same one the app's deploy reads.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment supplying the vars and secrets.
+        required: true
+        type: string
+      stage:
+        description: Alchemy stage, one of alchemy.run.ts's hosted ones.
+        required: true
+        type: string
+      sha:
+        description: Commit to deploy.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy the Worker with Alchemy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ inputs.environment }}
+      deployment: false
+    defaults:
+      run:
+        working-directory: workers/parley
+    env:
+      PARLEY_PUBLIC_KEY: ${{ vars.PARLEY_PUBLIC_KEY }}
+    steps:
+      # An Environment without Parley's key has no Worker to deploy yet; the
+      # app's deploy still goes ahead.
+      - name: Parley is set up for this environment
+        id: configured
+        working-directory: .
+        run: |
+          if [ -z "$PARLEY_PUBLIC_KEY" ]; then
+            echo "::notice::PARLEY_PUBLIC_KEY is not set for ${{ inputs.environment }}; skipping the Worker deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - uses: jdx/mise-action@v2
+        if: steps.configured.outputs.ready == 'true'
+
+      - if: steps.configured.outputs.ready == 'true'
+        run: aube install
+
+      - name: Deploy
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          PARLEY_ENV: production
+          STAGE: ${{ inputs.stage }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          # NOTE: Alchemy reads these instead of a login profile when CI is
+          # set. The token also reads the state store's credentials from the
+          # account's Secrets Store.
+          CLOUDFLARE_ACCOUNT_ID: add2b427b034a6073f63a849af7de160
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: aube exec -- varlock run -- alchemy deploy --stage "$STAGE" --yes
