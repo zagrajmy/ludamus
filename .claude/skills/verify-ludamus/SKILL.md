@@ -176,7 +176,7 @@ here. Those kill by port or process name and take down the user's servers.
 | `snapshot <path>` | ARIA snapshot into the evidence dir. |
 | `screenshot <path>` | Full-page PNG into the evidence dir. |
 | `browser <args>` | Pass through to agent-browser. |
-| `mcp [--scope maintainer] [--event <slug>] <tool> [json]` | Read-only MCP call. |
+| `mcp [--scope maintainer] [--event <slug>] <tool> [json]` | Call any MCP tool with the run's tokens; use only `list_*` / `get_*` for proof. |
 | `cleanup` | Stop the instance. Evidence stays. |
 
 When the app changes, refresh the feature map with

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -15,12 +16,16 @@ import sqlite3
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import urljoin, urlparse
 
 import requests
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from scripts.mcp_token_file import (
     MaintainerToken,
@@ -34,6 +39,7 @@ VERIFY_DIR = REPO_ROOT / ".local" / "verify-ludamus"
 RUNS_DIR = VERIFY_DIR / "runs"
 EVIDENCE_ROOT = VERIFY_DIR / "evidence"
 CURRENT_PATH = VERIFY_DIR / "current.json"
+LIFECYCLE_LOCK_PATH = VERIFY_DIR / "lifecycle.lock"
 MANIFEST_PATH = REPO_ROOT / "src" / "ludamus" / "static" / "vite" / "manifest.json"
 SEED_PORT_SUFFIX = ":8000"
 SEED_SCRIPTS = (
@@ -303,10 +309,26 @@ def _teardown(run: Run) -> None:
     _browser(run, "close", required=False)
     _keep_logs(run)
     shutil.rmtree(run["run_dir"], ignore_errors=True)
-    CURRENT_PATH.unlink()
+    CURRENT_PATH.unlink(missing_ok=True)
+
+
+@contextmanager
+def _lifecycle_lock() -> Iterator[None]:
+    VERIFY_DIR.mkdir(parents=True, exist_ok=True)
+    with LIFECYCLE_LOCK_PATH.open("w", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def cmd_launch() -> int:
+    with _lifecycle_lock():
+        return _launch()
+
+
+def _launch() -> int:
     if (existing := _load_run()) is not None:
         if existing["pid"] > 0 and _alive(existing["pid"]):
             print(json.dumps({"mode": "already-running", **existing}, indent=2))
@@ -335,6 +357,8 @@ def cmd_launch() -> int:
         _save_run(run)
         _wait_ready(pid=run["pid"], base_url=run["base_url"])
     except LaunchError as error:
+        if run["pid"] > 0:
+            _stop(run["pid"])
         print(f"Launch failed: {error}", file=sys.stderr)
         print("Logs are kept; run `control-ludamus cleanup`.", file=sys.stderr)
         return 1
@@ -372,13 +396,20 @@ def _personas(run: Run) -> list[str]:
     return [ANONYMOUS, *names]
 
 
+def _in_group(*, pid: int, pgid: int) -> bool:
+    try:
+        return os.getpgid(pid) == pgid
+    except ProcessLookupError:
+        return False
+
+
 def doctor() -> dict[str, object]:
     if (run := _load_run()) is None:
         return {"ok": False, "advice": ["No instance. Run `control-ludamus launch`."]}
     alive = run["pid"] > 0 and _alive(run["pid"])
     listeners = _listener_pids(run["port"])
     owns_port = listeners is None or any(
-        _alive(pid) and os.getpgid(pid) == run["pid"] for pid in listeners
+        _in_group(pid=pid, pgid=run["pid"]) for pid in listeners
     )
     problems = _usable(run["base_url"]) if alive else ["runserver is not running"]
     fresh = _source_fingerprint() == run["fingerprint"]
@@ -593,6 +624,11 @@ def cmd_mcp(*, scope: str, event: str | None, tool: str, arguments: str) -> int:
 
 
 def cmd_cleanup() -> int:
+    with _lifecycle_lock():
+        return _cleanup()
+
+
+def _cleanup() -> int:
     if (run := _load_run()) is None:
         print(json.dumps({"cleaned": False, "note": "no instance to clean up"}))
         return 0
