@@ -88,11 +88,18 @@ first version adds no custom shapes.
 
 ### Phone first
 
-The phone view is a player's seat: the canvas fills the screen, and one
-bottom bar holds dice, roll log and people. Each opens as a sheet that
-slides up over the canvas. The desktop view puts the same controls in a
-side rail. Building a table (arranging many images) is designed for a
-desktop and only has to work on a phone.
+The phone is the primary design target. Every screen is designed at phone
+width first and tested there first, and the desktop view is the adaptation.
+
+- The canvas fills the screen. One bottom bar holds dice, roll log and
+  people. Each opens as a sheet that slides up over the canvas.
+- Every control is reachable with one thumb and is at least 44 px.
+- A whole game is playable from a phone: create a table, share the link
+  through the phone's share menu, add a sheet from the camera or the photo
+  library, draw on it, and roll.
+- The page is fast on a mobile connection. The table page loads tldraw and
+  the dice code only, and the dice code loads after the canvas is usable.
+- The desktop view puts the same controls in a side rail.
 
 ## Architecture
 
