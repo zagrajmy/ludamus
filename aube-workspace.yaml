@@ -7,4 +7,5 @@ allowBuilds:
 packages:
   - "./src/ludamus/client"
   - "./tests/e2e"
+  - "./workers/board"
   - "./workers/parley"

@@ -252,14 +252,18 @@ jobs:
           path: ./tests/e2e/playwright-report/
           retention-days: 30
 
-  # Parley's Worker: the e2e run fakes it, so only these exercise the real
+  # The Workers: the e2e run fakes Parley's, so only these exercise the real
   # runtime (workerd, through the Workers Vitest pool).
   test-worker:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [board, parley]
     defaults:
       run:
-        working-directory: workers/parley
+        working-directory: workers/${{ matrix.worker }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/cache@v6

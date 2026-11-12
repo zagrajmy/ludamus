@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ludamus-board",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BoardRoom",
+        "class_name": "BoardRoom"
+      }
+    ]
+  },
+  "exports": {
+    "BoardRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "JWT_ISSUER": "ludamus",
+    "JWT_AUDIENCE": "board"
+  },
+  "secrets": {
+    "required": ["BOARD_PUBLIC_KEY"]
+  }
+}
