@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Message, ReactionChange } from "../src/protocol";
 
 import { MEMBERSHIP_AUDIENCE } from "../src/auth";
-import { manager, now, open, pass, post, settle, type Socket } from "./support";
+import { eventGrant, manager, now, open, pass, post, settle, type Socket } from "./support";
 
 type Result<T = unknown> = { code?: string; ok: boolean; value?: T };
 
@@ -146,14 +146,16 @@ describe("who may react", () => {
     const reader = await open(
       `parley-session-agent/${sphere}:101`,
       await pass("8", sphere, now(), {
-        sessions: { [`${sphere}:101`]: { endsAt: now() + 3_600, writable: false } },
+        events: { [`${sphere}:1`]: eventGrant({ "101": false }) },
       }),
     );
     expect(await react(reader, 1, "👍")).toEqual({ code: "forbidden", ok: false });
     const late = await open(
       `parley-session-agent/${sphere}:102`,
       await pass("9", sphere, now(), {
-        sessions: { [`${sphere}:102`]: { endsAt: now() - 3 * 86_400, writable: true } },
+        events: {
+          [`${sphere}:2`]: eventGrant({ "102": true }, { endsAt: now() - 3 * 86_400 }),
+        },
       }),
     );
     expect(await react(late, 1, "👍")).toEqual({ code: "archived", ok: false });

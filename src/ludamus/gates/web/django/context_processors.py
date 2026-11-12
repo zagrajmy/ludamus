@@ -65,24 +65,26 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
-def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
+def _parley_open(request: RootRequest) -> bool:
     # Only where the chat can sign passes and reach a Worker; elsewhere its
-    # button could never connect. Asked only of a page that shows it.
+    # button could never connect.
     agent_host: str = settings.PARLEY_AGENT_HOST
     private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-    user_id = getattr(getattr(request, "context", None), "current_user_id", None)
-    configured = bool(agent_host and private_key)
-    return {
-        "PARLEY_OPEN": SimpleLazyObject(
-            lambda: (
-                configured
-                and user_id is not None
-                and request.services.parley.is_open_to(
-                    user_id=user_id, now=datetime.now(tz=UTC)
-                )
-            )
+    user_id = request.context.current_user_id
+    return bool(
+        agent_host
+        and private_key
+        and user_id is not None
+        and request.services.parley.is_open_to(
+            user_id=user_id, now=datetime.now(tz=UTC)
         )
-    }
+    )
+
+
+def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
+    # NOTE: asked only when a page shows the chat, for a signed-in person,
+    # by which time the middleware has set up the request.
+    return {"PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request))}
 
 
 def static_version(_request: HttpRequest) -> dict[str, str]:

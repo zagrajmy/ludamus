@@ -3,7 +3,7 @@ import type { ReactNode, Ref } from "react";
 import { Icon, type IconName } from "./icons";
 
 export const ICON_BUTTON =
-  "grid size-10 shrink-0 place-items-center rounded-xl text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus";
+  "grid size-10 shrink-0 place-items-center rounded-xl text-foreground-muted float:size-8 float:rounded-[10px] hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus";
 
 export function IconButton({
   buttonRef,

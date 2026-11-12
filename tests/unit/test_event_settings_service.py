@@ -192,21 +192,21 @@ def _proposal_data(*, apply_to_categories: bool) -> ProposalSettingsUpdateData:
 
 
 class TestUpdateGeneral:
-    def test_turning_the_event_chat_off_takes_back_passes_that_name_it(self):
+    def test_any_change_to_the_event_chat_takes_back_passes_that_name_it(self):
+        # Following the sphere, the chat may have been on or off before; each
+        # change is a reason for passes to be fetched again, a repeat is not.
         fakes = _Fakes()
 
+        for choice in (True, True, False, None, None):
+            fakes.service.update_general(
+                sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": choice}
+            )
         fakes.service.update_general(
-            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": True}
-        )
-        fakes.service.update_general(
-            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": False}
-        )
-        fakes.service.update_general(
-            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": False}
+            sphere_id=SPHERE_ID, slug="conf", data={"name": "Renamed"}
         )
 
-        assert fakes.events.rows[_EVENT_PK].parley_enabled is False
-        assert fakes.chat.revoked_events == [_EVENT_PK]
+        assert fakes.events.rows[_EVENT_PK].parley_enabled is None
+        assert fakes.chat.revoked_events == [_EVENT_PK] * 3
 
     def test_writes_the_patch_onto_the_event(self):
         fakes = _Fakes()

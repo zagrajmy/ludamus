@@ -10,6 +10,7 @@ import {
   exchangeCapability,
   lookupFromRequest,
   membershipFromRequest,
+  MODERATION_AUDIENCE,
   originIsAllowed,
   revocationFromRequest,
   threadPostFromRequest,
@@ -79,6 +80,14 @@ export default {
       return message === null
         ? new Response("Not found", { status: 404 })
         : Response.json(message, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/moderation" && request.method === "POST") {
+      const order = await lookupFromRequest(request, env, MODERATION_AUDIENCE);
+      if (order instanceof Response) return order;
+      const room = roomFromId(order.room);
+      if (room === null) return new Response("Not found", { status: 404 });
+      const deleted = await (await roomAgent(env, room)).deleteAsStaff(order.messageId);
+      return new Response(null, { status: deleted ? 204 : 404 });
     }
     if (!originIsAllowed(request, env)) return new Response("Forbidden", { status: 403 });
     return (await routeAgentRequest(request, env)) ?? new Response("Not found", { status: 404 });

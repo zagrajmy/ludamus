@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.parley import (
         ParleyConversationServiceProtocol,
+        ParleyPartyChatProtocol,
         ParleyServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
@@ -137,6 +138,8 @@ class ServicesProtocol(Protocol):
     def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
     @property
     def staff_cases(self) -> StaffCaseServiceProtocol: ...
+    @property
+    def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property

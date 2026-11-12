@@ -77,8 +77,17 @@ class EventSettingsService(EventSettingsServiceProtocol):
             ):
                 raise EventSlugConflictError from exc
             raise
-        if current_event.parley_enabled and data.get("parley_enabled") is False:
-            logger.info("parley event chat turned off: event=%s", current_event.pk)
+        # NOTE: whether the chat was on can hang on the sphere's own setting,
+        # so any change to the event's takes back the passes that named it.
+        if (
+            "parley_enabled" in data
+            and data["parley_enabled"] != current_event.parley_enabled
+        ):
+            logger.info(
+                "parley event chat changed: event=%s to=%s",
+                current_event.pk,
+                data["parley_enabled"],
+            )
             self._chat.revoke_event(event_id=current_event.pk)
 
     def _slug_held_by_other(

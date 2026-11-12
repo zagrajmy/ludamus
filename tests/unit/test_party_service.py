@@ -179,13 +179,16 @@ class FakeChat:
     def sync_party(self, party_id):
         self.parties.append(party_id)
 
-    def sync_member(self, user_id):
+    def sync_parties_of(self, user_id):
         self.members.append(user_id)
 
 
 def _service(parties, notifier=None, chat=None):
     return PartyService(
-        FakeTransaction(), parties, notifier or FakeNotifier(), chat=chat or FakeChat()
+        transaction=FakeTransaction(),
+        parties=parties,
+        notifier=notifier or FakeNotifier(),
+        chat=chat or FakeChat(),
     )
 
 
@@ -239,7 +242,7 @@ class TestCrud:
 class TestChat:
     """A party's chat follows every change to who is in the party."""
 
-    def test_follows_a_rename_or_deletion_of_ones_own_party_only(self):
+    def test_follows_the_deletion_of_ones_own_party_only(self):
         chat = FakeChat()
         service = _service(FakeParties(), chat=chat)
 
@@ -248,7 +251,7 @@ class TestChat:
         service.rename(leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, name="X")
         service.delete(leader_pk=VIEWER_PK, party_pk=OWN_PARTY_PK)
 
-        assert chat.parties == [OWN_PARTY_PK, OWN_PARTY_PK]
+        assert chat.parties == [OWN_PARTY_PK]
 
     def test_takes_in_whoever_joins_and_lets_go_of_whoever_leaves(self):
         parties = FakeParties()

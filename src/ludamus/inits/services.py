@@ -169,7 +169,6 @@ class Services:
         return ParleyService(
             repository=self._repos.parley,
             conversations=self._repos.parley_conversations,
-            party_chats=self.parley_party_chats,
             signer=JwtSigner(signing_private_key),
             messages=parley_message_reader(),
             agent_host=agent_host,
@@ -198,6 +197,7 @@ class Services:
             outbox=parley_revocation_outbox(),
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
+            party_chats=self.parley_party_chats,
         )
 
     @cached_property
@@ -301,9 +301,9 @@ class Services:
     @cached_property
     def parties(self) -> PartyService:
         return PartyService(
-            self._transaction,
-            self._repos.parties,
-            DjangoUserNotifier(),
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            notifier=DjangoUserNotifier(),
             chat=self.parley_party_chats,
         )
 

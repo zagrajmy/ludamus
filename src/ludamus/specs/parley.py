@@ -17,8 +17,20 @@ PARLEY_PEOPLE_SEARCH_MIN_LENGTH = 2
 PARLEY_PEOPLE_SEARCH_LIMIT = 10
 # Who may message one to one, by the age they confirmed.
 PARLEY_DIRECT_AGE_BANDS = frozenset({AgeBand.SIXTEEN_PLUS})
-# A party's chat takes in every active member, whatever their age, once
-# there are this many. A party of just this many is the one exception: its
-# chat would be a direct message under another name, so it opens only when
-# both of them could message each other directly.
-PARLEY_PARTY_CHAT_PAIR = 2
+# A conversation of just this many is a direct message by another name, so
+# one whose kind says so (a party's chat) talks only when both of them could
+# message each other directly. A party's chat takes in every active member,
+# whatever their age, once there are this many.
+PARLEY_PAIR = 2
+# NOTE: browsers drop a cookie past 4096 bytes without a word, and the Worker
+# stores the pass as one; half of that leaves room for its name and
+# attributes with plenty to spare.
+PARLEY_PASS_MAX_LENGTH = 2048
+
+
+def event_chat_on(*, own: bool | None, sphere_default: bool) -> bool:
+    """Whether an event's chat is on: its own choice, else its sphere's.
+
+    NOTE: `ParleyRepository` filters events by the same rule in SQL.
+    """
+    return sphere_default if own is None else own

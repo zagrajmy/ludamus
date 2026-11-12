@@ -30,7 +30,12 @@ const caseThread = () => String((next += 1));
 const staffOnly = (conversation: string, user = "7") =>
   post(
     "/conversations",
-    { conversation, kind: "staff", members: [{ state: "active", user, writable: true }] },
+    {
+      conversation,
+      kind: "staff",
+      members: [{ state: "active", user, writable: true }],
+      needsDirect: false,
+    },
     MEMBERSHIP_AUDIENCE,
   );
 

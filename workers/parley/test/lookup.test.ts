@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LOOKUP_AUDIENCE, MEMBERSHIP_AUDIENCE } from "../src/auth";
+import { LOOKUP_AUDIENCE, MEMBERSHIP_AUDIENCE, MODERATION_AUDIENCE } from "../src/auth";
 import { now, open, pass, post } from "./support";
 
 type Result = { ok: boolean; value?: { id: number } };
@@ -69,4 +69,66 @@ describe("a reported message", () => {
     ).exports.default.fetch("http://localhost:8787/messages", { body: "{}", method: "POST" });
     expect(unsigned.status).toBe(400);
   });
+});
+
+const moderate = (room: string, message: unknown, audience = MODERATION_AUDIENCE) =>
+  post("/moderation", { message, room }, audience);
+
+describe("a message staff delete", () => {
+  it("goes for everyone in the room, which hears of it, and only on a moderation order", async () => {
+    const conversation = "901";
+    await post(
+      "/conversations",
+      {
+        conversation,
+        iat: now(),
+        kind: "party",
+        members: [
+          { state: "active", user: "7", writable: true },
+          { state: "active", user: "8", writable: true },
+        ],
+        needsDirect: false,
+      },
+      MEMBERSHIP_AUDIENCE,
+    );
+    const author = await open(`parley-conversation-agent/${conversation}`, await pass("7", "3"));
+    const reader = await open(`parley-conversation-agent/${conversation}`, await pass("8", "3"));
+    const sent = await author.call<Result>("sendMessage", {
+      body: "Something to take down",
+      nonce: crypto.randomUUID(),
+    });
+    const room = `conversation:${conversation}`;
+
+    expect((await moderate(room, sent.value!.id, LOOKUP_AUDIENCE)).status).toBe(401);
+    expect((await moderate(room, sent.value!.id)).status).toBe(204);
+    expect((await moderate(room, sent.value!.id)).status).toBe(204);
+    expect((await moderate(room, sent.value!.id + 1)).status).toBe(404);
+    expect((await moderate("sphere:3", 1)).status).toBe(404);
+
+    await expect
+      .poll(() => reader.events.some((event) => event.type === "message.deleted"))
+      .toBe(true);
+    const history = await reader.call<{ value: { body: string; deletedAt: number | null }[] }>(
+      "loadBefore",
+    );
+    expect(history.value).toEqual([
+      expect.objectContaining({ body: "", deletedAt: expect.any(Number) }),
+    ]);
+    author.socket.close();
+    reader.socket.close();
+  }, 20_000);
+});
+
+describe("a sphere's feed", () => {
+  it("holds no messages, and lets in only someone with a room in the sphere", async () => {
+    const member = await open("parley-sphere-agent/32", await pass("7", "32"));
+    const stranger = await open("parley-sphere-agent/32", await pass("8", "33"));
+
+    expect(await member.call("loadBefore")).toEqual({ error: expect.any(String) });
+    expect(await member.call("sendMessage", { body: "Hi", nonce: "n" })).toEqual({
+      error: expect.any(String),
+    });
+    await expect(stranger.closed).resolves.not.toBe(1000);
+    member.socket.close();
+  }, 20_000);
 });

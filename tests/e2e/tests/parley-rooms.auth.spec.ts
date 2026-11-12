@@ -29,6 +29,7 @@ const organizers = {
   canWrite: true,
   id: "organizers:1",
   kind: "organizers",
+  sphere: 1,
   title: "Zagrajmy",
 };
 const elsewhere = {
@@ -36,6 +37,7 @@ const elsewhere = {
   canWrite: true,
   id: "session:2:7",
   kind: "session",
+  sphere: 2,
   title: "Wsiąść do pociągu",
 };
 const party: Conversation = {
@@ -87,7 +89,10 @@ test("Chats from every sphere and party sit in one list, each saying what it is"
   await analyzePageAccessibility(page);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-room-kinds.png" });
 
-  worker.on("loadBefore", () => ({ ok: true, value: [message({ id: 4 })] }));
+  worker.on("loadBefore", (_input, url) => ({
+    ok: true,
+    value: url.includes("session-agent/2:7") ? [message({ id: 4 })] : [],
+  }));
   await roomButton(panel, elsewhere.title).click();
   await expect(panel.getByText("Message 4")).toBeVisible();
   await expect

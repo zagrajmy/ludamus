@@ -11,11 +11,11 @@ from ludamus.gates.mcp.registry import (
     json_schema,
     validate_arguments,
 )
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.mcp import ToolScope
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import JsonDict, OrganizerToolProtocol
-    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -40,6 +40,24 @@ def require_event(
     return services.events.require_in_sphere(
         sphere_id=actor_sphere(actor), event_id=event_id
     )
+
+
+def event_json(
+    *, services: ServicesProtocol, actor: ActorContext, event: EventDTO
+) -> str:
+    """Dump the event as a tool returns it, with whether its chat is on in the end.
+
+    `parley_enabled` is the event's own choice, null when it follows the
+    sphere; `parley_enabled_effective` is what that comes to.
+    """
+    on = services.sphere_panel.event_chat_on(sphere_id=actor_sphere(actor), event=event)
+    view = _EventView.model_validate(event, from_attributes=True)
+    effective: dict[str, object] = {"parley_enabled_effective": on}
+    return view.model_copy(update=effective).model_dump_json(indent=2)
+
+
+class _EventView(EventDTO):
+    parley_enabled_effective: bool = False
 
 
 class _SphereTarget(BaseModel):

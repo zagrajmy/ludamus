@@ -228,6 +228,7 @@ test("The room list puts recent rooms first and counts the unread ones", async (
       canWrite: index !== 0,
       id: `session:1:${index + 10}`,
       kind: "session",
+      sphere: 1,
       title,
     })),
   ];

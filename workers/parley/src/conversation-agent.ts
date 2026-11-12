@@ -15,8 +15,8 @@ import { NOT_A_MEMBER, RoomAgent, type Env, type MessageRow } from "./room-agent
 
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
-// A direct, group, party or staff case conversation. Django pushes who is in it; the
-// room admits, and lets write, only the people on its latest list.
+// A direct, group, party or staff case conversation. Django pushes who is in
+// it; the room admits, and lets write, only the people on its latest list.
 export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";
 
@@ -41,16 +41,18 @@ export class ParleyConversationAgent extends RoomAgent {
       state TEXT NOT NULL,
       writable INTEGER NOT NULL
     )`;
+    // Whether only a pass with direct messages open gets in, as Django's
+    // latest list said; a room that has not heard asks for it.
+    void this.sql`CREATE TABLE IF NOT EXISTS entry (
+      singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+      needs_direct INTEGER NOT NULL
+    )`;
   }
 
-  // A party's chat keeps its own age rule in Django, a case's takes only
-  // staff; the others need the pass to say conversations are open to this
-  // person at all.
   protected async admits(capability: Capability): Promise<boolean> {
-    const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
-    if (kind !== "party" && kind !== "staff" && capability.direct !== true) {
-      throw new Error("Forbidden room");
-    }
+    const needsDirect =
+      this.sql<{ needs_direct: number }>`SELECT needs_direct FROM entry`[0]?.needs_direct ?? 1;
+    if (needsDirect === 1 && capability.direct !== true) throw new Error("Forbidden room");
     return this.member(capability.sub) !== undefined;
   }
 
@@ -68,6 +70,9 @@ export class ParleyConversationAgent extends RoomAgent {
     void this.sql`INSERT INTO conversation (singleton, kind, synced_at)
       VALUES (1, ${membership.kind}, ${membership.iat})
       ON CONFLICT(singleton) DO UPDATE SET kind = excluded.kind, synced_at = excluded.synced_at`;
+    void this.sql`INSERT INTO entry (singleton, needs_direct)
+      VALUES (1, ${membership.needsDirect ? 1 : 0})
+      ON CONFLICT(singleton) DO UPDATE SET needs_direct = excluded.needs_direct`;
     void this.sql`DELETE FROM members`;
     for (const member of membership.members) {
       void this.sql`INSERT INTO members (user_id, state, writable)

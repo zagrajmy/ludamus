@@ -64,9 +64,22 @@ class SphereSettingsForm(forms.Form):
         required=False,
         label=_("Enable chat"),
         help_text=_(
-            "Each programme point gets a room for its players and hosts, the "
-            "sphere's team a room of its own, and each event whose organizers "
-            "turn its chat on a chat for everyone taking part."
+            "Signed-in people can talk in the rooms of the programme points they "
+            "take part in. Turning it off closes every chat of the sphere."
+        ),
+    )
+    parley_organizers_enabled = forms.BooleanField(
+        required=False,
+        label=_("Organizers' room"),
+        help_text=_("A room only the sphere's team can read and write in."),
+    )
+    parley_events_enabled = forms.BooleanField(
+        required=False,
+        label=_("Event chats"),
+        help_text=_(
+            "Default for the whole sphere: one chat per event for everyone with a "
+            "place or on a waitlist, the hosts and the team. Events can override "
+            "this setting."
         ),
     )
     event_cover_buttons_at_bottom = forms.BooleanField(

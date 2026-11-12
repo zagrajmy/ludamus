@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import Mock
 
 import pytest
 
@@ -15,15 +14,18 @@ from ludamus.pacts.parley import (
     ParleyCapabilityClaims,
     ParleyConversationDTO,
     ParleyConversationKind,
+    ParleyMembership,
     ParleyMemberState,
     ParleyReportData,
     ParleyReportedMessage,
     ParleyRoomDTO,
     ParleyRoomKind,
+    ParleyTeamSeat,
     ParleyWorkerUnavailableError,
 )
+from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.user import AgeBand
-from ludamus.specs.parley import PARLEY_TOKEN_LIFETIME
+from ludamus.specs.parley import PARLEY_PASS_MAX_LENGTH, PARLEY_TOKEN_LIFETIME
 
 NOW = datetime(2026, 8, 6, 12, tzinfo=UTC)
 USER_ID = 123
@@ -46,6 +48,9 @@ class NoConversations:
     def list_for(self, _user_id):
         return self.conversations
 
+    def has_conversation(self, *, user_id, kinds):
+        return any(conversation.kind in kinds for conversation in self.conversations)
+
     @staticmethod
     def list_blocked(_user_id):
         return []
@@ -55,14 +60,6 @@ class OpenConversations(NoConversations):
     @staticmethod
     def is_eligible(_user_id):
         return True
-
-
-class PartyChats:
-    def __init__(self):
-        self.synced = []
-
-    def sync_member(self, user_id):
-        self.synced.append(user_id)
 
 
 def _conversation(kind):
@@ -77,106 +74,118 @@ def _conversation(kind):
     )
 
 
-def _access(rooms, managed=()):
-    return ParleyAccessDTO(
-        user_id=123,
-        user_name="Ada",
-        user_avatar_url="https://example.com/ada.png",
-        rooms=rooms,
-        managed_sphere_ids=list(managed),
+class Access:
+    """The rooms someone is in, and the spheres whose team they are on."""
+
+    def __init__(self, rooms=None, *, seats=(), has_rooms=False):
+        self.rooms = rooms
+        self.seats = [ParleyTeamSeat(sphere_id=s, role=role) for s, role in seats]
+        self._has_rooms = has_rooms
+        self.asked = []
+        self.saved = []
+
+    def list_team_seats(self, _user_id):
+        return self.seats
+
+    def read_access(self, *, user_id, window, moderated):
+        self.asked.append((window.now, moderated))
+        if self.rooms is None:
+            return None
+        return ParleyAccessDTO(
+            user_id=user_id,
+            user_name="Ada",
+            user_avatar_url="https://example.com/ada.png",
+            rooms=self.rooms,
+        )
+
+    def has_rooms(self, *, user_id, window, moderated):
+        self.asked.append((window.now, moderated))
+        return self._has_rooms
+
+    def save_report(self, report):
+        self.saved.append(report)
+
+
+class LengthSigner:
+    """A pass as long as its events make it: `per_event` characters each."""
+
+    def __init__(self, per_event=0):
+        self.per_event = per_event
+        self.signed = []
+
+    def sign(self, claims):
+        self.signed.append(claims)
+        return "t" * (100 + self.per_event * len(getattr(claims, "events", {})))
+
+
+def _event(pk, *, sphere=45, ends_at=1_786_100_000, can_write=True, can_moderate=False):
+    return ParleyRoomDTO(
+        kind=ParleyRoomKind.EVENT,
+        sphere_id=sphere,
+        pk=pk,
+        title=f"Event {pk}",
+        can_write=can_write,
+        can_moderate=can_moderate,
+        ends_at=ends_at,
     )
 
 
-def _bootstrapping(access, conversations=None, *, has_rooms=False):
-    repository = Mock()
-    repository.read_access.return_value = access
-    repository.has_rooms.return_value = has_rooms
-    signer = Mock()
-    signer.sign.return_value = "signed-token"
-    party_chats = PartyChats()
+def _session(
+    pk, *, event, sphere=45, can_write=True, can_moderate=False, ends_at=1_786_000_000
+):
+    return ParleyRoomDTO(
+        kind=ParleyRoomKind.SESSION,
+        sphere_id=sphere,
+        pk=pk,
+        event_pk=event,
+        title=f"Session {pk}",
+        can_write=can_write,
+        can_moderate=can_moderate,
+        ends_at=ends_at,
+    )
+
+
+def _bootstrapping(access, conversations=None, *, signer=None):
+    signer = signer or LengthSigner()
     service = ParleyService(
-        repository=repository,
+        repository=access,
         conversations=conversations or NoConversations(),
-        party_chats=party_chats,
         signer=signer,
         messages=Messages(None),
         agent_host="parley.example.com",
     )
-    return service, repository, signer, party_chats
+    return service, signer
 
 
 def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
-    service, repository, signer, party_chats = _bootstrapping(
-        _access(
-            [
-                ParleyRoomDTO(
-                    id="event:45:12",
-                    kind=ParleyRoomKind.EVENT,
-                    title="Bachanalia 2026",
-                    can_write=True,
-                    ends_at=1_786_100_000,
-                ),
-                ParleyRoomDTO(
-                    id="session:45:981",
-                    kind=ParleyRoomKind.SESSION,
-                    title="Mothership",
-                    can_write=False,
-                    ends_at=1_786_000_000,
-                ),
-                ParleyRoomDTO(
-                    id="session:7:5",
-                    kind=ParleyRoomKind.SESSION,
-                    title="Wsiąść do pociągu",
-                    can_write=True,
-                    ends_at=1_786_200_000,
-                ),
-            ]
-        )
+    access = Access(
+        [
+            _event(12, ends_at=1_786_100_000),
+            _session(981, event=12, can_write=False),
+            _session(5, event=3, sphere=7),
+        ]
     )
+    service, signer = _bootstrapping(access)
 
-    result = service.bootstrap(user_id=123, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
 
     assert result is not None
-    assert result.model_dump(mode="json", by_alias=True) == {
-        "user": {
-            "id": "123",
-            "name": "Ada",
-            "avatarUrl": "https://example.com/ada.png",
-        },
-        "rooms": [
-            {
-                "id": "event:45:12",
-                "kind": "event",
-                "title": "Bachanalia 2026",
-                "canWrite": True,
-                "canModerate": False,
-            },
-            {
-                "id": "session:45:981",
-                "kind": "session",
-                "title": "Mothership",
-                "canWrite": False,
-                "canModerate": False,
-            },
-            {
-                "id": "session:7:5",
-                "kind": "session",
-                "title": "Wsiąść do pociągu",
-                "canWrite": True,
-                "canModerate": False,
-            },
-        ],
-        "canMessage": False,
-        "ageGate": "unconfirmed",
-        "conversations": [],
-        "blocked": [],
-        "capabilityToken": "signed-token",
-        "agentHost": "parley.example.com",
+    assert [room["id"] for room in result.model_dump(mode="json")["rooms"]] == [
+        "event:45:12",
+        "session:45:981",
+        "session:7:5",
+    ]
+    assert result.model_dump(mode="json", by_alias=True)["rooms"][2] == {
+        "id": "session:7:5",
+        "kind": "session",
+        "sphere": 7,
+        "title": "Session 5",
+        "canWrite": True,
+        "canModerate": False,
     }
-    assert repository.read_access.call_args.kwargs["user_id"] == USER_ID
-    assert repository.read_access.call_args.kwargs["window"].now == NOW
-    assert party_chats.synced == [USER_ID]
-    claims = signer.sign.call_args.args[0]
+    assert (result.can_message, result.age_gate) == (False, "unconfirmed")
+    assert access.asked == [(NOW, frozenset())]
+    claims = signer.signed[-1]
     assert isinstance(claims, ParleyCapabilityClaims)
     assert claims.model_dump(exclude={"jti"}) == {
         "iss": "ludamus",
@@ -184,12 +193,21 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "sub": "123",
         "name": "Ada",
         "avatar": "https://example.com/ada.png",
-        "managed": [],
-        "sessions": {
-            "45:981": {"endsAt": 1_786_000_000, "writable": False},
-            "7:5": {"endsAt": 1_786_200_000, "writable": True},
+        "managed": {},
+        "events": {
+            "45:12": {
+                "endsAt": 1_786_100_000,
+                "writable": True,
+                "chat": True,
+                "sessions": {"981": False},
+            },
+            "7:3": {
+                "endsAt": 1_786_000_000,
+                "writable": False,
+                "chat": False,
+                "sessions": {"5": True},
+            },
         },
-        "events": {"45:12": {"endsAt": 1_786_100_000, "writable": True}},
         "readOnlyAfter": 48 * 3600,
         "retainFor": 30 * 24 * 3600,
         "direct": False,
@@ -197,41 +215,61 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "exp": 1_786_017_600 + 12 * 3600,
     }
     assert claims.jti
+    assert result.capability_token == "t" * 100
 
 
-def test_bootstrap_names_the_spheres_a_manager_moderates_without_their_rooms() -> None:
-    service, _, signer, _ = _bootstrapping(
-        _access(
-            [
-                ParleyRoomDTO(
-                    id="organizers:45",
-                    kind=ParleyRoomKind.ORGANIZERS,
-                    title="Bachanalia",
-                    can_write=True,
-                    can_moderate=True,
-                ),
-                *(
-                    ParleyRoomDTO(
-                        id=f"session:45:{pk}",
-                        kind=ParleyRoomKind.SESSION,
-                        title=f"Session {pk}",
-                        can_write=True,
-                        can_moderate=True,
-                        ends_at=1_786_000_000,
-                    )
-                    for pk in range(1, 1001)
-                ),
-            ],
-            managed=[45, 7],
-        )
+def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_rooms() -> (
+    None
+):
+    access = Access(
+        [
+            ParleyRoomDTO(
+                kind=ParleyRoomKind.ORGANIZERS,
+                sphere_id=45,
+                title="Bachanalia",
+                can_write=True,
+                can_moderate=True,
+            ),
+            *(_session(pk, event=1, can_moderate=True) for pk in range(1, 1001)),
+            _session(2000, event=9, sphere=7),
+        ],
+        seats=[
+            (45, SphereRole.MANAGER),
+            (7, SphereRole.COMMS),
+            (8, SphereRole.MANAGER),
+        ],
     )
+    service, signer = _bootstrapping(access)
 
-    service.bootstrap(user_id=123, now=NOW)
+    service.bootstrap(user_id=USER_ID, now=NOW)
 
-    claims = signer.sign.call_args.args[0]
-    assert claims.managed == ["45", "7"]
-    assert claims.sessions == {}
-    assert claims.events == {}
+    assert access.asked == [(NOW, frozenset({45, 8}))]
+    claims = signer.signed[-1]
+    assert claims.model_dump()["managed"] == {
+        "45": {"organizers": True},
+        "8": {"organizers": False},
+    }
+    assert list(claims.events) == ["7:9"]
+
+
+def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
+    rooms = [_event(pk, ends_at=1_786_000_000 + pk) for pk in range(1, 31)]
+    rooms.append(_session(500, event=30, ends_at=1_786_000_030))
+    moderated_room = _event(99, sphere=8, can_moderate=True)
+    access = Access([*rooms, moderated_room], seats=[(8, SphereRole.MANAGER)])
+    service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert len(result.capability_token) <= PARLEY_PASS_MAX_LENGTH
+    kept = {room.id for room in result.rooms}
+    assert kept == {
+        *(f"event:45:{pk}" for pk in range(12, 31)),
+        "session:45:500",
+        "event:8:99",
+    }
+    assert list(signer.signed[-1].events) == [f"45:{pk}" for pk in range(12, 31)]
 
 
 def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None:
@@ -239,11 +277,11 @@ def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None
         _conversation(ParleyConversationKind.PARTY),
         _conversation(ParleyConversationKind.GROUP),
     )
-    closed, _, _, _ = _bootstrapping(_access([]), NoConversations([party, group]))
-    opened, _, _, _ = _bootstrapping(_access([]), OpenConversations([party, group]))
+    closed, _ = _bootstrapping(Access([]), NoConversations([party, group]))
+    opened, _ = _bootstrapping(Access([]), OpenConversations([party, group]))
 
-    shut = closed.bootstrap(user_id=123, now=NOW)
-    open_ = opened.bootstrap(user_id=123, now=NOW)
+    shut = closed.bootstrap(user_id=USER_ID, now=NOW)
+    open_ = opened.bootstrap(user_id=USER_ID, now=NOW)
 
     assert shut is not None
     assert open_ is not None
@@ -252,22 +290,19 @@ def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None
 
 
 def test_bootstrap_stops_when_there_is_nowhere_to_chat() -> None:
-    service, _, signer, _ = _bootstrapping(_access([]))
+    service, signer = _bootstrapping(Access([]))
 
-    assert service.bootstrap(user_id=123, now=NOW) is None
-    signer.sign.assert_not_called()
+    assert service.bootstrap(user_id=USER_ID, now=NOW) is None
+    assert not signer.signed
 
 
 def test_bootstrap_stops_when_repository_denies_access() -> None:
-    service, repository, signer, party_chats = _bootstrapping(None)
+    access = Access(None)
+    service, signer = _bootstrapping(access)
 
-    result = service.bootstrap(user_id=123, now=NOW)
-
-    assert result is None
-    repository.read_access.assert_called_once()
-    assert repository.read_access.call_args.kwargs["window"].now == NOW
-    assert not party_chats.synced
-    signer.sign.assert_not_called()
+    assert service.bootstrap(user_id=USER_ID, now=NOW) is None
+    assert access.asked == [(NOW, frozenset())]
+    assert not signer.signed
 
 
 @pytest.mark.parametrize(
@@ -284,9 +319,9 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
 def test_the_chat_is_open_to_anyone_with_somewhere_to_chat(
     conversations, has_rooms, expected
 ) -> None:
-    service, _, _, _ = _bootstrapping(None, conversations, has_rooms=has_rooms)
+    service, _ = _bootstrapping(Access(has_rooms=has_rooms), conversations)
 
-    assert service.is_open_to(user_id=123, now=NOW) is expected
+    assert service.is_open_to(user_id=USER_ID, now=NOW) is expected
 
 
 REPORTER, AUTHOR = 123, 7
@@ -294,32 +329,11 @@ REPORTER, AUTHOR = 123, 7
 LOOKUP_LIFETIME_SECONDS = 60
 
 
-class Rooms:
-    """The rooms this reporter sees, and the reports kept."""
-
-    def __init__(self, rooms=("event:45:12",)):
-        self.rooms = rooms
-        self.saved = []
-
-    def read_access(self, *, user_id, window):
-        # No rooms at all: the chat is not open to this person.
-        if self.rooms is None:
-            return None
-        return ParleyAccessDTO(
-            user_id=user_id,
-            user_name="Ada",
-            user_avatar_url="",
-            rooms=[
-                ParleyRoomDTO(
-                    id=room, kind=ParleyRoomKind.EVENT, title="Hall", can_write=True
-                )
-                for room in self.rooms
-            ],
-            managed_sphere_ids=[],
-        )
-
-    def save_report(self, report):
-        self.saved.append(report)
+def _rooms(rooms=((45, 12),)):
+    """Give the reporter these rooms, or no chat at all for None."""
+    return Access(
+        None if rooms is None else [_event(pk, sphere=sphere) for sphere, pk in rooms]
+    )
 
 
 class Members(NoConversations):
@@ -330,8 +344,11 @@ class Members(NoConversations):
         }
 
     def read_member(self, *, conversation_id, user_id):
-        state = self.states.get(conversation_id)
-        return None if state is None else (ParleyConversationKind.GROUP, state, False)
+        if (state := self.states.get(conversation_id)) is None:
+            return None
+        return ParleyMembership(
+            kind=ParleyConversationKind.GROUP, state=state, is_admin=False
+        )
 
 
 class Messages:
@@ -368,13 +385,12 @@ def _said_by(author_id):
 
 
 def _reporting(room_id, *, rooms=None, members=None, answer="theirs"):
-    rooms = rooms or Rooms()
+    rooms = rooms or _rooms()
     messages = Messages(_said_by(AUTHOR) if answer == "theirs" else answer)
     signer = RecordingSigner()
     service = ParleyService(
         repository=rooms,
         conversations=members or Members(),
-        party_chats=PartyChats(),
         signer=signer,
         messages=messages,
         agent_host="parley.example.com",
@@ -424,7 +440,7 @@ def test_a_report_stands_without_its_copy_when_the_worker_cannot_say():
 @pytest.mark.parametrize(
     ("room_id", "rooms", "members"),
     (
-        ("event:45:12", Rooms(rooms=None), None),
+        ("event:45:12", _rooms(rooms=None), None),
         ("session:45:3", None, None),
         ("conversation:8", None, Members(c8=ParleyMemberState.LEFT)),
         ("conversation:8", None, Members()),
@@ -483,6 +499,14 @@ class FakeMemberships:
         self.synced.extend(conversation_ids)
 
 
+class FakePartyChats:
+    def __init__(self):
+        self.synced = []
+
+    def sync_parties_of(self, user_id):
+        self.synced.append(user_id)
+
+
 def _revocations(repository, conversations=()):
     outbox = FakeOutbox()
     service = ParleyRevocationService(
@@ -490,6 +514,7 @@ def _revocations(repository, conversations=()):
         outbox=outbox,
         conversations=FakeConversations(conversations),
         memberships=FakeMemberships(),
+        party_chats=FakePartyChats(),
     )
     return service, outbox
 
@@ -514,18 +539,23 @@ def test_a_disabled_account_is_revoked_in_every_sphere_with_chat():
     assert not quiet.scheduled
 
 
-def test_a_disabled_account_drops_out_of_its_conversations():
-    memberships = FakeMemberships()
+@pytest.mark.parametrize("change", ("revoke_user", "age_changed"))
+def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parties(
+    change,
+):
+    memberships, party_chats = FakeMemberships(), FakePartyChats()
     service = ParleyRevocationService(
         repository=FakeChatSpheres(),
         outbox=FakeOutbox(),
         conversations=FakeConversations([8, 9]),
         memberships=memberships,
+        party_chats=party_chats,
     )
 
-    service.revoke_user(user_id=123)
+    getattr(service, change)(user_id=123)
 
     assert memberships.synced == [8, 9]
+    assert party_chats.synced == [123]
 
 
 def test_turning_chat_off_revokes_everyone_in_the_sphere():

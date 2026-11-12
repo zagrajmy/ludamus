@@ -1,20 +1,40 @@
-import { callable } from "agents";
+import {
+  Agent,
+  callable,
+  getCurrentAgent,
+  type AgentContext,
+  type Connection,
+  type ConnectionContext,
+} from "agents";
 
-import type { Capability, Revocation, RoomActivity, RpcResult } from "./protocol";
-
-import { canSeeRoom, roomFromId } from "./access";
+import { canSeeRoom, inSphere, roomFromId } from "./access";
+import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
-import { RoomAgent, roomAgent } from "./room-agent";
+import {
+  PASS_EXPIRED,
+  PASS_REVOKED,
+  type Capability,
+  type ConnectionState,
+  type Revocation,
+  type RoomActivity,
+  type RpcResult,
+  type ServerEvent,
+} from "./protocol";
+import { revokes, roomAgent, type Env } from "./room-agent";
 
 type Admission = Pick<Capability, "exp" | "iat" | "sub"> & { roomId: string };
 
-// A sphere's deny-list, and its feed of how the sphere's rooms are doing;
-// nobody writes in it.
-export class ParleySphereAgent extends RoomAgent {
-  protected readonly roomPrefix = "sphere";
+// A sphere's deny-list, and its feed of how the sphere's rooms are doing.
+// It holds no messages of its own.
+export class ParleySphereAgent extends Agent<Env> {
+  private readonly workerEnv: Env;
+
+  constructor(context: AgentContext, env: Env) {
+    super(context, env);
+    this.workerEnv = env;
+  }
 
   async onStart(): Promise<void> {
-    await super.onStart();
     void this.sql`CREATE TABLE IF NOT EXISTS room_activity (
       room_id TEXT PRIMARY KEY,
       latest_message_id INTEGER NOT NULL,
@@ -43,8 +63,26 @@ export class ParleySphereAgent extends RoomAgent {
     )`;
   }
 
-  protected async admits(capability: Capability): Promise<boolean> {
-    return !this.isRevoked(capability);
+  async onConnect(
+    connection: Connection<ConnectionState>,
+    context: ConnectionContext,
+  ): Promise<void> {
+    const capability = await capabilityFromRequest(context.request, this.workerEnv);
+    if (!inSphere(capability, this.name)) throw new Error("Forbidden feed");
+    if (this.isRevoked(capability)) {
+      connection.close(PASS_REVOKED, "Access revoked");
+      return;
+    }
+    connection.setState({ admitted: true, capability });
+  }
+
+  closeRevoked(revocation: Pick<Revocation, "revokedBefore" | "sub">): void {
+    for (const connection of this.getConnections<ConnectionState>()) {
+      const capability = connection.state?.capability;
+      if (capability !== undefined && revokes(revocation, capability)) {
+        connection.close(PASS_REVOKED, "Access revoked");
+      }
+    }
   }
 
   admit(admission: Admission): boolean {
@@ -56,7 +94,6 @@ export class ParleySphereAgent extends RoomAgent {
   }
 
   async revoke(revocation: Revocation): Promise<void> {
-    if (revocation.sphere !== this.name) throw new Error("Revocation for another sphere");
     const now = Math.floor(Date.now() / 1_000);
     void this.sql`DELETE FROM revocations WHERE expires_at <= ${now}`;
     void this.sql`DELETE FROM admissions WHERE expires_at <= ${now}`;
@@ -73,11 +110,10 @@ export class ParleySphereAgent extends RoomAgent {
             room_id: string;
           }>`SELECT room_id FROM admissions WHERE user_id = ${revocation.sub}`;
     const results = await Promise.allSettled(
-      rooms.map(async ({ room_id }) => {
-        const room = roomFromId(room_id);
-        if (room === null) return;
-        await (await roomAgent(this.workerEnv, room)).closeRevoked(revocation);
-      }),
+      // Only a room `admit` took is listed, so its id always names one.
+      rooms.map(async ({ room_id }) =>
+        (await roomAgent(this.workerEnv, roomFromId(room_id)!)).closeRevoked(revocation),
+      ),
     );
     const failed = results.filter((result) => result.status === "rejected");
     // Django retries the whole revocation on an error, and every step of it
@@ -91,12 +127,7 @@ export class ParleySphereAgent extends RoomAgent {
 
   private holds(roomId: string): boolean {
     const room = roomFromId(roomId);
-    return (
-      room !== null &&
-      room.kind !== "conversation" &&
-      room.kind !== "sphere" &&
-      room.sphere === this.name
-    );
+    return room !== null && room.kind !== "conversation" && room.sphere === this.name;
   }
 
   private isRevoked(capability: Pick<Capability, "iat" | "sub">): boolean {
@@ -109,8 +140,7 @@ export class ParleySphereAgent extends RoomAgent {
 
   // A room's activity and anyone's read position a year old point only at
   // messages already deleted, so an unread flag for one never lingers.
-  protected purgeExpiredMessages(): void {
-    super.purgeExpiredMessages();
+  private purgeExpiredActivity(): void {
     const cutoff = retentionCutoff();
     void this.sql`DELETE FROM room_activity WHERE updated_at <= ${cutoff}`;
     void this.sql`DELETE FROM read_positions WHERE updated_at <= ${cutoff}`;
@@ -119,7 +149,7 @@ export class ParleySphereAgent extends RoomAgent {
   @callable()
   getActivity(): RpcResult<Record<string, RoomActivity>> {
     const capability = this.currentCapability();
-    this.purgeExpiredMessages();
+    this.purgeExpiredActivity();
     const rows = this.sql<{
       latest_message_id: number;
       last_read_message_id: number | null;
@@ -180,5 +210,34 @@ export class ParleySphereAgent extends RoomAgent {
       v: 1,
       payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
     });
+  }
+
+  private currentCapability(): Capability {
+    const connection = getCurrentAgent<ParleySphereAgent>()
+      .connection as Connection<ConnectionState>;
+    const { capability } = connection.state!;
+    if (capability.exp * 1_000 <= Date.now()) {
+      connection.close(PASS_EXPIRED, "Pass expired");
+      throw new Error("Pass expired");
+    }
+    return capability;
+  }
+
+  private emit(event: ServerEvent): void {
+    this.emitWhere(event, () => true);
+  }
+
+  private emitTo(userId: string, event: ServerEvent): void {
+    this.emitWhere(event, (capability) => capability.sub === userId);
+  }
+
+  private emitWhere(event: ServerEvent, include: (capability: Capability) => boolean): void {
+    const message = JSON.stringify(event);
+    for (const connection of this.getConnections<ConnectionState>()) {
+      const capability = connection.state?.capability;
+      if (capability === undefined || !include(capability)) continue;
+      if (capability.exp * 1_000 <= Date.now()) connection.close(PASS_EXPIRED, "Pass expired");
+      else connection.send(message);
+    }
   }
 }

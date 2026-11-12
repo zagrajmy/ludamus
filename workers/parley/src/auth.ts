@@ -24,6 +24,8 @@ const THREAD_SOURCES: readonly string[] = [
   "email_out",
   "note",
 ] satisfies ThreadSource[];
+// A lookup's claims, as staff's order to delete the message they name.
+export const MODERATION_AUDIENCE = "parley-moderation";
 
 type AuthEnv = {
   JWT_AUDIENCE: string;
@@ -92,16 +94,67 @@ function isSeconds(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0;
 }
 
-function isGrants(value: unknown): value is Capability["sessions"] {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  return Object.entries(value).every(
-    ([room, grant]) =>
-      /^\d+:\d+$/u.test(room) &&
-      typeof grant === "object" &&
-      grant !== null &&
-      isSeconds((grant as { endsAt?: unknown }).endsAt) &&
-      typeof (grant as { writable?: unknown }).writable === "boolean",
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isManaged(value: unknown): value is Capability["managed"] {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([sphere, held]) =>
+        /^\d+$/u.test(sphere) && isRecord(held) && typeof held.organizers === "boolean",
+    )
   );
+}
+
+function isEventGrants(value: unknown): value is Capability["events"] {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([event, grant]) =>
+        /^\d+:\d+$/u.test(event) &&
+        isRecord(grant) &&
+        isSeconds(grant.endsAt) &&
+        typeof grant.chat === "boolean" &&
+        typeof grant.writable === "boolean" &&
+        isRecord(grant.sessions) &&
+        Object.entries(grant.sessions).every(
+          ([session, writable]) => /^\d+$/u.test(session) && typeof writable === "boolean",
+        ),
+    )
+  );
+}
+
+// TODO: drop once every pass Django signed before the one-pass-for-every-
+// sphere release has expired, PARLEY_TOKEN_LIFETIME (12 hours) after that
+// release reached Django. Until then a pass for one sphere still works in
+// that sphere's rooms, so deploying the Worker first breaks nobody's chat.
+function fromOneSpherePass(payload: Record<string, unknown>): Record<string, unknown> | null {
+  const { role, sessions, sphere } = payload;
+  if (
+    typeof sphere !== "string" ||
+    !/^\d+$/u.test(sphere) ||
+    (role !== "manager" && role !== "member") ||
+    !isRecord(sessions)
+  ) {
+    return null;
+  }
+  const events: Record<string, unknown> = {};
+  for (const [session, grant] of Object.entries(sessions)) {
+    if (!isRecord(grant)) return null;
+    events[`${sphere}:${session}`] = {
+      chat: false,
+      endsAt: grant.endsAt,
+      sessions: { [session]: grant.writable },
+      writable: false,
+    };
+  }
+  return {
+    ...payload,
+    events,
+    managed: role === "manager" ? { [sphere]: { organizers: false } } : {},
+  };
 }
 
 async function verified(
@@ -121,18 +174,17 @@ async function verified(
 }
 
 export async function verifyCapability(token: string, env: AuthEnv): Promise<Capability> {
-  const payload = await verified(token, env, env.JWT_AUDIENCE);
+  const signed: Record<string, unknown> = await verified(token, env, env.JWT_AUDIENCE);
+  const payload = "managed" in signed ? signed : (fromOneSpherePass(signed) ?? signed);
   if (
     typeof payload.sub !== "string" ||
     typeof payload.name !== "string" ||
     typeof payload.avatar !== "string" ||
     typeof payload.jti !== "string" ||
-    !Array.isArray(payload.managed) ||
-    !payload.managed.every((sphere) => typeof sphere === "string" && /^\d+$/u.test(sphere)) ||
+    !isManaged(payload.managed) ||
     !isSeconds(payload.readOnlyAfter) ||
     !isSeconds(payload.retainFor) ||
-    !isGrants(payload.sessions) ||
-    !isGrants(payload.events) ||
+    !isEventGrants(payload.events) ||
     (payload.direct !== undefined && typeof payload.direct !== "boolean")
   ) {
     throw new Error("Invalid capability");
@@ -182,7 +234,8 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
       payload.kind !== "party" &&
       payload.kind !== "staff") ||
     !Array.isArray(payload.members) ||
-    !payload.members.every(isMember)
+    !payload.members.every(isMember) ||
+    (payload.needsDirect !== undefined && typeof payload.needsDirect !== "boolean")
   ) {
     throw new Error("Invalid membership");
   }
@@ -191,12 +244,17 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
     iat: payload.iat!,
     kind: payload.kind,
     members: payload.members,
+    needsDirect: payload.needsDirect ?? true,
   };
 }
 
-export async function verifyLookup(token: string, env: AuthEnv): Promise<Lookup> {
+export async function verifyLookup(
+  token: string,
+  env: AuthEnv,
+  audience = LOOKUP_AUDIENCE,
+): Promise<Lookup> {
   // A lookup names a message, not a person.
-  const payload = await verified(token, env, LOOKUP_AUDIENCE, ["exp", "iat"]);
+  const payload = await verified(token, env, audience, ["exp", "iat"]);
   if (
     typeof payload.room !== "string" ||
     typeof payload.message !== "number" ||
@@ -287,11 +345,12 @@ export async function membershipFromRequest(
 export async function lookupFromRequest(
   request: Request,
   env: AuthEnv,
+  audience = LOOKUP_AUDIENCE,
 ): Promise<Lookup | Response> {
   const token = await tokenFromBody(request);
   if (token === null) return new Response("Invalid request", { status: 400 });
   try {
-    return await verifyLookup(token, env);
+    return await verifyLookup(token, env, audience);
   } catch {
     return new Response("Invalid lookup", { status: 401 });
   }

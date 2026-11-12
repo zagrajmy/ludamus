@@ -1,5 +1,5 @@
 import { useAgent } from "agents/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   agentUrl,
@@ -65,5 +65,5 @@ export function useActivity(
     },
     [agent],
   );
-  return { activity, markRead };
+  return useMemo(() => ({ activity, markRead }), [activity, markRead]);
 }
