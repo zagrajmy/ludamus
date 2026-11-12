@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: Pull request number to deploy
+        description: Pull request number to deploy (its current head unless sha is given)
         required: false
       sha:
-        description: Commit SHA to deploy
+        description: Commit SHA to deploy; with pr_number, must be the PR head
+        required: false
+      skip_if_stale:
+        description: Skip instead of failing when the PR moved past sha or closed
+        type: boolean
+        default: false
         required: false
 
 permissions:
