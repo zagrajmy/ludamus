@@ -454,11 +454,16 @@ def sign_membership(
     conversation_id: int,
     now: datetime,
 ) -> str:
-    kind, members = repository.snapshot(conversation_id)
+    kind, present = repository.snapshot(conversation_id)
     policy = CONVERSATION_POLICIES[kind]
-    talking = [member for member in members if member.state != ParleyMemberState.LEFT]
+    members = [
+        member
+        for member in present
+        if member.signs_in
+        and (not policy.needs_direct or member.age_band in PARLEY_DIRECT_AGE_BANDS)
+    ]
     if policy.pair_needs_direct and _pair_short_of_direct(
-        [member.age_band for member in talking]
+        [member.age_band for member in members]
     ):
         members = []
     issued = int(now.timestamp())

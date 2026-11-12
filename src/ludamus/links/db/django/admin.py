@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar
 
 from django import forms
-from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
+from django.core.exceptions import ImproperlyConfigured
 from django.shortcuts import render
 
 from ludamus.links.db.django.delivery import Bell, ring_as_written
@@ -34,81 +32,53 @@ from ludamus.links.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.links.encryption import JwtSigner
-from ludamus.links.parley_worker import ParleyWorkerClient
 from ludamus.pacts.notifications import NotificationKind
-from ludamus.pacts.parley import ParleyMessageLookupClaims, ParleyWorkerUnavailableError
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from django.db.models import QuerySet
     from django.http import HttpRequest, HttpResponse
 
-
-# A lookup's claims on another audience: the Worker takes this one as the
-# order to delete the message, as staff, for everyone in the room.
-_MODERATION_AUDIENCE = "parley-moderation"
-_MODERATION_LIFETIME_SECONDS = 60
+    from ludamus.pacts.services import ServicesProtocol
 
 
-@admin.action(description="Delete the reported messages for everyone")
+class _Wiring:
+    def __init__(self) -> None:
+        self.services: Callable[[], ServicesProtocol] | None = None
+
+
+_wiring = _Wiring()
+
+
+def register(*, make_services: Callable[[], ServicesProtocol]) -> None:
+    """Hand over what admin actions run: Django builds the admin itself."""
+    _wiring.services = make_services
+
+
+def _services() -> ServicesProtocol:
+    if _wiring.services is None:
+        msg = "No services registered for the admin."
+        raise ImproperlyConfigured(msg)
+    return _wiring.services()
+
+
+@admin.action(
+    description="Delete the reported messages for everyone", permissions=["change"]
+)
 def delete_reported_messages(
     modeladmin: admin.ModelAdmin[ParleyReport],
     request: HttpRequest,
     queryset: QuerySet[ParleyReport],
 ) -> None:
-    agent_host: str = settings.PARLEY_AGENT_HOST
-    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-    if not (agent_host and private_key):
-        modeladmin.message_user(
-            request, "The chat Worker is not configured.", level=messages.ERROR
-        )
-        return
-    signer, worker = JwtSigner(private_key), ParleyWorkerClient(agent_host)
-    deleted = failed = 0
-    for report in queryset:
-        now = datetime.now(UTC)
-        issued = int(now.timestamp())
-        try:
-            worker.moderate(
-                signer.sign(
-                    ParleyMessageLookupClaims(
-                        iss="ludamus",
-                        aud=_MODERATION_AUDIENCE,
-                        room=report.room_id,
-                        message=report.message_id,
-                        iat=issued,
-                        exp=issued + _MODERATION_LIFETIME_SECONDS,
-                        jti=token_urlsafe(18),
-                    )
-                )
-            )
-        except ParleyWorkerUnavailableError:
-            logger.exception(
-                "parley staff deletion failed: report=%s room=%s",
-                report.pk,
-                report.room_id,
-            )
-            failed += 1
-            continue
-        logger.info(
-            "parley message deleted by staff: report=%s room=%s message=%s",
-            report.pk,
-            report.room_id,
-            report.message_id,
-        )
-        ParleyReport.objects.filter(
-            room_id=report.room_id, message_id=report.message_id, resolved_at=None
-        ).update(resolved_at=now)
-        deleted += 1
-    modeladmin.message_user(request, f"Deleted {deleted} message(s).")
-    if failed:
+    result = _services().parley.delete_reported(
+        report_ids=list(queryset.values_list("pk", flat=True)), now=datetime.now(UTC)
+    )
+    modeladmin.message_user(request, f"Deleted {result.deleted} message(s).")
+    if result.failed:
         modeladmin.message_user(
             request,
-            f"{failed} could not be deleted: the chat Worker did not answer.",
+            f"{result.failed} could not be deleted: the chat Worker did not answer.",
             level=messages.ERROR,
         )
 

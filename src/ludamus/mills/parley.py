@@ -18,6 +18,7 @@ from ludamus.pacts.parley import (
     ParleyMemberState,
     ParleyMessageLookupClaims,
     ParleyMessageReaderProtocol,
+    ParleyModerationResult,
     ParleyReportData,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
@@ -67,7 +68,12 @@ def _event_key(room: ParleyRoomDTO) -> str:
 
 
 def _granted(room: ParleyRoomDTO) -> bool:
-    return room.kind != ParleyRoomKind.ORGANIZERS and not room.can_moderate
+    # NOTE: moderators reach a sphere's programme points through `managed`, so
+    # their pass does not grow with the programme; an event grant still
+    # carries when its chat ends and whether it is open at all.
+    if room.kind == ParleyRoomKind.SESSION:
+        return not room.can_moderate
+    return room.kind == ParleyRoomKind.EVENT
 
 
 def _event_grants(rooms: list[ParleyRoomDTO]) -> dict[str, ParleyEventGrant]:
@@ -238,7 +244,14 @@ class ParleyService:
         else:
             return False
         try:
-            message = self._messages.read_message(self._lookup(data, now))
+            message = self._messages.read_message(
+                self._lookup(
+                    room_id=data.room_id,
+                    message_id=data.message_id,
+                    audience="parley-message",
+                    now=now,
+                )
+            )
         except ParleyWorkerUnavailableError:
             logger.warning(
                 "parley report kept without its message: room=%s message=%s",
@@ -261,6 +274,43 @@ class ParleyService:
             )
         )
         return True
+
+    def delete_reported(
+        self, *, report_ids: list[int], now: datetime
+    ) -> ParleyModerationResult:
+        """Delete each reported message for everyone, as staff, and resolve it.
+
+        A message whose room does not answer stays reported.
+        """
+        deleted = failed = 0
+        for ref in self._repository.list_reported(report_ids):
+            try:
+                self._messages.moderate(
+                    self._lookup(
+                        room_id=ref.room_id,
+                        message_id=ref.message_id,
+                        audience="parley-moderation",
+                        now=now,
+                    )
+                )
+            except ParleyWorkerUnavailableError:
+                logger.exception(
+                    "parley staff deletion failed: room=%s message=%s",
+                    ref.room_id,
+                    ref.message_id,
+                )
+                failed += 1
+                continue
+            self._repository.resolve_reports(
+                room_id=ref.room_id, message_id=ref.message_id, now=now
+            )
+            logger.info(
+                "parley message deleted by staff: room=%s message=%s",
+                ref.room_id,
+                ref.message_id,
+            )
+            deleted += 1
+        return ParleyModerationResult(deleted=deleted, failed=failed)
 
     def _moderated(self, user_id: int) -> frozenset[int]:
         return frozenset(
@@ -292,14 +342,16 @@ class ParleyService:
         rooms = [] if access is None else access.rooms
         return next((room for room in rooms if room.id == data.room_id), None)
 
-    def _lookup(self, data: ParleyReportData, now: datetime) -> str:
+    def _lookup(
+        self, *, room_id: str, message_id: int, audience: str, now: datetime
+    ) -> str:
         issued_at = int(now.timestamp())
         return self._signer.sign(
             ParleyMessageLookupClaims(
                 iss="ludamus",
-                aud="parley-message",
-                room=data.room_id,
-                message=data.message_id,
+                aud=audience,
+                room=room_id,
+                message=message_id,
                 iat=issued_at,
                 exp=issued_at + _LOOKUP_LIFETIME_SECONDS,
                 jti=token_urlsafe(18),

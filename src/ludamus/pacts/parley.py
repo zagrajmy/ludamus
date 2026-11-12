@@ -275,6 +275,21 @@ class ParleyMessageReaderProtocol(Protocol):
     # ParleyWorkerUnavailableError when it cannot be asked.
     def read_message(self, token: str, /) -> ParleyReportedMessage | None: ...
 
+    # Deletes the message for everyone in its room, a message the room no
+    # longer has included; raises ParleyWorkerUnavailableError when the room
+    # cannot be told.
+    def moderate(self, token: str, /) -> None: ...
+
+
+class ParleyReportedRef(BaseModel):
+    room_id: str
+    message_id: int
+
+
+class ParleyModerationResult(BaseModel):
+    deleted: int
+    failed: int
+
 
 class ParleyTimeWindow(BaseModel):
     now: datetime
@@ -300,6 +315,14 @@ class ParleyRepositoryProtocol(Protocol):
 
     @staticmethod
     def save_report(report: ParleyReportRecord) -> None: ...
+
+    # The messages these reports are about, each once.
+    @staticmethod
+    def list_reported(report_ids: list[int]) -> list[ParleyReportedRef]: ...
+
+    # Marks every open report of the message resolved.
+    @staticmethod
+    def resolve_reports(*, room_id: str, message_id: int, now: datetime) -> None: ...
 
     # Empties the words reports copied of messages written at or before the
     # cutoff, keeping each report; returns how many it emptied.
@@ -352,6 +375,10 @@ class ParleyServiceProtocol(Protocol):
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
 
+    def delete_reported(
+        self, *, report_ids: list[int], now: datetime
+    ) -> ParleyModerationResult: ...
+
 
 class ParleyMembershipClaims(BaseModel):
     """Who is in a conversation, as Django sees it now; the Worker's member list."""
@@ -376,6 +403,7 @@ class ParleyMemberSnapshot(BaseModel):
     state: ParleyMemberState
     writable: bool
     age_band: AgeBand
+    signs_in: bool
 
 
 class ParleyMembership(BaseModel):
@@ -462,6 +490,7 @@ class ParleyConversationRepositoryProtocol(Protocol):
         *, conversation_id: int, user_id: int
     ) -> ParleyConversationDTO | None: ...
 
+    # Everyone still in the conversation, as the Worker may be told of them.
     @staticmethod
     def snapshot(
         conversation_id: int,

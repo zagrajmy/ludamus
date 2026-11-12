@@ -77,11 +77,14 @@ class EventSettingsService(EventSettingsServiceProtocol):
             ):
                 raise EventSlugConflictError from exc
             raise
-        # NOTE: whether the chat was on can hang on the sphere's own setting,
-        # so any change to the event's takes back the passes that named it.
+        # NOTE: opening a chat needs no revocation: the next pass names it.
+        # Unless the chat surely was off or surely stays on, the passes that
+        # may name it are taken back; following the sphere can go either way.
         if (
             "parley_enabled" in data
             and data["parley_enabled"] != current_event.parley_enabled
+            and data["parley_enabled"] is not True
+            and current_event.parley_enabled is not False
         ):
             logger.info(
                 "parley event chat changed: event=%s to=%s",

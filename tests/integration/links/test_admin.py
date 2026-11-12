@@ -2,11 +2,15 @@ import json
 from http import HTTPStatus
 
 import pytest
+import requests
 import responses
 from django.contrib import messages
 from django.contrib.admin import helpers
+from django.contrib.auth.models import Permission
+from django.core.exceptions import ImproperlyConfigured
 from django.urls import reverse
 
+from ludamus.links.db.django import admin as admin_module
 from ludamus.links.db.django.models import Notification, ParleyReport, Tag, TagCategory
 from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import SphereFactory, UserFactory
@@ -197,14 +201,19 @@ class TestDeleteReportedMessagesAction:
         report.refresh_from_db()
         assert report.resolved_at is not None
 
+    @pytest.mark.parametrize(
+        "answer",
+        ({"status": 503}, {"body": requests.ConnectionError()}),
+        ids=["error", "unreachable"],
+    )
     def test_a_worker_that_does_not_answer_leaves_the_report_open(
-        self, superuser_client, settings
+        self, superuser_client, settings, answer
     ):
         configure_parley(settings)
         report = _report(SphereFactory(), message_id=7)
 
         with responses.RequestsMock() as worker:
-            worker.post(WORKER_MODERATION_URL, status=503)
+            worker.post(WORKER_MODERATION_URL, **answer)
             response = superuser_client.post(REPORTS_URL, _delete_post([report]))
 
         assert_response(
@@ -222,8 +231,7 @@ class TestDeleteReportedMessagesAction:
         report.refresh_from_db()
         assert report.resolved_at is None
 
-    def test_without_a_worker_nothing_is_deleted(self, superuser_client, settings):
-        settings.PARLEY_AGENT_HOST = ""
+    def test_without_a_worker_nothing_is_deleted(self, superuser_client):
         report = _report(SphereFactory(), message_id=7)
 
         response = superuser_client.post(REPORTS_URL, _delete_post([report]))
@@ -232,7 +240,39 @@ class TestDeleteReportedMessagesAction:
             response,
             HTTPStatus.FOUND,
             url=REPORTS_URL,
-            messages=[(messages.ERROR, "The chat Worker is not configured.")],
+            messages=[
+                (messages.INFO, "Deleted 0 message(s)."),
+                (
+                    messages.ERROR,
+                    "1 could not be deleted: the chat Worker did not answer.",
+                ),
+            ],
         )
+        report.refresh_from_db()
+        assert report.resolved_at is None
+
+    def test_an_admin_started_without_services_says_so(
+        self, superuser_client, monkeypatch
+    ):
+        monkeypatch.setattr(admin_module._wiring, "services", None)
+        report = _report(SphereFactory(), message_id=7)
+
+        with pytest.raises(ImproperlyConfigured):
+            superuser_client.post(REPORTS_URL, _delete_post([report]))
+
+    def test_staff_who_may_only_view_reports_cannot_delete(self, client, settings):
+        configure_parley(settings)
+        viewer = UserFactory(is_staff=True)
+        viewer.user_permissions.add(
+            Permission.objects.get(codename="view_parleyreport")
+        )
+        client.force_login(viewer)
+        report = _report(SphereFactory(), message_id=7)
+
+        with responses.RequestsMock(assert_all_requests_are_fired=False) as worker:
+            worker.post(WORKER_MODERATION_URL, status=204)
+            client.post(REPORTS_URL, _delete_post([report]))
+            assert not worker.calls
+
         report.refresh_from_db()
         assert report.resolved_at is None

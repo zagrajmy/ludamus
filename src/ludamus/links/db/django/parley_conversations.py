@@ -228,14 +228,11 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
     ) -> tuple[ParleyConversationKind, list[ParleyMemberSnapshot]]:
         conversation = ParleyConversation.objects.get(pk=conversation_id)
         # Everyone, the departed included: a direct conversation dies with
-        # either person's leaving. An account that can no longer sign in, or
-        # one a kind needing direct messages no longer lets in, is not on the
-        # list the Worker gets.
+        # either person's leaving.
         everyone = list(conversation.members.select_related("user"))
-        eligible = set(
+        signing_in = set(
             User.objects.filter(
-                _eligible() if _policy(conversation).needs_direct else _signs_in(),
-                pk__in=[member.user_id for member in everyone],
+                _signs_in(), pk__in=[member.user_id for member in everyone]
             ).values_list("pk", flat=True)
         )
         return ParleyConversationKind(conversation.kind), [
@@ -248,9 +245,10 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
                     others=[other for other in everyone if other.pk != member.pk],
                 ),
                 age_band=AgeBand(member.user.age_band),
+                signs_in=member.user_id in signing_in,
             )
             for member in everyone
-            if member.state in _PRESENT and member.user_id in eligible
+            if member.state in _PRESENT
         ]
 
     @staticmethod
@@ -364,12 +362,12 @@ def _conversation_for(
     if own is None:
         return None
     others = [member for member in members if member.user_id != user_id]
+    name = _given_name(conversation)
     return ParleyConversationDTO(
         id=f"conversation:{conversation.pk}",
         kind=ParleyConversationKind(conversation.kind),
-        title=_given_name(conversation)
-        or _default_title(conversation, others, user_id),
-        name=_given_name(conversation),
+        title=name or _default_title(conversation, others, user_id),
+        name=name,
         state=ParleyMemberState(own.state),
         can_write=_writable(
             conversation=conversation,

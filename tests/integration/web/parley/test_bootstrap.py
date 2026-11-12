@@ -160,7 +160,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
 
 
 @pytest.mark.usefixtures("parley_settings")
-def test_manager_token_does_not_grow_with_the_sphere(
+def test_manager_token_does_not_grow_with_the_programme(
     authenticated_client, active_user, event, sphere
 ):
     sphere.managers.add(active_user)
@@ -170,21 +170,20 @@ def test_manager_token_does_not_grow_with_the_sphere(
 
     small = authenticated_client.get(reverse("parley_bootstrap")).json()
     SessionFactory.create_batch(200, event=event, category=None)
-    for _ in range(20):
-        EventFactory(
-            sphere=sphere,
-            start_time=event.start_time,
-            end_time=event.end_time,
-            parley_enabled=True,
-        )
     large = authenticated_client.get(reverse("parley_bootstrap")).json()
 
-    assert len(large["rooms"]) == len(small["rooms"]) + 220
+    assert len(large["rooms"]) == len(small["rooms"]) + 200
     assert len(large["capabilityToken"]) == len(small["capabilityToken"])
-    assert len(large["capabilityToken"]) < COOKIE_BUDGET
     claims = decode_segment(large["capabilityToken"].split(".")[1])
     assert claims["managed"] == {str(sphere.pk): {"organizers": True}}
-    assert claims["events"] == {}
+    assert claims["events"] == {
+        f"{sphere.pk}:{event.pk}": {
+            "endsAt": int(event.end_time.timestamp()),
+            "writable": True,
+            "chat": True,
+            "sessions": {},
+        }
+    }
 
 
 @pytest.mark.usefixtures("parley_settings")

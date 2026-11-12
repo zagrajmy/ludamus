@@ -52,7 +52,7 @@ def event_json(
     """
     on = services.sphere_panel.event_chat_on(sphere_id=actor_sphere(actor), event=event)
     view = _EventView.model_validate(event, from_attributes=True)
-    effective: dict[str, object] = {"parley_enabled_effective": on}
+    effective: dict[str, bool] = {"parley_enabled_effective": on}
     return view.model_copy(update=effective).model_dump_json(indent=2)
 
 

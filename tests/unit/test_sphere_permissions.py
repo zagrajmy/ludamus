@@ -169,20 +169,32 @@ class TestSpherePanelServiceReads:
         assert _service().read(SPHERE_PK) == _sphere()
 
     @pytest.mark.parametrize(
-        ("sphere_default", "own", "on"),
+        ("sphere_chat", "sphere_default", "own", "on"),
         (
-            (True, None, True),
-            (False, None, False),
-            (False, True, True),
-            (True, False, False),
+            (True, True, None, True),
+            (True, False, None, False),
+            (True, False, True, True),
+            (True, True, False, False),
+            (False, True, True, False),
         ),
-        ids=["inherits-on", "inherits-off", "overrides-on", "overrides-off"],
+        ids=[
+            "inherits-on",
+            "inherits-off",
+            "overrides-on",
+            "overrides-off",
+            "sphere-chat-off",
+        ],
     )
     def test_an_event_s_chat_is_its_own_choice_else_its_sphere_s(
-        self, sphere_default, own, on
+        self, sphere_chat, sphere_default, own, on
     ):
         spheres = FakeSpheres(
-            _sphere().model_copy(update={"parley_events_enabled": sphere_default})
+            _sphere().model_copy(
+                update={
+                    "parley_enabled": sphere_chat,
+                    "parley_events_enabled": sphere_default,
+                }
+            )
         )
         event = event_dto().model_copy(update={"parley_enabled": own})
 

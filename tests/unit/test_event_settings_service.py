@@ -192,21 +192,29 @@ def _proposal_data(*, apply_to_categories: bool) -> ProposalSettingsUpdateData:
 
 
 class TestUpdateGeneral:
-    def test_any_change_to_the_event_chat_takes_back_passes_that_name_it(self):
-        # Following the sphere, the chat may have been on or off before; each
-        # change is a reason for passes to be fetched again, a repeat is not.
-        fakes = _Fakes()
+    @pytest.mark.parametrize(
+        ("was", "becomes", "revoked"),
+        (
+            (None, True, False),
+            (False, True, False),
+            (False, None, False),
+            (True, True, False),
+            (True, False, True),
+            (True, None, True),
+            (None, False, True),
+        ),
+    )
+    def test_passes_are_taken_back_only_when_the_event_chat_may_close(
+        self, was, becomes, revoked
+    ):
+        fakes = _Fakes(events=[_event().model_copy(update={"parley_enabled": was})])
 
-        for choice in (True, True, False, None, None):
-            fakes.service.update_general(
-                sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": choice}
-            )
         fakes.service.update_general(
-            sphere_id=SPHERE_ID, slug="conf", data={"name": "Renamed"}
+            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": becomes}
         )
 
-        assert fakes.events.rows[_EVENT_PK].parley_enabled is None
-        assert fakes.chat.revoked_events == [_EVENT_PK] * 3
+        assert fakes.events.rows[_EVENT_PK].parley_enabled is becomes
+        assert fakes.chat.revoked_events == ([_EVENT_PK] if revoked else [])
 
     def test_writes_the_patch_onto_the_event(self):
         fakes = _Fakes()

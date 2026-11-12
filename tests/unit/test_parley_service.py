@@ -16,8 +16,10 @@ from ludamus.pacts.parley import (
     ParleyConversationKind,
     ParleyMembership,
     ParleyMemberState,
+    ParleyModerationResult,
     ParleyReportData,
     ParleyReportedMessage,
+    ParleyReportedRef,
     ParleyRoomDTO,
     ParleyRoomKind,
     ParleyTeamSeat,
@@ -83,6 +85,8 @@ class Access:
         self._has_rooms = has_rooms
         self.asked = []
         self.saved = []
+        self.reported = {}
+        self.resolved = []
 
     def list_team_seats(self, _user_id):
         return self.seats
@@ -104,6 +108,12 @@ class Access:
 
     def save_report(self, report):
         self.saved.append(report)
+
+    def list_reported(self, report_ids):
+        return [self.reported[pk] for pk in report_ids]
+
+    def resolve_reports(self, *, room_id, message_id, now):
+        self.resolved.append((room_id, message_id, now))
 
 
 class LengthSigner:
@@ -218,7 +228,7 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
     assert result.capability_token == "t" * 100
 
 
-def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_rooms() -> (
+def test_a_moderator_s_pass_names_their_spheres_and_events_but_not_the_programme() -> (
     None
 ):
     access = Access(
@@ -230,6 +240,7 @@ def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_room
                 can_write=True,
                 can_moderate=True,
             ),
+            _event(1, can_moderate=True),
             *(_session(pk, event=1, can_moderate=True) for pk in range(1, 1001)),
             _session(2000, event=9, sphere=7),
         ],
@@ -249,13 +260,14 @@ def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_room
         "45": {"organizers": True},
         "8": {"organizers": False},
     }
-    assert list(claims.events) == ["7:9"]
+    assert list(claims.events) == ["45:1", "7:9"]
+    assert (claims.events["45:1"].chat, claims.events["45:1"].sessions) == (True, {})
 
 
 def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     rooms = [_event(pk, ends_at=1_786_000_000 + pk) for pk in range(1, 31)]
     rooms.append(_session(500, event=30, ends_at=1_786_000_030))
-    moderated_room = _event(99, sphere=8, can_moderate=True)
+    moderated_room = _session(99, event=7, sphere=8, can_moderate=True)
     access = Access([*rooms, moderated_room], seats=[(8, SphereRole.MANAGER)])
     service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
 
@@ -267,7 +279,7 @@ def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     assert kept == {
         *(f"event:45:{pk}" for pk in range(12, 31)),
         "session:45:500",
-        "event:8:99",
+        "session:8:99",
     }
     assert list(signer.signed[-1].events) == [f"45:{pk}" for pk in range(12, 31)]
 
@@ -364,6 +376,11 @@ class Messages:
             raise ParleyWorkerUnavailableError
         return self.answer
 
+    def moderate(self, token, /):
+        self.asked.append(token)
+        if token in self.answer:
+            raise ParleyWorkerUnavailableError
+
 
 class RecordingSigner:
     def __init__(self):
@@ -402,6 +419,33 @@ def _reporting(room_id, *, rooms=None, members=None, answer="theirs"):
         now=datetime(2026, 8, 6, 12, tzinfo=UTC),
     )
     return created, rooms.saved, messages.asked, signer.signed
+
+
+def test_staff_delete_each_reported_message_once_and_resolve_what_its_room_deleted():
+    access = Access([])
+    access.reported = {
+        1: ParleyReportedRef(room_id="event:45:12", message_id=9),
+        2: ParleyReportedRef(room_id="conversation:3", message_id=4),
+    }
+    signer = RecordingSigner()
+    messages = Messages(answer={"token-2"})
+    service = ParleyService(
+        repository=access,
+        conversations=Members(),
+        signer=signer,
+        messages=messages,
+        agent_host="parley.example.com",
+    )
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+
+    result = service.delete_reported(report_ids=[1, 2], now=now)
+
+    assert result == ParleyModerationResult(deleted=1, failed=1)
+    assert [(c.aud, c.room, c.message) for c in signer.signed] == [
+        ("parley-moderation", "event:45:12", 9),
+        ("parley-moderation", "conversation:3", 4),
+    ]
+    assert access.resolved == [("event:45:12", 9, now)]
 
 
 def test_a_report_from_a_sphere_room_keeps_what_the_room_said():

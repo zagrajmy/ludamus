@@ -150,6 +150,7 @@ class World:
                 state=state,
                 writable=state == ACTIVE,
                 age_band=self.read_age_band(user),
+                signs_in=user != OUT,
             )
             for user, state in self.states(conversation_id).items()
             if state != LEFT
@@ -742,3 +743,32 @@ def test_a_party_chat_s_member_list_keeps_its_pair_rule_whoever_sends_it(
 
     assert [int(member["user"]) for member in signed[0].members] == listed
     assert signed[0].needs_direct is False
+
+
+@pytest.mark.parametrize(
+    ("kind", "listed"),
+    ((GROUP, [ME, ADA]), (PARTY, [ME, ADA, KID])),
+    ids=["group", "party"],
+)
+def test_a_member_list_leaves_out_who_cannot_sign_in_or_is_too_young_for_the_kind(
+    world, kind, listed
+):
+    world.conversations[1] = {"kind": kind, "pair_key": None, "party": 7, "title": ""}
+    for member in (ME, ADA, KID, OUT):
+        world.members[1, member] = (ACTIVE, False)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return "token"
+
+    sign_membership(
+        signer=Signer(),
+        repository=world,
+        conversation_id=1,
+        now=datetime(2026, 11, 10, 12, tzinfo=UTC),
+    )
+
+    assert [int(member["user"]) for member in signed[0].members] == listed

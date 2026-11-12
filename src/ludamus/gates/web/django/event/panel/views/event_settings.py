@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
+from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -27,7 +28,6 @@ from ludamus.pacts.event import (
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
-    from django import forms
     from django.http import HttpResponse
 
     from ludamus.pacts.event import EventDTO
@@ -88,12 +88,13 @@ def _follow_sphere_choices(
     form: EventSettingsForm, name: str, *, inherited: str, on: str, off: str
 ) -> None:
     # Null follows the sphere, which the first choice says the value of.
-    field = cast("forms.ChoiceField", form.fields[name])
-    field.choices = [
-        ("", _("Use sphere default (currently: {})").format(inherited)),
-        ("true", on),
-        ("false", off),
-    ]
+    field = form.fields[name]
+    if isinstance(field, forms.ChoiceField):
+        field.choices = [
+            ("", _("Use sphere default (currently: {})").format(inherited)),
+            ("true", on),
+            ("false", off),
+        ]
 
 
 class EventSettingsPageView(EventPanelMixin, View):
