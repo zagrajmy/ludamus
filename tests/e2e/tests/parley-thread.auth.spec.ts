@@ -104,7 +104,7 @@ test("A conversation reads back in runs with dates, links, avatars and history",
     .poll(() => worker.called("markRead").at(-1)?.input)
     .toEqual({
       messageId: 52,
-      roomId: "sphere:1",
+      roomId: "event:1:5",
     });
 
   await expect(panel.getByText(bootstrap.copy.retentionNote)).toHaveCount(0);
@@ -116,10 +116,10 @@ test("A conversation reads back in runs with dates, links, avatars and history",
   await expect(panel.getByText(bootstrap.copy.retentionNote)).toBeVisible();
   expect(worker.called("loadBefore").at(-1)?.input).toEqual({ beforeId: 3, limit: 50 });
 
-  worker.push("presence.changed", { count: 1 }, /parley-sphere-agent/u);
-  await expect(panel.getByText("Common room · 1 person here")).toBeVisible();
-  worker.push("presence.changed", { count: 3 }, /parley-sphere-agent/u);
-  await expect(panel.getByText("Common room · 3 people here")).toBeVisible();
+  worker.push("presence.changed", { count: 1 }, /parley-event-agent/u);
+  await expect(panel.getByText("Event chat · 1 person here")).toBeVisible();
+  worker.push("presence.changed", { count: 3 }, /parley-event-agent/u);
+  await expect(panel.getByText("Event chat · 3 people here")).toBeVisible();
 
   // A message the room already holds (an echo of one's own send) stays single.
   worker.push("message.created", latest.at(-1));
@@ -144,7 +144,7 @@ test("The room says who is typing and drops them when they go quiet", async ({ p
   await page.goto("/");
   const panel = await openRoom(page, "Zagrajmy", "So was Ola");
   const typing = (userId: string, ms: number) =>
-    worker.push("typing.changed", { expiresAt: Date.now() + ms, userId }, /sphere-agent/u);
+    worker.push("typing.changed", { expiresAt: Date.now() + ms, userId }, /parley-event-agent/u);
 
   typing(ME, 5000);
   typing("2", 5000);
@@ -182,12 +182,12 @@ test("The composer sends, counts, and says what went wrong", async ({ page }) =>
       nonce: String(input.nonce),
     });
     // The first time, the Worker's broadcast beats the call's own answer back.
-    if (sentCount === 0) worker.push("message.created", sent, /sphere-agent/u);
+    if (sentCount === 0) worker.push("message.created", sent, /parley-event-agent/u);
     sentCount += 1;
     return { ok: true, value: sent };
   });
   await page.goto("/");
-  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptySphere);
+  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptyEvent);
   const composer = panel.getByLabel("Message", { exact: true });
   const send = panel.getByRole("button", { name: bootstrap.copy.sendLabel });
 
@@ -264,7 +264,7 @@ test("A mute replaces the composer, says until when, and lifts on its own", asyn
   };
   worker.on("startTyping", refuse).on("sendMessage", refuse);
   await page.goto("/");
-  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptySphere);
+  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptyEvent);
   const composer = panel.getByLabel("Message", { exact: true });
   const restore = async () => {
     worker.push("restriction.changed", { mutedUntil: 0, userId: ME });
@@ -314,10 +314,14 @@ test("A dropped connection says so and clears once the socket is back", async ({
   await routeBootstrap(page);
   const worker = await FakeWorker.install(page);
   await page.goto("/");
-  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptySphere);
-  worker.push("presence.changed", { count: 2 }, /sphere-agent/u);
-  worker.push("typing.changed", { expiresAt: Date.now() + 60_000, userId: "2" }, /sphere-agent/u);
-  await expect(panel.getByText("Common room · 2 people here")).toBeVisible();
+  const panel = await openRoom(page, "Zagrajmy", bootstrap.copy.emptyEvent);
+  worker.push("presence.changed", { count: 2 }, /parley-event-agent/u);
+  worker.push(
+    "typing.changed",
+    { expiresAt: Date.now() + 60_000, userId: "2" },
+    /parley-event-agent/u,
+  );
+  await expect(panel.getByText("Event chat · 2 people here")).toBeVisible();
   await expect(panel.getByText("Someone is typing…")).toBeVisible();
 
   await worker.close(1011);

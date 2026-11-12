@@ -41,6 +41,17 @@ from ludamus.pacts.listing import (
     ListingSeeking,
     ListingStatus,
 )
+from ludamus.pacts.moderation import (
+    LEGAL_PROVISION_MAX_LENGTH,
+    NOTICE_EXPLANATION_MAX_LENGTH,
+    NOTICE_NAME_MAX_LENGTH,
+    NOTICE_URL_MAX_LENGTH,
+    ModerationDecision,
+    ModerationGround,
+    ModerationStatus,
+    NoticeCategory,
+    case_reference,
+)
 from ludamus.pacts.notifications import NotificationKind, SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.propose import AccreditationType, ImportLogStatus
@@ -61,7 +72,8 @@ from ludamus.pacts.user import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
+    from enum import StrEnum
 
 
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
@@ -254,13 +266,24 @@ REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety re
 
 
 class ParleyConversation(models.Model):
-    """A chat between people, apart from any sphere: a direct one or a group."""
+    """A chat between people, apart from any sphere: direct, a group or a party's."""
 
     class Kind(models.TextChoices):
         DIRECT = "direct"
         GROUP = "group"
+        PARTY = "party"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
+    # NOTE: a party's chat, and the reports made in it, outlive the party, so
+    # the party's id stays behind once the party is gone.
+    party = models.OneToOneField(
+        "Party",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="parley_chat",
+    )
     title = models.CharField(max_length=80, blank=True, default="")
     created_by = models.ForeignKey(
         User, null=True, on_delete=models.SET_NULL, related_name="+"
@@ -350,6 +373,123 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+def _choices(values: Iterable[StrEnum]) -> list[tuple[str, str]]:
+    return [
+        (value.value, value.name.replace("_", " ").capitalize()) for value in values
+    ]
+
+
+MODERATION_STATUS_CHOICES = _choices(ModerationStatus)
+MODERATION_DECISION_CHOICES = _choices(ModerationDecision)
+MODERATION_GROUND_CHOICES = _choices(ModerationGround)
+
+
+class ModerationCase(models.Model):
+    """One matter staff handle. Mail about it carries its reference."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "moderation_case"
+
+    def __str__(self) -> str:
+        return case_reference(self.pk)
+
+
+class ContentNotice(models.Model):
+    """A notice of illegal content, from anyone (DSA Art. 16)."""
+
+    case = models.ForeignKey(
+        ModerationCase,
+        on_delete=models.SET_NULL,
+        related_name="notices",
+        null=True,
+        blank=True,
+    )
+    url = models.CharField(max_length=NOTICE_URL_MAX_LENGTH)
+    category = models.CharField(max_length=32, choices=_choices(NoticeCategory))
+    explanation = models.TextField(max_length=NOTICE_EXPLANATION_MAX_LENGTH)
+    reporter_name = models.CharField(
+        max_length=NOTICE_NAME_MAX_LENGTH, blank=True, default=""
+    )
+    reporter_email = models.EmailField(blank=True, default="")
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="content_notices",
+        null=True,
+        blank=True,
+    )
+    sphere = models.ForeignKey(
+        "Sphere",
+        on_delete=models.SET_NULL,
+        related_name="content_notices",
+        null=True,
+        blank=True,
+    )
+    language = models.CharField(max_length=10, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=MODERATION_STATUS_CHOICES,
+        default=ModerationStatus.OPEN.value,
+    )
+    decision = models.CharField(
+        max_length=32, choices=MODERATION_DECISION_CHOICES, blank=True, default=""
+    )
+    ground = models.CharField(
+        max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
+    )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    decision_text = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "content_notice"
+
+    def __str__(self) -> str:
+        return f"Notice {self.pk}: {self.url}"
+
+
+class StatementOfReasons(models.Model):
+    """What was decided against a person, and why, as they were told (Art. 17)."""
+
+    case = models.ForeignKey(
+        ModerationCase,
+        on_delete=models.SET_NULL,
+        related_name="statements",
+        null=True,
+        blank=True,
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="statements_of_reasons",
+        null=True,
+        blank=True,
+    )
+    decision = models.CharField(max_length=32, choices=MODERATION_DECISION_CHOICES)
+    ground = models.CharField(max_length=32, choices=MODERATION_GROUND_CHOICES)
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    facts = models.TextField()
+    from_report = models.BooleanField()
+    automated = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "statement_of_reasons"
+        verbose_name_plural = "statements of reasons"
+
+    def __str__(self) -> str:
+        return f"Statement {self.pk} to user {self.user_id}"
+
+
 class ParleyReport(models.Model):
     # A sphere's room, or a conversation: exactly one of the two.
     sphere = models.ForeignKey(
@@ -387,6 +527,29 @@ class ParleyReport(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    case = models.ForeignKey(
+        "ModerationCase",
+        on_delete=models.SET_NULL,
+        related_name="chat_reports",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=MODERATION_STATUS_CHOICES,
+        default=ModerationStatus.OPEN.value,
+    )
+    decision = models.CharField(
+        max_length=32, choices=MODERATION_DECISION_CHOICES, blank=True, default=""
+    )
+    ground = models.CharField(
+        max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
+    )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    decision_text = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "parley_report"
@@ -648,6 +811,10 @@ class Sphere(models.Model):
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
     parley_enabled = models.BooleanField(default=True)
+    # Whether the sphere's managers have a room of their own, and whether its
+    # events have a chat unless an event says otherwise.
+    parley_organizers_enabled = models.BooleanField(default=True)
+    parley_events_enabled = models.BooleanField(default=False)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -873,6 +1040,9 @@ class Event(models.Model):
     # off by default, so placing an item never stands in for the
     # facilitator confirming it.
     auto_confirm_sessions = models.BooleanField(default=False)
+    # The event's chat, for everyone taking part. None follows the sphere's
+    # parley_events_enabled, like allow_facilitator_session_edit.
+    parley_enabled = models.BooleanField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "event"

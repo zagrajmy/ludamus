@@ -438,17 +438,24 @@ export function Conversation({
         }),
     });
   };
+  // The reporter vouches for the report before it goes (DSA Art. 16(2)(d)).
   const report = (messageId: number) =>
-    act(async () => {
-      const form = new FormData();
-      form.set("message_id", String(messageId));
-      form.set("room_id", room.id);
-      const response = await fetch("/parley/reports/", {
-        body: form,
-        headers: { "X-CSRFToken": bootstrap.csrfToken },
-        method: "POST",
-      });
-      return response.ok ? { notice: copy.reported } : { error: copy.errorUnknown };
+    confirm({
+      accept: copy.reportMessage,
+      question: copy.reportConfirm,
+      run: () =>
+        void act(async () => {
+          const form = new FormData();
+          form.set("message_id", String(messageId));
+          form.set("room_id", room.id);
+          form.set("good_faith", "1");
+          const response = await fetch("/parley/reports/", {
+            body: form,
+            headers: { "X-CSRFToken": bootstrap.csrfToken },
+            method: "POST",
+          });
+          return response.ok ? { notice: copy.reported } : { error: copy.errorUnknown };
+        }),
     });
 
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
@@ -520,9 +527,14 @@ export function Conversation({
   };
   const { conversation } = room;
   const writableEmpty = {
-    conversation: conversation?.kind === "group" ? copy.emptyGroup : copy.emptyDirect,
+    conversation: {
+      direct: copy.emptyDirect,
+      group: copy.emptyGroup,
+      party: copy.emptyParty,
+    }[conversation?.kind ?? "direct"],
+    event: copy.emptyEvent,
+    organizers: copy.emptyOrganizers,
     session: copy.emptySession,
-    sphere: copy.emptySphere,
   }[room.kind];
   const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
   const kind = roomKind(copy, room);
@@ -658,7 +670,7 @@ export function Conversation({
                           : null
                       }
                       remove={(id) => void remove(id)}
-                      report={(id) => void report(id)}
+                      report={report}
                       room={room}
                     />
                   </Fragment>

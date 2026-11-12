@@ -1,10 +1,22 @@
 # parley
 
-Cloudflare Worker behind Parley, the sphere and session chat. Each room is a
-SQLite-backed Durable Object from Cloudflare's `agents` SDK: one
-`ParleySphereAgent` per sphere, one `ParleySessionAgent` per programme point.
-Django signs a short-lived capability token; the Worker checks it against
-`PARLEY_PUBLIC_KEY` before it lets a browser into a room.
+Cloudflare Worker behind Parley, the chat. Each room is a SQLite-backed
+Durable Object from Cloudflare's `agents` SDK:
+
+- `ParleyOrganizersAgent`, one per sphere, for its chat moderators;
+- `ParleyEventAgent`, one per event, and `ParleySessionAgent`, one per
+  programme point, for the people taking part;
+- `ParleyConversationAgent`, one per direct, group or party conversation,
+  whose member list Django pushes;
+- `ParleySphereAgent`, one per sphere, which holds no messages: it is the
+  sphere's deny-list and its feed of which rooms have news;
+- `ParleyInboxAgent`, one per person, the same feed for their conversations.
+
+Django signs one short-lived capability token for every sphere a person is
+in; the Worker checks it against `PARLEY_PUBLIC_KEY` before it lets a
+browser into a room. It names the spheres someone moderates, the events
+whose chats they may enter, and the programme points they take part in, so
+a moderator's token does not grow with their sphere's programme.
 
 ## Two configurations, one runtime
 
@@ -27,9 +39,9 @@ past its year however late the alarm runs. A room's alarm sweeps its storage
 once the oldest message is due, and then at most daily while any remain; a
 room with no messages sets none. A sphere's room activity and read positions,
 and a person's inbox, drop entries a year old the same way, so no unread flag
-outlives its message. Session rooms go sooner on top of that: read-only 48
-hours after their event ends, and deleted whole 30 days after. Django clears
-its own copy of a reported message on the same one-year rule.
+outlives its message. Event and session rooms go sooner on top of that:
+read-only 48 hours after their event ends, and deleted whole 30 days after.
+Django clears its own copy of a reported message on the same one-year rule.
 
 ## Inputs
 

@@ -1,0 +1,32 @@
+{% comment %}
+A session's cover with its title printed on it, white on a scrim: the session
+card's top and the session modal's hero are this one partial, so the card to
+modal morph only has to move and grow it (modal.css: morph-cover, morph-scrim,
+morph-cover-title).
+
+The block grows with the title rather than clipping it, so pass the floor
+height as extra_class. scrim-title stays dark under every line of the title,
+so the white text keeps about 7:1 even on a white cover.
+
+Variables:
+  url          the cover to show (session_cover_image)
+  title        the session title
+  heading_id   optional id for the heading, for aria-labelledby
+  close_gap    true leaves room on the right for a close button pinned on top
+  extra_class  layout classes from the caller (the floor height)
+{% endcomment %}
+<div class="relative mx-1 mt-1 flex shrink-0 flex-col justify-end overflow-hidden rounded-xl bg-neutral-800 {{ extra_class }}">
+    <img src="{{ url }}"
+         alt=""
+         width="640"
+         height="360"
+         class="absolute inset-0 size-full rounded-xl object-cover"
+         data-morph="cover"
+         data-cover-image>
+    <div class="relative scrim-title rounded-b-xl ps-4 pt-16 pb-4 {% if close_gap %}pe-14{% else %}pe-4{% endif %}"
+         data-morph="scrim">
+        <h3 {% if heading_id %}id="{{ heading_id }}"{% endif %}
+            class="w-fit wrap-anywhere text-pretty text-3xl font-bold leading-tight tracking-tight text-white print:text-lg"
+            data-morph="cover-title">{{ title }}</h3>
+    </div>
+</div>

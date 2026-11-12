@@ -1,24 +1,31 @@
-export type RoomKind = "conversation" | "session" | "sphere";
+// One event's rooms on a pass: whether its own chat is open to this person,
+// and its programme points they are in, which end with it.
+export type EventGrant = {
+  chat: boolean;
+  endsAt: number;
+  // Each programme point by pk, and whether it still takes messages.
+  sessions: Record<string, boolean>;
+  // Whether the event's chat still takes messages.
+  writable: boolean;
+};
 
-export type SessionGrant = { endsAt: number; writable: boolean };
-
-// The token holds a role, not a list of rooms: a manager covers every room of
-// the sphere, a member the sphere room plus the sessions they take part in.
+// One pass for every sphere. It lists the spheres someone manages, whose
+// every room they moderate, and otherwise only their own events, each by
+// its room's name "<sphere>:<pk>".
 export type Capability = {
   aud: "parley";
   avatar: string;
   // Whether direct and group conversations are open to this person at all.
   direct?: boolean;
+  events: Record<string, EventGrant>;
   exp: number;
   iat: number;
   iss: "ludamus";
   jti: string;
+  managed: Record<string, { organizers: boolean }>;
   name: string;
   readOnlyAfter: number;
   retainFor: number;
-  role: "manager" | "member";
-  sessions: Record<string, SessionGrant>;
-  sphere: string;
   sub: string;
 };
 
@@ -26,12 +33,16 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
+export type ConversationKind = "direct" | "group" | "party";
+
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
   conversation: string;
   iat: number;
-  kind: "direct" | "group";
+  kind: ConversationKind;
   members: Member[];
+  // Whether only a pass with direct messages open gets in.
+  needsDirect: boolean;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub

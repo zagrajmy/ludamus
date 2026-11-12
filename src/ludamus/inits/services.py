@@ -26,9 +26,14 @@ from ludamus.inits.dbos_scheduler import (
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
+from ludamus.links.cache import (
+    CacheAuthorizationCodeStore,
+    DjangoCache,
+    DjangoCacheCounter,
+)
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
+from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
@@ -65,6 +70,13 @@ from ludamus.mills.integrations import (
 )
 from ludamus.mills.maps import EventMapsService
 from ludamus.mills.mcp import McpAuthorizationService
+from ludamus.mills.moderation import (
+    ActiveRecipientsService,
+    ChatReportIntakeService,
+    ModerationDecisionService,
+    NoticeService,
+    StatementOfReasonsService,
+)
 from ludamus.mills.notifications import (
     NotificationsService,
     NotificationSubscriptionsService,
@@ -72,7 +84,10 @@ from ludamus.mills.notifications import (
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
-from ludamus.mills.parley_conversations import ParleyConversationService
+from ludamus.mills.parley_conversations import (
+    ParleyConversationService,
+    ParleyPartyChatService,
+)
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -177,12 +192,21 @@ class Services:
         )
 
     @cached_property
+    def parley_party_chats(self) -> ParleyPartyChatService:
+        return ParleyPartyChatService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
         return ParleyRevocationService(
             repository=self._repos.parley,
             outbox=parley_revocation_outbox(),
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
+            party_chats=self.parley_party_chats,
         )
 
     @cached_property
@@ -276,7 +300,10 @@ class Services:
     @cached_property
     def parties(self) -> PartyService:
         return PartyService(
-            self._transaction, self._repos.parties, DjangoUserNotifier()
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            notifier=DjangoUserNotifier(),
+            chat=self.parley_party_chats,
         )
 
     @cached_property
@@ -349,6 +376,7 @@ class Services:
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
             ),
+            chat=self.parley_revocations,
         )
 
     @cached_property
@@ -589,6 +617,49 @@ class Services:
             repo=self._repos.event_bans,
             chat=self.parley_revocations,
         )
+
+    @cached_property
+    def notices(self) -> NoticeService:
+        return NoticeService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            notices=self._repos.content_notices,
+            counter=DjangoCacheCounter(),
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def chat_report_intake(self) -> ChatReportIntakeService:
+        return ChatReportIntakeService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            reports=self._repos.chat_reports,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def statements_of_reasons(self) -> StatementOfReasonsService:
+        return StatementOfReasonsService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            statements=self._repos.statements_of_reasons,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def moderation_decisions(self) -> ModerationDecisionService:
+        return ModerationDecisionService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            notices=self._repos.content_notices,
+            reports=self._repos.chat_reports,
+            statements=self.statements_of_reasons,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def active_recipients(self) -> ActiveRecipientsService:
+        return ActiveRecipientsService(repository=self._repos.active_recipients)
 
     @cached_property
     def bookmarks(self) -> BookmarkService:

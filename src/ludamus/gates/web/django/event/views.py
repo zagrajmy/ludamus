@@ -162,13 +162,19 @@ class SessionEditView(LoginRequiredMixin, View):
         if not self.request.headers.get("HX-Request"):
             event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
             return redirect(f"{event_url}?session={session_id}")
+        cover_before = ctx.session.cover_image_url
         ctx = self._context(event_slug, session_id)
-        return self._render(
+        response = self._render(
             ctx=ctx,
             form=self._initial_form(ctx),
             fields_form=self._fields_form(ctx),
             saved=True,
         )
+        # A new or removed cover reshapes the card and the modal's header, so
+        # the page reloads; its ?session= reopens this session on top.
+        if ctx.session.cover_image_url != cover_before:
+            response["HX-Refresh"] = "true"
+        return response
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
         try:
