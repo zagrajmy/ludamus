@@ -68,7 +68,7 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
-    parley_enabled: bool = True
+    parley_enabled: bool = False
     visibility: EventVisibility = EventVisibility.PUBLIC
     cover_image_url: str = ""
     cover_image_original_name: str = ""

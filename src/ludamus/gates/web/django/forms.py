@@ -278,8 +278,8 @@ class EventSettingsForm(forms.Form):
         required=False,
         label=_("Event chat"),
         help_text=_(
-            "One chat for everyone with a place or on a waitlist, the hosts and "
-            "the organizers. Turning it off closes it at once."
+            "When on, everyone with a place or on a waitlist, the hosts and the "
+            "organizers share one chat. Turning it off closes it at once."
         ),
     )
 

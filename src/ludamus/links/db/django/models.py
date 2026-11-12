@@ -884,8 +884,8 @@ class Event(models.Model):
     # off by default, so placing an item never stands in for the
     # facilitator confirming it.
     auto_confirm_sessions = models.BooleanField(default=False)
-    # The event's chat, for everyone taking part; its organizers may turn it off.
-    parley_enabled = models.BooleanField(default=True)
+    # The event's chat, for everyone taking part, once its organizers turn it on.
+    parley_enabled = models.BooleanField(default=False)
 
     class Meta:
         db_table = "event"

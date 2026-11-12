@@ -54,6 +54,8 @@ def test_nowhere_to_chat_is_not_found(authenticated_client, sphere, active_user)
 def test_returns_scoped_rooms_and_verifiable_capability(
     authenticated_client, active_user, event, parley_settings, sphere
 ):
+    event.parley_enabled = True
+    event.save()
     confirmed = SessionFactory(
         event=event, category=None, title="Mothership", status=SessionStatus.ACCEPTED
     )
@@ -146,13 +148,18 @@ def test_manager_token_does_not_grow_with_the_sphere(
     authenticated_client, active_user, event, sphere
 ):
     sphere.managers.add(active_user)
+    event.parley_enabled = True
+    event.save()
     SessionFactory(event=event, category=None)
 
     small = authenticated_client.get(reverse("parley_bootstrap")).json()
     SessionFactory.create_batch(200, event=event, category=None)
     for _ in range(20):
         EventFactory(
-            sphere=sphere, start_time=event.start_time, end_time=event.end_time
+            sphere=sphere,
+            start_time=event.start_time,
+            end_time=event.end_time,
+            parley_enabled=True,
         )
     large = authenticated_client.get(reverse("parley_bootstrap")).json()
 

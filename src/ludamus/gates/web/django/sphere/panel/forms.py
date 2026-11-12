@@ -64,9 +64,9 @@ class SphereSettingsForm(forms.Form):
         required=False,
         label=_("Enable chat"),
         help_text=_(
-            "Each event gets a chat for everyone taking part, each programme point "
-            "a room for its players and hosts, and the sphere's team a room of "
-            "its own."
+            "Each programme point gets a room for its players and hosts, the "
+            "sphere's team a room of its own, and each event whose organizers "
+            "turn its chat on a chat for everyone taking part."
         ),
     )
     event_cover_buttons_at_bottom = forms.BooleanField(

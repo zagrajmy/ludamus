@@ -33,13 +33,14 @@ def _window(now: datetime) -> ParleyTimeWindow:
     )
 
 
-def _event(sphere, now, *, ended_days_ago=-1, **fields):
+def _event(sphere, now, *, ended_days_ago=-1, parley_enabled=True, **fields):
     end = now - timedelta(days=ended_days_ago)
     return EventFactory(
         sphere=sphere,
         publication_time=end - timedelta(days=3),
         start_time=end - timedelta(hours=10),
         end_time=end,
+        parley_enabled=parley_enabled,
         **fields,
     )
 
@@ -123,10 +124,16 @@ def test_a_manager_has_the_organizers_room_and_every_room_of_their_sphere(
     assert access.rooms[0].title == sphere.name
 
 
-def test_an_event_its_organizers_turned_chat_off_for_keeps_only_its_sessions(
+def test_an_event_has_no_chat_until_its_organizers_turn_it_on(
     sphere, active_user, now, window
 ):
-    event = _event(sphere, now, parley_enabled=False)
+    end = now + timedelta(days=1)
+    event = EventFactory(
+        sphere=sphere,
+        publication_time=end - timedelta(days=3),
+        start_time=end - timedelta(hours=10),
+        end_time=end,
+    )
     session = SessionFactory(event=event, category=None, status=SessionStatus.ACCEPTED)
     SessionParticipationFactory(
         session=session, user=active_user, status=SessionParticipationStatus.CONFIRMED

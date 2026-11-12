@@ -3054,11 +3054,11 @@ msgstr "Czat wydarzenia"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid ""
-"One chat for everyone with a place or on a waitlist, the hosts and the "
-"organizers. Turning it off closes it at once."
+"When on, everyone with a place or on a waitlist, the hosts and the "
+"organizers share one chat. Turning it off closes it at once."
 msgstr ""
-"Wspólny czat dla wszystkich z miejscem lub na liście rezerwowej, "
-"prowadzących i organizatorów. Wyłączenie zamyka go od razu."
+"Po włączeniu wszyscy z miejscem lub na liście rezerwowej, twórcy programu i "
+"organizatorzy mają wspólny czat. Wyłączenie zamyka go od razu."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Proposal Description"
@@ -4293,11 +4293,13 @@ msgstr "Włącz czat"
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid ""
-"Each event gets a chat for everyone taking part, each programme point a room "
-"for its players and hosts, and the sphere's team a room of its own."
+"Each programme point gets a room for its players and hosts, the sphere's "
+"team a room of its own, and each event whose organizers turn its chat on a "
+"chat for everyone taking part."
 msgstr ""
-"Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
-"programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
+"Każdy punkt programu dostaje pokój dla graczy i twórców programu, zespół "
+"sfery własny pokój, a każde wydarzenie, któremu organizatorzy włączą czat, "
+"czat dla wszystkich uczestników."
 
 #: src/ludamus/gates/web/django/sphere/panel/forms.py
 msgid "Place event cover buttons at the bottom right"
@@ -14051,6 +14053,13 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid ""
+#~ "Each event gets a chat for everyone taking part, each programme point a "
+#~ "room for its players and hosts, and the sphere's team a room of its own."
+#~ msgstr ""
+#~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
+#~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
 
 #~ msgid ""
 #~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
