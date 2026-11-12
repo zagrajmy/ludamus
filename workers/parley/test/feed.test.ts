@@ -38,6 +38,10 @@ describe("a sphere's feed", () => {
     expect(seen.value["event:41:5"]?.unread).toBe(true);
     expect((await organizer.call<Activity>("getActivity")).value["event:41:5"]?.unread).toBe(true);
     expect((await outsider.call<Activity>("getActivity")).value).toEqual({});
+    await expect
+      .poll(() => organizer.events.some((event) => event.type === "room.activity"))
+      .toBe(true);
+    expect(outsider.events.some((event) => event.type === "room.activity")).toBe(false);
 
     expect(await feed.call("markRead", { roomId: "event:41:5" })).toEqual({
       code: "invalid",

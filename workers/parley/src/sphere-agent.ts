@@ -206,19 +206,19 @@ export class ParleySphereAgent extends Agent<Env> {
     void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
       VALUES (${input.roomId}, ${input.latestMessageId}, ${Date.now()})
       ON CONFLICT(room_id) DO UPDATE SET latest_message_id = MAX(latest_message_id, excluded.latest_message_id), updated_at = excluded.updated_at`;
-    this.emit({
-      type: "room.activity",
-      v: 1,
-      payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
-    });
+    sendWhere(
+      this.getConnections<ConnectionState>(),
+      {
+        type: "room.activity",
+        v: 1,
+        payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
+      },
+      (capability) => canSeeRoom(capability, input.roomId),
+    );
   }
 
   private currentCapability(): Capability {
     return passOf(getCurrentAgent<ParleySphereAgent>().connection as Connection<ConnectionState>);
-  }
-
-  private emit(event: ServerEvent): void {
-    sendWhere(this.getConnections<ConnectionState>(), event);
   }
 
   private emitTo(userId: string, event: ServerEvent): void {
