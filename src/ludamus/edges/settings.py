@@ -74,6 +74,12 @@ env = environ.Env(
     # Bearer secret the Email Worker sends with each forwarded reply. Empty
     # closes the webhook.
     ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
+    # The single contact point for users and authorities; staff cases answer
+    # from it.
+    STAFF_EMAIL=(str, "Zagrajmy <staff@zagrajmy.net>"),
+    # HMAC key the posta mail Worker signs each staff@ mail it forwards with.
+    # Empty closes the webhook.
+    STAFF_MAIL_WEBHOOK_SECRET=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -609,6 +615,8 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
 ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
+STAFF_EMAIL = env("STAFF_EMAIL")
+STAFF_MAIL_WEBHOOK_SECRET = env("STAFF_MAIL_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).

@@ -3746,6 +3746,8 @@ msgid "Mute for 1 hour"
 msgstr "Wycisz na godzinę"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
 msgid "Mute for 24 hours"
 msgstr "Wycisz na 24 godziny"
 
@@ -4454,6 +4456,152 @@ msgstr "Zaproszenie wycofane."
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
 
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Write the reply first."
+msgstr "Najpierw napisz odpowiedź."
+
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "This case has no address to answer. Add a note instead."
+msgstr "Ta sprawa nie ma adresu do odpowiedzi. Dodaj notatkę."
+
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Pick someone on staff."
+msgstr "Wybierz kogoś z zespołu."
+
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "You made the decision under appeal. Someone else decides it."
+msgstr "To Twoja decyzja jest przedmiotem odwołania. Rozpatrzy je ktoś inny."
+
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Open"
+msgstr "Otwarte"
+
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Waiting"
+msgstr "Czekają"
+
+#: src/ludamus/gates/web/django/staff/cases.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Closed"
+msgstr "Zamknięte"
+
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Reply sent."
+msgstr "Odpowiedź wysłana."
+
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Note added to the thread."
+msgstr "Notatka dodana do wątku."
+
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Case assigned."
+msgstr "Sprawa przypisana."
+
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Decision recorded. The case is closed."
+msgstr "Decyzja zapisana. Sprawa zamknięta."
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Chat report"
+msgstr "Zgłoszenie z czatu"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Notice form"
+msgstr "Formularz zgłoszenia"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Appeal"
+msgstr "Odwołanie"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Email"
+msgstr "E-mail"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "No action"
+msgstr "Bez działań"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Hide content"
+msgstr "Ukryj treść"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Remove content"
+msgstr "Usuń treść"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Suspend account"
+msgstr "Zawieś konto"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Terms § 4.1 point 4: disrupting the service"
+msgstr "Regulamin § 4.1 pkt 4: zakłócanie działania Serwisu"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Terms § 4.1 point 5: using the service against its purpose"
+msgstr ""
+"Regulamin § 4.1 pkt 5: korzystanie z Serwisu niezgodnie z przeznaczeniem"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Terms § 4.1 point 6: violating other users' rights"
+msgstr "Regulamin § 4.1 pkt 6: naruszanie praw innych Użytkowników"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Terms § 4.1 point 7: unlawful or indecent content"
+msgstr ""
+"Regulamin § 4.1 pkt 7: treści niezgodne z prawem lub dobrymi obyczajami"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "Illegal content"
+msgstr "Treść niezgodna z prawem"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Reply as the staff address"
+msgstr "Odpowiedz jako staff@zagrajmy.net"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Handled by"
+msgstr "Prowadzi"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Nobody"
+msgstr "Nikt"
+
+#: src/ludamus/gates/web/django/staff/forms.py
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Action"
+msgstr "Akcja"
+
+#
+#: src/ludamus/gates/web/django/staff/forms.py
+msgid "Ground"
+msgstr "Podstawa"
+
 #: src/ludamus/gates/web/django/staging_inbox.py
 msgid "No date"
 msgstr "Bez daty"
@@ -4505,10 +4653,6 @@ msgstr "Wymagane"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
 msgstr "Nie ustawiono"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Closed"
-msgstr "Zamknięte"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/enrollment-settings.html
@@ -4750,6 +4894,7 @@ msgid "16 or older"
 msgstr "16 lat lub więcej"
 
 #: src/ludamus/gates/web/django/user/forms.py
+#: src/ludamus/templates/staff/cases.html
 msgid "13–15"
 msgstr "13–15 lat"
 
@@ -5487,6 +5632,45 @@ msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s.
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "%(count)s attachment, kept in the staff mailbox"
+msgid_plural "%(count)s attachments, kept in the staff mailbox"
+msgstr[0] "%(count)s załącznik, w skrzynce staff@"
+msgstr[1] "%(count)s załączniki, w skrzynce staff@"
+msgstr[2] "%(count)s załączników, w skrzynce staff@"
+msgstr[3] "%(count)s załącznika, w skrzynce staff@"
+
+#: src/ludamus/links/db/django/staff_thread.py
+msgid "no reason given"
+msgstr "bez podanego powodu"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "Reported in %(room)s. Reason: %(reason)s"
+msgstr "Zgłoszono w %(room)s. Powód: %(reason)s"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "Subject: %(subject)s"
+msgstr "Temat: %(subject)s"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "%(name)s (email)"
+msgstr "%(name)s (e-mail)"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "Sent to %(address)s:"
+msgstr "Wysłano do %(address)s:"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "Decision: %(action)s. Ground: %(ground)s."
+msgstr "Decyzja: %(action)s. Podstawa: %(ground)s."
 
 #: src/ludamus/templates/404_dynamic.html
 msgid "Page Not Found"
@@ -10851,10 +11035,6 @@ msgid "Mine"
 msgstr "Moi"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Nobody"
-msgstr "Nikt"
-
-#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filtering"
 msgstr "Filtrowanie"
@@ -11426,6 +11606,7 @@ msgid "New guild"
 msgstr "Nowa gildia"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+#: src/ludamus/templates/staff/cases.html
 #, python-format
 msgid "Handled by %(name)s"
 msgstr "Opiekun: %(name)s"
@@ -12590,10 +12771,6 @@ msgstr "Nie ma jeszcze bloków — utwórz blok, aby podzielić program."
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Action"
-msgstr "Akcja"
-
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Hours to fill"
 msgstr "Godziny do zapełnienia"
@@ -13114,6 +13291,188 @@ msgstr "Wycofaj"
 #: src/ludamus/templates/sphere/panel/team.html
 msgid "No open invitations."
 msgstr "Brak aktywnych zaproszeń."
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "Statement preview for the author:"
+msgstr "Podgląd uzasadnienia dla autora:"
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "We took no action on the content."
+msgstr "Nie podjęliśmy działań wobec treści."
+
+#
+#: src/ludamus/templates/staff/_statement.html
+msgid "We hid your message."
+msgstr "Ukryliśmy Twoją wiadomość."
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "We removed your message."
+msgstr "Usunęliśmy Twoją wiadomość."
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "We muted you in the chat for 24 hours."
+msgstr "Wyciszyliśmy Cię w czacie na 24 godziny."
+
+#
+#: src/ludamus/templates/staff/_statement.html
+msgid "We suspended your account."
+msgstr "Zawiesiliśmy Twoje konto."
+
+#: src/ludamus/templates/staff/_statement.html
+#, python-format
+msgid "Reason: %(ground)s."
+msgstr "Powód: %(ground)s."
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "A person on the Zagrajmy team decided this, without automation."
+msgstr "Decyzję podjęła osoba z zespołu Zagrajmy, bez automatyzacji."
+
+#: src/ludamus/templates/staff/_statement.html
+msgid "You can appeal by replying to this message."
+msgstr "Możesz się odwołać, odpowiadając na tę wiadomość."
+
+#: src/ludamus/templates/staff/cases.html
+msgid "Cases"
+msgstr "Sprawy"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Case status"
+msgstr "Stan sprawy"
+
+#: src/ludamus/templates/staff/cases.html
+msgid "Child safety"
+msgstr "Ochrona dzieci"
+
+#: src/ludamus/templates/staff/cases.html
+msgid "No cases here"
+msgstr "Brak spraw"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Assign case"
+msgstr "Przypisz"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Thread"
+msgstr "Wątek"
+
+#: src/ludamus/templates/staff/cases.html
+msgid ""
+"Staff notes, system events and every email are in the chat: this case's "
+"thread is pinned on top under “On this page”."
+msgstr ""
+"Notatki zespołu, zdarzenia i wszystkie e-maile są w czacie: wątek tej sprawy "
+"jest na górze, w sekcji „Na tej stronie”."
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "%(name)s to %(address)s"
+msgstr "%(name)s do %(address)s"
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "%(counter)s attachment, kept in the staff mailbox"
+msgid_plural "%(counter)s attachments, kept in the staff mailbox"
+msgstr[0] "%(counter)s załącznik, w skrzynce staff@"
+msgstr[1] "%(counter)s załączniki, w skrzynce staff@"
+msgstr[2] "%(counter)s załączników, w skrzynce staff@"
+msgstr[3] "%(counter)s załącznika, w skrzynce staff@"
+
+#: src/ludamus/templates/staff/cases.html
+msgid ""
+"Nobody outside the team wrote in this case, so the reply stays in the thread."
+msgstr ""
+"W tej sprawie nie pisał nikt spoza zespołu, więc odpowiedź zostaje w wątku."
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Add internal note"
+msgstr "Notatka wewnętrzna"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Send by email"
+msgstr "Wyślij"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Content and decision"
+msgstr "Treść i decyzja"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Reported content"
+msgstr "Zgłoszona treść"
+
+#: src/ludamus/templates/staff/cases.html
+msgid "The chat no longer holds this message."
+msgstr "Czat nie ma już tej wiadomości."
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "Author: %(name)s"
+msgstr "Autor: %(name)s"
+
+#: src/ludamus/templates/staff/cases.html
+msgid "16+"
+msgstr "16+"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "age not confirmed"
+msgstr "wiek niepotwierdzony"
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "account %(since)s old"
+msgstr "konto od %(since)s"
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "%(name)s reported it: %(reason)s"
+msgstr "%(name)s zgłasza: %(reason)s"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Decision"
+msgstr "Decyzja"
+
+#: src/ludamus/templates/staff/cases.html
+#, python-format
+msgid "%(action)s, on the ground of %(ground)s. Decided by %(name)s."
+msgstr "%(action)s, podstawa: %(ground)s. Zdecydował(a): %(name)s."
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Decide the appeal"
+msgstr "Rozpatrz odwołanie"
+
+#
+#: src/ludamus/templates/staff/cases.html
+msgid "Confirm decision"
+msgstr "Zatwierdź decyzję"
+
+#: src/ludamus/templates/staff/cases.html
+msgid ""
+"The reporter gets the outcome and the author the statement of reasons with a "
+"way to appeal. Both go into this thread."
+msgstr ""
+"Zgłaszający dostanie wynik, autor — uzasadnienie z możliwością odwołania. "
+"Obie wiadomości trafią do tego wątku."
+
+#: src/ludamus/templates/staff/cases.html
+msgid ""
+"You made the decision under appeal. Someone else on staff decides the appeal."
+msgstr ""
+"To Twoja decyzja jest przedmiotem odwołania. Rozpatrzy je inna osoba z "
+"zespołu."
+
+#: src/ludamus/templates/staff/cases.html
+msgid "Moderation FAQ (internal guidance, not legal advice)"
+msgstr ""
+"Moderacja: najczęstsze pytania (wskazówki wewnętrzne, nie porada prawna)"
 
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Captured emails"
@@ -15056,9 +15415,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Empty or 0 = no limit"
 #~ msgstr "Puste pole lub 0 = bez limitu"
-
-#~ msgid "Open"
-#~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"

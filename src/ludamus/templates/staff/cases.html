@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% load markdown_tags %}
+{% load empty_state_tags %}
+{% load staff_tags %}
+{% block title %}
+    {% if detail %}
+        {{ detail.case.reference }} · {% translate "Cases" %}
+    {% else %}
+        {% translate "Cases" %}
+    {% endif %}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block parley_room %}
+    {% if detail %}conversation:{{ detail.case.conversation_id }}{% endif %}
+{% endblock parley_room %}
+{% block body %}
+    <div class="grid gap-6 items-start {% if detail %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
+        <section aria-labelledby="cases-heading"
+                 class="flex flex-col gap-3 {% if detail %}hidden lg:flex{% endif %}">
+            <h1 id="cases-heading" class="text-2xl font-bold text-foreground">{% translate "Cases" %}</h1>
+            {% translate "Case status" as t_status %}
+            {% tabs variant="segment" aria_label=t_status %}
+                {% for tab in tabs %}
+                    {% url 'web:staff:cases' as cases_url %}
+                    {% tab tab.key icon=tab.icon href=cases_url|add:"?status="|add:tab.key active=tab.active %}
+                        {{ tab.label }} <span class="font-normal text-foreground-muted">{{ tab.count }}</span>
+                    {% end_tab %}
+                {% endfor %}
+            {% end_tabs %}
+            {% if inbox.cases %}
+                <ul class="flex flex-col gap-1">
+                    {% for case in inbox.cases %}
+                        <li>
+                            <a href="{% url 'web:staff:case' pk=case.pk %}"
+                               {% if detail and detail.case.pk == case.pk %}aria-current="page"{% endif %}
+                               class="flex flex-col gap-1 rounded-xl px-3 py-2.5 hover:bg-bg-tertiary aria-[current=page]:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus">
+                                <span class="flex flex-wrap items-center gap-2 text-xs">
+                                    <span class="tabular-nums text-foreground-muted">{{ case.reference }}</span>
+                                    {% if case.child_safety %}
+                                        <span class="rounded-md bg-danger px-1.5 py-0.5 font-bold text-white">{% translate "Child safety" %}</span>
+                                    {% endif %}
+                                    <span class="rounded-md bg-bg-tertiary px-1.5 py-0.5 font-semibold text-foreground-secondary">{{ case.kind|kind_label }}</span>
+                                    <time class="ms-auto text-foreground-muted"
+                                          datetime="{{ case.created_at|date:'c' }}">{{ case.created_at|timesince }}</time>
+                                </span>
+                                <span class="font-semibold text-foreground text-pretty" data-ph-no-capture>
+                                    {% firstof case.title case.kind|kind_label %}
+                                </span>
+                                {% if case.assignee_name %}
+                                    <span class="text-xs text-foreground-muted">
+                                        {% blocktranslate with name=case.assignee_name %}Handled by {{ name }}{% endblocktranslate %}
+                                    </span>
+                                {% endif %}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                {% translate "No cases here" as t_empty %}
+            {% empty_state icon="inbox" title=t_empty %}
+            {% end_empty_state %}
+{% endif %}
+</section>
+{% if detail %}
+    {% with case=detail.case %}
+        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <article aria-labelledby="case-heading" class="flex flex-col gap-5 min-w-0">
+                <a href="{% url 'web:staff:cases' %}?status={{ case.status }}"
+                   class="lg:hidden inline-flex items-center gap-1 text-sm text-foreground-secondary">
+                    {% icon "arrow-left" class="w-4 h-4" %}
+                    {% translate "Cases" %}
+                </a>
+                <header class="flex flex-col gap-2">
+                    <p class="text-sm tabular-nums text-foreground-muted">{{ case.reference }}</p>
+                    <h2 id="case-heading"
+                        class="text-2xl font-bold text-foreground text-pretty"
+                        data-ph-no-capture>{% firstof case.title case.kind|kind_label %}</h2>
+                    <p class="text-sm text-foreground-muted">
+                        {{ case.kind|kind_label }}
+                        {% if case.child_safety %}· {% translate "Child safety" %}{% endif %}
+                        · <time datetime="{{ case.created_at|date:'c' }}">{{ case.created_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                        {% if case.external_email %}
+                            · <span data-ph-block>{% firstof case.external_name case.external_email %}</span>
+                        {% endif %}
+                    </p>
+                    <form method="post"
+                          action="{% url 'web:staff:assign' pk=case.pk %}"
+                          class="flex flex-wrap items-end gap-2">
+                        {% csrf_token %}
+                        {% tessera_field assign_form.assignee %}
+                        {% translate "Assign case" as t_assign %}
+                        {% tessera_button t_assign variant="secondary" size="sm" full_width_mobile=False %}
+                    </form>
+                </header>
+                <section aria-labelledby="thread-heading" class="flex flex-col gap-3">
+                    <h3 id="thread-heading"
+                        class="text-base font-semibold text-foreground">{% translate "Thread" %}</h3>
+                    <p class="text-sm text-foreground-secondary">
+                        {% translate "Staff notes, system events and every email are in the chat: this case's thread is pinned on top under “On this page”." %}
+                    </p>
+                    {% if detail.emails %}
+                        <ol class="flex flex-col gap-3">
+                            {% for email in detail.emails %}
+                                <li class="flex flex-col gap-1 rounded-2xl px-4 py-3 {% if email.direction == 'out' %}bg-bg-tertiary{% else %}border border-border bg-bg-secondary{% endif %}">
+                                    <span class="flex flex-wrap items-baseline gap-2 text-sm">
+                                        <span class="font-semibold text-foreground" data-ph-block>
+                                            {% if email.direction == "out" %}
+                                                {% blocktranslate with name=email.sent_by_name address=email.address %}{{ name }} to {{ address }}{% endblocktranslate %}
+                                            {% else %}
+                                                {% blocktranslate with name=email.name|default:email.address %}{{ name }} (email){% endblocktranslate %}
+                                            {% endif %}
+                                        </span>
+                                        <time class="text-xs text-foreground-muted"
+                                              datetime="{{ email.created_at|date:'c' }}">{{ email.created_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                                    </span>
+                                    <span class="text-sm font-medium text-foreground"
+                                          data-ph-no-capture>{{ email.subject }}</span>
+                                    <span class="text-sm leading-relaxed whitespace-pre-line text-foreground"
+                                          data-ph-no-capture
+                                          data-ph-block>{{ email.body }}</span>
+                                    {% if email.attachments %}
+                                        <span class="text-xs text-foreground-muted">
+                                            {% blocktranslate count counter=email.attachments|length trimmed %}
+                                                {{ counter }} attachment, kept in the staff mailbox
+                                            {% plural %}
+                                                {{ counter }} attachments, kept in the staff mailbox
+                                            {% endblocktranslate %}
+                                        </span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ol>
+                    {% endif %}
+                    <form method="post"
+                          action="{% url 'web:staff:reply' pk=case.pk %}"
+                          class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3">
+                        {% csrf_token %}
+                        {% tessera_field reply_form.body %}
+                        {% if not case.external_email %}
+                            <p class="text-xs text-foreground-muted">
+                                {% translate "Nobody outside the team wrote in this case, so the reply stays in the thread." %}
+                            </p>
+                        {% endif %}
+                        <div class="flex flex-wrap justify-end gap-2">
+                            {% translate "Add internal note" as t_note %}
+                            {% if case.external_email %}
+                                {% tessera_button t_note variant="secondary" name="send" value="note" full_width_mobile=False %}
+                                {% translate "Send by email" as t_send %}
+                                {% tessera_button t_send icon="paper-airplane" name="send" value="email" full_width_mobile=False %}
+                            {% else %}
+                                {% tessera_button t_note name="send" value="note" full_width_mobile=False %}
+                            {% endif %}
+                        </div>
+                    </form>
+                </section>
+            </article>
+            <aside class="flex flex-col gap-4 min-w-0"
+                   aria-label="{% translate "Content and decision" %}">
+                {% if detail.content %}
+                    {% with content=detail.content %}
+                        <section class="card p-4 flex flex-col gap-2"
+                                 aria-labelledby="content-heading">
+                            <h3 id="content-heading"
+                                class="text-sm font-semibold text-foreground-secondary">
+                                {% translate "Reported content" %}
+                            </h3>
+                            <p class="text-xs text-foreground-muted">
+                                {{ content.room_id }}
+                                {% if content.written_at %}
+                                    · <time datetime="{{ content.written_at|date:'c' }}">{{ content.written_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                                {% endif %}
+                            </p>
+                            <blockquote class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-foreground"
+                                        data-ph-no-capture
+                                        data-ph-block>
+                                {% if content.body %}
+                                    {{ content.body }}
+                                {% else %}
+                                    {% translate "The chat no longer holds this message." %}
+                                {% endif %}
+                            </blockquote>
+                            <p class="text-sm text-foreground" data-ph-block>
+                                {% blocktranslate with name=content.author_name|default:"—" %}Author: {{ name }}{% endblocktranslate %}
+                                ·
+                                {% if content.author_age_band == "13_15" %}
+                                    {% translate "13–15" %}
+                                {% elif content.author_age_band == "16_plus" %}
+                                    {% translate "16+" %}
+                                {% else %}
+                                    {% translate "age not confirmed" %}
+                                {% endif %}
+                                {% if content.author_joined_at %}
+                                    ·
+                                    {% blocktranslate with since=content.author_joined_at|timesince %}account {{ since }} old{% endblocktranslate %}
+                                {% endif %}
+                            </p>
+                            {% if content.reason %}
+                                <p class="text-sm text-foreground-secondary" data-ph-no-capture>
+                                    {% blocktranslate with name=content.reporter_name reason=content.reason %}{{ name }} reported it: {{ reason }}{% endblocktranslate %}
+                                </p>
+                            {% endif %}
+                        </section>
+                    {% endwith %}
+                {% endif %}
+                <section class="card p-4 flex flex-col gap-3"
+                         aria-labelledby="decision-heading">
+                    <h3 id="decision-heading"
+                        class="text-sm font-semibold text-foreground-secondary">{% translate "Decision" %}</h3>
+                    {% if case.decision %}
+                        <p class="text-sm text-foreground">
+                            {% blocktranslate with action=case.decision.action|action_label ground=case.decision.ground|ground_label name=case.decision.decided_by_name %}{{ action }}, on the ground of {{ ground }}. Decided by {{ name }}.{% endblocktranslate %}
+                        </p>
+                    {% endif %}
+                    {% if detail.may_decide %}
+                        <form method="post"
+                              action="{% url 'web:staff:decide' pk=case.pk %}"
+                              class="flex flex-col gap-3"
+                              hx-get="{% url 'web:staff:case' pk=case.pk %}"
+                              hx-trigger="change"
+                              hx-target="#statement-preview"
+                              hx-select="#statement-preview"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            {% tessera_field decision_form.action %}
+                            {% tessera_field decision_form.ground %}
+                            {% include "staff/_statement.html" %}
+                            {% if case.decision %}
+                                {% translate "Decide the appeal" as t_decide %}
+                            {% else %}
+                                {% translate "Confirm decision" as t_decide %}
+                            {% endif %}
+                            {% tessera_button t_decide %}
+                            <p class="text-xs text-foreground-muted">
+                                {% translate "The reporter gets the outcome and the author the statement of reasons with a way to appeal. Both go into this thread." %}
+                            </p>
+                        </form>
+                    {% else %}
+                        <p class="text-sm text-foreground-secondary">
+                            {% translate "You made the decision under appeal. Someone else on staff decides the appeal." %}
+                        </p>
+                    {% endif %}
+                </section>
+            </aside>
+        </div>
+    {% endwith %}
+{% endif %}
+</div>
+<details class="mt-10 rounded-2xl border border-border bg-bg-secondary px-4 py-3">
+    <summary class="cursor-pointer text-sm font-semibold text-foreground">
+        {% translate "Moderation FAQ (internal guidance, not legal advice)" %}
+    </summary>
+    <div class="prose max-w-none mt-4 text-foreground">{{ faq|render_markdown }}</div>
+</details>
+{% endblock body %}

@@ -1,0 +1,22 @@
+{% load i18n %}
+<div id="statement-preview"
+     aria-live="polite"
+     class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed text-foreground">
+    <p class="font-semibold">{% translate "Statement preview for the author:" %}</p>
+    <p>
+        {% if statement.action == "none" %}
+            {% translate "We took no action on the content." %}
+        {% elif statement.action == "hide" %}
+            {% translate "We hid your message." %}
+        {% elif statement.action == "remove" %}
+            {% translate "We removed your message." %}
+        {% elif statement.action == "mute_24h" %}
+            {% translate "We muted you in the chat for 24 hours." %}
+        {% else %}
+            {% translate "We suspended your account." %}
+        {% endif %}
+    </p>
+    <p>{% blocktranslate with ground=statement.ground %}Reason: {{ ground }}.{% endblocktranslate %}</p>
+    <p>{% translate "A person on the Zagrajmy team decided this, without automation." %}</p>
+    <p>{% translate "You can appeal by replying to this message." %}</p>
+</div>
