@@ -355,6 +355,25 @@ class ParleyBlock(models.Model):
         return f"{self.blocker_id} blocks {self.blocked_id}"
 
 
+class ParleyMentionMail(models.Model):
+    """Whether chat mentions reach someone by email, and when the last one did.
+
+    No row is the default: on, never sent.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="+"
+    )
+    enabled = models.BooleanField(default=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_mention_mail"
+
+    def __str__(self) -> str:
+        return f"mention mail for {self.user_id}: {'on' if self.enabled else 'off'}"
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")

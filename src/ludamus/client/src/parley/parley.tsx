@@ -187,7 +187,7 @@ function RoomList({
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
     // A mention from someone this person blocked stays as hidden as its message.
-    const mentioned = (seen?.mentionedBy ?? []).some((id) => !blocked.has(id));
+    const mentioned = seen?.mentionedBy.some((id) => !blocked.has(id)) === true;
     const { conversation } = room;
     const face =
       conversation?.kind === "direct"
@@ -312,6 +312,7 @@ function Feed({
 function Connected({
   bootstrap,
   launcherLabel,
+  linked,
   onPassClosed,
   pageRoom,
   setView,
@@ -319,6 +320,8 @@ function Connected({
 }: {
   bootstrap: Bootstrap;
   launcherLabel: string;
+  // The room a link opened the page on, as "#parley:<room id>[:<message>]" names it.
+  linked: string;
   onPassClosed: () => void;
   pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
@@ -351,8 +354,9 @@ function Connected({
     ...Object.values(feeds).map((feed) => feed.activity),
   ) as Record<string, RoomActivity>;
   const here = rooms.find(({ id }) => id === pageRoom);
+  const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
   const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
-  const shown = settle(view, rooms, here ?? single);
+  const shown = settle(view, rooms, linkedRoom ?? here ?? single);
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   useEffect(() => {
@@ -578,6 +582,7 @@ function Connected({
                     )
                   }
                   onRefused={() => refused(room.id)}
+                  onStranger={() => void refresh()}
                   room={room}
                 />
               </div>
@@ -606,12 +611,14 @@ function Parley({
   bootstrapUrl,
   initialOpen,
   launcherLabel,
+  linked,
   pageRoom,
   shell,
 }: {
   bootstrapUrl: string;
   initialOpen: boolean;
   launcherLabel: string;
+  linked: string;
   pageRoom: string;
   shell: Shell;
 }) {
@@ -686,6 +693,7 @@ function Parley({
         bootstrap={bootstrap}
         key={bootstrap.capabilityToken}
         launcherLabel={launcherLabel}
+        linked={linked}
         onPassClosed={passClosed}
         pageRoom={pageRoom}
         setView={setView}
@@ -760,6 +768,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
+        linked={globalThis.location.hash.replace(/^#parley:/u, "")}
         pageRoom={pageRoom}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,

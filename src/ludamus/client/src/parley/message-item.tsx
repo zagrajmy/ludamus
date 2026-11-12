@@ -5,7 +5,7 @@ import type { Bootstrap, Message, Room } from "./protocol";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
-import { MentionedText } from "./mentions";
+import { segments } from "./mentions";
 import { ReactionChips, reactionPalette } from "./reactions";
 
 export type MuteAction = "restore" | number | null;
@@ -33,6 +33,42 @@ function Linked({ text }: { text: string }) {
           </a>
         ) : (
           part
+        ),
+      )}
+    </>
+  );
+}
+
+// A mention of the reader stands out most; in one's own bubble a mention
+// sits on the bubble's colour.
+function mentionStyle(id: string, { own, userId }: { own: boolean; userId: string }): string {
+  if (id === userId) return "rounded-md bg-coral-700 px-1 text-white";
+  return own ? "rounded-md bg-white/20 px-1" : "text-coral-700 dark:text-coral-300";
+}
+
+function MessageBody({
+  message,
+  nameOf,
+  own,
+  userId,
+}: {
+  message: Message;
+  nameOf: (id: string) => string;
+  own: boolean;
+  userId: string;
+}) {
+  return (
+    <>
+      {segments(message.body, message.mentions ?? []).map((segment, index) =>
+        segment.kind === "mention" ? (
+          <span
+            className={`font-semibold ${mentionStyle(segment.id, { own, userId })}`}
+            key={index}
+          >
+            @{nameOf(segment.id)}
+          </span>
+        ) : (
+          <Linked key={index} text={segment.text} />
         ),
       )}
     </>
@@ -224,12 +260,10 @@ export function MessageItem({
               (deleted ? (
                 copy.deletedMessage
               ) : (
-                <MentionedText
-                  body={message.body}
-                  mentions={message.mentions ?? []}
+                <MessageBody
+                  message={message}
                   nameOf={nameOf}
                   own={own}
-                  render={(text, key) => <Linked key={key} text={text} />}
                   userId={bootstrap.user.id}
                 />
               ))}

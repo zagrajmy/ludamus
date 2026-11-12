@@ -162,8 +162,6 @@ export type ConversationInfo = {
   isAdmin: boolean;
   kind: "direct" | "group" | "party";
   members: Person[];
-  // Ids of the members this member may mention.
-  mentionable: string[];
   // The name its members gave it; empty when they gave none.
   name: string;
   state: "active" | "request";
@@ -220,8 +218,9 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-// mentionedBy: who mentioned this person in what is still unread.
-export type RoomActivity = { at: number; mentionedBy?: string[]; unread: boolean };
+// mentionedBy: whose mentions of this person they have yet to read; a
+// sphere's rooms keep no member list to mention from, so theirs is empty.
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

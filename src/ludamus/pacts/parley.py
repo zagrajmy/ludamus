@@ -144,7 +144,6 @@ class ParleyConversationDTO(BaseModel):
     can_write: bool = Field(serialization_alias="canWrite")
     is_admin: bool = Field(serialization_alias="isAdmin")
     members: list[ParleyPersonDTO]
-    mentionable: list[str] = Field(default_factory=list)
 
 
 class ParleyBootstrapDTO(BaseModel):

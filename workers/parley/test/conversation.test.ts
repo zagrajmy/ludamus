@@ -216,7 +216,12 @@ describe("a mention", () => {
     expect(sent.value?.mentions).toEqual(["28", "29"]);
     expect((await mention(author, "Hi all", ["28"])).value?.mentions).toEqual([]);
     expect((await mention(author, "<@28>", "28")).value?.mentions).toEqual([]);
-    expect((await say(author, "<@28> plain")).ok).toBe(true);
+    const flood = await mention(
+      author,
+      "<@28> flood",
+      Array.from({ length: 201 }, () => "28"),
+    );
+    expect(flood.value?.mentions).toEqual([]);
 
     const again = await mention(author, "<@28> again", ["28"], "same");
     expect(await mention(author, "<@28> again", ["28"], "same")).toEqual(again);

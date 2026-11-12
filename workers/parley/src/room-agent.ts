@@ -40,6 +40,7 @@ import {
 export type Env = {
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
+  PARLEY_MENTIONS_SECRET: string;
   PARLEY_PUBLIC_KEY: string;
   ROOT_DOMAIN: string;
   // NOTE: routeAgentRequest serves each namespace under its binding name,
@@ -225,7 +226,11 @@ export abstract class RoomAgent extends Agent<Env> {
       VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
     const row = this
       .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const mentions = mentionsIn(body, input.mentions, this.mentionable(capability));
+    const mentions = mentionsIn({
+      allowed: this.mentionable(capability),
+      asked: input.mentions,
+      body,
+    });
     for (const userId of mentions) {
       void this.sql`INSERT INTO mentions (message_id, user_id) VALUES (${row.id}, ${userId})`;
     }
@@ -412,9 +417,14 @@ export abstract class RoomAgent extends Agent<Env> {
     return new Set();
   }
 
+  protected afterDelete(_messageId: number, _mentions: string[]): void {}
+
   private forgetAbout(messageId: number): void {
+    const mentions = this.sql<{ user_id: string }>`SELECT user_id FROM mentions
+      WHERE message_id = ${messageId}`.map((mention) => mention.user_id);
     void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
     void this.sql`DELETE FROM mentions WHERE message_id = ${messageId}`;
+    this.afterDelete(messageId, mentions);
   }
 
   protected currentCapability(): Capability {
@@ -588,7 +598,7 @@ export abstract class RoomAgent extends Agent<Env> {
       createdAt: row.created_at,
       deletedAt: row.deleted_at,
       id: row.id,
-      mentions: row.deleted_at === null ? mentions : [],
+      mentions,
       nonce: row.client_nonce,
       reactions,
       reactors,

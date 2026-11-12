@@ -100,10 +100,26 @@ export class ParleyConversationAgent extends RoomAgent {
           );
           await inbox.recordActivity({
             authorId: message.authorId,
+            authorName: message.authorName,
+            body: message.body,
             latestMessageId: message.id,
             mentions: message.mentions,
             roomId: this.roomId,
           });
+        }),
+      ),
+    );
+  }
+
+  protected afterDelete(messageId: number, mentions: string[]): void {
+    this.agentContext.waitUntil(
+      Promise.allSettled(
+        mentions.map(async (userId) => {
+          const inbox = await getAgentByName<Env, ParleyInboxAgent>(
+            this.workerEnv.ParleyInboxAgent,
+            userId,
+          );
+          await inbox.forgetMention({ messageId, roomId: this.roomId });
         }),
       ),
     );

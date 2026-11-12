@@ -10,7 +10,9 @@ Durable Object from Cloudflare's `agents` SDK:
   whose member list Django pushes;
 - `ParleySphereAgent`, one per sphere, which holds no messages: it is the
   sphere's deny-list and its feed of which rooms have news;
-- `ParleyInboxAgent`, one per person, the same feed for their conversations.
+- `ParleyInboxAgent`, one per person, the same feed for their conversations,
+  and their unread mentions: one still unread ten minutes on goes to the app,
+  which decides whether to email it.
 
 Django signs one short-lived capability token for every sphere a person is
 in; the Worker checks it against `PARLEY_PUBLIC_KEY` before it lets a
@@ -98,6 +100,7 @@ Each GitHub Environment (`production-coolify`, `staging`) needs:
 | var    | `ROOT_DOMAIN`                | already there for the app           |
 | var    | `PARLEY_PUBLIC_KEY`          | public half of the signing key, PEM |
 | secret | `PARLEY_SIGNING_PRIVATE_KEY` | its private half, handed to the app |
+| secret | `PARLEY_MENTIONS_SECRET`     | random, shared with the app         |
 | secret | `CLOUDFLARE_API_TOKEN`       | Zagrajmy account, see below         |
 
 Until an Environment has `PARLEY_PUBLIC_KEY`, its deploys skip the Worker
@@ -107,6 +110,10 @@ and the app ships without it. Give each environment a key pair of its own:
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out parley-private.pem
 openssl rsa -in parley-private.pem -pubout
 ```
+
+`PARLEY_MENTIONS_SECRET` signs the unread mentions the Worker hands the app
+to email about (`openssl rand -hex 32`). Without it the chat runs as before
+and mentions send no email.
 
 The token needs, on the Zagrajmy account (`add2b427b034a6073f63a849af7de160`),
 Workers Scripts edit and Secrets Store edit, and DNS edit on the

@@ -18,6 +18,7 @@ export default defineConfig({
     cloudflareTest({
       miniflare: {
         bindings: {
+          PARLEY_MENTIONS_SECRET: "parley-dev-mentions-secret-not-for-production",
           PARLEY_PUBLIC_KEY: createPublicKey(devSigningKey)
             .export({ format: "pem", type: "spki" })
             .toString(),

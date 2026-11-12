@@ -26,6 +26,7 @@ PARLEY_PAIR = 2
 # stores the pass as one; half of that leaves room for its name and
 # attributes with plenty to spare.
 PARLEY_PASS_MAX_LENGTH = 2048
+PARLEY_MENTION_MAIL_INTERVAL = timedelta(hours=1)
 
 
 def event_chat_on(*, sphere_chat: bool, own: bool | None, sphere_default: bool) -> bool:

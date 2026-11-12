@@ -128,7 +128,6 @@ class TestList:
                         "canWrite": False,
                         "isAdmin": False,
                         "members": [_person(ada), _person(me)],
-                        "mentionable": [str(ada.pk)],
                     }
                 ]
             },
@@ -164,7 +163,6 @@ class TestDirect:
                 "canWrite": True,
                 "isAdmin": False,
                 "members": [_person(me), _person(ada)],
-                "mentionable": [str(ada.pk)],
             },
         )
         assert _states(conversation.pk) == {"Test User": "active", "Ada": "request"}
@@ -184,7 +182,6 @@ class TestDirect:
                 "canWrite": True,
                 "isAdmin": False,
                 "members": [_person(me), _person(ada)],
-                "mentionable": [str(me.pk)],
             },
         )
         assert _states(conversation.pk) == {"Test User": "active", "Ada": "active"}
@@ -335,7 +332,6 @@ class TestGroups:
                 "canWrite": True,
                 "isAdmin": True,
                 "members": [_person(me), _person(ada), _person(bob)],
-                "mentionable": [str(ada.pk), str(bob.pk)],
             },
         )
 
@@ -425,7 +421,6 @@ class TestGroups:
                 "canWrite": True,
                 "isAdmin": False,
                 "members": [_person(me), _person(ada), _person(bob)],
-                "mentionable": [str(me.pk), str(bob.pk)],
             },
         )
         assert_response(stranger, HTTPStatus.NOT_FOUND, json={"error": "not_found"})
@@ -433,45 +428,6 @@ class TestGroups:
             malformed, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "invalid"}
         )
         assert ParleyConversation.objects.get().title == "Crew"
-
-    def test_offers_for_mention_only_those_unblocked_either_way(
-        self, authenticated_client, me
-    ):
-        ada, bob, cyd = _adult(name="Ada"), _adult(name="Bob"), _adult(name="Cyd")
-        conversation_id = _post(
-            authenticated_client,
-            "parley_conversation_group",
-            {"memberIds": [ada.pk, bob.pk, cyd.pk]},
-        ).json()["id"]
-        ParleyBlock.objects.create(blocker=ada, blocked=me)
-        ParleyBlock.objects.create(blocker=me, blocked=bob)
-
-        response = authenticated_client.get(reverse("parley_conversations"))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            json={
-                "conversations": [
-                    {
-                        "id": conversation_id,
-                        "kind": "group",
-                        "title": "Ada, Bob, Cyd",
-                        "name": "",
-                        "state": "active",
-                        "canWrite": True,
-                        "isAdmin": True,
-                        "members": [
-                            _person(me),
-                            _person(ada),
-                            _person(bob),
-                            _person(cyd),
-                        ],
-                        "mentionable": [str(cyd.pk)],
-                    }
-                ]
-            },
-        )
 
     def test_only_its_admin_adds_and_removes_and_anyone_can_leave(
         self, authenticated_client, me

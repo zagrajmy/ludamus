@@ -28,7 +28,9 @@ test("The launcher counts unread conversations before the chat is ever opened", 
   page,
 }) => {
   await routeBootstrap(page);
-  await FakeWorker.install(page, { "event:1:5": { at: Date.now(), unread: true } });
+  await FakeWorker.install(page, {
+    "event:1:5": { at: Date.now(), mentionedBy: [], unread: true },
+  });
 
   await page.goto("/");
   const launcher = launcherOf(page);

@@ -51,13 +51,6 @@ def _blocked(first_id: int, second_id: int) -> bool:
     ).exists()
 
 
-def _blocked_with(user_id: int) -> set[int]:
-    pairs = ParleyBlock.objects.filter(
-        Q(blocker_id=user_id) | Q(blocked_id=user_id)
-    ).values_list("blocker_id", "blocked_id")
-    return {pk for pair in pairs for pk in pair} - {user_id}
-
-
 def _policy(conversation: ParleyConversation) -> ParleyConversationPolicy:
     return CONVERSATION_POLICIES[ParleyConversationKind(conversation.kind)]
 
@@ -127,7 +120,10 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
 
     @staticmethod
     def search_people(*, user_id: int, query: str, limit: int) -> list[ParleyPersonDTO]:
-        hidden = {user_id} | _blocked_with(user_id)
+        blocked = ParleyBlock.objects.filter(
+            Q(blocker_id=user_id) | Q(blocked_id=user_id)
+        ).values_list("blocker_id", "blocked_id")
+        hidden = {user_id} | {pk for pair in blocked for pk in pair}
         people = (
             User.objects.filter(_eligible())
             .filter(Q(name__icontains=query) | Q(username__iexact=query))
@@ -219,11 +215,10 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         conversations = ParleyConversation.objects.filter(
             pk__in=conversation_ids
         ).order_by("-created_at", "-pk")
-        blocked = _blocked_with(user_id)
         return [
             dto
             for conversation in conversations
-            if (dto := _conversation_for(conversation, user_id, blocked)) is not None
+            if (dto := _conversation_for(conversation, user_id)) is not None
         ]
 
     @staticmethod
@@ -231,7 +226,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         conversation = ParleyConversation.objects.filter(pk=conversation_id).first()
         if conversation is None:
             return None
-        return _conversation_for(conversation, user_id, _blocked_with(user_id))
+        return _conversation_for(conversation, user_id)
 
     @staticmethod
     def snapshot(
@@ -373,7 +368,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
 
 
 def _conversation_for(
-    conversation: ParleyConversation, user_id: int, blocked: set[int]
+    conversation: ParleyConversation, user_id: int
 ) -> ParleyConversationDTO | None:
     members = list(
         conversation.members.filter(state__in=_PRESENT)
@@ -398,9 +393,6 @@ def _conversation_for(
         ),
         is_admin=own.is_admin,
         members=[_person(member.user) for member in members],
-        mentionable=[
-            str(member.user_id) for member in others if member.user_id not in blocked
-        ],
     )
 
 

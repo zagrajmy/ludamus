@@ -4,6 +4,15 @@ import type { Env } from "./room-agent";
 
 import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
+import {
+  askToMail,
+  MAIL_AFTER_MS,
+  MAIL_UNTIL_MS,
+  MAX_LISTED,
+  RETRY_MS,
+  snippet,
+  type UnreadMention,
+} from "./mention-mail";
 import { passOf, sendWhere } from "./passes";
 import {
   PASS_REVOKED,
@@ -21,6 +30,15 @@ type ActivityRow = {
   updated_at: number;
 };
 
+type MentionRow = {
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: number;
+  message_id: number;
+  room_id: string;
+};
+
 // One person's view across their conversations: which have news, and what
 // they have read. Named by user id; nobody else opens it.
 export class ParleyInboxAgent extends Agent<Env> {
@@ -35,7 +53,10 @@ export class ParleyInboxAgent extends Agent<Env> {
       room_id TEXT NOT NULL,
       message_id INTEGER NOT NULL,
       author_id TEXT NOT NULL,
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
       created_at INTEGER NOT NULL,
+      mailed_at INTEGER,
       PRIMARY KEY (room_id, message_id)
     )`;
   }
@@ -57,6 +78,7 @@ export class ParleyInboxAgent extends Agent<Env> {
     this.currentCapability();
     this.purgeExpiredActivity();
     const rows = this.sql<ActivityRow>`SELECT * FROM room_activity`;
+    const mentioned = this.mentionedBy();
     return {
       ok: true,
       value: Object.fromEntries(
@@ -64,7 +86,7 @@ export class ParleyInboxAgent extends Agent<Env> {
           row.room_id,
           {
             at: row.updated_at,
-            mentionedBy: this.mentionedBy(row.room_id),
+            mentionedBy: mentioned.get(row.room_id) ?? [],
             unread: row.latest_message_id > (row.last_read_message_id ?? 0),
           },
         ]),
@@ -84,17 +106,22 @@ export class ParleyInboxAgent extends Agent<Env> {
 
   // Not @callable: only a conversation room reaches this, over Durable
   // Object RPC, so a browser cannot forge activity.
-  recordActivity(input: {
+  async recordActivity(input: {
     authorId: string;
+    authorName: string;
+    body: string;
     latestMessageId: number;
     mentions: string[];
     roomId: string;
-  }): void {
+  }): Promise<void> {
     this.purgeExpiredActivity();
     const now = Date.now();
-    if (input.authorId !== this.name && input.mentions.includes(this.name)) {
-      void this.sql`INSERT INTO unread_mentions (room_id, message_id, author_id, created_at)
-        VALUES (${input.roomId}, ${input.latestMessageId}, ${input.authorId}, ${now})
+    const mentioned = input.authorId !== this.name && input.mentions.includes(this.name);
+    if (mentioned) {
+      void this.sql`INSERT INTO unread_mentions
+        (room_id, message_id, author_id, author_name, body, created_at)
+        VALUES (${input.roomId}, ${input.latestMessageId}, ${input.authorId},
+          ${input.authorName}, ${snippet(input.body)}, ${now})
         ON CONFLICT(room_id, message_id) DO NOTHING`;
     }
     void this.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
@@ -106,7 +133,7 @@ export class ParleyInboxAgent extends Agent<Env> {
       payload: {
         at: now,
         latestMessageId: input.latestMessageId,
-        mentionedBy: this.mentionedBy(input.roomId),
+        mentionedBy: this.mentionedBy().get(input.roomId) ?? [],
         roomId: input.roomId,
       },
       type: "room.activity",
@@ -114,6 +141,61 @@ export class ParleyInboxAgent extends Agent<Env> {
     });
     // One's own message is read by definition.
     if (input.authorId === this.name) this.read(input.roomId, input.latestMessageId);
+    if (mentioned && this.env.PARLEY_MENTIONS_SECRET) {
+      await this.schedule(new Date(now + MAIL_AFTER_MS), "mailMentions", undefined, {
+        idempotent: true,
+      });
+    }
+  }
+
+  forgetMention(input: { messageId: number; roomId: string }): void {
+    void this.sql`DELETE FROM unread_mentions
+      WHERE room_id = ${input.roomId} AND message_id = ${input.messageId}`;
+    this.emit({
+      payload: { mentionedBy: this.mentionedBy().get(input.roomId) ?? [], roomId: input.roomId },
+      type: "mentions.changed",
+      v: 1,
+    });
+  }
+
+  async mailMentions(): Promise<void> {
+    this.purgeExpiredActivity();
+    const now = Date.now();
+    const due = now - MAIL_AFTER_MS;
+    const fresh = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM unread_mentions
+      WHERE mailed_at IS NULL AND created_at <= ${due} AND created_at > ${now - MAIL_UNTIL_MS}`[0]!;
+    if (fresh.count > 0) {
+      const listed = this.sql<MentionRow>`SELECT * FROM unread_mentions
+        WHERE created_at <= ${due} ORDER BY created_at DESC LIMIT ${MAX_LISTED}`;
+      const outcome = await askToMail(this.env, {
+        mentions: listed.reverse().map(
+          (row): UnreadMention => ({
+            at: row.created_at,
+            author: row.author_id,
+            authorName: row.author_name,
+            body: row.body,
+            message: row.message_id,
+            room: row.room_id,
+          }),
+        ),
+        userId: this.name,
+      });
+      if (outcome.kind !== "handled") {
+        const at = outcome.kind === "later" ? outcome.at : now + RETRY_MS;
+        await this.schedule(new Date(at), "mailMentions", undefined, { idempotent: false });
+        return;
+      }
+      void this.sql`UPDATE unread_mentions SET mailed_at = ${now}
+        WHERE mailed_at IS NULL AND created_at <= ${due}`;
+    }
+    // NOTE: the schedule running now stays listed until this returns, so the
+    const next = this.sql<{ created_at: number }>`SELECT created_at FROM unread_mentions
+      WHERE mailed_at IS NULL AND created_at > ${due} ORDER BY created_at LIMIT 1`[0];
+    if (next !== undefined) {
+      await this.schedule(new Date(next.created_at + MAIL_AFTER_MS), "mailMentions", undefined, {
+        idempotent: false,
+      });
+    }
   }
 
   // Activity a year old points only at messages its room has deleted, so an
@@ -124,13 +206,11 @@ export class ParleyInboxAgent extends Agent<Env> {
     void this.sql`DELETE FROM unread_mentions WHERE created_at <= ${cutoff}`;
   }
 
-  private mentionedBy(roomId: string): string[] {
-    return [
-      ...new Set(
-        this.sql<{ author_id: string }>`SELECT author_id FROM unread_mentions
-          WHERE room_id = ${roomId} ORDER BY message_id`.map((row) => row.author_id),
-      ),
-    ];
+  private mentionedBy(): Map<string, string[]> {
+    const rows = this.sql<{ authors: string; room_id: string }>`
+      SELECT room_id, json_group_array(DISTINCT author_id) AS authors
+      FROM unread_mentions GROUP BY room_id`;
+    return new Map(rows.map((row) => [row.room_id, JSON.parse(row.authors) as string[]]));
   }
 
   private read(roomId: string, messageId: number): void {

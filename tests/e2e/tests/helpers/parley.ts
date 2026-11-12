@@ -9,7 +9,6 @@ export type Conversation = {
   isAdmin: boolean;
   kind: "direct" | "group" | "party";
   members: Person[];
-  mentionable: string[];
   name: string;
   state: "active" | "request";
   title: string;
@@ -254,7 +253,7 @@ export type Reply =
   | "reject"
   | "silent";
 type Handler = (input: Record<string, unknown>, url: string) => Reply;
-type Activity = { at: number; mentionedBy?: string[]; unread: boolean };
+type Activity = { at: number; mentionedBy: string[]; unread: boolean };
 
 // Stands in for the chat Worker's Durable Object sockets. Every call
 // succeeds unless a handler says otherwise: getActivity returns the given
