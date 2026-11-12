@@ -34,7 +34,7 @@ function staffMail({ from, subject }: { from: string; subject: string }): string
 test.describe("Staff cases inbox", () => {
   test.use({ storageState: superuserState });
 
-  test("staff answer an emailed report by email and decide it", async ({ page, request }) => {
+  test("staff answer an emailed report by email and decide it", async ({ page }) => {
     const stamp = Date.now();
     const subject = `Report ${stamp}`;
     const from = `ola-${stamp}@example.com`;
@@ -44,7 +44,7 @@ test.describe("Staff cases inbox", () => {
       .update(`${timestamp}.`)
       .update(body)
       .digest("hex");
-    const filed = await request.post("/hooks/staff-mail", {
+    const filed = await page.request.post("/hooks/staff-mail", {
       data: body,
       headers: {
         "Content-Type": "message/rfc822",

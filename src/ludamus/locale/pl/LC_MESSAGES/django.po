@@ -13484,7 +13484,7 @@ msgstr "Decyzja"
 #: src/ludamus/templates/staff/cases.html
 #, python-format
 msgid "%(action)s, on the ground of %(ground)s. Decided by %(name)s."
-msgstr "%(action)s, podstawa: %(ground)s. Zdecydował(a): %(name)s."
+msgstr "%(action)s, podstawa: %(ground)s. Kto zdecydował: %(name)s."
 
 #
 #: src/ludamus/templates/staff/cases.html
@@ -13504,12 +13504,13 @@ msgstr ""
 "Zgłaszający dostanie wynik, autor — uzasadnienie z możliwością odwołania. "
 "Obie wiadomości trafią do tego wątku."
 
+#
 #: src/ludamus/templates/staff/cases.html
 msgid ""
-"You made the decision under appeal. Someone else on staff decides the appeal."
+"You decided this case. If it is appealed, someone else on staff decides the "
+"appeal."
 msgstr ""
-"To Twoja decyzja jest przedmiotem odwołania. Rozpatrzy je inna osoba z "
-"zespołu."
+"Decyzja w tej sprawie jest Twoja. Odwołanie rozpatrzy inna osoba z zespołu."
 
 #: src/ludamus/templates/staff/cases.html
 msgid "Moderation FAQ (internal guidance, not legal advice)"
