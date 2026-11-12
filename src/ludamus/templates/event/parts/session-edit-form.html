@@ -12,9 +12,8 @@
       {% if saved %}data-just-saved{% endif %}>
     {% csrf_token %}
     {% if saved %}
-        <h3 id="session-{{ session.pk }}-title"
-            class="text-lg font-semibold text-foreground"
-            hx-swap-oob="true">{{ form.title.value }}</h3>
+        {# Only the text: the heading keeps its look, plain or on the cover. #}
+        <span hx-swap-oob="innerHTML:#session-{{ session.pk }}-title">{{ form.title.value }}</span>
     {% endif %}
     <div class="flex-auto min-h-0 overflow-y-auto px-6 py-5">
         <div class="space-y-5">
