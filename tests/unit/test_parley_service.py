@@ -284,6 +284,25 @@ def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     assert list(signer.signed[-1].events) == [f"45:{pk}" for pk in range(12, 31)]
 
 
+def test_a_pass_too_long_for_a_cookie_keeps_the_event_on_now_over_those_far_ahead() -> (
+    None
+):
+    now = int(NOW.timestamp())
+    week = 7 * 24 * 3600
+    ahead = [_event(pk, ends_at=now + pk * week) for pk in range(1, 21)]
+    over = _event(98, ends_at=now - 3600)
+    running = _event(99, ends_at=now + 3600)
+    access = Access([*ahead, over, running], seats=[(45, SphereRole.MANAGER)])
+    service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert sorted(signer.signed[-1].events) == sorted(
+        ["45:99", *(f"45:{pk}" for pk in range(1, 19))]
+    )
+
+
 def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None:
     party, group = (
         _conversation(ParleyConversationKind.PARTY),

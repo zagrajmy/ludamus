@@ -11,6 +11,7 @@ from ludamus.pacts.event_settings import (
     EventSettingsServiceProtocol,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.specs.parley import event_chat_may_close
 
 logger = logging.getLogger(__name__)
 
@@ -77,14 +78,8 @@ class EventSettingsService(EventSettingsServiceProtocol):
             ):
                 raise EventSlugConflictError from exc
             raise
-        # NOTE: opening a chat needs no revocation: the next pass names it.
-        # Unless the chat surely was off or surely stays on, the passes that
-        # may name it are taken back; following the sphere can go either way.
-        if (
-            "parley_enabled" in data
-            and data["parley_enabled"] != current_event.parley_enabled
-            and data["parley_enabled"] is not True
-            and current_event.parley_enabled is not False
+        if "parley_enabled" in data and event_chat_may_close(
+            was=current_event.parley_enabled, becomes=data["parley_enabled"]
         ):
             logger.info(
                 "parley event chat changed: event=%s to=%s",

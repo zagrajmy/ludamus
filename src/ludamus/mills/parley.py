@@ -106,17 +106,29 @@ def _managed(
 
 
 def _fitted(
-    rooms: list[ParleyRoomDTO], fits: Callable[[list[ParleyRoomDTO]], bool]
+    rooms: list[ParleyRoomDTO],
+    fits: Callable[[list[ParleyRoomDTO]], bool],
+    now: datetime,
 ) -> list[ParleyRoomDTO]:
-    """Drop the rooms of the events ending first until the pass fits.
+    """Drop the rooms of the events furthest from now until the pass fits.
 
     A browser silently drops a cookie past its size, so a pass that cannot
-    fit them all keeps the events still ahead.
+    fit them all keeps what is on now: the events that ended go first, the
+    longest over first, then the ones furthest ahead.
     """
     ends = {_event_key(room): room.ends_at or 0 for room in rooms if _granted(room)}
+    at = int(now.timestamp())
+    ended = sorted(
+        (key for key, end in ends.items() if end <= at), key=ends.__getitem__
+    )
+    ahead = sorted(
+        (key for key, end in ends.items() if end > at),
+        key=ends.__getitem__,
+        reverse=True,
+    )
     dropped: set[str] = set()
     kept = rooms
-    for key in sorted(ends, key=ends.__getitem__):
+    for key in ended + ahead:
         if fits(kept):
             break
         dropped.add(key)
@@ -194,7 +206,7 @@ class ParleyService:
             )
 
         rooms = _fitted(
-            access.rooms, lambda kept: len(sign(kept)) <= PARLEY_PASS_MAX_LENGTH
+            access.rooms, lambda kept: len(sign(kept)) <= PARLEY_PASS_MAX_LENGTH, now
         )
         if len(rooms) < len(access.rooms):
             logger.error(
