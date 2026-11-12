@@ -254,13 +254,24 @@ REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety re
 
 
 class ParleyConversation(models.Model):
-    """A chat between people, apart from any sphere: a direct one or a group."""
+    """A chat between people, apart from any sphere: direct, a group or a party's."""
 
     class Kind(models.TextChoices):
         DIRECT = "direct"
         GROUP = "group"
+        PARTY = "party"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
+    # NOTE: a party's chat, and the reports made in it, outlive the party, so
+    # the party's id stays behind once the party is gone.
+    party = models.OneToOneField(
+        "Party",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="parley_chat",
+    )
     title = models.CharField(max_length=80, blank=True, default="")
     created_by = models.ForeignKey(
         User, null=True, on_delete=models.SET_NULL, related_name="+"
@@ -648,6 +659,10 @@ class Sphere(models.Model):
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
     parley_enabled = models.BooleanField(default=True)
+    # Whether the sphere's managers have a room of their own, and whether its
+    # events have a chat unless an event says otherwise.
+    parley_organizers_enabled = models.BooleanField(default=True)
+    parley_events_enabled = models.BooleanField(default=False)
     event_cover_buttons_at_bottom = models.BooleanField(default=False)
     visibility = models.CharField(
         max_length=20,
@@ -873,6 +888,9 @@ class Event(models.Model):
     # off by default, so placing an item never stands in for the
     # facilitator confirming it.
     auto_confirm_sessions = models.BooleanField(default=False)
+    # The event's chat, for everyone taking part. None follows the sphere's
+    # parley_events_enabled, like allow_facilitator_session_edit.
+    parley_enabled = models.BooleanField(null=True, blank=True, default=None)
 
     class Meta:
         db_table = "event"

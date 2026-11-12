@@ -210,7 +210,7 @@ export function BlockedPeople({
   people,
   unblock,
 }: {
-  back: () => void;
+  back: { label: string; run: () => void };
   bootstrap: Bootstrap;
   close: () => void;
   people: Person[];
@@ -238,7 +238,7 @@ export function BlockedPeople({
   return (
     <>
       <PanelHeader
-        back={{ label: copy.backToNewMessage, run: back }}
+        back={back}
         backRef={backButton}
         close={close}
         closeLabel={copy.closeLabel}

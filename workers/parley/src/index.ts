@@ -1,7 +1,7 @@
 import { getAgentByName, routeAgentRequest } from "agents";
 
 import type { ParleyConversationAgent } from "./conversation-agent";
-import type { Env, RoomAgent } from "./room-agent";
+import type { Env } from "./room-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
 import { roomFromId } from "./access";
@@ -10,13 +10,15 @@ import {
   exchangeCapability,
   lookupFromRequest,
   membershipFromRequest,
+  MODERATION_AUDIENCE,
   originIsAllowed,
   revocationFromRequest,
 } from "./auth";
+import { roomAgent } from "./room-agent";
 
 export { ParleyConversationAgent } from "./conversation-agent";
 export { ParleyInboxAgent } from "./inbox-agent";
-export { ParleySessionAgent } from "./session-agent";
+export { ParleyEventAgent, ParleyOrganizersAgent, ParleySessionAgent } from "./session-agent";
 export { ParleySphereAgent } from "./sphere-agent";
 
 export default {
@@ -63,19 +65,18 @@ export default {
       if (lookup instanceof Response) return lookup;
       const room = roomFromId(lookup.room);
       if (room === null) return new Response("Not found", { status: 404 });
-      const namespaces = {
-        conversation: env.ParleyConversationAgent,
-        session: env.ParleySessionAgent,
-        sphere: env.ParleySphereAgent,
-      };
-      const agent = await getAgentByName<Env, RoomAgent>(
-        namespaces[room.kind] as unknown as DurableObjectNamespace<RoomAgent>,
-        lookup.room.slice(lookup.room.indexOf(":") + 1),
-      );
-      const message = await agent.readMessage(lookup.messageId);
+      const message = await (await roomAgent(env, room)).readMessage(lookup.messageId);
       return message === null
         ? new Response("Not found", { status: 404 })
         : Response.json(message, { headers: { "Cache-Control": "no-store" } });
+    }
+    if (url.pathname === "/moderation" && request.method === "POST") {
+      const order = await lookupFromRequest(request, env, MODERATION_AUDIENCE);
+      if (order instanceof Response) return order;
+      const room = roomFromId(order.room);
+      if (room === null) return new Response("Unknown room", { status: 400 });
+      const deleted = await (await roomAgent(env, room)).deleteAsStaff(order.messageId);
+      return new Response(null, { status: deleted ? 204 : 404 });
     }
     if (!originIsAllowed(request, env)) return new Response("Forbidden", { status: 403 });
     return (await routeAgentRequest(request, env)) ?? new Response("Not found", { status: 404 });

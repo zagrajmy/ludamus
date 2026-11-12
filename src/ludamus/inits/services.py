@@ -73,7 +73,10 @@ from ludamus.mills.notifications import (
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
-from ludamus.mills.parley_conversations import ParleyConversationService
+from ludamus.mills.parley_conversations import (
+    ParleyConversationService,
+    ParleyPartyChatService,
+)
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -178,12 +181,21 @@ class Services:
         )
 
     @cached_property
+    def parley_party_chats(self) -> ParleyPartyChatService:
+        return ParleyPartyChatService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
         return ParleyRevocationService(
             repository=self._repos.parley,
             outbox=parley_revocation_outbox(),
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
+            party_chats=self.parley_party_chats,
         )
 
     @cached_property
@@ -277,7 +289,10 @@ class Services:
     @cached_property
     def parties(self) -> PartyService:
         return PartyService(
-            self._transaction, self._repos.parties, DjangoUserNotifier()
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            notifier=DjangoUserNotifier(),
+            chat=self.parley_party_chats,
         )
 
     @cached_property
@@ -350,6 +365,7 @@ class Services:
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
             ),
+            chat=self.parley_revocations,
         )
 
     @cached_property
