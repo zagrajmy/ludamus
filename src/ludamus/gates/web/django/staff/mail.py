@@ -26,7 +26,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
 from ludamus.pacts.moderation import case_reference
-from ludamus.pacts.staff_cases import InboundEmail
+from ludamus.pacts.staff_cases import CASE_EMAIL_LINE_MAX_LENGTH, InboundEmail
 
 if TYPE_CHECKING:
     from email.message import MIMEPart
@@ -72,12 +72,16 @@ def parse_mail(raw: bytes) -> InboundEmail:
     message = email.message_from_bytes(raw, policy=email.policy.default)
     name, address = parseaddr(str(message.get("From", "")))
     message_id = str(message.get("Message-ID", "")).strip()
+    if not message_id or len(message_id) > CASE_EMAIL_LINE_MAX_LENGTH:
+        # NOTE: a mail without a usable one is still filed once, by its bytes.
+        message_id = f"<{sha256(raw).hexdigest()}@posta>"
     return InboundEmail(
-        # NOTE: a mail without one is still filed once, by its own bytes.
-        message_id=message_id or f"<{sha256(raw).hexdigest()}@posta>",
+        message_id=message_id,
         from_address=address.lower(),
-        from_name=name,
-        subject=" ".join(str(message.get("Subject", "")).split()),
+        from_name=name[:CASE_EMAIL_LINE_MAX_LENGTH],
+        subject=" ".join(str(message.get("Subject", "")).split())[
+            :CASE_EMAIL_LINE_MAX_LENGTH
+        ],
         body=_text(message).strip(),
         attachments=[
             part.get_filename() or part.get_content_type()

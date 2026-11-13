@@ -28,7 +28,7 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
 )
 from ludamus.pacts.listing import ListingStatus
-from ludamus.pacts.staff_cases import NotePost, StaffMemberDTO, StaffThreadEntry
+from ludamus.pacts.staff_cases import EmailInPost, StaffThreadEntry
 from tests.integration.conftest import ListingFactory, SphereFactory, UserFactory
 from tests.integration.web.parley.helpers import configure_parley
 
@@ -215,7 +215,7 @@ def test_a_case_thread_post_is_retried_until_the_chat_takes_it(
     entry = StaffThreadEntry(
         thread_id=9,
         reference="Z-1",
-        message=NotePost(staff=StaffMemberDTO(pk=4, name="Piotr"), body="Hm"),
+        message=EmailInPost(sender="Ola W.", subject="Hm"),
         nonce="n-1",
     )
 

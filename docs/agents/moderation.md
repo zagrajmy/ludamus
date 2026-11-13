@@ -27,9 +27,11 @@ notices, chat reports, and mail to `staff@zagrajmy.net`, which the `posta`
 mail Worker forwards to `/hooks/staff-mail`. A `[Z-n]` in the subject files
 the mail under that case and reopens it; anything else opens a new one.
 Replies sent from a case go out from the staff address with its reference in
-the subject. Each case has a staff-only thread in the chat for notes, kept
-three years. Deciding there does what the admin actions below do. The
-admin stays the place to delete sessions, encounters and accounts.
+the subject. Each case has a staff-only thread in the chat, where staff
+talk it over and the server notes its events and mail, kept three years; the
+`forget_case_mail` sweep deletes the case's mail after the same three
+years. Deciding in the inbox does what the admin actions below do. The admin
+stays the place to delete sessions, encounters and accounts.
 
 ## Deciding
 

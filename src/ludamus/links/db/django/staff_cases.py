@@ -14,7 +14,7 @@ from django.db.models import (
     Subquery,
     Value,
 )
-from django.db.models.functions import Coalesce, NullIf
+from django.db.models.functions import Coalesce, NullIf, Substr
 
 from ludamus.links.db.django.models import (
     CaseEmail,
@@ -25,6 +25,7 @@ from ludamus.links.db.django.models import (
     ParleyReport,
     User,
 )
+from ludamus.links.db.django.parley_conversations import set_members
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.moderation import (
     CaseStatus,
@@ -36,12 +37,14 @@ from ludamus.pacts.moderation import (
 )
 from ludamus.pacts.parley import ParleyConversationKind, ParleyMemberState
 from ludamus.pacts.staff_cases import (
+    CASE_TITLE_MAX_LENGTH,
     CaseChatReportDTO,
     CaseDTO,
     CaseEmailDirection,
     CaseEmailDTO,
     CaseKind,
     CaseNoticeDTO,
+    CasePersonDTO,
     CaseVerdictDTO,
     InboxCaseDTO,
     StaffCaseRepositoryProtocol,
@@ -50,6 +53,8 @@ from ludamus.pacts.staff_cases import (
 from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from django.db.models import QuerySet
     from django_stubs_ext import WithAnnotations
 
@@ -96,12 +101,16 @@ def _cases(urgent: frozenset[NoticeCategory]) -> QuerySet[_Case]:
             | Q(Exists(reports.filter(teen_in_report))),
             output_field=BooleanField(),
         ),
-        shown_title=Coalesce(
-            NullIf("title", Value("")),
-            Subquery(notices.order_by("pk").values("explanation")[:1]),
-            Subquery(reports.order_by("pk").values("reason")[:1]),
-            Value(""),
-            output_field=CharField(),
+        shown_title=Substr(
+            Coalesce(
+                NullIf("title", Value("")),
+                Subquery(notices.order_by("pk").values("explanation")[:1]),
+                Subquery(reports.order_by("pk").values("reason")[:1]),
+                Value(""),
+                output_field=CharField(),
+            ),
+            1,
+            CASE_TITLE_MAX_LENGTH,
         ),
     )
 
@@ -126,37 +135,22 @@ def _row(case: _Case) -> InboxCaseDTO:
     )
 
 
-def _reply_to(
+def _people(
     case: ModerationCase, *, notices: list[ContentNotice], reports: list[ParleyReport]
-) -> tuple[str, str]:
-    """Answer the last of the case's own people who wrote in, else who opened it.
-
-    The case's own people are its sender, reporters and the people its
-    statements went to. Anyone else can put "[Z-n]" in a subject; their mail is
-    filed, but replies never go to them.
-    """
-    people = {
-        case.external_email: case.external_name,
-        **{n.reporter_email: n.reporter_name for n in notices if n.reporter_email},
-        **{r.reporter.email: _name(r.reporter) for r in reports if r.reporter.email},
-    }
-    people.pop("", None)
-    known = {address.casefold() for address in people} | {
-        address.casefold()
-        for address in User.objects.filter(
-            statements_of_reasons__case=case
-        ).values_list("email", flat=True)
-        if address
-    }
-    last = (
-        case.emails.filter(direction=CaseEmail.Direction.IN)
-        .order_by("-created_at", "-pk")
-        .values_list("address", "name")
-    )
-    for address, name in last:
-        if address.casefold() in known:
-            return address, name
-    return next(iter(people.items()), ("", ""))
+) -> list[CasePersonDTO]:
+    people: dict[str, str] = {}
+    for address, name in (
+        (case.external_email, case.external_name),
+        *((notice.reporter_email, notice.reporter_name) for notice in notices),
+        *((report.reporter.email, _name(report.reporter)) for report in reports),
+        *(
+            (user.email, _name(user))
+            for user in User.objects.filter(statements_of_reasons__case=case)
+        ),
+    ):
+        if address:
+            people.setdefault(address, name)
+    return [CasePersonDTO(address=a, name=n) for a, n in people.items()]
 
 
 def _verdict(
@@ -252,16 +246,10 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
             present[thread_id].add(user_id)
         wanted = set(user_ids)
         changed = sorted(pk for pk, users in present.items() if users != wanted)
-        ParleyConversationMember.objects.filter(
-            conversation_id__in=changed, state__in=_PRESENT
-        ).exclude(user_id__in=wanted).update(state=ParleyMemberState.LEFT)
         for thread_id in changed:
-            for user_id in wanted - present[thread_id]:
-                ParleyConversationMember.objects.update_or_create(
-                    conversation_id=thread_id,
-                    user_id=user_id,
-                    defaults={"state": ParleyMemberState.ACTIVE, "is_admin": False},
-                )
+            set_members(
+                conversation_id=thread_id, present=present[thread_id], wanted=wanted
+            )
         return changed
 
     @staticmethod
@@ -283,14 +271,18 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
         if case is None:
             raise NotFoundError
         notices, reports = list(case.notices.all()), list(case.chat_reports.all())
-        reply_to, reply_name = _reply_to(case, notices=notices, reports=reports)
+        senders = (
+            case.emails.filter(direction=CaseEmail.Direction.IN)
+            .order_by("-created_at", "-pk")
+            .values_list("address", "name")
+        )
         return CaseDTO(
             **_row(case).model_dump(),
             assignee_id=case.assignee_id,
             decided_by_name=_name(case.decided_by),
             thread_id=case.thread_id,
-            reply_to=reply_to,
-            reply_name=reply_name,
+            people=_people(case, notices=notices, reports=reports),
+            senders=[CasePersonDTO(address=a, name=n) for a, n in senders],
             notices=[
                 CaseNoticeDTO(
                     pk=notice.pk,
@@ -386,3 +378,8 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
             ).values_list("pk", flat=True)[:2]
         )
         return matches[0] if len(matches) == 1 else None
+
+    @staticmethod
+    def forget_emails_before(cutoff: datetime) -> int:
+        deleted, _ = CaseEmail.objects.filter(created_at__lt=cutoff).delete()
+        return deleted

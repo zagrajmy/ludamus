@@ -88,8 +88,7 @@ class ParleyConversationPolicy(BaseModel):
     # Two people in it are a direct message by another name, so two talk
     # only when direct messages are open to both.
     pair_needs_direct: bool
-    # Only staff (`is_staff`) are let in, and its messages are moderation
-    # records: a staff case's thread.
+    # Only staff (`is_staff`) are let in: a staff case's thread.
     staff_only: bool
 
 

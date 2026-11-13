@@ -58,8 +58,8 @@ export type Reported = Pick<
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
 
+// What Django writes into a case's thread, always as the system, never a person.
 export type ThreadPost = {
-  authorId: string;
   authorName: string;
   body: string;
   conversation: string;

@@ -92,6 +92,19 @@ def _writable(
     return True
 
 
+def set_members(*, conversation_id: int, present: set[int], wanted: set[int]) -> None:
+    """Make `wanted` a conversation's members, given who is in it now."""
+    ParleyConversationMember.objects.filter(
+        conversation_id=conversation_id, user_id__in=present - wanted
+    ).update(state=ParleyMemberState.LEFT)
+    for user_id in wanted - present:
+        ParleyConversationMember.objects.update_or_create(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            defaults={"state": ParleyMemberState.ACTIVE, "is_admin": False},
+        )
+
+
 class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
     @staticmethod
     def is_eligible(user_id: int) -> bool:
@@ -319,15 +332,9 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         )
         if present == set(user_ids):
             return None
-        conversation.members.filter(user_id__in=present - set(user_ids)).update(
-            state=ParleyMemberState.LEFT
+        set_members(
+            conversation_id=conversation.pk, present=present, wanted=set(user_ids)
         )
-        for user_id in set(user_ids) - present:
-            ParleyConversationMember.objects.update_or_create(
-                conversation=conversation,
-                user_id=user_id,
-                defaults={"state": ParleyMemberState.ACTIVE, "is_admin": False},
-            )
         return conversation.pk
 
     @staticmethod

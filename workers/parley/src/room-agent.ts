@@ -531,6 +531,10 @@ export abstract class RoomAgent extends Agent<Env> {
     );
   }
 
+  protected messageLifetime(): number {
+    return MESSAGE_LIFETIME_MS;
+  }
+
   // The one place a message is deleted for good. Every read purges first,
   // so a late alarm never lets a message outlive its year.
   // NOTE: a table keyed by message id deletes its rows here, before the
@@ -552,10 +556,6 @@ export abstract class RoomAgent extends Agent<Env> {
   // old, and never before `earliest`. A room with no messages sets none.
   // NOTE: a one-shot schedule stays listed until its callback returns, so
   // the sweep's own reschedule skips the dedup, which would find itself.
-  protected messageLifetime(): number {
-    return MESSAGE_LIFETIME_MS;
-  }
-
   private async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
     const oldest = this.sql<{
       created_at: number;

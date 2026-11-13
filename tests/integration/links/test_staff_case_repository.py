@@ -5,13 +5,15 @@ What could go wrong, and so what the tests below check:
   without marking them active; an unchanged thread is reported as changed;
 - the sync reaches a conversation that is not a case's thread;
 - a case gets two threads when two requests open it at once;
-- a reply goes to a stranger who put "[Z-n]" in a subject, rather than to the
-  case's own people;
+- a stranger who put "[Z-n]" in a subject passes for one of the case's own
+  people, or someone the case is about or from is left out of them;
 - a case with an urgent notice or a teen in its reported conversation is not
   marked as child safety, or sinks below a newer one;
-- a case is named by the wrong kind, or shows a decision none of its records hold;
+- a case is named by the wrong kind or a title too long to show, or shows a
+  decision none of its records hold;
 - an ambiguous account identifier picks one of several people;
-- someone made staff in the admin stays out of the case threads.
+- someone made staff in the admin stays out of the case threads;
+- mail past its retention stays, or younger mail goes with it.
 """
 
 from datetime import datetime, timedelta
@@ -39,7 +41,7 @@ from ludamus.pacts.moderation import (
     NoticeCategory,
 )
 from ludamus.pacts.parley import ParleyConversationKind, ParleyMemberState
-from ludamus.pacts.staff_cases import CaseKind, CaseVerdictDTO
+from ludamus.pacts.staff_cases import CaseKind, CasePersonDTO, CaseVerdictDTO
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import SphereFactory, UserFactory
 
@@ -162,11 +164,19 @@ class TestThreads:
         )
 
 
-class TestReplyTo:
-    def test_answers_the_last_of_the_case_s_own_people_who_wrote_in(self):
-        case = ModerationCase.objects.create()
-        _notice(case)
-        author = UserFactory(email="author@example.com")
+def _people(case):
+    return [(person.address, person.name) for person in case.people]
+
+
+class TestPeople:
+    def test_are_its_sender_reporters_and_statement_recipients_in_that_order(self):
+        case = ModerationCase.objects.create(
+            external_email="ola@example.com", external_name="Ola"
+        )
+        _notice(case, reporter_email="ola@example.com", reporter_name="Ola W.")
+        _notice(case, reporter_email="", reporter_name="")
+        _report(case)
+        author = UserFactory(email="author@example.com", name="Author")
         StatementOfReasons.objects.create(
             case=case,
             user=author,
@@ -175,40 +185,46 @@ class TestReplyTo:
             facts="x",
             from_report=True,
         )
-        _mail_in(case, "OLA@example.com", name="Ola")
-        _mail_in(case, "author@example.com", name="Author")
+
+        assert _people(_read(case)) == [
+            ("ola@example.com", "Ola"),
+            ("reporter@example.com", "Reporter"),
+            ("author@example.com", author.get_full_name()),
+        ]
+
+    def test_leave_out_whoever_else_wrote_in_who_shows_only_as_a_sender(self):
+        case = ModerationCase.objects.create()
+        _report(case)
+        _mail_in(case, "reporter@example.com", name="Rep")
         _mail_in(case, "stranger@example.com", name="Stranger")
 
         read = _read(case)
 
-        assert (read.reply_to, read.reply_name) == ("author@example.com", "Author")
+        assert _people(read) == [("reporter@example.com", "Reporter")]
+        assert read.senders == [
+            CasePersonDTO(address="stranger@example.com", name="Stranger"),
+            CasePersonDTO(address="reporter@example.com", name="Rep"),
+        ]
 
-    def test_a_stranger_naming_the_case_is_never_answered(self):
-        case = ModerationCase.objects.create()
-        _report(case)
-        _mail_in(case, "stranger@example.com")
-
-        assert _read(case).reply_to == "reporter@example.com"
-
-    def test_falls_back_to_the_sender_the_notice_then_the_chat_reporter(self):
+    def test_and_the_title_and_kind_follow_what_opened_the_case(self):
         emailed = ModerationCase.objects.create(
             title="Z maila", external_email="ola@example.com", external_name="Ola"
         )
         noticed = ModerationCase.objects.create()
-        _notice(noticed, reporter_email="", reporter_name="")
-        _notice(noticed)
+        _notice(noticed, explanation="x" * 5_000)
         reported = ModerationCase.objects.create()
         _report(reported)
         nobody = ModerationCase.objects.create()
 
         cases = [_read(c) for c in (emailed, noticed, reported, nobody)]
 
-        assert [(c.reply_to, c.reply_name, c.title, c.kind) for c in cases] == [
-            ("ola@example.com", "Ola", "Z maila", CaseKind.EMAIL),
-            ("ola@example.com", "Ola W.", "Obraźliwy opis", CaseKind.NOTICE),
-            ("reporter@example.com", "Reporter", "Spam", CaseKind.CHAT_REPORT),
-            ("", "", "", CaseKind.STATEMENT),
+        assert [(c.title, c.kind) for c in cases] == [
+            ("Z maila", CaseKind.EMAIL),
+            ("x" * 200, CaseKind.NOTICE),
+            ("Spam", CaseKind.CHAT_REPORT),
+            ("", CaseKind.STATEMENT),
         ]
+        assert _people(cases[-1]) == []
 
 
 class TestRead:
@@ -317,6 +333,23 @@ def test_names_an_account_only_when_one_matches():
         StaffCaseRepository.find_account(identifier)
         for identifier in ("marek", "MAREK@example.com", "shared@example.com", "nikt")
     ] == [marek.pk, marek.pk, None, None]
+
+
+def test_forgets_only_mail_older_than_the_cutoff():
+    case = ModerationCase.objects.create()
+    _mail_in(case, "old@example.com")
+    _mail_in(case, "new@example.com")
+    cutoff = timezone.now() - timedelta(days=1)
+    CaseEmail.objects.filter(address="old@example.com").update(
+        created_at=cutoff - timedelta(seconds=1)
+    )
+
+    forgotten = StaffCaseRepository.forget_emails_before(cutoff)
+
+    assert (forgotten, list(CaseEmail.objects.values_list("address", flat=True))) == (
+        1,
+        ["new@example.com"],
+    )
 
 
 def test_making_someone_staff_in_the_admin_brings_them_into_case_threads(client):

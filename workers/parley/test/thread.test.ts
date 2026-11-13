@@ -12,7 +12,8 @@ import { open, pass, post } from "./support";
 
 // What could go wrong, and so what the tests below check:
 // - anyone but Django writes into a case's thread, with a pass or a lookup token;
-// - a post invents an author or carries no text;
+// - a post passes itself off as a person, who could then delete it, or
+//   carries no text;
 // - a redelivered post shows twice;
 // - a post lands in a room Django never made a case's thread;
 // - staff without direct messages open are kept out of their case's thread;
@@ -42,7 +43,6 @@ const staffOnly = (conversation: string, user = "7") =>
   );
 
 const threadPost = (conversation: string, extra: Record<string, unknown> = {}) => ({
-  author: "email",
   body: "Mam zrzut ekranu.",
   conversation,
   name: "Ola W. (e-mail)",
@@ -51,11 +51,12 @@ const threadPost = (conversation: string, extra: Record<string, unknown> = {}) =
 });
 
 describe("a post into a case's thread", () => {
-  it("shows once, under the author Django names, to staff without direct messages", async () => {
+  it("shows once, as the system under the name Django gives, to staff without direct messages", async () => {
     const id = caseThread();
     await staffOnly(id);
+    const claimingStaff = threadPost(id, { author: "7" });
 
-    expect((await post("/conversations/messages", threadPost(id), POST_AUDIENCE)).status).toBe(204);
+    expect((await post("/conversations/messages", claimingStaff, POST_AUDIENCE)).status).toBe(204);
     expect((await post("/conversations/messages", threadPost(id), POST_AUDIENCE)).status).toBe(204);
     const staff = await open(`parley-conversation-agent/${id}`, await pass("7", "3"));
     const history = await staff.call<Result<Shown[]>>("loadBefore", {});
@@ -63,7 +64,7 @@ describe("a post into a case's thread", () => {
     expect(staff.socket.readyState).toBe(WebSocket.OPEN);
     expect(history.value).toEqual([
       expect.objectContaining({
-        authorId: "email",
+        authorId: "system",
         authorName: "Ola W. (e-mail)",
         body: "Mam zrzut ekranu.",
       }),
@@ -76,8 +77,7 @@ describe("a post into a case's thread", () => {
     const statuses = [
       (await post("/conversations/messages", threadPost(id), "parley")).status,
       (await post("/conversations/messages", threadPost(id), "parley-message")).status,
-      (await post("/conversations/messages", threadPost(id, { author: "7x" }), POST_AUDIENCE))
-        .status,
+      (await post("/conversations/messages", threadPost(id, { name: 7 }), POST_AUDIENCE)).status,
       (await post("/conversations/messages", threadPost(id, { body: " " }), POST_AUDIENCE)).status,
     ];
 

@@ -7,7 +7,8 @@ What could go wrong, and so what the tests below check:
 - a redelivered message is filed twice;
 - a message without a sender is filed with nobody to answer;
 - an HTML-only message is filed with its markup, an attachment-only one or one
-  without a Message-ID is dropped, an oversized one breaks the hook.
+  without a Message-ID is dropped, an oversized one breaks the hook, and
+  headers longer than a case keeps break filing it.
 """
 
 import time
@@ -24,6 +25,7 @@ from ludamus.links.db.django.models import (
     ParleyConversation,
     ParleyConversationMember,
 )
+from ludamus.pacts.staff_cases import CASE_EMAIL_LINE_MAX_LENGTH
 from tests.integration.utils import assert_response, assert_response_404
 
 URL = reverse("web:staff-mail")
@@ -243,3 +245,19 @@ class TestParsing:
 
         email = CaseEmail.objects.get()
         assert (email.body, email.attachments, email.subject) == ("", ["image/png"], "")
+
+    def test_files_overlong_headers_clipped_to_what_a_case_keeps(self, client):
+        raw = _mail(
+            subject="s" * 600,
+            message_id=f"<{'m' * 300}@mail.example>",
+            sender=f"{'n' * 400} <ola@example.com>",
+        )
+
+        _post(client, raw)
+
+        email = CaseEmail.objects.get()
+        assert (len(email.subject), len(email.name), email.message_id[-7:]) == (
+            CASE_EMAIL_LINE_MAX_LENGTH,
+            CASE_EMAIL_LINE_MAX_LENGTH,
+            "@posta>",
+        )

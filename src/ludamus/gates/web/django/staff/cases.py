@@ -44,7 +44,7 @@ _TABS = (
 _ERRORS: dict[StaffCaseErrorCode, _StrPromise] = {
     StaffCaseErrorCode.INVALID_BODY: gettext_lazy("Write the reply first."),
     StaffCaseErrorCode.NO_RECIPIENT: gettext_lazy(
-        "Nobody outside the team wrote in this case. Add a note instead."
+        "Nobody outside the team wrote in this case. Talk it over in its thread."
     ),
     StaffCaseErrorCode.INVALID_ASSIGNEE: gettext_lazy("Pick someone on staff."),
     StaffCaseErrorCode.NOTHING_TO_DECIDE: gettext_lazy(
@@ -183,7 +183,6 @@ class StaffCaseReplyActionView(_StaffGate):
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         user_id = request.context.current_user_id
         form = ReplyForm(request.POST)
-        by_email = request.POST.get("send") == "email"
         if not form.is_valid():
             detail = request.services.staff_cases.read(actor_id=user_id, case_id=pk)
             return _page(
@@ -191,18 +190,12 @@ class StaffCaseReplyActionView(_StaffGate):
             )
         try:
             request.services.staff_cases.reply(
-                actor_id=user_id,
-                case_id=pk,
-                body=form.cleaned_data["body"],
-                by_email=by_email,
+                actor_id=user_id, case_id=pk, body=form.cleaned_data["body"]
             )
         except StaffCaseError as error:
             messages.error(request, _ERRORS[error.code])
         else:
-            messages.success(
-                request,
-                _("Reply sent.") if by_email else _("Note added to the thread."),
-            )
+            messages.success(request, _("Reply sent."))
         return _to_case(pk)
 
 

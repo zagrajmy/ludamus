@@ -83,8 +83,8 @@
                         {{ case.kind|kind_label }}
                         {% if case.child_safety %}· {% translate "Child safety" %}{% endif %}
                         · <time datetime="{{ case.created_at|date:'c' }}">{{ case.created_at|date:"SHORT_DATETIME_FORMAT" }}</time>
-                        {% if case.reply_to %}
-                            · <span data-ph-block>{% firstof case.reply_name case.reply_to %}</span>
+                        {% if detail.reply_to %}
+                            · <span data-ph-block>{% firstof detail.reply_to.name detail.reply_to.address %}</span>
                         {% endif %}
                     </p>
                     <form method="post"
@@ -100,7 +100,7 @@
                     <h3 id="thread-heading"
                         class="text-base font-semibold text-foreground">{% translate "Thread" %}</h3>
                     <p class="text-sm text-foreground-secondary">
-                        {% translate "Staff notes, system events and every email are in the chat: this case's thread is pinned on top under “On this page”." %}
+                        {% translate "Talk the case over in the chat: its thread, with every event and email noted, is pinned on top under “On this page”." %}
                     </p>
                     {% if detail.emails %}
                         <ol class="flex flex-col gap-3">
@@ -135,27 +135,18 @@
                             {% endfor %}
                         </ol>
                     {% endif %}
-                    <form method="post"
-                          action="{% url 'web:staff:reply' pk=case.pk %}"
-                          class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3">
-                        {% csrf_token %}
-                        {% tessera_field reply_form.body %}
-                        {% if not case.reply_to %}
-                            <p class="text-xs text-foreground-muted">
-                                {% translate "Nobody outside the team wrote in this case, so the reply stays in the thread." %}
-                            </p>
-                        {% endif %}
-                        <div class="flex flex-wrap justify-end gap-2">
-                            {% translate "Add internal note" as t_note %}
-                            {% if case.reply_to %}
-                                {% tessera_button t_note variant="secondary" name="send" value="note" full_width_mobile=False %}
+                    {% if detail.reply_to %}
+                        <form method="post"
+                              action="{% url 'web:staff:reply' pk=case.pk %}"
+                              class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3">
+                            {% csrf_token %}
+                            {% tessera_field reply_form.body %}
+                            <div class="flex flex-wrap justify-end gap-2">
                                 {% translate "Send by email" as t_send %}
-                                {% tessera_button t_send icon="paper-airplane" name="send" value="email" full_width_mobile=False %}
-                            {% else %}
-                                {% tessera_button t_note name="send" value="note" full_width_mobile=False %}
-                            {% endif %}
-                        </div>
-                    </form>
+                                {% tessera_button t_send icon="paper-airplane" full_width_mobile=False %}
+                            </div>
+                        </form>
+                    {% endif %}
                 </section>
             </article>
             <aside class="flex flex-col gap-4 min-w-0"

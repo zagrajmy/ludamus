@@ -80,7 +80,7 @@ Informację, że ktoś właśnie pisze, przekazujemy na bieżąco osobom w tej s
 - Decyzja w sprawie zgłoszenia wraz z uzasadnieniem
 - Uzasadnienia decyzji wysłane osobom, których treści lub Kont decyzja dotyczy: co postanowiono, fakty, podstawa
 - Korespondencja w sprawie: wiadomości email wysłane na staff@zagrajmy.net (nadawca, temat, treść, nazwy załączników) i nasze odpowiedzi
-- Wątek sprawy w czacie administratora serwisu: notatki administratora, zdarzenia sprawy i kopie korespondencji. Widzą go tylko osoby z zespołu administratora
+- Wątek sprawy w czacie administratora serwisu: notatki administratora oraz zdarzenia sprawy, w tym nadawca i temat każdej wiadomości email. Widzą go tylko osoby z zespołu administratora
 - Skrót adresu IP (dla IPv6 — jego sieci /64), przez godzinę po wysłaniu zgłoszenia, oraz skrót podanego adresu email, przez dobę, do ograniczenia liczby zgłoszeń z jednego adresu i potwierdzeń wysyłanych na jeden adres
 
 ## 3. CELE I PODSTAWY PRAWNE PRZETWARZANIA
@@ -208,7 +208,7 @@ Dane osobowe przechowujemy:
 - **Historia aktywności:** do momentu usunięcia konta
 - **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Czaty wydarzeń i rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
 - **Zgłoszenia nielegalnych treści, decyzje i uzasadnienia:** przez 3 lata od decyzji, aby móc rozpatrzyć odwołanie i wykazać, jak sprawa została załatwiona
-- **Korespondencja i wątki spraw moderacyjnych:** przez 3 lata, z tego samego powodu. Wiadomości w wątku sprawy usuwamy trwale 3 lata po napisaniu. Nie dotyczy ich roczny termin wiadomości czatu
+- **Korespondencja i wątki spraw moderacyjnych:** przez 3 lata, z tego samego powodu. Wiadomości email w sprawie usuwamy trwale 3 lata po otrzymaniu lub wysłaniu, a wiadomości w wątku sprawy 3 lata po napisaniu. Nie dotyczy ich roczny termin wiadomości czatu
 - **Logi techniczne:** maksymalnie 12 miesięcy
 - **Historia zmian w panelu organizatora i logi importu programu:** przez czas trwania wydarzenia i 12 miesięcy po jego zakończeniu. Są to zapisy tego, kto wprowadził zmianę, więc pozostają także po usunięciu opisywanego wpisu
 - **Wpisy usunięte przez organizatora:** oznaczamy jako usunięte i przechowujemy przez 12 miesięcy, aby dało się cofnąć pomyłkę

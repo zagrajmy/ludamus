@@ -28,6 +28,7 @@ from ludamus.pacts.moderation import (
     case_reference,
 )
 from ludamus.pacts.staff_cases import (
+    CASE_EMAIL_LINE_MAX_LENGTH,
     CASE_TITLE_MAX_LENGTH,
     STAFF_REPLY_MAX_LENGTH,
     CaseDetailDTO,
@@ -36,7 +37,6 @@ from ludamus.pacts.staff_cases import (
     DecisionPost,
     EmailInPost,
     EmailOutPost,
-    NotePost,
     StaffCaseError,
     StaffCaseErrorCode,
     StaffEmailOutcome,
@@ -44,7 +44,7 @@ from ludamus.pacts.staff_cases import (
     StaffThreadEntry,
 )
 from ludamus.specs.moderation import URGENT_NOTICE_CATEGORIES
-from ludamus.specs.staff_cases import STAFF_CASE_SUBJECT_REFERENCE
+from ludamus.specs.staff_cases import STAFF_CASE_RETENTION, STAFF_CASE_SUBJECT_REFERENCE
 
 if TYPE_CHECKING:
     from ludamus.pacts.moderation import ModerationDecisionServiceProtocol
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.staff_cases import (
         CaseDTO,
+        CasePersonDTO,
         InboundEmail,
         InboxCaseDTO,
         StaffCaseMailerProtocol,
@@ -85,6 +86,19 @@ def verdict_of(decision: StaffDecision) -> ModerationVerdict:
         decision_text=decision.decision_text,
         legal_provision=decision.legal_provision,
         suspended_until=decision.suspended_until,
+    )
+
+
+def reply_target(case: CaseDTO) -> CasePersonDTO | None:
+    """Answer the last of the case's own people who wrote in, else the first.
+
+    Anyone can put "[Z-n]" in a subject; their mail is filed with the case,
+    but a reply never goes to someone the case is not about or from.
+    """
+    own = {person.address.casefold() for person in case.people}
+    return next(
+        (sender for sender in case.senders if sender.address.casefold() in own),
+        next(iter(case.people), None),
     )
 
 
@@ -147,6 +161,7 @@ class StaffCaseService:
         notices, reports = _open_records(case)
         return CaseDetailDTO(
             case=case,
+            reply_to=reply_target(case),
             emails=self._repository.list_emails(case_id),
             staff=self._repository.list_staff(),
             decidable=bool(notices or reports),
@@ -195,10 +210,7 @@ class StaffCaseService:
             self._post(
                 case,
                 EmailInPost(
-                    sender=email.from_name or email.from_address,
-                    subject=email.subject,
-                    body=email.body,
-                    attachments=len(email.attachments),
+                    sender=email.from_name or email.from_address, subject=email.subject
                 ),
                 nonce=_email_nonce(email.message_id),
             )
@@ -210,29 +222,27 @@ class StaffCaseService:
         )
         return StaffEmailReceipt(outcome=outcome, case_id=case_id)
 
-    def reply(self, *, actor_id: int, case_id: int, body: str, by_email: bool) -> None:
-        """Write into the case: a note for staff, or an answer mailed out too."""
+    def reply(self, *, actor_id: int, case_id: int, body: str) -> None:
+        """Mail the case's person an answer, and wait for theirs."""
         staff = self._require_staff(actor_id)
         body = body.strip()
         if not body or len(body) > STAFF_REPLY_MAX_LENGTH:
             raise StaffCaseError(StaffCaseErrorCode.INVALID_BODY)
         case = self._case(case_id)
-        if not by_email:
-            with self._transaction.atomic():
-                self._post(case, NotePost(staff=staff, body=body))
-            return
-        if not case.reply_to:
+        if (to := reply_target(case)) is None:
             raise StaffCaseError(StaffCaseErrorCode.NO_RECIPIENT)
         nonce = uuid4().hex
-        subject = f"[{case.reference}] {case.title}".strip()
+        subject = f"[{case.reference}] {case.title}"[
+            :CASE_EMAIL_LINE_MAX_LENGTH
+        ].strip()
         with self._transaction.atomic():
             self._repository.add_email(
                 {
                     "case_id": case.pk,
                     "direction": CaseEmailDirection.OUT,
                     "message_id": nonce,
-                    "address": case.reply_to,
-                    "name": case.reply_name,
+                    "address": to.address,
+                    "name": to.name,
                     "subject": subject,
                     "body": body,
                     "attachments": [],
@@ -241,11 +251,11 @@ class StaffCaseService:
             )
             self._repository.set_status(case_id=case.pk, status=CaseStatus.WAITING)
             self._mailer.send_reply(
-                to=case.reply_to, subject=subject, body=body, nonce=nonce
+                to=to.address, subject=subject, body=body, nonce=nonce
             )
             self._post(
                 case,
-                EmailOutPost(staff=staff, address=case.reply_to, body=body),
+                EmailOutPost(staff=staff, address=to.address),
                 nonce=f"reply-{nonce}",
             )
         logger.info("staff case answered by email: case=%s", case.reference)
@@ -256,6 +266,9 @@ class StaffCaseService:
             raise StaffCaseError(StaffCaseErrorCode.INVALID_ASSIGNEE)
         case = self._case(case_id)
         self._repository.set_assignee(case_id=case.pk, assignee_id=assignee_id)
+        logger.info(
+            "staff case assigned: case=%s assignee=%s", case.reference, assignee_id
+        )
 
     def close(self, *, actor_id: int, case_id: int) -> None:
         """Close a case with nothing left to decide, such as a question answered."""
@@ -264,6 +277,7 @@ class StaffCaseService:
         if any(_open_records(case)):
             raise StaffCaseError(StaffCaseErrorCode.UNDECIDED)
         self._repository.set_status(case_id=case.pk, status=CaseStatus.CLOSED)
+        logger.info("staff case closed: case=%s", case.reference)
 
     def preview(self, decision: StaffDecision) -> str:
         """Word the statement of reasons the person affected would get."""
@@ -293,12 +307,18 @@ class StaffCaseService:
             if removal.failed:
                 raise StaffCaseError(StaffCaseErrorCode.CHAT_UNAVAILABLE)
         with self._transaction.atomic():
+            decided = 0
             if reports:
-                self._decisions.decide_chat_reports(report_ids=reports, verdict=verdict)
+                decided += self._decisions.decide_chat_reports(
+                    report_ids=reports, verdict=verdict
+                ).decided
             if notices:
-                self._decisions.decide_notices(
+                decided += self._decisions.decide_notices(
                     notice_ids=notices, verdict=verdict, affected_user_id=affected
-                )
+                ).decided
+            if not decided:
+                # NOTE: another request decided them since this one read the case.
+                raise StaffCaseError(StaffCaseErrorCode.NOTHING_TO_DECIDE)
             self._repository.set_decided_by(case_id=case.pk, user_id=staff.pk)
             self._repository.set_status(case_id=case.pk, status=CaseStatus.CLOSED)
             self._post(
@@ -377,3 +397,13 @@ class StaffCaseService:
                 nonce=nonce or uuid4().hex,
             )
         )
+
+
+class CaseMailRetentionService:
+    """Forget a case's mail once it is older than the privacy policy keeps it."""
+
+    def __init__(self, *, repository: StaffCaseRepositoryProtocol) -> None:
+        self._repository = repository
+
+    def forget_expired(self, *, now: datetime) -> int:
+        return self._repository.forget_emails_before(now - STAFF_CASE_RETENTION)

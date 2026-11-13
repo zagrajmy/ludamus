@@ -4634,9 +4634,10 @@ msgid "Write the reply first."
 msgstr "Najpierw napisz odpowiedź."
 
 #
+#
 #: src/ludamus/gates/web/django/staff/cases.py
-msgid "Nobody outside the team wrote in this case. Add a note instead."
-msgstr "W tej sprawie nie pisał nikt spoza zespołu. Dodaj notatkę."
+msgid "Nobody outside the team wrote in this case. Talk it over in its thread."
+msgstr "W tej sprawie nie pisał nikt spoza zespołu. Omówcie ją w jej wątku."
 
 #: src/ludamus/gates/web/django/staff/cases.py
 msgid "Pick someone on staff."
@@ -4670,11 +4671,6 @@ msgstr ""
 #: src/ludamus/gates/web/django/staff/cases.py
 msgid "Reply sent."
 msgstr "Odpowiedź wysłana."
-
-#
-#: src/ludamus/gates/web/django/staff/cases.py
-msgid "Note added to the thread."
-msgstr "Notatka dodana do wątku."
 
 #
 #: src/ludamus/gates/web/django/staff/cases.py
@@ -6144,20 +6140,6 @@ msgid "Case %(reference)s opened: %(title)s"
 msgstr "Otwarto sprawę %(reference)s: %(title)s"
 
 #: src/ludamus/links/db/django/staff_thread.py
-#, python-format
-msgid "Subject: %(subject)s"
-msgstr "Temat: %(subject)s"
-
-#: src/ludamus/links/db/django/staff_thread.py
-#, python-format
-msgid "%(count)s attachment, kept in the staff mailbox"
-msgid_plural "%(count)s attachments, kept in the staff mailbox"
-msgstr[0] "%(count)s załącznik, w skrzynce staff@"
-msgstr[1] "%(count)s załączniki, w skrzynce staff@"
-msgstr[2] "%(count)s załączników, w skrzynce staff@"
-msgstr[3] "%(count)s załącznika, w skrzynce staff@"
-
-#: src/ludamus/links/db/django/staff_thread.py
 #: src/ludamus/templates/staff/cases.html
 #, python-format
 msgid "%(name)s (email)"
@@ -6165,8 +6147,13 @@ msgstr "%(name)s (e-mail)"
 
 #: src/ludamus/links/db/django/staff_thread.py
 #, python-format
-msgid "Sent to %(address)s:"
-msgstr "Wysłano do %(address)s:"
+msgid "Subject: %(subject)s"
+msgstr "Temat: %(subject)s"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "Replied to %(address)s."
+msgstr "Wysłano odpowiedź do %(address)s."
 
 #
 #: src/ludamus/links/db/django/staff_thread.py
@@ -13900,13 +13887,14 @@ msgstr "Przypisz"
 msgid "Thread"
 msgstr "Wątek"
 
+#
 #: src/ludamus/templates/staff/cases.html
 msgid ""
-"Staff notes, system events and every email are in the chat: this case's "
-"thread is pinned on top under “On this page”."
+"Talk the case over in the chat: its thread, with every event and email "
+"noted, is pinned on top under “On this page”."
 msgstr ""
-"Notatki zespołu, zdarzenia i wszystkie e-maile są w czacie: wątek tej sprawy "
-"jest na górze, w sekcji „Na tej stronie”."
+"Omawiajcie sprawę w czacie: jej wątek, z każdym zdarzeniem i e-mailem, jest "
+"przypięty na górze w sekcji „Na tej stronie”."
 
 #: src/ludamus/templates/staff/cases.html
 #, python-format
@@ -13921,17 +13909,6 @@ msgstr[0] "%(counter)s załącznik, w skrzynce staff@"
 msgstr[1] "%(counter)s załączniki, w skrzynce staff@"
 msgstr[2] "%(counter)s załączników, w skrzynce staff@"
 msgstr[3] "%(counter)s załącznika, w skrzynce staff@"
-
-#: src/ludamus/templates/staff/cases.html
-msgid ""
-"Nobody outside the team wrote in this case, so the reply stays in the thread."
-msgstr ""
-"W tej sprawie nie pisał nikt spoza zespołu, więc odpowiedź zostaje w wątku."
-
-#
-#: src/ludamus/templates/staff/cases.html
-msgid "Add internal note"
-msgstr "Notatka wewnętrzna"
 
 #
 #: src/ludamus/templates/staff/cases.html
@@ -14962,6 +14939,29 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#
+#~ msgid "Note added to the thread."
+#~ msgstr "Notatka dodana do wątku."
+
+#, python-format
+#~ msgid "%(count)s attachment, kept in the staff mailbox"
+#~ msgid_plural "%(count)s attachments, kept in the staff mailbox"
+#~ msgstr[0] "%(count)s załącznik, w skrzynce staff@"
+#~ msgstr[1] "%(count)s załączniki, w skrzynce staff@"
+#~ msgstr[2] "%(count)s załączników, w skrzynce staff@"
+#~ msgstr[3] "%(count)s załącznika, w skrzynce staff@"
+
+#~ msgid ""
+#~ "Nobody outside the team wrote in this case, so the reply stays in the "
+#~ "thread."
+#~ msgstr ""
+#~ "W tej sprawie nie pisał nikt spoza zespołu, więc odpowiedź zostaje w "
+#~ "wątku."
+
+#
+#~ msgid "Add internal note"
+#~ msgstr "Notatka wewnętrzna"
 
 #~ msgid "This case has no address to answer. Add a note instead."
 #~ msgstr "Ta sprawa nie ma adresu do odpowiedzi. Dodaj notatkę."

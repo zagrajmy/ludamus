@@ -2,8 +2,8 @@
 
 A case (`ModerationCase`) holds the notices and chat reports filed under it
 and every email about it. Its thread is a staff-only Parley conversation.
-Staff talk there through the chat; the server posts its events and email
-into it, marked as such.
+Staff talk there through the chat; the server posts the case's events
+there too, under its own name.
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ from ludamus.pacts.user import AgeBand
 CASE_TITLE_MAX_LENGTH = 200
 STAFF_REPLY_MAX_LENGTH = 10_000
 STAFF_THREAD_POST_MAX_LENGTH = 4_000
+# A mail's subject, sender name and Message-ID, as stored.
+CASE_EMAIL_LINE_MAX_LENGTH = 255
 
 
 class CaseKind(StrEnum):
@@ -107,12 +109,20 @@ class InboxCaseDTO(BaseModel):
         return case_reference(self.pk)
 
 
+class CasePersonDTO(BaseModel):
+    address: str
+    name: str
+
+
 class CaseDTO(InboxCaseDTO):
     assignee_id: int | None
     decided_by_name: str
     thread_id: int | None
-    reply_to: str
-    reply_name: str
+    # Who the case is about or from: its sender, reporters and the people its
+    # statements went to, in that order.
+    people: list[CasePersonDTO]
+    # Who mailed in about it, newest first, whether one of its people or not.
+    senders: list[CasePersonDTO]
     notices: list[CaseNoticeDTO]
     chat_reports: list[CaseChatReportDTO]
     verdict: CaseVerdictDTO | None
@@ -131,6 +141,7 @@ class CaseEmailDTO(BaseModel):
 
 class CaseDetailDTO(BaseModel):
     case: CaseDTO
+    reply_to: CasePersonDTO | None
     emails: list[CaseEmailDTO]
     staff: list[StaffMemberDTO]
     decidable: bool
@@ -177,21 +188,12 @@ class EmailInPost(BaseModel):
     event: Literal["email_in"] = "email_in"
     sender: str
     subject: str
-    body: str
-    attachments: int
 
 
 class EmailOutPost(BaseModel):
     event: Literal["email_out"] = "email_out"
     staff: StaffMemberDTO
     address: str
-    body: str
-
-
-class NotePost(BaseModel):
-    event: Literal["note"] = "note"
-    staff: StaffMemberDTO
-    body: str
 
 
 class DecisionPost(BaseModel):
@@ -202,7 +204,7 @@ class DecisionPost(BaseModel):
 
 
 type StaffThreadMessage = Annotated[
-    CaseOpenedPost | EmailInPost | EmailOutPost | NotePost | DecisionPost,
+    CaseOpenedPost | EmailInPost | EmailOutPost | DecisionPost,
     Field(discriminator="event"),
 ]
 
@@ -221,7 +223,6 @@ class StaffThreadPostClaims(BaseModel):
     iss: str
     aud: str
     conversation: str
-    author: str
     name: str
     body: str
     nonce: str
@@ -301,6 +302,9 @@ class StaffCaseRepositoryProtocol(Protocol):
     @staticmethod
     def find_account(identifier: str) -> int | None: ...
 
+    @staticmethod
+    def forget_emails_before(cutoff: datetime) -> int: ...
+
 
 class StaffThreadProtocol(Protocol):
     def post(self, entry: StaffThreadEntry) -> None: ...
@@ -329,9 +333,7 @@ class StaffCaseServiceProtocol(Protocol):
 
     def receive_email(self, email: InboundEmail) -> StaffEmailReceipt: ...
 
-    def reply(
-        self, *, actor_id: int, case_id: int, body: str, by_email: bool
-    ) -> None: ...
+    def reply(self, *, actor_id: int, case_id: int, body: str) -> None: ...
 
     def assign(
         self, *, actor_id: int, case_id: int, assignee_id: int | None

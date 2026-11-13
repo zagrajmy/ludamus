@@ -13,6 +13,9 @@ import type {
 
 import { NOT_A_MEMBER, RoomAgent, type Env } from "./room-agent";
 
+// No user id is a word, so no one can delete or pass off the system's messages.
+const SYSTEM_AUTHOR = "system";
+
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
 // A direct, group, party or staff case conversation. Django pushes who is in
@@ -84,17 +87,17 @@ export class ParleyConversationAgent extends RoomAgent {
     }
   }
 
-  // Not @callable: Django writes a case's events, email and staff notes here.
+  // Not @callable: Django notes a case's events here.
   // False until Django has said this room is a case's thread.
   post(post: ThreadPost): boolean {
     const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
     if (kind !== "staff") return false;
     this.purgeExpiredMessages();
-    if (this.sentMessage(post.authorId, post.nonce) === null) {
+    if (this.sentMessage(SYSTEM_AUTHOR, post.nonce) === null) {
       this.writeMessage({
         avatar: "",
         body: post.body,
-        id: post.authorId,
+        id: SYSTEM_AUTHOR,
         name: post.authorName,
         nonce: post.nonce,
       });

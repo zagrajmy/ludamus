@@ -8,13 +8,14 @@ What could go wrong, and so what the tests below check:
 - a redelivered email files twice or posts twice into the thread;
 - an email naming a case lands in a new one, one naming no case that exists
   is dropped, or a reply to a waiting or closed case leaves it there;
-- a note reaches the outside, or a reply by email goes nowhere, to the wrong
-  person, or without the case number in its subject;
+- a reply goes nowhere, to a stranger who named the case, or without the
+  case number in its subject, or with a subject too long to file;
 - a case is handed to someone not on staff, or closed with reports undecided;
 - deciding in the inbox does less than the admin: the chat message stays,
   reporters are not told, the author gets no statement; or it acts on a
   verdict that does not hold together, or decides after the chat failed to
-  remove even one message.
+  remove even one message; two staff deciding at once both post a decision;
+- a case's mail outlives its three years.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -22,7 +23,13 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from ludamus.mills.parley_conversations import visible_conversations
-from ludamus.mills.staff_cases import StaffCaseService, subject_reference, verdict_of
+from ludamus.mills.staff_cases import (
+    CaseMailRetentionService,
+    StaffCaseService,
+    reply_target,
+    subject_reference,
+    verdict_of,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.moderation import (
     CaseStatus,
@@ -40,6 +47,7 @@ from ludamus.pacts.parley import (
     ParleyModerationResult,
 )
 from ludamus.pacts.staff_cases import (
+    CASE_EMAIL_LINE_MAX_LENGTH,
     STAFF_REPLY_MAX_LENGTH,
     CaseChatReportDTO,
     CaseDTO,
@@ -47,12 +55,12 @@ from ludamus.pacts.staff_cases import (
     CaseKind,
     CaseNoticeDTO,
     CaseOpenedPost,
+    CasePersonDTO,
     DecisionPost,
     EmailInPost,
     EmailOutPost,
     InboundEmail,
     InboxCaseDTO,
-    NotePost,
     StaffCaseError,
     StaffCaseErrorCode,
     StaffDecision,
@@ -66,6 +74,7 @@ PIOTR, RADEK, OUTSIDER, AUTHOR = 1, 2, 3, 4
 T0 = datetime(2026, 11, 12, 14, 0, tzinfo=UTC)
 OPEN, ACTIONED = ModerationStatus.OPEN, ModerationStatus.ACTIONED
 STAFF = {PIOTR: StaffMemberDTO(pk=PIOTR, name="Piotr")}
+OLA = CasePersonDTO(address="ola@example.com", name="Ola W.")
 
 
 def _notice(pk=7, *, status=OPEN):
@@ -102,8 +111,9 @@ class World:
         self.emails: list[dict] = []
         self.accounts = {"marek": AUTHOR}
         self.asked: list[tuple] = []
+        self.now = T0
 
-    def add_case(self, *, notices=(), reports=(), reply_to="ola@example.com"):
+    def add_case(self, *, notices=(), reports=(), people=(OLA,)):
         pk = 1000 + len(self.cases)
         self.cases[pk] = CaseDTO(
             pk=pk,
@@ -116,8 +126,8 @@ class World:
             assignee_id=None,
             decided_by_name="",
             thread_id=None,
-            reply_to=reply_to,
-            reply_name="Ola W.",
+            people=list(people),
+            senders=[],
             notices=list(notices),
             chat_reports=list(reports),
             verdict=None,
@@ -135,7 +145,13 @@ class World:
         return [StaffMemberDTO(pk=pk, name=name) for pk, name in self.staff.items()]
 
     def open_for_email(self, data):
-        pk = self.add_case(reply_to=data["external_email"])
+        pk = self.add_case(
+            people=[
+                CasePersonDTO(
+                    address=data["external_email"], name=data["external_name"]
+                )
+            ]
+        )
         self._update(pk, title=data["title"], kind=CaseKind.EMAIL)
         return pk
 
@@ -188,7 +204,16 @@ class World:
         )
 
     def add_email(self, data):
-        self.emails.append(data)
+        self.emails.append(data | {"created_at": self.now})
+        if data["direction"] == CaseEmailDirection.IN:
+            case = self.cases[data["case_id"]]
+            sender = CasePersonDTO(address=data["address"], name=data["name"])
+            self._update(case.pk, senders=[sender, *case.senders])
+
+    def forget_emails_before(self, cutoff):
+        kept = [email for email in self.emails if email["created_at"] >= cutoff]
+        forgotten, self.emails = len(self.emails) - len(kept), kept
+        return forgotten
 
     @staticmethod
     def list_emails(_case_id):
@@ -241,6 +266,18 @@ class Outside:
         self.removed.append((report_ids, now.tzinfo))
         failed = min(self.fails, len(report_ids))
         return ParleyModerationResult(deleted=len(report_ids) - failed, failed=failed)
+
+
+class DecidedMeanwhile(Outside):
+    """Another request decided every record between reading and deciding."""
+
+    def decide_chat_reports(self, **asked):
+        super().decide_chat_reports(**asked)
+        return ModerationDecisionsDTO(decided=0, statements=[])
+
+    def decide_notices(self, **asked):
+        super().decide_notices(**asked)
+        return ModerationDecisionsDTO(decided=0, statements=[])
 
 
 @pytest.fixture(name="world")
@@ -309,9 +346,7 @@ class TestStaffOnly:
                 actor_id=OUTSIDER, status=CaseStatus.OPEN, limit=10, offset=0
             ),
             lambda s: s.read(actor_id=OUTSIDER, case_id=1000),
-            lambda s: s.reply(
-                actor_id=OUTSIDER, case_id=1000, body="x", by_email=False
-            ),
+            lambda s: s.reply(actor_id=OUTSIDER, case_id=1000, body="x"),
             lambda s: s.assign(actor_id=OUTSIDER, case_id=1000, assignee_id=PIOTR),
             lambda s: s.close(actor_id=OUTSIDER, case_id=1000),
             lambda s: s.decide(actor_id=OUTSIDER, case_id=1000, decision=_decision()),
@@ -375,7 +410,7 @@ class TestRead:
         assert world.threads == {100: {PIOTR, RADEK}}
         assert _messages(out) == [CaseOpenedPost(kind=CaseKind.CHAT_REPORT, title="")]
         assert out.posts[0].reference == f"Z-{case_id}"
-        assert first.decidable is True
+        assert (first.decidable, first.reply_to) == (True, OLA)
 
     def test_a_decided_case_has_nothing_to_decide(self, service, world):
         case_id = world.add_case(notices=[_notice(status=ACTIONED)])
@@ -389,19 +424,14 @@ class TestInboundEmail:
 
         case = world.cases[receipt.case_id]
         assert receipt.outcome == StaffEmailOutcome.OPENED
-        assert (case.title, case.reply_to, case.thread_id) == (
+        assert (case.title, case.people, case.thread_id) == (
             "Naruszenie w opisie",
-            "ola@example.com",
+            [OLA],
             100,
         )
         assert _messages(out) == [
             CaseOpenedPost(kind=CaseKind.EMAIL, title="Naruszenie w opisie"),
-            EmailInPost(
-                sender="Ola W.",
-                subject="Naruszenie w opisie",
-                body="Proszę o pomoc.",
-                attachments=0,
-            ),
+            EmailInPost(sender="Ola W.", subject="Naruszenie w opisie"),
         ]
 
     def test_naming_a_case_reopens_it(self, service, world, out):
@@ -422,10 +452,7 @@ class TestInboundEmail:
         )
         assert world.cases[case_id].status == CaseStatus.OPEN
         assert _messages(out)[-1] == EmailInPost(
-            sender="ola@example.com",
-            subject=f"Re: Fwd: [z-{case_id}] wynik",
-            body="Proszę o pomoc.",
-            attachments=1,
+            sender="ola@example.com", subject=f"Re: Fwd: [z-{case_id}] wynik"
         )
 
     def test_naming_no_case_there_is_opens_one(self, service, world):
@@ -464,12 +491,10 @@ class TestReply:
     def case_id_fixture(self, service):
         return service.receive_email(_email(subject="Pytanie")).case_id
 
-    def test_by_email_goes_to_the_sender_with_the_case_number(
+    def test_goes_to_the_sender_with_the_case_number_and_waits(
         self, service, world, out, case_id
     ):
-        service.reply(
-            actor_id=PIOTR, case_id=case_id, body=" Dziękujemy. ", by_email=True
-        )
+        service.reply(actor_id=PIOTR, case_id=case_id, body=" Dziękujemy. ")
 
         assert out.replies == [
             {
@@ -485,31 +510,74 @@ class TestReply:
         )
         assert world.cases[case_id].status == CaseStatus.WAITING
         assert _messages(out)[-1] == EmailOutPost(
-            staff=STAFF[PIOTR], address="ola@example.com", body="Dziękujemy."
+            staff=STAFF[PIOTR], address="ola@example.com"
         )
 
-    def test_a_note_stays_in_the_thread(self, service, world, out, case_id):
-        service.reply(actor_id=PIOTR, case_id=case_id, body="Sprawdzam", by_email=False)
+    def test_answers_the_case_s_own_person_who_wrote_last_not_a_stranger(
+        self, service, world, out, case_id
+    ):
+        reporter = CasePersonDTO(address="Rep@example.com", name="Rep")
+        world._update(case_id, people=[OLA, reporter])
+        for sender in ("rep@example.com", "stranger@example.com"):
+            service.receive_email(
+                _email(
+                    message_id=f"<{sender}>",
+                    from_address=sender,
+                    subject=f"[Z-{case_id}]",
+                )
+            )
 
-        assert (out.replies, len(world.emails)) == ([], 1)
-        assert _messages(out)[-1] == NotePost(staff=STAFF[PIOTR], body="Sprawdzam")
+        service.reply(actor_id=PIOTR, case_id=case_id, body="Hej")
+
+        assert out.replies[-1]["to"] == "rep@example.com"
+
+    def test_a_long_title_still_files_its_subject(self, service, world, out):
+        case_id = world.add_case()
+        world._update(case_id, title="t" * 300)
+
+        service.reply(actor_id=PIOTR, case_id=case_id, body="Hej")
+
+        assert len(out.replies[-1]["subject"]) == CASE_EMAIL_LINE_MAX_LENGTH
 
     @pytest.mark.parametrize("body", ("   ", "x" * (STAFF_REPLY_MAX_LENGTH + 1)))
     def test_refuses_an_empty_or_overlong_reply(self, service, out, case_id, body):
         with pytest.raises(StaffCaseError) as raised:
-            service.reply(actor_id=PIOTR, case_id=case_id, body=body, by_email=True)
+            service.reply(actor_id=PIOTR, case_id=case_id, body=body)
 
         assert raised.value.code == StaffCaseErrorCode.INVALID_BODY
         assert out.replies == []
 
-    def test_by_email_with_nobody_to_answer_is_refused(self, service, world, out):
-        case_id = world.add_case(reply_to="")
+    def test_with_nobody_to_answer_is_refused(self, service, world, out):
+        case_id = world.add_case(people=())
 
         with pytest.raises(StaffCaseError) as raised:
-            service.reply(actor_id=PIOTR, case_id=case_id, body="Hej", by_email=True)
+            service.reply(actor_id=PIOTR, case_id=case_id, body="Hej")
 
         assert raised.value.code == StaffCaseErrorCode.NO_RECIPIENT
         assert out.replies == []
+
+
+@pytest.mark.parametrize(
+    ("people", "senders", "answered"),
+    (
+        ((OLA,), (), OLA),
+        ((), (OLA,), None),
+        (
+            (OLA, CasePersonDTO(address="rep@example.com", name="Rep")),
+            (
+                CasePersonDTO(address="x@example.com", name="X"),
+                CasePersonDTO(address="REP@example.com", name="Rep R."),
+                OLA,
+            ),
+            CasePersonDTO(address="REP@example.com", name="Rep R."),
+        ),
+    ),
+    ids=("first-of-its-people", "only-strangers", "last-of-its-own-who-wrote"),
+)
+def test_a_reply_answers_only_the_case_s_own_people(people, senders, answered, world):
+    world._update(world.add_case(people=people), senders=list(senders))
+
+    assert reply_target(next(iter(world.cases.values()))) == answered
 
 
 class TestAssignAndClose:
@@ -645,6 +713,19 @@ class TestDecide:
         assert raised.value.code == code
         assert (out.removed, out.reports_decided, out.notices_decided) == ([], [], [])
 
+    def test_decided_meanwhile_by_someone_else_posts_no_second_decision(self, world):
+        out = DecidedMeanwhile()
+        case_id = world.add_case(reports=[_report()], notices=[_notice()])
+
+        with pytest.raises(StaffCaseError) as raised:
+            _service(world, out).decide(
+                actor_id=PIOTR, case_id=case_id, decision=_decision()
+            )
+
+        assert raised.value.code == StaffCaseErrorCode.NOTHING_TO_DECIDE
+        assert not world.cases[case_id].decided_by_name
+        assert [m.event for m in _messages(out)] == []
+
     def test_with_everything_decided_there_is_nothing_to_decide(self, service, world):
         case_id = world.add_case(reports=[_report(status=ACTIONED)])
 
@@ -681,6 +762,17 @@ class TestVerdictAndPreview:
         assert service.preview(_decision()) == (
             "actioned: Prośba o telefon do dziecka."
         )
+
+
+def test_forgets_case_mail_three_years_on(service, world):
+    case_id = service.receive_email(_email()).case_id
+    world.now = T0 + timedelta(days=1)
+    service.reply(actor_id=PIOTR, case_id=case_id, body="Hej")
+    retention = CaseMailRetentionService(repository=world)
+
+    forgotten = retention.forget_expired(now=T0 + timedelta(days=3 * 365, hours=1))
+
+    assert (forgotten, [email["body"] for email in world.emails]) == (1, ["Hej"])
 
 
 @pytest.mark.parametrize(

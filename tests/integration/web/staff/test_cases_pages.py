@@ -3,8 +3,8 @@
 What could go wrong, and so what the tests below check:
 - anyone off staff, or signed out, reaches a case or changes one;
 - the pages show another case's records or the wrong state's cases;
-- a reply by email leaves from the wrong address, without the case number, or
-  to someone other than who wrote in; a note leaves the team;
+- a reply leaves from the wrong address, without the case number, or to
+  someone other than who wrote in; a case nobody wrote in offers a reply;
 - deciding in the inbox does less than the admin: the chat message stays, the
   reporter hears nothing, the author gets no statement; or it decides after
   the chat failed to remove the message, or on a verdict that does not hold;
@@ -44,6 +44,7 @@ from ludamus.pacts.staff_cases import (
     CaseEmailDTO,
     CaseKind,
     CaseNoticeDTO,
+    CasePersonDTO,
     CaseVerdictDTO,
     InboxCaseDTO,
     StaffMemberDTO,
@@ -142,6 +143,9 @@ def _notice_row(case):
     )
 
 
+OLA = CasePersonDTO(address="ola@example.com", name="Ola W.")
+
+
 def _notice_detail(case, staff_user):
     case.refresh_from_db()
     notice = case.notices.get()
@@ -156,8 +160,8 @@ def _notice_detail(case, staff_user):
             assignee_id=None,
             decided_by_name="",
             thread_id=case.thread_id,
-            reply_to="ola@example.com",
-            reply_name="Ola W.",
+            people=[OLA],
+            senders=[],
             notices=[
                 CaseNoticeDTO(
                     pk=notice.pk,
@@ -172,6 +176,7 @@ def _notice_detail(case, staff_user):
             verdict=None,
             created_at=case.created_at,
         ),
+        reply_to=OLA,
         emails=[],
         staff=[StaffMemberDTO(pk=staff_user.pk, name=staff_user.get_full_name())],
         decidable=True,
@@ -217,8 +222,7 @@ class TestStaffOnly:
 
         response = send(
             _url(name, notice_case),
-            {"body": "Hi", "send": "email", "decision": "no_action"}
-            | {"decision_text": "x"},
+            {"body": "Hi", "decision": "no_action"} | {"decision_text": "x"},
         )
 
         assert_response_404(response)
@@ -289,8 +293,7 @@ class TestCasePage:
             context_data=_case_page(notice_case, staff_user),
         )
         (opened,) = posts
-        assert (opened["author"], opened["name"], opened["body"]) == (
-            "system",
+        assert (opened["name"], opened["body"]) == (
             "Notice of illegal content",
             f"Case Z-{notice_case.pk} opened: Offensive description",
         )
@@ -431,6 +434,7 @@ class TestDecidedCase:
             sent_by=staff_user,
         )
         staff_name = staff_user.get_full_name()
+        wrote_in = CasePersonDTO(address="teen@example.com", name="Teen")
 
         response = staff_client.get(_url("case", case))
 
@@ -452,8 +456,16 @@ class TestDecidedCase:
                         assignee_id=staff_user.pk,
                         decided_by_name=staff_name,
                         thread_id=case.thread_id,
-                        reply_to="teen@example.com",
-                        reply_name="Teen",
+                        people=[
+                            CasePersonDTO(
+                                address="reporter@example.com",
+                                name=report.reporter.get_full_name(),
+                            ),
+                            CasePersonDTO(
+                                address="teen@example.com", name=teen.get_full_name()
+                            ),
+                        ],
+                        senders=[wrote_in],
                         notices=[],
                         chat_reports=[
                             CaseChatReportDTO(
@@ -477,6 +489,7 @@ class TestDecidedCase:
                         ),
                         created_at=case.created_at,
                     ),
+                    reply_to=wrote_in,
                     emails=[
                         CaseEmailDTO(
                             direction=CaseEmailDirection.IN,
@@ -522,7 +535,7 @@ class TestDecidedCase:
 
 
 class TestReply:
-    def test_by_email_goes_from_staff_with_the_case_number(
+    def test_goes_from_staff_with_the_case_number(
         self,
         staff_client,
         staff_user,
@@ -532,7 +545,7 @@ class TestReply:
     ):
         with django_capture_on_commit_callbacks(execute=True):
             response = staff_client.post(
-                _url("reply", notice_case), {"body": "Thank you.", "send": "email"}
+                _url("reply", notice_case), {"body": "Thank you."}
             )
 
         assert_response(
@@ -556,29 +569,10 @@ class TestReply:
         notice_case.refresh_from_db()
         assert notice_case.status == "waiting"
 
-    def test_a_note_stays_inside(
-        self, staff_client, notice_case, mailoutbox, django_capture_on_commit_callbacks
-    ):
-        with django_capture_on_commit_callbacks(execute=True):
-            response = staff_client.post(
-                _url("reply", notice_case), {"body": "Checking", "send": "note"}
-            )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_url("case", notice_case),
-            messages=[(messages.SUCCESS, "Note added to the thread.")],
-        )
-        assert mailoutbox == []
-        assert not CaseEmail.objects.exists()
-
     def test_an_empty_reply_shows_the_form_again(
         self, staff_client, staff_user, notice_case
     ):
-        response = staff_client.post(
-            _url("reply", notice_case), {"body": "", "send": "email"}
-        )
+        response = staff_client.post(_url("reply", notice_case), {"body": ""})
 
         assert_response(
             response,
@@ -589,12 +583,10 @@ class TestReply:
         form = response.context_data["reply_form"]
         assert form.errors == {"body": ["This field is required."]}
 
-    def test_by_email_with_nobody_to_answer_is_refused(self, staff_client):
+    def test_with_nobody_to_answer_is_refused(self, staff_client):
         case = ModerationCase.objects.create()
 
-        response = staff_client.post(
-            _url("reply", case), {"body": "Hi", "send": "email"}
-        )
+        response = staff_client.post(_url("reply", case), {"body": "Hi"})
 
         assert_response(
             response,
@@ -603,7 +595,10 @@ class TestReply:
             messages=[
                 (
                     messages.ERROR,
-                    "Nobody outside the team wrote in this case. Add a note instead.",
+                    (
+                        "Nobody outside the team wrote in this case. "
+                        "Talk it over in its thread."
+                    ),
                 )
             ],
         )
@@ -708,7 +703,10 @@ class TestDecide:
         assert all(f"[Z-{chat_case.pk}]" in mail.subject for mail in mailoutbox)
         chat_case.refresh_from_db()
         assert (chat_case.status, chat_case.decided_by) == ("closed", staff_user)
-        assert [post["author"] for post in posts] == ["system", str(staff_user.pk)]
+        assert [post["name"] for post in posts] == [
+            "Chat report",
+            staff_user.get_full_name(),
+        ]
         assert f"{WORKER}/moderation" in urls
 
     def test_when_the_chat_does_not_answer_nothing_is_decided(

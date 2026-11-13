@@ -110,7 +110,7 @@ test.describe("Staff cases inbox", () => {
       .getByRole("link", { name: /The description asks for card numbers/ })
       .first()
       .click();
-    await expect(page.getByRole("main").getByText(reference, { exact: true })).toBeVisible();
+    await expect(page.getByRole("article").getByText(reference, { exact: true })).toBeVisible();
 
     await page.getByRole("radio", { name: "No action" }).check();
     await expect(

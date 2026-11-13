@@ -271,8 +271,6 @@ export async function verifyThreadPost(token: string, env: AuthEnv): Promise<Thr
   if (
     typeof payload.conversation !== "string" ||
     !/^\d+$/u.test(payload.conversation) ||
-    typeof payload.author !== "string" ||
-    !/^(?:\d+|system|email)$/u.test(payload.author) ||
     typeof payload.name !== "string" ||
     typeof payload.body !== "string" ||
     payload.body.trim().length === 0 ||
@@ -284,7 +282,6 @@ export async function verifyThreadPost(token: string, env: AuthEnv): Promise<Thr
     throw new Error("Invalid thread post");
   }
   return {
-    authorId: payload.author,
     authorName: payload.name,
     body: payload.body,
     conversation: payload.conversation,
