@@ -201,6 +201,9 @@ class OfferDTO(BaseModel):
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
     offer_expires_at: datetime
+    # Read under the session lock: someone linked as a facilitator after the
+    # offer was made must not claim a seat at their own table.
+    host_ids: frozenset[int]
 
 
 class PromotionResult(BaseModel):
@@ -211,8 +214,9 @@ class PromotionResult(BaseModel):
 
 
 # "conflict": the offered seat overlaps one the member already holds, so it
-# was released rather than claimed.
-type ClaimFailure = Literal["not_found", "expired", "conflict"]
+# was released rather than claimed. "host": someone in the offer runs the
+# session, so it was released the same way.
+type ClaimFailure = Literal["not_found", "expired", "conflict", "host"]
 
 
 class ClaimResult(BaseModel):

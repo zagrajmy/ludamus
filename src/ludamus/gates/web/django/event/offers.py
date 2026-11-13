@@ -32,6 +32,8 @@ def flash_claim_result(request: HttpRequest, result: ClaimResult) -> None:
                 "so it was released."
             ),
         )
+    elif result.reason == "host":
+        messages.error(request, _("You run this session, so this spot was released."))
     else:
         messages.error(request, _("This offer has expired or was already claimed."))
 
@@ -59,7 +61,9 @@ class SessionOfferClaimView(View):
     def post(request: RootRequest, token: str) -> HttpResponse:
         result = request.services.waitlist_promotion.claim_offer(token=token)
         flash_claim_result(request, result)
-        if result.event_slug and (result.success or result.reason == "conflict"):
+        if result.event_slug and (
+            result.success or result.reason in {"conflict", "host"}
+        ):
             return redirect("web:chronology:event", slug=result.event_slug)
         return redirect("web:index")
 

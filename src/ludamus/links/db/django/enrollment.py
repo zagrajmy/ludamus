@@ -580,6 +580,7 @@ class ParticipationPromotionRepository(SeatRepository):
             user_ids=[p.user_id for p in party],
             recipients=recipients,
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
+            host_ids=session_host_ids(session),
         )
 
     @staticmethod

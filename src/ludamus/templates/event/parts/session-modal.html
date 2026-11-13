@@ -111,7 +111,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if enroll_actions or data.can_edit or enroll_opens_at %}
+    {% if hosting or enroll_actions or data.can_edit or enroll_opens_at %}
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
         {# with the container snapshot, so the enroll controls stay crisp and #}

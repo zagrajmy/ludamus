@@ -339,6 +339,40 @@ class TestOfferClaimAndExpiry:
         rolled = SessionParticipation.objects.get(user=next_waiter)
         assert rolled.status == SessionParticipationStatus.OFFERED.value
 
+    def test_claim_view_releases_a_spot_the_waiter_now_hosts(
+        self, client, session, event, waiter
+    ):
+        participation = self._offer(session, event, waiter)
+        next_waiter = UserFactory(username="next", email="next@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=next_waiter, status=SessionParticipationStatus.WAITING
+        )
+        # Linked as one of the session's facilitators after the offer went out.
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=event, display_name="GM", slug="gm", user=waiter
+            )
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "You run this session, so this spot was released.")
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        rolled = SessionParticipation.objects.get(user=next_waiter)
+        assert rolled.status == SessionParticipationStatus.OFFERED.value
+
     def test_claim_view_get_shows_offer(self, client, session, event, waiter):
         participation = self._offer(session, event, waiter)
 
@@ -362,6 +396,7 @@ class TestOfferClaimAndExpiry:
                     user_ids=[waiter.pk],
                     recipients=[waiter.pk],
                     offer_expires_at=participation.offer_expires_at,
+                    host_ids=frozenset({session.presenter_id}),
                 ),
                 "token": participation.claim_token,
             },

@@ -200,6 +200,7 @@ def _offer(*, expires):
         user_ids=[11, 12],
         recipients=[_MANAGER_ID],
         offer_expires_at=expires,
+        host_ids=frozenset(),
     )
 
 
@@ -337,7 +338,7 @@ class TestFillFreedSeats:
 
 
 class TestClaimOffer:
-    def _offer(self, *, expires=_NOW + timedelta(hours=1)):
+    def _offer(self, *, expires=_NOW + timedelta(hours=1), host_ids=frozenset()):
         return OfferDTO(
             session_id=_SESSION_ID,
             session_title="Dragons",
@@ -346,6 +347,7 @@ class TestClaimOffer:
             user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
+            host_ids=host_ids,
         )
 
     def test_valid_token_confirms_whole_party(self):
@@ -409,6 +411,26 @@ class TestClaimOffer:
         assert caplog.messages[0] == (
             f"Claim on session {_SESSION_ID} released the offer of [11, 12]: "
             "[12] overlap seats already held"
+        )
+
+    def test_a_member_who_now_hosts_releases_the_whole_offer_and_refills(self, caplog):
+        # Linked as a facilitator after the offer was made.
+        service, repo, _, _ = _build(
+            offer=self._offer(host_ids=frozenset({12})), states=[None]
+        )
+
+        with caplog.at_level(logging.INFO, logger="ludamus.mills.enrollment"):
+            result = service.claim_offer(token="tok-xyz")
+
+        assert result == ClaimResult(
+            success=False, reason="host", session_id=_SESSION_ID, event_slug="con"
+        )
+        assert repo.log.dropped == [[1, 2]]
+        assert not repo.log.claimed
+        assert repo.log.locked == [_SESSION_ID]
+        assert caplog.messages[0] == (
+            f"Claim on session {_SESSION_ID} released the offer of [11, 12]: "
+            "[12] host it"
         )
 
 
@@ -523,6 +545,7 @@ class TestExpireOffer:
             user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=expires,
+            host_ids=frozenset(),
         )
 
     def test_lapsed_offer_dropped_notified_and_rolls_on(self):
@@ -581,6 +604,7 @@ class TestExpireLapsedOffers:
             user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW - timedelta(minutes=1),
+            host_ids=frozenset(),
         )
         service, repo, notifier, _ = _build(states=[None], offer=offer)
 
@@ -655,6 +679,7 @@ class TestDeclineOffer:
             user_ids=[11, 12],
             recipients=[_MANAGER_ID],
             offer_expires_at=_NOW + timedelta(hours=1),
+            host_ids=frozenset(),
         )
 
     def test_drops_whole_party_and_rolls_on(self):
