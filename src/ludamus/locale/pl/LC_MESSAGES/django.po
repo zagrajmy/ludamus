@@ -7537,6 +7537,15 @@ msgid "Coming up"
 msgstr "Najbliższe"
 
 #: src/ludamus/templates/dashboard/index.html
+#, python-format
+msgid "Show %(counter)s more"
+msgid_plural "Show %(counter)s more"
+msgstr[0] "Pokaż jeszcze %(counter)s"
+msgstr[1] "Pokaż jeszcze %(counter)s"
+msgstr[2] "Pokaż jeszcze %(counter)s"
+msgstr[3] "Pokaż jeszcze %(counter)s"
+
+#: src/ludamus/templates/dashboard/index.html
 msgid ""
 "No upcoming plans. Sign up for or bookmark a session, or join an encounter, "
 "to see it here."
