@@ -201,8 +201,9 @@ class OfferDTO(BaseModel):
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
     offer_expires_at: datetime
-    # Read under the session lock: someone linked as a facilitator after the
-    # offer was made must not claim a seat at their own table.
+    # On the claim path this is read under the session lock: someone linked
+    # as a facilitator after the offer was made must not claim a seat at
+    # their own table.
     host_ids: frozenset[int]
 
 

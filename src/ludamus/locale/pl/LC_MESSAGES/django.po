@@ -1365,8 +1365,10 @@ msgstr ""
 "miejsce, więc zostało zwolnione."
 
 #: src/ludamus/gates/web/django/event/offers.py
-msgid "You run this session, so this spot was released."
-msgstr "Prowadzisz ten punkt programu, więc to miejsce zostało zwolnione."
+msgid "Someone in this offer runs this session, so this spot was released."
+msgstr ""
+"Ktoś z tej oferty prowadzi ten punkt programu, więc miejsce zostało "
+"zwolnione."
 
 #: src/ludamus/gates/web/django/event/offers.py
 msgid "This offer has expired or was already claimed."

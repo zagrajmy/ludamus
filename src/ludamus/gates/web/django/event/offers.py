@@ -33,7 +33,10 @@ def flash_claim_result(request: HttpRequest, result: ClaimResult) -> None:
             ),
         )
     elif result.reason == "host":
-        messages.error(request, _("You run this session, so this spot was released."))
+        messages.error(
+            request,
+            _("Someone in this offer runs this session, so this spot was released."),
+        )
     else:
         messages.error(request, _("This offer has expired or was already claimed."))
 

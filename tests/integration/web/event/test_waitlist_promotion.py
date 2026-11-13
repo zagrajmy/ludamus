@@ -365,7 +365,13 @@ class TestOfferClaimAndExpiry:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "You run this session, so this spot was released.")
+                (
+                    messages.ERROR,
+                    (
+                        "Someone in this offer runs this session, so this spot "
+                        "was released."
+                    ),
+                )
             ],
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
