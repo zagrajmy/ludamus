@@ -23,6 +23,7 @@ from ludamus.inits.dbos_scheduler import (
     offer_expiry_scheduler,
     parley_membership_outbox,
     parley_revocation_outbox,
+    staff_thread,
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
@@ -125,6 +126,7 @@ from ludamus.mills.sphere import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.staff_cases import StaffCaseService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -307,6 +309,18 @@ class Services:
     @cached_property
     def guilds(self) -> GuildService:
         return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseService:
+        return StaffCaseService(
+            transaction=self._transaction,
+            repository=self._repos.staff_cases,
+            thread=staff_thread(),
+            mailer=DjangoModerationMailer(),
+            memberships=parley_membership_outbox(),
+            decisions=self.moderation_decisions,
+            chat=self.parley,
+        )
 
     @cached_property
     def sphere_team(self) -> SphereTeamService:

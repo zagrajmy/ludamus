@@ -10,6 +10,7 @@ from ludamus.mills.moderation import (
     StatementOfReasonsService,
 )
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ChatReportDTO,
     ContentNoticeData,
     ContentNoticeDTO,
@@ -50,9 +51,11 @@ class FakeCounter:
 class FakeCases:
     def __init__(self):
         self.opened = 0
+        self.closed = 0
 
-    def open(self):
+    def open(self, *, status):
         self.opened += 1
+        self.closed += status == CaseStatus.CLOSED
         return 100 + self.opened
 
 
@@ -432,9 +435,9 @@ class TestStatementOfReasonsService:
         )
 
     def test_records_and_mails_a_statement_under_a_new_case(self):
-        statements, mailer = FakeStatements(), FakeMailer()
+        statements, mailer, cases = FakeStatements(), FakeMailer(), FakeCases()
 
-        issued = self._service(statements=statements, mailer=mailer).issue(
+        issued = self._service(statements=statements, mailer=mailer, cases=cases).issue(
             self._statement()
         )
 
@@ -455,6 +458,7 @@ class TestStatementOfReasonsService:
             }
         ]
         assert [case for __, case in mailer.statements] == [FIRST_CASE_ID]
+        assert cases.closed == 1
 
     def test_keeps_the_case_it_was_given_and_says_when_nobody_was_reached(self):
         cases = FakeCases()

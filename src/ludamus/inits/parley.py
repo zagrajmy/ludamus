@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import transaction
 
 from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
+from ludamus.links.db.django.staff_thread import thread_post_claims
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.parley_worker import ParleyWorkerClient
 from ludamus.mills.parley import sign_revocations
@@ -23,6 +25,9 @@ from ludamus.pacts.parley import (
     ParleyReportedMessage,
     ParleyWorkerUnavailableError,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.staff_cases import StaffThreadEntry
 
 logger = logging.getLogger(__name__)
 
@@ -127,3 +132,38 @@ def parley_message_reader() -> ParleyMessageReaderProtocol:
     return (
         ParleyWorkerClient(agent_host) if agent_host else UnconfiguredParleyMessages()
     )
+
+
+def deliver_thread_post(entry: StaffThreadEntry) -> None:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    ParleyWorkerClient(agent_host).post_to_conversation(
+        JwtSigner(private_key).sign(thread_post_claims(entry, now=datetime.now(UTC)))
+    )
+
+
+class InlineStaffThread:
+    """Posts into a case's thread after commit, once; the case stands without it."""
+
+    @staticmethod
+    def post(entry: StaffThreadEntry) -> None:
+        def deliver() -> None:
+            try:
+                deliver_thread_post(entry)
+            except Exception:
+                logger.exception(
+                    "staff thread post failed: thread=%s event=%s",
+                    entry.thread_id,
+                    entry.message.event,
+                )
+
+        transaction.on_commit(deliver)
+
+
+class DisabledStaffThread:
+    @staticmethod
+    def post(entry: StaffThreadEntry) -> None:
+        logger.debug(
+            "parley not configured, staff thread post dropped: thread=%s",
+            entry.thread_id,
+        )

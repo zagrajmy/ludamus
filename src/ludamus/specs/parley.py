@@ -1,6 +1,13 @@
-from datetime import timedelta
+from __future__ import annotations
 
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
+from ludamus.pacts.parley import ParleyConversationKind
 from ludamus.pacts.user import AgeBand
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 PARLEY_TOKEN_LIFETIME = timedelta(hours=12)
 # An event's chat and its programme points' rooms take messages until this
@@ -10,6 +17,11 @@ PARLEY_SESSION_RETENTION = timedelta(days=30)
 # NOTE: the Worker deletes every message this long after it was written
 # (MESSAGE_LIFETIME_MS in workers/parley/src/limits.ts); keep the two equal.
 PARLEY_MESSAGE_LIFETIME = timedelta(days=365)
+# NOTE: a case's thread is kept as long as its mail (STAFF_CASE_RETENTION in
+# specs/staff_cases.py); keep the two equal.
+PARLEY_KEPT_LONGER: Mapping[ParleyConversationKind, timedelta] = {
+    ParleyConversationKind.STAFF: timedelta(days=3 * 365)
+}
 # Groups stay small enough that every member's inbox hears each message.
 PARLEY_GROUP_MAX_MEMBERS = 50
 PARLEY_GROUP_TITLE_MAX_LENGTH = 80

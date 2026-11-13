@@ -539,6 +539,7 @@ export function Conversation({
       direct: copy.emptyDirect,
       group: copy.emptyGroup,
       party: copy.emptyParty,
+      staff: copy.emptyReadOnly,
     }[conversation?.kind ?? "direct"],
     event: copy.emptyEvent,
     organizers: copy.emptyOrganizers,

@@ -33,7 +33,7 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
-export type ConversationKind = "direct" | "group" | "party";
+export type ConversationKind = "direct" | "group" | "party" | "staff";
 
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
@@ -43,6 +43,8 @@ export type Membership = {
   members: Member[];
   // Whether only a pass with direct messages open gets in.
   needsDirect: boolean;
+  // How long each message is kept, in seconds.
+  retainFor: number;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
@@ -55,6 +57,14 @@ export type Reported = Pick<
 
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
+
+// What Django writes into a case's thread, always as the system, never a person.
+export type ThreadPost = {
+  authorName: string;
+  body: string;
+  conversation: string;
+  nonce: string;
+};
 
 export type Revocation = {
   exp: number;

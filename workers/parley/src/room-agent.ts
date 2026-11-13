@@ -17,7 +17,7 @@ import type { ParleySphereAgent } from "./sphere-agent";
 import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
-import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
+import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage } from "./limits";
 import { mentionsIn } from "./mentions";
 import { closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
@@ -211,34 +211,61 @@ export abstract class RoomAgent extends Agent<Env> {
       return { ok: false, code: "invalid" };
     }
     this.purgeExpiredMessages();
-    const existing = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    if (existing !== undefined) return { ok: true, value: this.messages([existing])[0]! };
+    const existing = this.sentMessage(capability.sub, input.nonce);
+    if (existing !== null) return { ok: true, value: existing };
     if (
       !this.consumeRate(capability.sub, "message", 5, 10_000) ||
       !this.consumeRate(capability.sub, "message-minute", 30, 60_000)
     ) {
       return { ok: false, code: "rate_limited" };
     }
+    return {
+      ok: true,
+      value: this.writeMessage({
+        avatar: capability.avatar,
+        body,
+        id: capability.sub,
+        mentions: mentionsIn({
+          allowed: this.mentionable(capability),
+          asked: input.mentions,
+          body,
+        }),
+        name: capability.name,
+        nonce: input.nonce,
+      }),
+    };
+  }
+
+  // What an author already sent under this nonce, if anything.
+  protected sentMessage(authorId: string, nonce: string): Message | null {
+    const row = this
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${authorId} AND client_nonce = ${nonce}`[0];
+    return row === undefined ? null : this.messages([row])[0]!;
+  }
+
+  // The one place a message is written, whoever wrote it, and everyone told.
+  protected writeMessage(author: {
+    avatar: string;
+    body: string;
+    id: string;
+    mentions: string[];
+    name: string;
+    nonce: string;
+  }): Message {
     const now = Date.now();
     void this
       .sql`INSERT INTO messages (author_id, author_name, author_avatar_url, body, client_nonce, created_at)
-      VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
+      VALUES (${author.id}, ${author.name}, ${author.avatar}, ${author.body}, ${author.nonce}, ${now})`;
     const row = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const mentions = mentionsIn({
-      allowed: this.mentionable(capability),
-      asked: input.mentions,
-      body,
-    });
-    for (const userId of mentions) {
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${author.id} AND client_nonce = ${author.nonce}`[0]!;
+    for (const userId of author.mentions) {
       void this.sql`INSERT INTO mentions (message_id, user_id) VALUES (${row.id}, ${userId})`;
     }
-    const message = this.message(row, { mentions, reactions: {}, reactors: {} });
+    const message = this.message(row, { mentions: author.mentions, reactions: {}, reactors: {} });
     this.emit({ type: "message.created", v: 1, payload: message });
     void this.scheduleSweep({ earliest: now, idempotent: true });
     this.afterMessage(message);
-    return { ok: true, value: message };
+    return message;
   }
 
   @callable()
@@ -546,12 +573,16 @@ export abstract class RoomAgent extends Agent<Env> {
     );
   }
 
+  protected messageLifetime(): number {
+    return MESSAGE_LIFETIME_MS;
+  }
+
   // The one place a message is deleted for good. Every read purges first,
   // so a late alarm never lets a message outlive its year.
   // NOTE: a table keyed by message id deletes its rows here, before the
   // messages that name them.
   protected purgeExpiredMessages(): void {
-    const cutoff = retentionCutoff();
+    const cutoff = Date.now() - this.messageLifetime();
     void this.sql`DELETE FROM reactions
       WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
     void this.sql`DELETE FROM mentions
@@ -575,7 +606,7 @@ export abstract class RoomAgent extends Agent<Env> {
     }>`SELECT created_at FROM messages ORDER BY created_at LIMIT 1`[0];
     if (oldest === undefined) return;
     await this.schedule(
-      new Date(Math.max(oldest.created_at + MESSAGE_LIFETIME_MS, options.earliest)),
+      new Date(Math.max(oldest.created_at + this.messageLifetime(), options.earliest)),
       "sweepExpiredMessages",
       undefined,
       { idempotent: options.idempotent },

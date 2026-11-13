@@ -590,6 +590,9 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
         # on these; the service pages that change them do the same.
         if change and {"is_active", "age_band"} & set(form.changed_data):
             _services().parley_revocations.revoke_user(user_id=obj.pk)
+        # NOTE: staff case threads take in whoever is staff, and nobody else.
+        if {"is_active", "is_staff"} & set(form.changed_data):
+            _services().staff_cases.sync_threads()
 
     @override
     def delete_model(self, request: HttpRequest, obj: User) -> None:
