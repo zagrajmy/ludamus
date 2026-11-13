@@ -5,6 +5,8 @@ What could go wrong, and so what the tests below check:
 - the pages show another case's records or the wrong state's cases;
 - a reply leaves from the wrong address, without the case number, or to
   someone other than who wrote in; a case nobody wrote in offers a reply;
+- the statement preview waits for the decision text instead of following
+  the choices made so far;
 - deciding in the inbox does less than the admin: the chat message stays, the
   reporter hears nothing, the author gets no statement; or it decides after
   the chat failed to remove the message, or on a verdict that does not hold;
@@ -58,13 +60,16 @@ CASES = reverse("web:staff:cases")
 FAQ = (CONTENT_DIR / "moderation-faq.md").read_text(encoding="utf-8")
 WORKER = "https://parley.example.com"
 DECISION_TEXT = "The message asked a child for their phone number."
+TERMS_GROUND = (
+    "§ 4.1(7) of the Terms of Service: posting content that is unlawful"
+    " or offends common decency."
+)
 DEFAULT_PREVIEW = (
     "Zagrajmy staff decided on removal of your content.\n\n"
     "What happened:\n\n\n"
     "This decision followed a report from someone else.\n\n"
     "No automated means were used to find the content or reach this decision.\n\n"
-    "Ground: § 4.1(7) of the Terms of Service: posting content that is unlawful"
-    " or offends common decency. Terms of Service:"
+    f"Ground: {TERMS_GROUND} Terms of Service:"
     " https://testserver/terms-of-service/\n\n"
     "If you disagree, reply to this email or write to staff@zagrajmy.net and a"
     " person will look at it again. You can also take the matter to a Polish"
@@ -144,6 +149,12 @@ def _notice_row(case):
 
 
 OLA = CasePersonDTO(address="ola@example.com", name="Ola W.")
+
+
+def _written(preview):
+    return preview.replace(
+        "What happened:\n\n", f"What happened:\n{DECISION_TEXT}\n", 1
+    )
 
 
 def _notice_detail(case, staff_user):
@@ -363,12 +374,11 @@ class TestCasePage:
             ),
         )
 
-    def test_no_action_previews_no_statement(
+    def test_no_action_previews_no_statement_before_any_text(
         self, staff_client, staff_user, notice_case
     ):
         response = staff_client.get(
-            _url("case", notice_case),
-            {"decision": "no_action", "decision_text": "Nothing wrong."},
+            _url("case", notice_case), {"decision": "no_action", "decision_text": ""}
         )
 
         assert_response(
@@ -789,7 +799,14 @@ class TestDecide:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data=_case_page(notice_case, staff_user),
+            context_data=_case_page(
+                notice_case,
+                staff_user,
+                statement=_written(DEFAULT_PREVIEW).replace(
+                    TERMS_GROUND,
+                    "the content is illegal under Polish or European Union law.",
+                ),
+            ),
         )
         form = response.context_data["decision_form"]
         assert form.non_field_errors() == [
@@ -809,6 +826,8 @@ class TestDecide:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data=_case_page(notice_case, staff_user),
+            context_data=_case_page(
+                notice_case, staff_user, statement=_written(DEFAULT_PREVIEW)
+            ),
         )
         assert list(response.context_data["decision_form"].errors) == ["decision"]

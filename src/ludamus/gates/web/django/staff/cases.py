@@ -136,11 +136,11 @@ def _page(
         return TemplateResponse(request, "staff/cases.html", {**inbox, "detail": None})
     if decision_form is None:
         decision_form = DecisionForm(request.GET if "decision" in request.GET else None)
-    shown = (
-        decision_form.staff_decision()
-        if decision_form.is_valid()
-        else _DEFAULT_DECISION
-    )
+    shown = _DEFAULT_DECISION
+    if decision_form.is_bound:
+        # NOTE: the preview follows the choices made so far, before the text is in.
+        decision_form.is_valid()
+        shown = decision_form.staff_decision()
     return TemplateResponse(
         request,
         "staff/cases.html",

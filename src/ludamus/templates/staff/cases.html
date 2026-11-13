@@ -234,23 +234,27 @@
                     {% if detail.decidable %}
                         <form method="post"
                               action="{% url 'web:staff:decide' pk=case.pk %}"
-                              class="flex flex-col gap-3"
-                              hx-get="{% url 'web:staff:case' pk=case.pk %}"
-                              hx-trigger="change"
-                              hx-target="#statement-preview"
-                              hx-select="#statement-preview"
-                              hx-swap="outerHTML">
+                              class="flex flex-col gap-3">
                             {% csrf_token %}
                             {% tessera_errors decision_form %}
-                            {% tessera_field decision_form.decision %}
-                            {% tessera_field decision_form.ground %}
-                            {% tessera_field decision_form.legal_provision %}
-                            {% tessera_field decision_form.suspended_until %}
-                            {% tessera_field decision_form.decision_text %}
-                            {% if case.notices %}
-                                {% tessera_field decision_form.affected_account %}
-                            {% endif %}
-                            {% include "staff/_statement.html" %}
+                            <div class="contents"
+                                 hx-get="{% url 'web:staff:case' pk=case.pk %}"
+                                 hx-trigger="change"
+                                 hx-include="closest form"
+                                 hx-params="not csrfmiddlewaretoken"
+                                 hx-target="#statement-preview"
+                                 hx-select="#statement-preview"
+                                 hx-swap="outerHTML">
+                                {% tessera_field decision_form.decision %}
+                                {% tessera_field decision_form.ground %}
+                                {% tessera_field decision_form.legal_provision %}
+                                {% tessera_field decision_form.suspended_until %}
+                                {% tessera_field decision_form.decision_text %}
+                                {% if case.notices %}
+                                    {% tessera_field decision_form.affected_account %}
+                                {% endif %}
+                                {% include "staff/_statement.html" %}
+                            </div>
                             {% translate "Confirm decision" as t_decide %}
                             {% tessera_button t_decide %}
                             <p class="text-xs text-foreground-muted">

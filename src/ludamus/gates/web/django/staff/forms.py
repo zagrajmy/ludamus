@@ -131,12 +131,15 @@ class DecisionForm(forms.Form):
     )
 
     def staff_decision(self) -> StaffDecision:
+        """Read the decision as far as it is filled in; whole once valid."""
         data = self.cleaned_data
         return StaffDecision(
-            decision=ModerationDecision(data["decision"]),
-            ground=ModerationGround(data["ground"]) if data["ground"] else None,
-            decision_text=data["decision_text"],
-            legal_provision=data["legal_provision"],
-            suspended_until=data["suspended_until"],
-            affected_account=data["affected_account"],
+            decision=ModerationDecision(
+                data.get("decision", ModerationDecision.CONTENT_REMOVED)
+            ),
+            ground=ModerationGround(ground) if (ground := data.get("ground")) else None,
+            decision_text=data.get("decision_text", ""),
+            legal_provision=data.get("legal_provision", ""),
+            suspended_until=data.get("suspended_until"),
+            affected_account=data.get("affected_account", ""),
         )
