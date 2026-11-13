@@ -57,6 +57,56 @@ test.describe("Board listings", () => {
     await expect(page.getByRole("link", { name: new RegExp(title) })).toHaveCount(0);
   });
 
+  test("author tags a listing with chips, removes one, and the rest are saved", async ({
+    page,
+  }) => {
+    const title = `Tagged one-shot ${Date.now()}`;
+
+    await page.goto("/board/create/");
+    await page.getByLabel("Players").check();
+    await page.getByLabel("Title").fill(title);
+    await page.getByLabel("What we'll do").fill("A grim dungeon crawl");
+    await page.getByLabel("When, in your words").fill("Every other Friday evening");
+    await page.getByLabel("Format").fill("Online on Discord");
+
+    const tags = page.getByRole("combobox", { name: "Game system" });
+    const chips = page.getByRole("toolbar", { name: "Game system" });
+    await tags.fill("mork");
+    await expect(page.getByRole("option")).toHaveText(["Mörk Borg"]);
+    await tags.press("Enter");
+    await expect(chips.getByRole("group")).toHaveText(["Mörk Borg"]);
+    await expect(tags).toHaveValue("");
+    await tags.fill("blades");
+    await tags.press("Enter");
+    await page.getByRole("option", { name: "Dungeons & Dragons" }).click();
+    await expect(chips.getByRole("group")).toHaveText([
+      "Mörk Borg",
+      "Blades in the Dark",
+      "Dungeons & Dragons",
+    ]);
+    await expect(tags).toBeFocused();
+
+    // Backspace in the empty input takes the last chip, and says which.
+    await tags.press("Escape");
+    await tags.press("Backspace");
+    await expect(page.locator("[aria-live='polite']", { hasText: /^Removed:/ })).toHaveText(
+      "Removed: Dungeons & Dragons",
+    );
+    await chips.getByRole("button", { name: "Remove: Mörk Borg", exact: true }).click();
+    await expect(chips.getByRole("group")).toHaveText(["Blades in the Dark"]);
+    await expect(tags).toBeFocused();
+    await attachArtifacts(test.info(), {
+      name: "listing-form-tags",
+      region: page.getByRole("main"),
+      facts: { title, tags: "Blades in the Dark" },
+    });
+
+    await page.getByRole("button", { name: "Publish listing" }).click();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    await expect(page.getByRole("main").getByText("Blades in the Dark")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Mörk Borg")).toHaveCount(0);
+  });
+
   test("asks for a date or a description of when", async ({ page }) => {
     await page.goto("/board/create/");
     const when = page.getByRole("group", { name: "When" });

@@ -30,7 +30,7 @@
                 <label for="listing-tags-{{ category.slug }}"
                        class="block mb-1.5 text-sm font-medium text-foreground-primary">{{ category.name }}</label>
                 {% with selected=form.tags.value %}
-                    {% tessera_combobox id="listing-tags-"|add:category.slug name="tags" multiple=True has_errors=form.tags.errors %}
+                    {% tessera_combobox id="listing-tags-"|add:category.slug name="tags" multiple=True chips=True has_errors=form.tags.errors described_by=form.tags.errors|yesno:"listing-tags-errors," %}
                         {% for option in category.options %}
                             <option value="{{ option.pk }}"
                                     {% if option.pk|stringformat:"d" in selected %}selected{% endif %}>{{ option.path }}</option>
@@ -41,7 +41,7 @@
         {% endif %}
     {% endfor %}
     {% if form.tags.errors %}
-        <p class="mb-4 text-sm text-danger">{{ form.tags.errors|join:" " }}</p>
+        <p id="listing-tags-errors" class="mb-4 text-sm text-danger">{{ form.tags.errors|join:" " }}</p>
     {% endif %}
     {% tessera_field form.description %}
     {% tessera_field form.header_image %}

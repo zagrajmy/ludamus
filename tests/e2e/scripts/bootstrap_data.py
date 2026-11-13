@@ -51,9 +51,12 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
+    Tag,
+    TagCategory,
     TimeSlot,
     Track,
     User,
+    tag_search_key,
 )
 from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.sessions import PROGRAMME_DAYS, SessionStatus
@@ -2511,9 +2514,24 @@ def main() -> None:
     )
 
     _seed_feed_cards_sphere(tester)
+    _create_board_tags()
     # Seeded accounts have browsed in English, the language the suite reads,
     # so a notification raised before their first request still reads in it.
     User.objects.update(language="en")
+
+
+def _create_board_tags() -> None:
+    # The listing form's tag picker, driven by board.auth.spec.ts. Tags are
+    # global, so the category is one no other spec filters by.
+    category = TagCategory.objects.create(name="Game system", slug="game-system")
+    for name, slug in (
+        ("Blades in the Dark", "blades-in-the-dark"),
+        ("Dungeons & Dragons", "dungeons-and-dragons"),
+        ("Mörk Borg", "mork-borg"),
+    ):
+        Tag.objects.create(
+            category=category, name=name, slug=slug, search_key=tag_search_key(name)
+        )
 
 
 def _seed_feed_cards_sphere(tester: User) -> None:

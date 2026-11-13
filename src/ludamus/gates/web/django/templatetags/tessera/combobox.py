@@ -100,11 +100,20 @@ def _read_options(*, slot: str, disabled: bool, multiple: bool) -> _ComboboxOpti
     }
 
 
+def _read_items(slot: str) -> list[_Option]:
+    """Every option of the slot, disabled ones included, for the chips look."""
+    reader = _OptionReader()
+    reader.feed(slot)
+    reader.close()
+    return reader.options
+
+
 class ComboboxNode(template.Node):
     """Renders a ``<select>`` the browser upgrades into an APG combobox."""
 
     _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
     _TEMPLATE = "components/combobox.html"
+    _CHIPS_TEMPLATE = "components/combobox-chips.html"
 
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
@@ -132,12 +141,22 @@ class ComboboxNode(template.Node):
         toggle_label = str(resolved.pop("toggle_label", "") or _("Show options"))
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
+        # `chips=True` on a multiple combobox shows each pick as a removable
+        # chip beside the input: the form-field look, where the picks have no
+        # other home on the page. `described_by` points its input at the
+        # field's error or help text.
+        chips = bool(resolved.pop("chips", False))
+        described_by = str(resolved.pop("described_by", ""))
         slot = self.nodelist.render(context)
         multiple = bool(resolved.get("multiple"))
 
         return render_to_string(
-            self._TEMPLATE,
+            self._CHIPS_TEMPLATE if chips and multiple else self._TEMPLATE,
             {
+                "described_by": described_by,
+                "items": _read_items(slot) if chips and multiple else [],
+                "disabled": bool(resolved.get("disabled")),
+                "required": bool(resolved.get("required")),
                 "attrs": format_tag_attrs(resolved, boolean_attrs=self._BOOLEAN_ATTRS),
                 "empty_text": empty_text,
                 "extra_class": extra_class,

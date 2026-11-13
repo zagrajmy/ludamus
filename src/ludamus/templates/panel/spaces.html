@@ -42,22 +42,24 @@
                             {# A hint at rest; space-tree.ts arms the dashed drop box #}
                             {# only while a nested space is being dragged. #}
                             <div id="space-root-drop-target"
-                                 class="mb-2 flex min-h-11 items-center justify-center rounded-lg border border-dashed border-transparent px-4 py-2 text-center text-xs text-foreground-muted transition-colors data-[armed]:border-border">
+                                 class="mb-2 flex min-h-11 items-center justify-center rounded-lg border border-dashed border-transparent px-4 py-2 text-center text-xs text-foreground-muted transition-colors data-[armed]:border-border data-[over]:border-primary data-[over]:bg-primary/5 data-[over]:text-primary">
                                 {% translate "Drop a nested space here to move it to the top level. Keyboard: focus its handle and press Left Arrow." %}
                             </div>
                         {% endif %}
-                        <ul id="space-root-list"
-                            data-space-list
-                            data-parent-pk=""
-                            data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
-                            data-move-to-root-url="{% url 'panel:space-move-to-root' slug=current_event.slug %}"
-                            data-csrf="{{ csrf_token }}"
-                            data-reorder-error="{{ t_reorder_error }}"
-                            data-move-error="{{ t_move_error }}">
+                        {# One copy of the key instructions, pointed at by every handle's #}
+                        {# aria-describedby, so the handle's own name stays short. #}
+                        <p id="space-reorder-keys" hidden>
+                            {% translate "Press Space to pick up, the arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a nested space to the top level." %}
+                        </p>
+                        <p id="space-branch-keys" hidden>
+                            {% translate "Press Enter to show or hide the spaces inside. Press Space to pick up, the arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a nested space to the top level." %}
+                        </p>
+                        {# space-tree.ts fills {label}, {position} and {total}. #}
+                        <space-list id="space-root-list" role="list" class="block" default-value="{% for node in tree %}{{ node.space.pk }}{% if not forloop.last %},{% endif %}{% endfor %}" data-parent-pk="" data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}" data-move-to-root-url="{% url 'panel:space-move-to-root' slug=current_event.slug %}" data-csrf="{{ csrf_token }}" data-reorder-error="{{ t_reorder_error }}" data-move-error="{{ t_move_error }}" data-message-grab="{% translate "Picked up {label}. Position {position} of {total}." %}" data-message-move="{% translate "{label}, position {position} of {total}." %}" data-message-drop="{% translate "Dropped {label} at position {position} of {total}." %}" data-message-cancel="{% translate "Move cancelled. {label} is back at position {position} of {total}." %}">
                             {% for node in tree %}
                                 {% include "panel/_space_tree_node.html" with node=node %}
                             {% endfor %}
-                        </ul>
+                        </space-list>
                         {% vite_asset 'src/space-tree.ts' %}
                     {% else %}
                         <div class="py-8 text-center">

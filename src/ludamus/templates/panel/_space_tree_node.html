@@ -1,30 +1,38 @@
 {% load i18n %}
 {% load tessera %}
-<li data-space-node data-space-id="{{ node.space.pk }}">
+<space-list-item role="listitem"
+                 class="block data-[grabbed]:rounded-lg data-[grabbed]:bg-bg-tertiary data-[grabbed]:ring-2 data-[grabbed]:ring-primary data-[dragging]:relative data-[dragging]:z-10 data-[dragging]:translate-y-(--drag-y) data-[dragging]:opacity-80"
+                 value="{{ node.space.pk }}"
+                 label="{{ node.space.name }}"
+                 data-space-node
+                 data-space-id="{{ node.space.pk }}">
     {# px-1.5 centres the handle on x=20px, where the children's guide line #}
     {# (ml-5 below) runs, so every level's line drops out of its own handle. #}
     <div class="group flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-bg-tertiary">
         <div class="flex min-w-0 flex-1 items-center gap-2">
-            {% if node.children %}
-                <button type="button"
-                        draggable="true"
-                        data-space-disclosure
-                        data-drag-handle
-                        class="icon-btn icon-btn-clear cursor-grab text-foreground-muted active:cursor-grabbing"
-                        aria-expanded="true"
-                        aria-controls="space-children-{{ node.space.pk }}"
-                        aria-label="{% blocktranslate with name=node.space.name %}Reorder or toggle {{ name }} — arrow keys reorder; Enter or Space toggles children{% endblocktranslate %}">
-                    {% icon "bars-3" class="w-4 h-4" %}
-                </button>
-            {% else %}
-                <button type="button"
-                        draggable="true"
-                        data-drag-handle
-                        class="icon-btn icon-btn-clear cursor-grab text-foreground-muted active:cursor-grabbing"
-                        aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
-                    {% icon "bars-3" class="w-4 h-4" %}
-                </button>
-            {% endif %}
+            {# touch-none: a finger on the handle drags the row instead of scrolling the page. #}
+            <space-list-handle class="contents">
+                {% if node.children %}
+                    <button type="button"
+                            data-space-disclosure
+                            data-drag-handle
+                            class="icon-btn icon-btn-clear cursor-grab touch-none text-foreground-muted active:cursor-grabbing"
+                            aria-expanded="true"
+                            aria-controls="space-children-{{ node.space.pk }}"
+                            aria-describedby="space-branch-keys"
+                            aria-label="{% blocktranslate with name=node.space.name %}Reorder or toggle {{ name }}{% endblocktranslate %}">
+                        {% icon "bars-3" class="w-4 h-4" %}
+                    </button>
+                {% else %}
+                    <button type="button"
+                            data-drag-handle
+                            class="icon-btn icon-btn-clear cursor-grab touch-none text-foreground-muted active:cursor-grabbing"
+                            aria-describedby="space-reorder-keys"
+                            aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }}{% endblocktranslate %}">
+                        {% icon "bars-3" class="w-4 h-4" %}
+                    </button>
+                {% endif %}
+            </space-list-handle>
             {% if node.is_leaf %}
                 {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
@@ -133,15 +141,11 @@
         </div>
     </div>
     {% if node.children %}
-        <ul id="space-children-{{ node.space.pk }}"
-            data-space-list
-            class="relative ml-5 pl-1 before:absolute before:inset-y-0 before:left-0 before:w-4 before:cursor-pointer before:border-l before:border-border before:transition-colors before:content-[''] hover:before:border-foreground-muted"
-            data-parent-pk="{{ node.space.pk }}"
-            data-space-branch-disclosure>
+        <space-list id="space-children-{{ node.space.pk }}" role="list" nested default-value="{% for child in node.children %}{{ child.space.pk }}{% if not forloop.last %},{% endif %}{% endfor %}" class="relative ml-5 block pl-1 before:absolute before:inset-y-0 before:left-0 before:w-4 before:cursor-pointer before:border-l before:border-border before:transition-colors before:content-[''] hover:before:border-foreground-muted" data-parent-pk="{{ node.space.pk }}" data-space-branch-disclosure>
             {% for child in node.children %}
                 {% include "panel/_space_tree_node.html" with node=child %}
             {% endfor %}
-        </ul>
+        </space-list>
     {% endif %}
-</li>
+</space-list-item>
 {# ponytail: drag-reorder works within a sibling list only; reparenting is an edit, not a drag. #}

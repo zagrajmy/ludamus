@@ -6991,9 +6991,20 @@ msgstr "%(name_value)s (oznaczony)"
 msgid "Color picker"
 msgstr "Wybierz kolor"
 
+#: src/ludamus/templates/components/combobox-chips.html
 #: src/ludamus/templates/components/combobox.html
 msgid "Results"
 msgstr "Wyniki"
+
+#: src/ludamus/templates/components/combobox-chips.html
+#, python-brace-format
+msgid "Removed: {label}"
+msgstr "Usunięto: {label}"
+
+#: src/ludamus/templates/components/combobox-chips.html
+#, python-brace-format
+msgid "Remove: {label}"
+msgstr "Usuń: {label}"
 
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
@@ -7281,8 +7292,18 @@ msgid "Enable interface sounds"
 msgstr "Włącz dźwięki interfejsu"
 
 #: src/ludamus/templates/components/stepper-field.html
+#, python-format
+msgid "Decrease: %(label)s"
+msgstr "Zmniejsz: %(label)s"
+
+#: src/ludamus/templates/components/stepper-field.html
 msgid "Decrease"
 msgstr "Zmniejsz"
+
+#: src/ludamus/templates/components/stepper-field.html
+#, python-format
+msgid "Increase: %(label)s"
+msgstr "Zwiększ: %(label)s"
 
 #: src/ludamus/templates/components/stepper-field.html
 msgid "Increase"
@@ -7686,6 +7707,18 @@ msgstr "Wiśnia"
 #: src/ludamus/templates/design.html
 msgid "Fruit with disabled options"
 msgstr "Owoce z wyłączonymi opcjami"
+
+#: src/ludamus/templates/design.html
+msgid "Fruit as chips"
+msgstr "Owoce jako etykiety"
+
+#: src/ludamus/templates/design.html
+msgid "Banana"
+msgstr "Banan"
+
+#: src/ludamus/templates/design.html
+msgid "Plum"
+msgstr "Śliwka"
 
 #: src/ludamus/templates/design.html
 #: src/ludamus/templates/event/_proposal_section.html
@@ -10119,17 +10152,13 @@ msgstr ""
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid ""
-"Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
-"children"
-msgstr ""
-"Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
-"kolejność; Enter lub spacja przełącza elementy podrzędne"
+msgid "Reorder or toggle %(name)s"
+msgstr "Zmień kolejność albo zwiń lub rozwiń: %(name)s"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "Reorder %(name)s — use the arrow keys"
-msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+msgid "Reorder %(name)s"
+msgstr "Zmień kolejność: %(name)s"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
@@ -12854,6 +12883,46 @@ msgstr ""
 "Klawiatura: ustaw fokus na jej uchwycie i naciśnij strzałkę w lewo."
 
 #: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Press Space to pick up, the arrow keys to move, Space to drop, Escape to "
+"cancel. Left Arrow moves a nested space to the top level."
+msgstr ""
+"Naciśnij spację, aby podnieść, strzałki, aby przesunąć, spację, aby upuścić, "
+"Escape, aby anulować. Strzałka w lewo przenosi zagnieżdżoną przestrzeń na "
+"najwyższy poziom."
+
+#: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Press Enter to show or hide the spaces inside. Press Space to pick up, the "
+"arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a "
+"nested space to the top level."
+msgstr ""
+"Naciśnij Enter, aby pokazać lub ukryć przestrzenie w środku. Naciśnij "
+"spację, aby podnieść, strzałki, aby przesunąć, spację, aby upuścić, Escape, "
+"aby anulować. Strzałka w lewo przenosi zagnieżdżoną przestrzeń na najwyższy "
+"poziom."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Picked up {label}. Position {position} of {total}."
+msgstr "Podniesiono: {label}. Pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "{label}, position {position} of {total}."
+msgstr "{label}, pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Dropped {label} at position {position} of {total}."
+msgstr "Upuszczono: {label}. Pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Move cancelled. {label} is back at position {position} of {total}."
+msgstr "Anulowano przenoszenie. {label} wraca na pozycję {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
 msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
 msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
@@ -14498,6 +14567,18 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#, python-format
+#~ msgid ""
+#~ "Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
+#~ "children"
+#~ msgstr ""
+#~ "Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
+#~ "kolejność; Enter lub spacja przełącza elementy podrzędne"
+
+#, python-format
+#~ msgid "Reorder %(name)s — use the arrow keys"
+#~ msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
 
@@ -15736,10 +15817,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Release"
 #~ msgstr "Zwolnij"
-
-#, python-format
-#~ msgid "Release %(name)s"
-#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
