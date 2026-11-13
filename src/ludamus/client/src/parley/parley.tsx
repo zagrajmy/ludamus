@@ -1,9 +1,11 @@
 import {
   type Dispatch,
+  type KeyboardEvent,
   type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -123,6 +125,17 @@ function Frame({
   label: string;
 }) {
   const { drag, frame, placed } = useFloatingWindow();
+  // It grows out of the chat button, wherever the window was left.
+  useLayoutEffect(() => {
+    const button = document
+      .querySelector('[aria-controls="parley-panel"]')!
+      .getBoundingClientRect();
+    if (button.width === 0) return;
+    // NOTE: offsets, not the rect: the opening transform has already shrunk
+    // the box by the time this runs.
+    const { offsetLeft, offsetTop } = frame.current!;
+    frame.current!.style.transformOrigin = `${button.left + button.width / 2 - offsetLeft}px ${button.top + button.height / 2 - offsetTop}px`;
+  }, [frame]);
   return (
     <div
       aria-label={label}
@@ -143,6 +156,22 @@ function Frame({
       {children}
     </div>
   );
+}
+
+// Up and down step through the rooms, Home and End jump to either end.
+function moveAmongRows(event: KeyboardEvent<HTMLElement>): void {
+  const rows = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-room-row]")];
+  const at = rows.indexOf(document.activeElement as HTMLElement);
+  const steps: Record<string, number> = {
+    ArrowDown: at + 1,
+    ArrowUp: at - 1,
+    End: rows.length - 1,
+    Home: 0,
+  };
+  const next = rows[steps[event.key] ?? -1];
+  if (next === undefined) return;
+  event.preventDefault();
+  next.focus();
 }
 
 function RoomList({
@@ -182,6 +211,9 @@ function RoomList({
     ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
   );
   const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
+  // One tab stop for the whole list, on the row last focused while it lasts.
+  const [lastFocused, setLastFocused] = useState<string>();
+  const tabStop = sorted.some(({ room }) => room.id === lastFocused) ? lastFocused : firstId;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
     const { conversation } = room;
@@ -193,9 +225,12 @@ function RoomList({
       <li key={room.id}>
         <button
           aria-current={room.id === current ? "true" : undefined}
-          className={`flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          className={`relative flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          data-room-row
           onClick={() => open(room)}
+          onFocus={() => setLastFocused(room.id)}
           ref={room.id === firstId ? firstRoom : undefined}
+          tabIndex={room.id === tabStop ? 0 : -1}
           type="button"
         >
           <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
@@ -236,7 +271,8 @@ function RoomList({
       </PanelHeader>
       <nav
         aria-label={copy.roomsLabel}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pt-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
+        onKeyDown={moveAmongRows}
       >
         {pinned.length > 0 && (
           <>
