@@ -51,6 +51,18 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await expect(launcher).toHaveAttribute("aria-expanded", "true");
   await analyzePageAccessibility(page);
 
+  // It grows out of the chat button, measured while the opening still runs.
+  const origin = await panel.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) throw new Error("The chat window is not HTML");
+    const [x = 0, y = 0] = getComputedStyle(element)
+      .transformOrigin.split(" ")
+      .map(Number.parseFloat);
+    return { x: element.offsetLeft + x, y: element.offsetTop + y };
+  });
+  const button = (await launcher.boundingBox())!;
+  expect(Math.round(origin.x)).toBe(Math.round(button.x + button.width / 2));
+  expect(Math.round(origin.y)).toBe(Math.round(button.y + button.height / 2));
+
   // The arrow keys walk the list; Home and End jump to its ends.
   const zagrajmy = rooms.getByRole("button", { name: /Zagrajmy/u });
   const mothership = rooms.getByRole("button", { name: /Mothership/u });
@@ -81,6 +93,8 @@ test("The chat launcher opens an accessible chat window from its room list", asy
 
   await rooms.getByRole("button", { name: /Zagrajmy/u }).click();
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
+  // Trimmed to its caps, the title would lose its descenders to a clip.
+  await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toHaveCSS("overflow-y", "visible");
   await expect(panel.getByLabel("Message", { exact: true })).toBeFocused();
   // Close stays put from the list into a conversation.
   expect(await closeAt()).toEqual(listClose);
@@ -178,6 +192,8 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
 });
 
 test("With storage refused, the chat window still opens and moves", async ({ page }) => {
+  // Grabbed mid-opening, the header would still be growing out of the button.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await routeBootstrap(page);
   await FakeWorker.install(page);
   await page.addInitScript(() => {

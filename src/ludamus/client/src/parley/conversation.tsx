@@ -566,12 +566,12 @@ export function Conversation({
             )}
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h2 className="truncate text-[0.9375rem] font-semibold text-box-trim-both">
+            <h2 className="overflow-x-clip text-[0.9375rem] font-semibold text-ellipsis whitespace-nowrap text-box-trim-both">
               {room.title}
             </h2>
             <p
               aria-live="polite"
-              className="truncate text-xs text-foreground-muted text-box-trim-both"
+              className="overflow-x-clip text-xs text-ellipsis whitespace-nowrap text-foreground-muted text-box-trim-both"
             >
               {kind}
               {presence > 0 && !offline && ` · ${counted(copy, "presence", presence)}`}

@@ -131,8 +131,10 @@ function Frame({
       .querySelector('[aria-controls="parley-panel"]')!
       .getBoundingClientRect();
     if (button.width === 0) return;
-    const box = frame.current!.getBoundingClientRect();
-    frame.current!.style.transformOrigin = `${button.left + button.width / 2 - box.left}px ${button.top + button.height / 2 - box.top}px`;
+    // NOTE: offsets, not the rect: the opening transform has already shrunk
+    // the box by the time this runs.
+    const { offsetLeft, offsetTop } = frame.current!;
+    frame.current!.style.transformOrigin = `${button.left + button.width / 2 - offsetLeft}px ${button.top + button.height / 2 - offsetTop}px`;
   }, [frame]);
   return (
     <div
