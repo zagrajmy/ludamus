@@ -51,6 +51,7 @@ def _state(waiting: list[WaitingParticipantDTO], *, seats: int) -> PromotionStat
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=None,
+        host_ids=frozenset(),
         seats=SessionSeatsDTO(
             participants_limit=seats, seating_percentage=None, enrolled_count=0
         ),
@@ -98,6 +99,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
         presenter_id=draw(st.none() | st.sampled_from(_USERS)),
+        host_ids=frozenset(draw(st.sets(st.sampled_from(_USERS), max_size=2))),
         seats=SessionSeatsDTO(
             participants_limit=draw(st.integers(min_value=0, max_value=6)),
             seating_percentage=None,
@@ -112,7 +114,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
 
 def _eligible(state: PromotionStateDTO, member: WaitingParticipantDTO) -> bool:
     return (
-        member.user_id != state.presenter_id
+        member.user_id not in state.host_ids
         and not member.has_conflict
         and member.user_id not in state.shadowbanned_user_ids
     )

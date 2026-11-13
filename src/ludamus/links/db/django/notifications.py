@@ -23,7 +23,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from ludamus.links.absolute_url import absolute_url
+from ludamus.links.absolute_url import absolute_url, session_popup_url
 from ludamus.links.db.django.delivery import Bell, compose_mail, ring, send
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
@@ -71,11 +71,9 @@ _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
 
 
 def _session_url(event_slug: str, session_id: int) -> str:
-    event_url = absolute_url(
-        reverse("web:chronology:event", kwargs={"slug": event_slug}),
-        domain=_session_host(session_id),
+    return session_popup_url(
+        event_slug=event_slug, session_id=session_id, domain=_session_host(session_id)
     )
-    return f"{event_url}?session={session_id}"
 
 
 def _session_host(session_id: int) -> str:
@@ -95,16 +93,16 @@ def _session_host(session_id: int) -> str:
 
 
 def _acceptance_copy(acceptance: ProposalAcceptance) -> tuple[str, str, str]:
-    url = absolute_url(
-        reverse("web:chronology:event", kwargs={"slug": acceptance.event_slug}),
-        domain=_session_host(acceptance.session_id),
-    )
     if acceptance.placed:
-        url = f"{url}?session={acceptance.session_id}"
+        url = _session_url(acceptance.event_slug, acceptance.session_id)
         body = _(
             "Your proposal for %(event)s was accepted and added to the agenda."
         ) % {"event": acceptance.event_name}
     else:
+        url = absolute_url(
+            reverse("web:chronology:event", kwargs={"slug": acceptance.event_slug}),
+            domain=_session_host(acceptance.session_id),
+        )
         body = _(
             "Your proposal for %(event)s was accepted. It will appear on the "
             "agenda once the organizers give it a time and place."

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.http import Http404
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
@@ -69,8 +70,21 @@ class SessionModalComponentView(View):
             user_enrolled=data.user_enrolled,
             user_waiting=data.user_waiting,
         )
-        # A host who already holds a seat keeps the way to give it back.
-        hosting = dto.viewer_is_host and not (data.user_enrolled or data.user_waiting)
+        # SAFETY: a banned host must see the deniable controls every banned
+        # viewer sees, or the difference gives the ban away.
+        hosting = (
+            dto.viewer_is_host
+            and not event_banned
+            and not (data.user_enrolled or data.user_waiting)
+        )
+        viewer_id = request.context.current_user_id
+        host_enroll_url = (
+            self._host_enroll_url(
+                viewer_id=viewer_id, event_slug=event.slug, session_id=session_id
+            )
+            if hosting and viewer_id is not None and footer.actions is not None
+            else None
+        )
         return TemplateResponse(
             request,
             "event/parts/session-modal.html",
@@ -99,19 +113,27 @@ class SessionModalComponentView(View):
                 "enroll_actions": footer.actions,
                 "enroll_opens_at": footer.opens_at,
                 "hosting": hosting,
-                # A host with nobody set up yet is sent to create a party
-                # rather than to a group page holding only their own row.
-                "host_brings_others": hosting and self._has_others_to_enroll(),
+                "host_enroll_url": host_enroll_url,
             },
         )
 
-    def _has_others_to_enroll(self) -> bool:
-        if (viewer_id := self.request.context.current_user_id) is None:
-            return False
+    def _host_enroll_url(
+        self, *, viewer_id: UserId, event_slug: str, session_id: int
+    ) -> str:
+        # NOTE: mirrors whom the group page would list besides the host.
         selection = self.request.services.parties.enrollment_selection(
             viewer_pk=viewer_id, requested_party=None
         )
-        return bool(selection.choices or selection.companions)
+        party = selection.selected
+        if selection.companions or (
+            party is not None
+            and any(member.user_pk != viewer_id for member in party.members)
+        ):
+            return reverse(
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": event_slug, "session_id": session_id},
+            )
+        return f"{reverse('web:crowd:profile-parties')}?new-party=1"
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[UserId], set[UserId], bool]:
         shadowbanned_ids: frozenset[UserId] = frozenset()

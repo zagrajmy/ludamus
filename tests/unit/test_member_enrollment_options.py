@@ -25,6 +25,7 @@ Status = SessionParticipationStatus
 
 def _field(member=None, **overrides):
     values = {
+        "is_host": False,
         "is_member": False,
         "status": None,
         "has_conflict": False,
@@ -49,6 +50,17 @@ class TestOwnRow:
                     ("", Label.NO_CHANGE),
                     ("enroll", Label.ENROLL),
                     ("waitlist", Label.JOIN_WAITLIST),
+                ],
+                EnrollHelp.NONE,
+            ),
+            ({"is_host": True}, [("", Label.NO_CHANGE)], EnrollHelp.SESSION_HOST),
+            # A host who already holds a row can still give it back.
+            (
+                {"is_host": True, "status": Status.WAITING},
+                [
+                    ("", Label.NO_CHANGE),
+                    ("cancel", Label.CANCEL_ENROLLMENT),
+                    ("enroll", Label.ENROLL_IF_SPOTS),
                 ],
                 EnrollHelp.NONE,
             ),

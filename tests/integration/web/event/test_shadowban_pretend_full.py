@@ -103,7 +103,7 @@ class TestShadowbanPretendFull:
                 "show_roster": True,
                 "enroll_opens_at": None,
                 "hosting": False,
-                "host_brings_others": False,
+                "host_enroll_url": None,
                 "map_pk": None,
                 # The deniable card offers what a genuinely full session would.
                 "enroll_actions": EnrollActions(
@@ -176,7 +176,7 @@ class TestShadowbanPretendFull:
                 ),
                 "enroll_opens_at": None,
                 "hosting": False,
-                "host_brings_others": False,
+                "host_enroll_url": None,
                 "map_pk": None,
             },
             template_name="event/parts/session-modal.html",

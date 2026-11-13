@@ -7,7 +7,8 @@ from django import template
 from django.forms import ChoiceField
 from django.utils.translation import gettext as _
 
-from ludamus.pacts.enrollment_member import EnrollmentChoice
+from ludamus.gates.web.django.event.enroll_forms import PersonChoiceField
+from ludamus.pacts.enrollment_member import EnrollHelp, EnrollmentChoice
 
 if TYPE_CHECKING:
     from django import forms
@@ -79,7 +80,6 @@ def enroll_row_state(
     form: forms.Form,
     data: SessionUserParticipationData,
     viewer_pk: int | None = None,
-    host_ids: frozenset[int] = frozenset(),
 ) -> EnrollRowState:
     field = form.fields.get(f"user_{data.user.pk}")
     choices = (
@@ -95,7 +95,10 @@ def enroll_row_state(
     includable = (
         EnrollmentChoice.ENROLL in choices or EnrollmentChoice.WAITLIST in choices
     )
-    is_host = data.user.pk in host_ids
+    is_host = (
+        isinstance(field, PersonChoiceField)
+        and field.enroll_help == EnrollHelp.SESSION_HOST
+    )
     badge = _badge(data, is_host=is_host)
     field_name = f"user_{data.user.pk}"
 

@@ -176,6 +176,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
             fields=tuple(
                 person_field(
                     member,
+                    is_host=member.user.pk in session.host_ids,
                     is_member=member.user.pk in member_pks,
                     status=statuses.get(member.user.pk),
                     has_conflict=member.user.pk in conflicted,
@@ -408,6 +409,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
             SessionSeatingDTO(
                 title=session.title,
                 participants_limit=session.participants_limit,
+                host_ids=session.host_ids,
                 enrolled_count=session.seats.enrolled_count,
                 eligible_windows=session.eligible_windows,
             ),

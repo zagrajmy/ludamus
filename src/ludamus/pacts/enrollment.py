@@ -172,6 +172,7 @@ class PromotionStateDTO(BaseModel):
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
     presenter_id: int | None
+    host_ids: frozenset[int]
     seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
@@ -614,8 +615,7 @@ class SessionSeatingDTO(BaseModel):
     title: str
     participants_limit: int
     presenter_id: int | None = None
-    # The presenter and every account linked to a facilitator: never seated.
-    host_ids: frozenset[int] = frozenset()
+    host_ids: frozenset[int]
     # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
     eligible_windows: list[EnrollmentWindowSnapshot]

@@ -38,6 +38,7 @@ def can_join_waitlist(policy: EnrollmentPolicy, *, waiting: int) -> bool:
 def person_field(
     member: RosterMember,
     *,
+    is_host: bool,
     is_member: bool,
     status: str | None,
     has_conflict: bool,
@@ -45,7 +46,9 @@ def person_field(
     can_join_wl: bool,
     restricted_out: bool,
 ) -> EnrollField:
-    if member.needs_accept:
+    if is_host and status is None:
+        options, help_text = (_NO_CHANGE,), EnrollHelp.SESSION_HOST
+    elif member.needs_accept:
         options, help_text = _held_seat_options(
             status=status,
             has_conflict=has_conflict,

@@ -82,6 +82,7 @@ class EnrollHelp(StrEnum):
     WITHDRAW_RELEASES = auto()
     OWN_ENROLLMENT = auto()
     RELEASED_IF_UNCLAIMED = auto()
+    SESSION_HOST = auto()
 
 
 @dataclass(frozen=True)
@@ -149,7 +150,7 @@ class EnrollSessionDTO(BaseModel):
     participants_limit: int
     presenter_id: int | None
     presenter: UserDTO | None
-    host_ids: frozenset[int] = frozenset()
+    host_ids: frozenset[int]
     # None while the session is not on the timetable.
     agenda_item: EnrollAgendaDTO | None
     is_publicly_scheduled: bool

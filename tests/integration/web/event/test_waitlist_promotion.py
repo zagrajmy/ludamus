@@ -10,6 +10,7 @@ from ludamus.inits.services import Services
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
+    Facilitator,
     Notification,
     Party,
     SessionParticipation,
@@ -173,6 +174,26 @@ class TestFillFreedSeats:
         session.participants_limit = 1
         session.save()
         banner.shadowbanned.add(waiter)
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert not result.promoted
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.WAITING.value
+
+    def test_facilitator_linked_host_not_promoted(self, session, waiter):
+        # Waiting from before their facilitator profile was tied to them.
+        session.presenter = None
+        session.participants_limit = 1
+        session.save()
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=session.event, display_name="GM", slug="gm", user=waiter
+            )
+        )
         participation = SessionParticipation.objects.create(
             session=session, user=waiter, status=SessionParticipationStatus.WAITING
         )
@@ -597,8 +618,8 @@ class TestPromotionRepositoryUnscheduledSession:
 # seat-holder lock on the waiters and their owners, batched conflicts,
 # user-config __in, domain-config __in, companions (one config-holding owner),
 # one occupancy snapshot for seated waiters and used slots, available-seats
-# count, shadowban ids.
-STATE_QUERIES = 12
+# count, shadowban ids, the session's facilitator-linked hosts.
+STATE_QUERIES = 13
 BASE_WAITERS = 3
 GROWN_WAITERS = 5
 

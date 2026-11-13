@@ -616,6 +616,7 @@ class TestSubmitRefusals:
             seating=SessionSeatingDTO(
                 title="Smoki",
                 participants_limit=4,
+                host_ids=frozenset(),
                 enrolled_count=1,
                 eligible_windows=[],
             ),

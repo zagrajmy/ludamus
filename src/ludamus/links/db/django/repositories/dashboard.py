@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, Q
 from django.urls import reverse
 
-from ludamus.links.absolute_url import absolute_url
+from ludamus.links.absolute_url import absolute_url, session_popup_url
 from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     Encounter,
@@ -59,11 +59,9 @@ def _session_card(
     item = session.agenda_item
     return DashboardCardDTO(
         title=session.title,
-        url=absolute_url(
-            reverse("web:chronology:event", kwargs={"slug": event.slug}),
-            domain=sphere.site.domain,
-        )
-        + f"?session={session.pk}",
+        url=session_popup_url(
+            event_slug=event.slug, session_id=session.pk, domain=sphere.site.domain
+        ),
         start_time=item.start_time,
         origin_name=event.name,
         role=role,

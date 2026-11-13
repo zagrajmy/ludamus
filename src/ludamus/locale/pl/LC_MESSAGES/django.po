@@ -1112,6 +1112,11 @@ msgid "The seat is released if they do not claim it in time"
 msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 
 #: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
+msgid "Runs this session"
+msgstr "Prowadzi ten punkt programu"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
 #, python-format
 msgid ""
 "%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
@@ -1127,6 +1132,11 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "User"
 msgstr "Nazwa użytkownika"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "%(user)s runs this session and cannot take a seat in it"
+msgstr "%(user)s prowadzi ten punkt programu i nie może zająć w nim miejsca"
 
 #: src/ludamus/gates/web/django/event/enroll_forms.py
 #, python-format
@@ -4724,10 +4734,6 @@ msgstr "Miejsce zarezerwowane — czeka na ich zgodę"
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Spot offered"
 msgstr "Zaproponowano miejsce"
-
-#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
-msgid "Runs this session"
-msgstr "Prowadzi ten punkt programu"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Time conflict"

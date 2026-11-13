@@ -39,7 +39,7 @@ def _wp(
     )
 
 
-def _state(waiting, *, seats=1, presenter_id=None):
+def _state(waiting, *, seats=1):
     return PromotionStateDTO(
         session_id=1,
         session_title="S",
@@ -47,7 +47,8 @@ def _state(waiting, *, seats=1, presenter_id=None):
         start_time=_BASE + timedelta(days=7),
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
-        presenter_id=presenter_id,
+        presenter_id=None,
+        host_ids=frozenset(),
         seats=SessionSeatsDTO(
             participants_limit=seats, seating_percentage=None, enrolled_count=0
         ),
@@ -100,9 +101,10 @@ class TestSelectPromotableParties:
 
         assert [p.participation_id for party in selected for p in party] == [2]
 
-    def test_presenter_skipped(self):
+    def test_host_skipped(self):
+        # A facilitator-linked GM hosts without being the presenter.
         state = _state([_wp(1, user_id=7, order=0), _wp(2, order=1)], seats=1)
-        state = state.model_copy(update={"presenter_id": 7})
+        state = state.model_copy(update={"host_ids": frozenset({7})})
 
         selected = select_promotable_parties(state)
 
