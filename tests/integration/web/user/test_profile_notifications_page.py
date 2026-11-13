@@ -3,14 +3,10 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import NotificationSubscription
+from ludamus.links.db.django.models import NotificationSubscription, ParleyMentionMail
 from ludamus.pacts.notifications import SubscriptionDTO
-from tests.integration.conftest import SphereFactory, UserFactory
-from tests.integration.utils import (
-    assert_login_required,
-    assert_response,
-    assert_response_404,
-)
+from tests.integration.conftest import SphereFactory
+from tests.integration.utils import assert_login_required, assert_response
 
 URL = reverse("web:crowd:profile-notifications")
 
@@ -46,6 +42,7 @@ class TestProfileNotificationsPageView:
             HTTPStatus.OK,
             context_data={
                 "subscriptions": [_dto(subscription)],
+                "mention_mail_enabled": True,
                 "profile_active_tab": "notifications",
             },
             template_name="user/user/notifications.html",
@@ -68,6 +65,7 @@ class TestProfileNotificationsPageView:
             HTTPStatus.OK,
             context_data={
                 "subscriptions": [_dto(other_sub), _dto(visit_sub)],
+                "mention_mail_enabled": True,
                 "profile_active_tab": "notifications",
             },
             template_name="user/user/notifications.html",
@@ -89,6 +87,7 @@ class TestProfileNotificationsPageView:
             HTTPStatus.OK,
             context_data={
                 "subscriptions": [_dto(subscription)],
+                "mention_mail_enabled": True,
                 "profile_active_tab": "notifications",
             },
             template_name="user/user/notifications.html",
@@ -107,64 +106,63 @@ class TestProfileNotificationsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"subscriptions": [], "profile_active_tab": "notifications"},
+            context_data={
+                "subscriptions": [],
+                "mention_mail_enabled": True,
+                "profile_active_tab": "notifications",
+            },
+            template_name="user/user/notifications.html",
+        )
+
+    def test_get_shows_mention_mail_turned_off(self, authenticated_client, active_user):
+        ParleyMentionMail.objects.create(user=active_user, enabled=False)
+        authenticated_client.get(URL)
+        NotificationSubscription.objects.all().delete()
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "subscriptions": [],
+                "mention_mail_enabled": False,
+                "profile_active_tab": "notifications",
+            },
             template_name="user/user/notifications.html",
         )
 
 
-class TestProfileNotificationsMuteActionView:
-    @staticmethod
-    def _mute_url(pk: int) -> str:
-        return reverse("web:crowd:profile-notifications-mute", kwargs={"pk": pk})
+class TestProfileMentionMailActionView:
+    MENTION_URL = reverse("web:crowd:profile-notifications-mention-mail")
 
-    def test_mutes_own_subscription(self, authenticated_client, active_user, sphere):
-        subscription = NotificationSubscription.objects.create(
-            user=active_user, sphere=sphere, source="visit"
-        )
+    def test_unauthenticated_redirects(self, client):
+        response = client.post(self.MENTION_URL, data={"enabled": "false"})
 
+        assert_login_required(response, self.MENTION_URL)
+
+    def test_turns_mention_mail_off(self, authenticated_client, active_user):
         response = authenticated_client.post(
-            self._mute_url(subscription.pk), data={"muted": "true"}
+            self.MENTION_URL, data={"enabled": "false"}
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Subscription muted.")],
+            messages=[(messages.SUCCESS, "Mention emails turned off.")],
             url=URL,
         )
-        subscription.refresh_from_db()
-        assert subscription.muted is True
+        assert ParleyMentionMail.objects.get(user=active_user).enabled is False
 
-    def test_unmutes_own_subscription(self, authenticated_client, active_user, sphere):
-        subscription = NotificationSubscription.objects.create(
-            user=active_user, sphere=sphere, muted=True, source="visit"
-        )
+    def test_turns_mention_mail_back_on(self, authenticated_client, active_user):
+        ParleyMentionMail.objects.create(user=active_user, enabled=False)
 
-        response = authenticated_client.post(
-            self._mute_url(subscription.pk), data={"muted": "false"}
-        )
+        response = authenticated_client.post(self.MENTION_URL, data={"enabled": "true"})
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Subscription unmuted.")],
+            messages=[(messages.SUCCESS, "Mention emails turned on.")],
             url=URL,
         )
-        subscription.refresh_from_db()
-        assert subscription.muted is False
-
-    def test_foreign_subscription_404s_without_side_effects(
-        self, authenticated_client, sphere
-    ):
-        other = UserFactory(username="other")
-        subscription = NotificationSubscription.objects.create(
-            user=other, sphere=sphere, source="visit"
-        )
-
-        response = authenticated_client.post(
-            self._mute_url(subscription.pk), data={"muted": "true"}
-        )
-
-        assert_response_404(response)
-        subscription.refresh_from_db()
-        assert subscription.muted is False
+        assert ParleyMentionMail.objects.get(user=active_user).enabled is True

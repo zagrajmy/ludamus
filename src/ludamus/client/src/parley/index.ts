@@ -13,7 +13,9 @@ const start = (wanted: boolean) => {
 root
   .querySelector("[data-parley-launcher]")!
   .addEventListener("click", () => start(true), { once: true });
-if ("requestIdleCallback" in globalThis) {
+// A link to a chat ("#parley:<room id>", from a mention's email) opens it.
+if (globalThis.location.hash.startsWith("#parley:")) start(true);
+else if ("requestIdleCallback" in globalThis) {
   globalThis.requestIdleCallback(() => start(false), { timeout: 2000 });
 } else {
   setTimeout(() => start(false), 1000);

@@ -66,6 +66,7 @@ Pytamy o przedział wieku po zalogowaniu przez Auth0. Jeśli użytkownik zrezygn
 - Członkowie rozmów prywatnych i grupowych, prośby o rozmowę, nazwy nadane rozmowom
 - Członkowie czatów drużyn, ustalani na podstawie przynależności do drużyny
 - Miejsce, do którego przeczytano rozmowę (do wyświetlania liczby nieprzeczytanych wiadomości)
+- Wzmianki: kogo oznaczono w wiadomości, a dopóki osoba oznaczona jej nie przeczyta, także kto ją oznaczył i początek wiadomości (do powiadomienia email o wzmiance), czas ostatniego takiego powiadomienia i to, czy użytkownik je wyłączył
 - Osoby zablokowane przez użytkownika
 - Wiadomości usunięte przez moderatorów wraz z powodem oraz wyciszenia uczestników
 - Zgłoszenia wiadomości: kto zgłosił, czyją wiadomość, powód, a także kopia treści wiadomości i nazwy autora z chwili zgłoszenia
@@ -125,7 +126,7 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 - **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO) - umową jest Regulamin akceptowany przy korzystaniu z serwisu
 - **Dane:** dane czatu z punktu 2.5 (poza zgłoszeniami i moderacją), nazwa wyświetlana i zdjęcie profilowe z punktu 2.1
-- **Opis:** wysyłanie, wyświetlanie i dostarczanie na bieżąco wiadomości w czatach wydarzeń, czacie organizatorów sfery, rozmowach przy punktach programu, czatach drużyn oraz rozmowach prywatnych i grupowych, a także reakcje, liczniki nieprzeczytanych wiadomości i blokowanie innych użytkowników. Czaty wydarzeń działają, gdy organizatorzy włączą je dla całej sfery albo dla danego wydarzenia, a czat organizatorów, dopóki sfera go nie wyłączy. Czat drużyny obejmuje jej aktywnych członków w każdym wieku. Drużyna dwuosobowa, w której choć jedna osoba nie zadeklarowała wieku 16+, nie ma czatu, bo byłby on rozmową prywatną, a te są dostępne tylko od 16 lat. Korzystanie z czatu jest dobrowolne
+- **Opis:** wysyłanie, wyświetlanie i dostarczanie na bieżąco wiadomości w czatach wydarzeń, czacie organizatorów sfery, rozmowach przy punktach programu, czatach drużyn oraz rozmowach prywatnych i grupowych, a także reakcje, liczniki nieprzeczytanych wiadomości i blokowanie innych użytkowników. Czaty wydarzeń działają, gdy organizatorzy włączą je dla całej sfery albo dla danego wydarzenia, a czat organizatorów, dopóki sfera go nie wyłączy. Czat drużyny obejmuje jej aktywnych członków w każdym wieku. Drużyna dwuosobowa, w której choć jedna osoba nie zadeklarowała wieku 16+, nie ma czatu, bo byłby on rozmową prywatną, a te są dostępne tylko od 16 lat. Gdy ktoś oznaczy użytkownika w rozmowie (wzmianka), a ten nie przeczyta jej w ciągu 10 minut, wysyłamy email z nazwą rozmowy, osobą, która go oznaczyła, i początkiem wiadomości — najwyżej jeden na godzinę, bez wiadomości od osób zablokowanych przez użytkownika. Te powiadomienia można wyłączyć na karcie Powiadomienia w profilu albo linkiem z każdego takiego emaila. Korzystanie z czatu jest dobrowolne
 
 ### 3.8 Moderacja czatu i zgłoszenia
 

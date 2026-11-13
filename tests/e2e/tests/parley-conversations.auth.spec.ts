@@ -288,7 +288,7 @@ test("A request waits on top until it is accepted, declined or blocked", async (
     worker.on("getActivity", (_input, url) => ({
       ok: true,
       value: /parley-inbox-agent/u.test(url)
-        ? { "conversation:12": { at: Date.now(), unread: true } }
+        ? { "conversation:12": { at: Date.now(), mentionedBy: [], unread: true } }
         : {},
     })),
   );
@@ -414,7 +414,7 @@ test("News from a conversation the list never had brings it in; one that shuts t
     .toBe(true);
   worker.push(
     "room.activity",
-    { at: Date.now(), latestMessageId: 1, roomId: surprise.id },
+    { at: Date.now(), latestMessageId: 1, mentionedBy: [], roomId: surprise.id },
     /parley-inbox-agent/u,
   );
   await expect(roomButton(panel, "Surprise party")).toBeVisible();
