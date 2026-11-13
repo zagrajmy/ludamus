@@ -140,9 +140,8 @@
                         {% icon "star" class="w-4 h-4" variant="mini" %} {% translate "You're running this" %}
                     </span>
                     {% if host_enroll_url %}
-                        <a href="{{ host_enroll_url }}" class="btn btn-secondary text-sm">
-                            {% icon "user-group" class="w-4 h-4" variant="mini" %} {% translate "Enroll others…" %}
-                        </a>
+                        {% translate "Enroll others…" as t_enroll_others %}
+                        {% tessera_button t_enroll_others href=host_enroll_url variant="secondary" icon="user-group" %}
                     {% endif %}
                 {% elif data.pretend_full and not event_banned %}
                     <button type="button" class="btn btn-secondary text-sm" disabled>
