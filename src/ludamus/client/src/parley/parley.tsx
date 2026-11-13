@@ -211,6 +211,9 @@ function RoomList({
     ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
   );
   const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
+  // One tab stop for the whole list, on the row last focused while it lasts.
+  const [lastFocused, setLastFocused] = useState<string>();
+  const tabStop = sorted.some(({ room }) => room.id === lastFocused) ? lastFocused : firstId;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
     const { conversation } = room;
@@ -225,7 +228,9 @@ function RoomList({
           className={`relative flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
           data-room-row
           onClick={() => open(room)}
+          onFocus={() => setLastFocused(room.id)}
           ref={room.id === firstId ? firstRoom : undefined}
+          tabIndex={room.id === tabStop ? 0 : -1}
           type="button"
         >
           <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />

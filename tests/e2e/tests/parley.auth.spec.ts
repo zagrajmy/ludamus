@@ -80,6 +80,14 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   // Any other key leaves focus where it is.
   await page.keyboard.press("PageDown");
   await expect(zagrajmy).toBeFocused();
+  // The list is one tab stop, and Tab comes back to the row last left.
+  await page.keyboard.press("ArrowDown");
+  await expect(rooms.locator('[data-room-row][tabindex="0"]')).toHaveCount(1);
+  await page.keyboard.press("Shift+Tab");
+  await expect(mothership).not.toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("Home");
   const closeAt = async () =>
     (await panel.getByRole("button", { name: "Close chat" }).boundingBox())!;
   const listClose = await closeAt();
