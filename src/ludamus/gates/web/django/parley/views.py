@@ -65,6 +65,9 @@ def _copy() -> dict[str, str]:
             "Just the organizers in here. Plan away, nobody else can read it."
         ),
         "emptyParty": _("Your party's own chat. Say hello to everyone."),
+        "emptyEncounter": _(
+            "A chat for everyone signed up for this encounter. Say hello to everyone."
+        ),
         "emptySession": _("You found the table first. Leave a note for the others."),
         "readOnly": _("You can read this conversation, but not write in it."),
         "emptyReadOnly": _("Nobody has written here yet."),
@@ -101,6 +104,11 @@ def _copy() -> dict[str, str]:
         "partyRoom": _("Party"),
         "partyHint": _(
             "Everyone in your party is here. To leave this chat, leave the party."
+        ),
+        "encounterRoom": _("Encounter"),
+        "encounterHint": _(
+            "The organizer and everyone signed up are here. To leave this chat,"
+            " cancel your signup."
         ),
         "moderatorDelete": _("Delete as moderator"),
         "muteOneHour": _("Mute for 1 hour"),

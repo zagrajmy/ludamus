@@ -5,17 +5,17 @@ import pytest
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
     ParleyPartyChatService,
-    party_chat_members,
+    chat_members,
     sign_membership,
 )
 from ludamus.pacts.parley import (
+    ParleyChatCandidate,
     ParleyConversationDTO,
     ParleyConversationError,
     ParleyConversationKind,
     ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
-    ParleyPartyCandidate,
     ParleyPersonDTO,
 )
 from ludamus.pacts.user import AgeBand
@@ -183,7 +183,7 @@ class World:
 
     def list_party_candidates(self, party_id):
         return [
-            ParleyPartyCandidate(user_id=user, age_band=self.read_age_band(user))
+            ParleyChatCandidate(user_id=user, age_band=self.read_age_band(user))
             for party, user in sorted(self.parties)
             if party == party_id
         ]
@@ -531,7 +531,7 @@ class TestNames:
 
 def _candidates(*members):
     return [
-        ParleyPartyCandidate(user_id=user_id, age_band=age_band)
+        ParleyChatCandidate(user_id=user_id, age_band=age_band)
         for user_id, age_band in enumerate(members, start=1)
     ]
 
@@ -569,7 +569,7 @@ ADULT, TEEN, UNSURE = (
 def test_a_party_chat_takes_in_any_age_but_not_a_pair_short_of_direct_messages(
     members, talking
 ):
-    assert party_chat_members(_candidates(*members)) == talking
+    assert chat_members(_candidates(*members)) == talking
 
 
 class TestPartyChats:

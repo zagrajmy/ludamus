@@ -13,6 +13,7 @@ from ludamus.inits.builders import (
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_encounter_chats,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -91,6 +92,7 @@ from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelServ
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
+    ParleyEncounterChatService,
     ParleyPartyChatService,
 )
 from ludamus.mills.parley_mentions import ParleyMentionMailService
@@ -219,6 +221,10 @@ class Services:
         )
 
     @cached_property
+    def parley_encounter_chats(self) -> ParleyEncounterChatService:
+        return build_parley_encounter_chats(parley_membership_outbox())
+
+    @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
         return ParleyRevocationService(
             repository=self._repos.parley,
@@ -226,6 +232,7 @@ class Services:
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
             party_chats=self.parley_party_chats,
+            encounter_chats=self.parley_encounter_chats,
         )
 
     @cached_property
@@ -740,7 +747,7 @@ class Services:
 
     @cached_property
     def _encounter_guests(self) -> EncounterGuests:
-        return build_encounter_guests(self.sites)
+        return build_encounter_guests(self.sites, self.parley_encounter_chats)
 
     @cached_property
     def encounter_replies(self) -> EncounterReplyService:

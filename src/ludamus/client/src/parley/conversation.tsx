@@ -537,6 +537,7 @@ export function Conversation({
   const writableEmpty = {
     conversation: {
       direct: copy.emptyDirect,
+      encounter: copy.emptyEncounter,
       group: copy.emptyGroup,
       party: copy.emptyParty,
       staff: copy.emptyReadOnly,

@@ -278,9 +278,11 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
-            if _closes_chat(self._spheres.read(sphere_id), data):
+            current = self._spheres.read(sphere_id)
+            if _closes_chat(current, data):
                 self._chat.revoke_sphere(sphere_id=sphere_id)
             self._spheres.update(sphere_id, data)
+            self._follow_chat_switch(current, data)
             return SphereSettingsOutcome.SAVED
 
     def patch_settings(
@@ -301,11 +303,18 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
-            if _closes_chat(self._spheres.read(sphere_id), data):
+            current = self._spheres.read(sphere_id)
+            if _closes_chat(current, data):
                 self._chat.revoke_sphere(sphere_id=sphere_id)
             if data:
                 self._spheres.update(sphere_id, data)
+            self._follow_chat_switch(current, data)
             return SphereSettingsOutcome.SAVED
+
+    def _follow_chat_switch(self, current: SphereDTO, data: SphereUpdateData) -> None:
+        switched = data.get("parley_enabled", current.parley_enabled)
+        if switched != current.parley_enabled:
+            self._chat.sphere_chat_switched(sphere_id=current.pk)
 
     def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool:
         sphere = self._spheres.read(sphere_id)

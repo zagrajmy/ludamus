@@ -45,7 +45,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
-    from ludamus.pacts.parley import ParleyPartyChatProtocol, ParleyRoomDTO
+    from ludamus.pacts.parley import (
+        ParleyEncounterChatProtocol,
+        ParleyPartyChatProtocol,
+        ParleyRoomDTO,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -416,12 +420,14 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         conversations: ParleyConversationRepositoryProtocol,
         memberships: ParleyMembershipOutboxProtocol,
         party_chats: ParleyPartyChatProtocol,
+        encounter_chats: ParleyEncounterChatProtocol,
     ) -> None:
         self._repository = repository
         self._outbox = outbox
         self._conversations = conversations
         self._memberships = memberships
         self._party_chats = party_chats
+        self._encounter_chats = encounter_chats
 
     def revoke_event_user(self, *, event_id: int, user_id: int) -> None:
         if (sphere_id := self._repository.read_event_sphere_id(event_id)) is not None:
@@ -433,12 +439,17 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         self.age_changed(user_id=user_id)
 
     def age_changed(self, *, user_id: int) -> None:
-        # Who may be in their conversations, and their parties' chats, can
-        # hang on their age; the Worker hears each list again.
+        # Who may be in their conversations, and their parties' and
+        # encounters' chats, can hang on their age; the Worker hears each list
+        # again.
         self._memberships.schedule(
             conversation_ids=self._conversations.conversation_ids_of(user_id)
         )
         self._party_chats.sync_parties_of(user_id)
+        self._encounter_chats.sync_encounters_of(user_id)
+
+    def sphere_chat_switched(self, *, sphere_id: int) -> None:
+        self._encounter_chats.sync_sphere(sphere_id)
 
     def revoke_sphere(self, *, sphere_id: int) -> None:
         self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)

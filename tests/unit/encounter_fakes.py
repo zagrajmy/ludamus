@@ -145,6 +145,20 @@ class FakeEncounters:
         return self._visible(self.past, sphere_id, user_id)[:limit]
 
 
+class FakeEncounterChat:
+    """Encounter chats that record each sync and have no chat to show."""
+
+    def __init__(self):
+        self.synced = []
+
+    def sync_encounter(self, encounter_id):
+        self.synced.append(encounter_id)
+
+    @staticmethod
+    def chat_id(_encounter_id):
+        return None
+
+
 class FakeCache:
     def __init__(self):
         self.entries = {}
@@ -370,6 +384,7 @@ class EncounterWorld:
             sites=self.sites,
             mailer=self.mailer,
             cache=FakeCache(),
+            chat=FakeEncounterChat(),
         )
 
     def service(self):

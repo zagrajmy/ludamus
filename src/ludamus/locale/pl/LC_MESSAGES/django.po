@@ -3645,6 +3645,12 @@ msgid "Your party's own chat. Say hello to everyone."
 msgstr "Czat tylko dla waszej drużyny. Przywitaj się ze wszystkimi."
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"A chat for everyone signed up for this encounter. Say hello to everyone."
+msgstr ""
+"Czat dla wszystkich zapisanych na to spotkanie. Przywitaj się ze wszystkimi."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "You found the table first. Leave a note for the others."
 msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
 
@@ -3776,6 +3782,18 @@ msgstr "Drużyna"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Everyone in your party is here. To leave this chat, leave the party."
 msgstr "Jest tu cała twoja drużyna. Żeby opuścić ten czat, opuść drużynę."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Encounter"
+msgstr "Spotkanie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"The organizer and everyone signed up are here. To leave this chat, cancel "
+"your signup."
+msgstr ""
+"Są tu organizator i wszyscy zapisani. Żeby opuścić ten czat, wypisz się ze "
+"spotkania."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Delete as moderator"

@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.parley import (
         ParleyConversationServiceProtocol,
+        ParleyEncounterChatProtocol,
         ParleyPartyChatProtocol,
         ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
@@ -151,6 +152,8 @@ class ServicesProtocol(Protocol):
     def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
     @property
     def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
+    @property
+    def parley_encounter_chats(self) -> ParleyEncounterChatProtocol: ...
     @property
     def parley_revocations(self) -> ParleyRevocationServiceProtocol: ...
     @property

@@ -51,6 +51,7 @@ if TYPE_CHECKING:
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
+    from ludamus.pacts.parley import ParleyEncounterChatProtocol
     from ludamus.pacts.sphere import SitesServiceProtocol
     from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
@@ -133,8 +134,10 @@ class EncounterGuests:
     """The one place that changes who holds an encounter in their calendar.
 
     Signing up on the site and accepting from a calendar both go through
-    `admit`; leaving and declining both go through `release`. `invitees` is
-    the invitee repository itself, for reads that need nothing more.
+    `admit`; leaving and declining both go through `release`, and each brings
+    the encounter's chat in step. `invitees` is the invitee repository itself,
+    for reads that need nothing more; `chat` is the encounter chats, for the
+    changes that happen elsewhere.
     """
 
     def __init__(
@@ -146,9 +149,11 @@ class EncounterGuests:
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
         cache: CacheProtocol,
+        chat: ParleyEncounterChatProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
+        self.chat = chat
         self._users = users
         self._sites = sites
         self._mailer = mailer
@@ -189,6 +194,7 @@ class EncounterGuests:
             return False
         if user is not None:
             self._rsvps.create(encounter.pk, user.pk)
+            self.chat.sync_encounter(encounter.pk)
         self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
         )
@@ -207,6 +213,7 @@ class EncounterGuests:
         )
         if signed_up and user is not None:
             self._rsvps.delete_by_user(encounter.pk, user.pk)
+            self.chat.sync_encounter(encounter.pk)
         declined = self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.DECLINED
         )

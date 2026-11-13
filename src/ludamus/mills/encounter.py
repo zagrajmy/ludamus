@@ -203,6 +203,11 @@ class EncounterService(EncounterServiceProtocol):
                 )
             ),
             calendar_links=encounter_calendar_links(encounter, page_url),
+            chat_id=(
+                self._guests.chat.chat_id(encounter.pk)
+                if is_creator or user_has_rsvpd
+                else None
+            ),
         )
 
     def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str:
@@ -306,6 +311,7 @@ class EncounterService(EncounterServiceProtocol):
             # with it.
             guests = self._guests.guests(encounter)
             self._encounters.delete(pk)
+            self._guests.chat.sync_encounter(pk)
             self._guests.send(
                 encounter, reason=EncounterInviteReason.DELETED, guests=guests
             )

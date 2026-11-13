@@ -463,3 +463,40 @@ test("News from a conversation the list never had brings it in; one that shuts t
   await expect(panel.getByRole("navigation", { name: copy.roomsLabel })).toBeVisible();
   await expect(roomButton(panel, ada.name)).toBeHidden();
 });
+
+test("An encounter's chat reaches everyone signed up, and only the signup changes who is in it", async ({
+  page,
+}) => {
+  const encounter: Conversation = {
+    canWrite: true,
+    id: "conversation:40",
+    isAdmin: false,
+    kind: "encounter",
+    members: [me, ada, kuba],
+    name: "Blades in the Dark one-shot",
+    state: "active",
+    title: "Blades in the Dark one-shot",
+  };
+  // Direct messages shut, as they are to someone under 16: the encounter's
+  // chat stays open to them all the same.
+  await routeBootstrap(page, [{ canMessage: false, conversations: [encounter] }]);
+  await FakeWorker.install(page);
+
+  const panel = await openList(page);
+  const entry = roomButton(panel, encounter.title);
+  await expect(entry).toContainText(`${copy.encounterRoom} · 3 members`);
+  await entry.click();
+  await expect(panel.getByRole("heading", { name: encounter.title })).toBeVisible();
+  await expect(panel.getByText(copy.emptyEncounter)).toBeVisible();
+
+  await panel.getByRole("button", { name: copy.detailsLabel }).click();
+  const details = panel.getByRole("region", { name: copy.detailsLabel });
+  await expect(details.getByText(copy.encounterHint)).toBeVisible();
+  await expect(details.getByLabel(copy.nameLabel)).toHaveCount(0);
+  await expect(details.getByRole("button", { name: copy.leaveConversation })).toHaveCount(0);
+  await analyzePageAccessibility(page);
+  await page.screenshot({
+    animations: "disabled",
+    path: "screenshots/parley-encounter-details.png",
+  });
+});

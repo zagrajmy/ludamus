@@ -7,7 +7,7 @@ export type Conversation = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party";
+  kind: "direct" | "encounter" | "group" | "party";
   members: Person[];
   name: string;
   state: "active" | "request";
@@ -40,6 +40,9 @@ export const bootstrap = {
     organizersRoom: "Organizers",
     partyHint: "Everyone in your party is here. To leave this chat, leave the party.",
     partyRoom: "Party",
+    encounterHint:
+      "The organizer and everyone signed up are here. To leave this chat, cancel your signup.",
+    encounterRoom: "Encounter",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",
     blockedMessage: "A message from someone you blocked.",
@@ -65,6 +68,7 @@ export const bootstrap = {
     emptyEvent: "Quiet in here. Say hello before someone starts a rules debate.",
     emptyOrganizers: "Just the organizers in here. Plan away, nobody else can read it.",
     emptyParty: "Your party's own chat. Say hello to everyone.",
+    emptyEncounter: "A chat for everyone signed up for this encounter. Say hello to everyone.",
     emptySession: "You found the table first. Leave a note for the others.",
     errorArchived: "This conversation is archived.",
     errorForbidden: "You do not have permission to do that.",

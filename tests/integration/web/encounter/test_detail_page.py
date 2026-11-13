@@ -43,6 +43,7 @@ def _detail_context(
     rsvp_count=0,
     invitees=(),
     accepted_guests=0,
+    chat_id=None,
 ):
     encounter_dto = EncounterDTO.model_validate(encounter)
     description_html = (
@@ -74,6 +75,7 @@ def _detail_context(
         "outlook_calendar_url": (
             encounter_calendar_links(encounter_dto, share_url).outlook
         ),
+        "chat_id": chat_id,
     }
 
 

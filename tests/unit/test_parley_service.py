@@ -611,6 +611,18 @@ class FakePartyChats:
         self.synced.append(user_id)
 
 
+class FakeEncounterChats:
+    def __init__(self):
+        self.synced = []
+        self.spheres = []
+
+    def sync_encounters_of(self, user_id):
+        self.synced.append(user_id)
+
+    def sync_sphere(self, sphere_id):
+        self.spheres.append(sphere_id)
+
+
 def _revocations(repository, conversations=()):
     outbox = FakeOutbox()
     service = ParleyRevocationService(
@@ -619,6 +631,7 @@ def _revocations(repository, conversations=()):
         conversations=FakeConversations(conversations),
         memberships=FakeMemberships(),
         party_chats=FakePartyChats(),
+        encounter_chats=FakeEncounterChats(),
     )
     return service, outbox
 
@@ -648,18 +661,21 @@ def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parti
     change,
 ):
     memberships, party_chats = FakeMemberships(), FakePartyChats()
+    encounter_chats = FakeEncounterChats()
     service = ParleyRevocationService(
         repository=FakeChatSpheres(),
         outbox=FakeOutbox(),
         conversations=FakeConversations([8, 9]),
         memberships=memberships,
         party_chats=party_chats,
+        encounter_chats=encounter_chats,
     )
 
     getattr(service, change)(user_id=123)
 
     assert memberships.synced == [8, 9]
     assert party_chats.synced == [123]
+    assert encounter_chats.synced == [123]
 
 
 def test_turning_chat_off_revokes_everyone_in_the_sphere():

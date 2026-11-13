@@ -17,7 +17,13 @@ const sync = (
 ) =>
   post(
     "/conversations",
-    { conversation, iat: issuedAt, kind, members, needsDirect: kind !== "party" },
+    {
+      conversation,
+      iat: issuedAt,
+      kind,
+      members,
+      needsDirect: kind !== "party" && kind !== "encounter",
+    },
     MEMBERSHIP_AUDIENCE,
   );
 
@@ -77,18 +83,22 @@ describe("a conversation", () => {
     member.socket.close();
   }, 20_000);
 
-  it("of a party lets its members in whether or not direct messages are open to them", async () => {
-    const id = conversationId();
-    await sync(id, [{ state: "active", user: "7", writable: true }], "party");
+  it.each(["party", "encounter"])(
+    "of a %s lets its members in whether or not direct messages are open to them",
+    async (kind) => {
+      const id = conversationId();
+      await sync(id, [{ state: "active", user: "7", writable: true }], kind);
 
-    const member = await open(`parley-conversation-agent/${id}`, await pass("7", "3"));
-    const stranger = await open(`parley-conversation-agent/${id}`, await pass("8", "3"));
+      const member = await open(`parley-conversation-agent/${id}`, await pass("7", "3"));
+      const stranger = await open(`parley-conversation-agent/${id}`, await pass("8", "3"));
 
-    expect(member.socket.readyState).toBe(WebSocket.OPEN);
-    expect(await say(member, "Who brings the dice?")).toMatchObject({ ok: true });
-    await expect(stranger.closed).resolves.toBe(4404);
-    member.socket.close();
-  }, 20_000);
+      expect(member.socket.readyState).toBe(WebSocket.OPEN);
+      expect(await say(member, "Who brings the dice?")).toMatchObject({ ok: true });
+      await expect(stranger.closed).resolves.toBe(4404);
+      member.socket.close();
+    },
+    20_000,
+  );
 
   it("drops someone the newest list leaves out, and never takes an older list", async () => {
     const id = conversationId();

@@ -93,7 +93,12 @@ export function roomKind(copy: Bootstrap["copy"], room: Room): string {
   }
   if (conversation.kind === "direct") return copy.directMessage;
   const members = counted(copy, "members", conversation.members.length);
-  return conversation.kind === "party" ? `${copy.partyRoom} · ${members}` : members;
+  const owners: Partial<Record<ConversationInfo["kind"], string>> = {
+    encounter: copy.encounterRoom,
+    party: copy.partyRoom,
+  };
+  const owner = owners[conversation.kind];
+  return owner === undefined ? members : `${owner} · ${members}`;
 }
 
 export function refusal(code: string, copy: Bootstrap["copy"]): string {

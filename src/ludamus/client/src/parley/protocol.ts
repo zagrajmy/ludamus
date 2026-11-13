@@ -27,12 +27,15 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEncounter"
   | "emptyEvent"
   | "emptyGroup"
   | "emptyOrganizers"
   | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
+  | "encounterHint"
+  | "encounterRoom"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -154,13 +157,14 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct, group or party conversation as its member sees it; members lists the
+// A direct, group, party, encounter or staff case conversation as its member
+// sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party" | "staff";
+  kind: "direct" | "encounter" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;

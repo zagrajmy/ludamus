@@ -22,6 +22,8 @@ from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import (
+    EncounterFactory,
+    EncounterRSVPFactory,
     EventFactory,
     SessionFactory,
     SessionParticipationFactory,
@@ -296,3 +298,32 @@ def test_says_whether_age_keeps_direct_messages_shut(
     payload = response.json()
     assert payload["canMessage"] is can_message
     assert payload["ageGate"] == age_gate
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_an_encounter_made_before_encounter_chats_has_one_once_they_open(
+    authenticated_client, active_user
+):
+    active_user.age_band = AgeBand.SIXTEEN_PLUS
+    active_user.save()
+    creator = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    encounter = EncounterFactory(creator=creator, title="Sesja Blades")
+    EncounterRSVPFactory(encounter=encounter, user=active_user)
+
+    call_command("open_parley_encounter_chats", stdout=StringIO())
+    again = StringIO()
+    call_command("open_parley_encounter_chats", stdout=again)
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    assert again.getvalue() == "Synced the chats of 1 encounters.\n"
+    [chat] = response.json()["conversations"]
+    assert (chat["kind"], chat["title"], chat["canWrite"]) == (
+        "encounter",
+        "Sesja Blades",
+        True,
+    )
+    assert {person["id"] for person in chat["members"]} == {
+        str(creator.pk),
+        str(active_user.pk),
+    }

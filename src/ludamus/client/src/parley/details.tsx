@@ -76,7 +76,12 @@ export function Details({
 }) {
   const { copy, user } = bootstrap;
   const group = conversation.kind === "group";
-  const party = conversation.kind === "party";
+  // A party's or encounter's chat follows who is in it; nobody manages it here.
+  const ownedHints: Partial<Record<ConversationInfo["kind"], string>> = {
+    encounter: copy.encounterHint,
+    party: copy.partyHint,
+  };
+  const ownedHint = ownedHints[conversation.kind];
   const other = counterpart(conversation, user.id);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -179,7 +184,7 @@ export function Details({
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-4">
         {/* A request is answered before it is renamed. */}
-        {conversation.state === "active" && !party && (
+        {conversation.state === "active" && ownedHint === undefined && (
           <form className="px-2 pb-4" onSubmit={rename}>
             <label
               className="block pb-1 text-sm font-medium text-foreground-secondary"
@@ -243,9 +248,7 @@ export function Details({
             );
           })}
         </ul>
-        {party ? (
-          <p className="px-2 pt-2 text-xs text-foreground-muted">{copy.partyHint}</p>
-        ) : (
+        {ownedHint === undefined ? (
           <div className="mt-2 border-t border-border pt-2">
             {group &&
               conversation.isAdmin &&
@@ -287,6 +290,8 @@ export function Details({
               onClick={leave}
             />
           </div>
+        ) : (
+          <p className="px-2 pt-2 text-xs text-foreground-muted">{ownedHint}</p>
         )}
         {error !== null && (
           <p className="px-4 pt-2 text-xs text-danger-text" role="alert">

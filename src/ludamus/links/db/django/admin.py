@@ -597,22 +597,33 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     @override
     def delete_model(self, request: HttpRequest, obj: User) -> None:
         chats = _services().parley_party_chats
+        encounter_chats = _services().parley_encounter_chats
         parties = chats.parties_of(obj.pk)
+        encounters = encounter_chats.encounters_of(obj.pk)
         super().delete_model(request, obj)
         for party_id in parties:
             chats.sync_party(party_id)
+        for encounter_id in encounters:
+            encounter_chats.sync_encounter(encounter_id)
 
     @override
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         chats = _services().parley_party_chats
+        encounter_chats = _services().parley_encounter_chats
+        user_ids = list(queryset.values_list("pk", flat=True))
         parties = {
-            party_id
-            for user_id in queryset.values_list("pk", flat=True)
-            for party_id in chats.parties_of(user_id)
+            party_id for user_id in user_ids for party_id in chats.parties_of(user_id)
+        }
+        encounters = {
+            encounter_id
+            for user_id in user_ids
+            for encounter_id in encounter_chats.encounters_of(user_id)
         }
         super().delete_queryset(request, queryset)
         for party_id in sorted(parties):
             chats.sync_party(party_id)
+        for encounter_id in sorted(encounters):
+            encounter_chats.sync_encounter(encounter_id)
 
     @admin.action(description="Send notification to selected users")
     def send_notification(

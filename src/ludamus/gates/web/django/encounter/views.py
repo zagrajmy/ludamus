@@ -325,6 +325,7 @@ class EncounterDetailPageView(_EncounterGate, View):
                 "invitees": result.invitees,
                 "google_calendar_url": result.calendar_links.google,
                 "outlook_calendar_url": result.calendar_links.outlook,
+                "chat_id": result.chat_id,
             },
         )
 

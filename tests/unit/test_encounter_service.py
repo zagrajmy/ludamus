@@ -27,6 +27,7 @@ from tests.unit.encounter_fakes import (
     START_TIME,
     EncounterWorld,
     FakeCache,
+    FakeEncounterChat,
     FakeEncounters,
     FakeInvitees,
     FakeMailer,
@@ -68,6 +69,7 @@ def _service(
             sites=sites,
             mailer=FakeMailer(),
             cache=cache or FakeCache(),
+            chat=FakeEncounterChat(),
         ),
     )
 

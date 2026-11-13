@@ -69,6 +69,8 @@ class ParleyConversationKind(StrEnum):
     GROUP = "group"
     # A party's own, its members kept in step with the party's.
     PARTY = "party"
+    # An encounter's own: its creator and everyone signed up for it.
+    ENCOUNTER = "encounter"
     # A staff case's thread, its members kept in step with who is staff.
     STAFF = "staff"
 
@@ -110,6 +112,13 @@ CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy]
                 staff_only=False,
             ),
             ParleyConversationKind.PARTY: ParleyConversationPolicy(
+                needs_direct=False,
+                self_managed=False,
+                one_to_one=False,
+                pair_needs_direct=True,
+                staff_only=False,
+            ),
+            ParleyConversationKind.ENCOUNTER: ParleyConversationPolicy(
                 needs_direct=False,
                 self_managed=False,
                 one_to_one=False,
@@ -381,6 +390,9 @@ class ParleyRevocationServiceProtocol(Protocol):
 
     def age_changed(self, *, user_id: int) -> None: ...
 
+    # The sphere's chat was turned on or off; its encounters' chats follow.
+    def sphere_chat_switched(self, *, sphere_id: int) -> None: ...
+
 
 class ParleyServiceProtocol(Protocol):
     def bootstrap(
@@ -440,8 +452,12 @@ class ParleyTeamSeat(BaseModel):
     role: SphereRole
 
 
-class ParleyPartyCandidate(BaseModel):
-    """An active member of a party who can sign in, and the age they confirmed."""
+class ParleyChatCandidate(BaseModel):
+    """Someone a party's or encounter's chat would take in, and their confirmed age.
+
+    An active member of the party, or the encounter's creator or one of its
+    signups, who can sign in.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -528,7 +544,7 @@ class ParleyConversationRepositoryProtocol(Protocol):
     def unblock(*, blocker_id: int, blocked_id: int) -> None: ...
 
     @staticmethod
-    def list_party_candidates(party_id: int) -> list[ParleyPartyCandidate]: ...
+    def list_party_candidates(party_id: int) -> list[ParleyChatCandidate]: ...
 
     # Makes these people, and no one else, the party chat's members, opening
     # the chat if it has none yet; the chat's id when who is in it changed,
@@ -551,6 +567,39 @@ class ParleyConversationRepositoryProtocol(Protocol):
     # one change at a time.
     @staticmethod
     def lock_party(party_id: int) -> None: ...
+
+    # Nobody while the encounter's sphere has chat off.
+    @staticmethod
+    def list_encounter_candidates(encounter_id: int) -> list[ParleyChatCandidate]: ...
+
+    # As `set_party_members`, for an encounter's chat.
+    @staticmethod
+    def set_encounter_members(
+        *, encounter_id: int, user_ids: list[int]
+    ) -> int | None: ...
+
+    # The encounters this person made or signed up for, or whose chat they
+    # are in.
+    @staticmethod
+    def encounter_ids_of(user_id: int) -> list[int]: ...
+
+    @staticmethod
+    def sphere_encounter_ids(sphere_id: int) -> list[int]: ...
+
+    # Every encounter, and every encounter a chat was kept for after it was
+    # gone.
+    @staticmethod
+    def list_encounter_ids() -> list[int]: ...
+
+    @staticmethod
+    def list_encounter_chat_ids() -> list[int]: ...
+
+    @staticmethod
+    def encounter_chat_id(encounter_id: int) -> int | None: ...
+
+    # As `lock_party`, for an encounter.
+    @staticmethod
+    def lock_encounter(encounter_id: int) -> None: ...
 
     @staticmethod
     def has_conversation(
@@ -617,5 +666,21 @@ class ParleyPartyChatProtocol(Protocol):
     def sync_parties_of(self, user_id: int) -> None: ...
 
     def parties_of(self, user_id: int) -> list[int]: ...
+
+    def open_existing_chats(self) -> int: ...
+
+
+class ParleyEncounterChatProtocol(Protocol):
+    """Keeps an encounter's chat in step with its creator and its signups."""
+
+    def sync_encounter(self, encounter_id: int) -> None: ...
+
+    def sync_encounters_of(self, user_id: int) -> None: ...
+
+    def encounters_of(self, user_id: int) -> list[int]: ...
+
+    def sync_sphere(self, sphere_id: int) -> None: ...
+
+    def chat_id(self, encounter_id: int) -> int | None: ...
 
     def open_existing_chats(self) -> int: ...

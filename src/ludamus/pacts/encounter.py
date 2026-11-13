@@ -186,6 +186,8 @@ class EncounterDetailContextDTO(BaseModel):
     # though not in `attendees`.
     accepted_guest_count: int = 0
     calendar_links: EncounterCalendarLinks
+    # NOTE: filled for the creator and the signed up alone: the chat is theirs.
+    chat_id: int | None = None
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.

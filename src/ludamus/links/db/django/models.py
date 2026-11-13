@@ -267,12 +267,16 @@ REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety re
 
 
 class ParleyConversation(models.Model):
-    """A chat between people, apart from any sphere: direct, a group or a party's."""
+    """A chat between people, apart from any sphere's rooms.
+
+    Direct, a group, a party's, an encounter's or a staff case's thread.
+    """
 
     class Kind(models.TextChoices):
         DIRECT = "direct"
         GROUP = "group"
         PARTY = "party"
+        ENCOUNTER = "encounter"
         STAFF = "staff"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
@@ -280,6 +284,15 @@ class ParleyConversation(models.Model):
     # the party's id stays behind once the party is gone.
     party = models.OneToOneField(
         "Party",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="parley_chat",
+    )
+    # NOTE: kept past the encounter for the same reason as `party`.
+    encounter = models.OneToOneField(
+        "Encounter",
         null=True,
         blank=True,
         on_delete=models.DO_NOTHING,
