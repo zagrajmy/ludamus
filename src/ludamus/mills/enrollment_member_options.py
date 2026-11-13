@@ -46,8 +46,9 @@ def person_field(
     can_join_wl: bool,
     restricted_out: bool,
 ) -> EnrollField:
-    if is_host and status is None:
-        options, help_text = (_NO_CHANGE,), EnrollHelp.SESSION_HOST
+    options: tuple[EnrollOption, ...]
+    if is_host:
+        options, help_text = _host_options(status=status)
     elif member.needs_accept:
         options, help_text = _held_seat_options(
             status=status,
@@ -75,6 +76,17 @@ def person_field(
                 restricted_out=restricted_out, has_email=bool(member.user.email)
             )
     return EnrollField(user=member.user, options=options, help=help_text)
+
+
+def _host_options(*, status: str | None) -> tuple[tuple[EnrollOption, ...], EnrollHelp]:
+    # Never a seat at their own table; a row from before they hosted can only
+    # be given back.
+    if status is None:
+        return (_NO_CHANGE,), EnrollHelp.SESSION_HOST
+    return (
+        _NO_CHANGE,
+        EnrollOption(EnrollmentChoice.CANCEL, Label.CANCEL_ENROLLMENT),
+    ), EnrollHelp.SESSION_HOST
 
 
 def _own_options(

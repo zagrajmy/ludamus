@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, Q
 from django.urls import reverse
 
-from ludamus.links.absolute_url import absolute_url, session_popup_url
+from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.event_visibility import listed_events
 from ludamus.links.db.django.models import (
     Encounter,
@@ -30,6 +30,7 @@ from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     sessions_run_by,
 )
+from ludamus.links.db.django.session_urls import session_popup_url
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,

@@ -23,7 +23,7 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from ludamus.links.absolute_url import absolute_url, session_popup_url
+from ludamus.links.absolute_url import absolute_url
 from ludamus.links.db.django.delivery import Bell, compose_mail, ring, send
 from ludamus.links.db.django.models import (
     NOTIFICATION_TITLE_MAX_LENGTH,
@@ -33,6 +33,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
+from ludamus.links.db.django.session_urls import session_popup_url
 from ludamus.pacts.notifications import NotificationKind, SubscriptionDTO
 from ludamus.pacts.user import EMAIL_LINK_MAX_AGE, AgeBand
 

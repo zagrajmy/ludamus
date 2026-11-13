@@ -171,7 +171,6 @@ class PromotionStateDTO(BaseModel):
     start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
-    presenter_id: int | None
     host_ids: frozenset[int]
     seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.

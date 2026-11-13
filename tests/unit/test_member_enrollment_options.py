@@ -54,15 +54,11 @@ class TestOwnRow:
                 EnrollHelp.NONE,
             ),
             ({"is_host": True}, [("", Label.NO_CHANGE)], EnrollHelp.SESSION_HOST),
-            # A host who already holds a row can still give it back.
+            # A host who already holds a row can only give it back.
             (
                 {"is_host": True, "status": Status.WAITING},
-                [
-                    ("", Label.NO_CHANGE),
-                    ("cancel", Label.CANCEL_ENROLLMENT),
-                    ("enroll", Label.ENROLL_IF_SPOTS),
-                ],
-                EnrollHelp.NONE,
+                [("", Label.NO_CHANGE), ("cancel", Label.CANCEL_ENROLLMENT)],
+                EnrollHelp.SESSION_HOST,
             ),
             (
                 {"status": Status.CONFIRMED},

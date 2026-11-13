@@ -362,7 +362,6 @@ class ParticipationPromotionRepository(SeatRepository):
             start_time=session.agenda_item.start_time,
             promotion_mode=mode,
             offer_claim_window=window,
-            presenter_id=session.presenter_id,
             host_ids=session_host_ids(session),
             seats=session_card_stats(session),
             waiting=waiting,

@@ -194,6 +194,7 @@ class TestSessionEnrollPageView:
     def test_get_offered_participation_only_offers_decline(
         self, active_user, authenticated_client, agenda_item
     ):
+        _viewer_not_hosting(agenda_item)
         # A held offer lets the user only decline it; the page surfaces the
         # "Decline offer" choice instead of enroll/waitlist actions.
         SessionParticipation.objects.create(
@@ -1852,6 +1853,7 @@ class TestSessionEnrollPageView:
     def test_post_cant_move_to_waiting_list(
         self, active_user, agenda_item, authenticated_client, enrollment_config
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         SessionParticipation.objects.create(
@@ -1900,6 +1902,7 @@ class TestSessionEnrollPageView:
     def test_post_restrict_to_configured_users_cant_move_to_enroll(
         self, active_user, agenda_item, authenticated_client, enrollment_config, event
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         SessionParticipation.objects.create(
@@ -1980,6 +1983,7 @@ class TestSessionEnrollPageView:
     def test_post_unknown_current_participation_status_cant_enroll(
         self, active_user, agenda_item, authenticated_client, enrollment_config, event
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         SessionParticipation.objects.create(
