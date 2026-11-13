@@ -76,7 +76,7 @@ test("Chats from every sphere and party sit in one list, each saying what it is"
     ]);
   worker.push(
     "room.activity",
-    { at: Date.now(), latestMessageId: 4, roomId: elsewhere.id },
+    { at: Date.now(), latestMessageId: 4, mentionedBy: [], roomId: elsewhere.id },
     /parley-sphere-agent\/2/u,
   );
   await expect(launcherOf(page)).toHaveAccessibleDescription(/1 unread conversation/u);

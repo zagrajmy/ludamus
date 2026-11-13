@@ -1112,6 +1112,11 @@ msgid "The seat is released if they do not claim it in time"
 msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 
 #: src/ludamus/gates/web/django/event/enroll_forms.py
+#: src/ludamus/gates/web/django/templatetags/enroll_tags.py
+msgid "Runs this session"
+msgstr "Prowadzi ten punkt programu"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
 #, python-format
 msgid ""
 "%(name)s: Cannot enroll more users. You have already enrolled %(used)s out "
@@ -1127,6 +1132,11 @@ msgstr ""
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "User"
 msgstr "Nazwa użytkownika"
+
+#: src/ludamus/gates/web/django/event/enroll_forms.py
+#, python-format
+msgid "%(user)s runs this session and cannot take a seat in it"
+msgstr "%(user)s prowadzi ten punkt programu i nie może zająć w nim miejsca"
 
 #: src/ludamus/gates/web/django/event/enroll_forms.py
 #, python-format
@@ -1353,6 +1363,12 @@ msgid ""
 msgstr ""
 "To miejsce nakłada się w czasie na punkt programu, w którym masz już "
 "miejsce, więc zostało zwolnione."
+
+#: src/ludamus/gates/web/django/event/offers.py
+msgid "Someone in this offer runs this session, so this spot was released."
+msgstr ""
+"Ktoś z tej oferty prowadzi ten punkt programu, więc miejsce zostało "
+"zwolnione."
 
 #: src/ludamus/gates/web/django/event/offers.py
 msgid "This offer has expired or was already claimed."
@@ -3599,6 +3615,7 @@ msgstr[3] "%(count)s osoby"
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/panel/settings.html
 #: src/ludamus/templates/sphere/panel/sphere-settings.html
+#: src/ludamus/templates/user/user/notifications.html
 msgid "Chat"
 msgstr "Czat"
 
@@ -3833,6 +3850,7 @@ msgid "Several people are typing…"
 msgstr "Kilka osób pisze…"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/links/db/django/parley_mention_mail.py
 msgid "Someone"
 msgstr "Ktoś"
 
@@ -4067,6 +4085,14 @@ msgstr "Wróć do rozmowy"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "People"
 msgstr "Osoby"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mentioned you"
+msgstr "Wzmianka o tobie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "People in this conversation"
+msgstr "Osoby w tej rozmowie"
 
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/sphere/panel/team.html
@@ -5262,6 +5288,14 @@ msgstr ""
 "Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
 
 #: src/ludamus/gates/web/django/user/profile.py
+msgid "Mention emails turned on."
+msgstr "Emaile o wzmiankach włączone."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Mention emails turned off."
+msgstr "Emaile o wzmiankach wyłączone."
+
+#: src/ludamus/gates/web/django/user/profile.py
 msgid "Subscription muted."
 msgstr "Subskrypcja wyciszona."
 
@@ -6122,6 +6156,28 @@ msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s.
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
 msgstr "Nie został powiadomiony. Sprawdź wydarzenie, jeśli to konieczne."
+
+#: src/ludamus/links/db/django/parley_mention_mail.py
+#, python-format
+msgid "Someone mentioned you in the chat"
+msgid_plural "You were mentioned %(count)s times in the chat"
+msgstr[0] "Ktoś wspomniał o tobie na czacie"
+msgstr[1] "%(count)s wzmianki o tobie na czacie"
+msgstr[2] "%(count)s wzmianek o tobie na czacie"
+msgstr[3] "%(count)s wzmianki o tobie na czacie"
+
+#: src/ludamus/links/db/django/parley_mention_mail.py
+msgid "Mentions of you that you have not read yet:"
+msgstr "Wzmianki o tobie, których jeszcze nie przeczytano:"
+
+#: src/ludamus/links/db/django/parley_mention_mail.py
+msgid "You get this email because someone mentioned you in a chat."
+msgstr "Dostajesz tę wiadomość, bo ktoś wspomniał o tobie na czacie."
+
+#: src/ludamus/links/db/django/parley_mention_mail.py
+#, python-format
+msgid "Turn these emails off: %(url)s"
+msgstr "Wyłącz te wiadomości: %(url)s"
 
 #
 #: src/ludamus/links/db/django/staff_thread.py
@@ -7670,6 +7726,7 @@ msgid "You organize this"
 msgstr "Organizujesz"
 
 #: src/ludamus/templates/dashboard/_role.html
+#: src/ludamus/templates/event/parts/session-modal.html
 msgid "You're running this"
 msgstr "Prowadzisz"
 
@@ -7840,6 +7897,7 @@ msgid "Email subscription"
 msgstr "Subskrypcja e-mail"
 
 #: src/ludamus/templates/dashboard/unsubscribe.html
+#: src/ludamus/templates/parley/mention_unsubscribe.html
 msgid "This link doesn't work"
 msgstr "Ten link nie działa"
 
@@ -9017,6 +9075,10 @@ msgstr "Zgłoś ten punkt programu"
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Edit session"
 msgstr "Edytuj punkt programu"
+
+#: src/ludamus/templates/event/parts/session-modal.html
+msgid "Enroll others…"
+msgstr "Zapisz innych…"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Session full"
@@ -13487,6 +13549,51 @@ msgid "No tracks yet. Add a track to organize proposals by thematic area."
 msgstr ""
 "Brak bloków programowych. Dodaj blok, aby grupować propozycje tematycznie."
 
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid "Chat mention emails"
+msgstr "Emaile o wzmiankach na czacie"
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid ""
+"It may have been cut off when the email was copied. You can turn mention "
+"emails off in your notification settings."
+msgstr ""
+"Mógł zostać ucięty przy kopiowaniu z wiadomości. Emaile o wzmiankach możesz "
+"wyłączyć w ustawieniach powiadomień."
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid "Go to notification settings"
+msgstr "Przejdź do ustawień powiadomień"
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid "Mention emails are off"
+msgstr "Emaile o wzmiankach są wyłączone"
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid ""
+"We won't email you when someone mentions you in a chat. You can turn these "
+"emails back on in your notification settings."
+msgstr ""
+"Nie napiszemy, gdy ktoś wspomni o tobie na czacie. Te wiadomości możesz znów "
+"włączyć w ustawieniach powiadomień."
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid "Stop mention emails?"
+msgstr "Wyłączyć emaile o wzmiankach?"
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+msgid ""
+"You'll no longer get an email when someone mentions you in a chat and you "
+"haven't read it yet. You'll still see mentions in the chat itself."
+msgstr ""
+"Nie dostaniesz już emaila, gdy ktoś wspomni o tobie na czacie, a wzmianka "
+"będzie nieprzeczytana. Wzmianki nadal zobaczysz na samym czacie."
+
+#: src/ludamus/templates/parley/mention_unsubscribe.html
+#: src/ludamus/templates/user/user/notifications.html
+msgid "Turn off mention emails"
+msgstr "Wyłącz emaile o wzmiankach"
+
 #: src/ludamus/templates/report.html
 msgid "Report sent"
 msgstr "Zgłoszenie wysłane"
@@ -14457,6 +14564,30 @@ msgstr "Wycisz"
 #: src/ludamus/templates/user/user/notifications.html
 msgid "Unmute"
 msgstr "Wyłącz wyciszenie"
+
+#: src/ludamus/templates/user/user/notifications.html
+msgid "Email me when someone mentions me"
+msgstr "Email, gdy ktoś o mnie wspomni"
+
+#: src/ludamus/templates/user/user/notifications.html
+msgid "Off"
+msgstr "Wyłączone"
+
+#: src/ludamus/templates/user/user/notifications.html
+msgid ""
+"When a mention stays unread for 10 minutes. At most one email an hour, never "
+"for people you blocked."
+msgstr ""
+"Gdy wzmianka przez 10 minut pozostaje nieprzeczytana. Najwyżej jeden email "
+"na godzinę, nigdy o osobach, które blokujesz."
+
+#: src/ludamus/templates/user/user/notifications.html
+msgid "Turn on mention emails"
+msgstr "Włącz emaile o wzmiankach"
+
+#: src/ludamus/templates/user/user/notifications.html
+msgid "Spheres you follow"
+msgstr "Obserwowane sfery"
 
 #: src/ludamus/templates/user/user/notifications.html
 msgid ""

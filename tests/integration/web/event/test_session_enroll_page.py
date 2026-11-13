@@ -19,6 +19,7 @@ from ludamus.gates.web.django.event.enroll_presentation import (
 from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
+    Facilitator,
     Notification,
     PartyMembership,
     SessionParticipation,
@@ -73,6 +74,13 @@ def _open_window(event, *, percentage_slots):
         percentage_slots=percentage_slots,
         restrict_to_configured_users=False,
     )
+
+
+def _viewer_not_hosting(agenda_item):
+    # The shared `session` fixture makes the viewer its presenter, and a host
+    # is refused a seat before the rule a test is about is reached.
+    agenda_item.session.presenter = None
+    agenda_item.session.save(update_fields=["presenter_id"])
 
 
 class TestSessionEnrollPageView:
@@ -186,6 +194,7 @@ class TestSessionEnrollPageView:
     def test_get_offered_participation_only_offers_decline(
         self, active_user, authenticated_client, agenda_item
     ):
+        _viewer_not_hosting(agenda_item)
         # A held offer lets the user only decline it; the page surfaces the
         # "Decline offer" choice instead of enroll/waitlist actions.
         SessionParticipation.objects.create(
@@ -430,6 +439,7 @@ class TestSessionEnrollPageView:
     ):
         # Unlike cancels, enrolls still require a config: with none open the
         # form offers no "enroll", so a posted one is refused before any seat.
+        _viewer_not_hosting(agenda_item)
         response = authenticated_client.post(
             self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},
@@ -728,6 +738,7 @@ class TestSessionEnrollPageView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post__error_conflict(self, active_user, agenda_item, authenticated_client):
+        _viewer_not_hosting(agenda_item)
         other_session = SessionFactory(
             facilitator_name=active_user.name,
             event=agenda_item.session.event,
@@ -787,6 +798,7 @@ class TestSessionEnrollPageView:
     def test_post_invalid_capacity(
         self, active_user, agenda_item, authenticated_client, session, companion
     ):
+        _viewer_not_hosting(agenda_item)
         session.participants_limit = 1
         session.save()
         SessionParticipation.objects.create(
@@ -870,10 +882,10 @@ class TestSessionEnrollPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post_session_host_skipped(
-        self, authenticated_client, agenda_item, proposal_category, active_user
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_session_host_refused(
+        self, authenticated_client, agenda_item, active_user
     ):
-
         session = agenda_item.session
         session.presenter = active_user
         session.save()
@@ -885,17 +897,63 @@ class TestSessionEnrollPageView:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
+            HTTPStatus.OK,
             messages=[
                 (
-                    messages.WARNING,
-                    "Skipped (already enrolled or conflicts): Test User (session host)",
-                )
+                    messages.ERROR,
+                    "Test User runs this session and cannot take a seat in it",
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
             ],
-            url=f"/event/{proposal_category.event.slug}/",
+            context_data=enroll_page_context(
+                viewer=active_user, agenda_item=agenda_item
+            ),
+            template_name="event/enroll_select.html",
         )
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_facilitator_linked_host_refused(
+        self, authenticated_client, agenda_item, active_user
+    ):
+        # An imported GM is a facilitator tied to their account, not the
+        # presenter, and still runs the table.
+        session = agenda_item.session
+        session.presenter = None
+        session.save(update_fields=["presenter_id"])
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=session.event,
+                display_name=active_user.name,
+                slug="gm",
+                user=active_user,
+            )
+        )
+
+        response = authenticated_client.post(
+            self._get_url(session.pk, session.event.slug),
+            data={f"user_{active_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Test User runs this session and cannot take a seat in it",
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
+            ],
+            context_data=enroll_page_context(
+                viewer=active_user, agenda_item=agenda_item
+            ),
+            template_name="event/enroll_select.html",
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
         ).exists()
 
     @pytest.mark.usefixtures("enrollment_config", "party_companion")
@@ -1605,6 +1663,7 @@ class TestSessionEnrollPageView:
     def test_post_cant_join_waitlist(
         self, active_user, agenda_item, enrollment_config, authenticated_client
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         response = authenticated_client.post(
@@ -1794,6 +1853,7 @@ class TestSessionEnrollPageView:
     def test_post_cant_move_to_waiting_list(
         self, active_user, agenda_item, authenticated_client, enrollment_config
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         SessionParticipation.objects.create(
@@ -1842,6 +1902,7 @@ class TestSessionEnrollPageView:
     def test_post_restrict_to_configured_users_cant_move_to_enroll(
         self, active_user, agenda_item, authenticated_client, enrollment_config, event
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         SessionParticipation.objects.create(
@@ -1922,6 +1983,7 @@ class TestSessionEnrollPageView:
     def test_post_unknown_current_participation_status_cant_enroll(
         self, active_user, agenda_item, authenticated_client, enrollment_config, event
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.save()
         SessionParticipation.objects.create(
@@ -1974,6 +2036,7 @@ class TestSessionEnrollPageView:
     def test_post__error_conflict_no_waitlist(
         self, active_user, agenda_item, authenticated_client, enrollment_config
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
         other_session = SessionFactory(
@@ -2034,6 +2097,7 @@ class TestSessionEnrollPageView:
     def test_post_restrict_to_configured_users_cant_waitlist(
         self, active_user, agenda_item, authenticated_client, event, enrollment_config
     ):
+        _viewer_not_hosting(agenda_item)
         enrollment_config.restrict_to_configured_users = True
         enrollment_config.max_waitlist_sessions = 0
         enrollment_config.save()
@@ -2214,6 +2278,7 @@ class TestSessionEnrollPageView:
     def test_post_no_enrollment_config(
         self, active_user, agenda_item, authenticated_client, event
     ):
+        _viewer_not_hosting(agenda_item)
         response = authenticated_client.post(
             self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
             data={f"user_{active_user.id}": "enroll"},

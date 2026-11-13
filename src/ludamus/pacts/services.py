@@ -69,6 +69,7 @@ if TYPE_CHECKING:
         ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
     )
+    from ludamus.pacts.parley_mentions import ParleyMentionMailServiceProtocol
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -146,6 +147,8 @@ class ServicesProtocol(Protocol):
     def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
     @property
     def staff_cases(self) -> StaffCaseServiceProtocol: ...
+    @property
+    def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
     @property
     def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
     @property

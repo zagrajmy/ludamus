@@ -170,6 +170,7 @@ export class ParleySphereAgent extends Agent<Env> {
             row.room_id,
             {
               at: row.updated_at,
+              mentionedBy: [],
               unread: row.latest_message_id > (row.last_read_message_id ?? 0),
             },
           ]),
@@ -211,7 +212,12 @@ export class ParleySphereAgent extends Agent<Env> {
       {
         type: "room.activity",
         v: 1,
-        payload: { at: Date.now(), latestMessageId: input.latestMessageId, roomId: input.roomId },
+        payload: {
+          at: Date.now(),
+          latestMessageId: input.latestMessageId,
+          mentionedBy: [],
+          roomId: input.roomId,
+        },
       },
       (capability) => canSeeRoom(capability, input.roomId),
     );

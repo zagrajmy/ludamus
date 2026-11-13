@@ -98,6 +98,7 @@ export class ParleyConversationAgent extends RoomAgent {
         avatar: "",
         body: post.body,
         id: SYSTEM_AUTHOR,
+        mentions: [],
         name: post.authorName,
         nonce: post.nonce,
       });
@@ -135,10 +136,37 @@ export class ParleyConversationAgent extends RoomAgent {
           );
           await inbox.recordActivity({
             authorId: message.authorId,
+            authorName: message.authorName,
+            body: message.body,
             latestMessageId: message.id,
+            mentions: message.mentions,
             roomId: this.roomId,
           });
         }),
+      ),
+    );
+  }
+
+  protected afterDelete(messageId: number, mentions: string[]): void {
+    this.agentContext.waitUntil(
+      Promise.allSettled(
+        mentions.map(async (userId) => {
+          const inbox = await getAgentByName<Env, ParleyInboxAgent>(
+            this.workerEnv.ParleyInboxAgent,
+            userId,
+          );
+          await inbox.forgetMention({ messageId, roomId: this.roomId });
+        }),
+      ),
+    );
+  }
+
+  protected mentionable(capability: Capability): ReadonlySet<string> {
+    return new Set(
+      this.sql<{
+        user_id: string;
+      }>`SELECT user_id FROM members WHERE user_id != ${capability.sub}`.map(
+        (member) => member.user_id,
       ),
     );
   }

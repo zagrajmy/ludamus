@@ -109,6 +109,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions: string[];
   nonce: string;
   reactions: Reactions;
   reactors: Reactors;
@@ -127,11 +128,12 @@ export type ServerEvent =
   | {
       type: "room.activity";
       v: 1;
-      payload: { at: number; latestMessageId: number; roomId: string };
+      payload: { at: number; latestMessageId: number; mentionedBy: string[]; roomId: string };
     }
-  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } };
+  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } }
+  | { type: "mentions.changed"; v: 1; payload: { mentionedBy: string[]; roomId: string } };
 
-export type RoomActivity = { at: number; unread: boolean };
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type RpcError = {
   // pending: a request not yet accepted takes one message, no more.

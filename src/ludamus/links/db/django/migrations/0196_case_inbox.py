@@ -17,7 +17,7 @@ def close_decided_cases(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0194_moderation_notices")]
+    dependencies = [("db_main", "0195_parley_mention_mail")]
 
     operations = [
         migrations.CreateModel(

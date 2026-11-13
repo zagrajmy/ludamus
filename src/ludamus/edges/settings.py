@@ -59,6 +59,7 @@ env = environ.Env(
     # Parley
     PARLEY_AGENT_HOST=(str, ""),
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
+    PARLEY_MENTIONS_SECRET=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -729,6 +730,16 @@ if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
         raise ImproperlyConfigured(
             "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
         )
+# NOTE: the Worker signs unread mentions with this; workers/parley holds the
+# same development value, which a deployment refuses.
+_PARLEY_DEV_MENTIONS_KEY = "parley-dev-mentions-secret-not-for-production"
+PARLEY_MENTIONS_SECRET = env("PARLEY_MENTIONS_SECRET") or (
+    _PARLEY_DEV_MENTIONS_KEY if ENV in _PARLEY_DEV_ENVS else ""
+)
+if PARLEY_MENTIONS_SECRET == _PARLEY_DEV_MENTIONS_KEY and ENV not in _PARLEY_DEV_ENVS:
+    raise ImproperlyConfigured(
+        "PARLEY_MENTIONS_SECRET is the committed development secret."
+    )
 if PARLEY_AGENT_HOST:
     # Same rule as links.parley_worker.is_local, which settings cannot import.
     _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""

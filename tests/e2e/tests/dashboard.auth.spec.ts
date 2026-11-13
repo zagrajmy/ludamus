@@ -27,7 +27,7 @@ test.describe("Dashboard", () => {
     await expect(card).toContainText("Bookmarked · 5 spots left");
     await expect(card).toHaveAttribute(
       "href",
-      /^https?:\/\/foreign\.localhost:8000\/event\/foreign-programme\/session\/\d+\/enrollment\/$/,
+      /^https?:\/\/foreign\.localhost:8000\/event\/foreign-programme\/\?session=\d+$/,
     );
   });
 

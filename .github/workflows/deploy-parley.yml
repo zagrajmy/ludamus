@@ -73,6 +73,7 @@ jobs:
           PARLEY_ENV: production
           STAGE: ${{ inputs.stage }}
           ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          PARLEY_MENTIONS_SECRET: ${{ secrets.PARLEY_MENTIONS_SECRET }}
           # NOTE: Alchemy reads these instead of a login profile when CI is
           # set. The token also reads the state store's credentials from the
           # account's Secrets Store.
