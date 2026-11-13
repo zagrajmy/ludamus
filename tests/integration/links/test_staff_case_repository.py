@@ -10,7 +10,8 @@ What could go wrong, and so what the tests below check:
 - a case with an urgent notice or a teen in its reported conversation is not
   marked as child safety, or sinks below a newer one;
 - a case is named by the wrong kind or a title too long to show, or shows a
-  decision none of its records hold;
+  decision none of its records hold; its thread is named after more than its
+  number, which would outlive the mail and records it quotes;
 - an ambiguous account identifier picks one of several people;
 - someone made staff in the admin stays out of the case threads;
 - mail past its retention stays, or younger mail goes with it.
@@ -86,13 +87,14 @@ def _report(case, **overrides):
     )
 
 
-def _mail_in(case, address, *, name="", message_id=None):
+def _mail_in(case, address, *, name="", subject=""):
     CaseEmail.objects.create(
         case=case,
         direction=CaseEmail.Direction.IN,
-        message_id=message_id or f"<{address}>",
+        message_id=f"<{address}>",
         address=address,
         name=name,
+        subject=subject,
     )
 
 
@@ -145,7 +147,7 @@ class TestThreads:
             ParleyConversation.objects.filter(
                 kind=ParleyConversationKind.STAFF
             ).values_list("pk", "title")
-        ) == [(first, f"Z-{case.pk} Spam")]
+        ) == [(first, f"Z-{case.pk}")]
 
     def test_the_member_list_says_who_is_staff(self):
         staff, demoted = UserFactory(is_staff=True), UserFactory(is_staff=True)
@@ -169,10 +171,9 @@ def _people(case):
 
 
 class TestPeople:
-    def test_are_its_sender_reporters_and_statement_recipients_in_that_order(self):
-        case = ModerationCase.objects.create(
-            external_email="ola@example.com", external_name="Ola"
-        )
+    def test_are_its_reporters_then_statement_recipients_not_who_mailed_in(self):
+        case = ModerationCase.objects.create()
+        _mail_in(case, "stranger@example.com", name="Stranger")
         _notice(case, reporter_email="ola@example.com", reporter_name="Ola W.")
         _notice(case, reporter_email="", reporter_name="")
         _report(case)
@@ -186,50 +187,66 @@ class TestPeople:
             from_report=True,
         )
 
-        assert _people(_read(case)) == [
-            ("ola@example.com", "Ola"),
+        read = _read(case)
+
+        assert _people(read) == [
+            ("ola@example.com", "Ola W."),
             ("reporter@example.com", "Reporter"),
             ("author@example.com", author.get_full_name()),
         ]
+        assert read.senders == [
+            CasePersonDTO(address="stranger@example.com", name="Stranger")
+        ]
 
-    def test_leave_out_whoever_else_wrote_in_who_shows_only_as_a_sender(self):
+    def test_of_a_case_mail_opened_are_its_first_sender_alone(self):
         case = ModerationCase.objects.create()
-        _report(case)
-        _mail_in(case, "reporter@example.com", name="Rep")
+        _mail_in(case, "ola@example.com", name="Ola", subject="Pytanie")
         _mail_in(case, "stranger@example.com", name="Stranger")
 
         read = _read(case)
 
-        assert _people(read) == [("reporter@example.com", "Reporter")]
-        assert read.senders == [
-            CasePersonDTO(address="stranger@example.com", name="Stranger"),
-            CasePersonDTO(address="reporter@example.com", name="Rep"),
-        ]
-
-    def test_and_the_title_and_kind_follow_what_opened_the_case(self):
-        emailed = ModerationCase.objects.create(
-            title="Z maila", external_email="ola@example.com", external_name="Ola"
+        assert (_people(read), read.kind, read.title) == (
+            [("ola@example.com", "Ola")],
+            CaseKind.EMAIL,
+            "Pytanie",
         )
-        noticed = ModerationCase.objects.create()
-        _notice(noticed, explanation="x" * 5_000)
-        reported = ModerationCase.objects.create()
-        _report(reported)
-        nobody = ModerationCase.objects.create()
-
-        cases = [_read(c) for c in (emailed, noticed, reported, nobody)]
-
-        assert [(c.title, c.kind) for c in cases] == [
-            ("Z maila", CaseKind.EMAIL),
-            ("x" * 200, CaseKind.NOTICE),
-            ("Spam", CaseKind.CHAT_REPORT),
-            ("", CaseKind.STATEMENT),
+        assert [sender.address for sender in read.senders] == [
+            "stranger@example.com",
+            "ola@example.com",
         ]
-        assert _people(cases[-1]) == []
+
+
+def test_the_title_and_kind_follow_what_opened_the_case():
+    noticed = ModerationCase.objects.create()
+    _notice(noticed, explanation="x" * 5_000)
+    _mail_in(noticed, "ola@example.com", subject="Re: [Z-1]")
+    reported = ModerationCase.objects.create()
+    _report(reported)
+    stated = ModerationCase.objects.create()
+    StatementOfReasons.objects.create(
+        case=stated,
+        user=UserFactory(),
+        decision=ModerationDecision.WARNING,
+        ground=ModerationGround.TERMS_MISUSE,
+        facts="x",
+        from_report=False,
+    )
+    forgotten = ModerationCase.objects.create()
+
+    cases = [_read(c) for c in (noticed, reported, stated, forgotten)]
+
+    assert [(c.title, c.kind) for c in cases] == [
+        ("x" * 200, CaseKind.NOTICE),
+        ("Spam", CaseKind.CHAT_REPORT),
+        ("", CaseKind.STATEMENT),
+        ("", CaseKind.EMAIL),
+    ]
+    assert _people(cases[-1]) == []
 
 
 class TestRead:
     def test_brings_its_records_and_how_they_were_decided(self):
-        case = ModerationCase.objects.create(title="Z maila")
+        case = ModerationCase.objects.create()
         _notice(
             case,
             status=ModerationStatus.ACTIONED,
@@ -244,7 +261,7 @@ class TestRead:
         read = _read(case)
 
         assert (read.title, read.child_safety, len(read.notices)) == (
-            "Z maila",
+            "Obraźliwy opis",
             True,
             1,
         )

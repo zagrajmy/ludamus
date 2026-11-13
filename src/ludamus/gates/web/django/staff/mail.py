@@ -18,7 +18,8 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.conf import settings
-from django.core.exceptions import RequestDataTooBig
+from django.core.exceptions import RequestDataTooBig, ValidationError
+from django.core.validators import validate_email
 from django.http import Http404, JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.html import strip_tags
@@ -39,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 SIGNATURE_HEADER = "X-Posta-Signature"
 SIGNATURE_TOLERANCE_SECONDS = 300
+# NOTE: what `CaseEmail.address`, an EmailField, holds.
+_ADDRESS_MAX_LENGTH = 254
 
 
 def signature(*, secret: str, timestamp: int, body: bytes) -> str:
@@ -64,20 +67,36 @@ def _signed(header: str, *, secret: str, body: bytes, now: float) -> bool:
 def _text(message: MIMEPart) -> str:
     if (part := message.get_body(preferencelist=("plain", "html"))) is None:
         return ""
-    content: str = part.get_content()
+    try:
+        content: str = part.get_content()
+    except LookupError, UnicodeError:
+        # NOTE: senders name charsets Python lacks, such as "unknown-8bit".
+        raw = part.get_payload(decode=True)
+        content = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else ""
     return strip_tags(content) if part.get_content_type() == "text/html" else content
+
+
+def _address(header: str) -> tuple[str, str]:
+    name, address = parseaddr(header)
+    try:
+        validate_email(address)
+    except ValidationError:
+        return name, ""
+    if len(address) > _ADDRESS_MAX_LENGTH:
+        return name, ""
+    return name, address.lower()
 
 
 def parse_mail(raw: bytes) -> InboundEmail:
     message = email.message_from_bytes(raw, policy=email.policy.default)
-    name, address = parseaddr(str(message.get("From", "")))
+    name, address = _address(str(message.get("From", "")))
     message_id = str(message.get("Message-ID", "")).strip()
     if not message_id or len(message_id) > CASE_EMAIL_LINE_MAX_LENGTH:
         # NOTE: a mail without a usable one is still filed once, by its bytes.
         message_id = f"<{sha256(raw).hexdigest()}@posta>"
     return InboundEmail(
         message_id=message_id,
-        from_address=address.lower(),
+        from_address=address,
         from_name=name[:CASE_EMAIL_LINE_MAX_LENGTH],
         subject=" ".join(str(message.get("Subject", "")).split())[
             :CASE_EMAIL_LINE_MAX_LENGTH

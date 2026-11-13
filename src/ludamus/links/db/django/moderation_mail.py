@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
+from django.utils import translation
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
@@ -331,6 +332,11 @@ class DjangoModerationMailer(ModerationMailerProtocol, StaffCaseMailerProtocol):
                 suspended_until=verdict.suspended_until,
             )
         )
+
+    @staticmethod
+    def reply_subject(case_id: int) -> str:
+        with translation.override(settings.LANGUAGE_CODE):
+            return _subject(case_id, _("Reply from Zagrajmy staff"))
 
     @staticmethod
     def send_reply(*, to: str, subject: str, body: str, nonce: str) -> None:

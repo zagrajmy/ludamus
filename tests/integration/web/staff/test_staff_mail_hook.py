@@ -8,7 +8,8 @@ What could go wrong, and so what the tests below check:
 - a message without a sender is filed with nobody to answer;
 - an HTML-only message is filed with its markup, an attachment-only one or one
   without a Message-ID is dropped, an oversized one breaks the hook, and
-  headers longer than a case keeps break filing it.
+  headers longer than a case keeps break filing it; a charset Python lacks
+  or a From that is no address files an unanswerable case or a 500.
 """
 
 import time
@@ -155,12 +156,10 @@ class TestRouting:
         assert_response(
             response, HTTPStatus.OK, json={"outcome": "opened", "case": f"Z-{case.pk}"}
         )
-        assert (case.title, case.external_email, case.external_name) == (
-            "Zgłoszenie treści",
-            "ola@example.com",
-            "Ola W.",
+        assert (case.thread.kind, case.thread.title) == (
+            ParleyConversation.Kind.STAFF,
+            f"Z-{case.pk}",
         )
-        assert case.thread.kind == ParleyConversation.Kind.STAFF
         assert list(
             ParleyConversationMember.objects.filter(
                 conversation=case.thread
@@ -171,6 +170,11 @@ class TestRouting:
             "in",
             "<abc@mail.example>",
             "Ktoś prosi mojego brata o telefon.",
+        )
+        assert (email.address, email.name, email.subject) == (
+            "ola@example.com",
+            "Ola W.",
+            "Zgłoszenie treści",
         )
 
     def test_a_case_number_in_the_subject_files_it_with_that_case(self, client):
@@ -261,3 +265,33 @@ class TestParsing:
             CASE_EMAIL_LINE_MAX_LENGTH,
             "@posta>",
         )
+
+    def test_reads_a_charset_python_lacks_instead_of_failing(self, client):
+        raw = (
+            b"From: ola@example.com\r\nSubject: Zrzut\r\n"
+            b"Message-ID: <odd@mail.example>\r\n"
+            b"Content-Type: text/plain; charset=unknown-8bit\r\n\r\n"
+            b"Prosz\xc4\x99 spojrze\xc4\x87.\r\n"
+        )
+
+        response = _post(client, raw)
+
+        assert response.status_code == HTTPStatus.OK
+        assert CaseEmail.objects.get().body == "Proszę spojrzeć."
+
+    @pytest.mark.parametrize(
+        "sender",
+        (
+            pytest.param("not an address", id="no address"),
+            pytest.param(f"{'a' * 250}@example.com", id="too long to keep"),
+        ),
+    )
+    def test_refuses_a_sender_it_could_not_answer(self, client, sender):
+        response = _post(client, _mail(sender=sender))
+
+        assert_response(
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            json={"error": "No sender address."},
+        )
+        assert not CaseEmail.objects.exists()

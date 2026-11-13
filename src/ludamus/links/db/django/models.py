@@ -392,13 +392,6 @@ class ModerationCase(models.Model):
     status = models.CharField(
         max_length=10, choices=_choices(CaseStatus), default=CaseStatus.OPEN
     )
-    # A case opened by an email has its subject; one from a notice or a chat
-    # report goes by that record.
-    title = models.CharField(max_length=200, blank=True, default="")
-    # Who answers by email when nobody has written in yet: the sender of the
-    # email that opened the case.
-    external_email = models.EmailField(blank=True, default="")
-    external_name = models.CharField(max_length=255, blank=True, default="")
     assignee = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
     )

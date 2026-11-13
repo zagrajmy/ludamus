@@ -23,6 +23,7 @@ from ludamus.links.db.django.models import (
     ParleyConversation,
     ParleyConversationMember,
     ParleyReport,
+    StatementOfReasons,
     User,
 )
 from ludamus.links.db.django.parley_conversations import set_members
@@ -58,18 +59,18 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
     from django_stubs_ext import WithAnnotations
 
-    from ludamus.pacts.staff_cases import CaseEmailCreateDict, EmailCaseCreateDict
+    from ludamus.pacts.staff_cases import CaseEmailCreateDict
 
     class _Derived(TypedDict):
         has_notices: bool
         has_reports: bool
+        has_statements: bool
         child_safety: bool
         shown_title: str
 
     type _Case = WithAnnotations[ModerationCase, _Derived]
 
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
-_THREAD_TITLE_MAX_LENGTH = 80
 _MINOR = AgeBand.THIRTEEN_TO_FIFTEEN.value
 
 
@@ -85,6 +86,9 @@ def _cases(urgent: frozenset[NoticeCategory]) -> QuerySet[_Case]:
     """Cases with what the inbox derives from their records, in one query."""
     notices = ContentNotice.objects.filter(case=OuterRef("pk"))
     reports = ParleyReport.objects.filter(case=OuterRef("pk"))
+    mail_in = CaseEmail.objects.filter(
+        case=OuterRef("pk"), direction=CaseEmail.Direction.IN
+    )
     teen_in_report = (
         Q(reporter__age_band=_MINOR)
         | Q(reported_user__age_band=_MINOR)
@@ -96,6 +100,7 @@ def _cases(urgent: frozenset[NoticeCategory]) -> QuerySet[_Case]:
     return ModerationCase.objects.select_related("assignee", "decided_by").annotate(
         has_notices=Exists(notices),
         has_reports=Exists(reports),
+        has_statements=Exists(StatementOfReasons.objects.filter(case=OuterRef("pk"))),
         child_safety=ExpressionWrapper(
             Q(Exists(notices.filter(category__in=urgent)))
             | Q(Exists(reports.filter(teen_in_report))),
@@ -103,9 +108,14 @@ def _cases(urgent: frozenset[NoticeCategory]) -> QuerySet[_Case]:
         ),
         shown_title=Substr(
             Coalesce(
-                NullIf("title", Value("")),
                 Subquery(notices.order_by("pk").values("explanation")[:1]),
                 Subquery(reports.order_by("pk").values("reason")[:1]),
+                NullIf(
+                    Subquery(
+                        mail_in.order_by("created_at", "pk").values("subject")[:1]
+                    ),
+                    Value(""),
+                ),
                 Value(""),
                 output_field=CharField(),
             ),
@@ -120,7 +130,7 @@ def _kind(case: _Case) -> CaseKind:
         return CaseKind.NOTICE
     if case.has_reports:
         return CaseKind.CHAT_REPORT
-    return CaseKind.EMAIL if case.external_email else CaseKind.STATEMENT
+    return CaseKind.STATEMENT if case.has_statements else CaseKind.EMAIL
 
 
 def _row(case: _Case) -> InboxCaseDTO:
@@ -136,11 +146,15 @@ def _row(case: _Case) -> InboxCaseDTO:
 
 
 def _people(
-    case: ModerationCase, *, notices: list[ContentNotice], reports: list[ParleyReport]
+    case: ModerationCase,
+    *,
+    opener: CasePersonDTO | None,
+    notices: list[ContentNotice],
+    reports: list[ParleyReport],
 ) -> list[CasePersonDTO]:
     people: dict[str, str] = {}
     for address, name in (
-        (case.external_email, case.external_name),
+        ("", "") if opener is None else (opener.address, opener.name),
         *((notice.reporter_email, notice.reporter_name) for notice in notices),
         *((report.reporter.email, _name(report.reporter)) for report in reports),
         *(
@@ -206,19 +220,14 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
         ]
 
     @staticmethod
-    def open_for_email(data: EmailCaseCreateDict) -> int:
-        return ModerationCase.objects.create(**data).pk
+    def open_case() -> int:
+        return ModerationCase.objects.create().pk
 
     @staticmethod
     def open_thread(case_id: int) -> int:
-        title = (
-            _cases(frozenset()).values_list("shown_title", flat=True).get(pk=case_id)
-        )
+        # NOTE: its number alone, so no reporter's words or mail subject outlive them.
         thread = ParleyConversation.objects.create(
-            kind=ParleyConversationKind.STAFF,
-            title=f"{case_reference(case_id)} {title}"[
-                :_THREAD_TITLE_MAX_LENGTH
-            ].strip(),
+            kind=ParleyConversationKind.STAFF, title=case_reference(case_id)
         )
         if ModerationCase.objects.filter(pk=case_id, thread__isnull=True).update(
             thread=thread
@@ -271,18 +280,23 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
         if case is None:
             raise NotFoundError
         notices, reports = list(case.notices.all()), list(case.chat_reports.all())
-        senders = (
-            case.emails.filter(direction=CaseEmail.Direction.IN)
-            .order_by("-created_at", "-pk")
-            .values_list("address", "name")
-        )
+        senders = [
+            CasePersonDTO(address=address, name=name)
+            for address, name in (
+                case.emails.filter(direction=CaseEmail.Direction.IN)
+                .order_by("-created_at", "-pk")
+                .values_list("address", "name")
+            )
+        ]
+        row = _row(case)
+        opener = senders[-1] if senders and row.kind == CaseKind.EMAIL else None
         return CaseDTO(
-            **_row(case).model_dump(),
+            **row.model_dump(),
             assignee_id=case.assignee_id,
             decided_by_name=_name(case.decided_by),
             thread_id=case.thread_id,
-            people=_people(case, notices=notices, reports=reports),
-            senders=[CasePersonDTO(address=a, name=n) for a, n in senders],
+            people=_people(case, opener=opener, notices=notices, reports=reports),
+            senders=senders,
             notices=[
                 CaseNoticeDTO(
                     pk=notice.pk,

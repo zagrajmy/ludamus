@@ -118,8 +118,8 @@ class CaseDTO(InboxCaseDTO):
     assignee_id: int | None
     decided_by_name: str
     thread_id: int | None
-    # Who the case is about or from: its sender, reporters and the people its
-    # statements went to, in that order.
+    # Who the case is about or from: the sender of the mail that opened it,
+    # its reporters and the people its statements went to, in that order.
     people: list[CasePersonDTO]
     # Who mailed in about it, newest first, whether one of its people or not.
     senders: list[CasePersonDTO]
@@ -230,12 +230,6 @@ class StaffThreadPostClaims(BaseModel):
     exp: int
 
 
-class EmailCaseCreateDict(TypedDict):
-    title: str
-    external_email: str
-    external_name: str
-
-
 class CaseEmailCreateDict(TypedDict):
     case_id: int
     direction: CaseEmailDirection
@@ -256,7 +250,7 @@ class StaffCaseRepositoryProtocol(Protocol):
     def list_staff() -> list[StaffMemberDTO]: ...
 
     @staticmethod
-    def open_for_email(data: EmailCaseCreateDict) -> int: ...
+    def open_case() -> int: ...
 
     @staticmethod
     def open_thread(case_id: int) -> int: ...
@@ -311,6 +305,9 @@ class StaffThreadProtocol(Protocol):
 
 
 class StaffCaseMailerProtocol(Protocol):
+    @staticmethod
+    def reply_subject(case_id: int) -> str: ...
+
     @staticmethod
     def send_reply(*, to: str, subject: str, body: str, nonce: str) -> None: ...
 

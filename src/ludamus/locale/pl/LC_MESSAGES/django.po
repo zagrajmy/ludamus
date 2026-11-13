@@ -5853,6 +5853,10 @@ msgstr "Otrzymaliśmy Twoje zgłoszenie"
 msgid "A moderation decision about your account"
 msgstr "Decyzja moderacyjna dotycząca Twojego konta"
 
+#: src/ludamus/links/db/django/moderation_mail.py
+msgid "Reply from Zagrajmy staff"
+msgstr "Odpowiedź zespołu Zagrajmy"
+
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "Your proposal for %(event)s was accepted and added to the agenda."

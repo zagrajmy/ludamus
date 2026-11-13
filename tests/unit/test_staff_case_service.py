@@ -9,7 +9,8 @@ What could go wrong, and so what the tests below check:
 - an email naming a case lands in a new one, one naming no case that exists
   is dropped, or a reply to a waiting or closed case leaves it there;
 - a reply goes nowhere, to a stranger who named the case, or without the
-  case number in its subject, or with a subject too long to file;
+  case number in its subject, or quotes the case's title (a reporter's words)
+  to whoever it is about;
 - a case is handed to someone not on staff, or closed with reports undecided;
 - deciding in the inbox does less than the admin: the chat message stays,
   reporters are not told, the author gets no statement; or it acts on a
@@ -47,7 +48,6 @@ from ludamus.pacts.parley import (
     ParleyModerationResult,
 )
 from ludamus.pacts.staff_cases import (
-    CASE_EMAIL_LINE_MAX_LENGTH,
     STAFF_REPLY_MAX_LENGTH,
     CaseChatReportDTO,
     CaseDTO,
@@ -144,15 +144,9 @@ class World:
     def list_staff(self):
         return [StaffMemberDTO(pk=pk, name=name) for pk, name in self.staff.items()]
 
-    def open_for_email(self, data):
-        pk = self.add_case(
-            people=[
-                CasePersonDTO(
-                    address=data["external_email"], name=data["external_name"]
-                )
-            ]
-        )
-        self._update(pk, title=data["title"], kind=CaseKind.EMAIL)
+    def open_case(self):
+        pk = self.add_case(people=())
+        self._update(pk, kind=CaseKind.EMAIL)
         return pk
 
     def open_thread(self, case_id):
@@ -209,6 +203,8 @@ class World:
             case = self.cases[data["case_id"]]
             sender = CasePersonDTO(address=data["address"], name=data["name"])
             self._update(case.pk, senders=[sender, *case.senders])
+            if case.kind == CaseKind.EMAIL and not case.senders:
+                self._update(case.pk, people=[sender], title=data["subject"])
 
     def forget_emails_before(self, cutoff):
         kept = [email for email in self.emails if email["created_at"] >= cutoff]
@@ -240,6 +236,10 @@ class Outside:
 
     def send_reply(self, **mail):
         self.replies.append(mail)
+
+    @staticmethod
+    def reply_subject(case_id):
+        return f"[Z-{case_id}] Odpowiedź"
 
     @staticmethod
     def verdict_text(verdict):
@@ -480,11 +480,6 @@ class TestInboundEmail:
         assert len(set(nonces)) == len(nonces) == len(["<x@y>", "<z@y>"])
         assert all(nonce.startswith("email-") for nonce in nonces)
 
-    def test_a_long_subject_is_clipped_to_the_title(self, service, world):
-        case_id = service.receive_email(_email(subject="a" * 500)).case_id
-
-        assert len(world.cases[case_id].title) == len("a" * 200)
-
 
 class TestReply:
     @pytest.fixture(name="case_id")
@@ -499,7 +494,7 @@ class TestReply:
         assert out.replies == [
             {
                 "to": "ola@example.com",
-                "subject": f"[Z-{case_id}] Pytanie",
+                "subject": f"[Z-{case_id}] Odpowiedź",
                 "body": "Dziękujemy.",
                 "nonce": world.emails[-1]["message_id"],
             }
@@ -531,13 +526,18 @@ class TestReply:
 
         assert out.replies[-1]["to"] == "rep@example.com"
 
-    def test_a_long_title_still_files_its_subject(self, service, world, out):
-        case_id = world.add_case()
-        world._update(case_id, title="t" * 300)
+    def test_never_quotes_the_case_title_to_whom_it_may_be_about(
+        self, service, world, out
+    ):
+        case_id = world.add_case(notices=[_notice()])
+        world._update(case_id, title="Obraźliwy opis")
 
         service.reply(actor_id=PIOTR, case_id=case_id, body="Hej")
 
-        assert len(out.replies[-1]["subject"]) == CASE_EMAIL_LINE_MAX_LENGTH
+        assert (out.replies[-1]["subject"], world.emails[-1]["subject"]) == (
+            f"[Z-{case_id}] Odpowiedź",
+            f"[Z-{case_id}] Odpowiedź",
+        )
 
     @pytest.mark.parametrize("body", ("   ", "x" * (STAFF_REPLY_MAX_LENGTH + 1)))
     def test_refuses_an_empty_or_overlong_reply(self, service, out, case_id, body):

@@ -72,16 +72,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="moderationcase",
-            name="external_email",
-            field=models.EmailField(blank=True, default="", max_length=254),
-        ),
-        migrations.AddField(
-            model_name="moderationcase",
-            name="external_name",
-            field=models.CharField(blank=True, default="", max_length=255),
-        ),
-        migrations.AddField(
-            model_name="moderationcase",
             name="status",
             field=models.CharField(
                 choices=[
@@ -103,11 +93,6 @@ class Migration(migrations.Migration):
                 related_name="moderation_case",
                 to="db_main.parleyconversation",
             ),
-        ),
-        migrations.AddField(
-            model_name="moderationcase",
-            name="title",
-            field=models.CharField(blank=True, default="", max_length=200),
         ),
         migrations.AlterField(
             model_name="parleyconversation",

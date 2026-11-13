@@ -28,8 +28,6 @@ from ludamus.pacts.moderation import (
     case_reference,
 )
 from ludamus.pacts.staff_cases import (
-    CASE_EMAIL_LINE_MAX_LENGTH,
-    CASE_TITLE_MAX_LENGTH,
     STAFF_REPLY_MAX_LENGTH,
     CaseDetailDTO,
     CaseEmailDirection,
@@ -185,13 +183,7 @@ class StaffCaseService:
                 else StaffEmailOutcome.ATTACHED
             )
             if case_id is None:
-                case_id = self._repository.open_for_email(
-                    {
-                        "title": email.subject[:CASE_TITLE_MAX_LENGTH],
-                        "external_email": email.from_address,
-                        "external_name": email.from_name,
-                    }
-                )
+                case_id = self._repository.open_case()
             self._repository.set_status(case_id=case_id, status=CaseStatus.OPEN)
             self._repository.add_email(
                 {
@@ -232,9 +224,8 @@ class StaffCaseService:
         if (to := reply_target(case)) is None:
             raise StaffCaseError(StaffCaseErrorCode.NO_RECIPIENT)
         nonce = uuid4().hex
-        subject = f"[{case.reference}] {case.title}"[
-            :CASE_EMAIL_LINE_MAX_LENGTH
-        ].strip()
+        # SAFETY: never the case title, which may quote a reporter to the reported.
+        subject = self._mailer.reply_subject(case.pk)
         with self._transaction.atomic():
             self._repository.add_email(
                 {

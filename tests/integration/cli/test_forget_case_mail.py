@@ -17,7 +17,7 @@ def _mail(case, address, *, age):
 
 
 def test_forgets_case_mail_three_years_on_and_keeps_the_case():
-    case = ModerationCase.objects.create(title="Pytanie")
+    case = ModerationCase.objects.create()
     _mail(case, "old@example.com", age=_THREE_YEARS + timedelta(hours=1))
     _mail(case, "young@example.com", age=_THREE_YEARS - timedelta(hours=1))
     out = StringIO()

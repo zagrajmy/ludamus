@@ -568,7 +568,7 @@ class TestReply:
         assert (mail.to, mail.from_email, mail.subject, mail.body) == (
             ["ola@example.com"],
             "staff@zagrajmy.net",
-            f"[Z-{notice_case.pk}] Offensive description",
+            f"[Z-{notice_case.pk}] Reply from Zagrajmy staff",
             "Thank you.",
         )
         sent = CaseEmail.objects.get(direction="out")
@@ -647,7 +647,7 @@ class TestAssignAndClose:
         assert notice_case.assignee is None
 
     def test_closes_a_case_with_nothing_to_decide(self, staff_client):
-        case = ModerationCase.objects.create(external_email="ola@example.com")
+        case = ModerationCase.objects.create()
 
         response = staff_client.post(_url("close", case))
 
