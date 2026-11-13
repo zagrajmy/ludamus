@@ -85,7 +85,7 @@ export default {
       const order = await lookupFromRequest(request, env, MODERATION_AUDIENCE);
       if (order instanceof Response) return order;
       const room = roomFromId(order.room);
-      if (room === null) return new Response("Not found", { status: 404 });
+      if (room === null) return new Response("Unknown room", { status: 400 });
       const deleted = await (await roomAgent(env, room)).deleteAsStaff(order.messageId);
       return new Response(null, { status: deleted ? 204 : 404 });
     }

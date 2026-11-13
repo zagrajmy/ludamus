@@ -4,6 +4,7 @@
 {% load django_vite %}
 {% load heroicons %}
 {% load meta_tags %}
+{% load report_tags %}
 {% load tessera %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
@@ -144,6 +145,8 @@
                                     <a href="mailto:{{ SUPPORT_EMAIL }}">{% translate "Contact" %}</a>
                                     <a href="{% url 'privacy-policy' %}">{% translate "Privacy Policy" %}</a>
                                     <a href="{% url 'terms-of-service' %}">{% translate "Terms of Service" %}</a>
+                                    <a href="{% report_url %}"
+                                       rel="nofollow">{% translate "Report illegal content" %}</a>
                                 </div>
                             </div>
                         </div>

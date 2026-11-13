@@ -140,7 +140,9 @@ export const bootstrap = {
     removeLabel: "Remove",
     removeMember: "Remove %(name)s from the group",
     removeSelected: "Remove %(name)s",
-    reported: "Message reported.",
+    reportConfirm:
+      "Report this message to Zagrajmy staff? You confirm you are reporting it in good faith and that the report is accurate.",
+    reported: "Message reported. Zagrajmy staff will write to you.",
     reportMessage: "Report message",
     requestFrom: "Wants to message you",
     requestQuestion: "%(name)s wants to message you.",

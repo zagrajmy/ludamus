@@ -3,7 +3,7 @@
 Cloudflare Worker behind Parley, the chat. Each room is a SQLite-backed
 Durable Object from Cloudflare's `agents` SDK:
 
-- `ParleyOrganizersAgent`, one per sphere, for its managers;
+- `ParleyOrganizersAgent`, one per sphere, for its chat moderators;
 - `ParleyEventAgent`, one per event, and `ParleySessionAgent`, one per
   programme point, for the people taking part;
 - `ParleyConversationAgent`, one per direct, group or party conversation,
@@ -14,9 +14,9 @@ Durable Object from Cloudflare's `agents` SDK:
 
 Django signs one short-lived capability token for every sphere a person is
 in; the Worker checks it against `PARLEY_PUBLIC_KEY` before it lets a
-browser into a room. It names the spheres someone manages and, otherwise,
-only their own events and programme points, so a manager's token does not
-grow with their sphere.
+browser into a room. It names the spheres someone moderates, the events
+whose chats they may enter, and the programme points they take part in, so
+a moderator's token does not grow with their sphere's programme.
 
 ## Two configurations, one runtime
 

@@ -104,6 +104,7 @@ class TestIndexRedirectView:
             context_data={
                 "dashboard": DashboardDTO(
                     agenda=[],
+                    agenda_more=[],
                     open_encounters=[],
                     sphere_feed=[],
                     discover=[],

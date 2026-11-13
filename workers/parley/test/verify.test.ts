@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Capability } from "../src/protocol";
 
 import { REVOCATION_AUDIENCE, verifyCapability, verifyRevocation } from "../src/auth";
-import { revokes } from "../src/room-agent";
+import { revokes } from "../src/passes";
 
 let env: {
   ROOT_DOMAIN: string;

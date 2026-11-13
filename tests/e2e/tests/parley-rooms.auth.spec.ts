@@ -168,12 +168,18 @@ test("Someone under 16 still talks in their party's chat, and can block there", 
 test("On an event's page the chat opens on the event's own room", async ({ page }) => {
   await routeBootstrap(page, [{ rooms: [organizers, eventRoom] }]);
   await FakeWorker.install(page);
-  // NOTE: stands in for the event page, whose template sets this.
-  await page.addInitScript(() => {
-    addEventListener("DOMContentLoaded", () => {
-      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageRoom = "event:1:5";
-    });
-  });
+  // NOTE: stands in for the event page, whose template names its room.
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'data-page-room=""',
+        'data-page-room="event:1:5"',
+      );
+      await route.fulfill({ body, response });
+    },
+  );
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);

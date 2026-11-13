@@ -18,6 +18,7 @@ from ludamus.pacts.parley import (
     ParleyMemberState,
     ParleyMessageLookupClaims,
     ParleyMessageReaderProtocol,
+    ParleyModerationResult,
     ParleyReportData,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
@@ -67,7 +68,12 @@ def _event_key(room: ParleyRoomDTO) -> str:
 
 
 def _granted(room: ParleyRoomDTO) -> bool:
-    return room.kind != ParleyRoomKind.ORGANIZERS and not room.can_moderate
+    # NOTE: moderators reach a sphere's programme points through `managed`, so
+    # their pass does not grow with the programme; an event grant still
+    # carries when its chat ends and whether it is open at all.
+    if room.kind == ParleyRoomKind.SESSION:
+        return not room.can_moderate
+    return room.kind == ParleyRoomKind.EVENT
 
 
 def _event_grants(rooms: list[ParleyRoomDTO]) -> dict[str, ParleyEventGrant]:
@@ -99,18 +105,32 @@ def _managed(
     }
 
 
+def _away(room: ParleyRoomDTO, at: int) -> int:
+    """How far the room's event is from now; nothing while it is on."""
+    return max((room.starts_at or 0) - at, at - (room.ends_at or 0), 0)
+
+
 def _fitted(
-    rooms: list[ParleyRoomDTO], fits: Callable[[list[ParleyRoomDTO]], bool]
+    rooms: list[ParleyRoomDTO],
+    fits: Callable[[list[ParleyRoomDTO]], bool],
+    now: datetime,
 ) -> list[ParleyRoomDTO]:
-    """Drop the rooms of the events ending first until the pass fits.
+    """Drop the rooms of the events furthest from now until the pass fits.
 
     A browser silently drops a cookie past its size, so a pass that cannot
-    fit them all keeps the events still ahead.
+    fit them all keeps the events nearest now; an event on now is never
+    dropped.
     """
-    ends = {_event_key(room): room.ends_at or 0 for room in rooms if _granted(room)}
+    at = int(now.timestamp())
+    away = {_event_key(room): _away(room, at) for room in rooms if _granted(room)}
+    droppable = sorted(
+        (key for key, distance in away.items() if distance > 0),
+        key=away.__getitem__,
+        reverse=True,
+    )
     dropped: set[str] = set()
     kept = rooms
-    for key in sorted(ends, key=ends.__getitem__):
+    for key in droppable:
         if fits(kept):
             break
         dropped.add(key)
@@ -188,14 +208,17 @@ class ParleyService:
             )
 
         rooms = _fitted(
-            access.rooms, lambda kept: len(sign(kept)) <= PARLEY_PASS_MAX_LENGTH
+            access.rooms, lambda kept: len(sign(kept)) <= PARLEY_PASS_MAX_LENGTH, now
         )
-        if len(rooms) < len(access.rooms):
-            logger.error(
-                "parley pass over its size: user=%s kept=%s of %s rooms",
+        capability_token = sign(rooms)
+        fits = len(capability_token) <= PARLEY_PASS_MAX_LENGTH
+        if len(rooms) < len(access.rooms) or not fits:
+            logger.warning(
+                "parley pass over its size: user=%s kept=%s of %s rooms fits=%s",
                 access.user_id,
                 len(rooms),
                 len(access.rooms),
+                fits,
             )
         logger.info(
             "parley pass issued: user=%s rooms=%s conversations=%s managed=%s",
@@ -219,7 +242,7 @@ class ParleyService:
             ),
             conversations=conversations,
             blocked=self._conversations.list_blocked(user_id),
-            capability_token=sign(rooms),
+            capability_token=capability_token,
             agent_host=self._agent_host,
         )
 
@@ -238,7 +261,14 @@ class ParleyService:
         else:
             return False
         try:
-            message = self._messages.read_message(self._lookup(data, now))
+            message = self._messages.read_message(
+                self._lookup(
+                    room_id=data.room_id,
+                    message_id=data.message_id,
+                    audience="parley-message",
+                    now=now,
+                )
+            )
         except ParleyWorkerUnavailableError:
             logger.warning(
                 "parley report kept without its message: room=%s message=%s",
@@ -261,6 +291,43 @@ class ParleyService:
             )
         )
         return True
+
+    def delete_reported(
+        self, *, report_ids: list[int], now: datetime
+    ) -> ParleyModerationResult:
+        """Delete each reported message for everyone, as staff, and resolve it.
+
+        A message whose room does not answer stays reported.
+        """
+        deleted = failed = 0
+        for ref in self._repository.list_reported(report_ids):
+            try:
+                self._messages.moderate(
+                    self._lookup(
+                        room_id=ref.room_id,
+                        message_id=ref.message_id,
+                        audience="parley-moderation",
+                        now=now,
+                    )
+                )
+            except ParleyWorkerUnavailableError:
+                logger.exception(
+                    "parley staff deletion failed: room=%s message=%s",
+                    ref.room_id,
+                    ref.message_id,
+                )
+                failed += 1
+                continue
+            self._repository.resolve_reports(
+                room_id=ref.room_id, message_id=ref.message_id, now=now
+            )
+            logger.info(
+                "parley message deleted by staff: room=%s message=%s",
+                ref.room_id,
+                ref.message_id,
+            )
+            deleted += 1
+        return ParleyModerationResult(deleted=deleted, failed=failed)
 
     def _moderated(self, user_id: int) -> frozenset[int]:
         return frozenset(
@@ -292,14 +359,16 @@ class ParleyService:
         rooms = [] if access is None else access.rooms
         return next((room for room in rooms if room.id == data.room_id), None)
 
-    def _lookup(self, data: ParleyReportData, now: datetime) -> str:
+    def _lookup(
+        self, *, room_id: str, message_id: int, audience: str, now: datetime
+    ) -> str:
         issued_at = int(now.timestamp())
         return self._signer.sign(
             ParleyMessageLookupClaims(
                 iss="ludamus",
-                aud="parley-message",
-                room=data.room_id,
-                message=data.message_id,
+                aud=audience,
+                room=room_id,
+                message=message_id,
                 iat=issued_at,
                 exp=issued_at + _LOOKUP_LIFETIME_SECONDS,
                 jti=token_urlsafe(18),

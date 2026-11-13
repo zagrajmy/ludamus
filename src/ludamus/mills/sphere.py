@@ -308,10 +308,11 @@ class SpherePanelService:
             return SphereSettingsOutcome.SAVED
 
     def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool:
-        """Whether the event's chat is on: its own choice, else the sphere's."""
+        sphere = self._spheres.read(sphere_id)
         return event_chat_on(
+            sphere_chat=sphere.parley_enabled,
             own=event.parley_enabled,
-            sphere_default=self._spheres.read(sphere_id).parley_events_enabled,
+            sphere_default=sphere.parley_events_enabled,
         )
 
     def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:

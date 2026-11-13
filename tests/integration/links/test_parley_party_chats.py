@@ -1,19 +1,28 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from http import HTTPStatus
 
 import pytest
+from django.contrib import messages
+from django.contrib.admin import helpers
 from django.db import connection
+from django.urls import reverse
+from django.utils.html import escape
+from zeal import zeal_ignore
 
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     ParleyConversation,
     ParleyConversationMember,
+    Party,
     PartyMembership,
 )
 from ludamus.pacts.parley import ParleyConversationError, ParleyMemberState
 from ludamus.pacts.party import PartyMembershipStatus
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import UserFactory
+from tests.integration.utils import assert_response
 
 
 def _members(party_pk):
@@ -154,3 +163,129 @@ def test_nobody_leaves_or_renames_a_party_chat_but_through_the_party(services, l
 
     assert _members(party_pk)[friend.pk] == ParleyMemberState.ACTIVE
     assert services.parley_conversations.list_for(friend.pk)[0].title == "Ekipa"
+
+
+@pytest.fixture(name="staff_client")
+def _staff_client(client):
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    return client
+
+
+def _party_of(services, leader, *members):
+    party_pk = services.parties.create(leader_pk=leader.pk, name="Ekipa")
+    token = services.parties.read_invite_token(leader_pk=leader.pk, party_pk=party_pk)
+    for member in members:
+        services.parties.join_via_link(token=token, user_pk=member.pk)
+    return party_pk
+
+
+def _change_data(response):
+    form = response.context["adminform"].form
+    data = {}
+    for name, field in form.fields.items():
+        value = form.initial.get(name, field.initial)
+        if isinstance(value, datetime):
+            data[f"{name}_0"] = value.date().isoformat()
+            data[f"{name}_1"] = value.time().strftime("%H:%M:%S")
+        elif isinstance(value, (list, tuple)):
+            data[name] = [str(getattr(item, "pk", item)) for item in value]
+        elif value is not None:
+            data[name] = value
+    return data
+
+
+def test_staff_deleting_the_third_member_closes_an_adult_and_teen_pair(
+    services, leader, staff_client
+):
+    kid = UserFactory(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
+    third = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    party_pk = _party_of(services, leader, kid, third)
+
+    response = staff_client.post(
+        reverse("admin:db_main_user_delete", args=[third.pk]), {"post": "yes"}
+    )
+
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        messages=[(messages.SUCCESS, f"The user “{third}” was deleted successfully.")],
+        url=reverse("admin:db_main_user_changelist"),
+    )
+    assert _members(party_pk) == {
+        leader.pk: ParleyMemberState.LEFT,
+        kid.pk: ParleyMemberState.LEFT,
+    }
+
+
+def test_staff_deleting_the_leader_lets_everyone_go_from_the_chat(
+    services, leader, staff_client
+):
+    friends = [UserFactory(age_band=AgeBand.SIXTEEN_PLUS) for _ in range(2)]
+    party_pk = _party_of(services, leader, *friends)
+
+    staff_client.post(
+        reverse("admin:db_main_user_changelist"),
+        {
+            "action": "delete_selected",
+            helpers.ACTION_CHECKBOX_NAME: [str(leader.pk)],
+            "post": "yes",
+        },
+    )
+
+    assert not Party.objects.filter(pk=party_pk).exists()
+    assert set(_members(party_pk).values()) == {ParleyMemberState.LEFT}
+
+
+def test_staff_changing_a_member_s_age_resyncs_their_party_chat(
+    services, leader, staff_client
+):
+    friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    party_pk = _party_of(services, leader, friend)
+    url = reverse("admin:db_main_user_change", args=[friend.pk])
+    # NOTE: the admin's own permission picker loads lazily row by row.
+    with zeal_ignore():
+        data = _change_data(staff_client.get(url))
+
+    response = staff_client.post(
+        url,
+        data | {"age_band": AgeBand.THIRTEEN_TO_FIFTEEN.value, "password": "!unusable"},
+    )
+
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        messages=[
+            (
+                messages.SUCCESS,
+                (
+                    f'The user “<a href="{url}">{escape(str(friend))}</a>”'
+                    " was changed successfully."
+                ),
+            )
+        ],
+        url=reverse("admin:db_main_user_changelist"),
+    )
+    assert set(_members(party_pk).values()) == {ParleyMemberState.LEFT}
+
+
+def test_a_block_between_the_two_in_a_party_s_chat_stops_it_as_a_direct_message_would(
+    services, leader
+):
+    friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    party_pk = _party_of(services, leader, friend)
+
+    services.parley_conversations.block(user_id=leader.pk, blocked_id=friend.pk)
+
+    assert [
+        chat.can_write for chat in services.parley_conversations.list_for(friend.pk)
+    ] == [False]
+    third = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    services.parties.join_via_link(
+        token=services.parties.read_invite_token(
+            leader_pk=leader.pk, party_pk=party_pk
+        ),
+        user_pk=third.pk,
+    )
+    assert [
+        chat.can_write for chat in services.parley_conversations.list_for(friend.pk)
+    ] == [True]

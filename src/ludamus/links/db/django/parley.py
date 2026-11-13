@@ -16,6 +16,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
+    ParleyReportedRef,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
     ParleyRoomDTO,
@@ -103,6 +104,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 title=event.name,
                 can_write=event.end_time > window.writable_after,
                 can_moderate=event.sphere_id in moderated,
+                starts_at=int(event.start_time.timestamp()),
                 ends_at=int(event.end_time.timestamp()),
             )
             for event in _events(
@@ -121,6 +123,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                     and session.event.end_time > window.writable_after
                 ),
                 can_moderate=session.event.sphere_id in moderated,
+                starts_at=int(session.event.start_time.timestamp()),
                 ends_at=int(session.event.end_time.timestamp()),
             )
             for session in (
@@ -189,6 +192,24 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 **copy,
             },
         )
+
+    @staticmethod
+    def list_reported(report_ids: list[int]) -> list[ParleyReportedRef]:
+        return [
+            ParleyReportedRef(room_id=room_id, message_id=message_id)
+            for room_id, message_id in (
+                ParleyReport.objects.filter(pk__in=report_ids)
+                .values_list("room_id", "message_id")
+                .order_by("room_id", "message_id")
+                .distinct()
+            )
+        ]
+
+    @staticmethod
+    def resolve_reports(*, room_id: str, message_id: int, now: datetime) -> None:
+        ParleyReport.objects.filter(
+            room_id=room_id, message_id=message_id, resolved_at=None
+        ).update(resolved_at=now)
 
     @staticmethod
     def forget_copies_written_before(cutoff: datetime) -> int:

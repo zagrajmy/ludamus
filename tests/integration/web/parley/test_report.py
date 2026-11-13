@@ -20,6 +20,7 @@ def test_report_is_scoped_to_an_accessible_room(
     response = authenticated_client.post(
         reverse("parley_report"),
         data={
+            "good_faith": "1",
             "message_id": MESSAGE_ID,
             "reason": "Spam",
             "room_id": f"organizers:{sphere.pk}",
@@ -43,7 +44,11 @@ def test_report_rejects_a_foreign_room_without_side_effects(
 
     response = authenticated_client.post(
         reverse("parley_report"),
-        data={"message_id": MESSAGE_ID, "room_id": f"organizers:{foreign.pk}"},
+        data={
+            "good_faith": "1",
+            "message_id": MESSAGE_ID,
+            "room_id": f"organizers:{foreign.pk}",
+        },
     )
 
     assert_response(response, HTTPStatus.UNPROCESSABLE_CONTENT)
@@ -69,7 +74,11 @@ def test_a_party_chat_report_reaches_staff_and_no_sphere(
 
     response = authenticated_client.post(
         reverse("parley_report"),
-        data={"message_id": MESSAGE_ID, "room_id": f"conversation:{chat.pk}"},
+        data={
+            "good_faith": "1",
+            "message_id": MESSAGE_ID,
+            "room_id": f"conversation:{chat.pk}",
+        },
     )
 
     assert_response(response, HTTPStatus.CREATED)
@@ -88,7 +97,11 @@ def test_anonymous_report_is_unauthorized(client, sphere):
 
     response = client.post(
         reverse("parley_report"),
-        data={"message_id": MESSAGE_ID, "room_id": f"organizers:{sphere.pk}"},
+        data={
+            "good_faith": "1",
+            "message_id": MESSAGE_ID,
+            "room_id": f"organizers:{sphere.pk}",
+        },
     )
 
     assert_response(
@@ -109,7 +122,7 @@ def test_malformed_report_is_rejected_without_side_effects(
 ):
     sphere.parley_enabled = True
     sphere.save()
-    data = {"message_id": message_id}
+    data = {"good_faith": "1", "message_id": message_id}
     if room_id is not None:
         data["room_id"] = f"organizers:{sphere.pk}"
 

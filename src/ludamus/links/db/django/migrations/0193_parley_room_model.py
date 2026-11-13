@@ -3,6 +3,20 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+TITLE_MAX_LENGTH = 80
+
+
+def party_chats_to_groups(apps, _schema_editor):
+    # NOTE: the code before party chats knows no such kind; on the way back
+    # each becomes a group under its party's name.
+    conversations = apps.get_model("db_main", "ParleyConversation")
+    names = dict(apps.get_model("db_main", "Party").objects.values_list("pk", "name"))
+    for chat in conversations.objects.filter(kind="party"):
+        chat.kind = "group"
+        chat.title = names.get(chat.party_id, "")[:TITLE_MAX_LENGTH]
+        chat.party_id = None
+        chat.save(update_fields=["kind", "title", "party"])
+
 
 class Migration(migrations.Migration):
 
@@ -44,4 +58,5 @@ class Migration(migrations.Migration):
                 max_length=10,
             ),
         ),
+        migrations.RunPython(migrations.RunPython.noop, party_chats_to_groups),
     ]

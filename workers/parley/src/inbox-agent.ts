@@ -4,8 +4,8 @@ import type { Env } from "./room-agent";
 
 import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
+import { passOf, sendWhere } from "./passes";
 import {
-  PASS_EXPIRED,
   PASS_REVOKED,
   type Capability,
   type ConnectionState,
@@ -107,24 +107,10 @@ export class ParleyInboxAgent extends Agent<Env> {
   }
 
   private currentCapability(): Capability {
-    const connection = getCurrentAgent<ParleyInboxAgent>()
-      .connection as Connection<ConnectionState>;
-    const { capability } = connection.state!;
-    if (capability.exp * 1_000 <= Date.now()) {
-      connection.close(PASS_EXPIRED, "Pass expired");
-      throw new Error("Pass expired");
-    }
-    return capability;
+    return passOf(getCurrentAgent<ParleyInboxAgent>().connection as Connection<ConnectionState>);
   }
 
   private emit(event: ServerEvent): void {
-    const message = JSON.stringify(event);
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const state = connection.state;
-      if (state === null || state === undefined) continue;
-      if (state.capability.exp * 1_000 <= Date.now())
-        connection.close(PASS_EXPIRED, "Pass expired");
-      else connection.send(message);
-    }
+    sendWhere(this.getConnections<ConnectionState>(), event);
   }
 }

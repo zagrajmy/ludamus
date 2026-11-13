@@ -41,6 +41,17 @@ from ludamus.pacts.listing import (
     ListingSeeking,
     ListingStatus,
 )
+from ludamus.pacts.moderation import (
+    LEGAL_PROVISION_MAX_LENGTH,
+    NOTICE_EXPLANATION_MAX_LENGTH,
+    NOTICE_NAME_MAX_LENGTH,
+    NOTICE_URL_MAX_LENGTH,
+    ModerationDecision,
+    ModerationGround,
+    ModerationStatus,
+    NoticeCategory,
+    case_reference,
+)
 from ludamus.pacts.notifications import NotificationKind, SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.propose import AccreditationType, ImportLogStatus
@@ -61,7 +72,8 @@ from ludamus.pacts.user import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterator
+    from collections.abc import Collection, Iterable, Iterator
+    from enum import StrEnum
 
 
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
@@ -362,6 +374,123 @@ class EventBan(models.Model):
         return f"{self.user_id} banned from event {self.event_id}"
 
 
+def _choices(values: Iterable[StrEnum]) -> list[tuple[str, str]]:
+    return [
+        (value.value, value.name.replace("_", " ").capitalize()) for value in values
+    ]
+
+
+MODERATION_STATUS_CHOICES = _choices(ModerationStatus)
+MODERATION_DECISION_CHOICES = _choices(ModerationDecision)
+MODERATION_GROUND_CHOICES = _choices(ModerationGround)
+
+
+class ModerationCase(models.Model):
+    """One matter staff handle. Mail about it carries its reference."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "moderation_case"
+
+    def __str__(self) -> str:
+        return case_reference(self.pk)
+
+
+class ContentNotice(models.Model):
+    """A notice of illegal content, from anyone (DSA Art. 16)."""
+
+    case = models.ForeignKey(
+        ModerationCase,
+        on_delete=models.SET_NULL,
+        related_name="notices",
+        null=True,
+        blank=True,
+    )
+    url = models.CharField(max_length=NOTICE_URL_MAX_LENGTH)
+    category = models.CharField(max_length=32, choices=_choices(NoticeCategory))
+    explanation = models.TextField(max_length=NOTICE_EXPLANATION_MAX_LENGTH)
+    reporter_name = models.CharField(
+        max_length=NOTICE_NAME_MAX_LENGTH, blank=True, default=""
+    )
+    reporter_email = models.EmailField(blank=True, default="")
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="content_notices",
+        null=True,
+        blank=True,
+    )
+    sphere = models.ForeignKey(
+        "Sphere",
+        on_delete=models.SET_NULL,
+        related_name="content_notices",
+        null=True,
+        blank=True,
+    )
+    language = models.CharField(max_length=10, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=MODERATION_STATUS_CHOICES,
+        default=ModerationStatus.OPEN.value,
+    )
+    decision = models.CharField(
+        max_length=32, choices=MODERATION_DECISION_CHOICES, blank=True, default=""
+    )
+    ground = models.CharField(
+        max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
+    )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    decision_text = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "content_notice"
+
+    def __str__(self) -> str:
+        return f"Notice {self.pk}: {self.url}"
+
+
+class StatementOfReasons(models.Model):
+    """What was decided against a person, and why, as they were told (Art. 17)."""
+
+    case = models.ForeignKey(
+        ModerationCase,
+        on_delete=models.SET_NULL,
+        related_name="statements",
+        null=True,
+        blank=True,
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="statements_of_reasons",
+        null=True,
+        blank=True,
+    )
+    decision = models.CharField(max_length=32, choices=MODERATION_DECISION_CHOICES)
+    ground = models.CharField(max_length=32, choices=MODERATION_GROUND_CHOICES)
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    facts = models.TextField()
+    from_report = models.BooleanField()
+    automated = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "statement_of_reasons"
+        verbose_name_plural = "statements of reasons"
+
+    def __str__(self) -> str:
+        return f"Statement {self.pk} to user {self.user_id}"
+
+
 class ParleyReport(models.Model):
     # A sphere's room, or a conversation: exactly one of the two.
     sphere = models.ForeignKey(
@@ -399,6 +528,29 @@ class ParleyReport(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    case = models.ForeignKey(
+        "ModerationCase",
+        on_delete=models.SET_NULL,
+        related_name="chat_reports",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=MODERATION_STATUS_CHOICES,
+        default=ModerationStatus.OPEN.value,
+    )
+    decision = models.CharField(
+        max_length=32, choices=MODERATION_DECISION_CHOICES, blank=True, default=""
+    )
+    ground = models.CharField(
+        max_length=32, choices=MODERATION_GROUND_CHOICES, blank=True, default=""
+    )
+    legal_provision = models.CharField(
+        max_length=LEGAL_PROVISION_MAX_LENGTH, blank=True, default=""
+    )
+    suspended_until = models.DateField(null=True, blank=True)
+    decision_text = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "parley_report"

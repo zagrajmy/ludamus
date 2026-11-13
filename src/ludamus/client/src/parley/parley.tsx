@@ -154,6 +154,7 @@ function RoomList({
   here,
   open,
   rooms,
+  showBlocked,
 }: {
   activity: Record<string, RoomActivity>;
   bootstrap: Bootstrap;
@@ -164,6 +165,7 @@ function RoomList({
   here: Room | undefined;
   open: (room: Room) => void;
   rooms: Room[];
+  showBlocked: (() => void) | null;
 }) {
   const { copy } = bootstrap;
   const firstRoom = useRef<HTMLButtonElement>(null);
@@ -225,6 +227,9 @@ function RoomList({
   return (
     <>
       <PanelHeader back={null} close={close} closeLabel={copy.closeLabel} title={copy.roomsLabel}>
+        {showBlocked !== null && (
+          <IconButton icon="Block" label={copy.blockedPeople} onClick={showBlocked} />
+        )}
         {compose !== null && (
           <IconButton icon="Compose" label={copy.newMessage} onClick={compose} />
         )}
@@ -492,6 +497,11 @@ function Connected({
               here={here}
               open={open}
               rooms={rooms}
+              showBlocked={
+                !bootstrap.canMessage && blocked.length > 0
+                  ? () => setView({ kind: "blocked" })
+                  : null
+              }
             />
           )}
           {shown.kind === "compose" && (
@@ -508,7 +518,11 @@ function Connected({
           )}
           {shown.kind === "blocked" && (
             <BlockedPeople
-              back={() => setView({ kind: "compose" })}
+              back={
+                bootstrap.canMessage
+                  ? { label: copy.backToNewMessage, run: () => setView({ kind: "compose" }) }
+                  : { label: copy.backLabel, run: toList }
+              }
               bootstrap={bootstrap}
               close={close}
               people={blocked}

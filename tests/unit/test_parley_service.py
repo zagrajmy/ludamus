@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -16,8 +17,10 @@ from ludamus.pacts.parley import (
     ParleyConversationKind,
     ParleyMembership,
     ParleyMemberState,
+    ParleyModerationResult,
     ParleyReportData,
     ParleyReportedMessage,
+    ParleyReportedRef,
     ParleyRoomDTO,
     ParleyRoomKind,
     ParleyTeamSeat,
@@ -28,6 +31,7 @@ from ludamus.pacts.user import AgeBand
 from ludamus.specs.parley import PARLEY_PASS_MAX_LENGTH, PARLEY_TOKEN_LIFETIME
 
 NOW = datetime(2026, 8, 6, 12, tzinfo=UTC)
+EVENT_LENGTH = 10 * 3600
 USER_ID = 123
 
 
@@ -83,6 +87,8 @@ class Access:
         self._has_rooms = has_rooms
         self.asked = []
         self.saved = []
+        self.reported = {}
+        self.resolved = []
 
     def list_team_seats(self, _user_id):
         return self.seats
@@ -105,6 +111,12 @@ class Access:
     def save_report(self, report):
         self.saved.append(report)
 
+    def list_reported(self, report_ids):
+        return [self.reported[pk] for pk in report_ids]
+
+    def resolve_reports(self, *, room_id, message_id, now):
+        self.resolved.append((room_id, message_id, now))
+
 
 class LengthSigner:
     """A pass as long as its events make it: `per_event` characters each."""
@@ -118,7 +130,15 @@ class LengthSigner:
         return "t" * (100 + self.per_event * len(getattr(claims, "events", {})))
 
 
-def _event(pk, *, sphere=45, ends_at=1_786_100_000, can_write=True, can_moderate=False):
+def _event(
+    pk,
+    *,
+    sphere=45,
+    ends_at=1_786_100_000,
+    starts_at=None,
+    can_write=True,
+    can_moderate=False,
+):
     return ParleyRoomDTO(
         kind=ParleyRoomKind.EVENT,
         sphere_id=sphere,
@@ -126,6 +146,7 @@ def _event(pk, *, sphere=45, ends_at=1_786_100_000, can_write=True, can_moderate
         title=f"Event {pk}",
         can_write=can_write,
         can_moderate=can_moderate,
+        starts_at=ends_at - EVENT_LENGTH if starts_at is None else starts_at,
         ends_at=ends_at,
     )
 
@@ -141,6 +162,7 @@ def _session(
         title=f"Session {pk}",
         can_write=can_write,
         can_moderate=can_moderate,
+        starts_at=ends_at - EVENT_LENGTH,
         ends_at=ends_at,
     )
 
@@ -218,7 +240,7 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
     assert result.capability_token == "t" * 100
 
 
-def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_rooms() -> (
+def test_a_moderator_s_pass_names_their_spheres_and_events_but_not_the_programme() -> (
     None
 ):
     access = Access(
@@ -230,6 +252,7 @@ def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_room
                 can_write=True,
                 can_moderate=True,
             ),
+            _event(1, can_moderate=True),
             *(_session(pk, event=1, can_moderate=True) for pk in range(1, 1001)),
             _session(2000, event=9, sphere=7),
         ],
@@ -249,13 +272,14 @@ def test_bootstrap_names_the_spheres_only_a_manager_moderates_without_their_room
         "45": {"organizers": True},
         "8": {"organizers": False},
     }
-    assert list(claims.events) == ["7:9"]
+    assert list(claims.events) == ["45:1", "7:9"]
+    assert (claims.events["45:1"].chat, claims.events["45:1"].sessions) == (True, {})
 
 
 def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     rooms = [_event(pk, ends_at=1_786_000_000 + pk) for pk in range(1, 31)]
     rooms.append(_session(500, event=30, ends_at=1_786_000_030))
-    moderated_room = _event(99, sphere=8, can_moderate=True)
+    moderated_room = _session(99, event=7, sphere=8, can_moderate=True)
     access = Access([*rooms, moderated_room], seats=[(8, SphereRole.MANAGER)])
     service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
 
@@ -267,9 +291,57 @@ def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     assert kept == {
         *(f"event:45:{pk}" for pk in range(12, 31)),
         "session:45:500",
-        "event:8:99",
+        "session:8:99",
     }
     assert list(signer.signed[-1].events) == [f"45:{pk}" for pk in range(12, 31)]
+
+
+def test_a_pass_too_long_for_a_cookie_keeps_the_event_on_now_over_those_far_ahead() -> (
+    None
+):
+    now = int(NOW.timestamp())
+    week = 7 * 24 * 3600
+    ahead = [_event(pk, ends_at=now + pk * week) for pk in range(1, 21)]
+    over = _event(98, ends_at=now - 3600)
+    running = _event(99, ends_at=now + 3600)
+    access = Access([*ahead, over, running], seats=[(45, SphereRole.MANAGER)])
+    service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert sorted(signer.signed[-1].events) == sorted(
+        ["45:99", "45:98", *(f"45:{pk}" for pk in range(1, 18))]
+    )
+
+
+def test_a_long_event_on_now_outlasts_a_short_one_starting_soon() -> None:
+    now = int(NOW.timestamp())
+    long_running = _event(1, starts_at=now - 30 * 24 * 3600, ends_at=now + 24 * 3600)
+    soon = _event(2, starts_at=now + 3600, ends_at=now + 3 * 3600)
+    access = Access([long_running, soon])
+    service, signer = _bootstrapping(access, signer=LengthSigner(per_event=1000))
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert [room.id for room in result.rooms] == ["event:45:1"]
+    assert list(signer.signed[-1].events) == ["45:1"]
+
+
+def test_a_pass_kept_over_its_size_by_events_on_now_says_so(caplog) -> None:
+    now = int(NOW.timestamp())
+    on_now = [
+        _event(pk, starts_at=now - 3600, ends_at=now + 3600) for pk in range(1, 4)
+    ]
+    service, _ = _bootstrapping(Access(on_now), signer=LengthSigner(per_event=1000))
+    caplog.set_level(logging.WARNING, logger="ludamus.mills.parley")
+
+    result = service.bootstrap(user_id=USER_ID, now=NOW)
+
+    assert result is not None
+    assert len(result.rooms) == len(on_now)
+    assert "fits=False" in caplog.text
 
 
 def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None:
@@ -364,6 +436,11 @@ class Messages:
             raise ParleyWorkerUnavailableError
         return self.answer
 
+    def moderate(self, token, /):
+        self.asked.append(token)
+        if token in self.answer:
+            raise ParleyWorkerUnavailableError
+
 
 class RecordingSigner:
     def __init__(self):
@@ -402,6 +479,33 @@ def _reporting(room_id, *, rooms=None, members=None, answer="theirs"):
         now=datetime(2026, 8, 6, 12, tzinfo=UTC),
     )
     return created, rooms.saved, messages.asked, signer.signed
+
+
+def test_staff_delete_each_reported_message_once_and_resolve_what_its_room_deleted():
+    access = Access([])
+    access.reported = {
+        1: ParleyReportedRef(room_id="event:45:12", message_id=9),
+        2: ParleyReportedRef(room_id="conversation:3", message_id=4),
+    }
+    signer = RecordingSigner()
+    messages = Messages(answer={"token-2"})
+    service = ParleyService(
+        repository=access,
+        conversations=Members(),
+        signer=signer,
+        messages=messages,
+        agent_host="parley.example.com",
+    )
+    now = datetime(2026, 8, 6, 12, tzinfo=UTC)
+
+    result = service.delete_reported(report_ids=[1, 2], now=now)
+
+    assert result == ParleyModerationResult(deleted=1, failed=1)
+    assert [(c.aud, c.room, c.message) for c in signer.signed] == [
+        ("parley-moderation", "event:45:12", 9),
+        ("parley-moderation", "conversation:3", 4),
+    ]
+    assert access.resolved == [("event:45:12", 9, now)]
 
 
 def test_a_report_from_a_sphere_room_keeps_what_the_room_said():

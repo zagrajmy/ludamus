@@ -150,6 +150,7 @@ class World:
                 state=state,
                 writable=state == ACTIVE,
                 age_band=self.read_age_band(user),
+                signs_in=user != OUT,
             )
             for user, state in self.states(conversation_id).items()
             if state != LEFT
@@ -221,7 +222,11 @@ class World:
         )
 
     def list_party_ids(self):
-        return sorted({party for party, _ in self.parties})
+        kept = {row["party"] for row in self.conversations.values() if "party" in row}
+        return sorted({party for party, _ in self.parties} | kept)
+
+    def list_party_chat_ids(self):
+        return sorted(pk for pk, row in self.conversations.items() if "party" in row)
 
     def lock_party(self, party_id):
         pass
@@ -635,7 +640,17 @@ class TestPartyChats:
 
         assert [chats.open_existing_chats(), chats.open_existing_chats()] == [2, 2]
         assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
-        assert outbox.sent == [1]
+        # Each run sends every list again, in case the last delivery failed.
+        assert outbox.sent == [1, 1]
+
+    def test_lets_everyone_go_once_the_party_is_gone(self, chats, world, outbox):
+        world.parties = {(7, ME), (7, ADA), (7, BOB)}
+        chats.sync_party(7)
+        world.parties = set()
+
+        assert chats.open_existing_chats() == 1
+        assert world.states(1) == {ME: LEFT, ADA: LEFT, BOB: LEFT}
+        assert outbox.sent == [1, 1]
 
     def test_is_listed_for_someone_direct_messages_are_shut_to(self, chats, world):
         world.parties = {(7, ME), (7, ADA)}
@@ -742,3 +757,32 @@ def test_a_party_chat_s_member_list_keeps_its_pair_rule_whoever_sends_it(
 
     assert [int(member["user"]) for member in signed[0].members] == listed
     assert signed[0].needs_direct is False
+
+
+@pytest.mark.parametrize(
+    ("kind", "listed"),
+    ((GROUP, [ME, ADA]), (PARTY, [ME, ADA, KID])),
+    ids=["group", "party"],
+)
+def test_a_member_list_leaves_out_who_cannot_sign_in_or_is_too_young_for_the_kind(
+    world, kind, listed
+):
+    world.conversations[1] = {"kind": kind, "pair_key": None, "party": 7, "title": ""}
+    for member in (ME, ADA, KID, OUT):
+        world.members[1, member] = (ACTIVE, False)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return "token"
+
+    sign_membership(
+        signer=Signer(),
+        repository=world,
+        conversation_id=1,
+        now=datetime(2026, 11, 10, 12, tzinfo=UTC),
+    )
+
+    assert [int(member["user"]) for member in signed[0].members] == listed

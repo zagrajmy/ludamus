@@ -103,7 +103,7 @@ describe("a message staff delete", () => {
     expect((await moderate(room, sent.value!.id)).status).toBe(204);
     expect((await moderate(room, sent.value!.id)).status).toBe(204);
     expect((await moderate(room, sent.value!.id + 1)).status).toBe(404);
-    expect((await moderate("sphere:3", 1)).status).toBe(404);
+    expect((await moderate("sphere:3", 1)).status).toBe(400);
 
     await expect
       .poll(() => reader.events.some((event) => event.type === "message.deleted"))

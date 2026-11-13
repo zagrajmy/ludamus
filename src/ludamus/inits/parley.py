@@ -122,6 +122,10 @@ class UnconfiguredParleyMessages:
     def read_message(_token: str, /) -> ParleyReportedMessage | None:
         raise ParleyWorkerUnavailableError
 
+    @staticmethod
+    def moderate(_token: str, /) -> None:
+        raise ParleyWorkerUnavailableError
+
 
 def parley_message_reader() -> ParleyMessageReaderProtocol:
     agent_host: str = settings.PARLEY_AGENT_HOST

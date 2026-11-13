@@ -51,11 +51,6 @@ def _blocked(first_id: int, second_id: int) -> bool:
     ).exists()
 
 
-def _admitted(policy: ParleyConversationPolicy) -> Q:
-    admitted = _eligible() if policy.needs_direct else _signs_in()
-    return admitted & Q(is_staff=True) if policy.staff_only else admitted
-
-
 def _policy(conversation: ParleyConversation) -> ParleyConversationPolicy:
     return CONVERSATION_POLICIES[ParleyConversationKind(conversation.kind)]
 
@@ -80,15 +75,21 @@ def _writable(
 ) -> bool:
     if member.state != ParleyMemberState.ACTIVE:
         return False
-    if not _policy(conversation).one_to_one:
-        return True
-    # A direct conversation lives while the other person is in it and
-    # neither has blocked the other.
-    return all(
-        other.state != ParleyMemberState.LEFT
-        and not _blocked(member.user_id, other.user_id)
-        for other in others
-    )
+    policy = _policy(conversation)
+    if policy.one_to_one:
+        # A direct conversation lives while the other person is in it and
+        # neither has blocked the other.
+        return all(
+            other.state != ParleyMemberState.LEFT
+            and not _blocked(member.user_id, other.user_id)
+            for other in others
+        )
+    present = [other for other in others if other.state != ParleyMemberState.LEFT]
+    # Two in a party's chat are a direct message by another name, a block
+    # included.
+    if policy.pair_needs_direct and len(present) == 1:
+        return not _blocked(member.user_id, present[0].user_id)
+    return True
 
 
 class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
@@ -233,14 +234,11 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
     ) -> tuple[ParleyConversationKind, list[ParleyMemberSnapshot]]:
         conversation = ParleyConversation.objects.get(pk=conversation_id)
         # Everyone, the departed included: a direct conversation dies with
-        # either person's leaving. An account that can no longer sign in, or
-        # one a kind needing direct messages (or staff) no longer lets in, is
-        # not on the list the Worker gets.
+        # either person's leaving.
         everyone = list(conversation.members.select_related("user"))
-        eligible = set(
+        signing_in = set(
             User.objects.filter(
-                _admitted(_policy(conversation)),
-                pk__in=[member.user_id for member in everyone],
+                _signs_in(), pk__in=[member.user_id for member in everyone]
             ).values_list("pk", flat=True)
         )
         return ParleyConversationKind(conversation.kind), [
@@ -253,9 +251,11 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
                     others=[other for other in everyone if other.pk != member.pk],
                 ),
                 age_band=AgeBand(member.user.age_band),
+                signs_in=member.user_id in signing_in,
+                is_staff=member.user.is_staff,
             )
             for member in everyone
-            if member.state in _PRESENT and member.user_id in eligible
+            if member.state in _PRESENT
         ]
 
     @staticmethod
@@ -342,7 +342,18 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
 
     @staticmethod
     def list_party_ids() -> list[int]:
-        return list(Party.objects.order_by("pk").values_list("pk", flat=True))
+        orphaned = ParleyConversation.objects.filter(
+            party_id__isnull=False
+        ).values_list("party_id", flat=True)
+        return sorted({*Party.objects.values_list("pk", flat=True), *orphaned})
+
+    @staticmethod
+    def list_party_chat_ids() -> list[int]:
+        return list(
+            ParleyConversation.objects.filter(party_id__isnull=False)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
 
     @staticmethod
     def lock_party(party_id: int) -> None:
@@ -369,12 +380,12 @@ def _conversation_for(
     if own is None:
         return None
     others = [member for member in members if member.user_id != user_id]
+    name = _given_name(conversation)
     return ParleyConversationDTO(
         id=f"conversation:{conversation.pk}",
         kind=ParleyConversationKind(conversation.kind),
-        title=_given_name(conversation)
-        or _default_title(conversation, others, user_id),
-        name=_given_name(conversation),
+        title=name or _default_title(conversation, others, user_id),
+        name=name,
         state=ParleyMemberState(own.state),
         can_write=_writable(
             conversation=conversation,

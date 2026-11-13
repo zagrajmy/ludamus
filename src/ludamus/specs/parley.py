@@ -28,9 +28,20 @@ PARLEY_PAIR = 2
 PARLEY_PASS_MAX_LENGTH = 2048
 
 
-def event_chat_on(*, own: bool | None, sphere_default: bool) -> bool:
+def event_chat_on(*, sphere_chat: bool, own: bool | None, sphere_default: bool) -> bool:
     """Whether an event's chat is on: its own choice, else its sphere's.
+
+    Neither counts while the sphere has chat off.
 
     NOTE: `ParleyRepository` filters events by the same rule in SQL.
     """
-    return sphere_default if own is None else own
+    return sphere_chat and (sphere_default if own is None else own)
+
+
+def event_chat_may_close(*, was: bool | None, becomes: bool | None) -> bool:
+    """Whether changing an event's own chat choice can turn its chat off.
+
+    Following the sphere (None) can go either way. Opening a chat needs no
+    revocation: the next pass names it.
+    """
+    return was != becomes and becomes is not True and was is not False

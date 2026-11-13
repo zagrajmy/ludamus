@@ -7,7 +7,7 @@ import type { Env } from "../src/room-agent";
 import type { ParleySphereAgent } from "../src/sphere-agent";
 
 import { REVOCATION_AUDIENCE } from "../src/auth";
-import { eventGrant, manager, now, open, pass, post, settle } from "./support";
+import { eventGrant, now, open, pass, post, settle } from "./support";
 
 type Activity = { value: Record<string, { at: number; unread: boolean }> };
 
@@ -22,7 +22,13 @@ describe("a sphere's feed", () => {
     });
     const room = await open("parley-event-agent/41:5", member);
     const feed = await open("parley-sphere-agent/41", member);
-    const organizer = await open("parley-sphere-agent/41", await manager("6", "41"));
+    const organizer = await open(
+      "parley-sphere-agent/41",
+      await pass("6", "41", now(), {
+        events: { "41:5": eventGrant({}, { chat: true }) },
+        managed: { "41": { organizers: true } },
+      }),
+    );
     const outsider = await open("parley-sphere-agent/41", await pass("8", "41"));
 
     await room.call("sendMessage", { body: "Who brings snacks?", nonce: crypto.randomUUID() });
@@ -32,6 +38,10 @@ describe("a sphere's feed", () => {
     expect(seen.value["event:41:5"]?.unread).toBe(true);
     expect((await organizer.call<Activity>("getActivity")).value["event:41:5"]?.unread).toBe(true);
     expect((await outsider.call<Activity>("getActivity")).value).toEqual({});
+    await expect
+      .poll(() => organizer.events.some((event) => event.type === "room.activity"))
+      .toBe(true);
+    expect(outsider.events.some((event) => event.type === "room.activity")).toBe(false);
 
     expect(await feed.call("markRead", { roomId: "event:41:5" })).toEqual({
       code: "invalid",
@@ -67,6 +77,22 @@ describe("a sphere's feed", () => {
       );
     });
   }, 20_000);
+
+  it("lets go of the messages of the room a sphere used to hold", async () => {
+    const stub = await feedOf("45");
+    await runInDurableObject(stub, async (instance) => {
+      const feed = instance as unknown as ParleySphereAgent;
+      void feed.sql`CREATE TABLE messages (id INTEGER PRIMARY KEY, body TEXT)`;
+      void feed.sql`INSERT INTO messages (body) VALUES (${"Who brings snacks?"})`;
+
+      await feed.onStart();
+
+      const tables = feed.sql<{
+        name: string;
+      }>`SELECT name FROM sqlite_master WHERE type = ${"table"} AND name = ${"messages"}`;
+      expect(tables).toEqual([]);
+    });
+  });
 
   it("closes a socket whose pass has run out", async () => {
     const shortLived = await pass("7", "44", now() - 3_598);
