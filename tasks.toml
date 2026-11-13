@@ -65,7 +65,7 @@ echo "Resolved: both sides merged, catalog re-extracted, $po staged."
 
 [messages-compile]
 description = "Compile locale/pl translations to .mo"
-run = "aubr varlock django-admin compilemessages -l pl"
+run = "aubr varlock django-admin compilemessages -l pl -i .claude -i worktrees -i .venv -i node_modules"
 
 [messages-check]
 description = "Fail if the PL catalog is stale (un-extracted strings) or has untranslated/fuzzy entries"
