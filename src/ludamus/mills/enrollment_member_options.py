@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 Label = EnrollOptionLabel
 _NO_CHANGE = EnrollOption("", Label.NO_CHANGE)
+_SEAT_TAKING = frozenset({EnrollmentChoice.ENROLL, EnrollmentChoice.WAITLIST})
 
 
 def can_join_waitlist(policy: EnrollmentPolicy, *, waiting: int) -> bool:
@@ -47,9 +48,7 @@ def person_field(
     restricted_out: bool,
 ) -> EnrollField:
     options: tuple[EnrollOption, ...]
-    if is_host:
-        options, help_text = _host_options(status=status)
-    elif member.needs_accept:
+    if member.needs_accept:
         options, help_text = _held_seat_options(
             status=status,
             has_conflict=has_conflict,
@@ -75,18 +74,13 @@ def person_field(
             options, help_text = _fallback_options(
                 restricted_out=restricted_out, has_email=bool(member.user.email)
             )
+    if is_host:
+        # Never a seat at their own table. Whose row it is still decides who
+        # may give it back, so only the ways in are taken out.
+        options = tuple(o for o in options if o.value not in _SEAT_TAKING)
+        if status is None:
+            help_text = EnrollHelp.SESSION_HOST
     return EnrollField(user=member.user, options=options, help=help_text)
-
-
-def _host_options(*, status: str | None) -> tuple[tuple[EnrollOption, ...], EnrollHelp]:
-    # Never a seat at their own table; a row from before they hosted can only
-    # be given back.
-    if status is None:
-        return (_NO_CHANGE,), EnrollHelp.SESSION_HOST
-    return (
-        _NO_CHANGE,
-        EnrollOption(EnrollmentChoice.CANCEL, Label.CANCEL_ENROLLMENT),
-    ), EnrollHelp.SESSION_HOST
 
 
 def _own_options(

@@ -58,7 +58,12 @@ class TestOwnRow:
             (
                 {"is_host": True, "status": Status.WAITING},
                 [("", Label.NO_CHANGE), ("cancel", Label.CANCEL_ENROLLMENT)],
-                EnrollHelp.SESSION_HOST,
+                EnrollHelp.NONE,
+            ),
+            (
+                {"is_host": True, "status": Status.OFFERED},
+                [("", Label.NO_CHANGE), ("cancel", Label.DECLINE_OFFER)],
+                EnrollHelp.NONE,
             ),
             (
                 {"status": Status.CONFIRMED},
@@ -183,6 +188,16 @@ class TestHeldSeatRow:
 class TestTrustingMemberRow:
     def test_a_row_of_their_own_is_theirs_to_manage(self):
         field = _field(is_member=True, status=Status.WAITING)
+
+        assert _shape(field) == ([("", Label.NO_CHANGE)], EnrollHelp.OWN_ENROLLMENT)
+
+    @pytest.mark.parametrize("needs_accept", (False, True))
+    def test_hosting_their_session_leaves_their_row_theirs(self, needs_accept):
+        # The leader must not gain a cancel over a member's own row because
+        # the member hosts the session.
+        member = RosterMember(user=user_dto(), needs_accept=needs_accept)
+
+        field = _field(member, is_member=True, is_host=True, status=Status.CONFIRMED)
 
         assert _shape(field) == ([("", Label.NO_CHANGE)], EnrollHelp.OWN_ENROLLMENT)
 
