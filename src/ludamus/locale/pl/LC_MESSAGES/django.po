@@ -8737,10 +8737,6 @@ msgid "Enroll others…"
 msgstr "Zapisz innych…"
 
 #: src/ludamus/templates/event/parts/session-modal.html
-msgid "Create a party…"
-msgstr "Utwórz drużynę…"
-
-#: src/ludamus/templates/event/parts/session-modal.html
 msgid "Session full"
 msgstr "Brak miejsc"
 

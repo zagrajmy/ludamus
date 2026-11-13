@@ -99,8 +99,8 @@ class SessionModalComponentView(View):
                 "enroll_actions": footer.actions,
                 "enroll_opens_at": footer.opens_at,
                 "hosting": hosting,
-                # A host with nobody to bring is sent to make a party instead
-                # of to a group page holding only their own greyed-out row.
+                # A host with nobody set up yet is sent to create a party
+                # rather than to a group page holding only their own row.
                 "host_brings_others": hosting and self._has_others_to_enroll(),
             },
         )

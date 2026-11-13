@@ -14,14 +14,15 @@ const openOwnTable = async (page: import("@playwright/test").Page) => {
   return dialog;
 };
 
-test("a host with nobody to bring is offered a party, not a seat", async ({ page }, testInfo) => {
+test("a host with nobody set up yet enrolls others by creating a party", async ({
+  page,
+}, testInfo) => {
   const dialog = await openOwnTable(page);
 
   await expect(dialog.getByText("You're running this")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Enroll", exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole("link", { name: "Enroll others…" })).toHaveCount(0);
   await dialog.screenshot({ path: testInfo.outputPath("host-modal.png") });
-  await dialog.getByRole("link", { name: "Create a party…" }).click();
+  await dialog.getByRole("link", { name: "Enroll others…" }).click();
 
   await expect(page.getByRole("dialog", { name: "Create party" })).toBeVisible();
 });
