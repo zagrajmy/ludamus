@@ -184,6 +184,10 @@ run = [
     "poetry install",
     "aube install",
     'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
+    # Captured mail belongs to the database just deleted. Left to pile up
+    # across runs, it slows /dev/emails/ (which parses every file per request)
+    # past the inbox specs' timeouts.
+    'rm -rf "{{ config_root }}/tests/e2e/.e2e-mail"',
     "django-admin migrate --noinput",
     "django-admin createcachetable",
     "django-admin downloadvendor",
