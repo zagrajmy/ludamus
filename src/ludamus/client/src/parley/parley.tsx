@@ -1,9 +1,11 @@
 import {
   type Dispatch,
+  type KeyboardEvent,
   type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -123,6 +125,17 @@ function Frame({
   label: string;
 }) {
   const { drag, frame, placed } = useFloatingWindow();
+  // It grows out of the chat button, wherever the window was left.
+  useLayoutEffect(() => {
+    const button = document
+      .querySelector('[aria-controls="parley-panel"]')!
+      .getBoundingClientRect();
+    if (button.width === 0) return;
+    // NOTE: offsets, not the rect: the opening transform has already shrunk
+    // the box by the time this runs.
+    const { offsetLeft, offsetTop } = frame.current!;
+    frame.current!.style.transformOrigin = `${button.left + button.width / 2 - offsetLeft}px ${button.top + button.height / 2 - offsetTop}px`;
+  }, [frame]);
   return (
     <div
       aria-label={label}
@@ -145,8 +158,25 @@ function Frame({
   );
 }
 
+// Up and down step through the rooms, Home and End jump to either end.
+function moveAmongRows(event: KeyboardEvent<HTMLElement>): void {
+  const rows = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-room-row]")];
+  const at = rows.indexOf(document.activeElement as HTMLElement);
+  const steps: Record<string, number> = {
+    ArrowDown: at + 1,
+    ArrowUp: at - 1,
+    End: rows.length - 1,
+    Home: 0,
+  };
+  const next = rows[steps[event.key] ?? -1];
+  if (next === undefined) return;
+  event.preventDefault();
+  next.focus();
+}
+
 function RoomList({
   activity,
+  blocked,
   bootstrap,
   close,
   compose,
@@ -157,6 +187,7 @@ function RoomList({
   showBlocked,
 }: {
   activity: Record<string, RoomActivity>;
+  blocked: Set<string>;
   bootstrap: Bootstrap;
   close: () => void;
   compose: (() => void) | null;
@@ -182,8 +213,13 @@ function RoomList({
     ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
   );
   const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
+  // One tab stop for the whole list, on the row last focused while it lasts.
+  const [lastFocused, setLastFocused] = useState<string>();
+  const tabStop = sorted.some(({ room }) => room.id === lastFocused) ? lastFocused : firstId;
   const row = ({ room, seen }: (typeof sorted)[number]) => {
     const unread = seen?.unread === true;
+    // A mention from someone this person blocked stays as hidden as its message.
+    const mentioned = seen?.mentionedBy.some((id) => !blocked.has(id)) === true;
     const { conversation } = room;
     const face =
       conversation?.kind === "direct"
@@ -193,9 +229,12 @@ function RoomList({
       <li key={room.id}>
         <button
           aria-current={room.id === current ? "true" : undefined}
-          className={`flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          className={`relative flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
+          data-room-row
           onClick={() => open(room)}
+          onFocus={() => setLastFocused(room.id)}
           ref={room.id === firstId ? firstRoom : undefined}
+          tabIndex={room.id === tabStop ? 0 : -1}
           type="button"
         >
           <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
@@ -208,7 +247,13 @@ function RoomList({
             <span
               className={`block truncate text-xs ${unread ? "font-semibold text-foreground" : "text-foreground-muted"}`}
             >
-              {conversation?.state === "request" ? copy.requestFrom : roomKind(copy, room)}
+              {conversation?.state === "request" ? (
+                copy.requestFrom
+              ) : mentioned ? (
+                <span className="text-coral-700 dark:text-coral-300">{copy.mentionedYou}</span>
+              ) : (
+                roomKind(copy, room)
+              )}
               {seen !== undefined && seen.at > 0 && ` · ${ago(seen.at)}`}
             </span>
           </span>
@@ -236,7 +281,8 @@ function RoomList({
       </PanelHeader>
       <nav
         aria-label={copy.roomsLabel}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pt-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
+        onKeyDown={moveAmongRows}
       >
         {pinned.length > 0 && (
           <>
@@ -302,6 +348,7 @@ function Feed({
 function Connected({
   bootstrap,
   launcherLabel,
+  linked,
   onPassClosed,
   pageRoom,
   setView,
@@ -309,6 +356,8 @@ function Connected({
 }: {
   bootstrap: Bootstrap;
   launcherLabel: string;
+  // The room a link opened the page on, as "#parley:<room id>[:<message>]" names it.
+  linked: string;
   onPassClosed: () => void;
   pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
@@ -341,8 +390,9 @@ function Connected({
     ...Object.values(feeds).map((feed) => feed.activity),
   ) as Record<string, RoomActivity>;
   const here = rooms.find(({ id }) => id === pageRoom);
+  const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
   const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
-  const shown = settle(view, rooms, here ?? single);
+  const shown = settle(view, rooms, linkedRoom ?? here ?? single);
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   useEffect(() => {
@@ -490,6 +540,7 @@ function Connected({
           {shown.kind === "list" && (
             <RoomList
               activity={activity}
+              blocked={blockedIds}
               bootstrap={bootstrap}
               close={close}
               compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
@@ -567,6 +618,7 @@ function Connected({
                     )
                   }
                   onRefused={() => refused(room.id)}
+                  onStranger={() => void refresh()}
                   room={room}
                 />
               </div>
@@ -595,12 +647,14 @@ function Parley({
   bootstrapUrl,
   initialOpen,
   launcherLabel,
+  linked,
   pageRoom,
   shell,
 }: {
   bootstrapUrl: string;
   initialOpen: boolean;
   launcherLabel: string;
+  linked: string;
   pageRoom: string;
   shell: Shell;
 }) {
@@ -675,6 +729,7 @@ function Parley({
         bootstrap={bootstrap}
         key={bootstrap.capabilityToken}
         launcherLabel={launcherLabel}
+        linked={linked}
         onPassClosed={passClosed}
         pageRoom={pageRoom}
         setView={setView}
@@ -749,6 +804,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
+        linked={globalThis.location.hash.replace(/^#parley:/u, "")}
         pageRoom={pageRoom}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,

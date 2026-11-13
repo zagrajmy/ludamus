@@ -8,18 +8,27 @@ import type {
   Membership,
   Message,
   RpcError,
+  ThreadPost,
 } from "./protocol";
 
 import { NOT_A_MEMBER, RoomAgent, type Env } from "./room-agent";
 
+// No user id is a word, so no one can delete or pass off the system's messages.
+const SYSTEM_AUTHOR = "system";
+
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
-// A direct, group or party conversation. Django pushes who is in it; the
-// room admits, and lets write, only the people on its latest list.
+// A direct, group, party or staff case conversation. Django pushes who is in
+// it; the room admits, and lets write, only the people on its latest list.
 export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";
 
   async onStart(): Promise<void> {
+    // NOTE: before the base class starts: its sweep asks how long messages live.
+    void this.sql`CREATE TABLE IF NOT EXISTS retention (
+      singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+      lifetime_ms INTEGER NOT NULL
+    )`;
     await super.onStart();
     void this.sql`CREATE TABLE IF NOT EXISTS conversation (
       singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -63,6 +72,9 @@ export class ParleyConversationAgent extends RoomAgent {
     void this.sql`INSERT INTO entry (singleton, needs_direct)
       VALUES (1, ${membership.needsDirect ? 1 : 0})
       ON CONFLICT(singleton) DO UPDATE SET needs_direct = excluded.needs_direct`;
+    void this.sql`INSERT INTO retention (singleton, lifetime_ms)
+      VALUES (1, ${membership.retainFor * 1_000})
+      ON CONFLICT(singleton) DO UPDATE SET lifetime_ms = excluded.lifetime_ms`;
     void this.sql`DELETE FROM members`;
     for (const member of membership.members) {
       void this.sql`INSERT INTO members (user_id, state, writable)
@@ -73,6 +85,30 @@ export class ParleyConversationAgent extends RoomAgent {
       const sub = connection.state?.capability.sub;
       if (sub !== undefined && !present.has(sub)) connection.close(NOT_A_MEMBER, "Not a member");
     }
+  }
+
+  // Not @callable: Django notes a case's events here.
+  // False until Django has said this room is a case's thread.
+  post(post: ThreadPost): boolean {
+    const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
+    if (kind !== "staff") return false;
+    this.purgeExpiredMessages();
+    if (this.sentMessage(SYSTEM_AUTHOR, post.nonce) === null) {
+      this.writeMessage({
+        avatar: "",
+        body: post.body,
+        id: SYSTEM_AUTHOR,
+        mentions: [],
+        name: post.authorName,
+        nonce: post.nonce,
+      });
+    }
+    return true;
+  }
+
+  protected messageLifetime(): number {
+    const kept = this.sql<{ lifetime_ms: number }>`SELECT lifetime_ms FROM retention`[0];
+    return kept?.lifetime_ms ?? super.messageLifetime();
   }
 
   protected writeError(capability: Capability): RpcError | null {
@@ -100,10 +136,37 @@ export class ParleyConversationAgent extends RoomAgent {
           );
           await inbox.recordActivity({
             authorId: message.authorId,
+            authorName: message.authorName,
+            body: message.body,
             latestMessageId: message.id,
+            mentions: message.mentions,
             roomId: this.roomId,
           });
         }),
+      ),
+    );
+  }
+
+  protected afterDelete(messageId: number, mentions: string[]): void {
+    this.agentContext.waitUntil(
+      Promise.allSettled(
+        mentions.map(async (userId) => {
+          const inbox = await getAgentByName<Env, ParleyInboxAgent>(
+            this.workerEnv.ParleyInboxAgent,
+            userId,
+          );
+          await inbox.forgetMention({ messageId, roomId: this.roomId });
+        }),
+      ),
+    );
+  }
+
+  protected mentionable(capability: Capability): ReadonlySet<string> {
+    return new Set(
+      this.sql<{
+        user_id: string;
+      }>`SELECT user_id FROM members WHERE user_id != ${capability.sub}`.map(
+        (member) => member.user_id,
       ),
     );
   }

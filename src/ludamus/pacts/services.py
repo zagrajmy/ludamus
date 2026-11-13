@@ -68,6 +68,7 @@ if TYPE_CHECKING:
         ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
     )
+    from ludamus.pacts.parley_mentions import ParleyMentionMailServiceProtocol
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -103,6 +104,7 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.staff_cases import StaffCaseServiceProtocol
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
     from ludamus.pacts.timetable import (
@@ -142,6 +144,10 @@ class ServicesProtocol(Protocol):
     def parley(self) -> ParleyServiceProtocol: ...
     @property
     def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
+    @property
+    def staff_cases(self) -> StaffCaseServiceProtocol: ...
+    @property
+    def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
     @property
     def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
     @property

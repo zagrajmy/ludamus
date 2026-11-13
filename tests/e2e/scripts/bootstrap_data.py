@@ -63,6 +63,8 @@ from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.event import EventVisibility
 from ludamus.pacts.notifications import NotificationKind
+from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
+from ludamus.pacts.parley_mentions import ParleyMentionUnsubscribePayload
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -414,6 +416,32 @@ def _create_notifications_scenario() -> None:
         title="Autumn Open: doors to hall B open at 9:00",
         body="Bring your badge. Coffee is by the entrance.",
         url="",
+    )
+
+
+def _create_mention_mail_scenario() -> None:
+    """Seed a user whose chat mention emails the settings and unsubscribe e2e flip.
+
+    Its own account, so turning mention emails off never reaches another spec.
+    """
+    user = User.objects.create_user(
+        username="e2e-mentioned",
+        email="e2e-mentioned@test.local",
+        password="e2e-mentioned-123",
+        name="E2E Mentioned",
+        slug="e2e-mentioned",
+        email_verified=True,
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-mentioned.json",
+    )
+    token = DjangoParleyMentionUnsubscribeCodec().dumps(
+        ParleyMentionUnsubscribePayload(user_id=user.pk)
+    )
+    (REPO_ROOT / "tests" / "e2e" / ".parley-mention-mail.json").write_text(
+        json.dumps({"unsubscribeToken": token}), encoding="utf-8"
     )
 
 
@@ -2081,6 +2109,7 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+    _create_mention_mail_scenario()
     _create_unlisted_and_team_scenario(sphere)
 
     _create_party_companion_scenario()

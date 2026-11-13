@@ -23,6 +23,7 @@ from ludamus.inits.dbos_scheduler import (
     offer_expiry_scheduler,
     parley_membership_outbox,
     parley_revocation_outbox,
+    staff_thread,
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
@@ -35,10 +36,13 @@ from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
+from ludamus.links.db.django.parley_mention_mail import DjangoParleyMentionMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
+from ludamus.links.parley_mention_tokens import HmacMentionVerifier
+from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
@@ -88,6 +92,7 @@ from ludamus.mills.parley_conversations import (
     ParleyConversationService,
     ParleyPartyChatService,
 )
+from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -120,6 +125,7 @@ from ludamus.mills.sphere import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.staff_cases import StaffCaseService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
@@ -189,6 +195,18 @@ class Services:
             transaction=self._transaction,
             repository=self._repos.parley_conversations,
             outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
+    def parley_mentions(self) -> ParleyMentionMailService:
+        secret: str = settings.PARLEY_MENTIONS_SECRET
+        return ParleyMentionMailService(
+            transaction=self._transaction,
+            verifier=HmacMentionVerifier(secret),
+            repository=self._repos.parley_mentions,
+            conversations=self._repos.parley_conversations,
+            mailer=DjangoParleyMentionMailer(),
+            tokens=DjangoParleyMentionUnsubscribeCodec(),
         )
 
     @cached_property
@@ -290,6 +308,18 @@ class Services:
     @cached_property
     def guilds(self) -> GuildService:
         return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseService:
+        return StaffCaseService(
+            transaction=self._transaction,
+            repository=self._repos.staff_cases,
+            thread=staff_thread(),
+            mailer=DjangoModerationMailer(),
+            memberships=parley_membership_outbox(),
+            decisions=self.moderation_decisions,
+            chat=self.parley,
+        )
 
     @cached_property
     def sphere_team(self) -> SphereTeamService:

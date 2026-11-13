@@ -20,6 +20,19 @@ Art. 28). Notes, not legal advice. Background and plans: #1755.
   Child-safety notices start with `[BEZPIECZEŃSTWO DZIECI]` (`[CHILD SAFETY]`
   in English): read those first.
 
+## The staff inbox
+
+`/staff/cases/` (staff only) lists every case by state, child safety first:
+notices, chat reports, and mail to `staff@zagrajmy.net`, which the `posta`
+mail Worker forwards to `/hooks/staff-mail`. A `[Z-n]` in the subject files
+the mail under that case and reopens it; anything else opens a new one.
+Replies sent from a case go out from the staff address with its reference in
+the subject. Each case has a staff-only thread in the chat, where staff
+talk it over and the server notes its events and mail, kept three years; the
+`forget_case_mail` sweep deletes the case's mail after the same three
+years. Deciding in the inbox does what the admin actions below do. The admin
+stays the place to delete sessions, encounters and accounts.
+
 ## Deciding
 
 1. Open the record in the admin and read it. For a chat report the admin

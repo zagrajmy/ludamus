@@ -46,6 +46,9 @@ class ParleyWorkerClient:
     def sync_conversation(self, token: str) -> None:
         self._post("/conversations", token)
 
+    def post_to_conversation(self, token: str) -> None:
+        self._post("/conversations/messages", token)
+
     def moderate(self, token: str) -> None:
         # A message the room no longer has is as deleted as it gets.
         body: dict[str, str] = {"token": token}

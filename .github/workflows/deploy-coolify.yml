@@ -102,6 +102,10 @@ jobs:
           # Turns the chat on; deploy-parley.yml deploys the Worker holding
           # its public half.
           PARLEY_SIGNING_PRIVATE_KEY: ${{ secrets.PARLEY_SIGNING_PRIVATE_KEY }}
+          # Proves the posta mail Worker posted the staff@ mail it hands over.
+          STAFF_MAIL_WEBHOOK_SECRET: ${{ secrets.STAFF_MAIL_WEBHOOK_SECRET }}
+          # Shared with the Worker: signs the mentions it asks the app to email.
+          PARLEY_MENTIONS_SECRET: ${{ secrets.PARLEY_MENTIONS_SECRET }}
         run: |
           set -euo pipefail
           # Previously injected by compose `environment:` on the host.

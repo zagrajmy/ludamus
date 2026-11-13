@@ -185,3 +185,99 @@ describe("an inbox", () => {
     for (const socket of [author, inbox, ownInbox]) socket.socket.close();
   }, 20_000);
 });
+
+describe("a mention", () => {
+  type Sent = Result & { value?: { id: number; mentions: string[] } };
+  type Activity = { value: Record<string, { mentionedBy?: string[]; unread: boolean }> };
+  const mention = (
+    socket: Awaited<ReturnType<typeof open>>,
+    body: string,
+    mentions: unknown,
+    nonce: string = crypto.randomUUID(),
+  ) => socket.call<Sent>("sendMessage", { body, mentions, nonce });
+
+  it("keeps only the room's members written into the message, never its author", async () => {
+    const id = conversationId();
+    await sync(id, [
+      { state: "active", user: "27", writable: true },
+      { state: "active", user: "28", writable: true },
+      { state: "active", user: "29", writable: true },
+    ]);
+    const author = await open(`parley-conversation-agent/${id}`, await direct("27"));
+
+    const sent = await mention(author, "<@28> <@29> <@27> <@99> bring dice", [
+      "28",
+      "28",
+      "99",
+      "27",
+      "29",
+      7,
+    ]);
+    expect(sent.value?.mentions).toEqual(["28", "29"]);
+    expect((await mention(author, "Hi all", ["28"])).value?.mentions).toEqual([]);
+    expect((await mention(author, "<@28>", "28")).value?.mentions).toEqual([]);
+    const flood = await mention(
+      author,
+      "<@28> flood",
+      Array.from({ length: 201 }, () => "28"),
+    );
+    expect(flood.value?.mentions).toEqual([]);
+
+    const again = await mention(author, "<@28> again", ["28"], "same");
+    expect(await mention(author, "<@28> again", ["28"], "same")).toEqual(again);
+    const history = await author.call<{ value: { mentions: string[] }[] }>("loadBefore");
+    expect(history.value.map((message) => message.mentions)).toEqual([
+      ["28", "29"],
+      [],
+      [],
+      [],
+      ["28"],
+    ]);
+
+    await author.call("deleteOwnMessage", { messageId: sent.value!.id });
+    const after = await author.call<{ value: { mentions: string[] }[] }>("loadBefore");
+    expect(after.value[0]?.mentions).toEqual([]);
+    author.socket.close();
+  }, 20_000);
+
+  it("is dropped in a room that keeps no member list", async () => {
+    const member = await pass("7", "47", now(), {
+      events: { "47:5": { chat: true, endsAt: now() + 3_600, sessions: {}, writable: true } },
+    });
+    const room = await open("parley-event-agent/47:5", member);
+
+    expect((await mention(room, "<@8> hello", ["8"])).value?.mentions).toEqual([]);
+    room.socket.close();
+  }, 20_000);
+
+  it("marks the conversation for the person mentioned until they read it", async () => {
+    const id = conversationId();
+    await sync(id, [
+      { state: "active", user: "37", writable: true },
+      { state: "active", user: "38", writable: true },
+      { state: "active", user: "39", writable: true },
+    ]);
+    const author = await open(`parley-conversation-agent/${id}`, await direct("37"));
+    const mentioned = await open("parley-inbox-agent/38", await direct("38"));
+    const bystander = await open("parley-inbox-agent/39", await direct("39"));
+    const room = `conversation:${id}`;
+
+    await mention(author, "<@38> your turn", ["38"]);
+    await say(author, "and after that");
+    await expect
+      .poll(async () => (await mentioned.call<Activity>("getActivity")).value[room]?.mentionedBy)
+      .toEqual(["37"]);
+    const pushed = mentioned.events.find((event) => event.type === "room.activity");
+    expect(pushed?.payload).toMatchObject({ mentionedBy: ["37"], roomId: room });
+    await expect
+      .poll(async () => (await bystander.call<Activity>("getActivity")).value[room])
+      .toMatchObject({ mentionedBy: [], unread: true });
+
+    await mentioned.call("markRead", { messageId: 2, roomId: room });
+    expect((await mentioned.call<Activity>("getActivity")).value[room]).toMatchObject({
+      mentionedBy: [],
+      unread: false,
+    });
+    for (const socket of [author, mentioned, bystander]) socket.socket.close();
+  }, 20_000);
+});
