@@ -65,6 +65,7 @@ _HELP: dict[EnrollHelp, Promise | str] = {
     EnrollHelp.RELEASED_IF_UNCLAIMED: gettext_lazy(
         "The seat is released if they do not claim it in time"
     ),
+    EnrollHelp.SESSION_HOST: gettext_lazy("Runs this session"),
 }
 
 
@@ -96,12 +97,18 @@ class EnrollmentForm(forms.Form):
         }
 
 
-class _PersonChoiceField(forms.ChoiceField):
+class PersonChoiceField(forms.ChoiceField):
     def __init__(
-        self, *, user: UserDTO, refusal: EnrollRefusal | None, **kwargs: Any
+        self,
+        *,
+        user: UserDTO,
+        refusal: EnrollRefusal | None,
+        enroll_help: EnrollHelp,
+        **kwargs: Any,
     ) -> None:
         self._user = user
         self._refusal = refusal
+        self.enroll_help = enroll_help
         super().__init__(**kwargs)
 
     def to_python(self, value: object) -> str:
@@ -120,6 +127,15 @@ class _PersonChoiceField(forms.ChoiceField):
         super().validate(value)
 
     def _reject(self, value: str, user_name: str) -> None:
+        if self.enroll_help == EnrollHelp.SESSION_HOST and value in {
+            EnrollmentChoice.ENROLL,
+            EnrollmentChoice.WAITLIST,
+        }:
+            raise ValidationError(
+                _("%(user)s runs this session and cannot take a seat in it") % {
+                    "user": user_name
+                }
+            )
         if value == EnrollmentChoice.ENROLL:
             if self._refusal == EnrollRefusal.EMAIL_REQUIRED:
                 raise ValidationError(
@@ -148,9 +164,10 @@ class _PersonChoiceField(forms.ChoiceField):
 
 
 def _person_field(item: EnrollField, refusal: EnrollRefusal | None) -> forms.Field:
-    return _PersonChoiceField(
+    return PersonChoiceField(
         user=item.user,
         refusal=refusal,
+        enroll_help=item.help,
         choices=[(option.value, str(_LABELS[option.label])) for option in item.options],
         required=False,
         label=item.user.full_name,

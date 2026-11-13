@@ -7,7 +7,8 @@ from django import template
 from django.forms import ChoiceField
 from django.utils.translation import gettext as _
 
-from ludamus.pacts.enrollment_member import EnrollmentChoice
+from ludamus.gates.web.django.event.enroll_forms import PersonChoiceField
+from ludamus.pacts.enrollment_member import EnrollHelp, EnrollmentChoice
 
 if TYPE_CHECKING:
     from django import forms
@@ -55,7 +56,7 @@ _BADGE_CLASSES = {
 }
 
 
-def _badge(data: SessionUserParticipationData) -> Badge:
+def _badge(data: SessionUserParticipationData, *, is_host: bool) -> Badge:
     if data.user_enrolled:
         return Badge("success", _("Already enrolled"))
     if data.seat_held:
@@ -64,6 +65,8 @@ def _badge(data: SessionUserParticipationData) -> Badge:
         return Badge("warning", _("Spot offered"))
     if data.user_waiting:
         return Badge("warning", _("On the waiting list"))
+    if is_host:
+        return Badge("muted", _("Runs this session"))
     if data.has_time_conflict:
         return Badge("danger", _("Time conflict"))
     if data.membership.blocked:
@@ -92,7 +95,11 @@ def enroll_row_state(
     includable = (
         EnrollmentChoice.ENROLL in choices or EnrollmentChoice.WAITLIST in choices
     )
-    badge = _badge(data)
+    is_host = (
+        isinstance(field, PersonChoiceField)
+        and field.enroll_help == EnrollHelp.SESSION_HOST
+    )
+    badge = _badge(data, is_host=is_host)
     field_name = f"user_{data.user.pk}"
 
     if in_or_holding:
@@ -110,7 +117,9 @@ def enroll_row_state(
             occupies_seat=(data.user_enrolled or data.seat_held or data.offer_pending),
         )
 
-    if data.has_time_conflict:
+    if is_host:
+        reason = _("Runs this session")
+    elif data.has_time_conflict:
         reason = _("Time conflict")
     elif membership.blocked or (membership.is_member and not includable):
         reason = _("Access required")
