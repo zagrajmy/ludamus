@@ -51,6 +51,47 @@ test("The chat launcher opens an accessible chat window from its room list", asy
   await expect(launcher).toHaveAttribute("aria-expanded", "true");
   await analyzePageAccessibility(page);
 
+  // It grows out of the chat button, measured while the opening still runs.
+  const origin = await panel.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) throw new Error("The chat window is not HTML");
+    const [x = 0, y = 0] = getComputedStyle(element)
+      .transformOrigin.split(" ")
+      .map(Number.parseFloat);
+    return { x: element.offsetLeft + x, y: element.offsetTop + y };
+  });
+  const button = (await launcher.boundingBox())!;
+  expect(Math.round(origin.x)).toBe(Math.round(button.x + button.width / 2));
+  expect(Math.round(origin.y)).toBe(Math.round(button.y + button.height / 2));
+
+  // The arrow keys walk the list; Home and End jump to its ends.
+  const zagrajmy = rooms.getByRole("button", { name: /Zagrajmy/u });
+  const mothership = rooms.getByRole("button", { name: /Mothership/u });
+  await expect(zagrajmy).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(zagrajmy).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(zagrajmy).toBeFocused();
+  // Any other key leaves focus where it is.
+  await page.keyboard.press("PageDown");
+  await expect(zagrajmy).toBeFocused();
+  // The list is one tab stop, and Tab comes back to the row last left.
+  await page.keyboard.press("ArrowDown");
+  await expect(rooms.locator('[data-room-row][tabindex="0"]')).toHaveCount(1);
+  await page.keyboard.press("Shift+Tab");
+  await expect(mothership).not.toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(mothership).toBeFocused();
+  await page.keyboard.press("Home");
+  const closeAt = async () =>
+    (await panel.getByRole("button", { name: "Close chat" }).boundingBox())!;
+  const listClose = await closeAt();
+
   // The window does not trap the page: Escape out there is the page's own.
   const pageLink = page.getByRole("main").getByRole("link").first();
   await pageLink.focus();
@@ -60,7 +101,11 @@ test("The chat launcher opens an accessible chat window from its room list", asy
 
   await rooms.getByRole("button", { name: /Zagrajmy/u }).click();
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
+  // Trimmed to its caps, the title would lose its descenders to a clip.
+  await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toHaveCSS("overflow-y", "visible");
   await expect(panel.getByLabel("Message", { exact: true })).toBeFocused();
+  // Close stays put from the list into a conversation.
+  expect(await closeAt()).toEqual(listClose);
   await analyzePageAccessibility(page);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-desktop.png" });
 
@@ -99,6 +144,13 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   };
   const before = (await panel.boundingBox())!;
   expect(before.x).toBeGreaterThan(16);
+  // It grows out of the chat button.
+  const button = (await launcher.boundingBox())!;
+  const origin = await panel.evaluate((element) => getComputedStyle(element).transformOrigin);
+  expect(origin.split(" ").map((value) => Math.round(Number.parseFloat(value)))).toEqual([
+    Math.round(button.x + button.width / 2 - before.x),
+    Math.round(button.y + button.height / 2 - before.y),
+  ]);
 
   // A press without a move leaves it where it is.
   const grip = (await header.boundingBox())!;
@@ -148,6 +200,8 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
 });
 
 test("With storage refused, the chat window still opens and moves", async ({ page }) => {
+  // Grabbed mid-opening, the header would still be growing out of the button.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await routeBootstrap(page);
   await FakeWorker.install(page);
   await page.addInitScript(() => {
