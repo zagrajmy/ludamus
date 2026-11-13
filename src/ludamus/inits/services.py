@@ -35,7 +35,6 @@ from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.links.db.django.staff_mail import DjangoStaffMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
@@ -300,8 +299,10 @@ class Services:
             transaction=self._transaction,
             repository=self._repos.staff_cases,
             thread=staff_thread(),
-            mailer=DjangoStaffMailer(),
+            mailer=DjangoModerationMailer(),
             memberships=parley_membership_outbox(),
+            decisions=self.moderation_decisions,
+            chat=self.parley,
         )
 
     @cached_property

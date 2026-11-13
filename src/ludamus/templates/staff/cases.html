@@ -14,7 +14,7 @@
 {% block header_section %}
 {% endblock header_section %}
 {% block parley_room %}
-    {% if detail %}conversation:{{ detail.case.conversation_id }}{% endif %}
+    {% if detail %}conversation:{{ detail.case.thread_id }}{% endif %}
 {% endblock parley_room %}
 {% block body %}
     <div class="grid gap-6 items-start {% if detail %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
@@ -66,7 +66,7 @@
 </section>
 {% if detail %}
     {% with case=detail.case %}
-        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_24rem]">
             <article aria-labelledby="case-heading" class="flex flex-col gap-5 min-w-0">
                 <a href="{% url 'web:staff:cases' %}?status={{ case.status }}"
                    class="lg:hidden inline-flex items-center gap-1 text-sm text-foreground-secondary">
@@ -77,13 +77,13 @@
                     <p class="text-sm tabular-nums text-foreground-muted">{{ case.reference }}</p>
                     <h2 id="case-heading"
                         class="text-2xl font-bold text-foreground text-pretty"
-                        data-ph-no-capture>{% firstof case.title case.kind|kind_label %}</h2>
+                        data-ph-no-capture>{% firstof case.title detail.kind|kind_label %}</h2>
                     <p class="text-sm text-foreground-muted">
-                        {{ case.kind|kind_label }}
-                        {% if case.child_safety %}· {% translate "Child safety" %}{% endif %}
+                        {{ detail.kind|kind_label }}
+                        {% if detail.child_safety %}· {% translate "Child safety" %}{% endif %}
                         · <time datetime="{{ case.created_at|date:'c' }}">{{ case.created_at|date:"SHORT_DATETIME_FORMAT" }}</time>
-                        {% if case.external_email %}
-                            · <span data-ph-block>{% firstof case.external_name case.external_email %}</span>
+                        {% if case.reply_to %}
+                            · <span data-ph-block>{% firstof case.reply_name case.reply_to %}</span>
                         {% endif %}
                     </p>
                     <form method="post"
@@ -139,14 +139,14 @@
                           class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3">
                         {% csrf_token %}
                         {% tessera_field reply_form.body %}
-                        {% if not case.external_email %}
+                        {% if not case.reply_to %}
                             <p class="text-xs text-foreground-muted">
                                 {% translate "Nobody outside the team wrote in this case, so the reply stays in the thread." %}
                             </p>
                         {% endif %}
                         <div class="flex flex-wrap justify-end gap-2">
                             {% translate "Add internal note" as t_note %}
-                            {% if case.external_email %}
+                            {% if case.reply_to %}
                                 {% tessera_button t_note variant="secondary" name="send" value="note" full_width_mobile=False %}
                                 {% translate "Send by email" as t_send %}
                                 {% tessera_button t_send icon="paper-airplane" name="send" value="email" full_width_mobile=False %}
@@ -159,62 +159,87 @@
             </article>
             <aside class="flex flex-col gap-4 min-w-0"
                    aria-label="{% translate "Content and decision" %}">
-                {% if detail.content %}
-                    {% with content=detail.content %}
-                        <section class="card p-4 flex flex-col gap-2"
-                                 aria-labelledby="content-heading">
-                            <h3 id="content-heading"
-                                class="text-sm font-semibold text-foreground-secondary">
-                                {% translate "Reported content" %}
-                            </h3>
-                            <p class="text-xs text-foreground-muted">
-                                {{ content.room_id }}
-                                {% if content.written_at %}
-                                    · <time datetime="{{ content.written_at|date:'c' }}">{{ content.written_at|date:"SHORT_DATETIME_FORMAT" }}</time>
-                                {% endif %}
+                {% for notice in case.notices %}
+                    <section class="card p-4 flex flex-col gap-2"
+                             aria-label="{% translate "Notice of illegal content" %}">
+                        <h3 class="text-sm font-semibold text-foreground-secondary">{% translate "Notice of illegal content" %}</h3>
+                        <a href="{{ notice.url }}"
+                           class="text-sm break-all underline"
+                           rel="noreferrer"
+                           data-ph-no-capture>{{ notice.url }}</a>
+                        <blockquote class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-foreground"
+                                    data-ph-no-capture
+                                    data-ph-block>
+                            {{ notice.explanation }}
+                        </blockquote>
+                        {% if notice.reporter_name %}
+                            <p class="text-sm text-foreground-secondary" data-ph-block>
+                                {% blocktranslate with name=notice.reporter_name %}Sent by {{ name }}{% endblocktranslate %}
                             </p>
-                            <blockquote class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-foreground"
-                                        data-ph-no-capture
-                                        data-ph-block>
-                                {% if content.body %}
-                                    {{ content.body }}
-                                {% else %}
-                                    {% translate "The chat no longer holds this message." %}
-                                {% endif %}
-                            </blockquote>
-                            <p class="text-sm text-foreground" data-ph-block>
-                                {% blocktranslate with name=content.author_name|default:"—" %}Author: {{ name }}{% endblocktranslate %}
-                                ·
-                                {% if content.author_age_band == "13_15" %}
-                                    {% translate "13–15" %}
-                                {% elif content.author_age_band == "16_plus" %}
-                                    {% translate "16+" %}
-                                {% else %}
-                                    {% translate "age not confirmed" %}
-                                {% endif %}
-                                {% if content.author_joined_at %}
-                                    ·
-                                    {% blocktranslate with since=content.author_joined_at|timesince %}account {{ since }} old{% endblocktranslate %}
-                                {% endif %}
-                            </p>
-                            {% if content.reason %}
-                                <p class="text-sm text-foreground-secondary" data-ph-no-capture>
-                                    {% blocktranslate with name=content.reporter_name reason=content.reason %}{{ name }} reported it: {{ reason }}{% endblocktranslate %}
-                                </p>
+                        {% endif %}
+                    </section>
+                {% endfor %}
+                {% for report in case.chat_reports %}
+                    <section class="card p-4 flex flex-col gap-2"
+                             aria-label="{% translate "Reported content" %}">
+                        <h3 class="text-sm font-semibold text-foreground-secondary">{% translate "Reported content" %}</h3>
+                        <p class="text-xs text-foreground-muted">
+                            {{ report.room_id }}
+                            {% if report.written_at %}
+                                · <time datetime="{{ report.written_at|date:'c' }}">{{ report.written_at|date:"SHORT_DATETIME_FORMAT" }}</time>
                             {% endif %}
-                        </section>
-                    {% endwith %}
-                {% endif %}
+                        </p>
+                        <blockquote class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-foreground"
+                                    data-ph-no-capture
+                                    data-ph-block>
+                            {% if report.body %}
+                                {{ report.body }}
+                            {% else %}
+                                {% translate "The chat no longer holds this message." %}
+                            {% endif %}
+                        </blockquote>
+                        <p class="text-sm text-foreground" data-ph-block>
+                            {% blocktranslate with name=report.author_name|default:"—" %}Author: {{ name }}{% endblocktranslate %}
+                            ·
+                            {% if report.author_age_band == "13_15" %}
+                                {% translate "13–15" %}
+                            {% elif report.author_age_band == "16_plus" %}
+                                {% translate "16+" %}
+                            {% else %}
+                                {% translate "age not confirmed" %}
+                            {% endif %}
+                            {% if report.author_joined_at %}
+                                ·
+                                {% blocktranslate with since=report.author_joined_at|timesince %}account {{ since }} old{% endblocktranslate %}
+                            {% endif %}
+                        </p>
+                        {% if report.reason %}
+                            <p class="text-sm text-foreground-secondary" data-ph-no-capture>
+                                {% blocktranslate with name=report.reporter_name reason=report.reason %}{{ name }} reported it: {{ reason }}{% endblocktranslate %}
+                            </p>
+                        {% endif %}
+                    </section>
+                {% endfor %}
                 <section class="card p-4 flex flex-col gap-3"
                          aria-labelledby="decision-heading">
                     <h3 id="decision-heading"
                         class="text-sm font-semibold text-foreground-secondary">{% translate "Decision" %}</h3>
-                    {% if case.decision %}
+                    {% if case.verdict %}
                         <p class="text-sm text-foreground">
-                            {% blocktranslate with action=case.decision.action|action_label ground=case.decision.ground|ground_label name=case.decision.decided_by_name %}{{ action }}, on the ground of {{ ground }}. Decided by {{ name }}.{% endblocktranslate %}
+                            {{ case.verdict.decision|decision_label }}
+                            {% if case.verdict.ground %}· {{ case.verdict.ground|ground_label }}{% endif %}
+                            {% if case.decided_by_name %}
+                                ·
+                                {% blocktranslate with name=case.decided_by_name %}decided by {{ name }}{% endblocktranslate %}
+                            {% endif %}
+                        </p>
+                        <p class="text-sm text-foreground-secondary whitespace-pre-line"
+                           data-ph-no-capture>{{ case.verdict.decision_text }}</p>
+                        <p class="text-xs text-foreground-muted">
+                            {% translate "An appeal comes back to this case. Someone other than the person who decided reviews it; a changed decision is made again by hand in the admin." %}
                         </p>
                     {% endif %}
-                    {% if detail.may_decide %}
+                    {% if detail.decidable %}
                         <form method="post"
                               action="{% url 'web:staff:decide' pk=case.pk %}"
                               class="flex flex-col gap-3"
@@ -224,23 +249,30 @@
                               hx-select="#statement-preview"
                               hx-swap="outerHTML">
                             {% csrf_token %}
-                            {% tessera_field decision_form.action %}
+                            {% tessera_errors decision_form %}
+                            {% tessera_field decision_form.decision %}
                             {% tessera_field decision_form.ground %}
-                            {% include "staff/_statement.html" %}
-                            {% if case.decision %}
-                                {% translate "Decide the appeal" as t_decide %}
-                            {% else %}
-                                {% translate "Confirm decision" as t_decide %}
+                            {% tessera_field decision_form.legal_provision %}
+                            {% tessera_field decision_form.suspended_until %}
+                            {% tessera_field decision_form.decision_text %}
+                            {% if case.notices %}
+                                {% tessera_field decision_form.affected_account %}
                             {% endif %}
+                            {% include "staff/_statement.html" %}
+                            {% translate "Confirm decision" as t_decide %}
                             {% tessera_button t_decide %}
                             <p class="text-xs text-foreground-muted">
-                                {% translate "The reporter gets the outcome and the author the statement of reasons with a way to appeal. Both go into this thread." %}
+                                {% translate "Reporters hear the outcome and the person affected gets the statement of reasons by email, as from the admin. Removed chat messages are deleted for everyone." %}
                             </p>
                         </form>
-                    {% else %}
-                        <p class="text-sm text-foreground-secondary">
-                            {% translate "You decided this case. If it is appealed, someone else on staff decides the appeal." %}
-                        </p>
+                    {% elif case.status != "closed" %}
+                        <form method="post" action="{% url 'web:staff:close' pk=case.pk %}">
+                            {% csrf_token %}
+                            {% translate "Close case" as t_close %}
+                            {% tessera_button t_close variant="secondary" full_width_mobile=False %}
+                        </form>
+                    {% elif not case.verdict %}
+                        <p class="text-sm text-foreground-secondary">{% translate "Closed with nothing to decide." %}</p>
                     {% endif %}
                 </section>
             </aside>

@@ -1,6 +1,6 @@
 import { getAgentByName } from "agents";
 import { runInDurableObject } from "cloudflare:test";
-import { env } from "cloudflare:workers";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import type { ParleyConversationAgent } from "../src/conversation-agent";
@@ -83,7 +83,13 @@ describe("a post into a case's thread", () => {
         .status,
     ];
 
+    const unsigned = await exports.default.fetch("http://localhost:8787/conversations/messages", {
+      body: "not json",
+      method: "POST",
+    });
+
     expect(statuses).toEqual([401, 401, 401, 401, 401]);
+    expect(unsigned.status).toBe(400);
   });
 
   it("keeps the thread for the period it carries, past chat's year", async () => {

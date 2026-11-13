@@ -1,5 +1,8 @@
 """Mail about moderation: staff alerts, receipts, outcomes, statements of reasons.
 
+Staff answers from the case inbox go out as their author wrote them, from
+the staff address, with the case reference in the subject.
+
 Every subject starts with the case reference and every message asks for
 replies at the staff address, so an answer lands beside the case it is about.
 A reporter who sent a notice without an account is answered at the address
@@ -9,6 +12,7 @@ they gave, in the language they wrote in; an account, in its own.
 from __future__ import annotations
 
 import logging
+from email.utils import parseaddr
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -18,7 +22,7 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from ludamus.links.absolute_url import absolute_url
-from ludamus.links.db.django.delivery import compose_mail, send
+from ludamus.links.db.django.delivery import compose_as_written, compose_mail, send
 from ludamus.links.db.django.models import User
 from ludamus.links.db.django.recipients import Voice, speaking_to
 from ludamus.pacts.moderation import (
@@ -30,6 +34,7 @@ from ludamus.pacts.moderation import (
     NoticeCategory,
     case_reference,
 )
+from ludamus.pacts.staff_cases import StaffCaseMailerProtocol
 
 if TYPE_CHECKING:
     from ludamus.links.db.django.delivery import Mail
@@ -202,7 +207,12 @@ def _statement_body(statement: StatementOfReasons) -> str:
     )
 
 
-class DjangoModerationMailer(ModerationMailerProtocol):
+def staff_message_id(nonce: str) -> str:
+    domain = parseaddr(settings.STAFF_EMAIL)[1].rpartition("@")[2] or "localhost"
+    return f"<case-{nonce}@{domain}>"
+
+
+class DjangoModerationMailer(ModerationMailerProtocol, StaffCaseMailerProtocol):
     @staticmethod
     def alert_staff(alert: StaffAlert) -> None:
         admin_url = absolute_url(
@@ -303,3 +313,23 @@ class DjangoModerationMailer(ModerationMailerProtocol):
             )
         _send_after_commit(message, case_id=case_id, kind="statement_of_reasons")
         return True
+
+    @staticmethod
+    def statement_text(statement: StatementOfReasons) -> str:
+        return _statement_body(statement)
+
+    @staticmethod
+    def send_reply(*, to: str, subject: str, body: str, nonce: str) -> None:
+        message = compose_as_written(
+            to=to,
+            subject=subject,
+            body=body,
+            from_email=settings.STAFF_EMAIL,
+            message_id=staff_message_id(nonce),
+        )
+
+        def _send() -> None:
+            if send(message):
+                logger.info("Staff reply mailed", extra={"nonce": nonce})
+
+        transaction.on_commit(_send, robust=True)

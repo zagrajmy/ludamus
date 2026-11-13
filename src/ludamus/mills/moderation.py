@@ -264,7 +264,7 @@ class StatementOfReasonsService:
             case_id = (
                 statement.case_id
                 if statement.case_id is not None
-                else self._cases.open()
+                else self._cases.open(closed=True)
             )
             self._statements.create(
                 {

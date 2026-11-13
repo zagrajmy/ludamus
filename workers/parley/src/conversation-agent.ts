@@ -85,9 +85,8 @@ export class ParleyConversationAgent extends RoomAgent {
     }
   }
 
-  // Not @callable: Django writes system events, email and staff notes into a staff case's thread.
+  // Not @callable: Django writes a case's events, email and staff notes here.
   async post(post: ThreadPost): Promise<Message> {
-    if (post.conversation !== this.name) throw new Error("Post for another room");
     void this
       .sql`INSERT INTO retention (singleton, lifetime_ms) VALUES (1, ${post.retainFor * 1_000})
       ON CONFLICT(singleton) DO UPDATE SET lifetime_ms = excluded.lifetime_ms`;

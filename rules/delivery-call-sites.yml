@@ -8,7 +8,6 @@ ignores:
   - src/ludamus/links/db/django/encounter_invites.py
   - src/ludamus/links/db/django/announcements.py
   - src/ludamus/links/db/django/admin.py
-  - src/ludamus/links/db/django/staff_mail.py
   - src/ludamus/links/db/django/moderation_mail.py
 rule:
   any:

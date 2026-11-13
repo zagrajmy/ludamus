@@ -145,12 +145,14 @@ class InlineStaffThread:
         def deliver() -> None:
             try:
                 ParleyWorkerClient(agent_host).post_to_conversation(
-                    JwtSigner(private_key).sign(thread_post_claims(entry))
+                    JwtSigner(private_key).sign(
+                        thread_post_claims(entry, now=datetime.now(UTC))
+                    )
                 )
             except Exception:
                 logger.exception(
-                    "staff thread post failed: conversation=%s event=%s",
-                    entry.conversation_id,
+                    "staff thread post failed: thread=%s event=%s",
+                    entry.thread_id,
                     entry.event,
                 )
 
@@ -161,8 +163,8 @@ class DisabledStaffThread:
     @staticmethod
     def post(entry: StaffThreadEntry) -> None:
         logger.debug(
-            "parley not configured, staff thread post dropped: conversation=%s",
-            entry.conversation_id,
+            "parley not configured, staff thread post dropped: thread=%s",
+            entry.thread_id,
         )
 
 

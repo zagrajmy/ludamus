@@ -2,6 +2,7 @@ from django.urls import path
 
 from ludamus.gates.web.django.staff.cases import (
     StaffCaseAssignActionView,
+    StaffCaseCloseActionView,
     StaffCaseDecideActionView,
     StaffCasePageView,
     StaffCaseReplyActionView,
@@ -18,4 +19,5 @@ urlpatterns = [
     path(
         "cases/<int:pk>/do/decide", StaffCaseDecideActionView.as_view(), name="decide"
     ),
+    path("cases/<int:pk>/do/close", StaffCaseCloseActionView.as_view(), name="close"),
 ]

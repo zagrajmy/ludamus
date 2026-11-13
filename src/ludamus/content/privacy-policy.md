@@ -79,6 +79,8 @@ Informację, że ktoś właśnie pisze, przekazujemy na bieżąco osobom w tej s
 - Adres zgłaszanej treści, kategoria i wyjaśnienie zgłoszenia, język strony, na której je wysłano, numer sprawy
 - Decyzja w sprawie zgłoszenia wraz z uzasadnieniem
 - Uzasadnienia decyzji wysłane osobom, których treści lub Kont decyzja dotyczy: co postanowiono, fakty, podstawa
+- Korespondencja w sprawie: wiadomości email wysłane na staff@zagrajmy.net (nadawca, temat, treść, nazwy załączników) i nasze odpowiedzi
+- Wątek sprawy w czacie administratora serwisu: notatki administratora, zdarzenia sprawy i kopie korespondencji. Widzą go tylko osoby z zespołu administratora
 - Skrót adresu IP (dla IPv6 — jego sieci /64), przez godzinę po wysłaniu zgłoszenia, oraz skrót podanego adresu email, przez dobę, do ograniczenia liczby zgłoszeń z jednego adresu i potwierdzeń wysyłanych na jeden adres
 
 ## 3. CELE I PODSTAWY PRAWNE PRZETWARZANIA
@@ -137,7 +139,7 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 - **Podstawa prawna:** obowiązek prawny (art. 6 ust. 1 lit. c RODO) wynikający z art. 16 i 17 rozporządzenia (UE) 2022/2065 (akt o usługach cyfrowych)
 - **Dane:** dane z punktu 2.6
-- **Opis:** przyjęcie zgłoszenia, potwierdzenie jego otrzymania, rozpatrzenie, poinformowanie zgłaszającego o decyzji oraz przekazanie uzasadnienia osobie, której decyzja dotyczy. Uzasadnienie nie zawiera danych zgłaszającego
+- **Opis:** przyjęcie zgłoszenia, potwierdzenie jego otrzymania, rozpatrzenie, poinformowanie zgłaszającego o decyzji oraz przekazanie uzasadnienia osobie, której decyzja dotyczy. Uzasadnienie nie zawiera danych zgłaszającego. Korespondencję w sprawie, także odwołanie, przyjmujemy pod staff@zagrajmy.net i przechowujemy przy sprawie
 
 ## 4. ODBIORCY DANYCH
 
@@ -206,6 +208,7 @@ Dane osobowe przechowujemy:
 - **Historia aktywności:** do momentu usunięcia konta
 - **Wiadomości czatu:** trwale usuwamy rok po napisaniu, w każdym rodzaju rozmowy. Czaty wydarzeń i rozmowy przy punktach programu usuwamy wcześniej, 30 dni po zakończeniu wydarzenia. Kopię treści i nazwę autora, zachowane przy zgłoszeniu wiadomości, również usuwamy rok po jej napisaniu. Samo zgłoszenie zostaje jako zapis moderacji
 - **Zgłoszenia nielegalnych treści, decyzje i uzasadnienia:** przez 3 lata od decyzji, aby móc rozpatrzyć odwołanie i wykazać, jak sprawa została załatwiona
+- **Korespondencja i wątki spraw moderacyjnych:** przez 3 lata, z tego samego powodu. Wiadomości w wątku sprawy usuwamy trwale 3 lata po napisaniu. Nie dotyczy ich roczny termin wiadomości czatu
 - **Logi techniczne:** maksymalnie 12 miesięcy
 - **Historia zmian w panelu organizatora i logi importu programu:** przez czas trwania wydarzenia i 12 miesięcy po jego zakończeniu. Są to zapisy tego, kto wprowadził zmianę, więc pozostają także po usunięciu opisywanego wpisu
 - **Wpisy usunięte przez organizatora:** oznaczamy jako usunięte i przechowujemy przez 12 miesięcy, aby dało się cofnąć pomyłkę

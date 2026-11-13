@@ -81,7 +81,9 @@ to sprawa jak każda inna: trafia na `staff@zagrajmy.net` i do skrzynki spraw.
 
 - Na żądanie z art. 24 ust. 3 (od UKE albo Komisji) bez zbędnej zwłoki podaj
   średnią miesięczną liczbę aktywnych odbiorców w UE z ostatnich sześciu
-  miesięcy, liczoną na dzień żądania, i opisz, jak ją policzyliśmy.
+  miesięcy. Dolną granicę liczy `mise run dj monthly_active_recipients`
+  (konta, które się zalogowały lub zapisały), górną — unikalni odwiedzający
+  w analityce Cloudflare. Napisz, która jest która i jak je policzyliśmy.
 - Na każde inne żądanie odpowiedz w terminie z pisma. Gdy nie zdążymy, napisz
   przed terminem, kiedy odpowiemy.
 - Odpowiadaj z tej sprawy, żeby numer sprawy był w temacie, a cała

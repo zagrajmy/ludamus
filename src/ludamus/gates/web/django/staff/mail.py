@@ -25,7 +25,8 @@ from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
-from ludamus.pacts.staff_cases import InboundEmail, case_reference
+from ludamus.pacts.moderation import case_reference
+from ludamus.pacts.staff_cases import InboundEmail
 
 if TYPE_CHECKING:
     from email.message import MIMEPart
@@ -63,9 +64,7 @@ def _signed(header: str, *, secret: str, body: bytes, now: float) -> bool:
 def _text(message: MIMEPart) -> str:
     if (part := message.get_body(preferencelist=("plain", "html"))) is None:
         return ""
-    content = part.get_content()
-    if not isinstance(content, str):
-        return ""
+    content: str = part.get_content()
     return strip_tags(content) if part.get_content_type() == "text/html" else content
 
 

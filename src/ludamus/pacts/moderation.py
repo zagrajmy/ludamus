@@ -221,8 +221,9 @@ class ReporterOutcome(BaseModel):
 
 
 class ModerationCaseRepositoryProtocol(Protocol):
+    # A closed case is one staff opened only to record what they did.
     @staticmethod
-    def open() -> int: ...
+    def open(*, closed: bool = False) -> int: ...
 
 
 class ContentNoticeRepositoryProtocol(Protocol):

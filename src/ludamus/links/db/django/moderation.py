@@ -36,8 +36,9 @@ if TYPE_CHECKING:
 
 class ModerationCaseRepository(ModerationCaseRepositoryProtocol):
     @staticmethod
-    def open() -> int:
-        return ModerationCase.objects.create().pk
+    def open(*, closed: bool = False) -> int:
+        status = ModerationCase.Status.CLOSED if closed else ModerationCase.Status.OPEN
+        return ModerationCase.objects.create(status=status).pk
 
 
 class ContentNoticeRepository(ContentNoticeRepositoryProtocol):

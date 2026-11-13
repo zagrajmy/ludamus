@@ -5,10 +5,13 @@ What could go wrong, and so what the tests below check:
 - the hook answers while no secret is set, so anyone can post to it;
 - a message naming a case opens a new one, or one naming none is dropped;
 - a redelivered message is filed twice;
-- a message without a sender is filed with nobody to answer.
+- a message without a sender is filed with nobody to answer;
+- an HTML-only message is filed with its markup, an attachment-only one or one
+  without a Message-ID is dropped, an oversized one breaks the hook.
 """
 
 import time
+from email.message import EmailMessage
 from http import HTTPStatus
 
 import pytest
@@ -16,10 +19,10 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.staff.mail import SIGNATURE_HEADER, signature
 from ludamus.links.db.django.models import (
+    CaseEmail,
+    ModerationCase,
     ParleyConversation,
     ParleyConversationMember,
-    StaffCase,
-    StaffCaseEmail,
 )
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -78,7 +81,7 @@ class TestSignature:
         assert_response(
             response, HTTPStatus.UNAUTHORIZED, json={"error": "Bad signature."}
         )
-        assert not StaffCase.objects.exists()
+        assert not ModerationCase.objects.exists()
 
     def test_refuses_a_body_changed_after_signing(self, client):
         stamp = int(time.time())
@@ -97,7 +100,32 @@ class TestSignature:
         assert_response(
             response, HTTPStatus.UNAUTHORIZED, json={"error": "Bad signature."}
         )
-        assert not StaffCase.objects.exists()
+        assert not ModerationCase.objects.exists()
+
+    def test_refuses_a_signature_without_a_time(self, client):
+        response = client.generic(
+            "POST",
+            URL,
+            _mail(),
+            content_type="message/rfc822",
+            headers={SIGNATURE_HEADER: "t=soon,v1=abc"},
+        )
+
+        assert_response(
+            response, HTTPStatus.UNAUTHORIZED, json={"error": "Bad signature."}
+        )
+
+    def test_refuses_a_message_over_the_upload_limit(self, client, settings):
+        settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 10
+
+        response = _post(client, _mail())
+
+        assert_response(
+            response,
+            HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            json={"error": "Message too large."},
+        )
+        assert not ModerationCase.objects.exists()
 
     def test_refuses_a_missing_signature(self, client):
         response = client.generic("POST", URL, _mail(), content_type="message/rfc822")
@@ -112,7 +140,7 @@ class TestSignature:
         response = _post(client, _mail())
 
         assert_response_404(response)
-        assert not StaffCase.objects.exists()
+        assert not ModerationCase.objects.exists()
 
 
 class TestRouting:
@@ -121,23 +149,22 @@ class TestRouting:
     ):
         response = _post(client, _mail())
 
-        case = StaffCase.objects.get()
+        case = ModerationCase.objects.get()
         assert_response(
             response, HTTPStatus.OK, json={"outcome": "opened", "case": f"Z-{case.pk}"}
         )
-        assert (case.kind, case.title, case.external_email, case.external_name) == (
-            "email",
+        assert (case.title, case.external_email, case.external_name) == (
             "Zgłoszenie treści",
             "ola@example.com",
             "Ola W.",
         )
-        assert case.conversation.kind == ParleyConversation.Kind.STAFF
+        assert case.thread.kind == ParleyConversation.Kind.STAFF
         assert list(
             ParleyConversationMember.objects.filter(
-                conversation=case.conversation
+                conversation=case.thread
             ).values_list("user_id", "state")
         ) == [(staff_user.pk, "active")]
-        email = StaffCaseEmail.objects.get()
+        email = CaseEmail.objects.get()
         assert (email.direction, email.message_id, email.body) == (
             "in",
             "<abc@mail.example>",
@@ -146,8 +173,8 @@ class TestRouting:
 
     def test_a_case_number_in_the_subject_files_it_with_that_case(self, client):
         _post(client, _mail())
-        case = StaffCase.objects.get()
-        StaffCase.objects.filter(pk=case.pk).update(status="waiting")
+        case = ModerationCase.objects.get()
+        ModerationCase.objects.filter(pk=case.pk).update(status="waiting")
 
         response = _post(
             client,
@@ -159,11 +186,9 @@ class TestRouting:
             HTTPStatus.OK,
             json={"outcome": "attached", "case": f"Z-{case.pk}"},
         )
-        assert StaffCase.objects.get().status == "open"
+        assert ModerationCase.objects.get().status == "open"
         assert list(
-            StaffCaseEmail.objects.filter(case=case).values_list(
-                "message_id", flat=True
-            )
+            CaseEmail.objects.filter(case=case).values_list("message_id", flat=True)
         ) == ["<abc@mail.example>", "<reply@x>"]
 
     def test_delivered_twice_is_filed_once(self, client):
@@ -171,12 +196,12 @@ class TestRouting:
 
         again = _post(client, _mail())
 
-        case = StaffCase.objects.get()
+        case = ModerationCase.objects.get()
         assert first.json()["outcome"] == "opened"
         assert_response(
             again, HTTPStatus.OK, json={"outcome": "duplicate", "case": f"Z-{case.pk}"}
         )
-        assert StaffCaseEmail.objects.count() == 1
+        assert CaseEmail.objects.count() == 1
 
     def test_mail_without_a_sender_is_refused(self, client):
         response = _post(client, _mail(sender=""))
@@ -186,4 +211,35 @@ class TestRouting:
             HTTPStatus.UNPROCESSABLE_ENTITY,
             json={"error": "No sender address."},
         )
-        assert not StaffCase.objects.exists()
+        assert not ModerationCase.objects.exists()
+
+
+class TestParsing:
+    def test_reads_an_html_only_message_as_text_and_names_its_attachments(self, client):
+        message = EmailMessage()
+        message["From"] = "ola@example.com"
+        message["Subject"] = "Zrzut"
+        message.set_content("<p>Patrz <b>zrzut</b>.</p>", subtype="html")
+        message.add_attachment(
+            b"%PDF", maintype="application", subtype="pdf", filename="zrzut.pdf"
+        )
+
+        _post(client, message.as_bytes())
+
+        email = CaseEmail.objects.get()
+        assert (email.body, email.attachments, email.message_id[-7:]) == (
+            "Patrz zrzut.",
+            ["zrzut.pdf"],
+            "@posta>",
+        )
+
+    def test_files_an_attachment_with_no_text_at_all(self, client):
+        message = EmailMessage()
+        message["From"] = "ola@example.com"
+        message["Message-ID"] = "<only-file@mail.example>"
+        message.add_attachment(b"\x89PNG", maintype="image", subtype="png")
+
+        _post(client, message.as_bytes())
+
+        email = CaseEmail.objects.get()
+        assert (email.body, email.attachments, email.subject) == ("", ["image/png"], "")

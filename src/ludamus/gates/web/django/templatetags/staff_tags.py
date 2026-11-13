@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING
 from django import template
 
 from ludamus.gates.web.django.staff.forms import (
-    ACTION_LABELS,
+    DECISION_LABELS,
     GROUND_LABELS,
     KIND_LABELS,
 )
-from ludamus.pacts.staff_cases import ModerationAction, ModerationGround, StaffCaseKind
+from ludamus.pacts.moderation import ModerationDecision, ModerationGround
+from ludamus.pacts.staff_cases import CaseKind
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
@@ -19,12 +20,12 @@ register = template.Library()
 
 @register.filter
 def kind_label(kind: str) -> _StrPromise:
-    return KIND_LABELS[StaffCaseKind(kind)]
+    return KIND_LABELS[CaseKind(kind)]
 
 
 @register.filter
-def action_label(action: str) -> _StrPromise:
-    return ACTION_LABELS[ModerationAction(action)]
+def decision_label(decision: str) -> _StrPromise:
+    return DECISION_LABELS[ModerationDecision(decision)]
 
 
 @register.filter

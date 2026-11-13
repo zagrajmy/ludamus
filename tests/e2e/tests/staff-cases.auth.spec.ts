@@ -16,7 +16,7 @@ const mailFiles = (): string[] => (fs.existsSync(mailDir) ? fs.readdirSync(mailD
 const readMailSince = (before: Set<string>): string[] =>
   mailFiles()
     .filter((file) => !before.has(file))
-    .map((file) => fs.readFileSync(path.join(mailDir, file), "utf8"));
+    .flatMap((file) => fs.readFileSync(path.join(mailDir, file), "utf8").split("-".repeat(79)));
 
 function staffMail({ from, subject }: { from: string; subject: string }): string {
   return [
@@ -34,9 +34,9 @@ function staffMail({ from, subject }: { from: string; subject: string }): string
 test.describe("Staff cases inbox", () => {
   test.use({ storageState: superuserState });
 
-  test("staff answer an emailed report by email and decide it", async ({ page }) => {
+  test("staff answer an email by email and close its case", async ({ page }) => {
     const stamp = Date.now();
-    const subject = `Report ${stamp}`;
+    const subject = `Question ${stamp}`;
     const from = `ola-${stamp}@example.com`;
     const body = staffMail({ from, subject });
     const timestamp = Math.floor(Date.now() / 1_000);
@@ -59,11 +59,6 @@ test.describe("Staff cases inbox", () => {
     await page.getByRole("link", { name: new RegExp(subject) }).click();
     await expect(page.getByRole("heading", { name: subject, level: 2 })).toBeVisible();
     await expect(page.getByText("Someone keeps asking my brother")).toBeVisible();
-    await attachArtifacts(test.info(), {
-      name: "staff-case",
-      region: page.getByRole("main"),
-      facts: { reference, subject, from },
-    });
 
     const mailBefore = new Set(mailFiles());
     await page.getByLabel("Reply as the staff address").fill("Thank you, we are on it.");
@@ -79,20 +74,69 @@ test.describe("Staff cases inbox", () => {
         { timeout: 10_000 },
       )
       .toBe(1);
+    await attachArtifacts(test.info(), {
+      name: "staff-case-email",
+      region: page.getByRole("main"),
+      facts: { reference, subject, from },
+    });
 
-    await page.getByRole("radio", { name: "Remove content" }).check();
-    await expect(page.getByText("We removed your message.")).toBeVisible();
-    await page.getByRole("button", { name: "Confirm decision" }).click();
-    await expect(page.getByText("Decision recorded. The case is closed.")).toBeVisible();
-    await expect(page.getByText(/Remove content, on the ground of/)).toBeVisible();
+    await page.getByRole("button", { name: "Close case" }).click();
+    await expect(page.getByText("Case closed.")).toBeVisible();
     await expect(page.getByRole("tab", { name: /Closed/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
+  });
+
+  test("staff decide a notice and its reporter hears the outcome", async ({ page }, testInfo) => {
+    const reporter = `notice-${Date.now().toString(36)}-${testInfo.workerIndex}@example.com`;
+    await page.setExtraHTTPHeaders({
+      "CF-Connecting-IP": `203.0.113.${(Date.now() % 250) + 1}`,
+    });
+    await page.goto("/report/?url=/event/autumn-open/");
+    await page
+      .getByLabel("What is wrong with it")
+      .selectOption({ label: "Fraud, scam or phishing" });
+    await page.getByLabel("Why it is illegal").fill("The description asks for card numbers.");
+    await page.getByLabel("Your name").fill("Ola Tester");
+    await page.getByLabel("Your email").fill(reporter);
+    await page.getByRole("checkbox", { name: /good faith/u }).check();
+    await page.getByRole("button", { name: "Send report" }).click();
+    const reference = await page.getByRole("main").locator("strong").innerText();
+
+    await page.goto("/staff/cases/");
+    await page
+      .getByRole("link", { name: /The description asks for card numbers/ })
+      .first()
+      .click();
+    await expect(page.getByRole("main").getByText(reference, { exact: true })).toBeVisible();
+
+    await page.getByRole("radio", { name: "No action" }).check();
+    await expect(
+      page.getByText("None: with no action taken, only the reporters hear the outcome."),
+    ).toBeVisible();
+    await page.getByRole("radio", { name: "Warning" }).check();
+    await page.getByLabel("Decision text").fill("The description was changed by its organizer.");
+    await expect(page.getByText(/Zagrajmy staff decided on a warning/u)).toBeVisible();
+
+    const mailBefore = new Set(mailFiles());
+    await page.getByRole("button", { name: "Confirm decision" }).click();
+    await expect(page.getByText("Decision recorded. The case is closed.")).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          readMailSince(mailBefore)
+            .map(mailHeaders)
+            .filter(
+              (headers) => headers.to === reporter && headers.subject?.includes(`[${reference}]`),
+            ).length,
+        { timeout: 10_000 },
+      )
+      .toBe(1);
     await attachArtifacts(test.info(), {
       name: "staff-case-decided",
       region: page.getByRole("main"),
-      facts: { reference, action: "remove", mailedTo: from },
+      facts: { reference, decision: "warning", reporter },
     });
   });
 });
