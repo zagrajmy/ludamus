@@ -65,6 +65,15 @@ class ModerationGround(StrEnum):
     TERMS_UNAUTHORISED_ACCESS = "terms_4_1_8"
 
 
+class CaseStatus(StrEnum):
+    """Where a case stands for staff, apart from how its records were decided."""
+
+    OPEN = "open"
+    # Staff answered and wait on the other side.
+    WAITING = "waiting"
+    CLOSED = "closed"
+
+
 class ModerationSource(StrEnum):
     NOTICE = "notice"
     CHAT_REPORT = "chat_report"
@@ -221,9 +230,8 @@ class ReporterOutcome(BaseModel):
 
 
 class ModerationCaseRepositoryProtocol(Protocol):
-    # A closed case is one staff opened only to record what they did.
     @staticmethod
-    def open(*, closed: bool = False) -> int: ...
+    def open(*, status: CaseStatus) -> int: ...
 
 
 class ContentNoticeRepositoryProtocol(Protocol):

@@ -43,6 +43,8 @@ export type Membership = {
   members: Member[];
   // Whether only a pass with direct messages open gets in.
   needsDirect: boolean;
+  // How long each message is kept, in seconds.
+  retainFor: number;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
@@ -56,16 +58,12 @@ export type Reported = Pick<
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
 
-export type ThreadSource = "case_opened" | "decision" | "email_in" | "email_out" | "note";
-
 export type ThreadPost = {
   authorId: string;
   authorName: string;
   body: string;
   conversation: string;
   nonce: string;
-  retainFor: number;
-  source: ThreadSource;
 };
 
 export type Revocation = {

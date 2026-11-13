@@ -88,8 +88,9 @@ class ParleyConversationPolicy(BaseModel):
     # Two people in it are a direct message by another name, so two talk
     # only when direct messages are open to both.
     pair_needs_direct: bool
-    # Only staff (`is_staff`) are let in: a staff case's thread.
-    staff_only: bool = False
+    # Only staff (`is_staff`) are let in, and its messages are moderation
+    # records: a staff case's thread.
+    staff_only: bool
 
 
 CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy] = (
@@ -100,18 +101,21 @@ CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy]
                 self_managed=True,
                 one_to_one=True,
                 pair_needs_direct=False,
+                staff_only=False,
             ),
             ParleyConversationKind.GROUP: ParleyConversationPolicy(
                 needs_direct=True,
                 self_managed=True,
                 one_to_one=False,
                 pair_needs_direct=False,
+                staff_only=False,
             ),
             ParleyConversationKind.PARTY: ParleyConversationPolicy(
                 needs_direct=False,
                 self_managed=False,
                 one_to_one=False,
                 pair_needs_direct=True,
+                staff_only=False,
             ),
             ParleyConversationKind.STAFF: ParleyConversationPolicy(
                 needs_direct=False,
@@ -404,6 +408,8 @@ class ParleyMembershipClaims(BaseModel):
     kind: ParleyConversationKind
     # Whether only people direct messages are open to may be in it.
     needs_direct: bool = Field(serialization_alias="needsDirect")
+    # How long the room keeps each message, in seconds.
+    retain_for: int = Field(serialization_alias="retainFor")
     # Each member's id, state and whether they may write right now.
     members: list[dict[str, str | bool]]
     iat: int
@@ -417,7 +423,7 @@ class ParleyMemberSnapshot(BaseModel):
     writable: bool
     age_band: AgeBand
     signs_in: bool
-    is_staff: bool = False
+    is_staff: bool
 
 
 class ParleyMembership(BaseModel):

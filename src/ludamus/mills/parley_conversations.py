@@ -28,9 +28,11 @@ from ludamus.specs.parley import (
     PARLEY_DIRECT_AGE_BANDS,
     PARLEY_GROUP_MAX_MEMBERS,
     PARLEY_GROUP_TITLE_MAX_LENGTH,
+    PARLEY_MESSAGE_LIFETIME,
     PARLEY_PAIR,
     PARLEY_PEOPLE_SEARCH_LIMIT,
     PARLEY_PEOPLE_SEARCH_MIN_LENGTH,
+    PARLEY_STAFF_THREAD_LIFETIME,
 )
 
 if TYPE_CHECKING:
@@ -488,6 +490,13 @@ def sign_membership(
             conversation=str(conversation_id),
             kind=kind,
             needs_direct=policy.needs_direct,
+            retain_for=int(
+                (
+                    PARLEY_STAFF_THREAD_LIFETIME
+                    if policy.staff_only
+                    else PARLEY_MESSAGE_LIFETIME
+                ).total_seconds()
+            ),
             members=[
                 {
                     "user": str(member.user_id),

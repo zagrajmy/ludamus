@@ -27,7 +27,7 @@ from ludamus.pacts.parley import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.staff_cases import StaffThreadEntry, StaffThreadProtocol
+    from ludamus.pacts.staff_cases import StaffThreadEntry
 
 logger = logging.getLogger(__name__)
 
@@ -134,26 +134,27 @@ def parley_message_reader() -> ParleyMessageReaderProtocol:
     )
 
 
+def deliver_thread_post(entry: StaffThreadEntry) -> None:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    ParleyWorkerClient(agent_host).post_to_conversation(
+        JwtSigner(private_key).sign(thread_post_claims(entry, now=datetime.now(UTC)))
+    )
+
+
 class InlineStaffThread:
     """Posts into a case's thread after commit, once; the case stands without it."""
 
     @staticmethod
     def post(entry: StaffThreadEntry) -> None:
-        agent_host: str = settings.PARLEY_AGENT_HOST
-        private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-
         def deliver() -> None:
             try:
-                ParleyWorkerClient(agent_host).post_to_conversation(
-                    JwtSigner(private_key).sign(
-                        thread_post_claims(entry, now=datetime.now(UTC))
-                    )
-                )
+                deliver_thread_post(entry)
             except Exception:
                 logger.exception(
                     "staff thread post failed: thread=%s event=%s",
                     entry.thread_id,
-                    entry.event,
+                    entry.message.event,
                 )
 
         transaction.on_commit(deliver)
@@ -166,11 +167,3 @@ class DisabledStaffThread:
             "parley not configured, staff thread post dropped: thread=%s",
             entry.thread_id,
         )
-
-
-def staff_thread() -> StaffThreadProtocol:
-    agent_host: str = settings.PARLEY_AGENT_HOST
-    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-    if agent_host and private_key:
-        return InlineStaffThread()
-    return DisabledStaffThread()

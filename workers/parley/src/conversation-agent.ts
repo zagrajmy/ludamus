@@ -11,7 +11,7 @@ import type {
   ThreadPost,
 } from "./protocol";
 
-import { NOT_A_MEMBER, RoomAgent, type Env, type MessageRow } from "./room-agent";
+import { NOT_A_MEMBER, RoomAgent, type Env } from "./room-agent";
 
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
@@ -21,14 +21,10 @@ export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";
 
   async onStart(): Promise<void> {
-    // NOTE: before the base class starts, whose sweep asks how long messages live here.
+    // NOTE: before the base class starts: its sweep asks how long messages live.
     void this.sql`CREATE TABLE IF NOT EXISTS retention (
       singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
       lifetime_ms INTEGER NOT NULL
-    )`;
-    void this.sql`CREATE TABLE IF NOT EXISTS posted (
-      message_id INTEGER PRIMARY KEY,
-      source TEXT NOT NULL
     )`;
     await super.onStart();
     void this.sql`CREATE TABLE IF NOT EXISTS conversation (
@@ -73,6 +69,9 @@ export class ParleyConversationAgent extends RoomAgent {
     void this.sql`INSERT INTO entry (singleton, needs_direct)
       VALUES (1, ${membership.needsDirect ? 1 : 0})
       ON CONFLICT(singleton) DO UPDATE SET needs_direct = excluded.needs_direct`;
+    void this.sql`INSERT INTO retention (singleton, lifetime_ms)
+      VALUES (1, ${membership.retainFor * 1_000})
+      ON CONFLICT(singleton) DO UPDATE SET lifetime_ms = excluded.lifetime_ms`;
     void this.sql`DELETE FROM members`;
     for (const member of membership.members) {
       void this.sql`INSERT INTO members (user_id, state, writable)
@@ -86,38 +85,26 @@ export class ParleyConversationAgent extends RoomAgent {
   }
 
   // Not @callable: Django writes a case's events, email and staff notes here.
-  async post(post: ThreadPost): Promise<Message> {
-    void this
-      .sql`INSERT INTO retention (singleton, lifetime_ms) VALUES (1, ${post.retainFor * 1_000})
-      ON CONFLICT(singleton) DO UPDATE SET lifetime_ms = excluded.lifetime_ms`;
+  // False until Django has said this room is a case's thread.
+  post(post: ThreadPost): boolean {
+    const kind = this.sql<{ kind: string }>`SELECT kind FROM conversation`[0]?.kind;
+    if (kind !== "staff") return false;
     this.purgeExpiredMessages();
-    const existing = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${post.authorId} AND client_nonce = ${post.nonce}`[0];
-    if (existing !== undefined) return this.message(existing, { reactions: {}, reactors: {} });
-    const now = Date.now();
-    void this
-      .sql`INSERT INTO messages (author_id, author_name, author_avatar_url, body, client_nonce, created_at)
-      VALUES (${post.authorId}, ${post.authorName}, '', ${post.body}, ${post.nonce}, ${now})`;
-    const row = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${post.authorId} AND client_nonce = ${post.nonce}`[0]!;
-    void this.sql`INSERT INTO posted (message_id, source) VALUES (${row.id}, ${post.source})`;
-    const message = this.message(row, { reactions: {}, reactors: {} });
-    this.emit({ type: "message.created", v: 1, payload: message });
-    await this.scheduleSweep({ earliest: now, idempotent: true });
-    this.afterMessage(message);
-    return message;
+    if (this.sentMessage(post.authorId, post.nonce) === null) {
+      this.writeMessage({
+        avatar: "",
+        body: post.body,
+        id: post.authorId,
+        name: post.authorName,
+        nonce: post.nonce,
+      });
+    }
+    return true;
   }
 
   protected messageLifetime(): number {
     const kept = this.sql<{ lifetime_ms: number }>`SELECT lifetime_ms FROM retention`[0];
     return kept?.lifetime_ms ?? super.messageLifetime();
-  }
-
-  protected purgeExpiredMessages(): void {
-    const cutoff = Date.now() - this.messageLifetime();
-    void this.sql`DELETE FROM posted
-      WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
-    super.purgeExpiredMessages();
   }
 
   protected writeError(capability: Capability): RpcError | null {

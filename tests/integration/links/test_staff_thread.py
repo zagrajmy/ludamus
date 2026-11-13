@@ -4,10 +4,10 @@ What could go wrong, and so what the tests below check:
 - an email or system event shows as written by a staff member, or a staff
   member's words as the system's;
 - a decision does not say whether anything was done;
-- the Worker gets the chat's retention instead of the case's, or a body it refuses.
+- the Worker gets a body longer than it takes.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 
@@ -16,11 +16,17 @@ from ludamus.pacts.moderation import ModerationStatus
 from ludamus.pacts.staff_cases import (
     STAFF_THREAD_POST_MAX_LENGTH,
     CaseKind,
+    CaseOpenedPost,
+    DecisionPost,
+    EmailInPost,
+    EmailOutPost,
+    NotePost,
+    StaffMemberDTO,
     StaffThreadEntry,
-    StaffThreadEvent,
 )
 
 NOW = datetime(2026, 11, 12, 14, 0, tzinfo=UTC)
+PIOTR = StaffMemberDTO(pk=4, name="Piotr")
 
 pytestmark = pytest.mark.usefixtures("_english")
 
@@ -30,52 +36,30 @@ def _english(settings):
     settings.LANGUAGE_CODE = "en"
 
 
-def _entry(event, **overrides):
-    return StaffThreadEntry(
-        **{
-            "thread_id": 9,
-            "event": event,
-            "author_id": None,
-            "author_name": "",
-            "body": "",
-            "details": {"reference": "Z-1"},
-            "nonce": "n-1",
-            "retain_for": timedelta(days=1095),
-            **overrides,
-        }
-    )
+def _entry(message):
+    return StaffThreadEntry(thread_id=9, reference="Z-1", message=message, nonce="n-1")
 
 
 @pytest.mark.parametrize(
-    ("entry", "author", "name", "body"),
+    ("message", "author", "name", "body"),
     (
         pytest.param(
-            _entry(
-                StaffThreadEvent.CASE_OPENED,
-                body="Spam",
-                details={"reference": "Z-1", "kind": CaseKind.CHAT_REPORT},
-            ),
+            CaseOpenedPost(kind=CaseKind.CHAT_REPORT, title="Spam"),
             "system",
             "Chat report",
             "Case Z-1 opened: Spam",
             id="chat report opened",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.CASE_OPENED,
-                details={"reference": "Z-2", "kind": CaseKind.STATEMENT},
-            ),
+            CaseOpenedPost(kind=CaseKind.STATEMENT, title=""),
             "system",
             "Statement of reasons",
-            "Case Z-2 opened: —",
+            "Case Z-1 opened: —",
             id="statement case opened",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.EMAIL_IN,
-                author_name="Ola W.",
-                body="Mam zrzut.",
-                details={"subject": "Re: [Z-1]", "attachments": "2"},
+            EmailInPost(
+                sender="Ola W.", subject="Re: [Z-1]", body="Mam zrzut.", attachments=2
             ),
             "email",
             "Ola W. (email)",
@@ -84,37 +68,22 @@ def _entry(event, **overrides):
             id="email in",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.EMAIL_IN,
-                author_name="Ola W.",
-                body="Bez załączników.",
-                details={"subject": "Hej", "attachments": "0"},
-            ),
+            EmailInPost(sender="Ola W.", subject="Hej", body="Treść.", attachments=0),
             "email",
             "Ola W. (email)",
-            "Subject: Hej\n\nBez załączników.",
+            "Subject: Hej\n\nTreść.",
             id="email in without attachments",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.EMAIL_OUT,
-                author_id=4,
-                author_name="Piotr",
-                body="Dziękujemy.",
-                details={"address": "ola@example.com"},
-            ),
+            EmailOutPost(staff=PIOTR, address="ola@example.com", body="Dziękujemy."),
             "4",
             "Piotr (email)",
             "Sent to ola@example.com:\n\nDziękujemy.",
             id="email out",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.DECISION,
-                author_id=4,
-                author_name="Piotr",
-                body="Usunięte.",
-                details={"status": ModerationStatus.ACTIONED},
+            DecisionPost(
+                staff=PIOTR, status=ModerationStatus.ACTIONED, decision_text="Usunięte."
             ),
             "4",
             "Piotr",
@@ -122,48 +91,38 @@ def _entry(event, **overrides):
             id="actioned",
         ),
         pytest.param(
-            _entry(
-                StaffThreadEvent.DECISION,
-                author_id=4,
-                author_name="Piotr",
-                body="Bez naruszenia.",
-                details={"status": ModerationStatus.REJECTED},
+            DecisionPost(
+                staff=PIOTR,
+                status=ModerationStatus.REJECTED,
+                decision_text="Bez naruszenia.",
             ),
             "4",
             "Piotr",
             "Decided: no action.\n\nBez naruszenia.",
             id="rejected",
         ),
-        pytest.param(
-            _entry(StaffThreadEvent.NOTE, author_id=4, author_name="Piotr", body="Hm"),
-            "4",
-            "Piotr",
-            "Hm",
-            id="note",
-        ),
+        pytest.param(NotePost(staff=PIOTR, body="Hm"), "4", "Piotr", "Hm", id="note"),
     ),
 )
-def test_words_each_post_under_its_author(entry, author, name, body):
-    claims = thread_post_claims(entry, now=NOW)
+def test_words_each_post_under_its_author(message, author, name, body):
+    claims = thread_post_claims(_entry(message), now=NOW)
 
     assert (claims.author, claims.name, claims.body) == (author, name, body)
 
 
-def test_signs_the_case_retention_and_a_body_the_worker_takes():
-    entry = _entry(StaffThreadEvent.NOTE, author_id=4, body="x" * 5_000)
-
-    claims = thread_post_claims(entry, now=NOW).model_dump()
+def test_signs_a_body_the_worker_takes_for_its_room():
+    claims = thread_post_claims(
+        _entry(NotePost(staff=PIOTR, body="x" * 5_000)), now=NOW
+    ).model_dump()
 
     issued = int(NOW.timestamp())
     assert {
-        key: claims[key]
-        for key in ("aud", "conversation", "retainFor", "iat", "exp", "source")
+        key: claims[key] for key in ("aud", "conversation", "nonce", "iat", "exp")
     } == {
         "aud": "parley-post",
         "conversation": "9",
-        "retainFor": 1095 * 86_400,
+        "nonce": "n-1",
         "iat": issued,
         "exp": issued + 600,
-        "source": StaffThreadEvent.NOTE,
     }
     assert len(claims["body"]) == STAFF_THREAD_POST_MAX_LENGTH

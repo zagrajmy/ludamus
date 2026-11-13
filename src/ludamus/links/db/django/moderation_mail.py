@@ -32,6 +32,7 @@ from ludamus.pacts.moderation import (
     ModerationSource,
     ModerationStatus,
     NoticeCategory,
+    StatementOfReasons,
     case_reference,
 )
 from ludamus.pacts.staff_cases import StaffCaseMailerProtocol
@@ -40,10 +41,10 @@ if TYPE_CHECKING:
     from ludamus.links.db.django.delivery import Mail
     from ludamus.links.db.django.recipients import Recipient
     from ludamus.pacts.moderation import (
+        ModerationVerdict,
         NoticeReceipt,
         ReporterOutcome,
         StaffAlert,
-        StatementOfReasons,
     )
 
 logger = logging.getLogger(__name__)
@@ -315,8 +316,21 @@ class DjangoModerationMailer(ModerationMailerProtocol, StaffCaseMailerProtocol):
         return True
 
     @staticmethod
-    def statement_text(statement: StatementOfReasons) -> str:
-        return _statement_body(statement)
+    def verdict_text(verdict: ModerationVerdict) -> str:
+        if verdict.ground is None:
+            return ""
+        return _statement_body(
+            StatementOfReasons(
+                user_id=0,
+                case_id=None,
+                decision=verdict.decision,
+                ground=verdict.ground,
+                facts=verdict.decision_text,
+                from_report=True,
+                legal_provision=verdict.legal_provision,
+                suspended_until=verdict.suspended_until,
+            )
+        )
 
     @staticmethod
     def send_reply(*, to: str, subject: str, body: str, nonce: str) -> None:

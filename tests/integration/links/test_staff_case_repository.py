@@ -5,15 +5,20 @@ What could go wrong, and so what the tests below check:
   without marking them active; an unchanged thread is reported as changed;
 - the sync reaches a conversation that is not a case's thread;
 - a case gets two threads when two requests open it at once;
-- a reply goes to someone other than whoever last wrote in, or the reporter;
-- a case with a teen in its reported conversation is not seen as one;
-- the case shows another case's records, or a decision none of its records hold;
-- an ambiguous account identifier picks one of several people.
+- a reply goes to a stranger who put "[Z-n]" in a subject, rather than to the
+  case's own people;
+- a case with an urgent notice or a teen in its reported conversation is not
+  marked as child safety, or sinks below a newer one;
+- a case is named by the wrong kind, or shows a decision none of its records hold;
+- an ambiguous account identifier picks one of several people;
+- someone made staff in the admin stays out of the case threads.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
+from django.urls import reverse
 from django.utils import timezone
+from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import (
     CaseEmail,
@@ -22,21 +27,24 @@ from ludamus.links.db.django.models import (
     ParleyConversation,
     ParleyConversationMember,
     ParleyReport,
+    StatementOfReasons,
 )
 from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
 from ludamus.links.db.django.staff_cases import StaffCaseRepository
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
     NoticeCategory,
 )
 from ludamus.pacts.parley import ParleyConversationKind, ParleyMemberState
-from ludamus.pacts.staff_cases import CaseStatus, CaseVerdictDTO
+from ludamus.pacts.staff_cases import CaseKind, CaseVerdictDTO
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import SphereFactory, UserFactory
 
 ACTIVE, LEFT = ParleyMemberState.ACTIVE, ParleyMemberState.LEFT
+URGENT = frozenset({NoticeCategory.CHILD_SAFETY})
 
 
 def _states(thread_id):
@@ -76,6 +84,20 @@ def _report(case, **overrides):
     )
 
 
+def _mail_in(case, address, *, name="", message_id=None):
+    CaseEmail.objects.create(
+        case=case,
+        direction=CaseEmail.Direction.IN,
+        message_id=message_id or f"<{address}>",
+        address=address,
+        name=name,
+    )
+
+
+def _read(case):
+    return StaffCaseRepository.read(case.pk, urgent=URGENT)
+
+
 class TestThreads:
     def test_follow_who_is_staff_and_say_which_changed(self):
         piotr, radek, former = (UserFactory(is_staff=True) for _ in range(3))
@@ -110,7 +132,8 @@ class TestThreads:
         assert not _states(group.pk)
 
     def test_a_case_keeps_the_thread_it_got_first(self):
-        case = ModerationCase.objects.create(title="Spam")
+        case = ModerationCase.objects.create()
+        _report(case)
 
         first = StaffCaseRepository.open_thread(case.pk)
         second = StaffCaseRepository.open_thread(case.pk)
@@ -139,30 +162,38 @@ class TestThreads:
         )
 
 
-class TestRead:
-    def test_answers_whoever_wrote_in_last(self):
+class TestReplyTo:
+    def test_answers_the_last_of_the_case_s_own_people_who_wrote_in(self):
         case = ModerationCase.objects.create()
         _notice(case)
-        for address in ("first@example.com", "last@example.com"):
-            CaseEmail.objects.create(
-                case=case,
-                direction=CaseEmail.Direction.IN,
-                message_id=f"<{address}>",
-                address=address,
-                name="Last",
-            )
-        CaseEmail.objects.create(
+        author = UserFactory(email="author@example.com")
+        StatementOfReasons.objects.create(
             case=case,
-            direction=CaseEmail.Direction.OUT,
-            message_id="sent",
-            address="last@example.com",
+            user=author,
+            decision=ModerationDecision.CONTENT_REMOVED,
+            ground=ModerationGround.TERMS_OTHERS_RIGHTS,
+            facts="x",
+            from_report=True,
         )
+        _mail_in(case, "OLA@example.com", name="Ola")
+        _mail_in(case, "author@example.com", name="Author")
+        _mail_in(case, "stranger@example.com", name="Stranger")
 
-        read = StaffCaseRepository.read(case.pk)
+        read = _read(case)
 
-        assert (read.reply_to, read.reply_name) == ("last@example.com", "Last")
+        assert (read.reply_to, read.reply_name) == ("author@example.com", "Author")
 
-    def test_falls_back_to_the_notice_then_the_chat_reporter(self):
+    def test_a_stranger_naming_the_case_is_never_answered(self):
+        case = ModerationCase.objects.create()
+        _report(case)
+        _mail_in(case, "stranger@example.com")
+
+        assert _read(case).reply_to == "reporter@example.com"
+
+    def test_falls_back_to_the_sender_the_notice_then_the_chat_reporter(self):
+        emailed = ModerationCase.objects.create(
+            title="Z maila", external_email="ola@example.com", external_name="Ola"
+        )
         noticed = ModerationCase.objects.create()
         _notice(noticed, reporter_email="", reporter_name="")
         _notice(noticed)
@@ -170,14 +201,17 @@ class TestRead:
         _report(reported)
         nobody = ModerationCase.objects.create()
 
-        cases = [StaffCaseRepository.read(c.pk) for c in (noticed, reported, nobody)]
+        cases = [_read(c) for c in (emailed, noticed, reported, nobody)]
 
-        assert [(case.reply_to, case.reply_name, case.title) for case in cases] == [
-            ("ola@example.com", "Ola W.", "Obraźliwy opis"),
-            ("reporter@example.com", "Reporter", "Spam"),
-            ("", "", ""),
+        assert [(c.reply_to, c.reply_name, c.title, c.kind) for c in cases] == [
+            ("ola@example.com", "Ola", "Z maila", CaseKind.EMAIL),
+            ("ola@example.com", "Ola W.", "Obraźliwy opis", CaseKind.NOTICE),
+            ("reporter@example.com", "Reporter", "Spam", CaseKind.CHAT_REPORT),
+            ("", "", "", CaseKind.STATEMENT),
         ]
 
+
+class TestRead:
     def test_brings_its_records_and_how_they_were_decided(self):
         case = ModerationCase.objects.create(title="Z maila")
         _notice(
@@ -191,10 +225,13 @@ class TestRead:
         teen = UserFactory(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
         report = _report(case, reported_user=teen, author_name="")
 
-        read = StaffCaseRepository.read(case.pk)
+        read = _read(case)
 
-        assert read.title == "Z maila"
-        assert len(read.notices) == 1
+        assert (read.title, read.child_safety, len(read.notices)) == (
+            "Z maila",
+            True,
+            1,
+        )
         assert read.verdict == CaseVerdictDTO(
             status=ModerationStatus.ACTIONED,
             decision=ModerationDecision.CONTENT_REMOVED,
@@ -202,10 +239,10 @@ class TestRead:
             decision_text="Usunięte.",
         )
         (chat,) = read.chat_reports
-        assert (chat.pk, chat.involves_minor, chat.author_name) == (
+        assert (chat.pk, chat.author_name, chat.author_age_band) == (
             report.pk,
-            True,
             teen.get_full_name(),
+            AgeBand.THIRTEEN_TO_FIFTEEN,
         )
 
     def test_a_rejected_report_reads_as_a_decision_without_ground(self):
@@ -217,7 +254,7 @@ class TestRead:
             decision_text="Bez naruszenia.",
         )
 
-        assert StaffCaseRepository.read(case.pk).verdict == CaseVerdictDTO(
+        assert _read(case).verdict == CaseVerdictDTO(
             status=ModerationStatus.REJECTED,
             decision=ModerationDecision.NO_ACTION,
             ground=None,
@@ -226,12 +263,18 @@ class TestRead:
 
 
 class TestList:
-    def test_lists_one_state_newest_first_with_a_teen_in_the_conversation(self):
-        older = ModerationCase.objects.create()
-        newer = ModerationCase.objects.create()
-        ModerationCase.objects.filter(pk=older.pk).update(
-            created_at=timezone.now() - timedelta(days=1)
+    def test_puts_child_safety_first_then_the_newest_one_page_at_a_time(self):
+        now = timezone.now()
+        plain_old, plain_new, urgent, teen_chat = (
+            ModerationCase.objects.create() for _ in range(4)
         )
+        for age, case in enumerate((teen_chat, urgent, plain_new, plain_old)):
+            ModerationCase.objects.filter(pk=case.pk).update(
+                created_at=now - timedelta(days=age)
+            )
+        _notice(plain_old)
+        _notice(plain_new)
+        _notice(urgent, category=NoticeCategory.CHILD_SAFETY)
         conversation = ParleyConversation.objects.create(
             kind=ParleyConversationKind.PARTY
         )
@@ -240,17 +283,26 @@ class TestList:
             user=UserFactory(age_band=AgeBand.THIRTEEN_TO_FIFTEEN),
             state=ACTIVE,
         )
-        _report(newer, sphere=None, conversation=conversation, room_id="conversation:1")
-        _notice(older, category=NoticeCategory.CHILD_SAFETY)
+        _report(
+            teen_chat, sphere=None, conversation=conversation, room_id="conversation:1"
+        )
         ModerationCase.objects.create(status=CaseStatus.CLOSED)
 
-        rows = StaffCaseRepository.list_cases(CaseStatus.OPEN)
+        first = StaffCaseRepository.list_cases(
+            CaseStatus.OPEN, urgent=URGENT, limit=3, offset=0
+        )
+        rest = StaffCaseRepository.list_cases(
+            CaseStatus.OPEN, urgent=URGENT, limit=3, offset=3
+        )
 
-        assert [
-            (row.pk, row.involves_minor, row.notice_categories) for row in rows
-        ] == [(newer.pk, True, []), (older.pk, False, [NoticeCategory.CHILD_SAFETY])]
+        assert [(row.pk, row.child_safety) for row in first + rest] == [
+            (teen_chat.pk, True),
+            (urgent.pk, True),
+            (plain_new.pk, False),
+            (plain_old.pk, False),
+        ]
         assert StaffCaseRepository.count_by_status() == {
-            CaseStatus.OPEN: 2,
+            CaseStatus.OPEN: 4,
             CaseStatus.WAITING: 0,
             CaseStatus.CLOSED: 1,
         }
@@ -265,3 +317,26 @@ def test_names_an_account_only_when_one_matches():
         StaffCaseRepository.find_account(identifier)
         for identifier in ("marek", "MAREK@example.com", "shared@example.com", "nikt")
     ] == [marek.pk, marek.pk, None, None]
+
+
+def test_making_someone_staff_in_the_admin_brings_them_into_case_threads(client):
+    admin_user = UserFactory(is_staff=True, is_superuser=True)
+    client.force_login(admin_user)
+    thread = StaffCaseRepository.open_thread(ModerationCase.objects.create().pk)
+    StaffCaseRepository.set_thread_members(user_ids=[admin_user.pk], thread_ids=None)
+    newcomer = UserFactory()
+    url = reverse("admin:db_main_user_change", args=[newcomer.pk])
+    with zeal_ignore():
+        form = client.get(url).context["adminform"].form
+    data = {}
+    for name, field in form.fields.items():
+        value = form.initial.get(name, field.initial)
+        if isinstance(value, datetime):
+            data[f"{name}_0"] = value.date().isoformat()
+            data[f"{name}_1"] = value.time().strftime("%H:%M:%S")
+        elif value is not None and not isinstance(value, (list, tuple)):
+            data[name] = value
+
+    client.post(url, data | {"is_staff": "on", "password": "!unusable"})
+
+    assert _states(thread) == {admin_user.pk: ACTIVE, newcomer.pk: ACTIVE}

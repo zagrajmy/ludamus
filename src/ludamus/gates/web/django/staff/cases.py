@@ -16,43 +16,50 @@ from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.pages import CONTENT_DIR
+from ludamus.gates.web.django.pagination import windowed_pagination_context
 from ludamus.gates.web.django.staff.forms import AssignForm, DecisionForm, ReplyForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.moderation import (
+    CaseStatus,
     InvalidVerdictError,
     ModerationDecision,
     ModerationGround,
 )
-from ludamus.pacts.staff_cases import CaseStatus, StaffCaseError, StaffDecision
+from ludamus.pacts.staff_cases import StaffCaseError, StaffCaseErrorCode, StaffDecision
 
 if TYPE_CHECKING:
-    from django.http import HttpRequest, HttpResponse
+    from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
     from django.http.response import HttpResponseBase
+    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
-    from ludamus.pacts.staff_cases import CaseDetailDTO, StaffInboxDTO
+    from ludamus.pacts.staff_cases import CaseDetailDTO
 
 _FAQ = CONTENT_DIR / "moderation-faq.md"
 _TABS = (
-    (CaseStatus.OPEN, "inbox"),
-    (CaseStatus.WAITING, "clock"),
-    (CaseStatus.CLOSED, "check-circle"),
+    (CaseStatus.OPEN, "inbox", gettext_lazy("Open")),
+    (CaseStatus.WAITING, "clock", gettext_lazy("Waiting")),
+    (CaseStatus.CLOSED, "check-circle", gettext_lazy("Closed")),
 )
-_ERRORS = {
-    "invalid_body": gettext_lazy("Write the reply first."),
-    "no_recipient": gettext_lazy(
+_ERRORS: dict[StaffCaseErrorCode, _StrPromise] = {
+    StaffCaseErrorCode.INVALID_BODY: gettext_lazy("Write the reply first."),
+    StaffCaseErrorCode.NO_RECIPIENT: gettext_lazy(
         "Nobody outside the team wrote in this case. Add a note instead."
     ),
-    "invalid_assignee": gettext_lazy("Pick someone on staff."),
-    "nothing_to_decide": gettext_lazy(
+    StaffCaseErrorCode.INVALID_ASSIGNEE: gettext_lazy("Pick someone on staff."),
+    StaffCaseErrorCode.NOTHING_TO_DECIDE: gettext_lazy(
         "Nothing in this case is waiting for a decision."
     ),
-    "undecided": gettext_lazy("Decide the case's reports before closing it."),
-    "no_notice": gettext_lazy("Only a notice names the account it is about."),
-    "unknown_account": gettext_lazy(
+    StaffCaseErrorCode.UNDECIDED: gettext_lazy(
+        "Decide the case's reports before closing it."
+    ),
+    StaffCaseErrorCode.NO_NOTICE: gettext_lazy(
+        "Only a notice names the account it is about."
+    ),
+    StaffCaseErrorCode.UNKNOWN_ACCOUNT: gettext_lazy(
         "No single account matches. Give its username, slug or email."
     ),
-    "chat_unavailable": gettext_lazy(
+    StaffCaseErrorCode.CHAT_UNAVAILABLE: gettext_lazy(
         "The chat did not answer, so nothing was removed or decided. Try again."
     ),
 }
@@ -66,27 +73,9 @@ _DEFAULT_DECISION = StaffDecision(
 class _Tab(TypedDict):
     key: str
     icon: str
-    label: str
+    label: _StrPromise
     count: int
     active: bool
-
-
-def _tabs(inbox: StaffInboxDTO) -> list[_Tab]:
-    labels = {
-        CaseStatus.OPEN: _("Open"),
-        CaseStatus.WAITING: _("Waiting"),
-        CaseStatus.CLOSED: _("Closed"),
-    }
-    return [
-        {
-            "key": status.value,
-            "icon": icon,
-            "label": labels[status],
-            "count": inbox.counts[status],
-            "active": status == inbox.status,
-        }
-        for status, icon in _TABS
-    ]
 
 
 def _status(request: HttpRequest) -> CaseStatus:
@@ -96,7 +85,7 @@ def _status(request: HttpRequest) -> CaseStatus:
         return CaseStatus.OPEN
 
 
-def _case_url(pk: int) -> HttpResponse:
+def _to_case(pk: int) -> HttpResponseRedirect:
     return redirect("web:staff:case", pk=pk)
 
 
@@ -125,16 +114,26 @@ def _page(
     decision_form: DecisionForm | None = None,
 ) -> TemplateResponse:
     services = request.services.staff_cases
-    inbox = services.inbox(actor_id=request.context.current_user_id, status=status)
-    inbox_context = {
-        "inbox": inbox,
-        "tabs": _tabs(inbox),
+    actor_id = request.context.current_user_id
+    counts = services.counts(actor_id=actor_id)
+    inbox = {
+        "tabs": [
+            _Tab(
+                key=key, icon=icon, label=label, count=counts[key], active=key == status
+            )
+            for key, icon, label in _TABS
+        ],
         "faq": _FAQ.read_text(encoding="utf-8"),
+        **windowed_pagination_context(
+            request,
+            total=counts[status],
+            window=lambda limit, offset: services.cases(
+                actor_id=actor_id, status=status, limit=limit, offset=offset
+            ),
+        ),
     }
     if detail is None:
-        return TemplateResponse(
-            request, "staff/cases.html", {**inbox_context, "detail": None}
-        )
+        return TemplateResponse(request, "staff/cases.html", {**inbox, "detail": None})
     if decision_form is None:
         decision_form = DecisionForm(request.GET if "decision" in request.GET else None)
     shown = (
@@ -146,7 +145,7 @@ def _page(
         request,
         "staff/cases.html",
         {
-            **inbox_context,
+            **inbox,
             "detail": detail,
             "reply_form": reply_form or ReplyForm(),
             "assign_form": AssignForm(
@@ -204,7 +203,7 @@ class StaffCaseReplyActionView(_StaffGate):
                 request,
                 _("Reply sent.") if by_email else _("Note added to the thread."),
             )
-        return _case_url(pk)
+        return _to_case(pk)
 
 
 class StaffCaseAssignActionView(_StaffGate):
@@ -212,17 +211,17 @@ class StaffCaseAssignActionView(_StaffGate):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
+        services = request.services.staff_cases
         user_id = request.context.current_user_id
-        detail = request.services.staff_cases.read(actor_id=user_id, case_id=pk)
-        form = AssignForm(request.POST, staff=detail.staff)
+        form = AssignForm(request.POST, staff=services.staff(actor_id=user_id))
         if not form.is_valid():
-            messages.error(request, _ERRORS["invalid_assignee"])
-            return _case_url(pk)
-        request.services.staff_cases.assign(
+            messages.error(request, _ERRORS[StaffCaseErrorCode.INVALID_ASSIGNEE])
+            return _to_case(pk)
+        services.assign(
             actor_id=user_id, case_id=pk, assignee_id=form.cleaned_data["assignee"]
         )
         messages.success(request, _("Case assigned."))
-        return _case_url(pk)
+        return _to_case(pk)
 
 
 class StaffCaseCloseActionView(_StaffGate):
@@ -238,7 +237,7 @@ class StaffCaseCloseActionView(_StaffGate):
             messages.error(request, _ERRORS[error.code])
         else:
             messages.success(request, _("Case closed."))
-        return _case_url(pk)
+        return _to_case(pk)
 
 
 class StaffCaseDecideActionView(_StaffGate):
@@ -260,10 +259,10 @@ class StaffCaseDecideActionView(_StaffGate):
                 )
             except StaffCaseError as error:
                 messages.error(request, _ERRORS[error.code])
-                return _case_url(pk)
+                return _to_case(pk)
             else:
                 messages.success(request, _("Decision recorded. The case is closed."))
-                return _case_url(pk)
+                return _to_case(pk)
         detail = request.services.staff_cases.read(actor_id=user_id, case_id=pk)
         return _page(
             request, detail=detail, status=detail.case.status, decision_form=form

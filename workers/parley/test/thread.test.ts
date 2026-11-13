@@ -12,11 +12,12 @@ import { open, pass, post } from "./support";
 
 // What could go wrong, and so what the tests below check:
 // - anyone but Django writes into a case's thread, with a pass or a lookup token;
-// - a post invents an author, or carries no text or an unknown source;
+// - a post invents an author or carries no text;
 // - a redelivered post shows twice;
+// - a post lands in a room Django never made a case's thread;
 // - staff without direct messages open are kept out of their case's thread;
 // - the thread loses its messages on chat's one-year sweep instead of the
-//   moderation records' period Django sends with each post.
+//   moderation records' period its member list carries.
 
 const workerEnv = env as unknown as Env;
 const THREE_YEARS_S = 3 * 365 * 86_400;
@@ -35,6 +36,7 @@ const staffOnly = (conversation: string, user = "7") =>
       kind: "staff",
       members: [{ state: "active", user, writable: true }],
       needsDirect: false,
+      retainFor: THREE_YEARS_S,
     },
     MEMBERSHIP_AUDIENCE,
   );
@@ -45,8 +47,6 @@ const threadPost = (conversation: string, extra: Record<string, unknown> = {}) =
   conversation,
   name: "Ola W. (e-mail)",
   nonce: "email-abc",
-  retainFor: THREE_YEARS_S,
-  source: "email_in",
   ...extra,
 });
 
@@ -79,8 +79,6 @@ describe("a post into a case's thread", () => {
       (await post("/conversations/messages", threadPost(id, { author: "7x" }), POST_AUDIENCE))
         .status,
       (await post("/conversations/messages", threadPost(id, { body: " " }), POST_AUDIENCE)).status,
-      (await post("/conversations/messages", threadPost(id, { source: "chat" }), POST_AUDIENCE))
-        .status,
     ];
 
     const unsigned = await exports.default.fetch("http://localhost:8787/conversations/messages", {
@@ -88,12 +86,33 @@ describe("a post into a case's thread", () => {
       method: "POST",
     });
 
-    expect(statuses).toEqual([401, 401, 401, 401, 401]);
+    expect(statuses).toEqual([401, 401, 401, 401]);
     expect(unsigned.status).toBe(400);
   });
 
-  it("keeps the thread for the period it carries, past chat's year", async () => {
+  it("waits for the member list that makes a room a case's thread", async () => {
     const id = caseThread();
+
+    const early = await post("/conversations/messages", threadPost(id), POST_AUDIENCE);
+    await staffOnly(id);
+    const late = await post("/conversations/messages", threadPost(id), POST_AUDIENCE);
+
+    expect([early.status, late.status]).toEqual([503, 204]);
+  });
+
+  it("is refused a member list with a lifetime that is not seconds", async () => {
+    const response = await post(
+      "/conversations",
+      { conversation: caseThread(), kind: "staff", members: [], retainFor: "forever" },
+      MEMBERSHIP_AUDIENCE,
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it("keeps the thread for the period its member list carries, past chat's year", async () => {
+    const id = caseThread();
+    await staffOnly(id);
     await post("/conversations/messages", threadPost(id), POST_AUDIENCE);
     const stub = await getAgentByName<Env, ParleyConversationAgent>(
       workerEnv.ParleyConversationAgent,
@@ -108,5 +127,18 @@ describe("a post into a case's thread", () => {
     });
 
     expect(kept).toBe(1);
+  });
+
+  it("keeps chat's year in a room that has not heard its member list", async () => {
+    const stub = await getAgentByName<Env, ParleyConversationAgent>(
+      workerEnv.ParleyConversationAgent,
+      caseThread(),
+    );
+
+    const lifetime = await runInDurableObject(stub, (instance) =>
+      (instance as unknown as { messageLifetime: () => number }).messageLifetime(),
+    );
+
+    expect(lifetime).toBe(MESSAGE_LIFETIME_MS);
   });
 });

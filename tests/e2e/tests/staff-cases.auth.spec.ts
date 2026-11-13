@@ -93,7 +93,8 @@ test.describe("Staff cases inbox", () => {
     await page.setExtraHTTPHeaders({
       "CF-Connecting-IP": `203.0.113.${(Date.now() % 250) + 1}`,
     });
-    await page.goto("/report/?url=/event/autumn-open/");
+    await page.goto("/report/");
+    await page.getByLabel("Address of the content").fill("https://zagrajmy.net/event/autumn-open/");
     await page
       .getByLabel("What is wrong with it")
       .selectOption({ label: "Fraud, scam or phishing" });

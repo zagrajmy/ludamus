@@ -17,14 +17,18 @@ from ludamus.pacts.moderation import ModerationStatus
 from ludamus.pacts.staff_cases import (
     STAFF_THREAD_POST_MAX_LENGTH,
     CaseKind,
-    StaffThreadEvent,
+    CaseOpenedPost,
+    DecisionPost,
+    EmailInPost,
+    EmailOutPost,
+    NotePost,
     StaffThreadPostClaims,
 )
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.staff_cases import StaffThreadEntry
+    from ludamus.pacts.staff_cases import StaffThreadEntry, StaffThreadMessage
 
 _AUDIENCE = "parley-post"
 _TTL_SECONDS = 600
@@ -32,71 +36,71 @@ _SYSTEM_AUTHOR = "system"
 _EMAIL_AUTHOR = "email"
 
 
-def _opened_by(kind: str) -> str:
+def _opened_by(kind: CaseKind) -> str:
     return {
         CaseKind.NOTICE: _("Notice of illegal content"),
         CaseKind.CHAT_REPORT: _("Chat report"),
         CaseKind.EMAIL: _("Email to staff"),
         CaseKind.STATEMENT: _("Statement of reasons"),
-    }[CaseKind(kind)]
+    }[kind]
 
 
-def _attachments(count: int) -> str:
-    return ngettext(
-        "%(count)s attachment, kept in the staff mailbox",
-        "%(count)s attachments, kept in the staff mailbox",
-        count,
-    ) % {"count": count}
-
-
-def _worded(entry: StaffThreadEntry) -> tuple[str, str, str]:
-    """Give the author id, name and text the thread shows for an entry."""
-    details = entry.details
-    staff_id = str(entry.author_id)
-    match entry.event:
-        case StaffThreadEvent.CASE_OPENED:
+def _worded(message: StaffThreadMessage, *, reference: str) -> tuple[str, str, str]:
+    """Give the author id, name and text the thread shows for a message."""
+    match message:
+        case CaseOpenedPost():
             return (
                 _SYSTEM_AUTHOR,
-                _opened_by(details["kind"]),
+                _opened_by(message.kind),
                 _("Case %(reference)s opened: %(title)s") % {
-                    "reference": details["reference"],
-                    "title": entry.body or "—",
+                    "reference": reference,
+                    "title": message.title or "—",
                 },
             )
-        case StaffThreadEvent.EMAIL_IN:
-            count = int(details["attachments"])
-            lines = [_("Subject: %(subject)s") % {"subject": details["subject"]}]
-            lines.append(entry.body)
-            if count:
-                lines.append(_attachments(count))
+        case EmailInPost():
+            lines = [_("Subject: %(subject)s") % {"subject": message.subject}]
+            lines.append(message.body)
+            if message.attachments:
+                lines.append(
+                    ngettext(
+                        "%(count)s attachment, kept in the staff mailbox",
+                        "%(count)s attachments, kept in the staff mailbox",
+                        message.attachments,
+                    )
+                    % {"count": message.attachments}
+                )
             return (
                 _EMAIL_AUTHOR,
-                _("%(name)s (email)") % {"name": entry.author_name},
+                _("%(name)s (email)") % {"name": message.sender},
                 "\n\n".join(lines),
             )
-        case StaffThreadEvent.EMAIL_OUT:
+        case EmailOutPost():
             return (
-                staff_id,
-                _("%(name)s (email)") % {"name": entry.author_name},
-                _("Sent to %(address)s:") % {"address": details["address"]}
-                + f"\n\n{entry.body}",
+                str(message.staff.pk),
+                _("%(name)s (email)") % {"name": message.staff.name},
+                _("Sent to %(address)s:") % {"address": message.address}
+                + f"\n\n{message.body}",
             )
-        case StaffThreadEvent.DECISION:
+        case DecisionPost():
             heading = (
                 _("Decided: acted on the content.")
-                if details["status"] == ModerationStatus.ACTIONED
+                if message.status == ModerationStatus.ACTIONED
                 else _("Decided: no action.")
             )
-            return staff_id, entry.author_name, f"{heading}\n\n{entry.body}"
-        case StaffThreadEvent.NOTE:
-            return staff_id, entry.author_name, entry.body
+            return (
+                str(message.staff.pk),
+                message.staff.name,
+                f"{heading}\n\n{message.decision_text}",
+            )
+        case NotePost():
+            return str(message.staff.pk), message.staff.name, message.body
 
 
 def thread_post_claims(
     entry: StaffThreadEntry, *, now: datetime
 ) -> StaffThreadPostClaims:
     with translation.override(settings.LANGUAGE_CODE):
-        author, name, body = _worded(entry)
+        author, name, body = _worded(entry.message, reference=entry.reference)
     issued = int(now.timestamp())
     return StaffThreadPostClaims(
         iss="ludamus",
@@ -105,9 +109,7 @@ def thread_post_claims(
         author=author,
         name=name,
         body=body[:STAFF_THREAD_POST_MAX_LENGTH],
-        source=entry.event,
         nonce=entry.nonce,
-        retain_for=int(entry.retain_for.total_seconds()),
         iat=issued,
         exp=issued + _TTL_SECONDS,
     )

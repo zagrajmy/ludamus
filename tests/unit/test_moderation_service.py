@@ -10,6 +10,7 @@ from ludamus.mills.moderation import (
     StatementOfReasonsService,
 )
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ChatReportDTO,
     ContentNoticeData,
     ContentNoticeDTO,
@@ -52,9 +53,9 @@ class FakeCases:
         self.opened = 0
         self.closed = 0
 
-    def open(self, *, closed=False):
+    def open(self, *, status):
         self.opened += 1
-        self.closed += closed
+        self.closed += status == CaseStatus.CLOSED
         return 100 + self.opened
 
 

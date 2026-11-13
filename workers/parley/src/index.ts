@@ -68,8 +68,10 @@ export default {
         env.ParleyConversationAgent,
         post.conversation,
       );
-      await room.post(post);
-      return new Response(null, { status: 204 });
+      // A thread whose member list is still on its way is asked again.
+      return (await room.post(post))
+        ? new Response(null, { status: 204 })
+        : new Response("Not a case thread yet", { status: 503 });
     }
     if (url.pathname === "/messages" && request.method === "POST") {
       const lookup = await lookupFromRequest(request, env);

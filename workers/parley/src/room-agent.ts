@@ -67,7 +67,7 @@ export function roomAgent(env: Env, room: Room) {
 
 export { NOT_A_MEMBER };
 
-export type MessageRow = {
+type MessageRow = {
   author_avatar_url: string;
   author_id: string;
   author_name: string;
@@ -202,27 +202,50 @@ export abstract class RoomAgent extends Agent<Env> {
       return { ok: false, code: "invalid" };
     }
     this.purgeExpiredMessages();
-    const existing = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    if (existing !== undefined)
-      return { ok: true, value: this.message(existing, this.reactionsFor(existing.id)) };
+    const existing = this.sentMessage(capability.sub, input.nonce);
+    if (existing !== null) return { ok: true, value: existing };
     if (
       !this.consumeRate(capability.sub, "message", 5, 10_000) ||
       !this.consumeRate(capability.sub, "message-minute", 30, 60_000)
     ) {
       return { ok: false, code: "rate_limited" };
     }
+    return {
+      ok: true,
+      value: this.writeMessage({
+        avatar: capability.avatar,
+        body,
+        id: capability.sub,
+        name: capability.name,
+        nonce: input.nonce,
+      }),
+    };
+  }
+
+  // What an author already sent under this nonce, if anything.
+  protected sentMessage(authorId: string, nonce: string): Message | null {
+    const row = this
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${authorId} AND client_nonce = ${nonce}`[0];
+    return row === undefined ? null : this.message(row, this.reactionsFor(row.id));
+  }
+
+  // The one place a message is written, whoever wrote it, and everyone told.
+  protected writeMessage(author: {
+    avatar: string;
+    body: string;
+    id: string;
+    name: string;
+    nonce: string;
+  }): Message {
     const now = Date.now();
     void this
       .sql`INSERT INTO messages (author_id, author_name, author_avatar_url, body, client_nonce, created_at)
-      VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
-    const row = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const message = this.message(row, { reactions: {}, reactors: {} });
+      VALUES (${author.id}, ${author.name}, ${author.avatar}, ${author.body}, ${author.nonce}, ${now})`;
+    const message = this.sentMessage(author.id, author.nonce)!;
     this.emit({ type: "message.created", v: 1, payload: message });
     void this.scheduleSweep({ earliest: now, idempotent: true });
     this.afterMessage(message);
-    return { ok: true, value: message };
+    return message;
   }
 
   @callable()
@@ -533,7 +556,7 @@ export abstract class RoomAgent extends Agent<Env> {
     return MESSAGE_LIFETIME_MS;
   }
 
-  protected async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
+  private async scheduleSweep(options: { earliest: number; idempotent: boolean }): Promise<void> {
     const oldest = this.sql<{
       created_at: number;
     }>`SELECT created_at FROM messages ORDER BY created_at LIMIT 1`[0];
@@ -546,7 +569,7 @@ export abstract class RoomAgent extends Agent<Env> {
     );
   }
 
-  protected message(
+  private message(
     row: MessageRow,
     { reactions, reactors }: { reactions: Reactions; reactors: Reactors },
   ): Message {

@@ -66,10 +66,6 @@ class ReplyForm(forms.Form):
 
 
 class AssignForm(forms.Form):
-    assignee = forms.TypedChoiceField(
-        label=_("Handled by"), coerce=int, empty_value=None, required=False
-    )
-
     def __init__(
         self,
         data: QueryDict | None = None,
@@ -78,12 +74,16 @@ class AssignForm(forms.Form):
         assignee_id: int | None = None,
     ) -> None:
         super().__init__(data, initial={"assignee": assignee_id})
-        field = self.fields["assignee"]
-        if isinstance(field, forms.TypedChoiceField):
-            field.choices = [
+        self.fields["assignee"] = forms.TypedChoiceField(
+            label=_("Handled by"),
+            coerce=int,
+            empty_value=None,
+            required=False,
+            choices=[
                 ("", _("Nobody")),
                 *((member.pk, member.name) for member in staff),
-            ]
+            ],
+        )
 
 
 class DecisionForm(forms.Form):

@@ -10,6 +10,9 @@ PARLEY_SESSION_RETENTION = timedelta(days=30)
 # NOTE: the Worker deletes every message this long after it was written
 # (MESSAGE_LIFETIME_MS in workers/parley/src/limits.ts); keep the two equal.
 PARLEY_MESSAGE_LIFETIME = timedelta(days=365)
+# A staff case's thread is a moderation record: kept as long as the case's
+# notices, reports and statements (privacy policy, point 6), not a year.
+PARLEY_STAFF_THREAD_LIFETIME = timedelta(days=3 * 365)
 # Groups stay small enough that every member's inbox hears each message.
 PARLEY_GROUP_MAX_MEMBERS = 50
 PARLEY_GROUP_TITLE_MAX_LENGTH = 80

@@ -46,6 +46,7 @@ from ludamus.pacts.moderation import (
     NOTICE_EXPLANATION_MAX_LENGTH,
     NOTICE_NAME_MAX_LENGTH,
     NOTICE_URL_MAX_LENGTH,
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
@@ -388,13 +389,8 @@ MODERATION_GROUND_CHOICES = _choices(ModerationGround)
 class ModerationCase(models.Model):
     """One matter staff handle. Mail about it carries its reference."""
 
-    class Status(models.TextChoices):
-        OPEN = "open"
-        WAITING = "waiting"
-        CLOSED = "closed"
-
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.OPEN
+        max_length=10, choices=_choices(CaseStatus), default=CaseStatus.OPEN
     )
     # A case opened by an email has its subject; one from a notice or a chat
     # report goes by that record.

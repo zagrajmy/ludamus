@@ -30,9 +30,9 @@
                     {% end_tab %}
                 {% endfor %}
             {% end_tabs %}
-            {% if inbox.cases %}
+            {% if page_obj.object_list %}
                 <ul class="flex flex-col gap-1">
-                    {% for case in inbox.cases %}
+                    {% for case in page_obj.object_list %}
                         <li>
                             <a href="{% url 'web:staff:case' pk=case.pk %}"
                                {% if detail and detail.case.pk == case.pk %}aria-current="page"{% endif %}
@@ -58,6 +58,7 @@
                         </li>
                     {% endfor %}
                 </ul>
+                {% include "components/_pagination.html" %}
             {% else %}
                 {% translate "No cases here" as t_empty %}
             {% empty_state icon="inbox" title=t_empty %}
@@ -77,10 +78,10 @@
                     <p class="text-sm tabular-nums text-foreground-muted">{{ case.reference }}</p>
                     <h2 id="case-heading"
                         class="text-2xl font-bold text-foreground text-pretty"
-                        data-ph-no-capture>{% firstof case.title detail.kind|kind_label %}</h2>
+                        data-ph-no-capture>{% firstof case.title case.kind|kind_label %}</h2>
                     <p class="text-sm text-foreground-muted">
-                        {{ detail.kind|kind_label }}
-                        {% if detail.child_safety %}· {% translate "Child safety" %}{% endif %}
+                        {{ case.kind|kind_label }}
+                        {% if case.child_safety %}· {% translate "Child safety" %}{% endif %}
                         · <time datetime="{{ case.created_at|date:'c' }}">{{ case.created_at|date:"SHORT_DATETIME_FORMAT" }}</time>
                         {% if case.reply_to %}
                             · <span data-ph-block>{% firstof case.reply_name case.reply_to %}</span>

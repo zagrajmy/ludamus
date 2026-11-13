@@ -8,18 +8,19 @@ into it, marked as such.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Protocol, TypedDict
+from typing import Annotated, Literal, Protocol, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
+    ModerationVerdict,
     NoticeCategory,
-    StatementOfReasons,
     case_reference,
 )
 from ludamus.pacts.user import AgeBand
@@ -30,34 +31,28 @@ STAFF_THREAD_POST_MAX_LENGTH = 4_000
 
 
 class CaseKind(StrEnum):
-    """What opened a case: a notice, a chat report, or an email."""
+    """What opened a case: a notice, a chat report, an email, or staff themselves."""
 
     NOTICE = "notice"
     CHAT_REPORT = "chat_report"
     EMAIL = "email"
-    # Staff acted on their own and recorded the statement of reasons.
     STATEMENT = "statement"
-
-
-class CaseStatus(StrEnum):
-    OPEN = "open"
-    WAITING = "waiting"
-    CLOSED = "closed"
-
-
-class StaffThreadEvent(StrEnum):
-    """What the server writes into a case's thread."""
-
-    CASE_OPENED = "case_opened"
-    EMAIL_IN = "email_in"
-    EMAIL_OUT = "email_out"
-    NOTE = "note"
-    DECISION = "decision"
 
 
 class CaseEmailDirection(StrEnum):
     IN = "in"
     OUT = "out"
+
+
+class StaffCaseErrorCode(StrEnum):
+    INVALID_BODY = "invalid_body"
+    NO_RECIPIENT = "no_recipient"
+    INVALID_ASSIGNEE = "invalid_assignee"
+    NOTHING_TO_DECIDE = "nothing_to_decide"
+    UNDECIDED = "undecided"
+    NO_NOTICE = "no_notice"
+    UNKNOWN_ACCOUNT = "unknown_account"
+    CHAT_UNAVAILABLE = "chat_unavailable"
 
 
 class StaffMemberDTO(BaseModel):
@@ -87,7 +82,6 @@ class CaseChatReportDTO(BaseModel):
     body: str
     written_at: datetime | None
     status: ModerationStatus
-    involves_minor: bool
 
 
 class CaseVerdictDTO(BaseModel):
@@ -97,52 +91,6 @@ class CaseVerdictDTO(BaseModel):
     decision: ModerationDecision
     ground: ModerationGround | None
     decision_text: str
-
-
-class CaseRowDTO(BaseModel):
-    """A case as the inbox lists it, before mills decide what comes first."""
-
-    pk: int
-    status: CaseStatus
-    title: str
-    assignee_name: str
-    created_at: datetime
-    has_notices: bool
-    has_chat_reports: bool
-    opened_by_email: bool
-    notice_categories: list[NoticeCategory]
-    involves_minor: bool
-
-
-class CaseDTO(BaseModel):
-    pk: int
-    status: CaseStatus
-    title: str
-    assignee_id: int | None
-    decided_by_name: str
-    thread_id: int | None
-    reply_to: str
-    reply_name: str
-    opened_by_email: bool
-    notices: list[CaseNoticeDTO]
-    chat_reports: list[CaseChatReportDTO]
-    verdict: CaseVerdictDTO | None
-    created_at: datetime
-
-    @property
-    def reference(self) -> str:
-        return case_reference(self.pk)
-
-
-class CaseEmailDTO(BaseModel):
-    direction: CaseEmailDirection
-    address: str
-    name: str
-    subject: str
-    body: str
-    attachments: list[str]
-    sent_by_name: str
-    created_at: datetime
 
 
 class InboxCaseDTO(BaseModel):
@@ -159,16 +107,30 @@ class InboxCaseDTO(BaseModel):
         return case_reference(self.pk)
 
 
-class StaffInboxDTO(BaseModel):
-    status: CaseStatus
-    cases: list[InboxCaseDTO]
-    counts: dict[CaseStatus, int]
+class CaseDTO(InboxCaseDTO):
+    assignee_id: int | None
+    decided_by_name: str
+    thread_id: int | None
+    reply_to: str
+    reply_name: str
+    notices: list[CaseNoticeDTO]
+    chat_reports: list[CaseChatReportDTO]
+    verdict: CaseVerdictDTO | None
+
+
+class CaseEmailDTO(BaseModel):
+    direction: CaseEmailDirection
+    address: str
+    name: str
+    subject: str
+    body: str
+    attachments: list[str]
+    sent_by_name: str
+    created_at: datetime
 
 
 class CaseDetailDTO(BaseModel):
     case: CaseDTO
-    kind: CaseKind
-    child_safety: bool
     emails: list[CaseEmailDTO]
     staff: list[StaffMemberDTO]
     decidable: bool
@@ -205,33 +167,64 @@ class StaffDecision(BaseModel):
     affected_account: str = ""
 
 
+class CaseOpenedPost(BaseModel):
+    event: Literal["case_opened"] = "case_opened"
+    kind: CaseKind
+    title: str
+
+
+class EmailInPost(BaseModel):
+    event: Literal["email_in"] = "email_in"
+    sender: str
+    subject: str
+    body: str
+    attachments: int
+
+
+class EmailOutPost(BaseModel):
+    event: Literal["email_out"] = "email_out"
+    staff: StaffMemberDTO
+    address: str
+    body: str
+
+
+class NotePost(BaseModel):
+    event: Literal["note"] = "note"
+    staff: StaffMemberDTO
+    body: str
+
+
+class DecisionPost(BaseModel):
+    event: Literal["decision"] = "decision"
+    staff: StaffMemberDTO
+    status: ModerationStatus
+    decision_text: str
+
+
+type StaffThreadMessage = Annotated[
+    CaseOpenedPost | EmailInPost | EmailOutPost | NotePost | DecisionPost,
+    Field(discriminator="event"),
+]
+
+
 class StaffThreadEntry(BaseModel):
     """A message the server writes into a case's thread, before it is worded."""
 
     thread_id: int
-    event: StaffThreadEvent
-    # The staff member who wrote it; none for a system event or an email in.
-    author_id: int | None
-    author_name: str
-    body: str
-    details: dict[str, str]
+    reference: str
+    message: StaffThreadMessage
     # Posting the same nonce again adds nothing.
     nonce: str
-    retain_for: timedelta
 
 
 class StaffThreadPostClaims(BaseModel):
-    model_config = ConfigDict(serialize_by_alias=True)
-
     iss: str
     aud: str
     conversation: str
     author: str
     name: str
     body: str
-    source: StaffThreadEvent
     nonce: str
-    retain_for: int = Field(serialization_alias="retainFor")
     iat: int
     exp: int
 
@@ -273,10 +266,16 @@ class StaffCaseRepositoryProtocol(Protocol):
     ) -> list[int]: ...
 
     @staticmethod
-    def read(case_id: int) -> CaseDTO: ...
+    def read(case_id: int, *, urgent: frozenset[NoticeCategory]) -> CaseDTO: ...
 
     @staticmethod
-    def list_cases(status: CaseStatus) -> list[CaseRowDTO]: ...
+    def list_cases(
+        status: CaseStatus,
+        *,
+        urgent: frozenset[NoticeCategory],
+        limit: int,
+        offset: int,
+    ) -> list[InboxCaseDTO]: ...
 
     @staticmethod
     def count_by_status() -> dict[CaseStatus, int]: ...
@@ -312,13 +311,21 @@ class StaffCaseMailerProtocol(Protocol):
     def send_reply(*, to: str, subject: str, body: str, nonce: str) -> None: ...
 
     @staticmethod
-    def statement_text(statement: StatementOfReasons) -> str: ...
+    def verdict_text(verdict: ModerationVerdict) -> str: ...
 
 
 class StaffCaseServiceProtocol(Protocol):
-    def inbox(self, *, actor_id: int, status: CaseStatus) -> StaffInboxDTO: ...
+    def staff(self, *, actor_id: int) -> list[StaffMemberDTO]: ...
+
+    def counts(self, *, actor_id: int) -> dict[CaseStatus, int]: ...
+
+    def cases(
+        self, *, actor_id: int, status: CaseStatus, limit: int, offset: int
+    ) -> list[InboxCaseDTO]: ...
 
     def read(self, *, actor_id: int, case_id: int) -> CaseDetailDTO: ...
+
+    def sync_threads(self) -> None: ...
 
     def receive_email(self, email: InboundEmail) -> StaffEmailReceipt: ...
 
@@ -342,6 +349,6 @@ class StaffCaseServiceProtocol(Protocol):
 class StaffCaseError(Exception):
     """A case change staff may not make; the code says which."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: StaffCaseErrorCode) -> None:
         super().__init__(code)
         self.code = code

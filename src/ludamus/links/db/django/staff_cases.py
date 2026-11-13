@@ -1,8 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import (
+    BooleanField,
+    CharField,
+    Count,
+    Exists,
+    ExpressionWrapper,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Value,
+)
+from django.db.models.functions import Coalesce, NullIf
 
 from ludamus.links.db.django.models import (
     CaseEmail,
@@ -15,6 +27,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
@@ -27,10 +40,10 @@ from ludamus.pacts.staff_cases import (
     CaseDTO,
     CaseEmailDirection,
     CaseEmailDTO,
+    CaseKind,
     CaseNoticeDTO,
-    CaseRowDTO,
-    CaseStatus,
     CaseVerdictDTO,
+    InboxCaseDTO,
     StaffCaseRepositoryProtocol,
     StaffMemberDTO,
 )
@@ -38,8 +51,17 @@ from ludamus.pacts.user import AgeBand
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
+    from django_stubs_ext import WithAnnotations
 
     from ludamus.pacts.staff_cases import CaseEmailCreateDict, EmailCaseCreateDict
+
+    class _Derived(TypedDict):
+        has_notices: bool
+        has_reports: bool
+        child_safety: bool
+        shown_title: str
+
+    type _Case = WithAnnotations[ModerationCase, _Derived]
 
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
 _THREAD_TITLE_MAX_LENGTH = 80
@@ -54,9 +76,11 @@ def _name(user: User | None) -> str:
     return "" if user is None else user.get_full_name()
 
 
-def _minor_involved() -> Q:
-    """Match a report whose reporter, author or conversation holds a 13–15."""
-    return (
+def _cases(urgent: frozenset[NoticeCategory]) -> QuerySet[_Case]:
+    """Cases with what the inbox derives from their records, in one query."""
+    notices = ContentNotice.objects.filter(case=OuterRef("pk"))
+    reports = ParleyReport.objects.filter(case=OuterRef("pk"))
+    teen_in_report = (
         Q(reporter__age_band=_MINOR)
         | Q(reported_user__age_band=_MINOR)
         | Q(
@@ -64,49 +88,87 @@ def _minor_involved() -> Q:
             conversation__members__state__in=_PRESENT,
         )
     )
-
-
-def _reports_with_minors(case_ids: list[int]) -> set[int]:
-    return set(
-        ParleyReport.objects.filter(_minor_involved(), case_id__in=case_ids)
-        .values_list("pk", flat=True)
-        .distinct()
+    return ModerationCase.objects.select_related("assignee", "decided_by").annotate(
+        has_notices=Exists(notices),
+        has_reports=Exists(reports),
+        child_safety=ExpressionWrapper(
+            Q(Exists(notices.filter(category__in=urgent)))
+            | Q(Exists(reports.filter(teen_in_report))),
+            output_field=BooleanField(),
+        ),
+        shown_title=Coalesce(
+            NullIf("title", Value("")),
+            Subquery(notices.order_by("pk").values("explanation")[:1]),
+            Subquery(reports.order_by("pk").values("reason")[:1]),
+            Value(""),
+            output_field=CharField(),
+        ),
     )
 
 
-def _title(case: ModerationCase) -> str:
-    notices = list(case.notices.all())
-    reports = list(case.chat_reports.all())
-    if case.title:
-        return case.title
-    if notices:
-        return notices[0].explanation or notices[0].url
-    return reports[0].reason if reports else ""
+def _kind(case: _Case) -> CaseKind:
+    if case.has_notices:
+        return CaseKind.NOTICE
+    if case.has_reports:
+        return CaseKind.CHAT_REPORT
+    return CaseKind.EMAIL if case.external_email else CaseKind.STATEMENT
 
 
-def _reply_to(case: ModerationCase) -> tuple[str, str]:
-    """Whoever last wrote in, else the sender, notice reporter or chat reporter."""
-    if (
-        last := case.emails.filter(direction=CaseEmail.Direction.IN).last()
-    ) is not None:
-        return last.address, last.name
-    if case.external_email:
-        return case.external_email, case.external_name
-    if notice := next((n for n in case.notices.all() if n.reporter_email), None):
-        return notice.reporter_email, notice.reporter_name
-    if report := next((r for r in case.chat_reports.all() if r.reporter.email), None):
-        return report.reporter.email, _name(report.reporter)
-    return "", ""
+def _row(case: _Case) -> InboxCaseDTO:
+    return InboxCaseDTO(
+        pk=case.pk,
+        kind=_kind(case),
+        status=CaseStatus(case.status),
+        title=case.shown_title,
+        child_safety=case.child_safety,
+        assignee_name=_name(case.assignee),
+        created_at=case.created_at,
+    )
 
 
-def _verdict(case: ModerationCase) -> CaseVerdictDTO | None:
+def _reply_to(
+    case: ModerationCase, *, notices: list[ContentNotice], reports: list[ParleyReport]
+) -> tuple[str, str]:
+    """Answer the last of the case's own people who wrote in, else who opened it.
+
+    The case's own people are its sender, reporters and the people its
+    statements went to. Anyone else can put "[Z-n]" in a subject; their mail is
+    filed, but replies never go to them.
+    """
+    people = {
+        case.external_email: case.external_name,
+        **{n.reporter_email: n.reporter_name for n in notices if n.reporter_email},
+        **{r.reporter.email: _name(r.reporter) for r in reports if r.reporter.email},
+    }
+    people.pop("", None)
+    known = {address.casefold() for address in people} | {
+        address.casefold()
+        for address in User.objects.filter(
+            statements_of_reasons__case=case
+        ).values_list("email", flat=True)
+        if address
+    }
+    last = (
+        case.emails.filter(direction=CaseEmail.Direction.IN)
+        .order_by("-created_at", "-pk")
+        .values_list("address", "name")
+    )
+    for address, name in last:
+        if address.casefold() in known:
+            return address, name
+    return next(iter(people.items()), ("", ""))
+
+
+def _verdict(
+    notices: list[ContentNotice], reports: list[ParleyReport]
+) -> CaseVerdictDTO | None:
     decided = [
         (record.status, record.decision, record.ground, record.decision_text)
-        for record in case.notices.all()
+        for record in notices
         if record.status != ModerationStatus.OPEN
     ] + [
         (record.status, record.decision, record.ground, record.decision_text)
-        for record in case.chat_reports.all()
+        for record in reports
         if record.status != ModerationStatus.OPEN
     ]
     if not decided:
@@ -120,7 +182,7 @@ def _verdict(case: ModerationCase) -> CaseVerdictDTO | None:
     )
 
 
-def _report(report: ParleyReport, *, minors: set[int]) -> CaseChatReportDTO:
+def _report(report: ParleyReport) -> CaseChatReportDTO:
     author = report.reported_user
     return CaseChatReportDTO(
         pk=report.pk,
@@ -133,21 +195,6 @@ def _report(report: ParleyReport, *, minors: set[int]) -> CaseChatReportDTO:
         body=report.body,
         written_at=report.written_at,
         status=ModerationStatus(report.status),
-        involves_minor=report.pk in minors,
-    )
-
-
-def _cases() -> QuerySet[ModerationCase]:
-    return ModerationCase.objects.select_related(
-        "assignee", "decided_by"
-    ).prefetch_related(
-        Prefetch("notices", queryset=ContentNotice.objects.order_by("pk")),
-        Prefetch(
-            "chat_reports",
-            queryset=ParleyReport.objects.select_related(
-                "reporter", "reported_user"
-            ).order_by("pk"),
-        ),
     )
 
 
@@ -170,10 +217,12 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
 
     @staticmethod
     def open_thread(case_id: int) -> int:
-        case = ModerationCase.objects.get(pk=case_id)
+        title = (
+            _cases(frozenset()).values_list("shown_title", flat=True).get(pk=case_id)
+        )
         thread = ParleyConversation.objects.create(
             kind=ParleyConversationKind.STAFF,
-            title=f"{case_reference(case_id)} {_title(case)}"[
+            title=f"{case_reference(case_id)} {title}"[
                 :_THREAD_TITLE_MAX_LENGTH
             ].strip(),
         )
@@ -216,21 +265,32 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
         return changed
 
     @staticmethod
-    def read(case_id: int) -> CaseDTO:
-        if (case := _cases().filter(pk=case_id).first()) is None:
+    def read(case_id: int, *, urgent: frozenset[NoticeCategory]) -> CaseDTO:
+        case = (
+            _cases(urgent)
+            .prefetch_related(
+                Prefetch("notices", queryset=ContentNotice.objects.order_by("pk")),
+                Prefetch(
+                    "chat_reports",
+                    queryset=ParleyReport.objects.select_related(
+                        "reporter", "reported_user"
+                    ).order_by("pk"),
+                ),
+            )
+            .filter(pk=case_id)
+            .first()
+        )
+        if case is None:
             raise NotFoundError
-        reply_to, reply_name = _reply_to(case)
-        minors = _reports_with_minors([case.pk])
+        notices, reports = list(case.notices.all()), list(case.chat_reports.all())
+        reply_to, reply_name = _reply_to(case, notices=notices, reports=reports)
         return CaseDTO(
-            pk=case.pk,
-            status=CaseStatus(case.status),
-            title=_title(case),
+            **_row(case).model_dump(),
             assignee_id=case.assignee_id,
             decided_by_name=_name(case.decided_by),
             thread_id=case.thread_id,
             reply_to=reply_to,
             reply_name=reply_name,
-            opened_by_email=bool(case.external_email),
             notices=[
                 CaseNoticeDTO(
                     pk=notice.pk,
@@ -240,35 +300,29 @@ class StaffCaseRepository(StaffCaseRepositoryProtocol):
                     reporter_name=notice.reporter_name,
                     status=ModerationStatus(notice.status),
                 )
-                for notice in case.notices.all()
+                for notice in notices
             ],
-            chat_reports=[
-                _report(report, minors=minors) for report in case.chat_reports.all()
-            ],
-            verdict=_verdict(case),
-            created_at=case.created_at,
+            chat_reports=[_report(report) for report in reports],
+            verdict=_verdict(notices, reports),
         )
 
     @staticmethod
-    def list_cases(status: CaseStatus) -> list[CaseRowDTO]:
-        cases = list(_cases().filter(status=status).order_by("-created_at", "-pk"))
-        minors = _reports_with_minors([case.pk for case in cases])
+    def list_cases(
+        status: CaseStatus,
+        *,
+        urgent: frozenset[NoticeCategory],
+        limit: int,
+        offset: int,
+    ) -> list[InboxCaseDTO]:
         return [
-            CaseRowDTO(
-                pk=case.pk,
-                status=CaseStatus(case.status),
-                title=_title(case),
-                assignee_name=_name(case.assignee),
-                created_at=case.created_at,
-                has_notices=bool(case.notices.all()),
-                has_chat_reports=bool(case.chat_reports.all()),
-                opened_by_email=bool(case.external_email),
-                notice_categories=[
-                    NoticeCategory(notice.category) for notice in case.notices.all()
-                ],
-                involves_minor=any(r.pk in minors for r in case.chat_reports.all()),
+            _row(case)
+            for case in (
+                _cases(urgent)
+                .filter(status=status)
+                .order_by("-child_safety", "-created_at", "-pk")[
+                    offset : offset + limit
+                ]
             )
-            for case in cases
         ]
 
     @staticmethod

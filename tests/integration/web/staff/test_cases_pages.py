@@ -27,8 +27,10 @@ from ludamus.links.db.django.models import (
     ContentNotice,
     ModerationCase,
     ParleyReport,
+    StatementOfReasons,
 )
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
@@ -42,15 +44,13 @@ from ludamus.pacts.staff_cases import (
     CaseEmailDTO,
     CaseKind,
     CaseNoticeDTO,
-    CaseStatus,
     CaseVerdictDTO,
     InboxCaseDTO,
-    StaffInboxDTO,
     StaffMemberDTO,
 )
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import SphereFactory, UserFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import PageMatcher, assert_response, assert_response_404
 from tests.integration.web.parley.helpers import configure_parley, decode_segment
 
 CASES = reverse("web:staff:cases")
@@ -109,32 +109,25 @@ def _url(name, case):
     return reverse(f"web:staff:{name}", kwargs={"pk": case.pk})
 
 
-def _tabs(*, active="open", open_=0, waiting=0, closed=0):
+def _inbox(*, active="open", open_=0, waiting=0, closed=0):
     counts = {"open": open_, "waiting": waiting, "closed": closed}
     icons = {"open": "inbox", "waiting": "clock", "closed": "check-circle"}
     labels = {"open": "Open", "waiting": "Waiting", "closed": "Closed"}
-    return [
-        {
-            "key": key,
-            "icon": icons[key],
-            "label": labels[key],
-            "count": counts[key],
-            "active": key == active,
-        }
-        for key in ("open", "waiting", "closed")
-    ]
-
-
-def _inbox(*cases, status=CaseStatus.OPEN, open_=0, waiting=0, closed=0):
-    return StaffInboxDTO(
-        status=status,
-        cases=list(cases),
-        counts={
-            CaseStatus.OPEN: open_,
-            CaseStatus.WAITING: waiting,
-            CaseStatus.CLOSED: closed,
-        },
-    )
+    return {
+        "tabs": [
+            {
+                "key": key,
+                "icon": icons[key],
+                "label": labels[key],
+                "count": counts[key],
+                "active": key == active,
+            }
+            for key in ("open", "waiting", "closed")
+        ],
+        "faq": FAQ,
+        "page_obj": PageMatcher(number=1, num_pages=1),
+        "page_sizes": [10, 20, 50, 100],
+    }
 
 
 def _notice_row(case):
@@ -155,14 +148,16 @@ def _notice_detail(case, staff_user):
     return CaseDetailDTO(
         case=CaseDTO(
             pk=case.pk,
+            kind=CaseKind.NOTICE,
             status=CaseStatus.OPEN,
             title="Offensive description",
+            child_safety=False,
+            assignee_name="",
             assignee_id=None,
             decided_by_name="",
             thread_id=case.thread_id,
             reply_to="ola@example.com",
             reply_name="Ola W.",
-            opened_by_email=False,
             notices=[
                 CaseNoticeDTO(
                     pk=notice.pk,
@@ -177,8 +172,6 @@ def _notice_detail(case, staff_user):
             verdict=None,
             created_at=case.created_at,
         ),
-        kind=CaseKind.NOTICE,
-        child_safety=False,
         emails=[],
         staff=[StaffMemberDTO(pk=staff_user.pk, name=staff_user.get_full_name())],
         decidable=True,
@@ -187,9 +180,7 @@ def _notice_detail(case, staff_user):
 
 def _case_page(case, staff_user, *, statement=DEFAULT_PREVIEW):
     return {
-        "inbox": _inbox(_notice_row(case), open_=1),
-        "tabs": _tabs(open_=1),
-        "faq": FAQ,
+        **_inbox(open_=1),
         "detail": _notice_detail(case, staff_user),
         "reply_form": ANY,
         "assign_form": ANY,
@@ -198,11 +189,11 @@ def _case_page(case, staff_user, *, statement=DEFAULT_PREVIEW):
     }
 
 
-def _thread_posts(worker):
+def _tokens(worker, path):
     return [
         decode_segment(json.loads(call.request.body)["token"].split(".")[1])
         for call in worker.calls
-        if call.request.url.endswith("/conversations/messages")
+        if call.request.url == f"{WORKER}{path}"
     ]
 
 
@@ -257,13 +248,9 @@ class TestInboxPage:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data={
-                "inbox": _inbox(_notice_row(notice_case), open_=1, closed=1),
-                "tabs": _tabs(open_=1, closed=1),
-                "faq": FAQ,
-                "detail": None,
-            },
+            context_data={**_inbox(open_=1, closed=1), "detail": None},
         )
+        assert list(response.context_data["page_obj"]) == [_notice_row(notice_case)]
 
     def test_an_unknown_state_shows_the_open_cases(self, staff_client):
         response = staff_client.get(CASES, {"status": "lost"})
@@ -272,12 +259,7 @@ class TestInboxPage:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data={
-                "inbox": _inbox(),
-                "tabs": _tabs(),
-                "faq": FAQ,
-                "detail": None,
-            },
+            context_data={**_inbox(), "detail": None},
         )
 
 
@@ -297,7 +279,8 @@ class TestCasePage:
             worker.post(f"{WORKER}/conversations/messages", status=204)
             with django_capture_on_commit_callbacks(execute=True):
                 response = staff_client.get(_url("case", notice_case))
-            posts = _thread_posts(worker)
+            posts = _tokens(worker, "/conversations/messages")
+            (members,) = _tokens(worker, "/conversations")
 
         assert_response(
             response,
@@ -306,10 +289,15 @@ class TestCasePage:
             context_data=_case_page(notice_case, staff_user),
         )
         (opened,) = posts
-        assert (opened["author"], opened["source"], opened["retainFor"]) == (
+        assert (opened["author"], opened["name"], opened["body"]) == (
             "system",
-            "case_opened",
+            "Notice of illegal content",
+            f"Case Z-{notice_case.pk} opened: Offensive description",
+        )
+        assert (members["kind"], members["retainFor"], members["members"]) == (
+            "staff",
             3 * 365 * 86_400,
+            [{"user": str(staff_user.pk), "state": "active", "writable": True}],
         )
 
     def test_a_chat_that_does_not_answer_leaves_the_page_as_it_is(
@@ -415,6 +403,14 @@ class TestDecidedCase:
             ground="terms_4_1_5",
             decision_text="Removed.",
         )
+        StatementOfReasons.objects.create(
+            case=case,
+            user=teen,
+            decision="content_removed",
+            ground="terms_4_1_5",
+            facts="Removed.",
+            from_report=True,
+        )
         appeal = CaseEmail.objects.create(
             case=case,
             direction="in",
@@ -444,32 +440,20 @@ class TestDecidedCase:
             HTTPStatus.OK,
             template_name="staff/cases.html",
             context_data={
-                "inbox": _inbox(
-                    InboxCaseDTO(
+                **_inbox(active="closed", closed=1),
+                "detail": CaseDetailDTO(
+                    case=CaseDTO(
                         pk=case.pk,
                         kind=CaseKind.CHAT_REPORT,
                         status=CaseStatus.CLOSED,
                         title="Spam",
                         child_safety=True,
                         assignee_name=staff_name,
-                        created_at=case.created_at,
-                    ),
-                    status=CaseStatus.CLOSED,
-                    closed=1,
-                ),
-                "tabs": _tabs(active="closed", closed=1),
-                "faq": FAQ,
-                "detail": CaseDetailDTO(
-                    case=CaseDTO(
-                        pk=case.pk,
-                        status=CaseStatus.CLOSED,
-                        title="Spam",
                         assignee_id=staff_user.pk,
                         decided_by_name=staff_name,
                         thread_id=case.thread_id,
                         reply_to="teen@example.com",
                         reply_name="Teen",
-                        opened_by_email=False,
                         notices=[],
                         chat_reports=[
                             CaseChatReportDTO(
@@ -483,7 +467,6 @@ class TestDecidedCase:
                                 body="buy now",
                                 written_at=datetime(2026, 11, 12, 14, 0, tzinfo=UTC),
                                 status=ModerationStatus.ACTIONED,
-                                involves_minor=True,
                             )
                         ],
                         verdict=CaseVerdictDTO(
@@ -494,8 +477,6 @@ class TestDecidedCase:
                         ),
                         created_at=case.created_at,
                     ),
-                    kind=CaseKind.CHAT_REPORT,
-                    child_safety=True,
                     emails=[
                         CaseEmailDTO(
                             direction=CaseEmailDirection.IN,
@@ -527,6 +508,17 @@ class TestDecidedCase:
                 "statement": DEFAULT_PREVIEW,
             },
         )
+        assert list(response.context_data["page_obj"]) == [
+            InboxCaseDTO(
+                pk=case.pk,
+                kind=CaseKind.CHAT_REPORT,
+                status=CaseStatus.CLOSED,
+                title="Spam",
+                child_safety=True,
+                assignee_name=staff_name,
+                created_at=case.created_at,
+            )
+        ]
 
 
 class TestReply:
@@ -694,7 +686,7 @@ class TestDecide:
             worker.post(f"{WORKER}/conversations/messages", status=204)
             with django_capture_on_commit_callbacks(execute=True):
                 response = _decide(staff_client, chat_case)
-            posts = _thread_posts(worker)
+            posts = _tokens(worker, "/conversations/messages")
             urls = [call.request.url for call in worker.calls]
 
         assert_response(
@@ -716,7 +708,7 @@ class TestDecide:
         assert all(f"[Z-{chat_case.pk}]" in mail.subject for mail in mailoutbox)
         chat_case.refresh_from_db()
         assert (chat_case.status, chat_case.decided_by) == ("closed", staff_user)
-        assert [post["source"] for post in posts] == ["case_opened", "decision"]
+        assert [post["author"] for post in posts] == ["system", str(staff_user.pk)]
         assert f"{WORKER}/moderation" in urls
 
     def test_when_the_chat_does_not_answer_nothing_is_decided(

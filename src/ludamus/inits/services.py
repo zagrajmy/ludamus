@@ -23,8 +23,9 @@ from ludamus.inits.dbos_scheduler import (
     offer_expiry_scheduler,
     parley_membership_outbox,
     parley_revocation_outbox,
+    staff_thread,
 )
-from ludamus.inits.parley import parley_message_reader, staff_thread
+from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
 from ludamus.links.cache import (
     CacheAuthorizationCodeStore,

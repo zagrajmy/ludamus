@@ -4614,6 +4614,20 @@ msgstr "Zaproszenie wycofane."
 msgid "You joined the sphere's team."
 msgstr "Dołączasz do zespołu sfery."
 
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Open"
+msgstr "Otwarte"
+
+#
+#: src/ludamus/gates/web/django/staff/cases.py
+msgid "Waiting"
+msgstr "Czekają"
+
+#: src/ludamus/gates/web/django/staff/cases.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Closed"
+msgstr "Zamknięte"
+
 #
 #: src/ludamus/gates/web/django/staff/cases.py
 msgid "Write the reply first."
@@ -4651,20 +4665,6 @@ msgid "The chat did not answer, so nothing was removed or decided. Try again."
 msgstr ""
 "Czat nie odpowiedział, więc nic nie zostało usunięte ani rozstrzygnięte. "
 "Spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/staff/cases.py
-msgid "Open"
-msgstr "Otwarte"
-
-#
-#: src/ludamus/gates/web/django/staff/cases.py
-msgid "Waiting"
-msgstr "Czekają"
-
-#: src/ludamus/gates/web/django/staff/cases.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Closed"
-msgstr "Zamknięte"
 
 #
 #: src/ludamus/gates/web/django/staff/cases.py
@@ -6140,15 +6140,6 @@ msgstr "Uzasadnienie decyzji"
 
 #: src/ludamus/links/db/django/staff_thread.py
 #, python-format
-msgid "%(count)s attachment, kept in the staff mailbox"
-msgid_plural "%(count)s attachments, kept in the staff mailbox"
-msgstr[0] "%(count)s załącznik, w skrzynce staff@"
-msgstr[1] "%(count)s załączniki, w skrzynce staff@"
-msgstr[2] "%(count)s załączników, w skrzynce staff@"
-msgstr[3] "%(count)s załącznika, w skrzynce staff@"
-
-#: src/ludamus/links/db/django/staff_thread.py
-#, python-format
 msgid "Case %(reference)s opened: %(title)s"
 msgstr "Otwarto sprawę %(reference)s: %(title)s"
 
@@ -6156,6 +6147,15 @@ msgstr "Otwarto sprawę %(reference)s: %(title)s"
 #, python-format
 msgid "Subject: %(subject)s"
 msgstr "Temat: %(subject)s"
+
+#: src/ludamus/links/db/django/staff_thread.py
+#, python-format
+msgid "%(count)s attachment, kept in the staff mailbox"
+msgid_plural "%(count)s attachments, kept in the staff mailbox"
+msgstr[0] "%(count)s załącznik, w skrzynce staff@"
+msgstr[1] "%(count)s załączniki, w skrzynce staff@"
+msgstr[2] "%(count)s załączników, w skrzynce staff@"
+msgstr[3] "%(count)s załącznika, w skrzynce staff@"
 
 #: src/ludamus/links/db/django/staff_thread.py
 #: src/ludamus/templates/staff/cases.html
