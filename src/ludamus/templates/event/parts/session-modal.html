@@ -137,14 +137,20 @@
             <div class="flex items-center gap-2">
                 {% if hosting %}
                     {# No seat to take at your own table; companions still go #}
-                    {# through the group page while the window is open. #}
+                    {# through the group page while the window is open, and a #}
+                    {# host with nobody to bring is offered a party instead. #}
                     <span class="inline-flex items-center gap-1 text-sm font-medium text-foreground-secondary">
                         {% icon "star" class="w-4 h-4" variant="mini" %} {% translate "You're running this" %}
                     </span>
-                    {% if enroll_actions %}
+                    {% if enroll_actions and host_brings_others %}
                         <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
                            class="btn btn-secondary text-sm">
                             {% icon "user-group" class="w-4 h-4" variant="mini" %} {% translate "Enroll others…" %}
+                        </a>
+                    {% elif enroll_actions %}
+                        <a href="{% url 'web:crowd:profile-parties' %}?new-party=1"
+                           class="btn btn-secondary text-sm">
+                            {% icon "user-group" class="w-4 h-4" variant="mini" %} {% translate "Create a party…" %}
                         </a>
                     {% endif %}
                 {% elif data.pretend_full and not event_banned %}

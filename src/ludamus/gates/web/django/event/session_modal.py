@@ -69,6 +69,8 @@ class SessionModalComponentView(View):
             user_enrolled=data.user_enrolled,
             user_waiting=data.user_waiting,
         )
+        # A host who already holds a seat keeps the way to give it back.
+        hosting = dto.viewer_is_host and not (data.user_enrolled or data.user_waiting)
         return TemplateResponse(
             request,
             "event/parts/session-modal.html",
@@ -96,12 +98,20 @@ class SessionModalComponentView(View):
                 # after construction, so this is wrong on a card.
                 "enroll_actions": footer.actions,
                 "enroll_opens_at": footer.opens_at,
-                # A host who already holds a seat keeps the way to give it back.
-                "hosting": (
-                    dto.viewer_is_host and not (data.user_enrolled or data.user_waiting)
-                ),
+                "hosting": hosting,
+                # A host with nobody to bring is sent to make a party instead
+                # of to a group page holding only their own greyed-out row.
+                "host_brings_others": hosting and self._has_others_to_enroll(),
             },
         )
+
+    def _has_others_to_enroll(self) -> bool:
+        if (viewer_id := self.request.context.current_user_id) is None:
+            return False
+        selection = self.request.services.parties.enrollment_selection(
+            viewer_pk=viewer_id, requested_party=None
+        )
+        return bool(selection.choices or selection.companions)
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[UserId], set[UserId], bool]:
         shadowbanned_ids: frozenset[UserId] = frozenset()

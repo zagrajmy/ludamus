@@ -175,6 +175,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -200,6 +201,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
@@ -232,6 +234,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": event_map.pk,
             },
         )
@@ -279,6 +282,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": True,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
@@ -400,6 +404,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
@@ -447,6 +452,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=[
@@ -500,6 +506,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -535,6 +542,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -575,6 +583,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -608,6 +617,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -636,6 +646,36 @@ class TestSessionModalComponentView:
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
                 "hosting": True,
+                "host_brings_others": False,
+                "map_pk": None,
+            },
+        )
+
+    @pytest.mark.usefixtures("enrollment_config", "party_companion")
+    def test_host_with_a_companion_can_bring_them(
+        self, authenticated_client, active_user, agenda_item, event
+    ):
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    is_enrollment_available=True,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _ENROLL,
+                "enroll_opens_at": None,
+                "hosting": True,
+                "host_brings_others": True,
                 "map_pk": None,
             },
         )
@@ -681,6 +721,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
                 "hosting": True,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -721,6 +762,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": general_start,
                 "hosting": True,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -756,6 +798,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
                 "hosting": True,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -799,6 +842,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": True,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -840,6 +884,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=["Mystery Host"],
@@ -876,6 +921,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _CLOSED_CANCEL,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -911,6 +957,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _CLOSED_LEAVE,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -947,6 +994,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=["Enroll Anonymously"],
@@ -992,6 +1040,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": _CANCEL,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=["Manage Enrollment"],
@@ -1022,6 +1071,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
@@ -1058,6 +1108,7 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
@@ -1091,6 +1142,7 @@ class TestGuildMarkInTheModal:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
@@ -1139,6 +1191,7 @@ class TestGuildMarkInTheModal:
                 "enroll_actions": None,
                 "enroll_opens_at": None,
                 "hosting": False,
+                "host_brings_others": False,
                 "map_pk": None,
             },
         )
