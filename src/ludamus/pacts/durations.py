@@ -7,6 +7,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 MINUTES_PER_HOUR = 60
+# What a session lasts when nobody said, so a placement still has a length.
+DEFAULT_DURATION_MINUTES = 60
 MAX_DURATION_HOURS = 23
 MAX_DURATION_MINUTES = 59
 

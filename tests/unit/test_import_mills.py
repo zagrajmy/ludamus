@@ -1,5 +1,5 @@
 import json as _json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -7,6 +7,7 @@ from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.import_log import ImportLogService
 from ludamus.mills.propose.importing import ProposalImportService
 from ludamus.mills.propose.mapping import dedup_ident
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     DuplicateValueError,
@@ -109,24 +110,10 @@ class TestImportRow:
 
 TITLE = {"Title": {"to": "session.title"}}
 NICK = {"Nick": {"to": "facilitator.display_name"}}
-FRI = {
-    "to": "time_slot",
-    "start_time": "2025-09-19T16:00:00+02:00",
-    "end_time": "2025-09-19T22:00:00+02:00",
-}
-SAT = {
-    "to": "time_slot",
-    "start_time": "2025-09-20T10:00:00+02:00",
-    "end_time": "2025-09-20T14:00:00+02:00",
-}
-FRI_WINDOW = (
-    datetime.fromisoformat(FRI["start_time"]),
-    datetime.fromisoformat(FRI["end_time"]),
-)
-SAT_WINDOW = (
-    datetime.fromisoformat(SAT["start_time"]),
-    datetime.fromisoformat(SAT["end_time"]),
-)
+FRI = {"to": "availability", "day": "2025-09-19", "part": "evening"}
+SAT = {"to": "availability", "day": "2025-09-20", "part": "morning"}
+FRI_OFFER = AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
+SAT_OFFER = AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING)
 DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
@@ -877,53 +864,50 @@ class TestProposalImportService:
         (entry,) = world.entries()
         assert world.only_session().title == titles[entry.row_index]
 
-    def test_run_attaches_time_slots_for_chosen_options(self, world):
+    def test_run_attaches_availability_for_chosen_options(self, world):
         _run(
             world,
             questions={
-                "When": {"to": "session.time_slots", "values": {"Fri": FRI, "Sat": SAT}}
+                "When": {
+                    "to": "session.availability",
+                    "values": {"Fri": FRI, "Sat": SAT},
+                }
             },
             responses=[{"When": "Fri, Sat"}, {"When": "Fri"}],
         )
 
         first, second = world.sessions.values()
-        assert world.time_slot_windows(first.time_slot_ids) == [FRI_WINDOW, SAT_WINDOW]
-        assert world.time_slot_windows(second.time_slot_ids) == [FRI_WINDOW]
-        assert len(world.time_slots) == len(first.time_slot_ids)
+        assert first.availability == [FRI_OFFER, SAT_OFFER]
+        assert second.availability == [FRI_OFFER]
 
-    def test_run_attaches_every_window_of_a_multi_window_option(self, world):
+    def test_run_attaches_every_part_of_a_multi_part_option_once(self, world):
         _run(
             world,
             questions={
                 "When": {
-                    "to": "session.time_slots",
+                    "to": "session.availability",
                     "values": {"All": [FRI, SAT], "Again": [FRI]},
                 }
             },
             responses=[{"When": "All, Again"}],
         )
 
-        session = world.only_session()
-        assert world.time_slot_windows(session.time_slot_ids) == [
-            FRI_WINDOW,
-            SAT_WINDOW,
-        ]
+        assert world.only_session().availability == [FRI_OFFER, SAT_OFFER]
 
-    def test_run_ignores_a_non_time_slot_spec_in_time_slot_values(self, world):
-        # An EntityRef-shaped value under a time-slots target is passed over.
+    def test_run_ignores_a_non_availability_spec_in_availability_values(self, world):
+        # An EntityRef-shaped value under an availability target is passed over.
         _run(
             world,
             questions={
                 "When": {
-                    "to": "session.time_slots",
+                    "to": "session.availability",
                     "values": {"Fri": {"name": "Not a slot", "slug": "nope"}},
                 }
             },
             responses=[{"When": "Fri"}],
         )
 
-        assert world.only_session().time_slot_ids == []
-        assert not world.time_slots
+        assert world.only_session().availability == []
 
     def test_run_attaches_a_track_per_chosen_option(self, world):
         _run(
@@ -1344,14 +1328,14 @@ class TestImportLogService:
         assert ada.display_name == "Ada"
         assert world.sessions[session].facilitator_ids == [ada.pk]
 
-    def test_reimport_entry_attaches_time_slots_and_tracks_when_the_session_has_none(
+    def test_reimport_entry_attaches_availability_and_tracks_when_the_session_has_none(
         self, world
     ):
         row = {"Title": "Talk", "When": "Fri", "Suggested": "RPG"}
         _given(
             world,
             questions=TITLE | {
-                "When": {"to": "session.time_slots", "values": {"Fri": FRI}},
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
                 "Suggested": {
                     "to": "track",
                     "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
@@ -1365,15 +1349,15 @@ class TestImportLogService:
         assert _reimport(world, entry) is True
 
         stored = world.sessions[session]
-        assert world.time_slot_windows(stored.time_slot_ids) == [FRI_WINDOW]
+        assert stored.availability == [FRI_OFFER]
         assert world.track_slugs(stored.track_ids) == ["rpg"]
 
-    def test_reimport_entry_keeps_time_slots_and_tracks_already_linked(self, world):
+    def test_reimport_entry_keeps_availability_and_tracks_already_linked(self, world):
         row = {"Title": "Talk", "When": "Fri", "Suggested": "RPG"}
         _given(
             world,
             questions=TITLE | {
-                "When": {"to": "session.time_slots", "values": {"Fri": FRI}},
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
                 "Suggested": {
                     "to": "track",
                     "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
@@ -1381,14 +1365,15 @@ class TestImportLogService:
             },
             responses=[row],
         )
-        session = world.add_session(title="Talk", time_slot_ids=[5], track_ids=[6])
+        session = world.add_session(
+            title="Talk", availability=[SAT_OFFER], track_ids=[6]
+        )
         entry = _logged(world, row, session_id=session)
 
         assert _reimport(world, entry) is True
 
         stored = world.sessions[session]
-        assert (stored.time_slot_ids, stored.track_ids) == ([5], [6])
-        assert not world.time_slots
+        assert (stored.availability, stored.track_ids) == ([SAT_OFFER], [6])
         assert not world.tracks
 
     def test_reimport_entry_keeps_the_attached_facilitator_and_its_personal_data(
@@ -1558,7 +1543,7 @@ class TestImportFieldLayoutService:
                     "to": "category",
                     "values": {"RPG": {"name": "RPG", "slug": "rpg"}},
                 },
-                "When": {"to": "session.time_slots", "values": {"Fri": FRI}},
+                "When": {"to": "session.availability", "values": {"Fri": FRI}},
                 "Suggested": {
                     "to": "track",
                     "values": {"LARP": {"name": "LARP", "slug": "larp"}},
@@ -1590,7 +1575,7 @@ class TestImportFieldLayoutService:
         assert stored.contact_email == "a@x.z"
         assert world.category_slug(stored.category_id) == "rpg"
         assert stored.facilitator_ids == [ada.pk]
-        assert world.time_slot_windows(stored.time_slot_ids) == [FRI_WINDOW]
+        assert stored.availability == [FRI_OFFER]
         assert world.track_slugs(stored.track_ids) == ["larp"]
         assert world.field_answers(stored) == {"system": "D&D"}
         assert world.personal_answers(ada.pk) == {"phone": "555"}
@@ -1659,7 +1644,9 @@ class TestImportFieldLayoutService:
             },
             responses=[],
         )
-        session = world.add_session(title="Talk", time_slot_ids=[99], track_ids=[88])
+        session = world.add_session(
+            title="Talk", availability=[SAT_OFFER], track_ids=[88]
+        )
         _logged(
             world, {"Cap": "loads", "Author": "Ada", "Cat": "Foo"}, session_id=session
         )
@@ -1669,7 +1656,7 @@ class TestImportFieldLayoutService:
         assert result == ApplyFieldLayoutResult(sessions_processed=1)
         stored = world.sessions[session]
         assert (stored.facilitator_ids, stored.category_id) == ([], None)
-        assert (stored.time_slot_ids, stored.track_ids) == ([99], [88])
+        assert (stored.availability, stored.track_ids) == ([SAT_OFFER], [88])
 
     def test_apply_swallows_row_skips_resolving_category_slots_and_tracks(self, world):
         # Conflicting duplicate columns make every entity resolution a row
@@ -1678,7 +1665,7 @@ class TestImportFieldLayoutService:
             world,
             questions={
                 "Cat": {"to": "category"},
-                "When": {"to": "session.time_slots"},
+                "When": {"to": "session.availability"},
                 "Track": {"to": "track"},
             },
             responses=[],

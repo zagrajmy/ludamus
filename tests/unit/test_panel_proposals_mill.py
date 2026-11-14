@@ -1,9 +1,11 @@
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
@@ -17,6 +19,7 @@ from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionStatus
 from tests.unit.factories import FakeTransaction
 
+_NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
 _CREATED_SESSION_ID = 7
 _EVENT_ID = 1
@@ -28,6 +31,10 @@ def _by_event(rows):
 
 def _by_session(session_id, row):
     return lambda pk, event_id: {(session_id, _EVENT_ID): row}[pk, event_id]
+
+
+def _offered(part: DayPart) -> AvailabilityDTO:
+    return AvailabilityDTO(day=date(2026, 6, 1), part=part)
 
 
 class TestProposalPanelService:
@@ -67,10 +74,6 @@ class TestProposalPanelService:
         return MagicMock()
 
     @pytest.fixture
-    def time_slots(self):
-        return MagicMock()
-
-    @pytest.fixture
     def service(
         self,
         sessions,
@@ -79,7 +82,6 @@ class TestProposalPanelService:
         panel_settings,
         facilitators,
         tracks,
-        time_slots,
     ):
         return ProposalPanelService(
             FakeTransaction(),
@@ -90,7 +92,6 @@ class TestProposalPanelService:
                 panel_settings=panel_settings,
                 facilitators=facilitators,
                 tracks=tracks,
-                time_slots=time_slots,
             ),
         )
 
@@ -121,6 +122,47 @@ class TestProposalPanelService:
         assert not result.sort
         assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
+    def test_create_writes_session_field_values_and_availability_together(
+        self, service, sessions, session_fields, facilitators, tracks
+    ):
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+        session_fields.list_by_event.side_effect = _by_event(
+            [SimpleNamespace(pk=3, field_type="select", order=0, name="System")]
+        )
+        facilitators.list_by_event.side_effect = _by_event([SimpleNamespace(pk=7)])
+        tracks.list_by_event.side_effect = _by_event([SimpleNamespace(pk=4)])
+
+        proposal_id = service.create_proposal(
+            event_id=1,
+            draft=ProposalDraft(
+                data={"title": "Dragon Heist", "event_id": 1},
+                facilitator_ids=[7],
+                field_values={3: "D&D 5e"},
+                track_ids=[4],
+                availability=[_offered(DayPart.EVENING)],
+            ),
+        )
+
+        assert proposal_id == _NEW_PROPOSAL_ID
+        sessions.create.assert_called_once_with(
+            {
+                "title": "Dragon Heist",
+                "event_id": 1,
+                "slug": "dragon-heist",
+                "status": SessionStatus.PENDING,
+            },
+            facilitator_ids=[7],
+        )
+        sessions.save_field_values.assert_called_once_with(
+            _NEW_PROPOSAL_ID,
+            [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
+        )
+        sessions.set_availability.assert_called_once_with(
+            _NEW_PROPOSAL_ID, [_offered(DayPart.EVENING)]
+        )
+        sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
+
     def test_create_rejects_foreign_event_id_in_draft(self, service, sessions):
         with pytest.raises(NotFoundError):
             service.create_proposal(
@@ -129,6 +171,15 @@ class TestProposalPanelService:
             )
 
         sessions.create.assert_not_called()
+
+    def test_create_skips_empty_field_values_and_availability(self, service, sessions):
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+
+        service.create_proposal(event_id=1, draft=ProposalDraft(data={"title": "Bare"}))
+
+        sessions.save_field_values.assert_not_called()
+        sessions.set_availability.assert_not_called()
 
     def test_create_accepted_session_recovers_from_constraint_error(
         self, service, sessions
@@ -366,14 +417,13 @@ class TestProposalPanelService:
             ProposalDraft(data={"title": "X"}, field_values={9: "a"}),
             ProposalDraft(data={"title": "X"}, facilitator_ids=[9]),
             ProposalDraft(data={"title": "X"}, track_ids=[9]),
-            ProposalDraft(data={"title": "X"}, time_slot_ids=[9]),
             ProposalDraft(data={"title": "X", "category_id": 9}),
         ),
     )
     def test_create_rejects_references_outside_the_event(
-        self, service, sessions, facilitators, tracks, time_slots, draft
+        self, service, sessions, facilitators, tracks, draft
     ):
-        for repo in (facilitators, tracks, time_slots):
+        for repo in (facilitators, tracks):
             repo.list_by_event.side_effect = _by_event([])
 
         with pytest.raises(NotFoundError):
@@ -381,7 +431,7 @@ class TestProposalPanelService:
 
         sessions.create.assert_not_called()
 
-    def test_create_stores_answers_tracks_and_slots_and_caches_event_ids(
+    def test_create_stores_answers_tracks_and_availability_and_caches_event_ids(
         self,
         service,
         sessions,
@@ -389,7 +439,6 @@ class TestProposalPanelService:
         proposal_categories,
         facilitators,
         tracks,
-        time_slots,
     ):
         session_fields.list_by_event.side_effect = _by_event(
             [SimpleNamespace(pk=1), SimpleNamespace(pk=2)]
@@ -399,7 +448,6 @@ class TestProposalPanelService:
         )
         facilitators.list_by_event.side_effect = _by_event([SimpleNamespace(pk=3)])
         tracks.list_by_event.side_effect = _by_event([SimpleNamespace(pk=4)])
-        time_slots.list_by_event.side_effect = _by_event([SimpleNamespace(pk=6)])
         sessions.slug_exists.side_effect = lambda event_id, slug: (event_id, slug) == (
             1,
             "full",
@@ -410,7 +458,7 @@ class TestProposalPanelService:
             facilitator_ids=[3],
             field_values={1: "  ", 2: False},
             track_ids=[4],
-            time_slot_ids=[6],
+            availability=[_offered(DayPart.EVENING)],
         )
 
         first = service.create_proposal(event_id=1, draft=draft)
@@ -426,13 +474,13 @@ class TestProposalPanelService:
         answered = [SessionFieldValueData(session_id=11, field_id=2, value=False)]
         assert sessions.save_field_values.call_args_list == [call(11, answered)] * 2
         sessions.set_session_tracks.assert_called_with(11, [4])
-        sessions.set_time_slots.assert_called_with(11, [6])
+        sessions.set_availability.assert_called_with(11, [_offered(DayPart.EVENING)])
         assert tracks.list_by_event.call_count == 1
 
     def test_create_without_answers_or_placement_writes_only_the_session(
-        self, service, sessions, facilitators, tracks, time_slots
+        self, service, sessions, facilitators, tracks
     ):
-        for repo in (facilitators, tracks, time_slots):
+        for repo in (facilitators, tracks):
             repo.list_by_event.side_effect = _by_event([])
         sessions.slug_exists.return_value = False
         sessions.create.return_value = _CREATED_SESSION_ID
@@ -445,4 +493,4 @@ class TestProposalPanelService:
         assert sessions.create.call_args[0][0]["slug"] == "bare"
         sessions.save_field_values.assert_not_called()
         sessions.set_session_tracks.assert_not_called()
-        sessions.set_time_slots.assert_not_called()
+        sessions.set_availability.assert_not_called()

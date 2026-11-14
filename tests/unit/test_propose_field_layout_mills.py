@@ -1,8 +1,9 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.mapping import dedup_ident
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import (
@@ -14,13 +15,13 @@ from ludamus.pacts.fields import (
 from ludamus.pacts.integrations import EventIntegrationDTO
 from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
+    AvailabilitySpec,
     EntityRef,
     ImportLogEntryDTO,
     ImportLogStatus,
     ImportRepos,
     ImportSettings,
     QuestionTarget,
-    TimeSlotSpec,
     ValueDelta,
 )
 from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
@@ -30,10 +31,8 @@ EVENT_ID = 4
 INTEGRATION_PK = 3
 SESSION_ID = 100
 _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
-_SAT = TimeSlotSpec(
-    start_time=datetime(2026, 5, 2, 10, tzinfo=UTC),
-    end_time=datetime(2026, 5, 2, 14, tzinfo=UTC),
-)
+_SAT = AvailabilitySpec(day=date(2026, 5, 2), part=DayPart.MORNING)
+_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, part=_SAT.part)
 _RPG = EntityRef(name="RPG", slug="rpg")
 
 _SETTINGS = ImportSettings(
@@ -42,7 +41,7 @@ _SETTINGS = ImportSettings(
         "Email": QuestionTarget(to="session.contact_email"),
         "Name": QuestionTarget(to="facilitator.display_name"),
         "Kind": QuestionTarget(to="category", values={"RPG": _RPG}),
-        "When": QuestionTarget(to="session.time_slots", values={"Sat": _SAT}),
+        "When": QuestionTarget(to="session.availability", values={"Sat": _SAT}),
         "Block": QuestionTarget(to="track", values={"RPG": _RPG}),
         "Genre": QuestionTarget(to="field.genre"),
         "Phone": QuestionTarget(to="personal.phone"),
@@ -77,7 +76,7 @@ class _Integrations:
 class _Sessions:
     def __init__(self, session: SessionDTO) -> None:
         self.session = session
-        self.time_slots: list[int] = []
+        self.availability: list[AvailabilityDTO] = []
         self.tracks: list[int] = []
         self.facilitator_ids: list[int] = []
         self.field_values: list[SessionFieldValueData] = []
@@ -95,11 +94,11 @@ class _Sessions:
     def set_facilitators(self, session_id: int, facilitator_ids: list[int]) -> None:
         self.facilitator_ids = facilitator_ids
 
-    def read_preferred_time_slot_ids(self, session_id: int) -> list[int]:
-        return self.time_slots
+    def read_availability(self, session_id: int) -> list[AvailabilityDTO]:
+        return self.availability
 
-    def set_time_slots(self, session_id: int, time_slot_ids: list[int]) -> None:
-        self.time_slots = time_slot_ids
+    def set_availability(self, session_id: int, offered: list[AvailabilityDTO]) -> None:
+        self.availability = offered
 
     def read_track_ids(self, session_id: int) -> list[int]:
         return self.tracks
@@ -184,9 +183,6 @@ class _ProvisionedByKey:
     def _id(self, key: object) -> int:
         return self.ids.setdefault(key, len(self.ids) + 1)
 
-    def get_or_create(self, event_id: int, start_time, end_time) -> int:
-        return self._id((start_time, end_time))
-
     def get_or_create_by_slug(self, event_id: int, name: str, slug: str) -> int:
         return self._id(slug)
 
@@ -250,7 +246,6 @@ def _repos(**overrides) -> ImportRepos:
         "session_fields": _Fields(),
         "personal_fields": _Fields(),
         "personal_data_field_values": _PersonalValues(),
-        "time_slots": _ProvisionedByKey(),
         "tracks": _ProvisionedByKey(),
         "categories": _ProvisionedByKey(),
         "facilitators": _Facilitators(),
@@ -289,7 +284,9 @@ class TestApplyFieldLayout:
         assert result.session_builtins_filled == 1
         assert repos.sessions.updates == {"contact_email": "a@x"}
 
-    def test_wires_facilitator_category_slots_and_tracks_onto_a_bare_session(self):
+    def test_wires_facilitator_category_availability_and_tracks_onto_a_bare_session(
+        self,
+    ):
         repos = _repos(log_entries=_LogEntries(_entry(_FULL_ROW)))
 
         result = _apply(repos)
@@ -306,7 +303,7 @@ class TestApplyFieldLayout:
             }
         ]
         assert repos.sessions.updates == {"contact_email": "a@x", "category_id": 1}
-        assert repos.sessions.time_slots == [1]
+        assert repos.sessions.availability == [_SAT_OFFERED]
         assert repos.sessions.tracks == [1]
         assert repos.categories.ids == {"rpg": 1}
 
@@ -334,14 +331,13 @@ class TestApplyFieldLayout:
         assert result.session_builtins_filled == 0
         assert repos.sessions.updates == {}
 
-    def test_links_nothing_when_the_row_leaves_slots_and_tracks_blank(self):
+    def test_links_nothing_when_the_row_leaves_availability_and_tracks_blank(self):
         repos = _repos(log_entries=_LogEntries(_entry(_BLANK_ROW)))
 
         result = _apply(repos)
 
         assert result.session_links_filled == 0
-        assert (repos.sessions.time_slots, repos.sessions.tracks) == ([], [])
-        assert repos.time_slots.ids == {}
+        assert (repos.sessions.availability, repos.sessions.tracks) == ([], [])
         assert repos.tracks.ids == {}
 
     def test_leaves_a_fully_wired_session_alone_and_reconciles_personal_data(self):
@@ -372,7 +368,7 @@ class TestApplyFieldLayout:
             log_entries=_LogEntries(_entry(_FULL_ROW)),
         )
         repos.sessions.facilitator_ids = [7, 8]
-        repos.sessions.time_slots = [5]
+        repos.sessions.availability = [_SAT_OFFERED]
         repos.sessions.tracks = [6]
 
         result = _apply(repos)

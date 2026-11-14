@@ -35,7 +35,6 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
     sponsor_user,
 )
@@ -1001,22 +1000,17 @@ class TestSessionEnrollPageView:
         # this one takes the seat locks.
         space1 = SpaceFactory(event=event)
         space2 = SpaceFactory(event=event)
-        time_slot = TimeSlotFactory(event=event)
+        start = event.start_time
+        end = start + timedelta(hours=2)
 
         session1 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session1,
-            space=space1,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session1, space=space1, start_time=start, end_time=end
         )
 
         session2 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session2,
-            space=space2,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session2, space=space2, start_time=start, end_time=end
         )
 
         commit_before_seat_lock(

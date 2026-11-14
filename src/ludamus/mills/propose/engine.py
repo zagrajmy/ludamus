@@ -24,9 +24,11 @@ from ludamus.mills.propose.mapping import (
     session_field_values,
 )
 from ludamus.mills.propose.personal_data_fields import log_facilitator_deletion
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import PersonalDataFieldCreateData, SessionFieldCreateData
 from ludamus.pacts.propose import (
+    AvailabilitySpec,
     FieldDefinition,
     ImportLogEntryCreateData,
     ImportLogStatus,
@@ -35,13 +37,14 @@ from ludamus.pacts.propose import (
     ImportSettings,
     MissingKeyColumnsError,
     ProposalImportResult,
-    TimeSlotSpec,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionData, SessionStatus, SessionUpdateData
 from ludamus.pacts.slugs import slugify, unique_slug
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
@@ -315,9 +318,7 @@ class ImportEngine:
         )
         session_id = self._repos.sessions.create(
             session_data,
-            time_slot_ids=self.time_slot_ids(
-                event_id=event_id, settings=settings, row=row
-            ),
+            availability=self.availability(settings=settings, row=row),
             track_ids=self.track_ids(event_id=event_id, settings=settings, row=row),
             facilitator_ids=[facilitator_id] if facilitator_id is not None else [],
         )
@@ -360,10 +361,9 @@ class ImportEngine:
             settings=settings,
             row=row,
         )
-        if not self._repos.sessions.read_preferred_time_slot_ids(session_id):
-            self._repos.sessions.set_time_slots(
-                session_id,
-                self.time_slot_ids(event_id=event_id, settings=settings, row=row),
+        if not self._repos.sessions.read_availability(session_id):
+            self._repos.sessions.set_availability(
+                session_id, self.availability(settings=settings, row=row)
             )
         if not self._repos.sessions.read_track_ids(session_id):
             self._repos.sessions.set_session_tracks(
@@ -682,33 +682,32 @@ class ImportEngine:
         if entries:
             self._repos.personal_data_field_values.save(entries)
 
-    def time_slot_ids(
-        self, *, event_id: int, settings: ImportSettings, row: ImportRow
-    ) -> list[int]:
-        # For each `session.time_slots` question, the chosen options' windows
-        # are provisioned (deduped by start+end) and their ids collected. The
-        # response cell joins multi-select answers with ", "; options here are
-        # comma-free, so a comma split + exact match resolves them.
-        ids: list[int] = []
+    @staticmethod
+    def availability(
+        *, settings: ImportSettings, row: ImportRow
+    ) -> list[AvailabilityDTO]:
+        # For each `session.availability` question, the chosen options name
+        # when the facilitator could host. The response cell joins
+        # multi-select answers with ", "; options here are comma-free, so a
+        # comma split + exact match resolves them.
+        offered: dict[tuple[date, DayPart], AvailabilityDTO] = {}
         for header, target in settings.questions.items():
-            if target.to != "session.time_slots":
+            if target.to != "session.availability":
                 continue
             chosen = {
-                part.strip()
-                for part in cell(target=target, row=row, header=header).split(",")
+                answer.strip()
+                for answer in cell(target=target, row=row, header=header).split(",")
             }
             for option, spec in target.values.items():
                 if option not in chosen:
                     continue
-                windows = spec if isinstance(spec, list) else [spec]
-                for window in windows:
-                    if isinstance(window, TimeSlotSpec):
-                        slot_id = self._repos.time_slots.get_or_create(
-                            event_id, window.start_time, window.end_time
+                for entry in spec if isinstance(spec, list) else [spec]:
+                    if isinstance(entry, AvailabilitySpec):
+                        offered.setdefault(
+                            (entry.day, entry.part),
+                            AvailabilityDTO(day=entry.day, part=entry.part),
                         )
-                        if slot_id not in ids:
-                            ids.append(slot_id)
-        return ids
+        return [offered[key] for key in sorted(offered)]
 
     def track_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

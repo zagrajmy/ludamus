@@ -1206,7 +1206,6 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/event/panel/integrations/edit.html
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/mcp/authorize.html
-#: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discount-rule-form.html
@@ -1222,7 +1221,6 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-copy.html
 #: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
@@ -1282,16 +1280,9 @@ msgstr[2] "%(counter)s wolnych miejsc"
 msgstr[3] "%(counter)s wolne miejsca"
 
 #: src/ludamus/gates/web/django/event/forms.py
-msgid "Choose a time…"
-msgstr "Wybierz godzinę…"
-
-#: src/ludamus/gates/web/django/event/forms.py
-msgid "Preferred by the facilitator"
-msgstr "Preferowane przez twórcę programu"
-
-#: src/ludamus/gates/web/django/event/forms.py
-msgid "Other times"
-msgstr "Pozostałe godziny"
+#, python-format
+msgid "The facilitator offered: %(times)s"
+msgstr "Twórca programu zaproponował: %(times)s"
 
 #: src/ludamus/gates/web/django/event/forms.py
 msgid "Ungrouped"
@@ -1312,21 +1303,17 @@ msgid "Select the space where this session will take place"
 msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/gates/web/django/event/forms.py
-#: src/ludamus/templates/event/accept_proposal.html
-msgid "Time slot"
-msgstr "Przedział czasowy"
+msgid "Starts at"
+msgstr "Początek"
 
 #: src/ludamus/gates/web/django/event/forms.py
-msgid "Pick the start time for this session."
-msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
+#, python-format
+msgid "When this session starts. It runs for %(minutes)s minutes."
+msgstr "Kiedy zaczyna się ten punkt programu. Trwa %(minutes)s minut."
 
 #: src/ludamus/gates/web/django/event/forms.py
 msgid "Invalid space selection."
 msgstr "Nieprawidłowy wybór sali."
-
-#: src/ludamus/gates/web/django/event/forms.py
-msgid "Invalid time slot selection."
-msgstr "Nieprawidłowy wybór przedziału czasowego."
 
 #: src/ludamus/gates/web/django/event/maps.py
 msgid "Only the event's organizers can change its maps."
@@ -1432,15 +1419,14 @@ msgstr "Bez wydarzenia, zacznij od zera"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid ""
-"Copies its venues, tracks with their managers, time slots, session and "
-"personal-data fields, categories, enrollment and discount rules, and "
-"settings. Dates move with the new start, proposal windows included. Sessions "
-"are not copied."
+"Copies its venues, tracks with their managers, session and personal-data "
+"fields, categories, enrollment and discount rules, and settings. Dates move "
+"with the new start, proposal windows included. Sessions are not copied."
 msgstr ""
-"Kopiuje miejsca, bloki programowe z ich opiekunami, przedziały czasowe, pola "
-"punktów programu i danych osobowych, kategorie, zasady zapisów i zniżek oraz "
-"ustawienia. Daty przesuwają się razem z nowym początkiem, także okna "
-"zgłoszeń. Punkty programu nie są kopiowane."
+"Kopiuje miejsca, bloki programowe z ich opiekunami, pola punktów programu i "
+"danych osobowych, kategorie, zasady zapisów i zniżek oraz ustawienia. Daty "
+"przesuwają się razem z nowym początkiem, także okna zgłoszeń. Punkty "
+"programu nie są kopiowane."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Enrollment opens"
@@ -2174,11 +2160,9 @@ msgid "Used by categories"
 msgstr "Używane przez kategorie"
 
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/_stepper.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Time slots"
-msgstr "Przedziały czasowe"
+msgid "Available days"
+msgstr "Dostępne dni"
 
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
 #: src/ludamus/templates/event/event.html
@@ -2222,8 +2206,8 @@ msgstr "Pole punktu programu — %(name)s"
 
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
 #, python-format
-msgid "%(count)d windows"
-msgstr "Okien: %(count)d"
+msgid "%(count)d day mappings"
+msgstr "Powiązań dni: %(count)d"
 
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
 #, python-format
@@ -2376,14 +2360,14 @@ msgid ""
 "Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
 "session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
 "%(builtins)d missing built-in fields, linked %(links)d missing "
-"facilitators / time slots / tracks, pruned %(pruned)d orphan field "
+"facilitators / available days / tracks, pruned %(pruned)d orphan field "
 "definitions."
 msgstr ""
 "Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
 "%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów danych "
 "osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, dowiązano "
-"%(links)d brakujących twórców programu / przedziałów czasowych / bloków, "
-"usunięto %(pruned)d osieroconych definicji pól."
+"%(links)d brakujących twórców programu / dostępnych dni / bloków, usunięto "
+"%(pruned)d osieroconych definicji pól."
 
 #: src/ludamus/gates/web/django/event/panel/views/integrations.py
 #: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
@@ -2672,60 +2656,12 @@ msgstr "Nie można usunąć pola używanego w kategoriach."
 msgid "Session field deleted successfully."
 msgstr "Pole punktu programu zostało usunięte."
 
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Start must be before end."
-msgstr "Początek musi być przed końcem."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot overlaps with an existing slot."
-msgstr "Przedział czasowy nakłada się na istniejący przedział."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid ""
-"The time slot starts before the event is published. Move the publication "
-"time in the event settings first."
-msgstr ""
-"Przedział czasowy zaczyna się przed publikacją wydarzenia. Najpierw przesuń "
-"czas publikacji w ustawieniach wydarzenia."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Used by proposals"
-msgstr "Używany przez zgłoszenia"
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot created. The event dates now cover it."
-msgstr "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot created successfully."
-msgstr "Przedział czasowy został utworzony."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot not found."
-msgstr "Przedział czasowy nie został znaleziony."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot updated. The event dates now cover it."
-msgstr ""
-"Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go obejmują."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot updated successfully."
-msgstr "Przedział czasowy został zaktualizowany."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Cannot delete time slot used in proposals."
-msgstr "Nie można usunąć przedziału czasowego używanego w zgłoszeniach."
-
-#: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot deleted successfully."
-msgstr "Przedział czasowy został usunięty."
-
 #: src/ludamus/gates/web/django/event/panel/views/timetable.py
 msgid "Only accepted sessions can be placed on the schedule."
 msgstr "W harmonogramie można umieszczać tylko zaakceptowane punkty programu."
 
 #: src/ludamus/gates/web/django/event/panel/views/timetable.py
+#: src/ludamus/gates/web/django/event/views.py
 msgid ""
 "This is before the event is published. Move the publication time in the "
 "event settings first."
@@ -2817,6 +2753,26 @@ msgid "Door cards"
 msgstr "Tabliczki na drzwi"
 
 #: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Morning"
+msgstr "Rano"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Afternoon"
+msgstr "Po południu"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Evening"
+msgstr "Wieczorem"
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Night"
+msgstr "W nocy"
+
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select a category first."
 msgstr "Najpierw wybierz kategorię."
 
@@ -2834,8 +2790,8 @@ msgid "Please select a category."
 msgstr "Wybierz kategorię."
 
 #: src/ludamus/gates/web/django/event/propose.py
-msgid "Please select at least one time slot."
-msgstr "Wybierz przynajmniej jeden przedział czasowy."
+msgid "Pick at least one time you could host."
+msgstr "Wybierz przynajmniej jedną porę, w której możesz poprowadzić."
 
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select at least one track."
@@ -3218,22 +3174,6 @@ msgstr "Nazwa użytkownika Discord"
 #: src/ludamus/gates/web/django/forms.py
 msgid "A checkbox cannot be required."
 msgstr "Pole wyboru nie może być wymagane."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Date is required."
-msgstr "Data jest wymagana."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enter a valid date."
-msgstr "Podaj prawidłową datę."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "End date is required."
-msgstr "Data końcowa jest wymagana."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enter a valid time."
-msgstr "Podaj prawidłowy czas."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Space name is too long (max 255 characters)."
@@ -4906,7 +4846,6 @@ msgid "Chosen"
 msgstr "Wybrane"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/cfp-edit.html
 msgid "Included"
 msgstr "Uwzględnione"
 
@@ -4970,6 +4909,22 @@ msgstr "Scalono z"
 #: src/ludamus/gates/web/django/templatetags/confirmation_tags.py
 msgid "track"
 msgstr "blok"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "morning"
+msgstr "rano"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "afternoon"
+msgstr "po południu"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "evening"
+msgstr "wieczorem"
+
+#: src/ludamus/gates/web/django/templatetags/date_tags.py
+msgid "night"
+msgstr "w nocy"
 
 #: src/ludamus/gates/web/django/templatetags/date_tags.py
 msgid "ongoing"
@@ -5629,10 +5584,6 @@ msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
 #: src/ludamus/links/db/django/models.py
 msgid "A root space with this slug already exists."
 msgstr "Przestrzeń główna o tym slugu już istnieje."
-
-#: src/ludamus/links/db/django/models.py
-msgid "Time slots can't overlap!"
-msgstr "Przedziały czasowe nie mogą się nakładać!"
 
 #: src/ludamus/links/db/django/models.py
 msgid "Twórca programu"
@@ -6961,6 +6912,7 @@ msgstr "Zapisz zmiany"
 #: src/ludamus/templates/board/_form.html
 #: src/ludamus/templates/board/detail.html
 #: src/ludamus/templates/encounter/detail.html
+#: src/ludamus/templates/event/propose/parts/_stepper.html
 #: src/ludamus/templates/landing/spotkanie.html
 msgid "When"
 msgstr "Kiedy"
@@ -7299,13 +7251,11 @@ msgstr "Na stronę:"
 
 #: src/ludamus/templates/components/_pagination.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/time-slots.html
 msgid "Previous"
 msgstr "Poprzednia"
 
 #: src/ludamus/templates/components/_pagination.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
 
@@ -7978,7 +7928,6 @@ msgid "Actions"
 msgstr "Akcje"
 
 #: src/ludamus/templates/design.html
-#: src/ludamus/templates/panel/_time_slot_row_actions.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -8434,23 +8383,14 @@ msgid "Submitted"
 msgstr "Przesłane"
 
 #: src/ludamus/templates/event/accept_proposal.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-msgid "Preferred Time Slots"
-msgstr "Preferowane przedziały czasowe"
+#: src/ludamus/templates/panel/parts/availability-picker.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "When the facilitator could host"
+msgstr "Kiedy twórca programu może poprowadzić"
 
 #: src/ludamus/templates/event/accept_proposal.html
 msgid "Schedule it"
 msgstr "Zaplanuj"
-
-#: src/ludamus/templates/event/accept_proposal.html
-msgid ""
-"This event has no time slots yet, so nothing can go on the agenda. Add the "
-"time slots, then come back to accept this proposal."
-msgstr ""
-"To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
-"harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
-"zgłoszenie."
 
 #: src/ludamus/templates/event/accept_proposal.html
 msgid ""
@@ -8459,10 +8399,6 @@ msgid ""
 msgstr ""
 "To wydarzenie nie ma jeszcze przestrzeni, więc nic nie trafi do "
 "harmonogramu. Dodaj przestrzeń, a potem wróć tu zaakceptować to zgłoszenie."
-
-#: src/ludamus/templates/event/accept_proposal.html
-msgid "Add time slots"
-msgstr "Dodaj przedziały czasowe"
 
 #: src/ludamus/templates/event/accept_proposal.html
 msgid "Add a space"
@@ -8786,6 +8722,7 @@ msgid "Any age"
 msgstr "Dowolny wiek"
 
 #: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Day"
 msgstr "Dzień"
 
@@ -9006,7 +8943,6 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/proposal-form.html
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/sphere/panel/announcements/edit.html
 #: src/ludamus/templates/sphere/panel/connections/edit.html
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
@@ -9115,7 +9051,6 @@ msgid "With descriptions"
 msgstr "Z opisami"
 
 #: src/ludamus/templates/event/print.html
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Start"
 msgstr "Początek"
 
@@ -9263,6 +9198,23 @@ msgstr "Co chcesz zgłosić?"
 msgid "Choose the type of session you want to run."
 msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 
+#: src/ludamus/templates/event/propose/parts/days.html
+msgid "When could you host?"
+msgstr "Kiedy możesz poprowadzić?"
+
+#: src/ludamus/templates/event/propose/parts/days.html
+msgid "Tick every time that would work. We settle the exact hours later."
+msgstr ""
+"Zaznacz każdą porę, która Ci pasuje. Dokładne godziny ustalamy później."
+
+#: src/ludamus/templates/event/propose/parts/days.html
+msgid "Availability saved. Next step coming soon."
+msgstr "Dostępność zapisana. Następny krok wkrótce."
+
+#: src/ludamus/templates/event/propose/parts/days.html
+msgid "No availability to pick. Proceeding to next step."
+msgstr "Nie ma czego wybierać. Przechodzimy do następnego kroku."
+
 #: src/ludamus/templates/event/propose/parts/details.html
 msgid "Session Details"
 msgstr "Szczegóły punktu programu"
@@ -9316,21 +9268,12 @@ msgid "All ages"
 msgstr "Bez ograniczeń"
 
 #: src/ludamus/templates/event/propose/parts/review.html
+msgid "When you could host"
+msgstr "Kiedy możesz poprowadzić"
+
+#: src/ludamus/templates/event/propose/parts/review.html
 msgid "Submit Proposal"
 msgstr "Prześlij zgłoszenie"
-
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-msgid "Pick every slot you could host."
-msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
-
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-msgid "Time slots saved. Next step coming soon."
-msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
-
-#: src/ludamus/templates/event/propose/parts/timeslots.html
-msgid "No time slot selection needed. Proceeding to next step."
-msgstr ""
-"Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego kroku."
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/landing/org_proof.html
@@ -10347,12 +10290,6 @@ msgstr "Pola danych twórcy"
 msgid "Session Fields"
 msgstr "Pola punktu programu"
 
-#: src/ludamus/templates/panel/_cfp_tabs.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Time Slots"
-msgstr "Przedziały czasowe"
-
 #: src/ludamus/templates/panel/_column_key_picker.html
 #, python-format
 msgid "Remove %(col)s"
@@ -10365,7 +10302,6 @@ msgstr "Dodaj kolumnę…"
 #: src/ludamus/templates/panel/_column_key_picker.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/time-slots.html
 msgid "Add"
 msgstr "Dodaj"
 
@@ -10518,39 +10454,6 @@ msgstr "Kopiuj do wydarzenia"
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Delete this space and everything inside it?"
 msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
-
-#: src/ludamus/templates/panel/_time-slot-create-modal.html
-msgid "New Time Slot"
-msgstr "Nowy przedział czasowy"
-
-#: src/ludamus/templates/panel/_time-slot-create-modal.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Add Time Slot"
-msgstr "Dodaj przedział czasowy"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "Time Slot Details"
-msgstr "Szczegóły przedziału czasowego"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "Timezone:"
-msgstr "Strefa czasowa:"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "Date"
-msgstr "Data"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "End Date"
-msgstr "Data końcowa"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "Start Time"
-msgstr "Czas rozpoczęcia"
-
-#: src/ludamus/templates/panel/_time-slot-form.html
-msgid "End Time"
-msgstr "Czas zakończenia"
 
 #: src/ludamus/templates/panel/_timetable_tabs.html
 #: src/ludamus/templates/panel/proposals.html
@@ -10954,16 +10857,22 @@ msgid "Configure session fields"
 msgstr "Skonfiguruj pola punktu programu"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Select which time slots are available for this category."
-msgstr "Wybierz, które przedziały czasowe są dostępne dla tej kategorii."
+msgid "Availability"
+msgstr "Dostępność"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "No time slots defined for this event."
-msgstr "Nie zdefiniowano przedziałów czasowych dla tego wydarzenia."
+msgid ""
+"Ask proposers when they could run this: a morning, an evening, and so on. "
+"The days and parts come from the event's own dates, so there is nothing else "
+"to set up, and nobody is asked to pick an hour."
+msgstr ""
+"Pytaj zgłaszających, kiedy mogliby to poprowadzić: rano, wieczorem i tak "
+"dalej. Dni i pory wynikają z dat wydarzenia, więc nie trzeba nic więcej "
+"ustawiać, a nikt nie musi wybierać godziny."
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Configure time slots"
-msgstr "Skonfiguruj przedziały czasowe"
+msgid "Ask when they could host"
+msgstr "Pytaj, kiedy mogą poprowadzić"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Are you sure you want to delete this category?"
@@ -12185,6 +12094,14 @@ msgstr "Ta sfera nie ma jeszcze żadnych gildii."
 msgid "New guild"
 msgstr "Nowa gildia"
 
+#: src/ludamus/templates/panel/parts/availability-picker.html
+msgid ""
+"Times that would work for this session. These are preferences, not a final "
+"schedule."
+msgstr ""
+"Pory, które pasowałyby dla tego punktu programu. To preferencje, nie "
+"ostateczny harmonogram."
+
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 #: src/ludamus/templates/staff/cases.html
 #, python-format
@@ -12339,16 +12256,16 @@ msgid "Allow custom values"
 msgstr "Zezwól na własne wartości"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "End"
-msgstr "Koniec"
+msgid "Part of day"
+msgstr "Pora dnia"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Remove window"
-msgstr "Usuń przedział"
+msgid "Remove time"
+msgstr "Usuń porę"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Add window"
-msgstr "Dodaj przedział"
+msgid "Add time"
+msgstr "Dodaj porę"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Catch-all for custom answers"
@@ -12445,19 +12362,6 @@ msgid ""
 msgstr ""
 "Ten punkt programu ma odpowiedzi na pytania, których jego kategoria już nie "
 "zadaje. Pozostaną bez zmian, dopóki ich nie usuniesz."
-
-#: src/ludamus/templates/panel/parts/time-slot-picker.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Preferred time slots"
-msgstr "Preferowane przedziały czasowe"
-
-#: src/ludamus/templates/panel/parts/time-slot-picker.html
-msgid ""
-"Time slots the facilitator prefers for this session. These are preferences, "
-"not a final schedule."
-msgstr ""
-"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
-"programu. To preferencje, a nie ostateczny harmonogram."
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
@@ -12570,6 +12474,18 @@ msgid "Next rooms"
 msgstr "Następne sale"
 
 #: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Show an earlier hour"
+msgstr "Pokaż wcześniejszą godzinę"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Show a later hour"
+msgstr "Pokaż późniejszą godzinę"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Back to the event's hours"
+msgstr "Wróć do godzin wydarzenia"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "Column width"
 msgstr "Szerokość kolumny"
 
@@ -12622,8 +12538,8 @@ msgid "Not assigned"
 msgstr "Nieprzypisane"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Preferred slots"
-msgstr "Preferowane przedziały czasowe"
+msgid "Offered times"
+msgstr "Zaproponowane pory"
 
 #: src/ludamus/templates/panel/parts/timetable-session-list.html
 #, python-format
@@ -13218,72 +13134,6 @@ msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
 "odwzorować większy obiekt."
 
-#: src/ludamus/templates/panel/time-slot-edit.html
-msgid "Edit Time Slot"
-msgstr "Edytuj przedział czasowy"
-
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Schedule Configuration"
-msgstr "Konfiguracja harmonogramu"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Are you sure you want to delete this time slot?"
-msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "What are Time Slots?"
-msgstr "Czym są przedziały czasowe?"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid ""
-"Time slots define the available scheduling blocks for your event. Hosts "
-"select which time slots they are available for when submitting proposals. "
-"Sessions are then scheduled into these slots."
-msgstr ""
-"Przedziały czasowe wyznaczają dostępne okna w harmonogramie wydarzenia. "
-"Twórcy wybierają, w których przedziałach są dostępni podczas składania "
-"zgłoszeń. Punkty programu są następnie planowane w tych przedziałach."
-
-#: src/ludamus/templates/panel/time-slots.html
-#, python-format
-msgid "Page %(current)s of %(total)s"
-msgstr "Strona %(current)s z %(total)s"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Event starts at"
-msgstr "Wydarzenie rozpoczyna się"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "continues from"
-msgstr "kontynuacja z"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "No slots"
-msgstr "Brak przedziałów czasowych"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Event ends at"
-msgstr "Wydarzenie kończy się"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Orphaned Time Slots"
-msgstr "Osierocone przedziały czasowe"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid ""
-"These time slots fall outside the current event dates. Edit them to move "
-"within event dates, or delete them."
-msgstr ""
-"Te przedziały czasowe wykraczają poza daty bieżącego wydarzenia. Edytuj je, "
-"aby przenieść w zakres dat wydarzenia, lub usuń je."
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "No time slots defined. Add time slots to configure the event schedule."
-msgstr ""
-"Nie zdefiniowano przedziałów czasowych. Dodaj przedziały czasowe, aby "
-"skonfigurować harmonogram wydarzenia."
-
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "program items with a confirmed schedule in this track"
 msgstr "punktów programu z potwierdzonym terminem w tym bloku"
@@ -13419,8 +13269,8 @@ msgid "No conflicts."
 msgstr "Brak konfliktów."
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "Sessions outside preferred slots"
-msgstr "Punkty programu poza preferowanymi przedziałami"
+msgid "Sessions outside the times they offered"
+msgstr "Punkty programu poza zaproponowanymi porami"
 
 #: src/ludamus/templates/panel/timetable-problems.html
 #, python-format
@@ -13428,16 +13278,18 @@ msgid "Scheduled: %(start)s – %(end)s"
 msgstr "Zaplanowano: %(start)s – %(end)s"
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "Preferred slots:"
-msgstr "Preferowane przedziały:"
+msgid "Offered times:"
+msgstr "Zaproponowane pory:"
 
 #: src/ludamus/templates/panel/timetable-problems.html
 msgid "Open in Schedule"
 msgstr "Otwórz w harmonogramie"
 
 #: src/ludamus/templates/panel/timetable-problems.html
-msgid "All scheduled sessions are inside their preferred slots."
-msgstr "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+msgid "Every scheduled session sits inside a time its facilitator offered."
+msgstr ""
+"Każdy zaplanowany punkt programu mieści się w porze zaproponowanej przez "
+"twórcę programu."
 
 #: src/ludamus/templates/panel/timetable.html
 msgid "Click a position on the grid to place the session"
@@ -13478,6 +13330,10 @@ msgstr "Sala za mała"
 #: src/ludamus/templates/panel/timetable.html
 msgid "Extends the day"
 msgstr "Wydłuża dzień"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Suits the facilitator"
+msgstr "Pasuje twórcy programu"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/tracks.html
@@ -15176,29 +15032,15 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
 
+#~ msgid "Message reported."
+#~ msgstr "Wiadomość została zgłoszona."
+
 #~ msgid ""
 #~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
 #~ "of the programme points they take part in."
 #~ msgstr ""
 #~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
 #~ "programu, w których biorą udział."
-
-#~ msgid "Message reported."
-#~ msgstr "Wiadomość została zgłoszona."
-
-#~ msgid ""
-#~ "We confirm the report and send the decision here. Name and email may be "
-#~ "left out only for child sexual abuse material."
-#~ msgstr ""
-#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
-#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
-#~ "seksualne wykorzystywanie dzieci."
-
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
-
-#~ msgid "Give the group a name."
-#~ msgstr "Nadaj grupie nazwę."
 
 #~ msgid "yourself"
 #~ msgstr "siebie"
@@ -15300,6 +15142,263 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
 
+#~ msgid "Choose a time…"
+#~ msgstr "Wybierz godzinę…"
+
+#~ msgid "Preferred by the facilitator"
+#~ msgstr "Preferowane przez twórcę programu"
+
+#~ msgid "Other times"
+#~ msgstr "Pozostałe godziny"
+
+#~ msgid "Time slot"
+#~ msgstr "Przedział czasowy"
+
+#~ msgid "Pick the start time for this session."
+#~ msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
+
+#~ msgid "Invalid time slot selection."
+#~ msgstr "Nieprawidłowy wybór przedziału czasowego."
+
+#~ msgid ""
+#~ "Copies its venues, tracks with their managers, time slots, session and "
+#~ "personal-data fields, categories, enrollment and discount rules, and "
+#~ "settings. Dates move with the new start, proposal windows included. "
+#~ "Sessions are not copied."
+#~ msgstr ""
+#~ "Kopiuje miejsca, bloki programowe z ich opiekunami, przedziały czasowe, "
+#~ "pola punktów programu i danych osobowych, kategorie, zasady zapisów i "
+#~ "zniżek oraz ustawienia. Daty przesuwają się razem z nowym początkiem, "
+#~ "także okna zgłoszeń. Punkty programu nie są kopiowane."
+
+#~ msgid "Time slots"
+#~ msgstr "Przedziały czasowe"
+
+#, python-format
+#~ msgid "%(count)d windows"
+#~ msgstr "Okien: %(count)d"
+
+#, python-format
+#~ msgid ""
+#~ "Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
+#~ "session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
+#~ "%(builtins)d missing built-in fields, linked %(links)d missing "
+#~ "facilitators / time slots / tracks, pruned %(pruned)d orphan field "
+#~ "definitions."
+#~ msgstr ""
+#~ "Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
+#~ "%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów "
+#~ "danych osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, "
+#~ "dowiązano %(links)d brakujących twórców programu / przedziałów "
+#~ "czasowych / bloków, usunięto %(pruned)d osieroconych definicji pól."
+
+#~ msgid "Start must be before end."
+#~ msgstr "Początek musi być przed końcem."
+
+#~ msgid "Time slot overlaps with an existing slot."
+#~ msgstr "Przedział czasowy nakłada się na istniejący przedział."
+
+#~ msgid ""
+#~ "The time slot starts before the event is published. Move the publication "
+#~ "time in the event settings first."
+#~ msgstr ""
+#~ "Przedział czasowy zaczyna się przed publikacją wydarzenia. Najpierw "
+#~ "przesuń czas publikacji w ustawieniach wydarzenia."
+
+#~ msgid "Used by proposals"
+#~ msgstr "Używany przez zgłoszenia"
+
+#~ msgid "Time slot created. The event dates now cover it."
+#~ msgstr ""
+#~ "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
+
+#~ msgid "Time slot created successfully."
+#~ msgstr "Przedział czasowy został utworzony."
+
+#~ msgid "Time slot not found."
+#~ msgstr "Przedział czasowy nie został znaleziony."
+
+#~ msgid "Time slot updated. The event dates now cover it."
+#~ msgstr ""
+#~ "Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go "
+#~ "obejmują."
+
+#~ msgid "Time slot updated successfully."
+#~ msgstr "Przedział czasowy został zaktualizowany."
+
+#~ msgid "Cannot delete time slot used in proposals."
+#~ msgstr "Nie można usunąć przedziału czasowego używanego w zgłoszeniach."
+
+#~ msgid "Time slot deleted successfully."
+#~ msgstr "Przedział czasowy został usunięty."
+
+#~ msgid "Please select at least one time slot."
+#~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
+
+#~ msgid "Date is required."
+#~ msgstr "Data jest wymagana."
+
+#~ msgid "Enter a valid date."
+#~ msgstr "Podaj prawidłową datę."
+
+#~ msgid "End date is required."
+#~ msgstr "Data końcowa jest wymagana."
+
+#~ msgid "Enter a valid time."
+#~ msgstr "Podaj prawidłowy czas."
+
+#~ msgid "Time slots can't overlap!"
+#~ msgstr "Przedziały czasowe nie mogą się nakładać!"
+
+#~ msgid "Preferred Time Slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid ""
+#~ "This event has no time slots yet, so nothing can go on the agenda. Add "
+#~ "the time slots, then come back to accept this proposal."
+#~ msgstr ""
+#~ "To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
+#~ "harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
+#~ "zgłoszenie."
+
+#~ msgid "Add time slots"
+#~ msgstr "Dodaj przedziały czasowe"
+
+#~ msgid "Pick every slot you could host."
+#~ msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
+
+#~ msgid "Time slots saved. Next step coming soon."
+#~ msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
+
+#~ msgid "No time slot selection needed. Proceeding to next step."
+#~ msgstr ""
+#~ "Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego "
+#~ "kroku."
+
+#~ msgid "Time Slots"
+#~ msgstr "Przedziały czasowe"
+
+#~ msgid "New Time Slot"
+#~ msgstr "Nowy przedział czasowy"
+
+#~ msgid "Add Time Slot"
+#~ msgstr "Dodaj przedział czasowy"
+
+#~ msgid "Time Slot Details"
+#~ msgstr "Szczegóły przedziału czasowego"
+
+#~ msgid "Timezone:"
+#~ msgstr "Strefa czasowa:"
+
+#~ msgid "Date"
+#~ msgstr "Data"
+
+#~ msgid "End Date"
+#~ msgstr "Data końcowa"
+
+#~ msgid "Start Time"
+#~ msgstr "Czas rozpoczęcia"
+
+#~ msgid "End Time"
+#~ msgstr "Czas zakończenia"
+
+#~ msgid "Select which time slots are available for this category."
+#~ msgstr "Wybierz, które przedziały czasowe są dostępne dla tej kategorii."
+
+#~ msgid "No time slots defined for this event."
+#~ msgstr "Nie zdefiniowano przedziałów czasowych dla tego wydarzenia."
+
+#~ msgid "Configure time slots"
+#~ msgstr "Skonfiguruj przedziały czasowe"
+
+#~ msgid "End"
+#~ msgstr "Koniec"
+
+#~ msgid "Remove window"
+#~ msgstr "Usuń przedział"
+
+#~ msgid "Add window"
+#~ msgstr "Dodaj przedział"
+
+#~ msgid "Preferred time slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid ""
+#~ "Time slots the facilitator prefers for this session. These are "
+#~ "preferences, not a final schedule."
+#~ msgstr ""
+#~ "Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
+#~ "programu. To preferencje, a nie ostateczny harmonogram."
+
+#~ msgid "Preferred slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid "Edit Time Slot"
+#~ msgstr "Edytuj przedział czasowy"
+
+#~ msgid "Schedule Configuration"
+#~ msgstr "Konfiguracja harmonogramu"
+
+#~ msgid "Are you sure you want to delete this time slot?"
+#~ msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
+
+#~ msgid "What are Time Slots?"
+#~ msgstr "Czym są przedziały czasowe?"
+
+#~ msgid ""
+#~ "Time slots define the available scheduling blocks for your event. Hosts "
+#~ "select which time slots they are available for when submitting proposals. "
+#~ "Sessions are then scheduled into these slots."
+#~ msgstr ""
+#~ "Przedziały czasowe wyznaczają dostępne okna w harmonogramie wydarzenia. "
+#~ "Twórcy wybierają, w których przedziałach są dostępni podczas składania "
+#~ "zgłoszeń. Punkty programu są następnie planowane w tych przedziałach."
+
+#, python-format
+#~ msgid "Page %(current)s of %(total)s"
+#~ msgstr "Strona %(current)s z %(total)s"
+
+#~ msgid "Event starts at"
+#~ msgstr "Wydarzenie rozpoczyna się"
+
+#~ msgid "continues from"
+#~ msgstr "kontynuacja z"
+
+#~ msgid "No slots"
+#~ msgstr "Brak przedziałów czasowych"
+
+#~ msgid "Event ends at"
+#~ msgstr "Wydarzenie kończy się"
+
+#~ msgid "Orphaned Time Slots"
+#~ msgstr "Osierocone przedziały czasowe"
+
+#~ msgid ""
+#~ "These time slots fall outside the current event dates. Edit them to move "
+#~ "within event dates, or delete them."
+#~ msgstr ""
+#~ "Te przedziały czasowe wykraczają poza daty bieżącego wydarzenia. Edytuj "
+#~ "je, aby przenieść w zakres dat wydarzenia, lub usuń je."
+
+#~ msgid ""
+#~ "No time slots defined. Add time slots to configure the event schedule."
+#~ msgstr ""
+#~ "Nie zdefiniowano przedziałów czasowych. Dodaj przedziały czasowe, aby "
+#~ "skonfigurować harmonogram wydarzenia."
+
+#~ msgid "Sessions outside preferred slots"
+#~ msgstr "Punkty programu poza preferowanymi przedziałami"
+
+#~ msgid "Preferred slots:"
+#~ msgstr "Preferowane przedziały:"
+
+#~ msgid "All scheduled sessions are inside their preferred slots."
+#~ msgstr ""
+#~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+
+#~ msgid "Displayed on the first page of the proposal form."
+#~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
+
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"
 
@@ -15321,36 +15420,15 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
-#~ msgid ""
-#~ "No account was created. A parent or guardian can sign up and add you as a "
-#~ "companion to sign you up for sessions."
-#~ msgstr ""
-#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
-#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
-
-#~ msgid "Choose one of the two answers."
-#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
 
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
-
-#~ msgid "How old are you?"
-#~ msgstr "Ile masz lat?"
-
-#, python-format
-#~ msgid "I'm %(min_age)s or older"
-#~ msgstr "Mam %(min_age)s lat lub więcej"
-
-#, python-format
-#~ msgid "I'm under %(min_age)s"
-#~ msgstr "Mam mniej niż %(min_age)s lat"
-
-#, python-format
-#~ msgid "Include %(name)s"
-#~ msgstr "Uwzględnij: %(name)s"
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
 
 #, python-format
 #~ msgid ""
@@ -15408,8 +15486,15 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
 #~ "programu do zakładek, a poczeka tu na Ciebie."
 
-#~ msgid "LIVE"
-#~ msgstr "W TRAKCIE"
+#~ msgid ""
+#~ "When the event becomes publicly visible. Leave empty for immediate "
+#~ "visibility."
+#~ msgstr ""
+#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
+#~ "widoczne natychmiast."
+
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
 
 #~ msgid "You're already on this sphere's team as a manager."
 #~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
@@ -15442,13 +15527,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Revoke invitation"
 #~ msgstr "Wycofaj zaproszenie"
-
-#~ msgid ""
-#~ "When the event becomes publicly visible. Leave empty for immediate "
-#~ "visibility."
-#~ msgstr ""
-#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
-#~ "widoczne natychmiast."
 
 #~ msgid "Copy email"
 #~ msgstr "Skopiuj e-mail"
@@ -15583,16 +15661,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
-#~ msgid "Attach venue"
-#~ msgstr "Dołącz lokalizację"
-
-#~ msgid ""
-#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
-#~ "from loose proposals to a printout on the room door. Pick an act."
-#~ msgstr ""
-#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
-#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
-
 #~ msgid "Poland"
 #~ msgstr "Polska"
 
@@ -15676,6 +15744,9 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "See open Encounters at zagrajmy.net/encounters"
 #~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
+
+#~ msgid "Enabled pages"
+#~ msgstr "Włączone strony"
 
 #~ msgid "At least one page must stay enabled."
 #~ msgstr "Przynajmniej jedna strona musi pozostać włączona."
@@ -15916,12 +15987,22 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
+#~ msgid "Session list"
+#~ msgstr "Lista punktów programu"
+
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
+
+#~ msgid "Player"
+#~ msgid_plural "Players"
+#~ msgstr[0] "Gracz"
+#~ msgstr[1] "Graczy"
+#~ msgstr[2] "Graczy"
+#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -16647,59 +16728,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #, python-format
-#~ msgid ""
-#~ "The token expires after %(token_max_age_days)s days and works only while "
-#~ "you stay a manager of this sphere. Anyone holding it can act with your "
-#~ "permissions — keep it secret."
-#~ msgstr ""
-#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
-#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
-#~ "uprawnieniami — trzymaj go w tajemnicy."
-
-#, python-format
-#~ msgid ""
-#~ "Generate a personal token to connect an MCP client (such as Claude Code "
-#~ "or Executor) to this sphere's organizer API. The token is valid for "
-#~ "%(token_max_age_days)s days."
-#~ msgstr ""
-#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
-#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
-#~ "%(token_max_age_days)s dni."
-
-#~ msgid "Different address? Save your profile first."
-#~ msgstr "Inny adres? Najpierw zapisz profil."
-
-#, python-format
-#~ msgid ""
-#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
-#~ "changing your email address."
-#~ msgstr ""
-#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
-#~ "zmianę adresu email."
-
-#, python-format
-#~ msgid ""
-#~ "Open the confirmation email sent to <strong class=\"break-"
-#~ "all\">%(address)s</strong> and follow its link."
-#~ msgstr ""
-#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
-#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
-
-#, python-format
-#~ msgid ""
-#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
-#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
-#~ msgstr ""
-#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
-#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
-
-#~ msgid "To verify a different address, save your changes first."
-#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
-
-#~ msgid "Resend verification email"
-#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
-
-#, python-format
 #~ msgid "Export failed: %(hint)s"
 #~ msgstr "Eksport nie powiódł się: %(hint)s"
 
@@ -16770,22 +16798,72 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Go to connections"
 #~ msgstr "Przejdź do połączeń"
 
-#, python-format
-#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
-#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
-
-#~ msgid "Publication Time"
-#~ msgstr "Czas publikacji"
-
 #~ msgid "Subject"
 #~ msgstr "Temat"
 
 #~ msgid "No emails captured yet."
 #~ msgstr "Brak przechwyconych e-maili."
 
+#, python-format
+#~ msgid ""
+#~ "Piotrek also wrote his own games, but he only released one: <a "
+#~ "href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> It's "
+#~ "about violence, change, and sacrifice, like most of his contributions to "
+#~ "the system."
+#~ msgstr ""
+#~ "Piotrek też pisał własne gry, ale wydał tylko jedną: <a "
+#~ "href=\"%(game_url)s\"><cite>Why Would You Fight a Dragon?</cite></a> Jest "
+#~ "o przemocy, przemianie i poświęceniu, jak większość tego, co wniósł do "
+#~ "systemu."
+
+#~ msgid "Ask for available days"
+#~ msgstr "Pytaj o dostępne dni"
+
+#~ msgid "Days the facilitator offered"
+#~ msgstr "Dni zaproponowane przez twórcę programu"
+
+#~ msgid "Days"
+#~ msgstr "Dni"
+
+#~ msgid "Pick every day that would work for you."
+#~ msgstr "Zaznacz każdy dzień, który Ci pasuje."
+
+#~ msgid "Remove day"
+#~ msgstr "Usuń dzień"
+
+#~ msgid "Add day"
+#~ msgstr "Dodaj dzień"
+
+#~ msgid "Offered days"
+#~ msgstr "Zaproponowane dni"
+
 #~ msgctxt "about key facts"
 #~ msgid "Team"
 #~ msgstr "Zespół"
+
+#~ msgid ""
+#~ "No account was created. A parent or guardian can sign up and add you as a "
+#~ "companion to sign you up for sessions."
+#~ msgstr ""
+#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
+#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
+
+#~ msgid "Choose one of the two answers."
+#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
+
+#~ msgid "How old are you?"
+#~ msgstr "Ile masz lat?"
+
+#, python-format
+#~ msgid "I'm %(min_age)s or older"
+#~ msgstr "Mam %(min_age)s lat lub więcej"
+
+#, python-format
+#~ msgid "I'm under %(min_age)s"
+#~ msgstr "Mam mniej niż %(min_age)s lat"
 
 #, python-format
 #~ msgid ""
@@ -16810,6 +16888,73 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
 #~ "poświęceniu."
 
+#~ msgid "Attach venue"
+#~ msgstr "Dołącz lokalizację"
+
+#~ msgid ""
+#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
+#~ "from loose proposals to a printout on the room door. Pick an act."
+#~ msgstr ""
+#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
+#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
+
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid "Different address? Save your profile first."
+#~ msgstr "Inny adres? Najpierw zapisz profil."
+
+#, python-format
+#~ msgid ""
+#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
+#~ "changing your email address."
+#~ msgstr ""
+#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
+#~ "zmianę adresu email."
+
+#, python-format
+#~ msgid ""
+#~ "Open the confirmation email sent to <strong class=\"break-"
+#~ "all\">%(address)s</strong> and follow its link."
+#~ msgstr ""
+#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
+#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
+
+#, python-format
+#~ msgid ""
+#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
+#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
+#~ msgstr ""
+#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
+#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
+
+#~ msgid "To verify a different address, save your changes first."
+#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
+
+#~ msgid "Resend verification email"
+#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
+
+#, python-format
+#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
+#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
+
 #~ msgid "Player looking for a GM"
 #~ msgstr "Gracz szuka MG"
 
@@ -16818,6 +16963,9 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Group looking for players"
 #~ msgstr "Grupa szuka graczy"
+
+#~ msgid "Group looking for a GM"
+#~ msgstr "Grupa szuka MG"
 
 #~ msgctxt "listing role"
 #~ msgid "GM"
@@ -16850,11 +16998,25 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "A player"
 #~ msgstr "Gracz"
 
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
 #~ msgid "Pick who you are looking for again."
 #~ msgstr "Wybierz jeszcze raz, kogo szukasz."
 
-#~ msgid "Enabled pages"
-#~ msgstr "Włączone strony"
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
+
+#~ msgid ""
+#~ "We confirm the report and send the decision here. Name and email may be "
+#~ "left out only for child sexual abuse material."
+#~ msgstr ""
+#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
+#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
+#~ "seksualne wykorzystywanie dzieci."
 
 #~ msgid ""
 #~ "Each programme point gets a room for its players and hosts, the sphere's "

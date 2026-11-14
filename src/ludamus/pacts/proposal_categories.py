@@ -4,7 +4,6 @@ from typing import Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.enrollment import PromotionMode
-from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 
 
@@ -41,6 +40,7 @@ class ProposalCategoriesServiceProtocol(Protocol):
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    asks_availability: bool = False
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -55,6 +55,7 @@ class ProposalCategoryDTO(BaseModel):
 
 
 class ProposalCategoryData(TypedDict, total=False):
+    asks_availability: bool
     description: str
     durations: list[str]
     end_time: datetime | None
@@ -79,13 +80,6 @@ class SessionFieldRequirementDTO(BaseModel):
     is_required: bool
 
 
-class TimeSlotRequirementDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    time_slot: TimeSlotDTO
-    time_slot_id: int
-    is_required: bool
-
-
 class ProposalCategoryRepositoryProtocol(Protocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
@@ -94,6 +88,8 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def get_category_stats(event_id: int) -> dict[int, CategoryStats]: ...
+    @staticmethod
+    def asks_availability(category_id: int) -> bool: ...
     @staticmethod
     def get_session_field_order(category_id: int) -> list[int]: ...
     @staticmethod
@@ -111,19 +107,7 @@ class ProposalCategoryRepositoryProtocol(Protocol):
         category_id: int,
     ) -> list[SessionFieldRequirementDTO]: ...
     @staticmethod
-    def list_time_slot_requirements(
-        category_id: int,
-    ) -> list[TimeSlotRequirementDTO]: ...
-    @staticmethod
     def set_session_field_requirements(
-        category_id: int, requirements: dict[int, bool], order: list[int] | None = None
-    ) -> None: ...
-    @staticmethod
-    def get_time_slot_requirements(category_id: int) -> dict[int, bool]: ...
-    @staticmethod
-    def get_time_slot_order(category_id: int) -> list[int]: ...
-    @staticmethod
-    def set_time_slot_requirements(
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod

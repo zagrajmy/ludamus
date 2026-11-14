@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import count
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO
@@ -30,6 +31,9 @@ from ludamus.pacts.propose import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
+
+if TYPE_CHECKING:
+    from ludamus.pacts.availability import AvailabilityDTO
 
 SPHERE_ID = 1
 EVENT_ID = 2
@@ -54,7 +58,7 @@ class StoredSession(SimpleNamespace):
             "duration": "",
             "category_id": None,
             "ident": "",
-            "time_slot_ids": [],
+            "availability": [],
             "track_ids": [],
             "facilitator_ids": [],
             "field_values": {},
@@ -80,7 +84,6 @@ class ImportWorld(SimpleNamespace):
             session_fields={},
             personal_fields={},
             personal_values={},
-            time_slots={},
             tracks={},
             categories={},
             facilitators={},
@@ -142,9 +145,6 @@ class ImportWorld(SimpleNamespace):
     def only_session(self) -> StoredSession:
         assert len(self.sessions) == 1, self.sessions
         return next(iter(self.sessions.values()))
-
-    def time_slot_windows(self, pks: list[int]) -> list[tuple[datetime, datetime]]:
-        return [self.time_slots[pk][1:] for pk in pks]
 
     def track_slugs(self, pks: list[int]) -> list[str]:
         return [self.tracks[pk][2] for pk in pks]
@@ -227,12 +227,12 @@ class FakeSessions:
     def __init__(self, world: ImportWorld) -> None:
         self._world = world
 
-    def create(self, session_data, *, time_slot_ids, facilitator_ids, track_ids):
+    def create(self, session_data, *, availability, facilitator_ids, track_ids):
         if len(session_data["title"]) > _TITLE_MAX_LENGTH:
             raise DatabaseConstraintError("value too long for title")
         return self._world.add_session(
             **session_data,
-            time_slot_ids=list(time_slot_ids),
+            availability=list(availability),
             track_ids=list(track_ids),
             facilitator_ids=list(facilitator_ids),
         )
@@ -318,11 +318,11 @@ class FakeSessions:
             del values[field_id]
         return len(doomed)
 
-    def read_preferred_time_slot_ids(self, session_id: int) -> list[int]:
-        return list(self._world.sessions[session_id].time_slot_ids)
+    def read_availability(self, session_id: int) -> list[AvailabilityDTO]:
+        return list(self._world.sessions[session_id].availability)
 
-    def set_time_slots(self, session_id: int, time_slot_ids: list[int]) -> None:
-        self._world.sessions[session_id].time_slot_ids = list(time_slot_ids)
+    def set_availability(self, session_id: int, offered: list[AvailabilityDTO]) -> None:
+        self._world.sessions[session_id].availability = list(offered)
 
     def read_track_ids(self, session_id: int) -> list[int]:
         return list(self._world.sessions[session_id].track_ids)
@@ -414,19 +414,6 @@ class FakePersonalDataFieldValues:
         for key in doomed:
             del self._world.personal_values[key]
         return len(doomed)
-
-
-class FakeTimeSlots:
-    def __init__(self, world: ImportWorld) -> None:
-        self._world = world
-
-    def get_or_create(self, event_id: int, start_time, end_time) -> int:
-        for pk, window in self._world.time_slots.items():
-            if window == (event_id, start_time, end_time):
-                return pk
-        pk = self._world.next_pk("time_slots")
-        self._world.time_slots[pk] = (event_id, start_time, end_time)
-        return pk
 
 
 class _FakeSlugged:
@@ -535,7 +522,6 @@ def import_repos(world: ImportWorld) -> ImportRepos:
         session_fields=_FakeFields(world, "session_fields"),
         personal_fields=_FakeFields(world, "personal_fields"),
         personal_data_field_values=FakePersonalDataFieldValues(world),
-        time_slots=FakeTimeSlots(world),
         tracks=_FakeSlugged(world, "tracks"),
         categories=_FakeSlugged(world, "categories"),
         facilitators=FakeFacilitators(world),

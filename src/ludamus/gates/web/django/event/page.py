@@ -459,7 +459,7 @@ class EventPageView(TemplateView):
                     )
                     for seat in card.participations
                 ],
-                preferred_time_slots=card.preferred_time_slots,
+                offered_times=card.offered_times,
             )
 
         current_time = datetime.now(tz=UTC)

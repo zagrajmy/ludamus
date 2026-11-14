@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.availability import AvailabilityDTO
 from ludamus.pacts.enrollment import SessionParticipationStatus, SessionSeatsDTO
-from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.party import PartyDTO
@@ -24,8 +25,10 @@ class ProposalAcceptContextDTO(BaseModel):
     event: EventDTO
     presenter: UserDTO | None
     space_options: list[SpaceOptionDTO]
-    time_slots: list[TimeSlotDTO]
-    preferred_time_slot_ids: list[int]
+    # When the facilitator said they could run it, so the picker can suggest
+    # a time instead of making the reviewer look it up on the proposal.
+    availability: list[AvailabilityDTO]
+    duration_minutes: int
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
 
@@ -112,9 +115,9 @@ class SessionCardDTO(SessionCardStatsDTO):
     # Empty when the reader asked for no roster: the card grid draws the first
     # seat holders, the compact ledger draws none and a big event has many.
     participations: list[SessionSeatDTO]
-    # A proposal's acceptable slots, earliest first. A scheduled session states
-    # its time through agenda_item and carries none.
-    preferred_time_slots: list[TimeSlotDTO]
+    # The parts of days a proposal's host can run it, earliest first. A
+    # scheduled session states its time through agenda_item and carries none.
+    offered_times: list[AvailabilityDTO]
 
 
 class SessionModalRepositoryProtocol(Protocol):

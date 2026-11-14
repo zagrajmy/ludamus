@@ -34,14 +34,6 @@ class EventPublicationInvalidError(Exception):
     pass
 
 
-class TimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
 class EventVisibility(StrEnum):
     # PUBLIC follows publication_time: hidden before it, listed after it.
     # UNLISTED opens to anyone with the link whatever the publication time,
@@ -204,31 +196,6 @@ class EventRepositoryProtocol(Protocol):
     def lock(event_id: int) -> None: ...
 
 
-class TimeSlotRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(
-        event_id: int, start_time: datetime, end_time: datetime
-    ) -> TimeSlotDTO: ...
-    @staticmethod
-    def get_or_create(
-        event_id: int, start_time: datetime, end_time: datetime
-    ) -> int: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    @staticmethod
-    def has_proposals(pk: int) -> bool: ...
-    @staticmethod
-    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
-    @staticmethod
-    def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read(pk: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def read_by_event(event_id: int, pk: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def update(pk: int, start_time: datetime, end_time: datetime) -> TimeSlotDTO: ...
-
-
 class EventProposalSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
@@ -283,23 +250,6 @@ class FacilitatorListItemDTO(BaseModel):
     session_count: int
     slug: str
     user_id: int | None
-
-
-class TimeSlotValidationError(StrEnum):
-    START_NOT_BEFORE_END = "start_not_before_end"
-    OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
-    STARTS_BEFORE_PUBLICATION = "starts_before_publication"
-
-
-class TimeSlotRejectedError(Exception):
-    def __init__(self, errors: list[TimeSlotValidationError]) -> None:
-        super().__init__(", ".join(error.value for error in errors))
-        self.errors = errors
-
-
-class TimeSlotSavedDTO(BaseModel):
-    slot: TimeSlotDTO
-    event_dates_widened: bool
 
 
 class EventPanelContextDTO(BaseModel):
@@ -437,19 +387,6 @@ class EventConfirmationsServiceProtocol(Protocol):
         contact_email: str | None = None,
         session_pk: int | None = None,
     ) -> None: ...
-
-
-class PanelTimeSlotsServiceProtocol(Protocol):
-    def list_for_event(self, event_id: int) -> list[TimeSlotDTO]: ...
-    def undeletable_pks(self, event_id: int) -> frozenset[int]: ...
-    def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
-    def create(
-        self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> TimeSlotSavedDTO: ...
-    def update(
-        self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> TimeSlotSavedDTO: ...
-    def delete(self, *, event_id: int, pk: int) -> bool: ...
 
 
 class LandingStatsDTO(BaseModel):

@@ -6,14 +6,23 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 import logging
-from datetime import timedelta
-from typing import TYPE_CHECKING
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, NamedTuple
 
 from pydantic import TypeAdapter
 
-from ludamus.mills.event import require_session_in_event, require_session_in_sphere
+from ludamus.mills.event import (
+    require_session_in_event,
+    require_session_in_sphere,
+    widen_event_dates,
+)
 from ludamus.mills.sphere import can_write_programme
-from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
+from ludamus.pacts.durations import (
+    DEFAULT_DURATION_MINUTES,
+    MINUTES_PER_HOUR,
+    duration_minutes,
+    parse_duration,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.integrations import SourceQuestion
@@ -41,8 +50,9 @@ _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
-    from ludamus.pacts.event import EventDTO, TimeSlotDTO
+    from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
     from ludamus.pacts.fields import (
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
@@ -275,6 +285,18 @@ class ProposalStatusService:
                 )
 
 
+class _AgendaWrites(NamedTuple):
+    # Where an acceptance puts the session: the placement, its log, and the
+    # event's dates when the placement falls outside them.
+    agenda_items: AgendaItemRepositoryProtocol
+    schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+    events: EventRepositoryProtocol
+
+
+def _placement_minutes(session: SessionDTO) -> int:
+    return duration_minutes(session.duration) or DEFAULT_DURATION_MINUTES
+
+
 class ProposalAcceptanceService:
     def __init__(
         self,
@@ -285,12 +307,12 @@ class ProposalAcceptanceService:
         schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        events: EventRepositoryProtocol,
         notifier: ProposalAcceptedNotifierProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
-        self._agenda_items = agenda_items
-        self._schedule_change_logs = schedule_change_logs
+        self._agenda = _AgendaWrites(agenda_items, schedule_change_logs, events)
         self._active_users = active_users
         self._spheres = spheres
         self._notifier = notifier
@@ -310,10 +332,8 @@ class ProposalAcceptanceService:
             event=event,
             presenter=self._sessions.read_presenter(session.pk),
             space_options=self._sessions.read_space_options(session.pk),
-            time_slots=self._sessions.read_time_slots(session.pk),
-            preferred_time_slot_ids=self._sessions.read_preferred_time_slot_ids(
-                session.pk
-            ),
+            availability=self._sessions.read_availability(session.pk),
+            duration_minutes=_placement_minutes(session),
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
         )
@@ -331,7 +351,7 @@ class ProposalAcceptanceService:
         *,
         session_id: int,
         space_id: int,
-        time_slot_id: int,
+        start_time: datetime,
         user_slug: str,
         sphere_id: int,
     ) -> None:
@@ -345,17 +365,22 @@ class ProposalAcceptanceService:
             option.pk for option in self._sessions.read_space_options(session_id)
         }:
             raise NotFoundError
-        time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
+        end_time = start_time + timedelta(minutes=_placement_minutes(session))
         # Same rule as assign_session: the event decides whether a first
         # placement counts as agreed. Acceptance is always a first placement,
         # so the move exemption that path carries does not apply here.
         confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
-            if self._agenda_items.list_overlapping_in_space(
-                space_id,
-                time_slot.start_time,
-                time_slot.end_time,
-                exclude_session_pk=session_id,
+            # Accepting on to a time the event does not cover yet moves the
+            # event, the same way dragging a card past its edge does.
+            widen_event_dates(
+                events=self._agenda.events,
+                event_pk=event.pk,
+                start=start_time,
+                end=end_time,
+            )
+            if self._agenda.agenda_items.list_overlapping_in_space(
+                space_id, start_time, end_time, exclude_session_pk=session_id
             ):
                 raise SpaceTimeConflictError
             # The session already has a unique slug from proposal creation;
@@ -368,13 +393,13 @@ class ProposalAcceptanceService:
                     "schedule_confirmed": confirmed,
                 },
             )
-            self._agenda_items.create(
+            self._agenda.agenda_items.create(
                 {
                     "space_id": space_id,
                     "session_id": session_id,
                     "session_confirmed": confirmed,
-                    "start_time": time_slot.start_time,
-                    "end_time": time_slot.end_time,
+                    "start_time": start_time,
+                    "end_time": end_time,
                 }
             )
             # NOTE: errata are read from these logs, so a placement made here must
@@ -385,10 +410,10 @@ class ProposalAcceptanceService:
                 "user_id": self._active_users.read(user_slug).pk,
                 "action": ScheduleChangeAction.ASSIGN,
                 "new_space_id": space_id,
-                "new_start_time": time_slot.start_time,
-                "new_end_time": time_slot.end_time,
+                "new_start_time": start_time,
+                "new_end_time": end_time,
             }
-            self._schedule_change_logs.create(log_data)
+            self._agenda.schedule_change_logs.create(log_data)
             if session.status != SessionStatus.ACCEPTED:
                 _announce_acceptance(
                     sessions=self._sessions,
@@ -483,8 +508,8 @@ def _core_comparisons(
     return comparisons
 
 
-def _time_slot_labels(slots: list[TimeSlotDTO]) -> list[str]:
-    return [f"{s.start_time.isoformat()} - {s.end_time.isoformat()}" for s in slots]
+def _availability_labels(offered: list[AvailabilityDTO]) -> list[str]:
+    return [f"{entry.day.isoformat()} {entry.part}" for entry in offered]
 
 
 def _append_m2m_change(
@@ -504,7 +529,7 @@ def _inverse_core_update(
 ) -> None:
     # Restores `field` to `old` in the update payload. Irreversible entries
     # leave it untouched: the old cover-image binary is gone, and m2m
-    # assignments (facilitators/tracks/time_slots) are logged as display
+    # assignments (facilitators/tracks/availability) are logged as display
     # names, not ids.
     match field, old:
         case (
@@ -710,15 +735,15 @@ class SessionContentEditService:
                 self._sessions.set_session_tracks(session_id, data.track_ids)
                 after = [t.name for t in self._sessions.read_tracks(session_id)]
                 _append_m2m_change(m2m_changes, "tracks", before, after)
-            if data.time_slot_ids is not None:
-                before = _time_slot_labels(
-                    self._sessions.read_preferred_time_slots(session_id)
+            if data.availability is not None:
+                before = _availability_labels(
+                    self._sessions.read_availability(session_id)
                 )
-                self._sessions.set_time_slots(session_id, data.time_slot_ids)
-                after = _time_slot_labels(
-                    self._sessions.read_preferred_time_slots(session_id)
+                self._sessions.set_availability(session_id, data.availability)
+                after = _availability_labels(
+                    self._sessions.read_availability(session_id)
                 )
-                _append_m2m_change(m2m_changes, "time_slots", before, after)
+                _append_m2m_change(m2m_changes, "availability", before, after)
             changes = diff_session_content(
                 old_session, data.update, old_values, field_values or []
             )

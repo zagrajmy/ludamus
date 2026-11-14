@@ -507,39 +507,6 @@ class SessionFieldForm(OrganizerFieldForm):
     icon = forms.CharField(max_length=50, required=False)
 
 
-class TimeSlotForm(forms.Form):
-    """Form for creating/editing time slots."""
-
-    date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
-        error_messages={
-            "required": _("Date is required."),
-            "invalid": _("Enter a valid date."),
-        },
-    )
-    end_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
-        error_messages={
-            "required": _("End date is required."),
-            "invalid": _("Enter a valid date."),
-        },
-    )
-    start_time = forms.TimeField(
-        widget=forms.TimeInput(attrs={"type": "time"}),
-        error_messages={
-            "required": _("Start time is required."),
-            "invalid": _("Enter a valid time."),
-        },
-    )
-    end_time = forms.TimeField(
-        widget=forms.TimeInput(attrs={"type": "time"}),
-        error_messages={
-            "required": _("End time is required."),
-            "invalid": _("Enter a valid time."),
-        },
-    )
-
-
 class SpaceForm(forms.Form):
     name = forms.CharField(
         max_length=255,

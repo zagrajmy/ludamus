@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 
 from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventProposalSettingsDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
@@ -76,11 +77,11 @@ class FakeSessions:
             for row in self.rows.values()
         )
 
-    def create(self, data, *, time_slot_ids, facilitator_ids):
+    def create(self, data, *, availability, facilitator_ids):
         pk = len(self.rows) + 100
         self.rows[pk] = {
             "data": dict(data),
-            "time_slot_ids": list(time_slot_ids),
+            "availability": list(availability),
             "facilitator_ids": list(facilitator_ids),
             "track_ids": [],
             "field_values": {},
@@ -190,7 +191,7 @@ class FakeEventCatalogue:
         }
         self.categories = {EVENT_PK: [category(pk=CATEGORY_PK)]}
         self.session_requirements = {CATEGORY_PK: ["session requirement"]}
-        self.time_slot_requirements = {CATEGORY_PK: ["time slot requirement"]}
+        self.asked_availability = {CATEGORY_PK: True}
 
     def read_by_slug(self, slug, sphere_id):
         return self.events[slug, sphere_id]
@@ -215,8 +216,8 @@ class FakeEventCatalogue:
     def list_session_field_requirements(self, category_id):
         return self.session_requirements[category_id]
 
-    def list_time_slot_requirements(self, category_id):
-        return self.time_slot_requirements[category_id]
+    def asks_availability(self, category_id):
+        return self.asked_availability[category_id]
 
 
 class FakeReusableSessions:
@@ -340,7 +341,7 @@ class TestSubmit:
             {
                 "category_id": 3,
                 "contact_email": "host@example.com",
-                "time_slot_ids": [4, 5],
+                "availability": ["2026-07-10:evening", "not-a-day:evening"],
                 "session_data": {
                     "title": "Test Session",
                     "description": "Long one",
@@ -353,7 +354,9 @@ class TestSubmit:
         )
 
         session = world.only_session()
-        assert session["time_slot_ids"] == [4, 5]
+        assert session["availability"] == [
+            AvailabilityDTO(day=date(2026, 7, 10), part=DayPart.EVENING)
+        ]
         data = session["data"]
         assert (
             data["description"],
@@ -542,9 +545,7 @@ class TestReads:
         assert [c.pk for c in service.get_categories(EVENT_PK)] == [CATEGORY_PK]
         assert service.get_category(CATEGORY_PK, EVENT_PK).pk == CATEGORY_PK
         assert service.get_session_requirements(CATEGORY_PK) == ["session requirement"]
-        assert service.get_timeslot_requirements(CATEGORY_PK) == [
-            "time slot requirement"
-        ]
+        assert service.asks_availability(CATEGORY_PK) is True
         assert [t.pk for t in service.get_public_tracks(EVENT_PK)] == [OWN_TRACK_PK]
 
     def test_personal_fields_are_the_events_own(self):

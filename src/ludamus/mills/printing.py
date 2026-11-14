@@ -114,11 +114,9 @@ def _timetable_pages(
     # sheet; none when there are no sessions. Rows are the stretches between
     # the instants the programme changes, so a session is one tile spanning
     # exactly the rows it covers — the shape of the event page's rooms view.
-    # A session across a sheet break is cut into a tile on each sheet. Time
-    # slots are proposer availability windows, not display units (see
-    # mills/timeslots.py), so they play no part here. Instants are keyed as
-    # timestamps: on the night the clocks go back two datetimes an hour apart
-    # compare equal.
+    # A session across a sheet break is cut into a tile on each sheet.
+    # Instants are keyed as timestamps: on the night the clocks go back two
+    # datetimes an hour apart compare equal.
     col = {space.pk: index + 1 for index, space in enumerate(spaces)}
     if not (items := [item for item in items if item.space_id in col]):
         return []

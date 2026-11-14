@@ -122,6 +122,7 @@
                          data-drop-occupied="{% translate "Room taken" %}"
                          data-drop-too-small="{% translate "Room too small" %}"
                          data-drop-closed="{% translate "Extends the day" %}"
+                         data-offered-label="{% translate "Suits the facilitator" %}"
                          hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}{% querystring %}"
                          hx-swap="innerHTML"
                          hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>

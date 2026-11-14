@@ -5,7 +5,7 @@ import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 // NOTE: gilded-bazaar holds one accepted session nobody has placed, one room
-// and one four-hour time slot (bootstrap_data.py). The test places the
+// on an eight-hour day (bootstrap_data.py). The test places the
 // session and takes it off again; afterEach takes it off if a failure left it
 // placed, so a retry starts from the seed.
 const TIMETABLE_URL = "/panel/event/gilded-bazaar/timetable/";

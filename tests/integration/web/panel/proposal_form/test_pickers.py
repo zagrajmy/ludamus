@@ -1,22 +1,19 @@
-"""Facilitator, track and time slot pickers of the proposal form."""
+"""Facilitator, track and availability pickers of the proposal form."""
 
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
-from ludamus.links.db.django.models import (
-    Facilitator,
-    ProposalCategory,
-    Session,
-    TimeSlot,
-    Track,
-)
-from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session, Track
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.tracks import TrackDTO
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EventFactory, SessionAvailabilityFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import facilitator_list_item_dto
 from tests.integration.web.panel.proposal_form.helpers import (
     assert_created,
+    availability_options,
+    availability_value,
+    first_offered,
     form_context,
     form_url,
     make_session,
@@ -45,39 +42,39 @@ class TestBothModes:
 
         assert not saved_session(event).tracks.exists()
 
-    def test_post_ignores_time_slot_from_other_event(
-        self, panel_client, sphere, event, form_mode, valid_post
+    def test_post_ignores_a_time_outside_the_event(
+        self, panel_client, event, form_mode, valid_post
     ):
-        foreign_slot = TimeSlot.objects.create(
-            event=EventFactory(sphere=sphere),
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day, part = first_offered(event)
 
         panel_client.post(
             form_mode.url,
             data=valid_post | {
-                "time_slots_submitted": "1",
-                "time_slot_ids": [foreign_slot.pk],
+                "availability_submitted": "1",
+                "availability": [
+                    availability_value(day - timedelta(days=30), part),
+                    "not-a-day:evening",
+                ],
             },
         )
 
-        assert not saved_session(event).time_slots.exists()
+        assert not saved_session(event).availability.exists()
 
-    def test_post_assigns_time_slots(self, panel_client, event, form_mode, valid_post):
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+    def test_post_assigns_availability(
+        self, panel_client, event, form_mode, valid_post
+    ):
+        day, part = first_offered(event)
 
         panel_client.post(
             form_mode.url,
-            data=valid_post | {"time_slots_submitted": "1", "time_slot_ids": [slot.pk]},
+            data=valid_post | {
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
+            },
         )
 
-        assert list(saved_session(event).time_slots.values_list("pk", flat=True)) == [
-            slot.pk
+        assert list(saved_session(event).availability.values_list("day", "part")) == [
+            (day, part.value)
         ]
 
 
@@ -256,42 +253,17 @@ class TestCreate:
             facilitator.pk
         ]
 
-    def test_get_renders_time_slot_checkboxes(self, panel_client, event):
-        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-
-        response = panel_client.get(form_url(event))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/proposal-form.html",
-            context_data={
-                **form_context(event),
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-            },
-            contains='name="time_slot_ids"',
-        )
-
-    def test_post_invalid_keeps_selected_time_slot_checked(self, panel_client, event):
+    def test_post_invalid_keeps_selected_availability(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day, part = first_offered(event)
 
         response = panel_client.post(
             form_url(event),
             data={
                 "category_id": category.pk,
                 "facilitator_name": "Test Host",
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
@@ -301,12 +273,11 @@ class TestCreate:
             template_name="panel/proposal-form.html",
             context_data={
                 **form_context(event),
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
             },
         )
-        content = response.content.decode()
-        assert "checked" in checkbox_tag(content, "time_slot_ids", slot.pk)
 
     def test_get_renders_track_checkboxes(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -544,16 +515,12 @@ class TestEdit:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
-    def test_post_clears_time_slots_when_marker_present_and_none_selected(
+    def test_post_clears_availability_when_marker_present_and_none_selected(
         self, panel_client, event
     ):
         session = make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             form_url(event, session.pk),
@@ -563,22 +530,18 @@ class TestEdit:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
+                "availability_submitted": "1",
             },
         )
 
-        assert not session.time_slots.exists()
+        assert not session.availability.exists()
 
-    def test_invalid_post_preserves_submitted_time_slot_selection(
+    def test_invalid_post_preserves_submitted_availability(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         session = make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
+        day, part = first_offered(event)
 
         response = authenticated_client.post(
             form_url(event, session.pk),
@@ -588,8 +551,8 @@ class TestEdit:
                 "facilitator_name": "Test Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "time_slots_submitted": "1",
-                "time_slot_ids": [slot.pk],
+                "availability_submitted": "1",
+                "availability": [availability_value(day, part)],
             },
         )
 
@@ -599,22 +562,19 @@ class TestEdit:
             template_name="panel/proposal-form.html",
             context_data={
                 **form_context(event, session),
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
             },
         )
-        assert not session.time_slots.exists()
+        assert not session.availability.exists()
 
-    def test_partial_post_without_time_slots_marker_preserves_time_slots(
+    def test_partial_post_without_availability_marker_preserves_availability(
         self, panel_client, event
     ):
         session = make_session(event)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         panel_client.post(
             form_url(event, session.pk),
@@ -627,7 +587,9 @@ class TestEdit:
             },
         )
 
-        assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
+        assert list(session.availability.values_list("day", "part")) == [
+            (day, part.value)
+        ]
 
     def test_partial_post_without_facilitators_marker_preserves_facilitators(
         self, panel_client, event
@@ -653,18 +615,14 @@ class TestEdit:
         session.refresh_from_db()
         assert session.title == "Updated title only"
 
-    def test_get_renders_track_and_time_slot_cards(self, panel_client, event):
+    def test_get_renders_track_and_availability_cards(self, panel_client, event):
         session = make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
         session.tracks.add(track)
-        slot = TimeSlot.objects.create(
-            event=event,
-            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
-        )
-        session.time_slots.add(slot)
+        day, part = first_offered(event)
+        SessionAvailabilityFactory(session=session, day=day, part=part)
 
         response = panel_client.get(form_url(event, session.pk))
 
@@ -676,20 +634,11 @@ class TestEdit:
                 **form_context(event, session),
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "assigned_track_pks": {track.pk},
-                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "assigned_time_slot_pks": {slot.pk},
+                "availability_options": availability_options(
+                    event, selected=[(day, part)]
+                ),
             },
-            contains=[
-                'name="tracks_submitted"',
-                'name="track_ids"',
-                "Main Track",
-                'name="time_slots_submitted"',
-                'name="time_slot_ids"',
-            ],
         )
-        html = response.content.decode()
-        assert "checked" in checkbox_tag(html, "track_ids", track.pk)
-        assert "checked" in checkbox_tag(html, "time_slot_ids", slot.pk)
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
         self, panel_client, event

@@ -10,7 +10,8 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts.event import EventDTO, TimeSlotDTO
+    from ludamus.pacts.availability import AvailabilityDTO
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.fields import (
         OrganizerFieldDTO,
@@ -132,7 +133,7 @@ class SessionRepositoryProtocol(Protocol):
     def create(
         session_data: SessionData,
         *,
-        time_slot_ids: Iterable[int] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int: ...
@@ -182,19 +183,13 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def read_space_options(session_id: int) -> list[SpaceOptionDTO]: ...
     @staticmethod
-    def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
-    @staticmethod
-    def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
-    def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
+    def read_availability(session_id: int) -> list[AvailabilityDTO]: ...
     @staticmethod
-    def read_preferred_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
-    @staticmethod
-    def read_preferred_time_slots_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[TimeSlotDTO]]: ...
+    ) -> dict[int, list[AvailabilityDTO]]: ...
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
@@ -230,7 +225,7 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
     @staticmethod
-    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None: ...
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None: ...
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
@@ -282,7 +277,7 @@ class SessionContentEditData:
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
-    time_slot_ids: list[int] | None = None
+    availability: list[AvailabilityDTO] | None = None
     remove_field_ids: list[int] | None = None
 
 
@@ -522,7 +517,7 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         *,
         session_id: int,
         space_id: int,
-        time_slot_id: int,
+        start_time: datetime,
         user_slug: str,
         sphere_id: int,
     ) -> None: ...
