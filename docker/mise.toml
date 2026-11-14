@@ -6,7 +6,7 @@ jobs = 1
 python = "3.14"
 node = "26.12.1"
 poetry = { version = "2.3.2", pyproject = "/app/pyproject.toml" }
-"github:endevco/aube" = "1.38.0"
+"github:endevco/aube" = "1.41.0"
 
 [env]
 # Mise creates and activates this virtualenv automatically
