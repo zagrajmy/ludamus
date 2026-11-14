@@ -127,7 +127,7 @@ test.describe("The chat of a sphere's organizer", () => {
     await expect(panel.getByText("Message 3")).toBeVisible();
     await expect(panel.getByText(`${copy.sessionRoom} · ${copy.moderatorView}`)).toBeVisible();
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
-    await expect(panel.getByLabel(copy.messageLabel)).toHaveCount(0);
+    await expect(panel.getByRole("textbox", { name: copy.messageLabel })).toHaveCount(0);
     await analyzePageAccessibility(page);
     await page.screenshot({
       animations: "disabled",
@@ -135,7 +135,7 @@ test.describe("The chat of a sphere's organizer", () => {
     });
 
     await panel.getByRole("button", { name: copy.writeAsOrganizer }).click();
-    const composer = panel.getByLabel(copy.messageLabel);
+    const composer = panel.getByRole("textbox", { name: copy.messageLabel });
     await expect(composer).toBeFocused();
     await expect(composer).toHaveAttribute("placeholder", copy.organizerPlaceholder);
     await page.screenshot({
@@ -152,7 +152,7 @@ test.describe("The chat of a sphere's organizer", () => {
     await ownList(panel)
       .getByRole("button", { name: /Mothership/u })
       .click();
-    await expect(panel.getByLabel(copy.messageLabel)).toHaveAttribute(
+    await expect(panel.getByRole("textbox", { name: copy.messageLabel })).toHaveAttribute(
       "placeholder",
       copy.writePlaceholder,
     );
@@ -193,7 +193,7 @@ test.describe("The sphere's chat moderation page", () => {
     await analyzePageAccessibility(page);
     await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-list.png" });
 
-    const title = (await first.innerText()).trim();
+    const title = (await first.locator("span").first().innerText()).trim();
     await routeBootstrap(page, [
       {
         moderation: { sphere: Number(roomId.split(":")[1]), url: CHATS_URL },
@@ -215,7 +215,7 @@ test.describe("The sphere's chat moderation page", () => {
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/chats\/session\/\d+\/#parley:/u);
     await expect(first).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
+    await expect(page.getByRole("heading", { exact: true, level: 2, name: title })).toBeVisible();
     const panel = panelOf(page);
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
     await analyzePageAccessibility(page);
