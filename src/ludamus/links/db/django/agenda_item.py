@@ -7,16 +7,18 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, Q
 
 from ludamus.links.db.django.models import AgendaItem, Track
-from ludamus.pacts import (
+from ludamus.links.db.django.session_visibility import public_scheduled_sessions
+from ludamus.pacts.discounts import FacilitatorScheduleRow
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.timetable import (
     AgendaItemData,
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
     AgendaItemUpdateData,
-    NotFoundError,
-    SessionStatus,
+    ConfirmationCountsRow,
+    ConfirmationTotalsRow,
 )
-from ludamus.pacts.discounts import FacilitatorScheduleRow
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -41,7 +43,7 @@ def scheduled_item_count() -> Count:
 def confirmed_item_count() -> Count:
     return Count(
         "sessions__agenda_item",
-        filter=Q(sessions__agenda_item__session_confirmed=True),
+        filter=Q(sessions__schedule_confirmed=True),
         distinct=True,
     )
 
@@ -62,7 +64,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
     return AgendaItemDTO(
         end_time=item.end_time,
         pk=item.pk,
-        session_confirmed=item.session_confirmed,
+        schedule_confirmed=item.session.schedule_confirmed,
         start_time=item.start_time,
         space_id=item.space_id,
         space_name=item.space.name,
@@ -71,6 +73,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         session_description=item.session.description,
         presenter_name=item.session.facilitator_name,
         session_duration_minutes=duration_minutes,
+        session_participants_limit=item.session.participants_limit,
         session_status=SessionStatus(item.session.status),
         category_name=(
             item.session.category.name if item.session.category is not None else None
@@ -95,20 +98,39 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
 
     @staticmethod
     def list_by_event(
-        event_pk: int, *, facilitator_pks: set[int] | None = None
+        event_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]:
-        items = _by_facilitators(
-            AgendaItem.objects.filter(session__event_id=event_pk), facilitator_pks
-        ).select_related(*_SELECT_RELATED)
+        qs = AgendaItem.objects.filter(session__event_id=event_pk)
+        if public_only:
+            qs = qs.filter(
+                session_id__in=public_scheduled_sessions(event_pk).values("pk")
+            )
+        items = _by_facilitators(qs, facilitator_pks).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod
     def list_by_track(
-        track_pk: int, *, facilitator_pks: set[int] | None = None
+        track_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]:
-        items = _by_facilitators(
-            AgendaItem.objects.filter(session__tracks__pk=track_pk), facilitator_pks
-        ).select_related(*_SELECT_RELATED)
+        qs = AgendaItem.objects.filter(session__tracks__pk=track_pk)
+        if public_only:
+            event_pk = (
+                Track.objects.filter(pk=track_pk)
+                .values_list("event_id", flat=True)
+                .first()
+            )
+            if event_pk is None:
+                return []
+            qs = qs.filter(
+                session_id__in=public_scheduled_sessions(event_pk).values("pk")
+            )
+        items = _by_facilitators(qs, facilitator_pks).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod
@@ -213,39 +235,11 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         # would count an item once per facilitator who runs it.
         row = AgendaItem.objects.filter(session__event_id=event_pk).aggregate(
             scheduled=Count("pk"),
-            confirmed=Count("pk", filter=Q(session_confirmed=True)),
+            confirmed=Count("pk", filter=Q(session__schedule_confirmed=True)),
         )
         return ConfirmationTotalsRow(
             scheduled_count=row["scheduled"], confirmed_count=row["confirmed"]
         )
-
-    @staticmethod
-    def set_confirmed_for_facilitator(
-        *,
-        event_pk: int,
-        facilitator_pk: int,
-        confirmed: bool,
-        contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
-    ) -> int:
-        """Set the confirmation flag over one facilitator's placed items.
-
-        Scoping to agenda items is what keeps an unplaced or pending session
-        unconfirmable: it has no row here to update. `contact_email` narrows to
-        one address (including the empty one), `agenda_item_pk` to one item.
-
-        Returns:
-            How many agenda items the filter matched.
-        """
-        # One statement, whatever the scope — never a row-by-row save loop.
-        queryset = AgendaItem.objects.filter(
-            session__event_id=event_pk, session__facilitators__pk=facilitator_pk
-        )
-        if contact_email is not None:
-            queryset = queryset.filter(session__contact_email=contact_email)
-        if agenda_item_pk is not None:
-            queryset = queryset.filter(pk=agenda_item_pk)
-        return queryset.update(session_confirmed=confirmed)
 
     @staticmethod
     def count_without_facilitator(event_pk: int, track_pk: int | None = None) -> int:

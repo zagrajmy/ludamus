@@ -8,8 +8,8 @@ from django.utils.csp import CSP
 
 from ludamus.edges.settings import CSP_POLICY
 from ludamus.gates.web.django.events import EventsPageView
-from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
+from tests.integration.web.landing_context import landing_context
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
 ENFORCE_HEADER = "Content-Security-Policy"
@@ -58,7 +58,7 @@ def enforced_header_fixture(client, settings, non_root_sphere) -> str:
 
 class TestCSPEnforceHeader:
     def test_header_sent_when_production_policy_active(self, enforced_header):
-        assert "default-src 'self'" in enforced_header
+        assert "default-src 'none'" in enforced_header
         assert "unsafe-eval" not in enforced_header
         assert "img-src 'self' data: blob: https:" in enforced_header
         assert "frame-ancestors 'none'" in enforced_header
@@ -90,6 +90,24 @@ class TestCSPEnforceHeader:
         assert ENFORCE_HEADER not in response.headers
 
 
+class TestPermissionsPolicy:
+    def test_header_sent_on_every_response(self, client):
+        response = client.get(reverse("web:index"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(),
+            template_name=["landing_page.html"],
+            headers={
+                "Permissions-Policy": (
+                    "camera=(), microphone=(), geolocation=(), payment=(), "
+                    "usb=(), display-capture=()"
+                )
+            },
+        )
+
+
 class TestCSPNonce:
     # A rendered page (unlike a bare redirect) carries base.html's
     # FOUC-prevention script, which is what forces the nonce to materialize.
@@ -119,12 +137,7 @@ class TestCSPNonce:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-            },
+            context_data=landing_context(),
             template_name=["landing_page.html"],
         )
         _assert_body_nonce_matches_header(response)

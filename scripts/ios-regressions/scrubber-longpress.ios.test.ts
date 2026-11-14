@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Rect } from "./snapshot";
 
 import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
-import { decodeEntities, fetchReadyPage } from "./page";
+import { decodeEntities, fetchReadyPage, namesFrom } from "./page";
 import {
   centreOnScreen,
   collapse,
@@ -45,11 +45,6 @@ const railSlotAnchor = (html: string): string => {
 
 type RailHour = { label: string; rect: Rect };
 
-const namesFrom = (html: string, pattern: RegExp): Set<string> =>
-  new Set(
-    [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
-  );
-
 // This page overflows the runner's 300-node snapshot budget, and the rail nav
 // is the last element in the document — an unscoped snapshot truncates before
 // ever reaching it (seven device runs of "no rail names appeared" traced back
@@ -58,7 +53,7 @@ const namesFrom = (html: string, pattern: RegExp): Set<string> =>
 // Both marker name sets come from the served, already-translated markup: the
 // links' bare hour text ("10") and their aria-labels, whichever the engine
 // reports. The patterns are wed to the attribute order that
-// templates/chronology/_compact_schedule.html renders; a reorder there fails
+// templates/event/_compact_schedule.html renders; a reorder there fails
 // the loud railNavName / markerNames guards below, never a device run.
 const RAIL_NAV_NAME = /<nav class="schedule-rail[^"]*"\s+aria-label="([^"]+)"/;
 const RAIL_HOUR_NAMES = /data-schedule-rail-hour[^>]*aria-label="([^"]+)"/g;

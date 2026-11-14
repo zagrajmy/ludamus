@@ -36,4 +36,32 @@ test.describe("Link preview metadata", () => {
 
     expect(size).toEqual({ height: 630, width: 1200 });
   });
+
+  // Messenger and friends fetch the raw HTML and never run the script that
+  // opens a ?session= modal, so read the page the way they do: no browser.
+  test("unfurls a shared session as that session, not its event", async ({ page, request }) => {
+    await page.goto("/event/autumn-open/");
+    const href = await page.locator('a[href*="?session="]').first().getAttribute("href");
+    const pk = /\?session=(\d+)/.exec(href ?? "")?.[1];
+    expect(pk).toBeDefined();
+    const shared = `/event/autumn-open/?session=${pk}`;
+
+    // The title a reader sees once the link is opened in a browser.
+    await page.goto(shared);
+    const title = (await page.locator(`#session-${pk}-title`).innerText()).trim();
+
+    const html = await (await request.get(shared)).text();
+    const meta = (key: string): string =>
+      new RegExp(`<meta[^>]+(?:property|name)="${key}"[^>]+content="([^"]*)"`, "s")
+        .exec(html)?.[1]
+        .replaceAll(/\s+/g, " ")
+        .trim() ?? "";
+
+    expect(meta("og:title")).toBe(`${title} • Autumn Open Playtest`);
+    expect(meta("twitter:title")).toBe(meta("og:title"));
+    // Day, time range, room: enough to decide from the preview alone.
+    expect(meta("og:description")).toMatch(/^\S+, \d+ \S+ · \d+:\d\d–\d+:\d\d — /u);
+    expect(meta("twitter:description")).toBe(meta("og:description"));
+    expect(html).toMatch(/<title>\s*Autumn Open Playtest • /);
+  });
 });

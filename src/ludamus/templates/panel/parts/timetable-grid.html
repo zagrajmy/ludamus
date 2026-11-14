@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load tessera %}
 {% if not grid.spaces %}
     <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
@@ -11,29 +12,46 @@
     </div>
 {% else %}
     {% if grid.total_pages > 1 %}
+        {% comment %}NOTE: the slider names a page, not a URL; timetable.ts sets its hx-push-url.{% endcomment %}
         <div class="mb-4 flex items-center gap-2">
-            <span class="text-sm text-foreground-muted">
-                {% translate "Rooms" %} {{ grid.page }}/{{ grid.total_pages }}
-                ({% translate "total" %} {{ grid.total_spaces }})
-            </span>
-            {% if grid.page > 1 %}
-                {% querystring room_page=grid.page|add:"-1" as prev_page_qs %}
-                <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ prev_page_qs }}"
-                        hx-target="#timetable-grid"
-                        hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}{{ prev_page_qs }}"
-                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">← {% translate "Previous" %}</button>
-            {% endif %}
-            {% if grid.page < grid.total_pages %}
-                {% querystring room_page=grid.page|add:"1" as next_page_qs %}
-                <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ next_page_qs }}"
-                        hx-target="#timetable-grid"
-                        hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}{{ next_page_qs }}"
-                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Next" %} →</button>
-            {% endif %}
+            <label for="timetable-room-page" class="text-sm text-foreground-muted">
+                {% blocktranslate with first=grid.first_space_number last=grid.last_space_number total=grid.total_spaces %}Rooms {{ first }}–{{ last }} of {{ total }}{% endblocktranslate %}
+            </label>
+            {% querystring room_page=grid.page|add:"-1" as prev_page_qs %}
+            <button type="button"
+                    class="icon-btn"
+                    {% if grid.page == 1 %}disabled{% endif %}
+                    hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ prev_page_qs }}"
+                    hx-target="#timetable-grid"
+                    hx-swap="innerHTML"
+                    hx-push-url="{% url 'panel:timetable' slug=slug %}{{ prev_page_qs }}">
+                {% icon "chevron-left" class="size-4" %}
+                <span class="sr-only">{% translate "Previous rooms" %}</span>
+            </button>
+            <input id="timetable-room-page"
+                   type="range"
+                   name="room_page"
+                   min="1"
+                   max="{{ grid.total_pages }}"
+                   step="1"
+                   value="{{ grid.page }}"
+                   class="w-40 max-w-full accent-primary"
+                   data-room-page
+                   hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{% querystring room_page=None %}"
+                   hx-trigger="change"
+                   hx-target="#timetable-grid"
+                   hx-swap="innerHTML">
+            {% querystring room_page=grid.page|add:"1" as next_page_qs %}
+            <button type="button"
+                    class="icon-btn"
+                    {% if grid.page == grid.total_pages %}disabled{% endif %}
+                    hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ next_page_qs }}"
+                    hx-target="#timetable-grid"
+                    hx-swap="innerHTML"
+                    hx-push-url="{% url 'panel:timetable' slug=slug %}{{ next_page_qs }}">
+                {% icon "chevron-right" class="size-4" %}
+                <span class="sr-only">{% translate "Next rooms" %}</span>
+            </button>
         </div>
     {% endif %}
     {% translate "Column width" as t_column_width %}

@@ -15,24 +15,34 @@
   "author": "",
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "@hasparus/oxlint-config": "^0.1.1",
+    "@hasparus/oxlint-config": "^0.3.0",
     "@hasparus/tailwind": "1.1.8",
-    "@simulacrum/auth0-simulator": "0.11.4",
-    "@tailwindcss/typography": "0.5.19",
+    "@simulacrum/auth0-simulator": "0.13.1",
+    "@tailwindcss/typography": "0.5.20",
     "@tailwindcss/vite": "4.2.4",
     "@types/node": "24.10.1",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
     "lil-gui": "0.21.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
     "postcss-nested": "7.0.2",
     "tailwindcss": "4.1.16",
     "typescript": "5.9.3",
-    "vite": "8.0.16"
+    "vite": "8.1.6"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "6.7.2",
+    "@shadcn/react": "0.2.0",
+    "agents": "0.29.0",
     "cuelume": "0.1.0",
+    "emojibase-data": "18.0.0",
+    "frimousse": "0.4.0",
+    "markdown-actions": "1.1.2",
     "posthog-js": "1.410.5",
-    "slugify": "1.6.6"
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "slugify": "1.6.9",
+    "yace": "1.1.1"
   }
 }

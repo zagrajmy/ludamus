@@ -17,7 +17,7 @@ from ludamus.gates.mcp.registry import (
     ToolError,
     UnknownToolError,
 )
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.mcp.registry import ToolRegistry
@@ -122,7 +122,7 @@ def _run_tool(
     services: ServicesProtocol,
     actor: ActorContext,
     name: str,
-    arguments: dict[str, object],
+    arguments: JsonDict,
 ) -> tuple[ToolOutcome, str]:
     try:
         text = registry.call(

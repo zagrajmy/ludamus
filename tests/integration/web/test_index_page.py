@@ -1,25 +1,39 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
+from freezegun import freeze_time
 
-from ludamus.gates.web.django.chronology.event_presentation import EventInfo
+from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
-from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from ludamus.pacts.dashboard import DashboardDTO
-from ludamus.pacts.encounter import PAST_FEED_LIMIT
-from ludamus.pacts.event import LandingStatsDTO
-from ludamus.pacts.multiverse import AnnouncementDTO
+from ludamus.pacts.encounter import (
+    PAST_FEED_LIMIT,
+    EncounterDTO,
+    EncounterIndexItem,
+    InviteeStatus,
+)
+from ludamus.pacts.event import (
+    EventDTO,
+    EventListItemDTO,
+    LandingConventionDTO,
+    LandingStatsDTO,
+)
+from ludamus.pacts.sphere import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EncounterFactory,
+    EncounterInviteeFactory,
     EncounterRSVPFactory,
     EventFactory,
     SessionFactory,
@@ -27,16 +41,18 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.landing_context import landing_context
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
+    status = EventDTO.model_validate(event)
     item = EventListItemDTO(
         description=event.description,
         end_time=event.end_time,
-        is_ended=event.is_ended,
-        is_live=event.is_live,
-        is_proposal_active=event.is_proposal_active,
-        is_published=event.is_published,
+        is_ended=status.is_ended,
+        is_live=status.is_live,
+        is_proposal_active=status.is_proposal_active,
+        is_published=status.is_published,
         name=event.name,
         session_count=session_count,
         slug=event.slug,
@@ -60,12 +76,7 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-            },
+            context_data=landing_context(),
             template_name=["landing_page.html"],
         )
 
@@ -78,12 +89,7 @@ class TestIndexRedirectView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": False,
-            },
+            context_data=landing_context(encounters_enabled=False),
             template_name=["landing_page.html"],
         )
 
@@ -97,7 +103,12 @@ class TestIndexRedirectView:
             HTTPStatus.OK,
             context_data={
                 "dashboard": DashboardDTO(
-                    agenda=[], open_encounters=[], sphere_feed=[], discover=[]
+                    agenda=[],
+                    agenda_more=[],
+                    open_encounters=[],
+                    sphere_feed=[],
+                    discover=[],
+                    past_events=[],
                 ),
                 "can_create_encounter": True,
             },
@@ -113,6 +124,22 @@ class TestIndexRedirectView:
             context_data=_feed_context(),
             template_name=["index.html"],
         )
+
+
+class TestLegacyFeedRedirects:
+    @pytest.mark.parametrize("path", ("/events/", "/timeline/", "/encounters/"))
+    def test_keeps_the_query_string(self, authenticated_client, path):
+        response = authenticated_client.get(f"{path}?utm_source=fb&day=sat")
+
+        assert_response(
+            response, HTTPStatus.MOVED_PERMANENTLY, url="/?utm_source=fb&day=sat"
+        )
+
+    @pytest.mark.parametrize("path", ("/events/", "/timeline/", "/encounters/"))
+    def test_lands_on_the_bare_root_without_a_query(self, authenticated_client, path):
+        response = authenticated_client.get(path)
+
+        assert_response(response, HTTPStatus.MOVED_PERMANENTLY, url="/")
 
 
 @pytest.mark.usefixtures("_on_a_sphere_domain")
@@ -554,6 +581,30 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
+    def test_unlisted_event_hidden_for_anonymous_even_once_published(
+        self, client, non_root_sphere
+    ):
+        EventFactory(
+            sphere=non_root_sphere,
+            publication_time=datetime.now(UTC) - timedelta(days=1),
+            visibility="unlisted",
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "can_create_encounter": False,
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
     def test_unpublished_event_hidden_for_regular_user(
         self, authenticated_client, non_root_sphere
     ):
@@ -606,13 +657,16 @@ def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
     }
 
 
-def _expected_feed_encounter(encounter, *, organizer_name, rsvp_count=0, is_mine=False):
+def _expected_feed_encounter(
+    encounter, *, organizer_name, rsvp_count=0, accepted_guest_count=0, is_mine=False
+):
     return FeedEncounter(
         entry=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
             rsvp_count=rsvp_count,
             is_mine=is_mine,
             organizer_name=organizer_name,
+            accepted_guest_count=accepted_guest_count,
         )
     )
 
@@ -675,6 +729,37 @@ class TestEventsPageFeed:
             },
             template_name=["index.html"],
         )
+
+    def test_an_accepted_calendar_guest_takes_a_spot_on_the_feed_card(
+        self, client, non_root_sphere
+    ):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            sphere=non_root_sphere,
+            creator=creator,
+            is_public=True,
+            max_participants=2,
+            start_time=datetime.now(UTC) + timedelta(days=2),
+        )
+        EncounterRSVPFactory(encounter=encounter)
+        EncounterInviteeFactory(encounter=encounter, status=InviteeStatus.ACCEPTED)
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        expected = _expected_feed_encounter(
+            encounter,
+            organizer_name="Pub Organizer",
+            rsvp_count=1,
+            accepted_guest_count=1,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_feed_context(upcoming=[expected]),
+            template_name=["index.html"],
+        )
+        assert expected.entry.spots_remaining == 0
 
     def test_private_encounter_is_hidden_from_other_visitors(
         self, client, non_root_sphere
@@ -848,17 +933,169 @@ class TestEventsPageFeed:
 class TestLandingPageView:
     URL = reverse("web:landing")
 
+    def test_lists_only_the_four_soonest_encounters(self, client, sphere):
+        now = datetime.now(UTC)
+        creator = UserFactory(name="Pub Organizer")
+        soonest = [
+            EncounterFactory(
+                sphere=sphere,
+                creator=creator,
+                is_public=True,
+                start_time=now + timedelta(days=day),
+            )
+            for day in (1, 2, 3, 4)
+        ]
+        EncounterFactory(
+            sphere=sphere,
+            creator=creator,
+            is_public=True,
+            start_time=now + timedelta(days=5),
+        )
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(
+                encounters=[
+                    _expected_feed_encounter(
+                        encounter, organizer_name="Pub Organizer"
+                    ).entry
+                    for encounter in soonest
+                ]
+            ),
+            template_name=["landing_page.html"],
+        )
+
+    def test_counts_stay_cached_for_two_hours(self, client, sphere, non_root_sphere):
+        with (
+            override_settings(
+                LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+            ),
+            freeze_time("2026-09-26 12:00:00") as clock,
+        ):
+            client.get(self.URL)
+            EventFactory(sphere=sphere)
+            EventFactory(
+                sphere=non_root_sphere,
+                slug="foreign",
+                publication_time=datetime(2026, 9, 1, tzinfo=UTC),
+                start_time=datetime(2026, 10, 1, tzinfo=UTC),
+                end_time=datetime(2026, 10, 2, tzinfo=UTC),
+            )
+
+            clock.tick(timedelta(hours=2) - timedelta(seconds=1))
+            cached = client.get(self.URL)
+            clock.tick(timedelta(seconds=2))
+            recounted = client.get(self.URL)
+
+        assert_response(
+            cached,
+            HTTPStatus.OK,
+            context_data=landing_context(),
+            template_name=["landing_page.html"],
+        )
+        assert_response(
+            recounted,
+            HTTPStatus.OK,
+            context_data=landing_context(
+                stats=LandingStatsDTO(events=2, sessions=0),
+                conventions=[
+                    LandingConventionDTO(
+                        name=non_root_sphere.name,
+                        domain=non_root_sphere.site.domain,
+                        event_slug="foreign",
+                        cover_image_url="",
+                    )
+                ],
+            ),
+            template_name=["landing_page.html"],
+        )
+
+    def test_recounts_over_a_malformed_cache_entry(self, client, sphere, caplog):
+        EventFactory(sphere=sphere)
+        cache.set("landing:stats", b'{"events": "many"}')
+
+        with caplog.at_level(logging.WARNING, logger="ludamus.mills.event"):
+            response = client.get(self.URL)
+
+        assert [
+            r.getMessage() for r in caplog.records if r.name == "ludamus.mills.event"
+        ] == ["Discarding malformed landing cache entry landing:stats"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(stats=LandingStatsDTO(events=1, sessions=0)),
+            template_name=["landing_page.html"],
+        )
+
     def test_serves_the_pitch_on_the_root_sphere(self, client):
         response = client.get(self.URL)
 
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "stats": LandingStatsDTO(events=0, sessions=0),
-                "conventions": [],
-                "encounters": [],
-                "encounters_enabled": True,
-            },
+            context_data=landing_context(),
+            template_name=["landing_page.html"],
+        )
+
+    @override_settings(IS_STAGING=True)
+    def test_staging_shows_the_root_sphere_newest_published_event(
+        self, client, sphere, non_root_sphere
+    ):
+        now = datetime.now(UTC)
+        EventFactory(sphere=sphere, slug="older", start_time=now + timedelta(days=1))
+        newest = EventFactory(
+            sphere=sphere, slug="newest", start_time=now + timedelta(days=30)
+        )
+        EventFactory(
+            sphere=sphere,
+            slug="draft",
+            start_time=now + timedelta(days=60),
+            publication_time=now + timedelta(days=1),
+        )
+        EventFactory(
+            sphere=non_root_sphere, slug="foreign", start_time=now + timedelta(days=90)
+        )
+
+        with override_settings(
+            LANDING_CONVENTION_DOMAINS=(non_root_sphere.site.domain,)
+        ):
+            response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(
+                stats=LandingStatsDTO(events=4, sessions=0),
+                conventions=[
+                    LandingConventionDTO(
+                        name=non_root_sphere.name,
+                        domain=non_root_sphere.site.domain,
+                        event_slug="foreign",
+                        cover_image_url="",
+                    )
+                ],
+                showcase_url=reverse(
+                    "web:chronology:event", kwargs={"slug": newest.slug}
+                ),
+            ),
+            template_name=["landing_page.html"],
+        )
+
+    @override_settings(IS_STAGING=True)
+    def test_staging_without_a_published_event_falls_back_to_production(
+        self, client, sphere
+    ):
+        EventFactory(sphere=sphere, publication_time=None)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=landing_context(stats=LandingStatsDTO(events=1, sessions=0)),
             template_name=["landing_page.html"],
         )

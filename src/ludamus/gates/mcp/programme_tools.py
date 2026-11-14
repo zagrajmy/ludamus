@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, override
 
-from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.event_tools import event_tools
@@ -14,21 +13,24 @@ from ludamus.gates.mcp.inputs import (
     NonBlankName,
 )
 from ludamus.gates.mcp.map_tools import map_tools
-from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
+from ludamus.gates.mcp.organizer_context import (
+    actor_sphere,
+    event_json,
+    require_event,
+    token_event,
+)
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
-from ludamus.pacts.legacy import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
     EventDTO,
-    ProposalCategoryDTO,
-    SessionListItemDTO,
+    FacilitatorListItemDTO,
     TimeSlotDTO,
-    TrackListItemDTO,
+    TimeSlotRejectedError,
 )
+from ludamus.pacts.fields import FieldTypeSwitchError, OrganizerFieldDTO, TextFieldKind
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.panel import (
     FacilitatorCreateData,
@@ -37,16 +39,23 @@ from ludamus.pacts.panel import (
     ProposalListQuery,
     SourceRowIdMissingError,
 )
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.submissions import AccreditationType
-from ludamus.pacts.timetable import PlacementRejectedError
-from ludamus.pacts.tracks import TrackSelectionInvalidError
-from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidationError
+from ludamus.pacts.sessions import SessionListItemDTO
+from ludamus.pacts.timetable import PlacementRejectedError, SessionPlacement
+from ludamus.pacts.tracks import TrackListItemDTO, TrackSelectionInvalidError
+from ludamus.pacts.venues import (
+    SpaceInputDTO,
+    SpacePatch,
+    SpaceTreeNodeDTO,
+    SpaceValidationError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -56,6 +65,7 @@ _TIME_SLOT_LIST = TypeAdapter(list[TimeSlotDTO])
 _SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
 _FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
+_PERSONAL_FIELD_LIST = TypeAdapter(list[OrganizerFieldDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -102,12 +112,15 @@ class OrganizerCurrentEventTool(Tool[EmptyInput]):
     name = "get_current_event"
     description = "Get the event this organizer token can write to."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = EmptyInput
 
     @staticmethod
     def handle(call: ToolCall[EmptyInput]) -> str:
-        return token_event(services=call.services, actor=call.actor).model_dump_json(
-            indent=2
+        return event_json(
+            services=call.services,
+            actor=call.actor,
+            event=token_event(services=call.services, actor=call.actor),
         )
 
 
@@ -205,6 +218,27 @@ class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
+class OrganizerListPersonalDataFieldsTool(Tool[EventIdInput]):
+    name = "list_personal_data_fields"
+    description = (
+        "List an event's host data fields (questions asked of proposers on the "
+        "wizard's Your info step) with slug, question and field_type."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = EventIdInput
+
+    @staticmethod
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
+        fields = [
+            summary.field
+            for summary in call.services.personal_data_fields.list_summaries(event.pk)
+        ]
+        return _PERSONAL_FIELD_LIST.dump_json(fields, indent=2).decode()
+
+
 class OrganizerListSessionsTool(Tool[EventIdInput]):
     name = "list_sessions"
     description = (
@@ -269,6 +303,7 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         "venue root; leaves hold sessions."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSpaceInput
 
     @staticmethod
@@ -294,24 +329,26 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
         "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends, lie inside the event dates, and not overlap "
-        "an existing slot; a rejection names which rule failed."
+        "must start before it ends and not overlap an existing slot; a "
+        "rejection names which rule failed. A window past the event dates "
+        "widens them, which the result reports as event_dates_widened."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = AwareDatetimeRange
 
     @staticmethod
     def handle(call: ToolCall[AwareDatetimeRange]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         try:
-            created = call.services.panel_time_slots.create(
+            saved = call.services.panel_time_slots.create(
                 event=event,
                 start_time=call.data.start_time,
                 end_time=call.data.end_time,
             )
         except TimeSlotRejectedError as error:
             raise ToolError(str(error)) from error
-        return created.model_dump_json(indent=2)
+        return saved.model_dump_json(indent=2)
 
 
 class _CreateTrackInput(BaseModel):
@@ -344,6 +381,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
         "repeated import never adds a second copy."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateTrackInput
 
     @staticmethod
@@ -380,6 +418,7 @@ class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
         "import does not add a category twice."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateProposalCategoryInput
 
     @staticmethod
@@ -401,6 +440,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
         "feeds create_session's facilitator_ids."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _FindOrCreateFacilitatorInput
     audit_redacted_keys = frozenset({"display_name"})
 
@@ -411,7 +451,6 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
             event_id=event.pk,
             data=FacilitatorCreateData(
                 display_name=call.data.display_name,
-                base_slug=slugify(call.data.display_name),
                 accreditation_type=AccreditationType.NONE,
             ),
             user_id=call.actor.user_id,
@@ -548,7 +587,6 @@ def _create_session(
                     "presenter_id": None,
                     "title": title,
                 },
-                base_slug=slugify(title),
                 facilitator_ids=data.facilitator_ids,
                 track_ids=data.track_ids,
             ),
@@ -570,6 +608,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
         "ready for timetable assign."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name", "description"})
 
@@ -604,10 +643,11 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
         "successful items and can be retried by source_row_id."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _CreateSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="sessions",
@@ -663,9 +703,12 @@ def _assign_session(
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
     name = "assign_session"
     description = (
-        "Place an accepted session of this token's event into a space and time window."
+        "Place an accepted session of this token's event into a space and time "
+        "window. A placement past the time slots widens them (and the event "
+        "dates behind them) rather than being refused."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionInput
 
     @staticmethod
@@ -699,10 +742,11 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         "preserve input order; failed items do not roll back successful items."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _AssignSessionsInput
 
-    @classmethod
-    def audit_arguments(cls, arguments: JsonDict) -> object:
+    @override
+    def audit_arguments(self, arguments: JsonDict) -> JsonDict:
         return _batch_audit_arguments(
             arguments,
             key="assignments",
@@ -738,6 +782,7 @@ class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
         "assignments, title, and schedule stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSessionInput
     audit_redacted_keys = frozenset({"facilitator_name"})
 
@@ -774,6 +819,23 @@ class _UpdateSpaceInput(BaseModel):
     location: str | None = Field(default=None, description="New location; omit to keep")
 
 
+def _space_patch(body: _UpdateSpaceInput) -> SpacePatch:
+    # "Omit to keep" is the input's None; the patch says it by leaving the key
+    # out, and "root" is the one way to ask for the top level.
+    changes: SpacePatch = {}
+    if body.name is not None:
+        changes["name"] = body.name
+    if body.capacity is not None:
+        changes["capacity"] = body.capacity
+    if body.description is not None:
+        changes["description"] = body.description
+    if body.location is not None:
+        changes["location"] = body.location
+    if body.parent_id is not None:
+        changes["parent_id"] = None if body.parent_id == "root" else body.parent_id
+    return changes
+
+
 class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
     name = "update_space"
     description = (
@@ -781,58 +843,65 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         "Only provided fields change; sessions assigned to the space stay put."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateSpaceInput
 
     @staticmethod
     def handle(call: ToolCall[_UpdateSpaceInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        current = call.services.space_tree.read(call.data.pk)
-        if current.event_id != event.pk:
-            raise NotFoundError
-        if call.data.parent_id == "root":
-            parent_id = None
-        elif call.data.parent_id is None:
-            parent_id = current.parent_id
-        else:
-            parent = call.services.space_tree.read(call.data.parent_id)
-            if parent.event_id != event.pk:
-                raise NotFoundError
-            parent_id = parent.pk
         try:
-            space = call.services.space_tree.update(
-                pk=current.pk,
-                parent_id=parent_id,
-                data=SpaceInputDTO(
-                    name=call.data.name or current.name,
-                    capacity=(
-                        current.capacity
-                        if call.data.capacity is None
-                        else call.data.capacity
-                    ),
-                    description=(
-                        current.description
-                        if call.data.description is None
-                        else call.data.description
-                    ),
-                    location=(
-                        current.location
-                        if call.data.location is None
-                        else call.data.location
-                    ),
-                ),
+            space = call.services.space_tree.patch_space(
+                event_id=event.pk, pk=call.data.pk, changes=_space_patch(call.data)
             )
         except SpaceValidationError as error:
             raise ToolError(str(error)) from error
         return space.model_dump_json(indent=2)
 
 
-def programme_tools() -> tuple[ToolProtocol, ...]:
+class _SetPersonalDataFieldTypeInput(BaseModel):
+    slug: str = Field(description="Field slug (see list_personal_data_fields)")
+    field_type: TextFieldKind = Field(
+        description=(
+            '"discord" prefills the answer from the proposer\'s profile (the '
+            "wizard skips the step only when the account answers all of it); "
+            '"text" asks it every time'
+        )
+    )
+
+
+class OrganizerSetPersonalDataFieldTypeTool(Tool[_SetPersonalDataFieldTypeInput]):
+    name = "set_personal_data_field_type"
+    description = (
+        "Switch a host data field in this token's event between text and "
+        "Discord username. Answers already given are kept."
+    )
+    scope = ToolScope.ORGANIZER
+    needs_event = True
+    input_model = _SetPersonalDataFieldTypeInput
+
+    @staticmethod
+    def handle(call: ToolCall[_SetPersonalDataFieldTypeInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        try:
+            field = call.services.personal_data_fields.set_field_type(
+                event_pk=event.pk,
+                field_slug=call.data.slug,
+                field_type=call.data.field_type,
+            )
+        except FieldTypeSwitchError as error:
+            message = "Only text and Discord username fields can switch type"
+            raise ToolError(message) from error
+        return field.model_dump_json(indent=2)
+
+
+def programme_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
         OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),
         OrganizerListProposalCategoriesTool(),
+        OrganizerListPersonalDataFieldsTool(),
         OrganizerListSessionsTool(),
         OrganizerListFacilitatorsTool(),
         OrganizerCreateSpaceTool(),
@@ -846,6 +915,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerAssignSessionsTool(),
         OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
+        OrganizerSetPersonalDataFieldTypeTool(),
         *event_tools(),
         *sphere_tools(),
         *map_tools(),

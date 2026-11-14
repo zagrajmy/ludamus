@@ -9,17 +9,13 @@
     {{ item_name }}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {% include "panel/parts/header-crumbs.html" with back_url=back_url back_label=back_label %}
-    {% endif %}
+    {% include "panel/parts/header-crumbs.html" with back_url=back_url back_label=back_label %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
-        {% tab_shell "panel/_detail_tabs.html" %}
-            {% tab_shell_body %}
-                {% translate "No changes recorded yet." as t_empty %}
-                {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" revertible_pks="" slug="" csrf_token=csrf_token only %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
-    {% endif %}
+    {% tab_shell "panel/_detail_tabs.html" %}
+        {% tab_shell_body %}
+            {% translate "No changes recorded yet." as t_empty %}
+            {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" revertible_pks="" slug="" csrf_token=csrf_token only %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}

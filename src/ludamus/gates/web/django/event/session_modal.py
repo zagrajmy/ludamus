@@ -5,19 +5,20 @@ from typing import TYPE_CHECKING
 
 from django.http import Http404
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
+from ludamus.gates.web.django.event.event_presentation import present_session_modal
 from ludamus.gates.web.django.helpers import read_public_event
-from ludamus.pacts import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts.event import EventDTO
 
 
 class SessionModalComponentView(View):
@@ -49,6 +50,16 @@ class SessionModalComponentView(View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
+        if not data.takes_enrollment:
+            # With no seats to take, a bookmark is the one way to say "I'm
+            # going", so the modal offers the toggle the schedule rows carry.
+            bookmark = request.services.bookmarks.session_state(
+                user_id=request.context.current_user_id,
+                session_id=SessionId(session_id),
+                event_id=event.pk,
+            )
+            data.user_bookmarked = bookmark.bookmarked
+            data.bookmark_count = bookmark.count
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=not data.is_unscheduled,
@@ -59,9 +70,24 @@ class SessionModalComponentView(View):
             user_enrolled=data.user_enrolled,
             user_waiting=data.user_waiting,
         )
+        # SAFETY: a banned host must see the deniable controls every banned
+        # viewer sees, or the difference gives the ban away.
+        hosting = (
+            dto.viewer_is_host
+            and not event_banned
+            and not (data.user_enrolled or data.user_waiting)
+        )
+        viewer_id = request.context.current_user_id
+        host_enroll_url = (
+            self._host_enroll_url(
+                viewer_id=viewer_id, event_slug=event.slug, session_id=session_id
+            )
+            if hosting and viewer_id is not None and footer.actions is not None
+            else None
+        )
         return TemplateResponse(
             request,
-            "chronology/parts/session-modal.html",
+            "event/parts/session-modal.html",
             {
                 "data": data,
                 "event": event,
@@ -86,8 +112,28 @@ class SessionModalComponentView(View):
                 # after construction, so this is wrong on a card.
                 "enroll_actions": footer.actions,
                 "enroll_opens_at": footer.opens_at,
+                "hosting": hosting,
+                "host_enroll_url": host_enroll_url,
             },
         )
+
+    def _host_enroll_url(
+        self, *, viewer_id: UserId, event_slug: str, session_id: int
+    ) -> str:
+        # NOTE: mirrors whom the group page would list besides the host.
+        selection = self.request.services.parties.enrollment_selection(
+            viewer_pk=viewer_id, requested_party=None
+        )
+        party = selection.selected
+        if selection.companions or (
+            party is not None
+            and any(member.user_pk != viewer_id for member in party.members)
+        ):
+            return reverse(
+                "web:chronology:session-enrollment",
+                kwargs={"event_slug": event_slug, "session_id": session_id},
+            )
+        return f"{reverse('web:crowd:profile-parties')}?new-party=1"
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[UserId], set[UserId], bool]:
         shadowbanned_ids: frozenset[UserId] = frozenset()

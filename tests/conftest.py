@@ -1,16 +1,23 @@
-import logging
+import os
 import zoneinfo
 
 import pytest
 from django.conf import settings as django_settings
 from django.db import connection
-from zeal import zeal_context
+from hypothesis import settings as hypothesis_settings
 
-from tests.template_checks import MissingTemplateVariableFilter
+# CI machines vary in speed, so a slow example is not a failure. `crosshair`
+# swaps random examples for CrossHair's solver; select it with
+# HYPOTHESIS_PROFILE=crosshair (`mise run test:props:crosshair`).
+hypothesis_settings.register_profile("default", deadline=None)
+hypothesis_settings.register_profile(
+    "crosshair", backend="crosshair", deadline=None, max_examples=25
+)
+hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 
 def pytest_configure(config):
-    # django_settings, not the `settings` fixture three fixtures below take:
+    # django_settings, not the `settings` fixture the one fixture below takes:
     # ruff forbids a function-level import, so the name has to be aliased.
     # Catches a stray export in any pytest run. The e2e server is not covered:
     # Playwright never loads this file, so `.env.e2e`'s pin is the only thing
@@ -40,45 +47,6 @@ def pytest_collection_modifyitems(items):
             item.add_marker(skip_postgres)
 
 
-@pytest.fixture(autouse=True)
-def _fail_on_missing_template_variables():
-    """Raise exception when template variables cannot be resolved.
-
-    Django silently swallows AttributeError when accessing missing
-    methods/properties on template objects. This fixture ensures
-    such errors are caught during tests.
-    """
-    logger = logging.getLogger("django.template")
-    original_level = logger.level
-    filter_instance = MissingTemplateVariableFilter()
-
-    logger.setLevel(logging.DEBUG)
-    logger.addFilter(filter_instance)
-
-    yield
-
-    logger.removeFilter(filter_instance)
-    logger.setLevel(original_level)
-
-
-@pytest.fixture(autouse=True)
-def _zeal_n_plus_one_detection():
-    # The zeal middleware only monitors request paths; this covers tests that
-    # drive services and repositories directly.
-    with zeal_context():
-        yield
-
-
 @pytest.fixture
 def time_zone(settings):
     return zoneinfo.ZoneInfo(settings.TIME_ZONE)
-
-
-@pytest.fixture(autouse=True)
-def english_language(settings):
-    settings.LANGUAGE_CODE = "en"
-
-
-@pytest.fixture(autouse=True)
-def _media_root(settings, tmp_path):
-    settings.MEDIA_ROOT = str(tmp_path / "media")

@@ -1,27 +1,44 @@
 """Coverage for the DBOS in-system scheduler.
 
 Launches a real DBOS instance (isolated SQLite system DB) and drives the
-adapter end to end: schedule_expiry → durable workflow → step → expire_offer,
+adapter end to end: schedule_expiry → durable workflow → step → expire_offer
+and schedule_fanout → durable workflow → step → announcement notifications,
 plus the cron workflows run as plain workflows (their crons are trusted to
 DBOS; what we own is the step wiring underneath). Uses a non-existent
-participation / an empty events table so the workflows are safe no-ops; the
+participation / an empty events table so those workflows are safe no-ops; the
 point is that every line of the adapter executes on 3.14.
 """
 
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
+import responses
 from dbos import DBOS
+from django.core.exceptions import ImproperlyConfigured
+from django.db import DEFAULT_DB_ALIAS, connections
 
 from ludamus.inits import dbos_scheduler as scheduler_module
+from ludamus.inits.parley import DisabledStaffThread, InlineStaffThread
+from ludamus.inits.sweeps import SWEEPS
+from ludamus.links.db.django.models import (
+    Announcement,
+    Notification,
+    NotificationSubscription,
+)
+from ludamus.pacts.listing import ListingStatus
+from ludamus.pacts.staff_cases import EmailInPost, StaffThreadEntry
+from tests.integration.conftest import ListingFactory, SphereFactory, UserFactory
+from tests.integration.web.parley.helpers import configure_parley
 
 _MISSING_PARTICIPATION_ID = 10_000_000
 # The scheduled workflow has zero delay; this is slack for the DBOS worker
 # thread to pick it up and run its step before teardown destroys DBOS.
 _WORKFLOW_GRACE_SECONDS = 2.0
 _LAUNCH_TIMEOUT_SECONDS = 30.0
+# DBOS registers a workflow under its qualified name.
+_FANOUT_WORKFLOW_NAME = "_fanout_announcement_workflow"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -50,6 +67,40 @@ def test_dbos_scheduler_runs_expiry_workflow(settings, tmp_path, monkeypatch):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_dbos_scheduler_runs_fanout_workflow(settings, tmp_path, monkeypatch):
+    settings.DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{tmp_path / 'dbos_sys.sqlite'}"
+    launched = threading.Event()
+    monkeypatch.setattr(scheduler_module, "_launched", launched)
+    sphere = SphereFactory()
+    subscriber = UserFactory()
+    NotificationSubscription.objects.create(
+        user=subscriber, sphere=sphere, source="visit"
+    )
+    announcement = Announcement.objects.create(
+        sphere=sphere, title="Doors open at 9", content="Hall B."
+    )
+
+    scheduler = scheduler_module.DBOSAnnouncementFanoutScheduler()
+    try:
+        scheduler.schedule_fanout(announcement_id=announcement.pk)
+        # _ensure_launched constructed and launched DBOS.
+        assert launched.is_set()
+        # Outside an atomic block the on_commit trigger fires at once, so the
+        # workflow is checkpointed by the time schedule_fanout returns. Wait on
+        # the workflow, not on the rows: the step writes `notification` from a
+        # worker thread, and a read racing that writer on shared-cache SQLite
+        # fails outright ("table is locked") instead of waiting out the busy
+        # timeout.
+        (started,) = DBOS.list_workflows(name=_FANOUT_WORKFLOW_NAME)
+        DBOS.retrieve_workflow(started.workflow_id).get_result()
+    finally:
+        DBOS.destroy()
+
+    notification = Notification.objects.get(recipient=subscriber)
+    assert notification.payload == {"announcement_id": announcement.pk}
+
+
+@pytest.mark.django_db(transaction=True)
 def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     settings.DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{tmp_path / 'dbos_sys.sqlite'}"
     settings.SCHEDULER_MODE = "dbos"
@@ -59,23 +110,36 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
     # launch_scheduler starts the launch on a background thread (fail-soft).
     scheduler_module.launch_scheduler()
     assert launched.wait(timeout=_LAUNCH_TIMEOUT_SECONDS)
+    assert {s["schedule_name"] for s in DBOS.list_schedules()} == {
+        sweep.workflow for sweep in SWEEPS
+    }
 
+    # The fanout sweep is the one workflow given real work: its step branches on
+    # having notified somebody, and the worker thread reads on its own
+    # connection, so the rows have to be committed.
+    sphere = SphereFactory()
+    subscriber = UserFactory()
+    NotificationSubscription.objects.create(
+        user=subscriber, sphere=sphere, source="visit"
+    )
+    announcement = Announcement.objects.create(
+        sphere=sphere, title="Doors open at 9", content="Hall B."
+    )
     now = datetime.now(UTC)
+    stale = ListingFactory(sphere=sphere, opened_at=now - timedelta(days=31))
+
     try:
         # The cron trigger itself is DBOS's croniter loop; drive the same
         # workflows manually and assert the sweeps complete against the DB.
-        DBOS.start_workflow(scheduler_module.expire_offers_sweep, now, now).get_result()
-        DBOS.start_workflow(
-            scheduler_module.printables_reminders_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.konwencik_export_tick, now, now
-        ).get_result()
-        DBOS.start_workflow(
-            scheduler_module.sphere_announcements_tick, now, now
-        ).get_result()
+        for workflow, _sweep in scheduler_module._cron_workflows:
+            DBOS.start_workflow(workflow, now, None).get_result()
     finally:
         DBOS.destroy()
+
+    notification = Notification.objects.get(recipient=subscriber)
+    assert notification.payload == {"announcement_id": announcement.pk}
+    stale.refresh_from_db()
+    assert stale.status == ListingStatus.CLOSED
 
 
 def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
@@ -84,6 +148,17 @@ def test_launch_scheduler_skips_when_cron(settings, monkeypatch):
     settings.SCHEDULER_MODE = "cron"
 
     scheduler_module.launch_scheduler()
+
+    assert not calls
+
+
+def test_launch_scheduler_rejects_an_unknown_mode(settings, monkeypatch):
+    calls = []
+    monkeypatch.setattr(scheduler_module, "_ensure_launched", lambda: calls.append(1))
+    settings.SCHEDULER_MODE = "dbso"
+
+    with pytest.raises(ImproperlyConfigured, match="SCHEDULER_MODE"):
+        scheduler_module.launch_scheduler()
 
     assert not calls
 
@@ -109,3 +184,68 @@ def test_launch_race_loser_rechecks_under_the_lock(settings, monkeypatch):
             thread.join(timeout=10)
 
     assert not constructed
+
+
+@pytest.mark.postgres
+@pytest.mark.django_db(transaction=True)
+def test_step_releases_its_thread_db_connection():
+    used = []
+
+    @scheduler_module._releases_db_connection
+    def step():
+        Announcement.objects.exists()
+        used.append(connections[DEFAULT_DB_ALIAS])
+
+    # DBOS steps run on long-lived threads that never see a request signal.
+    thread = threading.Thread(target=step)
+    thread.start()
+    thread.join()
+
+    assert [wrapper.connection for wrapper in used] == [None]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_a_case_thread_post_is_retried_until_the_chat_takes_it(
+    settings, tmp_path, monkeypatch
+):
+    settings.DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{tmp_path / 'dbos_sys.sqlite'}"
+    settings.SCHEDULER_MODE = "dbos"
+    configure_parley(settings)
+    monkeypatch.setattr(scheduler_module, "_launched", threading.Event())
+    entry = StaffThreadEntry(
+        thread_id=9,
+        reference="Z-1",
+        message=EmailInPost(sender="Ola W.", subject="Hm"),
+        nonce="n-1",
+    )
+
+    try:
+        with responses.RequestsMock() as worker:
+            url = "https://parley.example.com/conversations/messages"
+            worker.post(url, status=503)
+            worker.post(url, status=204)
+            thread = scheduler_module.staff_thread()
+            thread.post(entry)
+            (started,) = DBOS.list_workflows(name="_staff_thread_workflow")
+            DBOS.retrieve_workflow(started.workflow_id).get_result()
+            calls = len(worker.calls)
+    finally:
+        DBOS.destroy()
+
+    assert (type(thread), calls) == (scheduler_module.DBOSStaffThread, 2)
+
+
+@pytest.mark.parametrize(
+    ("mode", "configured", "kind"),
+    (("cron", True, InlineStaffThread), ("dbos", False, DisabledStaffThread)),
+)
+def test_case_thread_posts_go_the_way_the_scheduler_and_chat_allow(
+    settings, mode, configured, kind
+):
+    settings.SCHEDULER_MODE = mode
+    if configured:
+        configure_parley(settings)
+    else:
+        settings.PARLEY_AGENT_HOST = ""
+
+    assert isinstance(scheduler_module.staff_thread(), kind)

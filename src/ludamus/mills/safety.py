@@ -6,6 +6,7 @@ from ludamus.pacts.safety import ShadowbanSignupNotification
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.safety import (
         EventBanDTO,
         EventBanRepositoryProtocol,
@@ -74,11 +75,11 @@ class ShadowbanService:
             return
 
         name_by_id = dict(signed_up)
-        names_by_recipient: dict[UserId, tuple[str, list[str], list[str]]] = {}
+        names_by_recipient: dict[UserId, tuple[list[str], list[str]]] = {}
         seen_by_recipient: dict[UserId, set[UserId]] = {}
         for hit in data.hits:
-            _email, event_names, session_names = names_by_recipient.setdefault(
-                hit.recipient_id, (hit.recipient_email, [], [])
+            event_names, session_names = names_by_recipient.setdefault(
+                hit.recipient_id, ([], [])
             )
             seen = seen_by_recipient.setdefault(hit.recipient_id, set())
             # Dedupe by banned user id, not name: two distinct players sharing
@@ -89,17 +90,12 @@ class ShadowbanService:
             if name := name_by_id.get(hit.banned_user_id):
                 (session_names if hit.in_session else event_names).append(name)
 
-        for recipient_id, (
-            email,
-            event_names,
-            session_names,
-        ) in names_by_recipient.items():
+        for recipient_id, (event_names, session_names) in names_by_recipient.items():
             if not event_names and not session_names:
                 continue
             self._notifier.notify_shadowbanned_signup(
                 ShadowbanSignupNotification(
                     recipient_user_id=recipient_id,
-                    recipient_email=email,
                     event_slug=data.event_slug,
                     event_name=data.event_name,
                     session_title=data.session_title,
@@ -112,10 +108,15 @@ class ShadowbanService:
 
 class EventBanService:
     def __init__(
-        self, transaction: TransactionProtocol, repo: EventBanRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repo: EventBanRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repo = repo
+        self._chat = chat
 
     def list_for_event(self, event_id: EventId) -> list[EventBanDTO]:
         return self._repo.list_by_event(event_id)
@@ -132,9 +133,14 @@ class EventBanService:
         if not (identifier := identifier.strip()):
             return False
         with self._transaction.atomic():
-            return self._repo.ban(
+            user_id = self._repo.ban(
                 event_id=event_id, identifier=identifier, reason=reason.strip()
             )
+            if user_id is None:
+                return False
+            # The banned person's pass still lists the event's sessions.
+            self._chat.revoke_event_user(event_id=event_id, user_id=user_id)
+            return True
 
     def unban(self, *, event_id: EventId, ban_id: EventBanId) -> None:
         with self._transaction.atomic():

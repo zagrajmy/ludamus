@@ -16,7 +16,7 @@ from ludamus.links.db.django.models import (
     Space,
     Track,
 )
-from ludamus.pacts import EventDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.venues import ProgrammeSpaceRowDTO, SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -167,6 +167,12 @@ class TestSpacesTreePage:
                             programme_order=room.programme_order,
                             track_names=[],
                         ),
+                        "location": {
+                            "location_label": room.name,
+                            "location_crumbs": [
+                                {"name": room.name, "space_filter": None}
+                            ],
+                        },
                         "tracks": [],
                     }
                 ],
@@ -445,6 +451,25 @@ class TestSpaceEdit:
             url=_venues_url(event),
         )
 
+    def test_post_edit_foreign_node_changes_nothing(
+        self, manager_client, event, sphere
+    ):
+        other_event = EventFactory(sphere=sphere)
+        foreign = _root(other_event, "Foreign")
+
+        response = manager_client.post(
+            self._url(event, foreign.pk), data={"name": "Mine"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Space not found.")],
+            url=_venues_url(event),
+        )
+        foreign.refresh_from_db()
+        assert foreign.name == "Foreign"
+
     def test_reparent_to_top_level(self, manager_client, event):
         parent = _root(event, "Hall")
         child = Space.objects.create(
@@ -720,6 +745,33 @@ class TestSpaceCopy:
             messages=[(messages.ERROR, "Space not found.")],
             url=_venues_url(event),
         )
+
+    def test_post_copies_the_subtree_into_another_event(
+        self, manager_client, event, sphere
+    ):
+        node = _root(event, "Hall")
+        Space.objects.create(event=event, parent=node, name="Room", slug="room")
+        target = EventFactory(
+            sphere=sphere,
+            name="Winter Convention",
+            start_time=event.start_time - timedelta(days=30),
+        )
+
+        response = manager_client.post(
+            self._url(event, node.pk), data={"target_event": target.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "Space copied to Winter Convention successfully.")
+            ],
+            url=_venues_url(event),
+        )
+        copied = Space.objects.get(event=target, parent=None)
+        assert copied.name == "Hall"
+        assert list(copied.children.values_list("name", flat=True)) == ["Room"]
 
     def test_post_invalid_form_rerenders(self, manager_client, event):
         # No other events => empty choices => the target_event field is invalid.

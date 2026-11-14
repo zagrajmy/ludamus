@@ -1,3 +1,4 @@
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 const printUrl = "/event/kapitularz-2025-anonymized/print/";
@@ -120,14 +121,7 @@ test.describe("Print page controls", () => {
 });
 
 test.describe("Print page for managers", () => {
-  test.beforeEach(async ({ page }) => {
-    // Log in via Django admin as the manager user (same flow as panel.spec.ts;
-    // domcontentloaded because Firefox occasionally never fires `load` here).
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   test("panel links lead to the canonical print page", async ({ page }) => {
     await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/");

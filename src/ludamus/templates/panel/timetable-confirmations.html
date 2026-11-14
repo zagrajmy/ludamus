@@ -28,18 +28,18 @@
                                     {{ track.name }}
                                 </option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     </form>
                 {% endif %}
             </div>
             {% if track_view %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {% translate "confirmed program items in this track" as t_track_confirmed %}
-                    {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed %}
+                    {% translate "program items with a confirmed schedule in this track" as t_track_confirmed %}
+                    {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed only %}
                     {% translate "facilitators in this track" as t_track_facilitators %}
-                    {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators %}
+                    {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators only %}
                     {% translate "facilitators nobody handles" as t_track_unclaimed %}
-                    {% include "components/stat_card.html" with value=track_view.unclaimed_facilitator_count label=t_track_unclaimed %}
+                    {% include "components/stat_card.html" with value=track_view.unclaimed_facilitator_count label=t_track_unclaimed only %}
                 </div>
                 {% if track_view.facilitators %}
                     <div class="flex flex-col gap-3">
@@ -61,14 +61,14 @@
                 {% include "panel/parts/confirmation-orphan-warning.html" with count=track_view.without_facilitator_count %}
             {% else %}
                 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {% translate "confirmed program items" as t_confirmed %}
-                    {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed %}
+                    {% translate "program items with a confirmed schedule" as t_confirmed %}
+                    {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed only %}
                     {% translate "confirmation progress" as t_progress %}
-                    {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress %}
+                    {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress only %}
                     {% translate "facilitators taken on" as t_claimed %}
-                    {% include "components/stat_card.html" with value=dashboard.claimed_facilitator_count label=t_claimed %}
+                    {% include "components/stat_card.html" with value=dashboard.claimed_facilitator_count label=t_claimed only %}
                     {% translate "facilitators nobody handles" as t_unclaimed %}
-                    {% include "components/stat_card.html" with value=dashboard.unclaimed_facilitator_count label=t_unclaimed %}
+                    {% include "components/stat_card.html" with value=dashboard.unclaimed_facilitator_count label=t_unclaimed only %}
                 </div>
                 <section class="mb-8">
                     <h2 class="mb-3 text-base font-semibold">{% translate "By organizer" %}</h2>
@@ -79,7 +79,7 @@
                                     <tr class="border-b border-border text-left">
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Organizer" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
-                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Schedule confirmed" %}</th>
                                         <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
                                     </tr>
                                 </thead>
@@ -95,7 +95,9 @@
                                             </td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
-                                            <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                                            <td class="py-2">
+                                                {% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -117,7 +119,7 @@
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Track" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Managed by" %}</th>
                                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
-                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Schedule confirmed" %}</th>
                                         <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
                                     </tr>
                                 </thead>
@@ -133,14 +135,16 @@
                                             </td>
                                             <td class="py-2 pr-4 text-foreground-muted">
                                                 {% if row.manager_names %}
-                                                    {{ row.manager_names|join:", " }}
+                                                    <span data-ph-mask>{{ row.manager_names|join:", " }}</span>
                                                 {% else %}
                                                     <span class="text-xs text-warning-text">{% translate "Nobody yet" %}</span>
                                                 {% endif %}
                                             </td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
                                             <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
-                                            <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                                            <td class="py-2">
+                                                {% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -154,8 +158,8 @@
                 </section>
                 {% include "panel/parts/confirmation-orphan-warning.html" with count=dashboard.without_facilitator_count %}
             {% endif %}
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/filter-autosubmit.ts' %}

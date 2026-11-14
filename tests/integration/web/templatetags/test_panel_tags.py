@@ -126,7 +126,7 @@ CATEGORY = (
     '{% sidebar_cat key="sphere" label="Sphere" %}'
     '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
     ' label="Guilds" key="guilds" %}'
-    "{% endsidebar_cat %}"
+    "{% end_sidebar_cat %}"
 )
 
 
@@ -161,7 +161,7 @@ class TestSidebarCatKey:
         # sidebar_link guards.
         tpl = Template(
             "{% load panel_tags %}"
-            '{% sidebar_cat key="reports" label="Reports" %}{% endsidebar_cat %}'
+            '{% sidebar_cat key="reports" label="Reports" %}{% end_sidebar_cat %}'
         )
 
         with pytest.raises(TemplateSyntaxError, match="reports"):
@@ -211,7 +211,7 @@ class TestSidebarCoverage:
     # asks for a `tab_urls` entry that does not exist, and `{{ tab_urls.typo }}`
     # renders "" — pointing the tab at the current page instead of raising.
     def test_every_sphere_tab_is_in_the_literal(self) -> None:
-        source = _template_source("multiverse/panel/_sphere_tabs_nav.html")
+        source = _template_source("sphere/panel/_sphere_tabs_nav.html")
 
         tabs = set(re.findall(r'{% tab "([^"]+)"', source))
 

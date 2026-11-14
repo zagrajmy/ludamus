@@ -6,6 +6,52 @@ the platform through the same services the views use, never around them.
 
 ## Access
 
+### OAuth (any MCP client)
+
+Add the endpoint URL to any MCP client; no token to paste:
+
+```bash
+claude mcp add --transport http zagrajmy https://<domain>/mcp/
+claude mcp add --transport http zagrajmy-org https://<sphere-domain>/mcp/organizer/
+```
+
+`/mcp` and `/mcp/organizer` answer without the trailing slash too; MCP
+clients don't follow a redirect on a POST.
+
+The client gets a 401 whose `WWW-Authenticate` header points at
+`/.well-known/oauth-protected-resource/mcp/` (or `.../mcp/organizer/`, each
+without the slash when the client used it that way), which
+names this site as the authorization server
+(`/.well-known/oauth-authorization-server`). The client then opens
+`/mcp/oauth/authorize/` in the browser. The user logs in and approves the
+client on a consent page. Organizers also pick the event the token may
+write. The client swaps the code at `/mcp/oauth/token/` for
+the same signed token the pages below mint.
+
+Clients identify themselves with a
+[Client ID Metadata Document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)
+(CIMD): the `client_id` is an HTTPS URL whose JSON lists the client's
+`redirect_uris`. No registration and no allowlist. The consent page shows
+the metadata host next to the self-declared name. Only public clients with
+PKCE S256 are accepted. Dynamic Client Registration is deprecated in the
+MCP spec and not offered. Codes live 60 seconds in the shared cache and
+redeem once. There are no refresh tokens: after 30 days the client runs the
+flow again.
+
+The metadata fetch (`links/client_metadata.py`) goes to a URL a stranger
+chose. It resolves the host once, refuses unless every address is public,
+and connects to the address it checked, so a DNS answer that changes between
+check and connect can't point it inward. TLS still verifies the real
+hostname. It follows no redirects, stops after 5 s in total, caps the body
+at 5 KB, and tells the user only that the fetch failed, never the status.
+
+The vetted request waits in the session between the consent page and the
+decision, so approving neither refetches the document nor trusts echoed
+form fields. The rules (who may grant, which events, PKCE, single use) live
+in `McpAuthorizationService`; the gate maps HTTP onto it.
+
+### Manual token
+
 1. Log in on the deployed site with a Django **superuser** account.
 2. Open `/mcp/token/` and generate a token (shown once, valid 30 days).
 3. Connect a client to `/mcp/` with the token as a Bearer header:
@@ -25,15 +71,17 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 ### Organizer tier
 
 Sphere managers mint a token from the **MCP access** tab on an event's
-settings (`/panel/event/<slug>/settings/mcp/`). Create the event in the
-panel first — `create_event` is maintainer-only.
+settings (`/panel/event/<slug>/settings/mcp/`), so a sphere needs one event
+before its managers can connect.
 
 Tokens embed `(user_id, sphere_id, event_id)`:
 
 - **Read** can see the whole sphere (sibling events, announcements, programme
   of another event in the sphere).
 - **Write** always targets the token's event. Write tools do not take
-  `event_id` from the client.
+  `event_id` from the client. The one exception is `create_event`, which adds
+  a new event to the token's sphere. The token stays bound to its old event;
+  to write the new event's programme, connect again and pick the new event.
 
 Every request re-checks `is_manager` and that the event still belongs to the
 sphere. The endpoint loads only organizer-scoped tools, so maintainer tools
@@ -43,6 +91,19 @@ auth.
 The organizer tier provides programme verbs for spaces, time slots, tracks,
 sessions, and venue maps, with writes scoped to one event per token and
 sphere-wide reads.
+
+### Organizer tools on the maintainer endpoint
+
+`/mcp/` serves every organizer tool too, run by the same code. A maintainer
+token names no sphere or event, so `MaintainerTool`
+(`gates/mcp/organizer_context.py`) adds them as arguments: `sphere_id` on
+every tool, and `event_id` on the tools that act on "the token event"
+(`needs_event = True` on the tool class). It validates them together with
+the tool's own fields, then calls the organizer tool with an actor carrying
+that sphere and event. The organizer tool's own checks still decide what the
+call may touch: an `event_id` outside `sphere_id` is "Resource not found".
+Maintainer-only tools (`list_spheres`, announcement writes) take `sphere_id`
+themselves.
 
 ## Architecture
 
@@ -54,9 +115,11 @@ model and no LLM dependency, and makes no decisions on its own.
 | Piece | Location | Role |
 | ----- | -------- | ---- |
 | Tool registry | `gates/mcp/registry.py` | `Tool` base (pydantic input → JSON text output) + `ToolRegistry` |
-| Tool set | `gates/mcp/tools.py` | Hand-curated maintainer tools over `ServicesProtocol` |
+| Tool set | `gates/mcp/tools.py` | Hand-curated tools over `ServicesProtocol`; organizer tools reach maintainers through `MaintainerTool` |
 | Protocol | `gates/mcp/protocol.py` | Stateless JSON-RPC subset of MCP Streamable HTTP |
 | HTTP gate | `gates/web/django/mcp/views.py` | Bearer auth, JSON parsing, `/mcp/token/` mint page |
+| OAuth gate | `gates/web/django/mcp/oauth.py` | Discovery metadata, consent page, code-for-token exchange |
+| OAuth service | `mills/mcp.py` | CIMD client checks, redirect URI matching, PKCE, single-use codes |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -124,7 +187,10 @@ the styles on its next run. No integration creation or sync-toggle tool.
    loads only its tier's tools), and a `handle(call)` that reads
    `call.services` / `call.data` / `call.actor` and returns DTO JSON
    (`model_dump_json` / `TypeAdapter.dump_json`).
-2. Add it to `_all_tools()`.
+   An organizer tool that calls `token_event` sets `needs_event = True`, so
+   maintainers get an `event_id` argument for it. Don't write a maintainer
+   copy of an organizer tool: the maintainer endpoint already serves it.
+2. Add it to `_all_tools()` (organizer tools: `_organizer_tools()`).
 3. Add integration tests in `tests/integration/web/mcp/` (tools/list order and
    a tools/call case).
 

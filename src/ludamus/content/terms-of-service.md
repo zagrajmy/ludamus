@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 21.08.2026**
+**Data ostatniej aktualizacji: 12.11.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -32,14 +32,20 @@ Użyte w Regulaminie pojęcia oznaczają:
 3. Podczas rejestracji Użytkownik podaje:
    - pseudonim (nie musi być prawdziwym imieniem i nazwiskiem)
    - adres email
+   - przedział wieku: 13–15 lat lub 16 lat i więcej (16+)
 4. Użytkownik może używać tylko jednego Konta w Serwisie.
+5. Pytanie o przedział wieku pojawia się po zalogowaniu przez Auth0. Rezygnacja z rejestracji na tym etapie nie oznacza, że nie przetworzono żadnych danych: Auth0 może już przetwarzać dane uwierzytelniania, a Serwis — dane techniczne związane z logowaniem. Szczegóły zawiera Polityka Prywatności.
 
 ### 2.2 Ograniczenia wiekowe
 
-1. Konto może założyć wyłącznie osoba, która ukończyła 16 lat.
-2. Po uzyskaniu wiarygodnej informacji, że właściciel Konta nie spełnia tego wymogu, Administrator może usunąć Konto.
-3. Użytkownicy pełnoletni mogą dodawać dzieci do swojego Konta w celu zapisywania ich na wydarzenia.
-4. Za zapisy dzieci pełną odpowiedzialność ponosi dorosły Użytkownik.
+1. Własne Konto może założyć osoba, która ukończyła 13 lat. Dzieci poniżej 13. roku życia mogą być zapisywane na Wydarzenia przez pełnoletniego opiekuna, który zarządza ich zapisami ze swojego Konta.
+2. Użytkownik deklaruje przedział wieku: 13–15 lat albo 16+. Serwis nie zbiera daty urodzenia ani dokumentów tożsamości. Deklaracja przedziału wieku nie jest weryfikacją tożsamości.
+3. Przedział wieku można potwierdzić lub zmienić na stronie „Prywatność”. Serwis nie zmienia go automatycznie po upływie czasu.
+4. Opcjonalna analityka w przeglądarce, nagrywanie sesji i subskrypcje promocyjnych ogłoszeń email o wydarzeniach w sferach są dostępne wyłącznie dla zalogowanych Użytkowników, którzy zadeklarowali przedział 16+ i wyrazili odpowiednie zgody. Zgoda na analitykę i zgoda na promocyjne emaile są odrębne. Samo zadeklarowanie 16+ nie włącza tych opcji.
+5. Osoby niezalogowane, Użytkownicy w wieku 13–15 lat oraz Konta bez deklaracji wieku, także założone wcześniej, nie mogą korzystać z tych opcji. Nie ogranicza to obsługi konta i zapisów ani niezbędnych wiadomości dotyczących konta, zapisów i bezpieczeństwa. Ograniczone zgłoszenia awarii serwera są niezależne od opcjonalnej analityki i nie służą analizie zachowania Użytkownika.
+6. Możliwość założenia własnego Konta nie wyłącza wymogu zgody przedstawiciela ustawowego na czynności, dla których wymaga jej polskie prawo. Osoby w wieku 16–17 lat nadal są małoletnie.
+7. Zadeklarowanie wieku poniżej 13 lat blokuje samodzielne logowanie na istniejące Konto. W sprawie dotychczasowych zapisów można skontaktować się z Administratorem. Po uzyskaniu wiarygodnej informacji, że właściciel Konta nie ukończył 13 lat, Administrator może usunąć Konto.
+8. Pełnoletni opiekun może dodawać dzieci do swojego Konta w celu zapisywania ich na Wydarzenia i odpowiada za zarządzanie ich zapisami.
 
 ### 2.3 Bezpieczeństwo Konta
 
@@ -98,6 +104,18 @@ Użytkownik nie może:
    - usunąć Konto trwale
 2. Administrator informuje Użytkownika o podjętych działaniach na adres email przypisany do Konta.
 
+### 4.3 Zgłaszanie treści i moderacja
+
+1. Niedozwolone są treści niezgodne z prawem oraz treści i działania naruszające zakazy z § 4.1.
+2. Każdy, także bez Konta, może zgłosić treść, którą uważa za nielegalną, przez formularz „Zgłoś nielegalną treść”, dostępny w stopce każdej strony Serwisu oraz na stronach Wydarzeń i punktów programu. Zgłoszenie zawiera adres treści, kategorię, wyjaśnienie, dlaczego treść jest nielegalna, imię lub nazwę i adres email zgłaszającego oraz oświadczenie, że zgłoszenie jest dokonywane w dobrej wierze, a zawarte w nim informacje są prawidłowe i kompletne. Zgłoszenie dotyczące seksualnego wykorzystywania dziecka albo uwodzenia dziecka (groomingu) może być anonimowe. Wiadomość na czacie można też zgłosić poleceniem „Zgłoś wiadomość”.
+3. Na zgłoszenie z adresem email Serwis odpowiada potwierdzeniem otrzymania, z numerem sprawy (np. Z-123). Numer warto podawać w dalszej korespondencji.
+4. O treściach i Kontach decyduje zespół Administratora. Organizatorzy mogą usuwać wiadomości i wyciszać uczestników w pokojach czatu swoich Wydarzeń; od ich decyzji można się odwołać do zespołu Administratora.
+5. Narzędzia moderacji to: przyjmowanie zgłoszeń, usuwanie treści, wyciszanie na czacie (czasowe lub bezterminowe odebranie możliwości pisania) oraz środki z § 4.2: ostrzeżenie, anulowanie zapisów, zawieszenie lub usunięcie Konta. Serwis nie używa zautomatyzowanych narzędzi do wykrywania treści ani do podejmowania decyzji; każdą decyzję podejmuje człowiek.
+6. Zgłoszenia rozpatrujemy starannie, obiektywnie i bez zbędnej zwłoki, z poszanowaniem praw wszystkich stron, w tym wolności wypowiedzi. Zgłoszenia dotyczące bezpieczeństwa dzieci rozpatrujemy w pierwszej kolejności. Gdy treść wskazuje na przestępstwo zagrażające życiu lub bezpieczeństwu osób, zawiadamiamy policję, a materiały przedstawiające seksualne wykorzystywanie dzieci przekazujemy także zespołowi Dyżurnet.pl.
+7. Zgłaszający otrzymuje emailem decyzję w sprawie zgłoszenia wraz z informacją, jak można ją zaskarżyć.
+8. Użytkownik, którego treści lub Konta dotyczy decyzja zespołu Administratora, otrzymuje emailem uzasadnienie na adres przypisany do Konta: co postanowiono (a przy zawieszeniu Konta — do kiedy), na podstawie jakich faktów i okoliczności, czy decyzja wynikała ze zgłoszenia, czy użyto środków zautomatyzowanych, podstawę decyzji (przepis prawa albo punkt Regulaminu) oraz informację o sposobach odwołania.
+9. Od decyzji można się odwołać, odpowiadając na wiadomość z decyzją albo pisząc na adres punktu kontaktowego z § 11, z numerem sprawy. Odwołanie jest bezpłatne i rozpatruje je człowiek. Niezależnie od tego można dochodzić swoich praw przed sądem powszechnym oraz złożyć skargę do Prezesa Urzędu Komunikacji Elektronicznej (UKE), koordynatora do spraw usług cyfrowych w Polsce.
+
 ## § 5. ODPOWIEDZIALNOŚĆ
 
 ### 5.1 Odpowiedzialność Administratora
@@ -139,12 +157,12 @@ Użytkownik nie może:
 ## § 7. OCHRONA DANYCH OSOBOWYCH
 
 1. Szczegółowe informacje o przetwarzaniu danych osobowych zawiera Polityka Prywatności.
-2. Korzystając z Serwisu, Użytkownik przyjmuje do wiadomości zasady przetwarzania danych opisane w Polityce Prywatności.
+2. Korzystając z Serwisu, Użytkownik przyjmuje do wiadomości zasady przetwarzania danych opisane w Polityce Prywatności. Nie oznacza to zgody na wszystkie opisane tam operacje przetwarzania. Opcjonalna analityka i promocyjne emaile wymagają odrębnych zgód. Zgodę na analitykę można wycofać w zakładce „Prywatność” w profilu, dostępnym z menu użytkownika, lub przyciskiem „Ustawienia ciasteczek” w stopce, widocznym dla Kont uprawnionych do opcjonalnej analityki. Z promocyjnych emaili można zrezygnować przełącznikiem subskrypcji na karcie sfery w panelu głównym lub linkiem rezygnacji w każdej promocyjnej wiadomości email. Serwis nie wysyła wiadomości z wcześniej włączonych subskrypcji Kont bez deklaracji wieku. Potwierdzenie wieku takiego Konta usuwa stare subskrypcje, których ponowne włączenie wymaga nowej zgody. Zmiana przedziału na 13–15 lat również usuwa subskrypcje; po ponownym zadeklarowaniu 16+ ich włączenie wymaga nowej zgody. Wycofanie zgód nie ogranicza dostępu do podstawowych funkcji Serwisu ani nie wyłącza niezbędnych wiadomości dotyczących konta, zapisów i bezpieczeństwa.
 3. Użytkownik ma prawo do usunięcia swojego Konta i wszystkich danych osobowych.
 
 ## § 8. USUWANIE KONTA
 
-1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radoslaw@ganczarek.in
+1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radek@zagrajmy.net
 2. Usunięcie Konta skutkuje:
    - anulowaniem wszystkich aktywnych zapisów na Wydarzenia
    - usunięciem wszystkich danych osobowych
@@ -170,12 +188,18 @@ Użytkownik nie może:
 
 ## § 11. KONTAKT
 
+### 11.1 Punkt kontaktowy
+
+Pojedynczym punktem kontaktowym, o którym mowa w art. 11 i 12 rozporządzenia (UE) 2022/2065 (akt o usługach cyfrowych), zarówno dla organów państw członkowskich, Komisji Europejskiej i Europejskiej Rady ds. Usług Cyfrowych, jak i dla Użytkowników, jest adres: **$staff_email**. Można pisać po polsku lub po angielsku. Pod tym adresem przyjmujemy też odwołania od decyzji moderacyjnych.
+
+### 11.2 Sprawy Regulaminu
+
 W sprawach dotyczących Regulaminu można się kontaktować:
 
-**Email:** radoslaw@ganczarek.in
+**Email:** radek@zagrajmy.net
 
 **Temat:** "Regulamin - [opis sprawy]"
 
 ---
 
-*Niniejszy Regulamin został przygotowany zgodnie z polskim prawem, w szczególności z ustawą o świadczeniu usług drogą elektroniczną.*
+*Niniejszy Regulamin został przygotowany zgodnie z polskim prawem, w szczególności z ustawą o świadczeniu usług drogą elektroniczną, oraz z rozporządzeniem (UE) 2022/2065 (akt o usługach cyfrowych).*

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from pydantic import TypeAdapter, ValidationError
+
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
-    LANDING_CONVENTIONS,
     ConfirmationDashboardDTO,
     ConfirmationEmailGroupDTO,
     ConfirmationFacilitatorDTO,
@@ -16,51 +20,141 @@ from ludamus.pacts.event import (
     EventConfirmationsServiceProtocol,
     EventCreateData,
     EventDatesInvalidError,
+    EventDTO,
+    EventListItemDTO,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventRepositoryProtocol,
+    EventSetupRepositoryProtocol,
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    EventStatsData,
     LandingConventionDTO,
     LandingServiceProtocol,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
+    PanelStatsDTO,
+    PanelTimeSlotsServiceProtocol,
+    TimeSlotRejectedError,
+    TimeSlotSavedDTO,
+    TimeSlotValidationError,
 )
-from ludamus.pacts.legacy import (
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.slugs import SlugCollisionError, unique_slug
+from ludamus.pacts.time_ranges import overlaps
+from ludamus.pacts.timetable import (
     AgendaItemRepositoryProtocol,
     ConfirmationCountsRow,
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
-    EventDTO,
-    EventListItemDTO,
-    EventRepositoryProtocol,
-    EventStatsData,
-    FacilitatorRepositoryProtocol,
-    NotFoundError,
-    PanelStatsDTO,
-    SessionRepositoryProtocol,
-    SessionStatus,
-    SphereRepositoryProtocol,
-    TrackRepositoryProtocol,
 )
-from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
+from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_GROUP, STATUS_ORDER
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+    from datetime import datetime
+
+    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.event import (
+        EventUpdateData,
+        TimeSlotDTO,
+        TimeSlotRepositoryProtocol,
+    )
+    from ludamus.pacts.facilitators import FacilitatorRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import SphereRepositoryProtocol
+    from ludamus.pacts.time_ranges import DateTimeRangeProtocol
+    from ludamus.pacts.tracks import TrackRepositoryProtocol
     from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
+
+logger = logging.getLogger(__name__)
 
 
 # Panel access only proves you manage an event; every id the request names has
 # to be scoped to it before it is read or written, or it is cross-event
-# tampering. Both guards live on the event noun because that is what they
-# assert membership of, and every panel service needs one or the other.
+# tampering. The guards live on the event noun because that is what they
+# assert membership of, and every panel service needs one of them.
 def require_session_in_event(
     *, sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
-) -> None:
-    if sessions.read_event(session_pk).pk != event_pk:
+) -> EventDTO:
+    if (event := sessions.read_event(session_pk)).pk != event_pk:
         raise NotFoundError
+    return event
+
+
+def check_event_dates(
+    *, start_time: datetime, end_time: datetime, publication_time: datetime | None
+) -> None:
+    """Refuse dates the event table's check constraints would refuse.
+
+    Raises:
+        EventDatesInvalidError: the end is not after the start.
+        EventPublicationInvalidError: the event would publish after it starts.
+    """
+    if end_time <= start_time:
+        raise EventDatesInvalidError
+    if publication_time is not None and publication_time > start_time:
+        raise EventPublicationInvalidError
+
+
+def require_event_in_sphere(
+    *, events: EventRepositoryProtocol, event_pk: int, sphere_id: int
+) -> EventDTO:
+    event = events.read(event_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused event %s of sphere %s to a request from sphere %s",
+            event_pk,
+            event.sphere_id,
+            sphere_id,
+        )
+        raise NotFoundError
+    return event
+
+
+def require_session_in_sphere(
+    *, sessions: SessionRepositoryProtocol, session_pk: int, sphere_id: int
+) -> EventDTO:
+    event = sessions.read_event(session_pk)
+    if event.sphere_id != sphere_id:
+        logger.warning(
+            "Refused session %s of sphere %s to a request from sphere %s",
+            session_pk,
+            event.sphere_id,
+            sphere_id,
+        )
+        raise NotFoundError
+    return event
+
+
+def widen_event_dates(
+    *, events: EventRepositoryProtocol, event_pk: int, start: datetime, end: datetime
+) -> bool:
+    """Grow the event's dates until the range fits; say whether they grew.
+
+    Programme placed past the event's edges is the organizer's decision, so
+    the edges follow it rather than refusing. Publication is the one edge
+    that cannot move on its own: an event cannot start before it is public.
+    """
+    # SAFETY: compare against the locked row, not the caller's copy. Two
+    # placements widening at once would otherwise let the later write shrink
+    # the dates the earlier one had just grown.
+    events.lock(event_pk)
+    event = events.read(event_pk)
+    data: EventUpdateData = {}
+    if start < event.start_time:
+        if event.publication_time is not None and start < event.publication_time:
+            raise EventPublicationInvalidError
+        data["start_time"] = start
+    if end > event.end_time:
+        data["end_time"] = end
+    if not data:
+        return False
+    events.update(event_pk, data)
+    return True
 
 
 def require_track_in_event(
@@ -106,25 +200,11 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             event_pk, track_pk
         )
         orphans = self._agenda_items.count_without_facilitator(event_pk, track_pk)
-        # Nobody in the block means nothing to look up: the assembly below
-        # already yields an empty view, it just does not need three queries.
-        session_rows = (
-            self._sessions.list_confirmation_rows(
-                event_pk, [row["pk"] for row in facilitator_rows]
-            )
-            if facilitator_rows
-            else []
+        session_rows = self._sessions.list_confirmation_rows(
+            event_pk, [row["pk"] for row in facilitator_rows]
         )
-        session_pks = [row["session_pk"] for row in session_rows]
-        track_names = (
-            self._sessions.list_track_names_by_session(session_pks)
-            if session_pks
-            else {}
-        )
-        facilitator_names = (
-            self._sessions.list_facilitator_names_by_session(session_pks)
-            if session_pks
-            else {}
+        names = _SessionNames.load(
+            sessions=self._sessions, rows=session_rows, track_pk=track_pk
         )
 
         by_facilitator: dict[int, list[ConfirmationSessionRow]] = defaultdict(list)
@@ -133,11 +213,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
 
         facilitators = [
             _facilitator(
-                row=row,
-                sessions=by_facilitator.get(row["pk"], []),
-                track_names=track_names,
-                facilitator_names=facilitator_names,
-                track_pk=track_pk,
+                row=row, sessions=by_facilitator.get(row["pk"], []), names=names
             )
             for row in facilitator_rows
         ]
@@ -148,8 +224,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         in_track = [
             row
             for row in session_rows
-            if row["agenda_item_pk"] is not None
-            and track_pk in track_names.get(row["session_pk"], {})
+            if row["is_scheduled"] and names.in_track(row["session_pk"])
         ]
         scheduled = len({row["session_pk"] for row in in_track})
         confirmed = len({row["session_pk"] for row in in_track if row["is_confirmed"]})
@@ -177,15 +252,12 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             tracks=self._tracks, track_pk=track_pk, event_pk=event_pk
         )
         sessions = self._sessions.list_confirmation_rows(event_pk, [facilitator_pk])
-        session_pks = [session["session_pk"] for session in sessions]
         return _facilitator(
             row=row,
             sessions=sessions,
-            track_names=self._sessions.list_track_names_by_session(session_pks),
-            facilitator_names=self._sessions.list_facilitator_names_by_session(
-                session_pks
+            names=_SessionNames.load(
+                sessions=self._sessions, rows=sessions, track_pk=track_pk
             ),
-            track_pk=track_pk,
         )
 
     def set_confirmed(
@@ -195,7 +267,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         facilitator_pk: int,
         confirmed: bool,
         contact_email: str | None = None,
-        agenda_item_pk: int | None = None,
+        session_pk: int | None = None,
     ) -> None:
         # Panel access proves this organizer manages the event, not that the
         # ids in the request belong to it — resolve the facilitator inside the
@@ -203,18 +275,17 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         self._read_facilitator_in_event(
             event_pk=event_pk, facilitator_pk=facilitator_pk
         )
-        # One UPDATE, so no transaction to open around it.
-        matched = self._agenda_items.set_confirmed_for_facilitator(
+        matched = self._sessions.set_schedule_confirmed_for_facilitator(
             event_pk=event_pk,
             facilitator_pk=facilitator_pk,
             confirmed=confirmed,
             contact_email=contact_email,
-            agenda_item_pk=agenda_item_pk,
+            session_pk=session_pk,
         )
-        # Naming one item and hitting nothing means the item is not this
+        # Naming one session and hitting nothing means it is not this
         # facilitator's (or not placed at all) — say so instead of reporting a
         # write that never happened. A scope-wide call legitimately matches none.
-        if agenda_item_pk is not None and not matched:
+        if session_pk is not None and not matched:
             raise NotFoundError
 
     def _read_facilitator_in_event(
@@ -261,15 +332,49 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _SessionNames:
+    _track_names: dict[int, dict[int, str]]
+    _facilitator_names: dict[int, dict[int, str]]
+    _track_pk: int
+
+    @classmethod
+    def load(
+        cls,
+        *,
+        sessions: SessionRepositoryProtocol,
+        rows: list[ConfirmationSessionRow],
+        track_pk: int,
+    ) -> _SessionNames:
+        # NOTE: no empty-list guard needed: Django answers `__in=[]` without SQL.
+        session_pks = [row["session_pk"] for row in rows]
+        return cls(
+            _track_names=sessions.list_track_names_by_session(session_pks),
+            _facilitator_names=sessions.list_facilitator_names_by_session(session_pks),
+            _track_pk=track_pk,
+        )
+
+    def in_track(self, session_pk: int) -> bool:
+        return self._track_pk in self._track_names.get(session_pk, {})
+
+    def other_tracks(self, session_pk: int) -> list[str]:
+        return [
+            name
+            for pk, name in self._track_names.get(session_pk, {}).items()
+            if pk != self._track_pk
+        ]
+
+    def co_facilitators(self, row: ConfirmationSessionRow) -> list[str]:
+        return [
+            name
+            for pk, name in self._facilitator_names.get(row["session_pk"], {}).items()
+            if pk != row["facilitator_pk"]
+        ]
+
+
 def _session_dto(
-    *,
-    row: ConfirmationSessionRow,
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    *, row: ConfirmationSessionRow, names: _SessionNames
 ) -> ConfirmationSessionDTO:
-    others = track_names.get(row["session_pk"], {})
-    co_facilitators = facilitator_names.get(row["session_pk"], {})
     return ConfirmationSessionDTO(
         session_pk=row["session_pk"],
         title=row["title"],
@@ -277,53 +382,38 @@ def _session_dto(
         room_name=row["room_name"],
         start_time=row["start_time"],
         end_time=row["end_time"],
-        agenda_item_pk=row["agenda_item_pk"],
+        is_scheduled=row["is_scheduled"],
         is_confirmed=row["is_confirmed"],
-        co_facilitator_names=[
-            name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
-        ],
-        other_track_names=[name for pk, name in others.items() if pk != track_pk],
+        co_facilitator_names=names.co_facilitators(row),
+        other_track_names=names.other_tracks(row["session_pk"]),
     )
 
 
-def _status_key(row: ConfirmationSessionRow) -> str:
-    # Grouping runs on status alone. Confirmation is a checkbox on the row, so
-    # ticking one never moves it into another group.
-    if row["agenda_item_pk"] is not None:
-        return SCHEDULED_STATUS
-    return str(row["status"])
-
-
 def _email_group(
-    *,
-    contact_email: str,
-    rows: list[ConfirmationSessionRow],
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    *, contact_email: str, rows: list[ConfirmationSessionRow], names: _SessionNames
 ) -> ConfirmationEmailGroupDTO:
-    by_status: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
+    # Grouping runs on status and placement alone. Confirmation is a checkbox
+    # on the row, so ticking one never moves it into another group.
+    by_status: dict[tuple[SessionStatus, bool], list[ConfirmationSessionRow]] = (
+        defaultdict(list)
+    )
     for row in rows:
-        by_status[_status_key(row)].append(row)
+        by_status[row["status"], row["is_scheduled"]].append(row)
     return ConfirmationEmailGroupDTO(
         contact_email=contact_email,
         status_groups=[
             ConfirmationStatusGroupDTO(
                 status=status,
+                is_scheduled=is_scheduled,
                 sessions=[
-                    _session_dto(
-                        row=row,
-                        track_names=track_names,
-                        facilitator_names=facilitator_names,
-                        track_pk=track_pk,
-                    )
-                    for row in by_status[status]
+                    _session_dto(row=row, names=names)
+                    for row in by_status[status, is_scheduled]
                 ],
             )
-            for status in STATUS_ORDER
-            if by_status.get(status)
+            for status, is_scheduled in STATUS_ORDER
+            if by_status.get((status, is_scheduled))
         ],
-        confirmable_count=len(by_status.get(SCHEDULED_STATUS, [])),
+        confirmable_count=len(by_status.get(SCHEDULED_GROUP, [])),
     )
 
 
@@ -336,9 +426,7 @@ def _facilitator(
     *,
     row: ConfirmationFacilitatorRow,
     sessions: list[ConfirmationSessionRow],
-    track_names: dict[int, dict[int, str]],
-    facilitator_names: dict[int, dict[int, str]],
-    track_pk: int,
+    names: _SessionNames,
 ) -> ConfirmationFacilitatorDTO:
     # Only a placed session can be confirmed. Accepted-but-unplaced and pending
     # sessions become counts: there is nothing to tick, and pending detail may
@@ -346,12 +434,12 @@ def _facilitator(
     listed: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
     counted: Counter[SessionStatus] = Counter()
     for session in sessions:
-        if session["agenda_item_pk"] is None and session["status"] in COUNTED_UNPLACED:
+        if not session["is_scheduled"] and session["status"] in COUNTED_UNPLACED:
             counted[session["status"]] += 1
         else:
             listed[session["contact_email"]].append(session)
 
-    scheduled_count = sum(1 for s in sessions if s["agenda_item_pk"] is not None)
+    scheduled_count = sum(1 for s in sessions if s["is_scheduled"])
     confirmed_count = sum(1 for s in sessions if s["is_confirmed"])
     return ConfirmationFacilitatorDTO(
         pk=row["pk"],
@@ -360,13 +448,7 @@ def _facilitator(
         organizer_id=row["organizer_id"],
         organizer_name=row["organizer_name"],
         email_groups=[
-            _email_group(
-                contact_email=email,
-                rows=listed[email],
-                track_names=track_names,
-                facilitator_names=facilitator_names,
-                track_pk=track_pk,
-            )
+            _email_group(contact_email=email, rows=listed[email], names=names)
             # An address-less group sorts last: it is the one needing a fix,
             # not the one to start reading from.
             for email in sorted(listed, key=_email_sort_key)
@@ -412,8 +494,9 @@ class EventPanelService(EventPanelServiceProtocol):
     def __init__(self, events: EventRepositoryProtocol) -> None:
         self._events = events
 
-    def load_context(self, sphere_id: int, slug: str) -> EventPanelContextDTO:
-        current_event = self._events.read_by_slug(slug, sphere_id)
+    def load_context(
+        self, *, sphere_id: int, current_event: EventDTO
+    ) -> EventPanelContextDTO:
         stats_data = self._events.get_stats_data(current_event.pk)
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),
@@ -423,15 +506,54 @@ class EventPanelService(EventPanelServiceProtocol):
         )
 
 
+# The landing is the most-hit anonymous page, and its numbers are a claim
+# about volume, not a live counter: two hours stale costs nothing.
+LANDING_CACHE_SECONDS = 2 * 60 * 60
+_STATS = TypeAdapter(LandingStatsDTO)
+_CONVENTIONS = TypeAdapter(list[LandingConventionDTO])
+
+
 class LandingService(LandingServiceProtocol):
-    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
+    def __init__(
+        self,
+        stats: LandingStatsRepositoryProtocol,
+        *,
+        cache: CacheProtocol,
+        convention_domains: tuple[str, ...],
+    ) -> None:
         self._stats = stats
+        self._cache = cache
+        self._convention_domains = convention_domains
 
     def stats(self) -> LandingStatsDTO:
-        return self._stats.count_landing_stats()
+        return self._cached(
+            key="landing:stats", adapter=_STATS, load=self._stats.count_landing_stats
+        )
 
     def conventions(self) -> list[LandingConventionDTO]:
-        return self._stats.list_conventions(LANDING_CONVENTIONS)
+        return self._cached(
+            key="landing:conventions",
+            adapter=_CONVENTIONS,
+            load=lambda: self._stats.list_conventions(self._convention_domains),
+        )
+
+    # NOTE: entries are stored as JSON and validated on the way out, so a
+    # deploy that reshapes a DTO reloads instead of rendering a stale shape.
+    def _cached[T](
+        self, *, key: str, adapter: TypeAdapter[T], load: Callable[[], T]
+    ) -> T:
+        cached = self._cache.get(key)
+        if isinstance(cached, str | bytes):
+            try:
+                return adapter.validate_json(cached)
+            except ValidationError:
+                logger.warning("Discarding malformed landing cache entry %s", key)
+        value = load()
+        self._cache.set(key, adapter.dump_json(value), timeout=LANDING_CACHE_SECONDS)
+        return value
+
+    def showcase_slug(self, sphere_id: int) -> str | None:
+        return self._stats.read_newest_published_slug(sphere_id)
 
 
 class EventsService(EventsServiceProtocol):
@@ -442,17 +564,19 @@ class EventsService(EventsServiceProtocol):
         events: EventsRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         spaces: SpaceTreeRepositoryProtocol,
+        setup: EventSetupRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._events = events
         self._spheres = spheres
         self._spaces = spaces
+        self._setup = setup
 
     def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
+        self, sphere_id: int, *, include_hidden: bool
     ) -> list[EventListItemDTO]:
         return self._events.list_for_events_page(
-            sphere_id, include_unpublished=include_unpublished
+            sphere_id, include_hidden=include_hidden
         )
 
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
@@ -461,24 +585,159 @@ class EventsService(EventsServiceProtocol):
     def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
         return self._events.read_in_sphere(event_id, sphere_id)
 
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
-        if data["end_time"] <= data["start_time"]:
-            raise EventDatesInvalidError
-        publication_time = data["publication_time"]
-        if publication_time is not None and publication_time > data["start_time"]:
-            raise EventPublicationInvalidError
+    def create(
+        self, *, sphere_id: int, data: EventCreateData, based_on_id: int | None = None
+    ) -> EventDTO:
+        check_event_dates(
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            publication_time=data["publication_time"],
+        )
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
+            source = (
+                None
+                if based_on_id is None
+                else self._events.read_in_sphere(based_on_id, sphere_id)
+            )
+            try:
+                slug = data["slug"] or unique_slug(
+                    data["name"],
+                    exists=lambda candidate: self._events.slug_exists(
+                        sphere_id, candidate
+                    ),
+                    fallback="event",
+                )
+            except SlugCollisionError as error:
+                raise EventSlugConflictError from error
             try:
                 with self._transaction.savepoint():
-                    event = self._events.create(sphere_id, data)
+                    event = self._events.create(sphere_id, {**data, "slug": slug})
             except DatabaseConstraintError as error:
-                if self._events.slug_exists(sphere_id, data["slug"]):
+                if self._events.slug_exists(sphere_id, slug):
                     raise EventSlugConflictError from error
                 raise
+            if source is not None:
+                self._setup.copy(
+                    source_id=source.pk,
+                    target_id=event.pk,
+                    start_time=data["start_time"],
+                )
             # Every event created through this service owns a space: accepting
             # a proposal, drawing the timetable and printing all need somewhere
             # to put a session, and a brand-new event would otherwise dead-end
             # those flows. Direct ORM writes (admin, fixtures) bypass this.
-            self._spaces.create_default(event.pk)
-            return event
+            if not self._spaces.list_tree(event.pk):
+                self._spaces.create_default(event.pk)
+            logger.info(
+                "Created event %s in sphere %s based on %s",
+                event.pk,
+                sphere_id,
+                based_on_id,
+            )
+            return self._events.read_in_sphere(event.pk, sphere_id)
+
+
+def _validate_time_slot(
+    *, start: datetime, end: datetime, existing_slots: Sequence[DateTimeRangeProtocol]
+) -> list[TimeSlotValidationError]:
+    errors: list[TimeSlotValidationError] = []
+
+    if start >= end:
+        errors.append(TimeSlotValidationError.START_NOT_BEFORE_END)
+
+    if any(overlaps(span=slot, start=start, end=end) for slot in existing_slots):
+        errors.append(TimeSlotValidationError.OVERLAPS_EXISTING_SLOT)
+
+    return errors
+
+
+class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        time_slots: TimeSlotRepositoryProtocol,
+        events: EventRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._time_slots = time_slots
+        self._events = events
+
+    def list_for_event(self, event_id: int) -> list[TimeSlotDTO]:
+        return self._time_slots.list_by_event(event_id)
+
+    def undeletable_pks(self, event_id: int) -> frozenset[int]:
+        """Slots `delete` would refuse, so the list can say so up front.
+
+        Returns:
+            The pks of slots a proposal already asked for.
+        """
+        return self._time_slots.pks_with_proposals(event_id)
+
+    def read(self, *, event_id: int, pk: int) -> TimeSlotDTO:
+        return self._time_slots.read_by_event(event_id, pk)
+
+    def _widen_event_dates(
+        self, *, event_pk: int, start: datetime, end: datetime
+    ) -> bool:
+        try:
+            return widen_event_dates(
+                events=self._events, event_pk=event_pk, start=start, end=end
+            )
+        except EventPublicationInvalidError as error:
+            raise TimeSlotRejectedError(
+                [TimeSlotValidationError.STARTS_BEFORE_PUBLICATION]
+            ) from error
+
+    def create(
+        self, *, event: EventDTO, start_time: datetime, end_time: datetime
+    ) -> TimeSlotSavedDTO:
+        # atomic() keeps the write consistent but does not serialize the
+        # check-then-insert: two concurrent requests can both read the same
+        # slots, both pass validation, and insert overlapping slots. Full
+        # enforcement needs a DB exclusion constraint on the slot range.
+        with self._transaction.atomic():
+            existing = self._time_slots.list_by_event(event.pk)
+            errors = _validate_time_slot(
+                start=start_time, end=end_time, existing_slots=existing
+            )
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
+            )
+            slot = self._time_slots.create(event.pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
+
+    def update(
+        self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
+    ) -> TimeSlotSavedDTO:
+        # Same unserialized check-then-write race as in create().
+        with self._transaction.atomic():
+            # Scope the pk to the panel's event before writing; a foreign pk
+            # raises NotFoundError with no side effects.
+            self._time_slots.read_by_event(event.pk, pk)
+            existing = [
+                slot
+                for slot in self._time_slots.list_by_event(event.pk)
+                if slot.pk != pk
+            ]
+            errors = _validate_time_slot(
+                start=start_time, end=end_time, existing_slots=existing
+            )
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            widened = self._widen_event_dates(
+                event_pk=event.pk, start=start_time, end=end_time
+            )
+            slot = self._time_slots.update(pk, start_time, end_time)
+            return TimeSlotSavedDTO(slot=slot, event_dates_widened=widened)
+
+    def delete(self, *, event_id: int, pk: int) -> bool:
+        with self._transaction.atomic():
+            self._time_slots.read_by_event(event_id, pk)
+            if self._time_slots.has_proposals(pk):
+                return False
+            self._time_slots.delete(pk)
+            return True

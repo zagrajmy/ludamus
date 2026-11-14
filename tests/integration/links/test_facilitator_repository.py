@@ -3,8 +3,8 @@ import pytest
 from ludamus.links.db.django.models import Facilitator
 from ludamus.links.db.django.repositories import SessionRepository
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.submissions import FacilitatorSessionCountsDTO
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.propose import FacilitatorSessionCountsDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -260,6 +260,46 @@ class TestFacilitatorRepositoryLock:
     def test_a_missing_row_is_not_found(self):
         with pytest.raises(NotFoundError):
             FacilitatorRepository.lock([0])
+
+
+class TestFacilitatorRepositoryLockByEventAndSlugs:
+    def test_alive_rows_lock_and_come_back(self):
+        event = EventFactory.create()
+        first = _facilitator(event)
+        second = Facilitator.objects.create(
+            event=event, display_name="Bob", slug="bob", accreditation_type="none"
+        )
+
+        locked = FacilitatorRepository.lock_by_event_and_slugs(
+            event.pk, [second.slug, first.slug]
+        )
+
+        assert [f.pk for f in locked] == sorted([first.pk, second.pk])
+
+    def test_one_missing_slug_among_alive_ones_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock_by_event_and_slugs(
+                event.pk, [facilitator.slug, "nobody"]
+            )
+
+    def test_a_dead_row_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        facilitator.soft_delete()
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock_by_event_and_slugs(event.pk, [facilitator.slug])
+
+    def test_another_events_row_is_not_found(self):
+        facilitator = _facilitator(EventFactory.create())
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock_by_event_and_slugs(
+                EventFactory.create().pk, [facilitator.slug]
+            )
 
 
 class TestSessionFacilitatorLinkRejectsDeleted:

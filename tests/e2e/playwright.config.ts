@@ -76,6 +76,13 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: isCI ? "retain-on-failure" : "on-first-retry",
+    // NOTE: Playwright passes --no-sandbox to Chromium unless told otherwise.
+    // Opt-in, because most hosts cannot give Chromium its sandbox: dev
+    // containers and Ubuntu 23.10+ (GitHub's runners included) deny
+    // unprivileged user namespaces, and Chromium refuses to sandbox as root,
+    // which is how docker/verification.Dockerfile runs. CI lifts the AppArmor
+    // restriction and sets the flag.
+    launchOptions: { chromiumSandbox: process.env.E2E_CHROMIUM_SANDBOX === "1" },
     ...(proxyServer
       ? {
           proxy: {
@@ -109,15 +116,26 @@ export default defineConfig({
         /panel-crud\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
         /guilds\.spec\.ts/,
+        /panel-tracks\.spec\.ts/,
+        /guild-roster\.spec\.ts/,
+        /facilitator-merge\.spec\.ts/,
+        /facilitator-merge-target\.spec\.ts/,
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
+        /timetable-conflict-count\.spec\.ts/,
+        /timetable-problems\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /event-maps\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        /uncategorized-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
         /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
+        /anonymous-enrollment\.spec\.ts/,
+        /proposal-bulk-review\.spec\.ts/,
+        /panel-enrollment-window\.spec\.ts/,
+        /timetable-publish\.spec\.ts/,
         // Read-only but chains several full navigations of the heavy print
         // preview; Firefox's slow loads make it time out where Chromium fits
         // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
@@ -169,15 +187,26 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: WEB_COMMAND,
-    url: BASE_URL,
-    env: webServerEnv,
-    reuseExistingServer: !isCI,
-    timeout: 180 * 1000,
-    stdout: "pipe",
-    stderr: "pipe",
-    cwd: repoRoot,
-    gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
-  },
+  webServer: [
+    {
+      command: WEB_COMMAND,
+      url: BASE_URL,
+      env: webServerEnv,
+      reuseExistingServer: !isCI,
+      timeout: 180 * 1000,
+      stdout: "pipe",
+      stderr: "pipe",
+      cwd: repoRoot,
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
+    },
+    {
+      command: "mise run test:e2e:serve:privacy",
+      url: "http://localhost:8001/",
+      env: webServerEnv,
+      reuseExistingServer: !isCI,
+      timeout: 180 * 1000,
+      cwd: repoRoot,
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
+    },
+  ],
 });

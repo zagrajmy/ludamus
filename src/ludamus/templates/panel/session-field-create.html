@@ -1,5 +1,5 @@
 {% extends "panel/base.html" %}
-{% load csp_tags %}
+{% load django_vite %}
 {% load i18n %}
 {% load tessera %}
 {% block title %}
@@ -9,23 +9,19 @@
     {% translate "New Session Field" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} · {% translate "Session Information" %}
-    {% endif %}
+    {{ current_event.name }} · {% translate "Session Information" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
-        <div class="flex items-center space-x-3">
-            {% url 'panel:session-fields' slug=current_event.slug as cancel_url %}
-            {% translate "Cancel" as cancel_label %}
-            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
-            {% translate "Create" as create_label %}
-            {% tessera_button create_label form="session-field-form" icon="plus" %}
-        </div>
-    {% endif %}
+    <div class="flex items-center space-x-3">
+        {% url 'panel:session-fields' slug=current_event.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Create" as create_label %}
+        {% tessera_button create_label form="session-field-form" icon="plus" %}
+    </div>
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
+    <div class="panel-bleed">
         <form id="session-field-form" method="post" class="max-w-2xl">
             {% csrf_token %}
             <div class="card">
@@ -59,31 +55,17 @@
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_field_type">{% translate "Field Type" %}</label>
-                            <select name="field_type"
-                                    id="id_field_type"
-                                    class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                <option value="text"
-                                        {% if form.field_type.value == "text" %}selected{% endif %}>
-                                    {% translate "Text" %}
-                                </option>
-                                <option value="select"
-                                        {% if form.field_type.value == "select" %}selected{% endif %}>
-                                    {% translate "Select" %}
-                                </option>
-                                <option value="checkbox"
-                                        {% if form.field_type.value == "checkbox" %}selected{% endif %}>
-                                    {% translate "Checkbox" %}
-                                </option>
-                            </select>
+                            {% include "components/select.html" with name="field_type" id="id_field_type" choices=form.field_type.field.choices selected=form.field_type.value has_errors=form.field_type.errors only %}
                         </div>
-                        <div id="options-container" class="hidden">
+                        <div id="options-container" data-show-when="field_type=select" hidden>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_options">{% translate "Options" %}</label>
                             <textarea name="options"
                                       id="id_options"
                                       rows="5"
-                                      class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                      class="w-full border {% if form.options.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                                       placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
+                            {% if form.options.errors %}<p class="mt-1 text-sm text-danger">{{ form.options.errors.0 }}</p>{% endif %}
                             <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line (for Select fields only)." %}</p>
                             <div class="mt-4 space-y-3">
                                 <label class="flex items-center">
@@ -104,7 +86,7 @@
                                 </label>
                             </div>
                         </div>
-                        <div id="max-length-container">
+                        <div id="max-length-container" data-hide-when="field_type=checkbox">
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_max_length">{% translate "Max Length" %}</label>
                             <input type="number"
@@ -156,30 +138,6 @@
                             <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                         </label>
                     </div>
-                    <script{% nonce %}>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const fieldType = document.getElementById('id_field_type');
-                            const optionsContainer = document.getElementById('options-container');
-                            const maxLengthContainer = document.getElementById('max-length-container');
-
-                            const categorySelects = document.querySelectorAll('select[name^="category_"]');
-
-                            function toggleOptions() {
-                                const isCheckbox = fieldType.value === 'checkbox';
-                                optionsContainer.classList.toggle('hidden', fieldType.value !== 'select');
-                                maxLengthContainer.classList.toggle('hidden', isCheckbox);
-                                categorySelects.forEach(sel => {
-                                    const required = sel.querySelector('option[value="required"]');
-                                    if (!required) return;
-                                    required.hidden = isCheckbox;
-                                    required.disabled = isCheckbox;
-                                    if (isCheckbox && sel.value === 'required') sel.value = 'optional';
-                                });
-                            }
-                            fieldType.addEventListener('change', toggleOptions);
-                            toggleOptions();
-                        });
-                    </script>
                 </div>
             </div>
             <div class="card p-6 mt-6">
@@ -197,6 +155,7 @@
                                         {% translate "Not included" %}
                                     </option>
                                     <option value="required"
+                                            data-hide-when="field_type={{ form.UNREQUIRABLE_TYPES }}"
                                             {% if category.pk in required_category_pks %}selected{% endif %}>
                                         {% translate "Required" %}
                                     </option>
@@ -213,5 +172,6 @@
                 {% endif %}
             </div>
         </form>
-    {% endif %}
+    </div>
+    {% vite_asset 'src/show-when.ts' %}
 {% endblock content %}

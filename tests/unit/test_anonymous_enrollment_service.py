@@ -1,61 +1,61 @@
-from contextlib import contextmanager
+import re
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
-from ludamus.mills.enrollment import AnonymousEnrollmentService
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
 from ludamus.pacts.enrollment import (
+    AnonymousCancelResultDTO,
     AnonymousEnrollmentError,
     AnonymousEnrollmentErrorCode,
     AnonymousEnrollmentRequestDTO,
-    AnonymousEnrollmentWindowSnapshot,
     AnonymousEnrollOutcome,
+    AnonymousEnrollResultDTO,
     AnonymousEventDTO,
     AnonymousLoadDTO,
-    AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
     AnonymousSessionDTO,
+    EnrollmentWindowSnapshot,
+    SessionParticipationStatus,
+    SessionSeatingDTO,
 )
-from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from tests.unit.factories import FakeTransaction
 
 _SESSION_ID = 42
 _EVENT_ID = 7
 _SITE_ID = 3
 _USER_PK = 11
 _CODE = "ab12"
+_ANON_CODE = re.compile(r"[a-z0-9_-]{6}")
+_ANON_USERNAME = re.compile(r"anon_[a-z0-9_-]{11}")
 
 
-def _open_window(**overrides) -> AnonymousEnrollmentWindowSnapshot:
+def _open_window(**overrides) -> EnrollmentWindowSnapshot:
     values = {"percentage_slots": 100, "allow_anonymous_enrollment": True}
     values.update(overrides)
-    return AnonymousEnrollmentWindowSnapshot(**values)
+    return EnrollmentWindowSnapshot(**values)
 
 
-def _seating(**overrides) -> AnonymousSeatingDTO:
+def _seating(**overrides) -> SessionSeatingDTO:
     values = {
         "title": "Warsztat",
         "participants_limit": 10,
+        "host_ids": frozenset(),
         "enrolled_count": 0,
         "eligible_windows": [_open_window()],
     }
     values.update(overrides)
-    return AnonymousSeatingDTO(**values)
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
+    return SessionSeatingDTO(**values)
 
 
 def _user(name="Ala") -> UserDTO:
     return UserDTO(
+        privacy_revision=UUID(int=1),
+        age_band=AgeBand.UNKNOWN,
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",
@@ -108,22 +108,31 @@ class FakeUsers:
         return self._user
 
     def create(self, user_data):
-        self.created.append(user_data)
+        self.created.append(dict(user_data))
 
     def update(self, slug, user_data):
-        self.updated.append((slug, user_data))
+        self.updated.append((slug, dict(user_data)))
 
 
 class FakeRepo:
     def __init__(self, **cfg):
         # Configured returns: event, session, participation_status, conflicts,
-        # seating, load, event_slugs.
+        # seating, event_slugs, load.
         self._cfg = cfg
-        self.confirmed: list[tuple[int, int]] = []
-        self.waiting: list[tuple[int, int]] = []
-        self.deleted: list[tuple[int, int]] = []
+        self.log = SimpleNamespace(
+            confirmed=[],
+            waiting=[],
+            deleted=[],
+            events_read=[],
+            sessions_read=[],
+            statuses_read=[],
+            conflicts_checked=[],
+            seatings_locked=[],
+            seat_holders_locked=[],
+        )
 
-    def read_event(self, _event_slug):
+    def read_event(self, event_slug):
+        self.log.events_read.append(event_slug)
         if self._cfg.get("event") is None:
             raise NotFoundError
         return self._cfg["event"]
@@ -131,18 +140,26 @@ class FakeRepo:
     def event_slug_by_id(self, event_id):
         return self._cfg.get("event_slugs", {}).get(event_id)
 
-    def read_session(self, **_kwargs):
+    def read_session(self, **kwargs):
+        self.log.sessions_read.append(kwargs)
         if self._cfg.get("session") is None:
             raise NotFoundError
         return self._cfg["session"]
 
-    def read_participation_status(self, **_kwargs):
-        return self._cfg.get("participation_status")
+    def read_participation_status(self, *, session_id, user_id):
+        self.log.statuses_read.append({"session_id": session_id, "user_id": user_id})
+        return {(_SESSION_ID, _USER_PK): self._cfg.get("participation_status")}[
+            session_id, user_id
+        ]
 
-    def has_conflicts(self, **_kwargs):
-        return self._cfg.get("conflicts", False)
+    def conflicted_user_ids(self, *, session_id, user_ids):
+        self.log.conflicts_checked.append(
+            {"session_id": session_id, "user_ids": user_ids}
+        )
+        return set(user_ids) if self._cfg.get("conflicts", False) else set()
 
-    def lock_seating(self, _session_id):
+    def lock_seating(self, session_id):
+        self.log.seatings_locked.append(session_id)
         if (seating := self._cfg.get("seating")) is not None:
             return seating
         participants_limit = 10
@@ -151,18 +168,26 @@ class FakeRepo:
             participants_limit=participants_limit, enrolled_count=enrolled_count
         )
 
-    def create_or_confirm(self, *, session_id, user_id):
-        self.confirmed.append((session_id, user_id))
+    def lock_seat_holders(self, *, user_ids, waiters_of=None):
+        self.log.seat_holders_locked.append((list(user_ids), waiters_of))
 
-    def create_waiting(self, *, session_id, user_id):
-        self.waiting.append((session_id, user_id))
+    def read_statuses(self, *, session_id, user_ids):
+        status = self._cfg.get("participation_status")
+        return {} if status is None else dict.fromkeys(user_ids, status)
 
-    def delete_participation(self, *, session_id, user_id):
-        self.deleted.append((session_id, user_id))
+    def seat(self, *, session_id, user_id, status, party_id):
+        seated = {
+            SessionParticipationStatus.CONFIRMED: self.log.confirmed,
+            SessionParticipationStatus.WAITING: self.log.waiting,
+        }[status]
+        seated.append((session_id, user_id, party_id))
+
+    def release(self, *, session_id, user_id):
+        self.log.deleted.append((session_id, user_id))
         return self._cfg.get("participation_status")
 
-    def first_enrollment_event(self, _user_id):
-        return self._cfg.get("load")
+    def first_enrollment_event(self, user_id):
+        return {_USER_PK: self._cfg.get("load")}[user_id]
 
 
 class FakePromotion:
@@ -199,6 +224,9 @@ def _request(**overrides) -> AnonymousEnrollmentRequestDTO:
     return AnonymousEnrollmentRequestDTO(**values)
 
 
+_CODE_LENGTH = 6
+
+
 def _error_code(excinfo) -> AnonymousEnrollmentErrorCode:
     return excinfo.value.code
 
@@ -217,69 +245,20 @@ class TestActivate:
 
         assert activation.event_id == _EVENT_ID
         assert activation.event_slug == "conv"
+        assert repo.log.events_read == ["conv"]
         assert len(users.created) == 1
-        assert users.created[0]["slug"] == f"code_{activation.code}"
-        assert users.created[0]["user_type"] == UserType.ANONYMOUS
-
-    def test_event_not_found(self):
-        service = _service(repo=FakeRepo(event=None))
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.activate(event_slug="missing")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
-
-    def test_event_disallows_anonymous(self):
-        repo = FakeRepo(
-            event=AnonymousEventDTO(
-                event_id=_EVENT_ID,
-                slug="conv",
-                active_windows=[_open_window(allow_anonymous_enrollment=False)],
-            )
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.activate(event_slug="conv")
-
-        assert (
-            _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT
-        )
-        assert excinfo.value.event_slug == "conv"
+        created = users.created[0]
+        assert created["slug"] == f"code_{activation.code}"
+        assert not created["name"]
+        assert created["user_type"] == UserType.ANONYMOUS
+        assert created["is_active"] is False
+        assert created["username"].startswith("anon_")
+        assert created["username"] == created["username"].lower()
+        assert activation.code == activation.code.lower()
+        assert len(activation.code) == _CODE_LENGTH
 
 
 class TestValidation:
-    def test_session_not_found(self):
-        service = _service(repo=FakeRepo(session=None))
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
-
-    def test_no_agenda_item_redirects_to_activated_event(self):
-        repo = FakeRepo(
-            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
-        assert excinfo.value.event_slug == "conv"
-
-    def test_enroll_unscheduled_is_rejected(self):
-        repo = FakeRepo(
-            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "Ala")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
-
     def test_session_from_other_event(self):
         repo = FakeRepo(
             session=_session_ctx(event_id=_EVENT_ID + 1),
@@ -291,20 +270,6 @@ class TestValidation:
             service.get_enroll_page(_request())
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION
-        assert excinfo.value.event_slug == "conv"
-
-    def test_enrollment_closed_on_enroll(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            )
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "Ala")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
         assert excinfo.value.event_slug == "conv"
 
     def test_missing_code_means_expired_session(self):
@@ -341,20 +306,12 @@ class TestGetEnrollPage:
         assert page.needs_user_data is True
         assert page.enrollment_status is None
         assert page.is_enrolled is False
-
-    def test_closed_enrollment_still_shows_existing_enrollment(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=SessionParticipationStatus.WAITING,
-        )
-        service = _service(repo=repo)
-
-        page = service.get_enroll_page(_request())
-
-        assert page.enrollment_status == SessionParticipationStatus.WAITING
-        assert page.is_enrolled is True
+        assert repo.log.sessions_read == [
+            {"session_id": _SESSION_ID, "event_slug": "conv", "site_id": _SITE_ID}
+        ]
+        assert repo.log.statuses_read == [
+            {"session_id": _SESSION_ID, "user_id": _USER_PK}
+        ]
 
     def test_unscheduled_page_shows_when_already_enrolled(self):
         repo = FakeRepo(
@@ -367,20 +324,10 @@ class TestGetEnrollPage:
         page = service.get_enroll_page(_request())
 
         assert page.enrollment_status == SessionParticipationStatus.CONFIRMED
-
-    def test_closed_enrollment_without_enrollment_raises(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=None,
-        )
-        service = _service(repo=repo)
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.get_enroll_page(_request())
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
+        assert repo.log.statuses_read == [
+            {"session_id": _SESSION_ID, "user_id": _USER_PK},
+            {"session_id": _SESSION_ID, "user_id": _USER_PK},
+        ]
 
 
 class TestEnroll:
@@ -394,8 +341,12 @@ class TestEnroll:
         assert result.outcome == AnonymousEnrollOutcome.ENROLLED
         assert result.session_title == "Warsztat"
         assert result.event_slug == "conv"
-        assert repo.confirmed == [(_SESSION_ID, _USER_PK)]
-        assert not repo.waiting
+        assert repo.log.conflicts_checked == [
+            {"session_id": _SESSION_ID, "user_ids": [_USER_PK]}
+        ]
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
+        assert not repo.log.waiting
         assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
 
     def test_waitlists_when_full(self):
@@ -405,8 +356,24 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
-        assert repo.waiting == [(_SESSION_ID, _USER_PK)]
-        assert not repo.confirmed
+        assert repo.log.waiting == [(_SESSION_ID, _USER_PK, None)]
+        assert not repo.log.confirmed
+
+    def test_full_session_leaves_a_replayed_seat_in_place(self):
+        # A double-click on a session that filled meanwhile: the row already
+        # there is not traded for a place on the waiting list.
+        repo = FakeRepo(
+            session=_session_ctx(),
+            is_full=True,
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "Ala")
+
+        assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
+        assert not repo.log.waiting
+        assert not repo.log.confirmed
 
     def test_rejects_when_enrollment_closes_before_seating_lock(self):
         repo = FakeRepo(session=_session_ctx(), seating=_seating(eligible_windows=[]))
@@ -416,8 +383,9 @@ class TestEnroll:
             service.enroll(_request(), "Ala")
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
-        assert not repo.confirmed
-        assert not repo.waiting
+        assert excinfo.value.event_slug == "conv"
+        assert not repo.log.confirmed
+        assert not repo.log.waiting
 
     def test_conflict_short_circuits(self):
         repo = FakeRepo(session=_session_ctx(), conflicts=True)
@@ -426,18 +394,12 @@ class TestEnroll:
         result = service.enroll(_request(), "Ala")
 
         assert result.outcome == AnonymousEnrollOutcome.CONFLICT
-        assert not repo.confirmed
-        assert not repo.waiting
-
-    def test_name_required_when_user_has_none(self):
-        service = _service(
-            repo=FakeRepo(session=_session_ctx()), users=FakeUsers(_user(name=""))
-        )
-
-        with pytest.raises(AnonymousEnrollmentError) as excinfo:
-            service.enroll(_request(), "")
-
-        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NAME_REQUIRED
+        # Read under the session and person locks, so a racing enroll into an
+        # overlapping session has committed before this check runs.
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        assert repo.log.seat_holders_locked == [([_USER_PK], None)]
+        assert not repo.log.confirmed
+        assert not repo.log.waiting
 
 
 class TestCancel:
@@ -447,62 +409,19 @@ class TestCancel:
             participation_status=SessionParticipationStatus.CONFIRMED,
         )
         promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
+        users = FakeUsers(_user(""))
+        service = _service(repo=repo, users=users, promotion=promotion)
 
         result = service.cancel(_request(), "Ala")
 
         assert result.cancelled is True
         assert result.session_title == "Warsztat"
-        assert repo.deleted == [(_SESSION_ID, _USER_PK)]
+        assert users.updated == [(f"code_{_CODE}", {"name": "Ala"})]
+        assert repo.log.seatings_locked == [_SESSION_ID]
+        # The refill runs in the same request: its waiters are locked up front.
+        assert repo.log.seat_holders_locked == [([_USER_PK], _SESSION_ID)]
+        assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
         assert promotion.filled == [_SESSION_ID]
-
-    def test_cancel_waiting_seat_does_not_promote(self):
-        repo = FakeRepo(
-            session=_session_ctx(),
-            participation_status=SessionParticipationStatus.WAITING,
-        )
-        promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is True
-        assert not promotion.filled
-
-    def test_cancel_without_enrollment(self):
-        repo = FakeRepo(session=_session_ctx(), participation_status=None)
-        promotion = FakePromotion()
-        service = _service(repo=repo, promotion=promotion)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is False
-        assert not promotion.filled
-
-    def test_cancel_without_name_preserves_display_name(self):
-        repo = FakeRepo(
-            session=_session_ctx(),
-            participation_status=SessionParticipationStatus.CONFIRMED,
-        )
-        users = FakeUsers(_user(name="Ala"))
-        service = _service(repo=repo, users=users)
-
-        service.cancel(_request(), "")
-
-        assert not users.updated
-
-    def test_cancel_allowed_when_enrollment_closed(self):
-        repo = FakeRepo(
-            session=_session_ctx(
-                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
-            ),
-            participation_status=SessionParticipationStatus.CONFIRMED,
-        )
-        service = _service(repo=repo)
-
-        result = service.cancel(_request(), "Ala")
-
-        assert result.cancelled is True
 
     def test_cancel_after_agenda_item_removed(self):
         repo = FakeRepo(
@@ -515,16 +434,10 @@ class TestCancel:
         result = service.cancel(_request(), "Ala")
 
         assert result.cancelled is True
-        assert repo.deleted == [(_SESSION_ID, _USER_PK)]
+        assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
 
 
 class TestLoadByCode:
-    def test_returns_load(self):
-        load = AnonymousLoadDTO(event_id=_EVENT_ID, event_slug="conv", site_id=_SITE_ID)
-        service = _service(repo=FakeRepo(load=load))
-
-        assert service.load_by_code(code=_CODE) == load
-
     def test_unknown_code(self):
         service = _service(repo=FakeRepo(), users=FakeUsers(None))
 
@@ -533,10 +446,280 @@ class TestLoadByCode:
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.USER_NOT_FOUND
 
-    def test_no_enrollments(self):
-        service = _service(repo=FakeRepo(load=None))
+
+class TestActivateOutcomes:
+    def test_unknown_event(self):
+        service = _service(repo=FakeRepo())
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.activate(event_slug="nope")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
+
+    def test_event_without_an_anonymous_window_creates_no_account(self):
+        users = FakeUsers(None)
+        event = AnonymousEventDTO(
+            event_id=_EVENT_ID,
+            slug="conv",
+            active_windows=[_open_window(allow_anonymous_enrollment=False)],
+        )
+        service = _service(repo=FakeRepo(event=event), users=users)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.activate(event_slug="conv")
+
+        assert (
+            _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT
+        )
+        assert excinfo.value.event_slug == "conv"
+        assert not users.created
+
+    def test_creates_a_throwaway_account_behind_a_fresh_code(self):
+        users = FakeUsers(None)
+        event = AnonymousEventDTO(
+            event_id=_EVENT_ID, slug="conv", active_windows=[_open_window()]
+        )
+        service = _service(repo=FakeRepo(event=event), users=users)
+
+        activation = service.activate(event_slug="conv")
+
+        assert (activation.event_id, activation.event_slug) == (_EVENT_ID, "conv")
+        assert _ANON_CODE.fullmatch(activation.code)
+        assert len(users.created) == 1
+        created = users.created[0]
+        assert created["slug"] == f"code_{activation.code}"
+        assert created["user_type"] == UserType.ANONYMOUS
+        assert created["is_active"] is False
+        assert _ANON_USERNAME.fullmatch(created["username"])
+
+
+class TestValidationOutcomes:
+    def test_unknown_session(self):
+        service = _service(repo=FakeRepo())
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.get_enroll_page(_request())
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
+
+    def test_no_activation_means_not_for_this_session_with_nowhere_to_go(self):
+        service = _service(repo=FakeRepo(session=_session_ctx()))
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.get_enroll_page(_request(anonymous_event_id=None))
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION
+        assert excinfo.value.event_slug is None
+
+    def test_enrolling_into_an_unscheduled_session_has_no_config(self):
+        repo = FakeRepo(
+            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
+        )
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.enroll(_request(), "Ala")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
+        assert excinfo.value.event_slug == "conv"
+
+    def test_enrolling_when_no_window_admits_anonymous_users_is_closed(self):
+        repo = FakeRepo(
+            session=_session_ctx(
+                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
+            )
+        )
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.enroll(_request(), "Ala")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
+        assert excinfo.value.event_slug == "conv"
+
+    def test_unscheduled_page_without_an_enrollment_has_no_config(self):
+        repo = FakeRepo(
+            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
+        )
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.get_enroll_page(_request())
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
+        assert excinfo.value.event_slug == "conv"
+
+
+class TestGetEnrollPageOutcomes:
+    def test_closed_window_without_an_enrollment_is_closed(self):
+        repo = FakeRepo(
+            session=_session_ctx(
+                eligible_windows=[_open_window(allow_anonymous_enrollment=False)]
+            )
+        )
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.get_enroll_page(_request())
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
+        assert excinfo.value.event_slug == "conv"
+
+    def test_open_page_asks_a_nameless_visitor_for_their_name(self):
+        service = _service(
+            repo=FakeRepo(session=_session_ctx()), users=FakeUsers(_user(""))
+        )
+
+        page = service.get_enroll_page(_request())
+
+        assert page.needs_user_data is True
+        assert page.anonymous_code == _CODE
+        assert page.enrollment_status is None
+        assert page.session.allows_anonymous_enrollment is True
+        assert (
+            page.session.effective_participants_limit
+            == _session_ctx().participants_limit
+        )
+
+
+class TestEnrollOutcomes:
+    def test_stores_the_name_given(self):
+        users = FakeUsers(_user(""))
+        repo = FakeRepo(session=_session_ctx(), seating=_seating())
+        service = _service(repo=repo, users=users)
+
+        result = service.enroll(_request(), "Ola")
+
+        assert result.outcome == AnonymousEnrollOutcome.ENROLLED
+        assert users.updated == [(f"code_{_CODE}", {"name": "Ola"})]
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
+
+    def test_a_nameless_visitor_giving_no_name_is_refused(self):
+        repo = FakeRepo(session=_session_ctx(), seating=_seating())
+        service = _service(repo=repo, users=FakeUsers(_user("")))
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.enroll(_request(), "")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NAME_REQUIRED
+        assert not repo.log.confirmed
+
+    def test_a_clashing_enrollment_seats_nobody(self):
+        repo = FakeRepo(session=_session_ctx(), seating=_seating(), conflicts=True)
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "")
+
+        assert result.outcome == AnonymousEnrollOutcome.CONFLICT
+        assert result.session_title == "Warsztat"
+        assert not repo.log.confirmed
+        assert not repo.log.waiting
+
+    def test_a_full_session_waitlists(self):
+        repo = FakeRepo(
+            session=_session_ctx(),
+            seating=_seating(participants_limit=10, enrolled_count=10),
+        )
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "")
+
+        assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
+        assert repo.log.waiting == [(_SESSION_ID, _USER_PK, None)]
+        assert not repo.log.confirmed
+
+    def test_full_session_leaves_a_replayed_seat_in_place(self):
+        # A double-click on a session that filled meanwhile: the row already
+        # there is not traded for a place on the waiting list.
+        repo = FakeRepo(
+            session=_session_ctx(),
+            is_full=True,
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "Ala")
+
+        assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
+        assert not repo.log.waiting
+        assert not repo.log.confirmed
+
+    def test_a_free_seat_enrolls(self):
+        repo = FakeRepo(session=_session_ctx(), seating=_seating(title="Locked"))
+        service = _service(repo=repo)
+
+        result = service.enroll(_request(), "")
+
+        assert result == AnonymousEnrollResultDTO(
+            outcome=AnonymousEnrollOutcome.ENROLLED,
+            session_title="Locked",
+            event_slug="conv",
+        )
+        assert repo.log.confirmed == [(_SESSION_ID, _USER_PK, None)]
+
+
+class TestCancelOutcomes:
+    def test_a_freed_confirmed_seat_rolls_on_to_the_waitlist(self):
+        promotion = FakePromotion()
+        repo = FakeRepo(
+            session=_session_ctx(),
+            seating=_seating(),
+            participation_status=SessionParticipationStatus.CONFIRMED,
+        )
+        service = _service(repo=repo, promotion=promotion)
+
+        result = service.cancel(_request(), "")
+
+        assert result == AnonymousCancelResultDTO(
+            cancelled=True, session_title="Warsztat", event_slug="conv"
+        )
+        assert repo.log.deleted == [(_SESSION_ID, _USER_PK)]
+        assert promotion.filled == [_SESSION_ID]
+
+    def test_leaving_the_waitlist_frees_no_seat(self):
+        promotion = FakePromotion()
+        repo = FakeRepo(
+            session=_session_ctx(),
+            seating=_seating(),
+            participation_status=SessionParticipationStatus.WAITING,
+        )
+        service = _service(repo=repo, promotion=promotion)
+
+        result = service.cancel(_request(), "")
+
+        assert result.cancelled is True
+        assert not promotion.filled
+
+    def test_nothing_to_cancel(self):
+        promotion = FakePromotion()
+        repo = FakeRepo(session=_session_ctx(), seating=_seating())
+        service = _service(repo=repo, promotion=promotion)
+
+        result = service.cancel(_request(), "")
+
+        assert result.cancelled is False
+        assert not promotion.filled
+
+
+class TestLoadByCodeOutcomes:
+    def test_a_code_with_no_enrollments_has_nothing_to_load(self):
+        service = _service(repo=FakeRepo())
 
         with pytest.raises(AnonymousEnrollmentError) as excinfo:
             service.load_by_code(code=_CODE)
 
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENTS
+
+    def test_loads_the_first_enrollment_event(self):
+        load = AnonymousLoadDTO(event_id=_EVENT_ID, event_slug="conv", site_id=_SITE_ID)
+        service = _service(repo=FakeRepo(load=load))
+
+        assert service.load_by_code(code=_CODE) == load
+
+
+class TestEventSlugById:
+    def test_answers_from_the_repository(self):
+        service = _service(repo=FakeRepo(event_slugs={_EVENT_ID: "conv"}))
+
+        assert service.event_slug_by_id(_EVENT_ID) == "conv"
+        assert service.event_slug_by_id(_EVENT_ID + 1) is None

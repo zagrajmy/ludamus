@@ -9,8 +9,8 @@
 #    The committed .env carries dev defaults that work out of the box.
 cp .env.docker .env.local  # only if you want to start from the docker baseline
 
-# 2. Install toolchain (Python 3.14, Node v25.6.1, Poetry)
-#    Re-run after Python/Node version bumps in mise.toml
+# 2. Install toolchain (Python, Node, Poetry; versions pinned in mise.toml)
+#    Re-run after version bumps in mise.toml
 mise install
 
 # 3. Install Python dependencies
@@ -98,6 +98,71 @@ pre-configured for production with:
 - `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`
 - `USE_X_FORWARDED_HOST = True`
 - `USE_X_FORWARDED_PORT = True`
+
+**Cloudflare in front (production):** DNS for the production domain is on
+Cloudflare with the web records proxied (orange cloud). Cloudflare absorbs
+volumetric DDoS, runs the managed WAF ruleset, and rate-limits abusive
+paths; the Coolify box behind it only sees Cloudflare traffic. Settings that
+must hold:
+
+- SSL/TLS mode **Full (strict)** — anything else loops with
+  `SECURE_SSL_REDIRECT`.
+- Origin locked to [Cloudflare's IP ranges](https://www.cloudflare.com/ips/)
+  so nobody can bypass the proxy by hitting the VPS address. Done in Traefik,
+  not the host firewall, because the same Coolify box serves other domains
+  that are not on Cloudflare (see below).
+- Mail records (MX, SPF, DKIM) stay DNS-only; Cloudflare does not proxy mail.
+
+The origin lock is a Traefik `ipAllowList` middleware scoped to this app's
+routers. Coolify: Servers → the server → Proxy → Dynamic Configurations →
+add `cloudflare.yaml`:
+
+```yaml
+http:
+  middlewares:
+    cloudflare-only:
+      ipAllowList:
+        sourceRange:
+          - <every range from https://www.cloudflare.com/ips-v4>
+          - <every range from https://www.cloudflare.com/ips-v6>
+```
+
+Both lists in full, one CIDR per line. A partial list is the same as a wrong
+one: every visitor routed through an edge you left out gets a 403.
+
+Then in the ludamus application → Advanced → Container Labels, prepend the
+middleware on every `https-N` router whose `Host` rule is a Cloudflare-proxied
+domain (Coolify emits one `http-N`/`https-N` pair per FQDN):
+
+```text
+traefik.http.routers.https-0-<uuid>.middlewares=cloudflare-only@file,gzip
+```
+
+Leave `http-N` routers alone (they only redirect to HTTPS) and leave any
+router for a non-proxied domain alone, or it 403s for everyone. Redeploy.
+Verify from outside the box:
+
+```bash
+curl -sI https://<domain>/healthz/                                     # 200
+curl -sk -o /dev/null -w '%{http_code}\n' \
+  --resolve <domain>:443:<vps-ip> https://<domain>/                    # 403
+```
+
+A stale range list fails closed (visitors from a new Cloudflare edge get
+403), so refresh the YAML when Cloudflare announces a change. Let's Encrypt
+HTTP-01 renewals still work: the challenge arrives through Cloudflare.
+Uptime monitors must use the domain, not the VPS address.
+
+Because of this, every request at the app arrives from a Cloudflare address:
+`REMOTE_ADDR` and the rightmost `X-Forwarded-For` entry name Cloudflare, not
+the visitor. The real client IP is the `CF-Connecting-IP` header, which
+Cloudflare sets and, given the origin lockdown, nobody else can. All
+IP-keyed logic (throttles, RSVP dedupe) goes through `get_client_ip` in
+`gates/web/django/helpers.py`, which prefers that header and falls back to
+rightmost `X-Forwarded-For` then `REMOTE_ADDR` for local and non-Cloudflare
+setups. Never read those two directly. If the origin lockdown is ever
+removed, `CF-Connecting-IP` becomes client-supplied and this helper must
+change first.
 
 **Bind mount paths:** `POSTGRES_DATA_PATH`, `STATIC_DATA_PATH`, and
 `MEDIA_DATA_PATH` in `.env` control where Docker volumes are stored on the
@@ -214,6 +279,9 @@ URL — not through environment variables.
 **Other:**
 
 - `SUPPORT_EMAIL` — default `support@example.com` — L(opt) D(opt) P(opt)
+- `MAIL_POSTAL_ADDRESS` — sender's postal address in the footer of opt-in
+  emails (sphere announcements); a startup warning flags it missing in
+  production — L(opt) D(opt) P
 
 ## 6. Useful Commands Reference
 
@@ -234,3 +302,26 @@ mise run build-frontend       # Build production CSS + JS
 # Inside production container
 mise run gunicorn             # Gunicorn (4 workers, 2 threads, :8000)
 ```
+
+## 7. Staging (test.zagrajmy.net)
+
+Staging holds one PR at a time. Putting a PR there takes the `staging` label
+off every other PR.
+
+- Label a same-repo, non-draft PR `staging`. Each push to it redeploys; a push
+  that lands mid-deploy cancels the older run, and a run that finds the PR
+  moved on or merged says "Staging deploy skipped" in its job summary.
+- Or dispatch by hand, label not needed:
+
+  ```bash
+  # the PR's current head
+  gh workflow run deploy-staging.yml --ref main -f pr_number=123
+  # any commit
+  gh workflow run deploy-staging.yml --ref main -f sha=<commit>
+  ```
+
+  With `pr_number`, the run fails for a `sha` that is not the PR head and for
+  fork, closed or draft PRs. With only `sha`, drafts deploy, but forks fail,
+  and so does a commit on several open PRs until you pass `pr_number`.
+
+Logic: `scripts/github-staging.mts`, tested by `mise run test:staging-script`.

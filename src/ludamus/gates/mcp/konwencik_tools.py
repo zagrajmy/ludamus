@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 from ludamus.gates.mcp.inputs import EmptyInput
 from ludamus.gates.mcp.organizer_context import token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import KonwencikSettingsContext
 from ludamus.pacts.mcp import ToolScope
 
@@ -47,6 +47,7 @@ class OrganizerGetKonwencikSettingsTool(Tool[EmptyInput]):
         "Does not return connection credentials or export anything."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = EmptyInput
 
     @staticmethod
@@ -79,6 +80,7 @@ class OrganizerUpdateKonwencikStylesTool(Tool[_UpdateStylesInput]):
         "if automatic sync is enabled, the next sync uses these styles."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateStylesInput
 
     @staticmethod

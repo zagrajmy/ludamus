@@ -9,34 +9,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from cryptography.hazmat.primitives import serialization
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 env = environ.Env(
-    # Domains
     ALLOWED_HOSTS=(list, ["localhost"]),
     ROOT_DOMAIN=(str, ""),
     SESSION_COOKIE_DOMAIN=(str, None),
     SITE_ID=(int, 1),
     VITE_PORT=(int, 5173),
-    # Auth0
     AUTH0_CLIENT_ID=(str, ""),
     AUTH0_CLIENT_SECRET=(str, ""),
     AUTH0_DOMAIN=(str, ""),
-    # Database
     DB_NAME=(str, ""),  # Database name or file path
     USE_POSTGRES=(bool, False),
-    # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
     MEDIA_URL=(str, "/media/"),
@@ -59,7 +56,10 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
-    # Other
+    # Parley
+    PARLEY_AGENT_HOST=(str, ""),
+    PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
+    PARLEY_MENTIONS_SECRET=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -67,6 +67,17 @@ env = environ.Env(
     # smtp+tls://user:pass@host:587 in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
+    # Mailbox calendar replies to encounter invites go to (e.g.
+    # rsvp@reply.zagrajmy.net, routed to the Cloudflare Email Worker in
+    # cloudflare/encounter-replies). Empty turns reply sync off: invites then
+    # ask for no reply and name DEFAULT_FROM_EMAIL as organizer.
+    ENCOUNTER_REPLY_EMAIL=(str, ""),
+    # Bearer secret the Email Worker sends with each forwarded reply. Empty
+    # closes the webhook.
+    ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
+    # HMAC key the posta mail Worker signs each staff@ mail it forwards with.
+    # Empty closes the webhook.
+    STAFF_MAIL_WEBHOOK_SECRET=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -81,13 +92,13 @@ env = environ.Env(
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
+    MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
     ZEAL_RAISE=(bool, False),
 )
 
 
-# Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
 IS_STAGING = env("IS_STAGING")
@@ -106,16 +117,12 @@ CREDENTIALS_ENCRYPTION_KEY = env("CREDENTIALS_ENCRYPTION_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
-# Parse comma-separated allowed hosts for production
 ALLOWED_HOSTS: list[str] = env("ALLOWED_HOSTS")
 
-# Append localhost and its subdomains for development
 if ENV == "development":
     ALLOWED_HOSTS.extend([".localhost", ".local", "localhost", "127.0.0.1"])
 
 SESSION_COOKIE_DOMAIN = env("SESSION_COOKIE_DOMAIN") or None
-
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -125,21 +132,21 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    # Third Party
     "django_extensions",
     "django_vite",
     "heroicons",
-    # First Party
-    "ludamus.adapters.web.django.apps.WebMainConfig",
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
     "ludamus.links.analytics.apps.AnalyticsConfig",
+    "ludamus.inits.apps.InitsConfig",
 ]
 
 MIDDLEWARE = [
+    "ludamus.inits.wide_event.WideEventMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
+    "ludamus.gates.web.django.middlewares.PermissionsPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -147,11 +154,20 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "ludamus.inits.RepositoryInjectionMiddleware",
-    "ludamus.inits.middleware.ServiceInjectionMiddleware",
-    "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.gates.web.django.middlewares.AppMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
+    "ludamus.gates.web.django.middlewares.RedirectErrorMiddleware",
+]
+
+# Run in this order by AppMiddleware, and only for paths outside
+# MIDDLEWARE_SKIP_PREFIXES.
+APP_MIDDLEWARE = [
+    "ludamus.inits.middleware.ServiceInjectionMiddleware",
+    "ludamus.inits.request_context.RequestContextMiddleware",
+    "ludamus.inits.browser_privacy.BrowserPrivacyMiddleware",
+    "ludamus.gates.web.django.private_sphere.PrivateSphereMiddleware",
+    "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
+    "ludamus.inits.middleware.UserLanguageMiddleware",
 ]
 
 if DEBUG:
@@ -165,19 +181,6 @@ if DEBUG:
 # server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
 # the UI shows up in server output without failing unrelated UI tests.
 if DEBUG or IN_TESTS:
-    import zeal.patch
-
-    def _skip_zeal_generic_fk_patch() -> None:
-        # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
-        # so django-zeal 2.2.2 patching the field class raises AttributeError and
-        # takes app startup down with it. No model here declares a generic relation
-        # (tests/integration/test_no_generic_foreign_keys.py holds that line), so
-        # dropping this one patch costs no detection.
-        # ponytail: delete once django-zeal patches the descriptor; a model with a
-        # GenericForeignKey would need it back.
-        pass
-
-    zeal.patch.patch_generic_foreign_key = _skip_zeal_generic_fk_patch
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
     ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
@@ -226,7 +229,9 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
-                "ludamus.gates.web.django.context_processors.analytics",
+                "ludamus.gates.web.django.context_processors.board",
+                "ludamus.gates.web.django.context_processors.parley",
+                "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -369,7 +374,7 @@ MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# URL prefixes that skip middleware processing (UoW injection, context setup)
+# URL prefixes that skip APP_MIDDLEWARE (UoW injection, context setup)
 MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
@@ -377,6 +382,20 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     "/__reload__/",
     "/healthz/",
     *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
+)
+
+# What a private sphere still serves to strangers: signing in, the MCP
+# endpoints, which authenticate by token and scope themselves to its sphere,
+# and the calendar-reply webhook, which authenticates by bearer secret.
+PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
+    *MIDDLEWARE_SKIP_PREFIXES,
+    "/crowd/",
+    # An invitation is how a stranger becomes a member of a private sphere.
+    "/multiverse/join/",
+    "/auth-error/",
+    "/mcp/",
+    "/hooks/calendar-replies",
+    "/.well-known/",
 )
 
 
@@ -389,25 +408,30 @@ STATIC_VERSION = COMMIT_SHA
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Auth
-
 AUTH_USER_MODEL = "db_main.User"
 LOGIN_URL = "/crowd/login-required/"
 
-# Sites
-
 ROOT_DOMAIN = env("ROOT_DOMAIN")
+# The conventions the landing and about pages show, in this order.
+LANDING_CONVENTION_DOMAINS: tuple[str, ...] = tuple(
+    f"{subdomain}.{ROOT_DOMAIN}" for subdomain in ("kapitularz", "bachanalia", "o2f")
+)
 SITE_ID = env("SITE_ID")
-
-# Auth0
 
 AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-# Support
-
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# The DSA point of contact (Art. 11, 12): named in the terms and on the notice
+# form, the reply-to of every moderation mail, and where staff alerts go.
+STAFF_EMAIL = "staff@zagrajmy.net"
+# Sender's postal address, printed under every opt-in (non-transactional) email.
+MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
+
+# NOTE: the navbar links the board only where this is on. Readers cannot answer
+# a listing yet (#1526, #1527), so production keeps the board undiscovered.
+BOARD_PUBLIC = IS_STAGING
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
 # no-external build, so the browser loads no third-party script; it only
@@ -423,22 +447,20 @@ INTERNAL_IPS = [
     # ...
 ]
 
-# Content-Security-Policy, enforcing. script-src carries a per-request
-# nonce (django.template.context_processors.csp + nonce="{{ csp_nonce }}"
-# on every inline <script>) instead of 'unsafe-inline', so an injected
-# script without the nonce is blocked by the browser, not just reported.
-# htmx's hx-on: attributes (which needed 'unsafe-eval') were replaced by
-# delegated data-action listeners in panel-chrome.ts, and the
-# htmx-config allowEval:false meta tag in base.html disables htmx's
-# Function-based eval entirely, so 'unsafe-eval' is dropped too.
+# Content-Security-Policy, enforcing. default-src is 'none': every resource
+# type the app loads is listed below. script-src carries a per-request nonce
+# (django.template.context_processors.csp + nonce="{{ csp_nonce }}" on every
+# inline <script>) instead of 'unsafe-inline', so an injected script without
+# the nonce is blocked by the browser, not just reported. 'unsafe-eval' is
+# absent: the htmx-config allowEval:false meta tag in base.html disables
+# htmx's Function-based eval, and panel-chrome.ts binds delegated
+# data-action listeners rather than hx-on: attributes.
 # style-src keeps 'unsafe-inline': inline style="..." attributes are
 # pervasive across the templates and nonce-ing attributes (as opposed to
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
-# that is a separate, larger effort, not covered here. The Outfit font is
-# self-hosted (src/ludamus/client/src/fonts), so style-src and font-src no
-# longer carry the fonts.googleapis.com / fonts.gstatic.com allowances the
-# old @import needed. img-src stays
-# broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
+# that is a separate, larger effort, not covered here. font-src is 'self':
+# the Outfit font is self-hosted (src/ludamus/client/src/fonts). img-src
+# stays broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: a violation report carries
 # document-uri verbatim, so aiming it at a third party would ship the tokens
@@ -447,7 +469,7 @@ INTERNAL_IPS = [
 # page send. A same-origin collector running safe_path before it forwards is
 # the way in. Until then violations are only visible in browser devtools.
 CSP_POLICY: dict[str, list[str]] = {
-    "default-src": [CSP.SELF],
+    "default-src": [CSP.NONE],
     "script-src": [CSP.SELF, CSP.NONCE],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],
@@ -470,6 +492,14 @@ if POSTHOG_API_KEY:
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
+# Sent in every environment (harmless locally). Denies the high-risk features
+# an injected script would reach for; everything else stays at the browser
+# default.
+PERMISSIONS_POLICY = (
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
+    "display-capture=()"
+)
+
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or
 # absent policy would let a broken nonce/hx-on regression through silently.
@@ -479,31 +509,25 @@ if POSTHOG_API_KEY:
 # else, so test_no_csp_headers_by_default's regression guard is unaffected.
 ENABLE_CSP = IS_PRODUCTION or env.bool("ENABLE_CSP", default=False)
 
-# Security Settings for Production
 if IS_PRODUCTION:
-    # HTTPS/SSL Settings
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
     USE_X_FORWARDED_PORT = True
 
-    # Security Headers
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
 
-    # HSTS Settings (HTTP Strict Transport Security)
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
-    # Session Security
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
     SESSION_COOKIE_AGE = 3600 * 24 * 30  # 30 days
     SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-    # CSRF Security
     CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = True
     CSRF_COOKIE_SAMESITE = "Lax"  # Changed from Strict to allow OAuth callbacks
@@ -515,16 +539,13 @@ if IS_PRODUCTION:
         else:
             CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
 
-    # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 
-    # File Upload Security
     FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
     DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 else:
-    # Development settings
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -593,6 +614,9 @@ EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
 # Set only by the filemail:// (file-based) dev transport; ignored otherwise.
 EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
+ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
+STAFF_MAIL_WEBHOOK_SECRET = env("STAFF_MAIL_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
@@ -610,7 +634,6 @@ if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
     else:
         DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
-# Cache configuration
 CACHES = (
     {
         "default": {
@@ -627,7 +650,6 @@ CACHES = (
     }
 )
 
-# Logging configuration
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -635,18 +657,31 @@ LOGGING = {
         "verbose": {
             "format": "[{levelname}] {asctime} {module} {message}",
             "style": "{",
-        }
+        },
+        "json": {"()": "ludamus.links.analytics.log_format.JsonFormatter"},
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
-    "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
+    # Production lines are read by machines (Coolify, PostHog) and queried by
+    # field; a terminal is read by a person.
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if IS_PRODUCTION else "verbose",
+        },
+        # PostHog Logs, over OTLP/HTTP, INFO and up; off without POSTHOG_API_KEY.
+        "posthog": {"()": "ludamus.links.analytics.log_shipping.posthog_handler"},
+    },
+    "root": {
+        "handlers": ["console", "posthog"],
+        "level": "INFO" if IS_PRODUCTION else "DEBUG",
+    },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
-        # The markdown lib logs every extension load at DEBUG on each call;
-        # render_markdown runs once per session, so on big event pages this
-        # floods the dev console and dominates render time. Quiet it.
-        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "django": {
+            "handlers": ["console", "posthog"],
+            "level": "INFO",
+            "propagate": False,
+        },
         "django.security": {
-            "handlers": ["console"],
+            "handlers": ["console", "posthog"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },
@@ -662,6 +697,66 @@ LOGGING = {
     },
 }
 
+# Parley
+PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+# NOTE: this pair is committed so laptops and e2e sign passes with no setup.
+# Anyone can read it, so a deployment that signs with it is refused.
+_PARLEY_DEV_KEY = BASE_DIR.parent.parent / "workers" / "parley" / "dev-signing-key.pem"
+_PARLEY_DEV_KEY_FINGERPRINT = (
+    "ea6891a6b117bb28a671edec882ab38b8a26a404ad2a8832fb247bcb7f35ab4e"
+)
+_PARLEY_DEV_ENVS = {"development", "test"}
+if (
+    not PARLEY_SIGNING_PRIVATE_KEY
+    and ENV in _PARLEY_DEV_ENVS
+    and _PARLEY_DEV_KEY.exists()
+):
+    PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+# A deployment's Worker serves parley.<ROOT_DOMAIN>; local runs name theirs,
+# and tests have none.
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST") or (
+    "" if ENV in _PARLEY_DEV_ENVS else f"parley.{ROOT_DOMAIN}"
+)
+if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
+    _PARLEY_KEY = serialization.load_pem_private_key(
+        PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
+    )
+    _PARLEY_FINGERPRINT = hashlib.sha256(
+        _PARLEY_KEY.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    ).hexdigest()
+    if _PARLEY_FINGERPRINT == _PARLEY_DEV_KEY_FINGERPRINT:
+        raise ImproperlyConfigured(
+            "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
+        )
+# NOTE: the Worker signs unread mentions with this; workers/parley holds the
+# same development value, which a deployment refuses.
+_PARLEY_DEV_MENTIONS_KEY = "parley-dev-mentions-secret-not-for-production"
+PARLEY_MENTIONS_SECRET = env("PARLEY_MENTIONS_SECRET") or (
+    _PARLEY_DEV_MENTIONS_KEY if ENV in _PARLEY_DEV_ENVS else ""
+)
+if PARLEY_MENTIONS_SECRET == _PARLEY_DEV_MENTIONS_KEY and ENV not in _PARLEY_DEV_ENVS:
+    raise ImproperlyConfigured(
+        "PARLEY_MENTIONS_SECRET is the committed development secret."
+    )
+if PARLEY_AGENT_HOST:
+    # Same rule as links.parley_worker.is_local, which settings cannot import.
+    _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""
+    PARLEY_IS_LOCAL = _PARLEY_HOSTNAME in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    } or _PARLEY_HOSTNAME.endswith(".localhost")
+    PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
+    PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
+    CSP_POLICY["connect-src"].extend(
+        [
+            f"{PARLEY_HTTP_SCHEME}://{PARLEY_AGENT_HOST}",
+            f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
+        ]
+    )
+
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor
 # SHA-384 hashes use base64 encoding (SRI format)
@@ -676,7 +771,6 @@ VENDOR_DEPENDENCIES: list[dict[str, str]] = [
 
 VENDOR_STATIC_DIR = BASE_DIR / "static" / "vendor"
 
-# Vite asset pipeline
 DJANGO_VITE = {
     "default": {
         "dev_mode": ENV == "development" or ROOT_DOMAIN == "testserver",

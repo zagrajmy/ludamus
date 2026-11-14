@@ -1,0 +1,21 @@
+id: mail-to-only-for-email-lifecycle
+language: python
+severity: error
+files:
+  - src/**/*.py
+rule:
+  pattern: speaking_to($$$, mail_to=$A)
+  not:
+    inside:
+      kind: function_definition
+      stopBy: end
+      has:
+        field: name
+        regex: ^(notify_email_(verification|change_requested|change_completed)|send_statement)$
+message: |
+  `mail_to` mails an address nobody proved, bypassing the account's
+  proven one. Only the email-lifecycle notices need that: the address
+  being proven, or the pre-change one. A statement of reasons (DSA
+  Art. 17) goes to the address on record, proven or not, since the law
+  asks for it wherever we can reach the person. Everything else mails
+  what `speaking_to(user_id)` resolves.

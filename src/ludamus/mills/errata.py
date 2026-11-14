@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
-from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        EventRepositoryProtocol,
+    from ludamus.pacts.event import EventRepositoryProtocol
+    from ludamus.pacts.timetable import (
         ScheduleChangeLogDTO,
         ScheduleChangeLogRepositoryProtocol,
     )
@@ -56,7 +56,9 @@ def _read_moves(logs: list[ScheduleChangeLogDTO]) -> list[ErratumDTO]:
     for log in logs:
         if log.pk in left_behind:
             continue
+        # pragma: no mutate start
         before = by_pk.get(log.moved_from_id) if log.moved_from_id else None
+        # pragma: no mutate end
         errata.append(_erratum(before, log) if before else _erratum(log))
     return errata
 

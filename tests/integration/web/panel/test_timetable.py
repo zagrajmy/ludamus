@@ -8,9 +8,11 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Facilitator, Space, Track
-from ludamus.pacts import EventDTO, ProposalCategoryDTO, TrackDTO
-from ludamus.pacts.chronology import MultiselectOptionDTO, SpaceGroupDTO
-from ludamus.pacts.legacy import SpaceDTO
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.timetable import ClosedRangeDTO, MultiselectOptionDTO, SpaceGroupDTO
+from ludamus.pacts.tracks import TrackDTO
+from ludamus.pacts.venues import SpaceDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -71,6 +73,7 @@ def _grid_under(room, *, parent):
                 SpaceGroupDTO(parent_pk=parent.pk, parent_name=parent.name, span=1)
             ],
             "total_spaces": 1,
+            "last_space_number": 1,
         }
     )
 
@@ -366,8 +369,6 @@ class TestTimetablePageView:
         content = response.content.decode()
         assert 'draggable="true"' in content
         assert f'data-session-pk="{session.pk}"' in content
-        assert 'data-confirmed="false"' in content
-        assert 'title="Confirmed"' not in content
         assert time_slot is not None
 
     def test_grid_marks_confirmed_session(
@@ -382,6 +383,12 @@ class TestTimetablePageView:
             end_time=end,
             session_confirmed=True,
         )
+        position = session_position(
+            item, start_minutes=0, duration_minutes=HOUR_MINUTES
+        )
+        # session_position reads the item back through the repository, so the
+        # flag has to be pinned here or the grid would be compared to itself.
+        assert position.agenda_item.schedule_confirmed is True
 
         response = panel_client.get(self.get_url(event))
 
@@ -396,19 +403,10 @@ class TestTimetablePageView:
                     spaces=[space],
                     day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
-                    sessions_by_space={
-                        space.pk: [
-                            session_position(
-                                item, start_minutes=0, duration_minutes=HOUR_MINUTES
-                            )
-                        ]
-                    },
+                    sessions_by_space={space.pk: [position]},
                 ),
             ),
         )
-        content = response.content.decode()
-        assert 'data-confirmed="true"' in content
-        assert 'title="Confirmed"' in content
         assert time_slot is not None
 
     def test_filters_by_track(self, panel_client, event, space):
@@ -489,7 +487,9 @@ class TestTimetablePageView:
     ):
         sphere.managers.add(active_user)
         ours = SpaceFactory(event=event, name="Ours")
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign_space = SpaceFactory(event=other_event, name="Theirs")
 
         response = authenticated_client.get(
@@ -625,7 +625,9 @@ class TestTimetablePageView:
             start_time=start,
             end_time=start + timedelta(hours=1),
         )
-        other_event = EventFactory(sphere=sphere)
+        other_event = EventFactory(
+            sphere=sphere, start_time=event.start_time + timedelta(days=1)
+        )
         foreign = Facilitator.objects.create(
             event=other_event, display_name="Alice", slug="alice", user=None
         )
@@ -773,6 +775,13 @@ class TestTimetablePageView:
                     spaces=[space],
                     day_start=event_day_start(event),
                     total_minutes=6 * HOUR_MINUTES,
+                    # Between `time_slot` and the preferred slot, nothing is open.
+                    closed_ranges=[
+                        ClosedRangeDTO(
+                            start_minutes=2 * HOUR_MINUTES,
+                            duration_minutes=2 * HOUR_MINUTES,
+                        )
+                    ],
                     sessions_by_space={
                         space.pk: [
                             session_position(

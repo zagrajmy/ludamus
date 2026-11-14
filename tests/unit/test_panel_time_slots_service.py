@@ -1,206 +1,286 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
-from ludamus.pacts import EventDTO, NotFoundError, TimeSlotDTO
-from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
+from ludamus.mills.event import PanelTimeSlotsService
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import (
+    TimeSlotDTO,
+    TimeSlotRejectedError,
+    TimeSlotSavedDTO,
+    TimeSlotValidationError,
+)
+from tests.unit.factories import FakeTransaction, event_dto
 
 _EVENT_ID = 42
+_OTHER_EVENT_ID = 43
 
 
-def _event(pk=_EVENT_ID):
-    return EventDTO(
-        description="",
-        end_time=datetime(2026, 6, 3, 18, 0, tzinfo=UTC),
-        name="Konwent",
-        pk=pk,
-        proposal_end_time=None,
-        proposal_start_time=None,
-        publication_time=None,
-        slug="konwent",
-        sphere_id=1,
-        start_time=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+def _at(day, hour, minute=0):
+    return datetime(2026, 6, day, hour, minute, tzinfo=UTC)
+
+
+def _callers_copy():
+    # NOTE: the panel hands the service its own copy of the event; the
+    # service must widen from the locked row, never from this one.
+    return event_dto(pk=_EVENT_ID, start_time=_at(1, 9), end_time=_at(3, 18))
+
+
+class FakeTimeSlots:
+    def __init__(self):
+        self.rows: dict[int, tuple[int, TimeSlotDTO]] = {}
+        self.with_proposals: set[int] = set()
+
+    def add(self, event_id, start, end):
+        pk = len(self.rows) + 1
+        self.rows[pk] = (event_id, TimeSlotDTO(pk=pk, start_time=start, end_time=end))
+        return pk
+
+    def slots(self, event_id=_EVENT_ID):
+        return [slot for owner, slot in self.rows.values() if owner == event_id]
+
+    def list_by_event(self, event_id):
+        return self.slots(event_id)
+
+    def pks_with_proposals(self, event_id):
+        return frozenset(
+            slot.pk for slot in self.slots(event_id) if slot.pk in self.with_proposals
+        )
+
+    def read_by_event(self, event_id, pk):
+        owner, slot = self.rows.get(pk, (None, None))
+        if owner != event_id:
+            raise NotFoundError
+        return slot
+
+    def create(self, event_id, start, end):
+        return self.rows[self.add(event_id, start, end)][1]
+
+    def update(self, pk, start, end):
+        owner, _ = self.rows[pk]
+        self.rows[pk] = (owner, TimeSlotDTO(pk=pk, start_time=start, end_time=end))
+        return self.rows[pk][1]
+
+    def has_proposals(self, pk):
+        return pk in self.with_proposals
+
+    def delete(self, pk):
+        del self.rows[pk]
+
+
+class FakeEvents:
+    def __init__(self, event):
+        self.event = event
+        self.locked: list[int] = []
+
+    def lock(self, pk):
+        self.locked.append(pk)
+
+    def read(self, pk):
+        assert pk == self.event.pk
+        return self.event
+
+    def update(self, pk, data):
+        assert pk == self.event.pk
+        self.event = self.event.model_copy(update=data)
+
+
+@pytest.fixture(name="time_slots")
+def time_slots_fixture():
+    return FakeTimeSlots()
+
+
+@pytest.fixture(name="events")
+def events_fixture():
+    return FakeEvents(
+        event_dto(pk=_EVENT_ID, start_time=_at(1, 9), end_time=_at(3, 18))
     )
 
 
-def _slot(pk=1, hour_start=10, hour_end=12):
-    return TimeSlotDTO(
-        pk=pk,
-        start_time=datetime(2026, 6, 1, hour_start, 0, tzinfo=UTC),
-        end_time=datetime(2026, 6, 1, hour_end, 0, tzinfo=UTC),
+@pytest.fixture(name="service")
+def service_fixture(time_slots, events):
+    return PanelTimeSlotsService(
+        transaction=FakeTransaction(), time_slots=time_slots, events=events
     )
 
 
-class TestPanelTimeSlotsService:
-    @pytest.fixture
-    def time_slots(self):
-        return MagicMock()
+class TestCreate:
+    def test_a_created_slot_is_listed_and_readable(self, service):
+        saved = service.create(
+            event=_callers_copy(), start_time=_at(1, 10), end_time=_at(1, 12)
+        )
 
-    @pytest.fixture
-    def transaction(self):
-        return MagicMock()
+        assert saved.event_dates_widened is False
+        assert service.list_for_event(_EVENT_ID) == [saved.slot]
+        assert service.read(event_id=_EVENT_ID, pk=saved.slot.pk) == saved.slot
+        assert (saved.slot.start_time, saved.slot.end_time) == (_at(1, 10), _at(1, 12))
 
-    @pytest.fixture
-    def service(self, transaction, time_slots):
-        return PanelTimeSlotsService(transaction=transaction, time_slots=time_slots)
-
-    def test_list_for_event_delegates_to_repo(self, service, time_slots):
-        slots = [_slot(pk=1), _slot(pk=2, hour_start=13, hour_end=14)]
-        time_slots.list_by_event.return_value = slots
-
-        result = service.list_for_event(_EVENT_ID)
-
-        assert result is slots
-        time_slots.list_by_event.assert_called_once_with(_EVENT_ID)
-
-    def test_read_scopes_pk_to_event(self, service, time_slots):
-        slot = _slot(pk=7)
-        time_slots.read_by_event.return_value = slot
-
-        result = service.read(event_id=_EVENT_ID, pk=7)
-
-        assert result is slot
-        time_slots.read_by_event.assert_called_once_with(_EVENT_ID, 7)
-
-    def test_read_propagates_not_found_for_foreign_pk(self, service, time_slots):
-        time_slots.read_by_event.side_effect = NotFoundError
-
-        with pytest.raises(NotFoundError):
-            service.read(event_id=_EVENT_ID, pk=999)
-
-    def test_create_persists_valid_slot_in_transaction(
-        self, service, transaction, time_slots
+    def test_create_widens_from_the_locked_row_not_the_callers_copy(
+        self, service, events
     ):
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        created_slot = _slot(pk=9, hour_start=13, hour_end=15)
-        time_slots.create.return_value = created_slot
-        start = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
+        # The caller's copy still ends at 18:00, but the row already grew to
+        # 23:00: a slot ending then must not shrink it back or report widening.
+        events.event = events.event.model_copy(update={"end_time": _at(3, 23)})
 
-        created = service.create(event=_event(), start_time=start, end_time=end)
+        saved = service.create(
+            event=_callers_copy(), start_time=_at(3, 21), end_time=_at(3, 23)
+        )
 
-        assert created is created_slot
-        transaction.atomic.assert_called_once_with()
-        time_slots.list_by_event.assert_called_once_with(_EVENT_ID)
-        time_slots.create.assert_called_once_with(_EVENT_ID, start, end)
+        assert saved.event_dates_widened is False
+        assert events.event.end_time == _at(3, 23)
+        assert events.locked == [_EVENT_ID]
 
-    def test_create_returns_errors_without_writing(self, service, time_slots):
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
+    def test_create_past_the_event_end_widens_it(self, service, events):
+        saved = service.create(
+            event=_callers_copy(), start_time=_at(4, 10), end_time=_at(4, 12)
+        )
 
+        assert saved.event_dates_widened is True
+        assert events.event.end_time == _at(4, 12)
+
+    def test_create_rejects_a_slot_ending_when_it_starts(self, service, time_slots):
         with pytest.raises(TimeSlotRejectedError) as excinfo:
-            service.create(event=_event(), start_time=start, end_time=end)
+            service.create(
+                event=_callers_copy(), start_time=_at(1, 10), end_time=_at(1, 10)
+            )
 
-        assert excinfo.value.errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
-        time_slots.create.assert_not_called()
+        assert excinfo.value.errors == [TimeSlotValidationError.START_NOT_BEFORE_END]
+        assert not time_slots.rows
 
-    def test_create_returns_outside_event_dates_for_slot_before_event(
-        self, service, time_slots
-    ):
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 9, 30, tzinfo=UTC)
+    def test_create_accepts_a_slot_touching_its_neighbours(self, service, time_slots):
+        time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
+        time_slots.add(_EVENT_ID, _at(1, 14), _at(1, 16))
 
-        with pytest.raises(TimeSlotRejectedError) as excinfo:
-            service.create(event=_event(), start_time=start, end_time=end)
+        service.create(
+            event=_callers_copy(), start_time=_at(1, 12), end_time=_at(1, 14)
+        )
 
-        assert excinfo.value.errors == [TimeSlotValidationError.OUTSIDE_EVENT_DATES]
-        time_slots.create.assert_not_called()
+        assert [slot.start_time for slot in time_slots.slots()] == [
+            _at(1, 10),
+            _at(1, 14),
+            _at(1, 12),
+        ]
+
+    def test_create_ignores_slots_of_other_events(self, service, time_slots):
+        time_slots.add(_OTHER_EVENT_ID, _at(1, 10), _at(1, 12))
+
+        service.create(
+            event=_callers_copy(), start_time=_at(1, 10), end_time=_at(1, 12)
+        )
+
+        assert len(time_slots.slots()) == 1
 
     def test_create_accumulates_every_broken_rule(self, service, time_slots):
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 7, 0, tzinfo=UTC)
+        time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
 
         with pytest.raises(TimeSlotRejectedError) as excinfo:
-            service.create(event=_event(), start_time=start, end_time=end)
+            service.create(
+                event=_callers_copy(), start_time=_at(1, 11), end_time=_at(1, 10, 30)
+            )
 
         assert excinfo.value.errors == [
             TimeSlotValidationError.START_NOT_BEFORE_END,
-            TimeSlotValidationError.OUTSIDE_EVENT_DATES,
+            TimeSlotValidationError.OVERLAPS_EXISTING_SLOT,
         ]
-        time_slots.create.assert_not_called()
+        assert len(time_slots.rows) == 1
 
-    def test_update_persists_valid_slot_scoped_to_event(
-        self, service, transaction, time_slots
-    ):
-        time_slots.read_by_event.return_value = _slot(pk=1)
-        time_slots.list_by_event.return_value = [
-            _slot(pk=1),
-            _slot(pk=2, hour_start=13, hour_end=14),
-        ]
-        start = datetime(2026, 6, 1, 10, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 12, 30, tzinfo=UTC)
-
-        service.update(event=_event(), pk=1, start_time=start, end_time=end)
-
-        transaction.atomic.assert_called_once_with()
-        time_slots.read_by_event.assert_called_once_with(_EVENT_ID, 1)
-        time_slots.update.assert_called_once_with(1, start, end)
-
-    def test_update_ignores_own_slot_when_checking_overlap(self, service, time_slots):
-        time_slots.read_by_event.return_value = _slot(pk=1)
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 10, 30, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 11, 30, tzinfo=UTC)
-
-        service.update(event=_event(), pk=1, start_time=start, end_time=end)
-
-        time_slots.update.assert_called_once_with(1, start, end)
-
-    def test_update_rejects_a_broken_slot_without_writing(self, service, time_slots):
-        time_slots.read_by_event.return_value = _slot(pk=1)
-        time_slots.list_by_event.return_value = [_slot(pk=1)]
-        start = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 14, 0, tzinfo=UTC)
+    def test_create_before_publication_is_rejected(self, service, time_slots, events):
+        events.event = events.event.model_copy(
+            update={"publication_time": datetime(2026, 5, 31, tzinfo=UTC)}
+        )
 
         with pytest.raises(TimeSlotRejectedError) as excinfo:
-            service.update(event=_event(), pk=1, start_time=start, end_time=end)
+            service.create(
+                event=_callers_copy(),
+                start_time=datetime(2026, 5, 30, 9, tzinfo=UTC),
+                end_time=datetime(2026, 5, 30, 11, tzinfo=UTC),
+            )
 
-        assert excinfo.value.errors == [TimeSlotValidationError.START_NOT_BEFORE_END]
-        time_slots.update.assert_not_called()
+        assert excinfo.value.errors == [
+            TimeSlotValidationError.STARTS_BEFORE_PUBLICATION
+        ]
+        assert not time_slots.rows
+        assert events.event.start_time == _at(1, 9)
 
+
+class TestUpdate:
     def test_update_foreign_pk_raises_without_side_effects(self, service, time_slots):
-        time_slots.read_by_event.side_effect = NotFoundError
-        start = datetime(2026, 6, 1, 10, 0, tzinfo=UTC)
-        end = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
+        foreign = time_slots.add(_OTHER_EVENT_ID, _at(1, 10), _at(1, 12))
+        before = dict(time_slots.rows)
 
         with pytest.raises(NotFoundError):
-            service.update(event=_event(), pk=999, start_time=start, end_time=end)
+            service.update(
+                event=_callers_copy(),
+                pk=foreign,
+                start_time=_at(1, 14),
+                end_time=_at(1, 16),
+            )
 
-        time_slots.update.assert_not_called()
+        assert time_slots.rows == before
 
-    def test_delete_removes_unused_slot_in_transaction(
-        self, service, transaction, time_slots
+    def test_update_ignores_the_slots_own_range_and_widens_the_event(
+        self, service, time_slots, events
     ):
-        time_slots.read_by_event.return_value = _slot(pk=5)
-        time_slots.has_proposals.return_value = False
+        own = time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
 
-        deleted = service.delete(event_id=_EVENT_ID, pk=5)
+        saved = service.update(
+            event=_callers_copy(), pk=own, start_time=_at(3, 19), end_time=_at(3, 20)
+        )
 
-        assert deleted is True
-        transaction.atomic.assert_called_once_with()
-        time_slots.read_by_event.assert_called_once_with(_EVENT_ID, 5)
-        time_slots.has_proposals.assert_called_once_with(5)
-        time_slots.delete.assert_called_once_with(5)
+        assert saved == TimeSlotSavedDTO(
+            slot=TimeSlotDTO(pk=own, start_time=_at(3, 19), end_time=_at(3, 20)),
+            event_dates_widened=True,
+        )
+        assert events.event.end_time == _at(3, 20)
+        assert events.locked == [_EVENT_ID]
 
-    def test_delete_refuses_slot_with_proposals(self, service, time_slots):
-        time_slots.read_by_event.return_value = _slot(pk=5)
-        time_slots.has_proposals.return_value = True
+    def test_update_may_overlap_the_slots_own_old_range(self, service, time_slots):
+        own = time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
+        time_slots.add(_EVENT_ID, _at(1, 14), _at(1, 16))
 
-        deleted = service.delete(event_id=_EVENT_ID, pk=5)
+        saved = service.update(
+            event=_callers_copy(), pk=own, start_time=_at(1, 11), end_time=_at(1, 13)
+        )
 
-        assert deleted is False
-        time_slots.delete.assert_not_called()
+        assert saved.event_dates_widened is False
+        assert service.read(event_id=_EVENT_ID, pk=own).start_time == _at(1, 11)
 
-    def test_delete_foreign_pk_raises_without_side_effects(self, service, time_slots):
-        time_slots.read_by_event.side_effect = NotFoundError
+    def test_update_rejects_overlap_with_another_slot(self, service, time_slots):
+        own = time_slots.add(_EVENT_ID, _at(1, 8), _at(1, 9))
+        time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
+
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
+            service.update(
+                event=_callers_copy(),
+                pk=own,
+                start_time=_at(1, 11),
+                end_time=_at(1, 13),
+            )
+
+        assert excinfo.value.errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
+        assert time_slots.rows[own][1].start_time == _at(1, 8)
+
+
+class TestDelete:
+    def test_delete_refuses_a_slot_with_proposals(self, service, time_slots):
+        asked_for = time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
+        time_slots.with_proposals.add(asked_for)
+
+        assert service.undeletable_pks(_EVENT_ID) == frozenset({asked_for})
+        assert service.delete(event_id=_EVENT_ID, pk=asked_for) is False
+        assert asked_for in time_slots.rows
+
+    def test_delete_removes_a_free_slot(self, service, time_slots):
+        free = time_slots.add(_EVENT_ID, _at(1, 10), _at(1, 12))
+
+        assert service.undeletable_pks(_EVENT_ID) == frozenset()
+        assert service.delete(event_id=_EVENT_ID, pk=free) is True
+        assert not time_slots.rows
+
+    def test_delete_of_a_foreign_slot_raises_and_keeps_it(self, service, time_slots):
+        foreign = time_slots.add(_OTHER_EVENT_ID, _at(1, 10), _at(1, 12))
 
         with pytest.raises(NotFoundError):
-            service.delete(event_id=_EVENT_ID, pk=999)
+            service.delete(event_id=_EVENT_ID, pk=foreign)
 
-        time_slots.has_proposals.assert_not_called()
-        time_slots.delete.assert_not_called()
+        assert foreign in time_slots.rows

@@ -20,19 +20,23 @@ from ludamus.gates.mcp.inputs import (
     require_aware_datetime,
     validate_slug,
 )
-from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
+from ludamus.gates.mcp.organizer_context import actor_sphere, event_json, token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
-from ludamus.pacts.event_settings import EventSlugTakenError
+from ludamus.pacts.event import (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+    EventVisibility,
+)
 from ludamus.pacts.mcp import ToolScope
 
 # What `Event.address` holds.
 ADDRESS_MAX_LENGTH = 255
 
 if TYPE_CHECKING:
-    from ludamus.gates.mcp.registry import ToolProtocol
-    from ludamus.pacts.legacy import EventUpdateData
+    from ludamus.gates.mcp.registry import OrganizerToolProtocol
+    from ludamus.pacts.event import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -76,6 +80,14 @@ class _UpdateEventInput(BaseModel):
             "omit to keep"
         ),
     )
+    visibility: EventVisibility | None = Field(
+        default=None,
+        description=(
+            "public: hidden until publication_time, then listed and announced; "
+            "unlisted: anyone with the link can open it at any time, never "
+            "listed or announced; omit to keep"
+        ),
+    )
     proposal_start_time: datetime | None = Field(
         default=None,
         description=("New aware proposal-window start; null unsets it; omit to keep"),
@@ -108,6 +120,15 @@ class _UpdateEventInput(BaseModel):
             "omit to keep"
         ),
     )
+    parley_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the event has a chat for everyone taking part; null "
+            "follows the sphere's parley_events_enabled; omit to keep. It "
+            "shows only while the sphere's parley_enabled is on too. "
+            "get_event returns what it comes to as parley_enabled_effective"
+        ),
+    )
 
     @field_validator("slug")
     @classmethod
@@ -135,6 +156,28 @@ class _SetEventImageInput(ImageUploadInput):
     )
 
 
+type EventRefusal = (
+    EventDatesInvalidError | EventPublicationInvalidError | EventSlugConflictError
+)
+EVENT_REFUSALS = (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+)
+
+
+def event_refusal(error: EventRefusal, *, slug: str | None) -> ToolError:
+    # `create_event` and `update_event` refuse in the same words: a caller
+    # should not have to learn a second vocabulary to edit what it just made.
+    match error:
+        case EventDatesInvalidError():
+            return ToolError("end_time must be after start_time")
+        case EventPublicationInvalidError():
+            return ToolError("publication_time must not be after start_time")
+        case EventSlugConflictError():
+            return ToolError(f"Slug already taken: {slug}")
+
+
 def _apply_event_update(
     *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
 ) -> str:
@@ -142,11 +185,16 @@ def _apply_event_update(
     services.event_settings.update_general(
         sphere_id=actor_sphere(actor), slug=event.slug, data=data
     )
-    return token_event(services=services, actor=actor).model_dump_json(indent=2)
+    return event_json(
+        services=services,
+        actor=actor,
+        event=token_event(services=services, actor=actor),
+    )
 
 
-# Split by what a null means in the database, which is the only distinction
-# between the two halves: one set of columns accepts it, the other does not.
+# Split by what a null means in the database: `_event_settings_cleared`
+# takes the columns that accept one; the columns that do not are cut in two
+# only to keep each function readable.
 def _event_settings_kept(body: _UpdateEventInput) -> EventUpdateData:
     """Collect the settings whose column rejects a null.
 
@@ -168,6 +216,19 @@ def _event_settings_kept(body: _UpdateEventInput) -> EventUpdateData:
         data["start_time"] = body.start_time
     if "end_time" in sent and body.end_time is not None:
         data["end_time"] = body.end_time
+    return data
+
+
+def _event_switches_kept(body: _UpdateEventInput) -> EventUpdateData:
+    """Collect the visibility and the flags, which also reject a null.
+
+    Returns:
+        The ones the caller sent to a value.
+    """
+    sent = body.model_fields_set
+    data: EventUpdateData = {}
+    if "visibility" in sent and body.visibility is not None:
+        data["visibility"] = body.visibility
     if "auto_confirm_sessions" in sent and body.auto_confirm_sessions is not None:
         data["auto_confirm_sessions"] = body.auto_confirm_sessions
     if (
@@ -196,6 +257,8 @@ def _event_settings_cleared(body: _UpdateEventInput) -> EventUpdateData:
         data["proposal_end_time"] = body.proposal_end_time
     if "allow_facilitator_session_edit" in sent:
         data["allow_facilitator_session_edit"] = body.allow_facilitator_session_edit
+    if "parley_enabled" in sent:
+        data["parley_enabled"] = body.parley_enabled
     return data
 
 
@@ -203,49 +266,45 @@ def _event_update_data(body: _UpdateEventInput) -> EventUpdateData:
     """Turn the sent settings into one write shape.
 
     Returns:
-        The union of the two halves, which never overlap.
+        The union of the three parts, which never overlap.
     """
-    return {**_event_settings_kept(body), **_event_settings_cleared(body)}
+    return {
+        **_event_settings_kept(body),
+        **_event_switches_kept(body),
+        **_event_settings_cleared(body),
+    }
 
 
 class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
     name = "update_event"
     description = (
         "Update any of the token event's settings: name, slug, description, "
-        "address, start/end times, publication and proposal windows, and the "
-        "programme flags. Only provided fields change. Images have their own "
+        "address, start/end times, publication, visibility, proposal windows, "
+        "the programme flags and the event chat. Only provided fields change. "
+        "Images have their own "
         "tool (set_event_image)."
     )
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _UpdateEventInput
 
     @staticmethod
     def handle(call: ToolCall[_UpdateEventInput]) -> str:
         if not (data := _event_update_data(call.data)):
             raise ToolError("Provide at least one field to update")
-        # The same three refusals `create_event` gives, in the same words: a
-        # caller should not have to learn a second vocabulary to edit what it
-        # just made.
         try:
             return _apply_event_update(
                 services=call.services, actor=call.actor, data=data
             )
-        except EventDatesInvalidError as error:
-            raise ToolError("end_time must be after start_time") from error
-        except EventPublicationInvalidError as error:
-            raise ToolError("publication_time must not be after start_time") from error
-        except EventSlugTakenError as error:
-            message = (
-                f"Another event in this sphere already uses the slug "
-                f"{call.data.slug!r}."
-            )
-            raise ToolError(message) from error
+        except EVENT_REFUSALS as error:
+            raise event_refusal(error, slug=call.data.slug) from error
 
 
 class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
     name = "set_event_image"
     description = "Replace the token event's cover image or printable logo."
     scope = ToolScope.ORGANIZER
+    needs_event = True
     input_model = _SetEventImageInput
     audit_redacted_keys = frozenset({"content_base64"})
 
@@ -260,5 +319,5 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-def event_tools() -> tuple[ToolProtocol, ...]:
+def event_tools() -> tuple[OrganizerToolProtocol, ...]:
     return (OrganizerUpdateEventTool(), OrganizerSetEventImageTool())

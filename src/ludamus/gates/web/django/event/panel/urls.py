@@ -3,17 +3,29 @@
 from django.db.transaction import non_atomic_requests
 from django.urls import include, path
 
-from ludamus.gates.web.django.chronology.panel.views import (
+from ludamus.gates.web.django.event.panel.views import (
     bans,
     cfp,
     columns,
+    confirmations,
+    discount_settings,
     discounts,
+    enrollment_settings,
+    errata,
+    event_create,
     event_settings,
+    export,
+    facilitator_actions,
+    facilitator_edit,
     facilitators,
     google_docs_import,
     index,
     integrations,
+    konwencik_export,
+    mcp_token,
     personal_data_fields,
+    print_redirects,
+    proposal_category_settings,
     proposal_edit,
     proposals,
     session_fields,
@@ -21,18 +33,6 @@ from ludamus.gates.web.django.chronology.panel.views import (
     timetable,
     tracks,
     venues,
-)
-from ludamus.gates.web.django.event.panel.views import (
-    confirmations,
-    discount_settings,
-    enrollment_settings,
-    errata,
-    facilitator_actions,
-    facilitator_edit,
-    konwencik_export,
-    mcp_token,
-    print_redirects,
-    proposal_category_settings,
 )
 
 app_name = "panel"  # pylint: disable=invalid-name
@@ -120,6 +120,9 @@ _timetable_urlpatterns = [
 
 urlpatterns = [
     path("", index.PanelIndexRedirectView.as_view(), name="index"),
+    path(
+        "events/new/", event_create.EventCreatePageView.as_view(), name="event-create"
+    ),
     path("event/<slug:slug>/", index.EventIndexPageView.as_view(), name="event-index"),
     path(
         "event/<slug:slug>/settings/",
@@ -305,6 +308,11 @@ urlpatterns = [
         name="proposal-columns",
     ),
     path(
+        "event/<slug:slug>/proposals/export/",
+        export.ProposalExportPageView.as_view(),
+        name="proposal-export",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/history/",
         proposals.ProposalHistoryPageView.as_view(),
         name="proposal-history",
@@ -452,6 +460,11 @@ urlpatterns = [
         name="facilitator-columns",
     ),
     path(
+        "event/<slug:slug>/facilitators/export/",
+        export.FacilitatorExportPageView.as_view(),
+        name="facilitator-export",
+    ),
+    path(
         "event/<slug:slug>/facilitators/do/bulk-action",
         facilitators.FacilitatorBulkActionView.as_view(),
         name="facilitator-bulk-action",
@@ -523,7 +536,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/discounts/export/",
-        discounts.DiscountExportPageView.as_view(),
+        export.DiscountExportPageView.as_view(),
         name="discount-export",
     ),
     path(

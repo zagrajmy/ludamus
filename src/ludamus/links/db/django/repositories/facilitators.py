@@ -13,19 +13,17 @@ from ludamus.links.db.django.agenda_item import (
     scheduled_item_count,
 )
 from ludamus.links.db.django.models import Facilitator, PersonalDataFieldValue
-from ludamus.pacts import (
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.facilitators import (
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
-    NotFoundError,
 )
-from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
-from ludamus.pacts.submissions import (
-    FacilitatorListFilters,
-    FacilitatorSessionCountsDTO,
-)
+from ludamus.pacts.fields import TEXT_FIELD_KINDS
+from ludamus.pacts.propose import FacilitatorListFilters, FacilitatorSessionCountsDTO
+from ludamus.pacts.timetable import ConfirmationCountsRow, ConfirmationFacilitatorRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -74,6 +72,13 @@ def _live_session_count() -> Count:
     # merge basket share the expression so the two can never disagree about a
     # facilitator the organizer is choosing a survivor for.
     return Count("sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True)
+
+
+def _list_items(qs: QuerySet[Facilitator]) -> QuerySet[Facilitator]:
+    # Every `FacilitatorListItemDTO` source annotates the same two columns.
+    return qs.annotate(
+        session_count=_live_session_count(), organizer_name=F("organizer__name")
+    )
 
 
 class FacilitatorRepository(FacilitatorRepositoryProtocol):
@@ -178,9 +183,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
-        qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=_live_session_count(), organizer_name=F("organizer__name")
-        )
+        qs = _list_items(Facilitator.objects.filter(event_id=event_id))
 
         if pks := filters.get("pks"):
             qs = qs.filter(pk__in=pks)
@@ -189,7 +192,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             # Text personal-data values are stored JSON-encoded; match both the
             # raw string and its JSON-escaped form (mirrors proposals search).
             encoded = json.dumps(search)[1:-1]
-            text_value = Q(personal_data__field__field_type="text") & (
+            text_value = Q(personal_data__field__field_type__in=TEXT_FIELD_KINDS) & (
                 Q(personal_data__value__icontains=search)
                 | Q(personal_data__value__icontains=encoded)
             )
@@ -223,13 +226,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     def list_deleted_by_event(event_id: int) -> list[FacilitatorListItemDTO]:
         # The bin, newest deletion first — the row an organizer is looking for
         # is almost always the one they just deleted.
-        qs = (
+        qs = _list_items(
             Facilitator.all_objects.filter(event_id=event_id, deleted_at__isnull=False)
-            .annotate(
-                session_count=_live_session_count(), organizer_name=F("organizer__name")
-            )
-            .order_by("-deleted_at", "display_name", "pk")
-        )
+        ).order_by("-deleted_at", "display_name", "pk")
         return [FacilitatorListItemDTO.model_validate(f) for f in qs]
 
     @staticmethod
@@ -238,9 +237,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     ) -> list[FacilitatorListItemDTO]:
         if not facilitator_slugs:
             return []
-        facilitators = Facilitator.objects.filter(
-            event_id=event_id, slug__in=facilitator_slugs
-        ).annotate(session_count=_live_session_count())
+        facilitators = _list_items(
+            Facilitator.objects.filter(event_id=event_id, slug__in=facilitator_slugs)
+        )
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
         # have drops out rather than raising.
@@ -344,6 +343,25 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if missing := [pk for pk in wanted if pk not in locked]:
             msg = f"Facilitators not found or deleted: {missing}"
             raise NotFoundError(msg)
+
+    @staticmethod
+    def lock_by_event_and_slugs(
+        event_id: int, slugs: list[str]
+    ) -> list[FacilitatorDTO]:
+        # `lock` by slug, returning the rows as locked. `of=("self",)`: the
+        # organizer-name join is outer, and Postgres refuses to lock its
+        # nullable side.
+        facilitators = list(
+            _readable_facilitators()
+            .select_for_update(of=("self",))
+            .filter(event_id=event_id, slug__in=slugs)
+            .order_by("pk")
+        )
+        found = {f.slug for f in facilitators}
+        if missing := [slug for slug in slugs if slug not in found]:
+            msg = f"Facilitators not found or deleted: {missing}"
+            raise NotFoundError(msg)
+        return [FacilitatorDTO.model_validate(f) for f in facilitators]
 
     @staticmethod
     def count_sessions(pk: int) -> FacilitatorSessionCountsDTO:

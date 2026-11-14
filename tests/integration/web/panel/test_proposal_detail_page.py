@@ -15,22 +15,21 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import (
-    AgendaItemDTO,
-    FacilitatorDTO,
-    ScheduleChangeAction,
-    ScheduleChangeLogDTO,
-    SessionDTO,
-    SessionStatus,
-    TimeSlotDTO,
-    TrackDTO,
-)
-from ludamus.pacts.chronology import (
+from ludamus.pacts.event import TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.submissions import ImportLogEntryDTO
+from ludamus.pacts.propose import ImportLogEntryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import (
+    AgendaItemDTO,
+    ScheduleChangeAction,
+    ScheduleChangeLogDTO,
+)
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
@@ -363,7 +362,7 @@ class TestProposalDetailPageView:
                 "agenda_item": AgendaItemDTO(
                     end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
                     pk=agenda_item.pk,
-                    session_confirmed=False,
+                    schedule_confirmed=False,
                     start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
                     space_id=space.pk,
                     space_name="Main Hall",
@@ -372,6 +371,7 @@ class TestProposalDetailPageView:
                     session_description="",
                     presenter_name="Host",
                     session_duration_minutes=120,
+                    session_participants_limit=session.participants_limit,
                     session_status=SessionStatus.PENDING,
                     category_name="RPG",
                     category_id=session.category_id,
@@ -643,7 +643,7 @@ class TestProposalDetailPageView:
                 "agenda_item": AgendaItemDTO(
                     end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
                     pk=agenda_item.pk,
-                    session_confirmed=False,
+                    schedule_confirmed=False,
                     start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
                     space_id=space.pk,
                     space_name="Main Hall",
@@ -652,6 +652,7 @@ class TestProposalDetailPageView:
                     session_description="",
                     presenter_name="Host",
                     session_duration_minutes=120,
+                    session_participants_limit=session.participants_limit,
                     session_status=SessionStatus.ACCEPTED,
                     category_name="RPG",
                     category_id=session.category_id,

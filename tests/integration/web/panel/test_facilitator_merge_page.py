@@ -1,9 +1,13 @@
 """Integration tests for the facilitator merge flow."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from http import HTTPStatus
 from itertools import starmap
 
+import pytest
 from django.contrib import messages
+from django.db import connection, transaction
 from django.urls import reverse
 
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
@@ -18,7 +22,9 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
 )
-from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -39,6 +45,27 @@ def _make_facilitator(event, *, display_name, slug, **kwargs):
     )
 
 
+BLOCKED_QUERY_TIMEOUT_SECONDS = 10
+
+
+def _wait_for_a_blocked_query():
+    deadline = time.monotonic() + BLOCKED_QUERY_TIMEOUT_SECONDS
+    with connection.cursor() as cursor:
+        while time.monotonic() < deadline:
+            # NOTE: Postgres caches pg_stat_activity for the rest of the
+            # transaction, and the caller polls inside the one holding the lock.
+            cursor.execute("SELECT pg_stat_clear_snapshot()")
+            cursor.execute(
+                "SELECT 1 FROM pg_stat_activity"
+                " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+            )
+            if cursor.fetchone():
+                return
+            time.sleep(0.01)
+    msg = "No query blocked on a lock in time"
+    raise TimeoutError(msg)
+
+
 def _event_context(event):
     return {
         **panel_context(event, active_nav="facilitators"),
@@ -49,6 +76,7 @@ def _event_context(event):
             "columns": reverse(
                 "panel:facilitator-columns", kwargs={"slug": event.slug}
             ),
+            "export": reverse("panel:facilitator-export", kwargs={"slug": event.slug}),
             "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
         },
     }
@@ -99,11 +127,15 @@ def _confirm_context(
     error,
     unanimous_display_name=None,
     unanimous_accreditation=None,
+    target=None,
 ):
+    target_pk = (target or facilitators[0]).pk
+    dtos = [FacilitatorDTO.model_validate(f) for f in facilitators]
     return {
         **_event_context(event),
         "confirm": True,
-        "facilitators": [FacilitatorDTO.model_validate(f) for f in facilitators],
+        "facilitators": dtos,
+        "target_choices": [(dto, dto.pk == target_pk) for dto in dtos],
         "name_choices": name_choices,
         "unanimous_display_name": unanimous_display_name,
         "accreditation_choices": list(
@@ -152,6 +184,26 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(
                 event, basket=[adam], search_query="Adam", search_results=[nowak]
             ),
+        )
+
+    def test_basket_carries_the_organizer_name(self, panel_client, event):
+        organizer = UserFactory(name="Olga Organizer")
+        adam = _make_facilitator(
+            event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            organizer=organizer,
+        )
+
+        response = panel_client.get(
+            self.get_url(event), {"facilitator_slugs": ["adam-kowalski"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam]),
         )
 
     def test_add_and_remove_adjust_the_basket(self, panel_client, event):
@@ -314,6 +366,95 @@ class TestFacilitatorMergeConfirm:
             ),
         )
 
+    def test_confirm_defaults_follow_the_chosen_target(self, panel_client, event):
+        adam = _make_facilitator(
+            event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            accreditation_type="guest",
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Diet?",
+            slug="diet",
+            field_type="text",
+            order=0,
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=adam, event=event, field=field, value="Vegan"
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=jan, event=event, field=field, value="Vegetarian"
+        )
+
+        response = panel_client.get(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
+                "confirm": "1",
+                "target_slug": "jan-wysocki",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, jan],
+                target=jan,
+                name_choices=[("Adam Kowalski", False), ("Jan Wysocki", True)],
+                accreditation_choices=[
+                    ("guest", "Adam Kowalski", False),
+                    ("none", "Jan Wysocki", True),
+                ],
+                field_choices=[
+                    (
+                        _field_dto(field),
+                        [
+                            (adam.pk, "Vegan", "Adam Kowalski", False),
+                            (jan.pk, "Vegetarian", "Jan Wysocki", True),
+                        ],
+                    )
+                ],
+                error=None,
+            ),
+        )
+
+    def test_confirm_ignores_a_target_outside_the_selection(self, panel_client, event):
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+        _make_facilitator(EventFactory(), display_name="Ola Nowak", slug="ola-nowak")
+
+        response = panel_client.get(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
+                "confirm": "1",
+                "target_slug": "ola-nowak",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, jan],
+                name_choices=[("Adam Kowalski", True), ("Jan Wysocki", False)],
+                accreditation_choices=[],
+                unanimous_accreditation="none",
+                field_choices=[],
+                error=None,
+            ),
+        )
+
     def test_confirm_asks_about_nothing_the_facilitators_agree_on(
         self, panel_client, event
     ):
@@ -455,6 +596,45 @@ class TestFacilitatorMergeConfirm:
         )
         target.refresh_from_db()
         assert target.organizer_id == one.pk
+
+    @pytest.mark.postgres
+    @pytest.mark.django_db(transaction=True)
+    def test_post_keeps_a_claim_committed_while_the_merge_waits(
+        self, panel_client, event
+    ):
+        # The claim holds the target's row lock while the merge starts, so the
+        # merge must block, and only decide what to write once the claim has
+        # committed. Deciding from a pre-lock read would overwrite the claimer
+        # with the source's organizer.
+        claimer = UserFactory(username="claimer", email="claimer@example.com")
+        inherited = UserFactory(username="inherited", email="inherited@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk=source.pk).update(organizer=inherited)
+
+        def merge():
+            try:
+                return self._merge_alice(panel_client, event)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with transaction.atomic():
+                assert FacilitatorRepository.claim(target.pk, claimer.pk)
+                future = pool.submit(merge)
+                _wait_for_a_blocked_query()
+            response = future.result()
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == claimer.pk
 
     def test_post_clears_disagreeing_organizers_of_an_unheld_target(
         self, panel_client, event
@@ -686,8 +866,8 @@ class TestFacilitatorMergeConfirm:
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
-                "target_slug": "adam-kowalski",
-                "display_name": "Adam Kowalski",
+                "target_slug": "jan-wysocki",
+                "display_name": "Jan Wysocki",
                 "accreditation_type": "none",
             },
         )
@@ -699,7 +879,8 @@ class TestFacilitatorMergeConfirm:
             context_data=_confirm_context(
                 event,
                 facilitators=[adam, jan],
-                name_choices=[("Adam Kowalski", True), ("Jan Wysocki", False)],
+                target=jan,
+                name_choices=[("Adam Kowalski", False), ("Jan Wysocki", True)],
                 accreditation_choices=[],
                 unanimous_accreditation="none",
                 field_choices=[],

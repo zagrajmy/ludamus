@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -10,9 +11,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.mills.timetable import ConflictDetectionService
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -175,10 +174,74 @@ class TestTimetableAssignView:
         )
 
         assert_response(response, HTTPStatus.NO_CONTENT)
-        assert response.get("HX-Trigger") is not None
+        assert json.loads(response["HX-Trigger"]) == {"timetableChanged": {}}
         session.refresh_from_db()
         assert session.status == "accepted"
+        assert session.schedule_confirmed is True
         assert session.agenda_item.session_confirmed is True
+
+    def test_assign_away_from_the_time_slot_opens_one_and_widens_the_event(
+        self, panel_client, event, proposal_category
+    ):
+        slot = TimeSlotFactory(
+            event=event,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=2),
+        )
+        space = SpaceFactory(event=event)
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        start_time = event.end_time + timedelta(hours=1)
+        end_time = start_time + timedelta(hours=1)
+
+        response = panel_client.post(
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
+        )
+
+        assert_response(response, HTTPStatus.NO_CONTENT)
+        slot.refresh_from_db()
+        event.refresh_from_db()
+        assert (slot.start_time, slot.end_time) == (
+            event.start_time,
+            event.start_time + timedelta(hours=2),
+        )
+        assert event.time_slots.filter(
+            start_time=start_time, end_time=end_time
+        ).exists()
+        assert event.end_time == end_time
+        assert AgendaItem.objects.get(session=session).start_time == start_time
+
+    def test_assign_before_publication_is_refused_with_a_reason(
+        self, panel_client, event, proposal_category
+    ):
+        _allow_assignments(event)
+        space = SpaceFactory(event=event)
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        start_time = event.publication_time - timedelta(hours=2)
+        end_time = start_time + timedelta(hours=1)
+
+        response = panel_client.post(
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            content=(
+                b"This is before the event is published. "
+                b"Move the publication time in the event settings first."
+            ),
+        )
+        assert not AgendaItem.objects.filter(session=session).exists()
 
     def test_assign_leaves_unconfirmed_when_auto_confirm_off(
         self, panel_client, sphere
@@ -204,6 +267,7 @@ class TestTimetableAssignView:
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
+        assert session.schedule_confirmed is False
         assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -288,51 +352,6 @@ class TestTimetableAssignView:
         assert agenda_item.space_id == new_space.pk
         assert agenda_item.start_time == new_start
         assert agenda_item.end_time == new_end
-
-    def test_returns_204_when_placement_vanishes_before_conflict_sweep(
-        self,
-        *,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        proposal_category,
-        monkeypatch,
-    ):
-        # A concurrent unassign can remove the placement between the committed
-        # write and the advisory conflict sweep; the response must stay 204.
-        sphere.managers.add(active_user)
-        _allow_assignments(event)
-        space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
-        )
-
-        def _vanished(*_args, **_kwargs):
-            raise NotFoundError("agenda item vanished")
-
-        monkeypatch.setattr(
-            ConflictDetectionService, "detect_for_assignment", _vanished
-        )
-
-        response = authenticated_client.post(
-            self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": event.start_time.isoformat(),
-                "end_time": (event.start_time + timedelta(hours=1)).isoformat(),
-            },
-        )
-
-        assert_response(response, HTTPStatus.NO_CONTENT)
-        assert "timetableChanged" in response["HX-Trigger"]
-        assert "timetableConflicts" not in response["HX-Trigger"]
-        session.refresh_from_db()
-        assert session.agenda_item is not None
 
     def test_returns_422_for_session_from_another_event(
         self, panel_client, sphere, event

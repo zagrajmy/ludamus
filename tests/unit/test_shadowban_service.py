@@ -1,61 +1,82 @@
-from contextlib import contextmanager
+from datetime import UTC, datetime
+from uuid import UUID
 
-from ludamus.mills.safety import ShadowbanService
+from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.pacts.safety import (
+    EventBanDTO,
     SessionShadowbanWarningDTO,
     ShadowbanCandidateDTO,
     ShadowbanEventSignupDTO,
     ShadowbanHitDTO,
+    ShadowbanSignupNotification,
 )
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from tests.unit.factories import FakeTransaction
 
 _PRESENTER_ID = 7
 _OTHER_PRESENTER_ID = 8
 _SESSION_ID = 42
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
+_NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
+_USER_ID_BY_SLUG = {"bob": 2, "alice": 3}
+_SLUG_BY_USER_ID = {pk: slug for slug, pk in _USER_ID_BY_SLUG.items()}
 
 
 class FakeRepo:
-    def __init__(self, *, candidates=None, signup=None, warnings=None):
-        self._candidates = list(candidates or [])
+    def __init__(self, *, signup):
         self._signup = signup
-        self._warnings = list(warnings or [])
-        self.set_calls: list[tuple[int, str, bool]] = []
-        self.identifier_calls: list[tuple[int, str]] = []
-        self.found = True
+        self.bans = set()
+        self.signup_reads = 0
+        self.ignore_filter = False
 
-    def list_candidates(self, _owner_id):
-        return self._candidates
-
-    def set_shadowban(self, *, owner_id, target_slug, banned):
-        self.set_calls.append((owner_id, target_slug, banned))
-
-    def shadowban_by_identifier(self, *, owner_id, identifier):
-        self.identifier_calls.append((owner_id, identifier))
-        return self.found
-
-    def read_event_signup(self, *, signed_up_ids, **_kwargs):
-        if self._signup is None:
+    def read_event_signup(self, *, session_id, signed_up_ids):
+        self.signup_reads += 1
+        if self._signup is None or session_id != _SESSION_ID:
             return None
         return ShadowbanEventSignupDTO(
             event_slug=self._signup.event_slug,
             event_name=self._signup.event_name,
             session_title=self._signup.session_title,
             sphere_domain=self._signup.sphere_domain,
-            hits=[h for h in self._signup.hits if h.banned_user_id in signed_up_ids],
+            hits=[
+                h
+                for h in self._signup.hits
+                if self.ignore_filter or h.banned_user_id in signed_up_ids
+            ],
         )
 
-    def list_session_shadowbanned(self, **_kwargs):
-        return self._warnings
+    def list_candidates(self, owner_id):
+        return [
+            _candidate(slug, is_shadowbanned=(owner_id, slug) in self.bans)
+            for slug in _USER_ID_BY_SLUG
+        ]
+
+    def banned_user_ids(self, owner_id):
+        return {
+            _USER_ID_BY_SLUG[slug] for owner, slug in self.bans if owner == owner_id
+        }
+
+    def banning_owner_ids(self, target_id):
+        slug = _SLUG_BY_USER_ID[target_id]
+        return {owner for owner, banned in self.bans if banned == slug}
+
+    def set_shadowban(self, *, owner_id, target_slug, banned):
+        if banned:
+            self.bans.add((owner_id, target_slug))
+        else:
+            self.bans.discard((owner_id, target_slug))
+
+    def shadowban_by_identifier(self, *, owner_id, identifier):
+        if identifier not in _USER_ID_BY_SLUG:
+            return False
+        self.bans.add((owner_id, identifier))
+        return True
+
+    def list_session_shadowbanned(self, *, viewer_id, session_id):
+        # NOTE: bob is the one player seated in the session.
+        seated_and_banned = (
+            session_id == _SESSION_ID and (viewer_id, "bob") in self.bans
+        )
+        return [_warning()] if seated_and_banned else []
 
 
 class FakeNotifier:
@@ -70,12 +91,45 @@ def _service(repo, notifier=None):
     return ShadowbanService(FakeTransaction(), repo, notifier or FakeNotifier())
 
 
-def _hit(recipient_id, email, banned_user_id, *, in_session=False):
+def _candidate(slug, *, is_shadowbanned):
+    return ShadowbanCandidateDTO(
+        pk=_USER_ID_BY_SLUG[slug],
+        full_name=slug.title(),
+        username=slug,
+        slug=slug,
+        avatar_url="",
+        is_shadowbanned=is_shadowbanned,
+    )
+
+
+def _warning():
+    return SessionShadowbanWarningDTO(
+        user=UserDTO(
+            privacy_revision=UUID(int=1),
+            age_band=AgeBand.UNKNOWN,
+            avatar_url="",
+            date_joined=_NOW,
+            discord_username="",
+            email="bob@example.com",
+            full_name="Bob",
+            is_active=True,
+            is_authenticated=True,
+            is_staff=False,
+            is_superuser=False,
+            name="Bob",
+            pk=_USER_ID_BY_SLUG["bob"],
+            slug="bob",
+            use_gravatar=False,
+            user_type=UserType.ACTIVE,
+            username="bob",
+        ),
+        shadowbanned_at=_NOW,
+    )
+
+
+def _hit(recipient_id, banned_user_id):
     return ShadowbanHitDTO(
-        recipient_id=recipient_id,
-        recipient_email=email,
-        banned_user_id=banned_user_id,
-        in_session=in_session,
+        recipient_id=recipient_id, banned_user_id=banned_user_id, in_session=False
     )
 
 
@@ -89,103 +143,9 @@ def _signup(*hits):
     )
 
 
-def test_list_candidates_passes_through():
-    candidate = ShadowbanCandidateDTO(
-        pk=1,
-        full_name="Bob",
-        username="bob",
-        slug="bob",
-        avatar_url="",
-        is_shadowbanned=True,
-    )
-    service = _service(FakeRepo(candidates=[candidate]))
-
-    result = service.list_candidates(_PRESENTER_ID)
-
-    assert result == [candidate]
-
-
-def test_list_session_warnings_passes_through():
-    warning = SessionShadowbanWarningDTO.model_construct(
-        user=None, shadowbanned_at=None
-    )
-    service = _service(FakeRepo(warnings=[warning]))
-
-    result = service.list_session_warnings(viewer_id=_PRESENTER_ID, session_id=1)
-
-    assert result == [warning]
-
-
-def test_set_shadowban_delegates_to_repo():
-    repo = FakeRepo()
-    service = _service(repo)
-
-    service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=True)
-
-    assert repo.set_calls == [(_PRESENTER_ID, "bob", True)]
-
-
-def test_add_by_identifier_trims_and_returns_found():
-    repo = FakeRepo()
-    service = _service(repo)
-
-    found = service.add_by_identifier(owner_id=_PRESENTER_ID, identifier="  bob  ")
-
-    assert found is True
-    assert repo.identifier_calls == [(_PRESENTER_ID, "bob")]
-
-
-def test_add_by_identifier_rejects_blank():
-    repo = FakeRepo()
-    service = _service(repo)
-
-    found = service.add_by_identifier(owner_id=_PRESENTER_ID, identifier="   ")
-
-    assert found is False
-    assert not repo.identifier_calls
-
-
-def test_notify_signups_emails_presenter_about_banned_players():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
-    notifier = FakeNotifier()
-    service = _service(repo, notifier)
-
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
-
-    assert len(notifier.signups) == 1
-    notification = notifier.signups[0]
-    assert notification.recipient_user_id == _PRESENTER_ID
-    assert notification.recipient_email == "gm@example.com"
-    assert notification.event_slug == "con-2026"
-    assert notification.player_names == ["Bob"]
-    assert notification.session_player_names == []
-
-
-def test_notify_signups_discerns_signup_into_recipients_session():
-    repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2, in_session=True),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
-        )
-    )
-    notifier = FakeNotifier()
-    service = _service(repo, notifier)
-
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
-
-    assert len(notifier.signups) == 1
-    notification = notifier.signups[0]
-    assert notification.session_player_names == ["Bob"]
-    assert notification.player_names == ["Alice"]
-    assert notification.session_title == "Deniable Game"
-
-
 def test_notify_signups_notifies_every_banner_in_the_event():
     repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_OTHER_PRESENTER_ID, "other@example.com", 3),
-        )
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 3))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
@@ -201,26 +161,35 @@ def test_notify_signups_notifies_every_banner_in_the_event():
 def test_notify_signups_dedupes_repeated_user_id():
     repo = FakeRepo(
         signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
+            _hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 3)
         )
+    )
+    notifier = FakeNotifier()
+    service = _service(repo, notifier)
+
+    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")])
+
+    assert len(notifier.signups) == 1
+    assert notifier.signups[0].player_names == ["Bob", "Alice"]
+
+
+def test_notify_signups_dedupes_per_recipient():
+    repo = FakeRepo(
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 2))
     )
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
     service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob")])
 
-    assert len(notifier.signups) == 1
-    assert notifier.signups[0].player_names == ["Bob"]
+    assert [(n.recipient_user_id, n.player_names) for n in notifier.signups] == [
+        (_PRESENTER_ID, ["Bob"]),
+        (_OTHER_PRESENTER_ID, ["Bob"]),
+    ]
 
 
 def test_notify_signups_reports_distinct_users_sharing_a_name():
-    repo = FakeRepo(
-        signup=_signup(
-            _hit(_PRESENTER_ID, "gm@example.com", 2),
-            _hit(_PRESENTER_ID, "gm@example.com", 3),
-        )
-    )
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_PRESENTER_ID, 3)))
     notifier = FakeNotifier()
     service = _service(repo, notifier)
 
@@ -229,41 +198,231 @@ def test_notify_signups_reports_distinct_users_sharing_a_name():
     assert notifier.signups[0].player_names == ["Bob", "Bob"]
 
 
-def test_notify_signups_skips_presenter_with_no_resolvable_names():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
+def test_notify_signups_skips_a_hit_for_a_player_not_in_the_signup():
+    # The repo may return hits for a banned id the caller did not name; with
+    # no display name to report, the recipient gets nothing.
+    repo = FakeRepo(
+        signup=_signup(_hit(_PRESENTER_ID, 2), _hit(_OTHER_PRESENTER_ID, 9))
+    )
+    repo.ignore_filter = True
     notifier = FakeNotifier()
-    service = _service(repo, notifier)
 
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "")])
+    _service(repo, notifier).notify_signups(
+        session_id=_SESSION_ID, signed_up=[(9, "Zed")]
+    )
+
+    assert [(n.recipient_user_id, n.player_names) for n in notifier.signups] == [
+        (_OTHER_PRESENTER_ID, ["Zed"])
+    ]
+
+
+def test_notify_signups_splits_event_and_session_players():
+    repo = FakeRepo(
+        signup=_signup(
+            _hit(_PRESENTER_ID, 2),
+            ShadowbanHitDTO(
+                recipient_id=_PRESENTER_ID, banned_user_id=3, in_session=True
+            ),
+        )
+    )
+    notifier = FakeNotifier()
+
+    _service(repo, notifier).notify_signups(
+        session_id=_SESSION_ID, signed_up=[(2, "Bob"), (3, "Alice")]
+    )
+
+    assert notifier.signups == [
+        ShadowbanSignupNotification(
+            recipient_user_id=_PRESENTER_ID,
+            event_slug="con-2026",
+            event_name="Con 2026",
+            session_title="Deniable Game",
+            sphere_domain="con.example.net",
+            player_names=["Bob"],
+            session_player_names=["Alice"],
+        )
+    ]
+
+
+def test_notify_signups_with_nobody_signed_up_is_a_noop():
+    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, 2)))
+    notifier = FakeNotifier()
+
+    _service(repo, notifier).notify_signups(session_id=_SESSION_ID, signed_up=[])
+
+    assert not notifier.signups
+    assert repo.signup_reads == 0
+
+
+def test_notify_signups_without_hits_or_session_is_a_noop():
+    notifier = FakeNotifier()
+
+    _service(FakeRepo(signup=None), notifier).notify_signups(
+        session_id=_SESSION_ID, signed_up=[(2, "Bob")]
+    )
+    _service(FakeRepo(signup=_signup()), notifier).notify_signups(
+        session_id=_SESSION_ID, signed_up=[(2, "Bob")]
+    )
 
     assert not notifier.signups
 
 
-def test_notify_signups_silent_when_no_banned_players():
-    repo = FakeRepo(signup=_signup())
-    notifier = FakeNotifier()
-    service = _service(repo, notifier)
-
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob")])
-
-    assert not notifier.signups
-
-
-def test_notify_signups_silent_when_no_signups():
-    repo = FakeRepo(signup=_signup(_hit(_PRESENTER_ID, "gm@example.com", 2)))
-    notifier = FakeNotifier()
-    service = _service(repo, notifier)
-
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[])
-
-    assert not notifier.signups
-
-
-def test_notify_signups_silent_when_session_has_no_event():
+def test_a_ban_shows_on_both_sides_and_in_the_session_it_touches():
     repo = FakeRepo(signup=None)
-    notifier = FakeNotifier()
-    service = _service(repo, notifier)
+    service = _service(repo)
 
-    service.notify_signups(session_id=_SESSION_ID, signed_up=[(2, "Bob")])
+    service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=True)
+    service.set_shadowban(owner_id=_OTHER_PRESENTER_ID, target_slug="bob", banned=True)
 
-    assert not notifier.signups
+    assert service.banned_user_ids(_PRESENTER_ID) == {_USER_ID_BY_SLUG["bob"]}
+    assert service.banning_owner_ids(_USER_ID_BY_SLUG["bob"]) == {
+        _PRESENTER_ID,
+        _OTHER_PRESENTER_ID,
+    }
+    assert service.list_candidates(_PRESENTER_ID) == [
+        _candidate("bob", is_shadowbanned=True),
+        _candidate("alice", is_shadowbanned=False),
+    ]
+    assert service.list_session_warnings(
+        viewer_id=_PRESENTER_ID, session_id=_SESSION_ID
+    ) == [_warning()]
+
+
+def test_an_unbanned_player_raises_no_session_warning():
+    service = _service(FakeRepo(signup=None))
+
+    assert not service.list_session_warnings(
+        viewer_id=_PRESENTER_ID, session_id=_SESSION_ID
+    )
+
+
+def test_set_shadowban_toggles_the_row():
+    repo = FakeRepo(signup=None)
+    service = _service(repo)
+
+    service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=True)
+    assert repo.bans == {(_PRESENTER_ID, "bob")}
+
+    service.set_shadowban(owner_id=_PRESENTER_ID, target_slug="bob", banned=False)
+    assert repo.bans == set()
+
+
+def test_add_by_identifier_rejects_blank_input_without_touching_the_repo():
+    repo = FakeRepo(signup=None)
+
+    assert (
+        _service(repo).add_by_identifier(owner_id=_PRESENTER_ID, identifier="  ")
+        is False
+    )
+    assert repo.bans == set()
+
+
+def test_add_by_identifier_strips_and_reports_the_repo_answer():
+    repo = FakeRepo(signup=None)
+    service = _service(repo)
+
+    assert service.add_by_identifier(owner_id=_PRESENTER_ID, identifier=" bob ") is True
+    assert (
+        service.add_by_identifier(owner_id=_PRESENTER_ID, identifier="nobody") is False
+    )
+    assert repo.bans == {(_PRESENTER_ID, "bob")}
+
+
+class FakeEventBans:
+    def __init__(self):
+        self.rows = {}
+        self._next = 1
+
+    def list_by_event(self, event_id):
+        return [ban for (event, _), ban in self.rows.items() if event == event_id]
+
+    def is_banned(self, *, event_id, user_id):
+        return any(
+            event == event_id and ban.user_slug == _SLUG_BY_USER_ID.get(user_id)
+            for (event, _), ban in self.rows.items()
+        )
+
+    def banned_event_ids(self, *, event_ids, user_id):
+        return {e for e in event_ids if self.is_banned(event_id=e, user_id=user_id)}
+
+    def ban(self, *, event_id, identifier, reason):
+        if identifier not in _USER_ID_BY_SLUG:
+            return None
+        self.rows[event_id, self._next] = EventBanDTO(
+            pk=self._next,
+            user_name=identifier.title(),
+            user_slug=identifier,
+            reason=reason,
+            created_at=_NOW,
+        )
+        self._next += 1
+        return _USER_ID_BY_SLUG[identifier]
+
+    def unban(self, *, event_id, ban_id):
+        del self.rows[event_id, ban_id]
+
+
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_event_user(self, *, event_id, user_id):
+        self.revoked.append((event_id, user_id))
+
+
+def _event_ban_service(chat=None):
+    repo = FakeEventBans()
+    return (
+        EventBanService(
+            transaction=FakeTransaction(), repo=repo, chat=chat or FakeChat()
+        ),
+        repo,
+    )
+
+
+def test_event_ban_rejects_blank_identifier():
+    service, repo = _event_ban_service()
+
+    assert service.ban(event_id=1, identifier="   ", reason="x") is False
+    assert not repo.rows
+
+
+def test_event_ban_unknown_identifier_reports_failure():
+    service, _ = _event_ban_service()
+
+    assert service.ban(event_id=1, identifier="nobody", reason="x") is False
+
+
+def test_event_ban_strips_input_and_scopes_reads_to_the_event():
+    service, _ = _event_ban_service()
+
+    assert service.ban(event_id=1, identifier=" bob ", reason=" spam ") is True
+
+    [ban] = service.list_for_event(1)
+    assert (ban.user_slug, ban.reason) == ("bob", "spam")
+    assert service.list_for_event(2) == []
+    assert service.is_banned(event_id=1, user_id=_USER_ID_BY_SLUG["bob"]) is True
+    assert service.is_banned(event_id=2, user_id=_USER_ID_BY_SLUG["bob"]) is False
+    assert service.banned_event_ids(
+        event_ids={1, 2}, user_id=_USER_ID_BY_SLUG["bob"]
+    ) == {1}
+
+
+def test_event_ban_takes_back_the_banned_persons_chat_pass():
+    chat = FakeChat()
+    service, _ = _event_ban_service(chat)
+
+    service.ban(event_id=1, identifier="bob", reason="")
+    service.ban(event_id=1, identifier="nobody", reason="")
+
+    assert chat.revoked == [(1, _USER_ID_BY_SLUG["bob"])]
+
+
+def test_event_unban_removes_the_row():
+    service, repo = _event_ban_service()
+    service.ban(event_id=1, identifier="bob", reason="")
+    [ban] = service.list_for_event(1)
+
+    service.unban(event_id=1, ban_id=ban.pk)
+
+    assert not repo.rows

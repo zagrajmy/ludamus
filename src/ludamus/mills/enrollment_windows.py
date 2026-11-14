@@ -7,11 +7,10 @@ window, which knows its period — whether one is open now or still to come.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from ludamus.pacts.enrollment import EnrollmentAccessDTO
+from ludamus.pacts.enrollment import EnrollmentAccessDTO, seat_cap, window_is_open
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -48,10 +47,7 @@ def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
 
 def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
     listed = list(windows)
-    return (
-        bool(listed)
-        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
-    )
+    return bool(listed) and not EnrollmentPolicy.for_guest(listed).can_enroll
 
 
 @dataclass(frozen=True)
@@ -78,8 +74,13 @@ class EnrollmentPolicy:
         )
 
     @classmethod
+    def for_guest(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
+        # An actor holding no pass: only the windows open to everyone.
+        return cls.for_actor(windows, is_configured_user=False)  # pragma: no mutate
+
+    @classmethod
     def for_anonymous(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
-        usable_windows = cls.for_actor(windows, is_configured_user=False).windows
+        usable_windows = cls.for_guest(windows).windows
         return cls(
             tuple(
                 window for window in usable_windows if window.allow_anonymous_enrollment
@@ -111,9 +112,14 @@ class EnrollmentPolicy:
         )
 
     def effective_participants_limit(self, *, participants_limit: int) -> int:
+        # An actor no window admits has no seat on offer, whatever the
+        # session's own cap (SessionSeatsDTO) says.
         if not self.windows:
             return 0
-        return math.ceil(participants_limit * self.percentage_slots / 100)
+        return seat_cap(
+            participants_limit=participants_limit,
+            percentage_slots=self.percentage_slots,
+        )
 
     def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
         if not self.windows:
@@ -149,7 +155,11 @@ def viewer_access(
     ]
     return EnrollmentAccessDTO(
         open_window_ids=frozenset(
-            window.pk for window in usable if window.start_time <= now < window.end_time
+            window.pk
+            for window in usable
+            if window_is_open(
+                start_time=window.start_time, end_time=window.end_time, now=now
+            )
         ),
         opens_at=min(
             (window.start_time for window in usable if window.start_time > now),

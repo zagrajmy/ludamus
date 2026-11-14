@@ -1,22 +1,27 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.event import EventDatesInvalidError, EventPublicationInvalidError
+from ludamus.mills.event import check_event_dates
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventSlugConflictError
 from ludamus.pacts.event_settings import (
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
-    EventSlugTakenError,
 )
-from ludamus.pacts.legacy import NotFoundError
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.specs.parley import event_chat_may_close
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO, EventUpdateData
     from ludamus.pacts.event_settings import (
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
-    from ludamus.pacts.legacy import EventDTO, EventProposalSettingsDTO, EventUpdateData
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -34,20 +39,24 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
         EventDatesInvalidError: the end would not be after the start.
         EventPublicationInvalidError: the event would publish after it starts.
     """
-    start = data.get("start_time", current.start_time)
-    if data.get("end_time", current.end_time) <= start:
-        raise EventDatesInvalidError
-    publication = data.get("publication_time", current.publication_time)
-    if publication is not None and publication > start:
-        raise EventPublicationInvalidError
+    check_event_dates(
+        start_time=data.get("start_time", current.start_time),
+        end_time=data.get("end_time", current.end_time),
+        publication_time=data.get("publication_time", current.publication_time),
+    )
 
 
 class EventSettingsService(EventSettingsServiceProtocol):
     def __init__(
-        self, *, transaction: TransactionProtocol, repos: EventSettingsRepos
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: EventSettingsRepos,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._chat = chat
 
     def update_general(
         self, *, sphere_id: int, slug: str, data: EventUpdateData
@@ -67,8 +76,17 @@ class EventSettingsService(EventSettingsServiceProtocol):
             if self._slug_held_by_other(
                 slug=data.get("slug"), sphere_id=sphere_id, event_pk=current_event.pk
             ):
-                raise EventSlugTakenError from exc
+                raise EventSlugConflictError from exc
             raise
+        if "parley_enabled" in data and event_chat_may_close(
+            was=current_event.parley_enabled, becomes=data["parley_enabled"]
+        ):
+            logger.info(
+                "parley event chat changed: event=%s to=%s",
+                current_event.pk,
+                data["parley_enabled"],
+            )
+            self._chat.revoke_event(event_id=current_event.pk)
 
     def _slug_held_by_other(
         self, *, slug: str | None, sphere_id: int, event_pk: int
@@ -86,24 +104,21 @@ class EventSettingsService(EventSettingsServiceProtocol):
         event = self._repos.events.read_by_slug(slug, sphere_id)
         fields = self._repos.session_fields.list_by_event(event.pk)
         public_fields = [field for field in fields if field.is_public]
-        display_settings = self._repos.event_settings.read_or_create(event.pk)
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
-            displayed_field_ids=display_settings.displayed_session_field_ids,
+            shown_on_cards_ids=[f.pk for f in public_fields if f.show_on_cards],
             has_any_fields=bool(fields),
         )
 
-    def update_displayed_fields(
+    def update_shown_on_cards(
         self, *, sphere_id: int, slug: str, selected_ids: list[int]
     ) -> None:
         event = self._repos.events.read_by_slug(slug, sphere_id)
-        valid_pks = {
-            field.pk
-            for field in self._repos.session_fields.list_by_event(event.pk)
-            if field.is_public
-        }
-        filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
-        self._repos.event_settings.update_displayed_fields(event.pk, filtered_ids)
+        with self._transaction.atomic():
+            self._repos.session_fields.show_on_cards_only(event.pk, selected_ids)
+        logger.info(
+            "Event %s requested session fields %s on cards", event.pk, selected_ids
+        )
 
     def get_proposal_settings(
         self, *, sphere_id: int, slug: str

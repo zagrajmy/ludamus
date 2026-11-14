@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.chronology import (
+from ludamus.pacts.enrollment import MembershipAPIError
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import (
     CheckOutcome,
     CheckResult,
     EventIntegrationCreateData,
@@ -23,21 +24,17 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     TicketingIntegrationImplementation,
 )
-from ludamus.pacts.legacy import MembershipAPIError
-from ludamus.pacts.multiverse import DecryptionError
-from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.propose import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.sphere import DecryptionError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from pydantic import BaseModel
 
-    from ludamus.pacts.legacy import TicketAPIProtocol
-    from ludamus.pacts.multiverse import (
-        ConnectionsRepositoryProtocol,
-        DecryptorProtocol,
-    )
+    from ludamus.pacts.enrollment import TicketAPIProtocol
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sphere import ConnectionsRepositoryProtocol, DecryptorProtocol
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -191,10 +188,19 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
-        raw = integration.questions_snapshot_json or "[]"
         try:
-            return _SOURCE_QUESTIONS_ADAPTER.validate_json(raw)
+            return _SOURCE_QUESTIONS_ADAPTER.validate_json(
+                integration.questions_snapshot_json
+            )
         except ValidationError:
+            # An empty snapshot is "[]"; an unreadable one is a broken row, so
+            # it reads as empty but must not look like an empty form.
+            logger.warning(
+                "Integration %s of event %s has an unreadable questions snapshot",
+                pk,
+                event_id,
+                exc_info=True,
+            )
             return []
 
     def populate_questions_snapshot(

@@ -13,20 +13,33 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.user import AgeBand
+
 # How much of each section a dashboard holds before it stops being a glance.
-# The agenda is uncapped: it is what this member already committed to, and
-# hiding part of that is worse than a long column.
+# The agenda is never cut, only folded: past this many rows the rest waits
+# behind a disclosure on the same page, so a long column does not push the
+# row of sections beside it down the screen. A held seat is never folded.
+DASHBOARD_AGENDA_GLANCE = 5
 DASHBOARD_SPHERE_FEED = 12
 DASHBOARD_OPEN_ENCOUNTERS = 8
 DASHBOARD_SPHERES_TO_DISCOVER = 6
+DASHBOARD_PAST_EVENTS = 12
 
 
 class DashboardRole(StrEnum):
     """Why a row is on this dashboard — the template's one branch."""
 
     SIGNED_UP = auto()
+    WAITLISTED = auto()
+    # A seat is held for this member until ``offer_expires_at``.
+    OFFERED = auto()
     ORGANIZING = auto()
+    # Presenting or facilitating a programme item.
+    RUNNING = auto()
     OPEN = auto()
+    # Starred, with no seat held: the card still says how much room is left.
+    BOOKMARKED = auto()
+    ATTENDED = auto()
 
 
 class DashboardCardDTO(BaseModel):
@@ -43,6 +56,10 @@ class DashboardCardDTO(BaseModel):
     attending_count: int = 0
     # 0 when the thing takes anyone, like a talk with no seat limit.
     capacity: int = 0
+    # Set for OFFERED rows only: when the held seat is released, and the
+    # dashboard action that claims it.
+    offer_expires_at: datetime | None = None
+    claim_url: str = ""
 
     @property
     def spots_remaining(self) -> int | None:
@@ -61,38 +78,62 @@ class DashboardSphereDTO(BaseModel):
 
 
 class DashboardDTO(BaseModel):
-    # What this member holds, soonest first.
+    # What this member holds or starred, soonest first: the rows in view,
+    # then the folded rest.
     agenda: list[DashboardCardDTO]
+    agenda_more: list[DashboardCardDTO]
     # Open encounters anyone may join, across every sphere.
     open_encounters: list[DashboardCardDTO]
     # What is coming up where this member already plays, minus their own rows.
     sphere_feed: list[DashboardCardDTO]
     discover: list[DashboardSphereDTO]
+    # Events this member was at, most recent first.
+    past_events: list[DashboardCardDTO]
 
 
 class SubscriptionRecipientDTO(BaseModel):
+    subscription_id: int
     user_id: int
     email: str
+    age_band: AgeBand
 
 
 class SphereEventAnnouncementDTO(BaseModel):
     event_pk: int
     event_name: str
     event_slug: str
+    sphere_id: int
     sphere_name: str
     # Site domain of the owning sphere — the notifier composes the absolute
     # event link from it, the same as the printables reminder does.
     sphere_domain: str
-    recipients: list[SubscriptionRecipientDTO]
 
 
 class SphereEventPublishedNotification(BaseModel):
+    subscription_id: int
     recipient_user_id: int
-    recipient_email: str
     event_name: str
     event_slug: str
     sphere_name: str
     sphere_domain: str
+    unsubscribe_token: str
+
+
+class SphereUnsubscribeTokenPayload(BaseModel):
+    """What an emailed unsubscribe link proves, without a login.
+
+    The sphere name rides along so the confirmation page can say what stops
+    without a lookup; the signature keeps it honest.
+    """
+
+    user_id: int
+    sphere_id: int
+    sphere_name: str
+
+
+class SphereUnsubscribeTokenCodecProtocol(Protocol):
+    def dumps(self, payload: SphereUnsubscribeTokenPayload) -> str: ...
+    def loads(self, token: str) -> SphereUnsubscribeTokenPayload | None: ...
 
 
 class DashboardRepositoryProtocol(Protocol):
@@ -110,13 +151,27 @@ class DashboardRepositoryProtocol(Protocol):
     def list_spheres_to_discover(
         user_id: int, *, now: datetime, limit: int
     ) -> list[DashboardSphereDTO]: ...
+    @staticmethod
+    def list_past_events(
+        user_id: int, *, now: datetime, limit: int
+    ) -> list[DashboardCardDTO]: ...
+
+
+class SubscriptionAgeRestrictedError(Exception):
+    pass
 
 
 class SphereSubscriptionRepositoryProtocol(Protocol):
     @staticmethod
+    def lock_subscriber_age_band(user_id: int) -> AgeBand: ...
+    @staticmethod
     def subscribe(*, sphere_id: int, user_id: int) -> None: ...
     @staticmethod
     def unsubscribe(*, sphere_id: int, user_id: int) -> None: ...
+    @staticmethod
+    def unsubscribe_everywhere(user_id: int) -> int: ...
+    @staticmethod
+    def list_recipients(sphere_id: int) -> list[SubscriptionRecipientDTO]: ...
     @staticmethod
     def list_pending_announcements(
         *, now: datetime
@@ -138,4 +193,10 @@ class DashboardServiceProtocol(Protocol):
 class SphereSubscriptionServiceProtocol(Protocol):
     def subscribe(self, *, sphere_id: int, user_id: int) -> None: ...
     def unsubscribe(self, *, sphere_id: int, user_id: int) -> None: ...
+    def read_unsubscribe_token(
+        self, token: str
+    ) -> SphereUnsubscribeTokenPayload | None: ...
+    def unsubscribe_by_token(
+        self, token: str
+    ) -> SphereUnsubscribeTokenPayload | None: ...
     def announce_published_events(self, *, now: datetime) -> int: ...

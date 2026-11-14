@@ -1,3 +1,5 @@
+import { postJson } from "./post-json";
+
 const root = document.getElementById("space-root-list");
 const rootDropTarget = document.getElementById("space-root-drop-target");
 
@@ -10,42 +12,29 @@ const saveOrder = async (list: HTMLElement): Promise<void> => {
   if (!root) return;
   const parentPk = list.dataset.parentPk ?? "";
   const spaceIds = directChildren(list).map((li) => Number.parseInt(li.dataset.spaceId ?? "", 10));
-  try {
-    const response = await fetch(root.dataset.reorderUrl ?? "", {
-      body: JSON.stringify({
-        parent_pk: parentPk === "" ? null : Number.parseInt(parentPk, 10),
-        space_ids: spaceIds,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": root.dataset.csrf ?? "",
-      },
-      method: "POST",
-    });
-    if (!response.ok) throw new Error("Reorder failed");
-  } catch {
-    globalThis.alert(root.dataset.reorderError ?? "Could not save the new order.");
-    globalThis.location.reload();
-  }
+  // NOTE: a refused save leaves the dragged order on screen; the next move
+  // posts the whole sibling list again, so it lands then.
+  await postJson({
+    body: {
+      parent_pk: parentPk === "" ? null : Number.parseInt(parentPk, 10),
+      space_ids: spaceIds,
+    },
+    csrfFrom: root,
+    failure: root.dataset.reorderError ?? "",
+    url: root.dataset.reorderUrl ?? "",
+  });
 };
 
 const moveToRoot = async (li: HTMLElement): Promise<void> => {
   if (!root || li.parentElement === root) return;
-  try {
-    const response = await fetch(root.dataset.moveToRootUrl ?? "", {
-      body: JSON.stringify({ space_id: Number.parseInt(li.dataset.spaceId ?? "", 10) }),
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": root.dataset.csrf ?? "",
-      },
-      method: "POST",
-    });
-    if (!response.ok) throw new Error("Move failed");
-    globalThis.location.reload();
-  } catch {
-    globalThis.alert(root.dataset.moveError ?? "Could not move the space.");
-    globalThis.location.reload();
-  }
+  const moved = await postJson({
+    body: { space_id: Number.parseInt(li.dataset.spaceId ?? "", 10) },
+    csrfFrom: root,
+    failure: root.dataset.moveError ?? "",
+    url: root.dataset.moveToRootUrl ?? "",
+  });
+  // The tree is server-rendered; a moved branch reloads into its new place.
+  if (moved) globalThis.location.reload();
 };
 
 // Move a node one slot within its own sibling list, then persist.
@@ -77,6 +66,7 @@ const wireDrag = (list: HTMLElement): void => {
       dragged = li;
       suppressDisclosureClick = false;
       li.style.opacity = "0.5";
+      if (rootDropTarget && list !== root) rootDropTarget.dataset.armed = "";
     }
   });
   list.addEventListener("dragend", (event) => {
@@ -120,6 +110,7 @@ if (root) {
   rootDropTarget?.addEventListener("drop", (event) => {
     event.preventDefault();
     rootDropTarget.classList.remove("border-primary", "bg-primary/5", "text-primary");
+    delete rootDropTarget.dataset.armed;
     const moved = dragged;
     dragged = null;
     if (moved) {
@@ -129,6 +120,7 @@ if (root) {
   });
   root.addEventListener("dragend", () => {
     rootDropTarget?.classList.remove("border-primary", "bg-primary/5", "text-primary");
+    if (rootDropTarget) delete rootDropTarget.dataset.armed;
   });
   root.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;

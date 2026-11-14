@@ -12,9 +12,11 @@ register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
-def meta_image_url(context: template.Context, url: str = "") -> str:
+def meta_image_url(context: template.Context, *urls: str) -> str:
     request: HttpRequest = context["request"]
-    return request.build_absolute_uri(url or static("og-image.jpg"))
+    return request.build_absolute_uri(
+        next((url for url in urls if url), static("og-image.jpg"))
+    )
 
 
 class DocumentTitleNode(template.Node):
@@ -36,6 +38,6 @@ class DocumentTitleNode(template.Node):
 
 @register.tag("document_title")
 def document_title(parser: Parser, _token: Token) -> DocumentTitleNode:
-    nodelist = parser.parse(("enddocument_title",))
+    nodelist = parser.parse(("end_document_title",))
     parser.delete_first_token()
     return DocumentTitleNode(nodelist)

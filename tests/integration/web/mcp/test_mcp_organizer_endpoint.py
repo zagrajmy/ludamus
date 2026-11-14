@@ -14,15 +14,19 @@ from ludamus.gates.web.django.mcp.tokens import (
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
+    Event,
     EventMap,
+    Facilitator,
+    PersonalDataField,
     ScheduleChangeLog,
+    Session,
     Space,
     SphereMembership,
     Track,
 )
-from ludamus.pacts.legacy import EncountersPolicy
+from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.mcp import ToolScope
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.sphere import SphereRole, SphereVisibility
 from tests.integration.conftest import (
     AgendaItemFactory,
     EncounterFactory,
@@ -36,9 +40,46 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
-from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
+ORGANIZER_TOOL_NAMES = [
+    "get_sphere",
+    "list_events",
+    "get_event",
+    "get_current_event",
+    "list_spaces",
+    "list_time_slots",
+    "list_tracks",
+    "list_proposal_categories",
+    "list_personal_data_fields",
+    "list_sessions",
+    "list_facilitators",
+    "create_space",
+    "create_time_slot",
+    "create_track",
+    "create_proposal_category",
+    "find_or_create_facilitator",
+    "create_session",
+    "create_sessions",
+    "assign_session",
+    "assign_sessions",
+    "update_session",
+    "update_space",
+    "set_personal_data_field_type",
+    "update_event",
+    "set_event_image",
+    "update_sphere_settings",
+    "set_sphere_logo",
+    "list_maps",
+    "create_map",
+    "update_map",
+    "set_map_spaces",
+    "delete_map",
+    "create_event",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
+    "list_announcements",
+]
 WRITE_TOOLS = {
     name for name in ORGANIZER_TOOL_NAMES if not name.startswith(("list_", "get_"))
 }
@@ -118,6 +159,17 @@ def programme_fixture(client, org_token):
 
 
 PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+BATCH_LIMIT = 250
+BATCH_SIZE_ERRORS = (
+    (0, "List should have at least 1 item after validation, not 0"),
+    (
+        BATCH_LIMIT + 1,
+        (
+            f"List should have at most {BATCH_LIMIT} items after validation, "
+            f"not {BATCH_LIMIT + 1}"
+        ),
+    ),
+)
 
 
 class TestOrganizerAuthentication:
@@ -127,10 +179,11 @@ class TestOrganizerAuthentication:
     def test_missing_token(self, client):
         response = post_org(client, PING)
 
-        assert_response(response, HTTPStatus.UNAUTHORIZED)
-        assert response.json() == {
-            "error": "A valid organizer Bearer token is required."
-        }
+        assert_response(
+            response,
+            HTTPStatus.UNAUTHORIZED,
+            json={"error": "A valid organizer Bearer token is required."},
+        )
 
     def test_maintainer_token_is_rejected(self, client):
         superuser = UserFactory(username="root", is_superuser=True)
@@ -218,7 +271,9 @@ class TestOrganizerAuthentication:
     def test_manager_can_ping(self, client, org_token):
         response = post_org(client, PING, token=org_token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_non_manager_superuser_can_ping(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True)
@@ -228,7 +283,9 @@ class TestOrganizerAuthentication:
 
         response = post_org(client, PING, token=token)
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 1, "result": {}}
+        )
 
     def test_deactivated_superuser(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True, is_active=False)
@@ -248,9 +305,7 @@ class TestOrganizerTools:
         )
 
         tools = response.json()["result"]["tools"]
-        tool_names = {tool["name"] for tool in tools}
-        assert tool_names >= WRITE_TOOLS
-        assert "create_event" not in tool_names
+        assert [tool["name"] for tool in tools] == ORGANIZER_TOOL_NAMES
         assert all(
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools
@@ -333,22 +388,88 @@ class TestOrganizerTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
 
-    def test_create_event_is_unreachable(self, client, org_token):
+    def test_create_event_writes_token_sphere(self, client, org_token, sphere):
         response = call_org_tool(
             client,
             org_token,
             "create_event",
             {
-                "name": "Bachanalia Fantastyczne 2026",
-                "slug": "bachanalia-2026",
-                "start_time": "2026-09-25T10:00:00+02:00",
-                "end_time": "2026-09-27T18:00:00+02:00",
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
             },
         )
 
-        assert_response(response, HTTPStatus.OK)
-        error = response.json()["error"]
-        assert error == {"code": -32602, "message": "Unknown tool: create_event"}
+        created = json.loads(tool_text(response))
+        new_event = Event.objects.get(pk=created["pk"])
+        assert new_event.sphere_id == sphere.pk
+        assert new_event.slug == "zkf-2026"
+        assert new_event.publication_time is None
+        assert Space.objects.filter(event=new_event).count() == 1
+
+    def test_create_event_refuses_a_sphere_argument(self, client, org_token, sphere):
+        foreign = SphereFactory()
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "sphere_id": foreign.pk,
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: sphere_id: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="zkf-2026").exists()
+
+    def test_create_event_rejects_slug_taken_in_sphere(
+        self, client, org_token, sphere, event
+    ):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Duplicate",
+                "slug": event.slug,
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == f"Slug already taken: {event.slug}"
+        assert Event.objects.filter(sphere=sphere).count() == 1
+
+    def test_create_event_allows_slug_taken_in_another_sphere(
+        self, client, org_token, sphere
+    ):
+        EventFactory(sphere=SphereFactory(), slug="zkf-2026")
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Zgorzelecki Konwent Fantastyczny 2026",
+                "slug": "zkf-2026",
+                "start_time": "2026-10-16T16:00:00+02:00",
+                "end_time": "2026-10-18T16:00:00+02:00",
+            },
+        )
+
+        created = json.loads(tool_text(response))
+        assert Event.objects.get(pk=created["pk"]).sphere_id == sphere.pk
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})
@@ -390,6 +511,95 @@ class TestOrganizerProgrammeValidation:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
+        assert not AgendaItem.objects.filter(session=session).exists()
+
+    @pytest.mark.parametrize("field", ("facilitator_ids", "track_ids"))
+    def test_create_session_rejects_reference_to_sibling_event(
+        self, client, org_token, sphere, event, field
+    ):
+        sibling = EventFactory(sphere=sphere)
+        foreign_ids = {
+            "facilitator_ids": (
+                Facilitator.objects.create(
+                    event=sibling, display_name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+            "track_ids": (
+                Track.objects.create(
+                    event=sibling, name="Elsewhere", slug="elsewhere"
+                ).pk
+            ),
+        }
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "row-1",
+                "title": "Foreign reference",
+                "category_id": ProposalCategoryFactory(event=event).pk,
+                field: [foreign_ids[field]],
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Session.objects.filter(event=event).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_create_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        category = ProposalCategoryFactory(event=event)
+        sessions = [
+            {
+                "source_row_id": f"row-{index}",
+                "title": f"Row {index}",
+                "category_id": category.pk,
+            }
+            for index in range(size)
+        ]
+
+        response = call_org_tool(
+            client, org_token, "create_sessions", {"sessions": sessions}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == f"Invalid arguments: sessions: {error}"
+        assert not Session.objects.filter(event=event).exists()
+
+    @pytest.mark.parametrize(("size", "error"), BATCH_SIZE_ERRORS)
+    def test_assign_sessions_rejects_batch_out_of_bounds(
+        self, client, org_token, event, size, error
+    ):
+        session = SessionFactory(event=event, category=None, status="accepted")
+        space = SpaceFactory(event=event, parent=None)
+        # NOTE: one placeable session is enough to prove nothing was written;
+        # the rest only pad the batch with ids that would fail on their own.
+        missing_start = session.pk + 1
+        session_ids = [session.pk, *range(missing_start, missing_start + size)][:size]
+        assignments = [
+            {
+                "session_id": session_id,
+                "space_id": space.pk,
+                "start_time": (event.start_time + timedelta(hours=1)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=2)).isoformat(),
+            }
+            for session_id in session_ids
+        ]
+
+        response = call_org_tool(
+            client, org_token, "assign_sessions", {"assignments": assignments}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert (
+            result["content"][0]["text"] == f"Invalid arguments: assignments: {error}"
+        )
         assert not AgendaItem.objects.filter(session=session).exists()
 
 
@@ -889,6 +1099,14 @@ class TestOrganizerSphereSettingsTool:
         assert sphere.allow_facilitator_session_edit is False
         assert sphere.encounters_policy == EncountersPolicy.MANAGERS
 
+    def test_sets_the_sphere_visibility(self, client, org_token, sphere):
+        call_org_json(
+            client, org_token, "update_sphere_settings", {"visibility": "unlisted"}
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.visibility == SphereVisibility.UNLISTED
+
     def test_a_bare_confirmation_flag_is_not_an_update(self, client, org_token):
         # The flag answers a question about a write; on its own there is none.
         response = call_org_tool(
@@ -1130,7 +1348,7 @@ class TestOrganizerEventSettingsTools:
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert "already uses the slug" in result["content"][0]["text"]
+        assert result["content"][0]["text"] == "Slug already taken: taken"
         event.refresh_from_db()
         assert event.slug != "taken"
 
@@ -1281,6 +1499,66 @@ class TestOrganizerEventSettingsTools:
         assert sphere.logo_original_name == "sphere.svg"
         assert sphere.logo.name
         assert updated["logo_original_name"] == "sphere.svg"
+
+
+class TestOrganizerPersonalDataFieldTools:
+    def test_switches_a_text_field_to_discord(self, client, org_token, event):
+        field = PersonalDataField.objects.create(
+            event=event, name="Discord", question="Identyfikator discord", slug="dc"
+        )
+
+        listed = call_org_json(
+            client, org_token, "list_personal_data_fields", {"event_id": event.pk}
+        )
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": listed[0]["slug"], "field_type": "discord"},
+        )
+
+        field.refresh_from_db()
+        assert field.field_type == "discord"
+        assert updated["field_type"] == "discord"
+
+    def test_refuses_a_select_field(self, client, org_token, event):
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Size",
+            question="T-shirt",
+            slug="size",
+            field_type="select",
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": "size", "field_type": "discord"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        field.refresh_from_db()
+        assert field.field_type == "select"
+
+    def test_rejects_a_foreign_events_field(self, client, org_token, sphere):
+        foreign = PersonalDataField.objects.create(
+            event=EventFactory(sphere=sphere), name="Discord", question="Q", slug="dc"
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_personal_data_field_type",
+            {"slug": "dc", "field_type": "discord"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        foreign.refresh_from_db()
+        assert foreign.field_type == "text"
 
 
 class TestOrganizerUpdateSpaceTool:

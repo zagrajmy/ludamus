@@ -7,12 +7,18 @@ from django.core import signing
 from freezegun import freeze_time
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR
+from ludamus.gates.mcp.tools import build_registry
 from ludamus.gates.web.django.mcp.tokens import SIGNING_SALT, mint_token
-from ludamus.links.db.django.models import Announcement, Space
-from tests.integration.conftest import EventFactory, UserFactory
+from ludamus.links.db.django.models import Announcement, Event, Space
+from ludamus.pacts.mcp import ToolScope
+from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 
 URL = "/mcp/"
+INVALID_SLUG_ERROR = (
+    "Invalid arguments: slug: Value error, slug must contain only "
+    "letters, numbers, hyphens, or underscores"
+)
 
 
 @pytest.fixture(name="superuser")
@@ -60,11 +66,17 @@ class TestAuthentication:
     def test_missing_token(self, client):
         response = post_message(client, {"jsonrpc": "2.0", "id": 1, "method": "ping"})
 
-        assert_response(response, HTTPStatus.UNAUTHORIZED)
-        assert response["WWW-Authenticate"] == "Bearer"
-        assert response.json() == {
-            "error": "A valid maintainer Bearer token is required."
-        }
+        assert_response(
+            response,
+            HTTPStatus.UNAUTHORIZED,
+            headers={
+                "WWW-Authenticate": (
+                    'Bearer resource_metadata="http://testserver/.well-known/'
+                    'oauth-protected-resource/mcp/"'
+                )
+            },
+            json={"error": "A valid maintainer Bearer token is required."},
+        )
 
     def test_garbage_token(self, client):
         response = post_message(
@@ -184,28 +196,32 @@ class TestProtocol:
             client, {"jsonrpc": "2.0", "id": 7, "method": "ping"}, token=token
         )
 
-        assert response.json() == {"jsonrpc": "2.0", "id": 7, "result": {}}
+        assert_response(
+            response, HTTPStatus.OK, json={"jsonrpc": "2.0", "id": 7, "result": {}}
+        )
 
     def test_tools_list(self, client, token):
         response = post_message(
             client, {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=token
         )
 
-        tools = response.json()["result"]["tools"]
-        assert [tool["name"] for tool in tools] == [
+        tools = {tool["name"]: tool for tool in response.json()["result"]["tools"]}
+        organizer_names = [
+            tool["name"] for tool in build_registry(ToolScope.ORGANIZER).describe()
+        ]
+        assert list(tools) == [
             "list_spheres",
-            "get_sphere",
-            "list_events",
-            "get_event",
-            "create_event",
-            "list_announcements",
             "create_announcement",
             "update_announcement",
             "delete_announcement",
+            *organizer_names,
         ]
-        schema = tools[1]["inputSchema"]
-        assert schema["required"] == ["sphere_id"]
-        assert schema["properties"]["sphere_id"]["type"] == "integer"
+        assert tools["get_sphere"]["inputSchema"]["required"] == ["sphere_id"]
+        assert tools["create_space"]["inputSchema"]["required"] == [
+            "sphere_id",
+            "event_id",
+            "name",
+        ]
 
     def test_unknown_method(self, client, token):
         response = post_message(
@@ -392,6 +408,61 @@ class TestTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
 
+    @pytest.mark.parametrize(
+        ("overrides", "message"),
+        (
+            ({"slug": "not a slug"}, INVALID_SLUG_ERROR),
+            ({"slug": "   "}, INVALID_SLUG_ERROR),
+            (
+                {"start_time": "2026-09-25T10:00:00"},
+                "Invalid arguments: start_time: Value error, must be timezone-aware",
+            ),
+        ),
+    )
+    def test_create_event_rejects_invalid_input(
+        self, client, token, sphere, overrides, message
+    ):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Bad input",
+                "slug": "bad-input",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                **overrides,
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == message
+        assert not Event.objects.filter(name="Bad input").exists()
+
+    def test_create_event_rejects_unknown_fields(self, client, token, sphere):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Unknown field",
+                "slug": "unknown-field",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "address": "Zgorzelec",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: address: Extra inputs are not permitted"
+        )
+        assert not Event.objects.filter(slug="unknown-field").exists()
+
     def test_create_event_rejects_publication_after_start(self, client, token, sphere):
         response = call_tool(
             client,
@@ -571,3 +642,174 @@ class TestAudit:
         post_message(client, {"jsonrpc": "2.0", "id": 1, "method": "ping"}, token=token)
 
         assert audit_records(caplog) == []
+
+
+class TestOrganizerToolsForMaintainers:
+    def test_update_sphere_settings_takes_the_sphere_as_an_argument(
+        self, client, token, sphere
+    ):
+        other = SphereFactory()
+
+        updated = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "update_sphere_settings",
+                    {"sphere_id": sphere.pk, "visibility": "unlisted"},
+                )
+            )
+        )
+
+        sphere.refresh_from_db()
+        other.refresh_from_db()
+        assert sphere.visibility == "unlisted"
+        assert other.visibility == "public"
+        assert updated["visibility"] == "unlisted"
+
+    def test_switches_a_sphere_s_chat_and_its_events_chats(self, client, token, sphere):
+        sphere.parley_enabled = False
+        sphere.save()
+        event = EventFactory(sphere=sphere)
+        sibling = EventFactory(sphere=sphere)
+
+        def call(name, arguments):
+            return json.loads(tool_text(call_tool(client, token, name, arguments)))
+
+        def chat_of(target):
+            shown = call("get_event", {"sphere_id": sphere.pk, "slug": target.slug})
+            return shown["parley_enabled"], shown["parley_enabled_effective"]
+
+        chat = {
+            key: value
+            for key, value in call("get_sphere", {"sphere_id": sphere.pk}).items()
+            if key.startswith("parley_")
+        }
+        assert chat == {
+            "parley_enabled": False,
+            "parley_organizers_enabled": True,
+            "parley_events_enabled": False,
+        }
+        assert chat_of(event) == (None, False)
+
+        call(
+            "update_sphere_settings",
+            {
+                "sphere_id": sphere.pk,
+                "parley_enabled": True,
+                "parley_events_enabled": True,
+                "parley_organizers_enabled": False,
+            },
+        )
+        assert (chat_of(event), chat_of(sibling)) == ((None, True), (None, True))
+
+        updated = call(
+            "update_event",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "parley_enabled": False},
+        )
+        assert (updated["parley_enabled"], updated["parley_enabled_effective"]) == (
+            False,
+            False,
+        )
+        assert chat_of(sibling) == (None, True)
+
+        call(
+            "update_event",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "parley_enabled": None},
+        )
+        sphere.refresh_from_db()
+        event.refresh_from_db()
+        assert (sphere.parley_enabled, sphere.parley_organizers_enabled) == (
+            True,
+            False,
+        )
+        assert event.parley_enabled is None
+        assert chat_of(event) == (None, True)
+
+    def test_event_write_lands_in_the_named_event(self, client, token, sphere):
+        event = EventFactory(sphere=sphere)
+        sibling = EventFactory(sphere=sphere)
+
+        space = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "create_space",
+                    {"sphere_id": sphere.pk, "event_id": event.pk, "name": "Aula"},
+                )
+            )
+        )
+
+        assert Space.objects.get(pk=space["pk"]).event_id == event.pk
+        assert not Space.objects.filter(event=sibling).exists()
+
+    def test_update_event_makes_it_unlisted(self, client, token, sphere):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        updated = json.loads(
+            tool_text(
+                call_tool(
+                    client,
+                    token,
+                    "update_event",
+                    {
+                        "sphere_id": sphere.pk,
+                        "event_id": event.pk,
+                        "visibility": "unlisted",
+                    },
+                )
+            )
+        )
+
+        event.refresh_from_db()
+        assert event.visibility == "unlisted"
+        assert updated["visibility"] == "unlisted"
+
+    def test_event_from_another_sphere_is_not_found(self, client, token, sphere):
+        foreign = EventFactory(sphere=SphereFactory())
+
+        response = call_tool(
+            client,
+            token,
+            "create_space",
+            {"sphere_id": sphere.pk, "event_id": foreign.pk, "name": "Aula"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Space.objects.filter(name="Aula").exists()
+
+    def test_missing_target_is_reported_with_the_tools_own_errors(
+        self, client, token, sphere
+    ):
+        response = call_tool(client, token, "create_space", {"sphere_id": sphere.pk})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "Invalid arguments: event_id: Field required; name: Field required"
+        )
+
+    def test_batch_call_audit_names_the_target(
+        self, client, token, superuser, sphere, caplog
+    ):
+        event = EventFactory(sphere=sphere)
+        caplog.set_level(logging.INFO, logger=AUDIT_LOGGER)
+
+        call_tool(
+            client,
+            token,
+            "create_sessions",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "sessions": []},
+        )
+
+        records = audit_records(caplog)
+        assert len(records) == 1
+        assert records[0].args[6] == {
+            "sphere_id": sphere.pk,
+            "event_id": event.pk,
+            "session_count": 0,
+            "source_row_ids": [],
+        }

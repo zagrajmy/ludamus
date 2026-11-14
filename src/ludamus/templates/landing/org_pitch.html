@@ -27,9 +27,7 @@
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 text-center">
         <p class="text-[1.15rem] font-semibold mb-4">{% translate "Is this what your next event should look like?" %}</p>
         <a class="btn btn-primary"
-           href="mailto:kontakt@zagrajmy.net?subject={% translate 'A plan for my event' %}">{% translate "Run your event with Zagrajmy" %}</a>
-        <p class="mt-3 text-sm text-foreground-muted">
-            {% translate "or write to" %} {% tessera_copy_chip "kontakt@zagrajmy.net" %}
-        </p>
+           href="mailto:{{ contact_email }}?subject={% translate 'A plan for my event' %}">{% translate "Run your event with Zagrajmy" %}</a>
+        <p class="mt-3 text-sm text-foreground-muted">{% translate "or write to" %} {% tessera_copy_chip contact_email %}</p>
     </div>
 </section>

@@ -1,16 +1,13 @@
 import { type Page } from "@playwright/test";
 
+import { attachArtifacts } from "./helpers/artifacts";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
 test.describe.configure({ mode: "serial" });
 
 test.describe("Timetable", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/login/");
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
+  test.use({ storageState: managerState });
 
   // --- Page Loading ---
 
@@ -438,7 +435,7 @@ test.describe("Timetable", () => {
     ).toBeVisible();
   });
 
-  test("session cards are draggable and carry their duration", async ({ page }) => {
+  test("session cards are draggable and carry their duration", async ({ page }, testInfo) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
     );
@@ -452,6 +449,18 @@ test.describe("Timetable", () => {
 
     await expect(card).toHaveAttribute("draggable", "true");
     await expect(card).toHaveAttribute("data-duration", /^\d+$/);
+
+    const limited = page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator('[data-session-pk]:not([data-participants-limit="0"])')
+      .first();
+    const limit = await limited.getAttribute("data-participants-limit");
+    await expect(limited).toContainText(`${limit} seats`);
+    await attachArtifacts(testInfo, {
+      name: "timetable-session-card-seats",
+      region: page.getByRole("region", { name: "Sessions to assign" }),
+      facts: { limit, label: `${limit} seats` },
+    });
   });
 
   // --- Session Search ---
@@ -723,6 +732,31 @@ test.describe("Timetable", () => {
     expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
   });
 
+  // --- Room pager ---
+
+  test("room pager slider moves between pages and keeps the URL in step", async ({ page }) => {
+    await page.goto("/panel/event/harbor-con/timetable/");
+
+    const slider = page.getByRole("slider", { name: "Rooms 1–5 of 7" });
+    await expect(slider).toHaveValue("1");
+    await expect(page.getByRole("button", { name: "Previous rooms" })).toBeDisabled();
+    expect(await roomNames(page)).toHaveLength(5);
+
+    await page.screenshot({ path: "test-results/timetable-room-pager.png", fullPage: true });
+
+    await slider.fill("2");
+
+    await expect(page).toHaveURL(/room_page=2/);
+    await expect(page.getByRole("slider", { name: "Rooms 6–7 of 7" })).toHaveValue("2");
+    await expect(page.getByRole("button", { name: "Next rooms" })).toBeDisabled();
+    expect(await roomNames(page)).toEqual(["Berth 6", "Berth 7"]);
+
+    await page.getByRole("button", { name: "Previous rooms" }).click();
+
+    await expect(page).toHaveURL(/room_page=1/);
+    expect(await roomNames(page)).toHaveLength(5);
+  });
+
   // --- Facilitator filter ---
 
   test("facilitator filter searches on the server and narrows the grid", async ({ page }) => {
@@ -898,19 +932,19 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Schedule not confirmed")).toBeVisible({ timeout: 5000 });
 
     // Confirm — the button flips to the "Undo confirmation" state.
-    await leftPane.getByRole("button", { name: "Confirm program item" }).click();
+    await leftPane.getByRole("button", { name: "Confirm schedule" }).click();
     await expect(
       leftPane.getByRole("button", {
         name: "Undo confirmation",
       }),
     ).toBeVisible({ timeout: 5000 });
 
-    // Undo — the button returns to the "Confirm program item" state.
+    // Undo — the button returns to the "Confirm schedule" state.
     await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
+    await expect(leftPane.getByRole("button", { name: "Confirm schedule" })).toBeVisible({
       timeout: 5000,
     });
 
@@ -921,6 +955,30 @@ test.describe("Timetable", () => {
     await expect(
       page.getByRole("region", { name: "Sessions to assign" }).getByText("Storytelling Workshop"),
     ).toBeVisible({ timeout: 10000 });
+  });
+
+  test("grid card marks confirmation and arms the move guard", async ({ page }) => {
+    // Read-only against the seed: "Overflow Demo Game" is placed and
+    // confirmed, "Misplaced Demo Game" placed and not. Asserting both pins
+    // the attribute to the flag rather than to the markup existing at all.
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const confirmed = page.locator(".timetable-session", { hasText: "Overflow Demo Game" });
+    await expect(confirmed).toHaveAttribute("data-confirmed", "true");
+    await expect(confirmed.getByTitle("Schedule confirmed")).toBeVisible();
+
+    const unconfirmed = page.locator(".timetable-session", { hasText: "Misplaced Demo Game" });
+    await expect(unconfirmed).toHaveAttribute("data-confirmed", "false");
+    await expect(unconfirmed.getByTitle("Schedule confirmed")).toHaveCount(0);
+
+    // data-confirmed is what submitPlacement reads to decide whether to gate a
+    // drop; the message it shows is carried on the grid, not the card.
+    const grid = page.locator("#timetable-grid");
+    await expect(grid).toHaveAttribute(
+      "data-confirm-move",
+      /Moving it will clear the confirmation\./,
+    );
+    await expect(grid).toHaveAttribute("data-confirm-move-action", "Move");
   });
 
   // --- Conflict Panel ---

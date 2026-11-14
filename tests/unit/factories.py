@@ -1,21 +1,76 @@
-from datetime import UTC, datetime
+from contextlib import AbstractContextManager, nullcontext
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
-from ludamus.pacts import (
-    OrganizerFieldDTO,
-    OrganizerFieldOptionDTO,
-    ProposalCategoryDTO,
+from ludamus.pacts.enrollment import (
+    PromotionMode,
+    PromotionStateDTO,
+    SessionSeatsDTO,
+    WaitingParticipantDTO,
 )
-from ludamus.pacts.crowd import UserDTO, UserType
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.tracks import TrackDTO
+from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
+DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
+DEFAULT_END = datetime(2026, 6, 1, 18, 0, tzinfo=UTC)
+
+
+class FakeUsers:
+    """Users by slug and by pk; a miss raises NotFoundError, as the repo does."""
+
+    def __init__(self, *users: UserDTO) -> None:
+        self.users = {user.slug: user for user in users}
+
+    def read(self, slug: str) -> UserDTO:
+        try:
+            return self.users[slug]
+        except KeyError:
+            raise NotFoundError from None
+
+    def read_by_id(self, pk: int) -> UserDTO:
+        for user in self.users.values():
+            if user.pk == pk:
+                return user
+        raise NotFoundError
+
+    def read_by_ids(self, pks) -> list[UserDTO]:
+        by_pk = {user.pk: user for user in self.users.values()}
+        return [by_pk[pk] for pk in pks if pk in by_pk]
+
+    def read_by_email(self, email: str) -> UserDTO:
+        for user in self.users.values():
+            if user.email == email:
+                return user
+        raise NotFoundError
+
+    def update(self, user_slug: str, user_data) -> None:
+        self.users[user_slug] = self.users[user_slug].model_copy(update=dict(user_data))
+
+
+class FakeTransaction:
+    @staticmethod
+    def atomic() -> AbstractContextManager[None]:
+        return nullcontext()
+
+    @staticmethod
+    def savepoint() -> AbstractContextManager[None]:
+        return nullcontext()
 
 
 def user_dto(**overrides) -> UserDTO:
     defaults = {
+        "age_band": AgeBand.UNKNOWN,
+        "privacy_revision": UUID(int=1),
         "avatar_url": "",
         "date_joined": DEFAULT_JOINED,
         "discord_username": "",
         "email": "",
+        "email_verified": False,
         "full_name": "",
         "is_active": True,
         "is_authenticated": True,
@@ -31,21 +86,53 @@ def user_dto(**overrides) -> UserDTO:
     return UserDTO(**(defaults | overrides))
 
 
-RPG_OPTION = OrganizerFieldOptionDTO(label="RPG", order=1, pk=1, value="rpg")
-BOARD_OPTION = OrganizerFieldOptionDTO(label="Board", order=0, pk=2, value="board")
-
-
-def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
+def event_dto(**overrides) -> EventDTO:
     defaults = {
-        "field_type": "select",
-        "name": "Tags",
-        "options": [RPG_OPTION, BOARD_OPTION],
-        "order": 0,
+        "description": "",
+        "end_time": DEFAULT_END,
+        "name": "Konwent",
         "pk": 1,
-        "question": "What tags apply?",
-        "slug": "tags",
+        "proposal_end_time": None,
+        "proposal_start_time": None,
+        "publication_time": None,
+        "slug": "konwent",
+        "sphere_id": 1,
+        "start_time": DEFAULT_START,
     }
-    return OrganizerFieldDTO(**(defaults | overrides))
+    return EventDTO(**(defaults | overrides))
+
+
+def session_dto(**overrides) -> SessionDTO:
+    defaults = {
+        "category_id": None,
+        "contact_email": "",
+        "contact_language": "",
+        "creation_time": DEFAULT_START,
+        "description": "",
+        "facilitator_name": "",
+        "min_age": 0,
+        "modification_time": DEFAULT_START,
+        "participants_limit": 0,
+        "pk": 1,
+        "presenter_id": None,
+        "slug": "s",
+        "status": SessionStatus.ACCEPTED,
+        "title": "Session",
+    }
+    return SessionDTO(**(defaults | overrides))
+
+
+def track_dto(**overrides) -> TrackDTO:
+    defaults = {
+        "creation_time": DEFAULT_START,
+        "event_id": 1,
+        "is_public": True,
+        "modification_time": DEFAULT_START,
+        "name": "Track",
+        "pk": 1,
+        "slug": "track",
+    }
+    return TrackDTO(**(defaults | overrides))
 
 
 def category(
@@ -67,4 +154,23 @@ def category(
         pk=pk,
         slug=slug,
         start_time=None,
+    )
+
+
+def promotion_state(
+    waiting: list[WaitingParticipantDTO], *, seats: int = 1
+) -> PromotionStateDTO:
+    """Build the state of an auto-promoting session a week out that nobody hosts."""
+    return PromotionStateDTO(
+        session_id=1,
+        session_title="S",
+        event_slug="ev",
+        start_time=datetime(2026, 6, 4, 12, 0, tzinfo=UTC) + timedelta(days=7),
+        promotion_mode=PromotionMode.AUTO,
+        offer_claim_window=timedelta(hours=24),
+        host_ids=frozenset(),
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
+        waiting=waiting,
     )

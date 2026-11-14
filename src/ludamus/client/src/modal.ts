@@ -23,6 +23,7 @@ import { restoreCarriedSearchParams } from "./url-state";
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
+  formData?: FormData | null;
   hashChange: boolean;
   intercept: (options?: {
     focusReset?: "after-transition" | "manual";
@@ -30,6 +31,7 @@ interface NavigateEvent {
     scroll?: "after-transition" | "manual";
   }) => void;
   navigationType: "push" | "reload" | "replace" | "traverse";
+  sourceElement?: Element | null;
 }
 
 interface Navigation {
@@ -108,28 +110,27 @@ const isAppleTouchDevice = (): boolean =>
 // modal opens, so its cost buys the animation without taking anything.
 const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
 
-interface ViewTransition {
-  finished: Promise<void>;
-}
-
-interface ViewTransitionDocument {
-  startViewTransition?: (callback: () => void) => ViewTransition;
-}
-
 // Held on <html> for a transition's lifetime: it opts the root out of the
 // capture (modal.css), which is what keeps the page under a modal animation
 // tappable — the root's snapshot would otherwise stand in for every element on
 // it, and a snapshot takes no taps.
 const ROOT_PAGE_LIVE = "vt-page-live";
+const ROOT_SESSION_MORPH = "vt-session-morph";
+
+// NOTE: lib.dom declares startViewTransition on every Document; Firefox
+// before 144 has none.
+const hasViewTransitions = (): boolean => typeof document.startViewTransition === "function";
 
 const startViewTransition = (callback: () => void): ViewTransition | null => {
-  const doc = document as Document & ViewTransitionDocument;
-  if (!doc.startViewTransition) {
+  if (!hasViewTransitions()) {
     callback();
     return null;
   }
   document.documentElement.classList.add(ROOT_PAGE_LIVE);
-  const transition = doc.startViewTransition(callback);
+  const transition = document.startViewTransition(callback);
+  // NOTE: a skipped or aborted transition rejects `ready`, and Chrome 151 no
+  // longer marks that rejection handled, so leaving it unawaited is an error.
+  void transition.ready.catch(() => null);
   void transition.finished
     .catch(() => null)
     .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
@@ -169,7 +170,7 @@ const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
   card.dataset.noMorph === undefined &&
   !prefersReducedMotion() &&
-  typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
+  hasViewTransitions();
 
 const setSubMorph = (root: HTMLElement, active: boolean): void => {
   for (const el of root.querySelectorAll<HTMLElement>("[data-morph]")) {
@@ -191,13 +192,19 @@ const morphTransition = (steps: {
   settle: () => void;
   swap: () => void;
 }): Promise<void> => {
+  const root = document.documentElement;
+  const settle = () => {
+    root.classList.remove(ROOT_SESSION_MORPH);
+    steps.settle();
+  };
   steps.before();
+  root.classList.add(ROOT_SESSION_MORPH);
   const transition = startViewTransition(steps.swap);
   if (!transition) {
-    steps.settle();
+    settle();
     return Promise.resolve();
   }
-  return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
+  return transition.finished.catch(ignoreSkippedTransition).finally(settle);
 };
 
 // The plain exit: the dialog's own snapshot animates out (modal.css). Whether
@@ -268,8 +275,24 @@ const openModal = async (
           card.style.transition = "";
         },
         swap: () => {
-          suppressSessionCard(id);
           setMorph(card, false);
+          // NOTE: a DOM swap can detach the dialog while the transition is queued.
+          if (!dialog.isConnected) {
+            const replacement = document.getElementById(id);
+            if (!(replacement instanceof HTMLDialogElement && replacement.open)) {
+              releaseSessionCard(id);
+              const linkable = getLinkableByModalId(id);
+              if (
+                linkable &&
+                new URLSearchParams(globalThis.location.search).get(linkable.paramName) ===
+                  linkable.paramValue
+              ) {
+                updateQueryParam(linkable.paramName, null, { replaceHistory: true });
+              }
+            }
+            return;
+          }
+          suppressSessionCard(id);
           card.style.transition = "none";
           presentDialog(dialog);
           setMorph(dialog, true);
@@ -304,16 +327,16 @@ const closeModal = (
     if (animated && canMorph(card)) {
       morphTransition({
         before: () => {
-          setContainerMorph(dialog, true);
+          setMorph(dialog, true);
         },
         settle: () => {
-          setContainerMorph(card, false);
+          setMorph(card, false);
         },
         swap: () => {
           dialog.close();
-          setContainerMorph(dialog, false);
+          setMorph(dialog, false);
           releaseSessionCard(id);
-          setContainerMorph(card, true);
+          setMorph(card, true);
         },
       });
     } else {
@@ -494,10 +517,20 @@ document.addEventListener(
   true,
 );
 
+// NOTE: a form that reopens its modal after a refusal posts to that modal's
+// own `?param` URL, so its resubmit looks just like a trigger click. `formData`
+// marks a POST; `sourceElement` is the only mark a GET form leaves.
+const submitsForm = (e: NavigateEvent): boolean =>
+  e.formData instanceof FormData ||
+  e.sourceElement instanceof HTMLFormElement ||
+  e.sourceElement instanceof HTMLButtonElement ||
+  e.sourceElement instanceof HTMLInputElement;
+
 if (navigation) {
   navigation.addEventListener("navigate", (e) => {
     if (e.navigationType !== "push") return;
     if (!e.canIntercept || e.hashChange) return;
+    if (submitsForm(e)) return;
     const url = new URL(e.destination.url);
     if (url.origin !== location.origin || url.pathname !== location.pathname) return;
     const reloadLink = [

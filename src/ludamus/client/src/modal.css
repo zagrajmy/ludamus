@@ -19,6 +19,14 @@
     overflow: hidden;
   }
 
+  .modal-footer {
+    padding-bottom: calc(0.75rem + 2px);
+  }
+
+  .modal-footer-lg {
+    padding-bottom: calc(1rem + 2px);
+  }
+
   .modal {
     position: fixed;
     inset: 0;
@@ -123,6 +131,9 @@
 }
 
 ::view-transition-group(session-morph),
+::view-transition-group(morph-cover),
+::view-transition-group(morph-scrim),
+::view-transition-group(morph-cover-title),
 ::view-transition-group(morph-title),
 ::view-transition-group(morph-host),
 ::view-transition-group(morph-avatar),
@@ -157,6 +168,127 @@
 ::view-transition-old(morph-tags),
 ::view-transition-old(morph-meta),
 ::view-transition-old(morph-time) {
+  animation: none;
+  opacity: 0;
+}
+
+/* The sheet clips everything nested in it, as the live dialog does, so no
+   modal-only part can show outside the surface while it grows. */
+::view-transition-group(session-morph) {
+  overflow: clip;
+  border-radius: 1rem;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / calc(0.1 * var(--vt-sheet-lift))),
+    0 4px 6px -4px rgb(0 0 0 / calc(0.1 * var(--vt-sheet-lift)));
+}
+
+/* The clip above also cuts the dialog's own shadow-lg out of its snapshot, so
+   the group draws it, rising with the card into the sheet. It is animated on
+   ::view-transition because the group's own animation belongs to the UA. */
+@property --vt-sheet-lift {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+:root.vt-session-morph:has(dialog.modal[id^="session-"][open])::view-transition {
+  animation: vt-sheet-lift var(--vt-morph-duration) var(--vt-morph-ease) both;
+}
+
+:root.vt-session-morph:not(:has(dialog.modal[id^="session-"][open]))::view-transition {
+  animation: vt-sheet-lift var(--vt-morph-duration) var(--vt-morph-ease) reverse both;
+}
+
+@keyframes vt-sheet-lift {
+  to {
+    --vt-sheet-lift: 1;
+  }
+}
+
+/* Opening, the card is the old snapshot. At its own size it fades in place;
+   stretched to the sheet's width its text would balloon to three times over. */
+:root:has(dialog.modal[id^="session-"][open])::view-transition-old(session-morph) {
+  inline-size: auto;
+  block-size: auto;
+  animation-duration: calc(var(--vt-morph-duration) * 0.3);
+}
+
+:root:has(dialog.modal[id^="session-"][open])::view-transition-new(session-morph) {
+  animation-duration: calc(var(--vt-morph-duration) * 0.3);
+}
+
+/* components/cover-heading.html is three groups. The picture is nested in the
+   sheet so the sheet clips it. Both crops are drawn at the group's width and
+   centred, which puts the two images pixel on pixel: the cross-fade only
+   trades the strips one crop has and the other does not. */
+[data-morph="cover"] {
+  view-transition-group: nearest;
+}
+
+::view-transition-group(morph-cover) {
+  overflow: clip;
+  border-radius: 0.75rem;
+}
+
+::view-transition-old(morph-cover),
+::view-transition-new(morph-cover) {
+  inline-size: 100%;
+  block-size: auto;
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  mix-blend-mode: normal;
+}
+
+/* The UA's own cross-fade animates plus-lighter blending, which beats the
+   declaration above: over the opaque crop it lightened the cover until the
+   last frame. Both fades are written out, and land before the morph ends. */
+:root:has(dialog.modal[id^="session-"][open])::view-transition-old(morph-cover),
+:root:not(:has(dialog.modal[id^="session-"][open]))::view-transition-new(morph-cover) {
+  animation: none;
+}
+
+:root:has(dialog.modal[id^="session-"][open])::view-transition-new(morph-cover) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.8) var(--vt-morph-ease) both;
+}
+
+:root:not(:has(dialog.modal[id^="session-"][open]))::view-transition-old(morph-cover) {
+  z-index: 1;
+  animation: vt-fade-out calc(var(--vt-morph-duration) * 0.8) var(--vt-morph-ease) both;
+}
+
+/* The scrim is a vertical gradient, so stretching it to the group is lossless. */
+::view-transition-old(morph-scrim),
+::view-transition-new(morph-scrim) {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* On a cover the card's title and the modal's are the same white text at the
+   same size, so they cross-fade at their own size instead of the cut above. */
+::view-transition-old(morph-cover-title),
+::view-transition-new(morph-cover-title) {
+  inline-size: auto;
+  block-size: auto;
+  inset-block-start: auto;
+  inset-block-end: 0;
+}
+
+/* The close button floats over the cover, so it is a group of its own: in the
+   sheet's snapshot the cover group would hide it until the morph ends. It
+   arrives last, once the sheet is nearly full size. */
+[data-morph="close"] {
+  view-transition-group: nearest;
+}
+
+::view-transition-new(morph-close) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.3) var(--vt-morph-ease)
+    calc(var(--vt-morph-duration) * 0.7) both;
+}
+
+::view-transition-old(morph-close),
+::view-transition-old(morph-tabs),
+::view-transition-old(morph-desc-label),
+::view-transition-old(morph-venue) {
   animation: none;
   opacity: 0;
 }
@@ -227,6 +359,12 @@
 
 @keyframes vt-chrome-in {
   from {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-out {
+  to {
     opacity: 0;
   }
 }

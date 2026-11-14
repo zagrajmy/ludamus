@@ -1,85 +1,117 @@
-from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.pacts.dashboard import (
+    DASHBOARD_AGENDA_GLANCE,
     DASHBOARD_OPEN_ENCOUNTERS,
+    DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardCardDTO,
     DashboardRole,
     DashboardSphereDTO,
     SphereEventAnnouncementDTO,
+    SphereUnsubscribeTokenPayload,
+    SubscriptionAgeRestrictedError,
     SubscriptionRecipientDTO,
 )
+from ludamus.pacts.user import AgeBand
+from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 6, 4, 12, tzinfo=UTC)
-
-
-@contextmanager
-def _atomic():
-    yield
-
-
-class FakeTransaction:
-    @staticmethod
-    def atomic():
-        return _atomic()
-
-
-def _card(title):
-    return DashboardCardDTO(
-        title=title,
-        url=f"https://example.test/{title}",
-        start_time=NOW,
-        origin_name="Kapitularz",
-        role=DashboardRole.OPEN,
-    )
-
-
-class FakeDashboardRepo:
-    def __init__(self):
-        self.limits: dict[str, int] = {}
-
-    def list_agenda(self, user_id, *, now):
-        del user_id, now
-        return [_card("agenda")]
-
-    def list_open_encounters(self, user_id, *, now, limit):
-        del user_id, now
-        self.limits["open"] = limit
-        return [_card("open")]
-
-    def list_sphere_feed(self, user_id, *, now, limit):
-        del user_id, now
-        self.limits["feed"] = limit
-        return [_card("feed")]
-
-    def list_spheres_to_discover(self, user_id, *, now, limit):
-        del user_id, now
-        self.limits["discover"] = limit
-        return [DashboardSphereDTO(pk=1, name="Kapitularz", url="https://ka.test/")]
+AGENDA_ROWS = 20
+USER_ID = 5
 
 
 class FakeSubscriptionsRepo:
-    def __init__(self, pending=()):
+    def __init__(self, pending=(), *, recipients=(), age_band=AgeBand.SIXTEEN_PLUS):
+        self.age_band = age_band
         self.pending = list(pending)
-        self.subscribed: list[tuple[int, int]] = []
-        self.unsubscribed: list[tuple[int, int]] = []
+        self.recipients = list(recipients)
         self.announced: list[tuple[int, datetime]] = []
+        self.subscribed: set[tuple[int, int]] = set()
+        self.swept_at: list[datetime] = []
+
+    def lock_subscriber_age_band(self, user_id):
+        _ = user_id
+        return self.age_band
+
+    def list_recipients(self, sphere_id):
+        _ = sphere_id
+        return self.recipients
 
     def subscribe(self, *, sphere_id, user_id):
-        self.subscribed.append((sphere_id, user_id))
+        self.subscribed.add((sphere_id, user_id))
 
     def unsubscribe(self, *, sphere_id, user_id):
-        self.unsubscribed.append((sphere_id, user_id))
+        self.subscribed.discard((sphere_id, user_id))
 
     def list_pending_announcements(self, *, now):
-        del now
+        self.swept_at.append(now)
         return self.pending
 
     def mark_announced(self, event_pk, *, at):
         self.announced.append((event_pk, at))
+
+
+class FakeTokens:
+    @staticmethod
+    def dumps(payload):
+        return payload.model_dump_json()
+
+    @staticmethod
+    def loads(token):
+        try:
+            return SphereUnsubscribeTokenPayload.model_validate_json(token)
+        except ValueError:
+            return None
+
+
+def _card(n, *, role):
+    return DashboardCardDTO(
+        title=f"Card {n}",
+        url=f"/c/{n}",
+        start_time=NOW + timedelta(hours=n),
+        origin_name="Kapitularz",
+        role=role,
+    )
+
+
+class FakeDashboardRepo:
+    # Every capped section returns exactly the limit it was handed, so the read
+    # shows which limit goes where; the agenda takes none.
+    def __init__(self, agenda=None):
+        self.asked: list[tuple[str, int, datetime]] = []
+        self.agenda = (
+            [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
+            if agenda is None
+            else agenda
+        )
+
+    def list_agenda(self, user_id, *, now):
+        self.asked.append(("agenda", user_id, now))
+        return self.agenda
+
+    def list_open_encounters(self, user_id, *, now, limit):
+        self.asked.append(("open_encounters", user_id, now))
+        return [_card(n, role=DashboardRole.OPEN) for n in range(limit)]
+
+    def list_sphere_feed(self, user_id, *, now, limit):
+        self.asked.append(("sphere_feed", user_id, now))
+        return [_card(n, role=DashboardRole.ORGANIZING) for n in range(limit)]
+
+    def list_spheres_to_discover(self, user_id, *, now, limit):
+        self.asked.append(("discover", user_id, now))
+        return [
+            DashboardSphereDTO(pk=n, name=f"Sphere {n}", url=f"/s/{n}")
+            for n in range(limit)
+        ]
+
+    def list_past_events(self, user_id, *, now, limit):
+        self.asked.append(("past_events", user_id, now))
+        return [_card(-n, role=DashboardRole.ATTENDED) for n in range(limit)]
 
 
 class FakeNotifier:
@@ -90,62 +122,57 @@ class FakeNotifier:
         self.sent.append(notification)
 
 
-def _announcement(*, recipients):
+def _announcement():
     return SphereEventAnnouncementDTO(
         event_pk=7,
         event_name="Kapitularz 2026",
         event_slug="kapitularz-2026",
+        sphere_id=3,
         sphere_name="Kapitularz",
         sphere_domain="kapitularz.example.test",
-        recipients=recipients,
     )
 
 
-class TestDashboardService:
-    def test_read_fills_every_section_with_its_own_limit(self):
-        repo = FakeDashboardRepo()
-
-        dashboard = DashboardService(repo).read(user_id=1, now=NOW)
-
-        assert [card.title for card in dashboard.agenda] == ["agenda"]
-        assert [card.title for card in dashboard.open_encounters] == ["open"]
-        assert [card.title for card in dashboard.sphere_feed] == ["feed"]
-        assert [sphere.name for sphere in dashboard.discover] == ["Kapitularz"]
-        assert repo.limits == {
-            "open": DASHBOARD_OPEN_ENCOUNTERS,
-            "feed": DASHBOARD_SPHERE_FEED,
-            "discover": DASHBOARD_SPHERES_TO_DISCOVER,
-        }
+def _recipient(user_id, email, age_band=AgeBand.SIXTEEN_PLUS):
+    return SubscriptionRecipientDTO(
+        subscription_id=1000 + user_id, user_id=user_id, email=email, age_band=age_band
+    )
 
 
 def _service(repo, notifier):
     return SphereSubscriptionService(
-        transaction=FakeTransaction(), subscriptions=repo, notifier=notifier
+        transaction=FakeTransaction(),
+        subscriptions=repo,
+        notifier=notifier,
+        tokens=FakeTokens(),
     )
 
 
 class TestSphereSubscriptionService:
-    def test_subscribe_and_unsubscribe_reach_the_repository(self):
-        repo = FakeSubscriptionsRepo()
+    def test_restricted_account_cannot_subscribe(self):
+        repo = FakeSubscriptionsRepo(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
 
-        service = _service(repo, FakeNotifier())
-        service.subscribe(sphere_id=3, user_id=9)
-        service.unsubscribe(sphere_id=3, user_id=9)
+        with pytest.raises(SubscriptionAgeRestrictedError):
+            _service(repo, FakeNotifier()).subscribe(sphere_id=3, user_id=USER_ID)
 
-        assert repo.subscribed == [(3, 9)]
-        assert repo.unsubscribed == [(3, 9)]
+        assert not repo.subscribed
 
-    def test_announce_notifies_every_subscriber_and_stamps_the_event(self):
-        repo = FakeSubscriptionsRepo(
-            pending=[
-                _announcement(
-                    recipients=[
-                        SubscriptionRecipientDTO(user_id=1, email="a@example.test"),
-                        SubscriptionRecipientDTO(user_id=2, email="b@example.test"),
-                    ]
-                )
-            ]
-        )
+    def test_an_event_with_no_subscribers_is_stamped_and_never_revisited(self):
+        # Otherwise the sweep would re-read it on every tick forever, and the
+        # first person to subscribe would be told about an old announcement.
+        repo = FakeSubscriptionsRepo(pending=[_announcement()])
+        notifier = FakeNotifier()
+
+        announced = _service(repo, notifier).announce_published_events(now=NOW)
+
+        assert announced == 1
+        assert repo.swept_at == [NOW]
+        assert repo.announced == [(7, NOW)]
+        assert not notifier.sent
+
+    def test_each_subscriber_is_told_once_and_the_event_is_stamped(self):
+        recipients = [_recipient(1, "a@example.test"), _recipient(2, "b@example.test")]
+        repo = FakeSubscriptionsRepo(pending=[_announcement()], recipients=recipients)
         notifier = FakeNotifier()
 
         announced = _service(repo, notifier).announce_published_events(now=NOW)
@@ -153,16 +180,117 @@ class TestSphereSubscriptionService:
         assert announced == 1
         assert repo.announced == [(7, NOW)]
         assert [n.recipient_user_id for n in notifier.sent] == [1, 2]
-        assert notifier.sent[0].event_name == "Kapitularz 2026"
+        assert {(n.event_slug, n.sphere_domain) for n in notifier.sent} == {
+            ("kapitularz-2026", "kapitularz.example.test")
+        }
 
-    def test_an_event_with_no_subscribers_is_stamped_and_never_revisited(self):
-        # Otherwise the sweep would re-read it on every tick forever, and the
-        # first person to subscribe would be told about an old announcement.
-        repo = FakeSubscriptionsRepo(pending=[_announcement(recipients=[])])
+    @pytest.mark.parametrize("age_band", (AgeBand.UNKNOWN, AgeBand.THIRTEEN_TO_FIFTEEN))
+    def test_a_subscriber_without_a_16_plus_range_hears_nothing(self, age_band):
+        repo = FakeSubscriptionsRepo(
+            pending=[_announcement()],
+            recipients=[
+                _recipient(1, "a@example.test", age_band),
+                _recipient(2, "b@example.test"),
+            ],
+        )
         notifier = FakeNotifier()
 
-        announced = _service(repo, notifier).announce_published_events(now=NOW)
+        _service(repo, notifier).announce_published_events(now=NOW)
 
-        assert announced == 1
-        assert repo.announced == [(7, NOW)]
-        assert not notifier.sent
+        assert [n.recipient_user_id for n in notifier.sent] == [2]
+
+    def test_subscribe_then_unsubscribe_leaves_no_subscription(self):
+        repo = FakeSubscriptionsRepo()
+        service = _service(repo, FakeNotifier())
+
+        service.subscribe(sphere_id=3, user_id=USER_ID)
+        assert repo.subscribed == {(3, USER_ID)}
+
+        service.unsubscribe(sphere_id=3, user_id=USER_ID)
+        assert not repo.subscribed
+
+    def test_each_email_carries_its_recipients_own_way_out(self):
+        recipients = [_recipient(1, "a@example.test"), _recipient(2, "b@example.test")]
+        repo = FakeSubscriptionsRepo(pending=[_announcement()], recipients=recipients)
+        repo.subscribed = {(3, 1), (3, 2)}
+        notifier = FakeNotifier()
+        service = _service(repo, notifier)
+        service.announce_published_events(now=NOW)
+
+        service.unsubscribe_by_token(notifier.sent[0].unsubscribe_token)
+
+        assert repo.subscribed == {(3, 2)}
+
+    def test_reading_a_token_unsubscribes_nobody(self):
+        repo = FakeSubscriptionsRepo()
+        repo.subscribed = {(3, USER_ID)}
+        token = FakeTokens.dumps(
+            SphereUnsubscribeTokenPayload(
+                user_id=USER_ID, sphere_id=3, sphere_name="Kapitularz"
+            )
+        )
+
+        payload = _service(repo, FakeNotifier()).read_unsubscribe_token(token)
+
+        assert payload is not None
+        assert payload.sphere_name == "Kapitularz"
+        assert repo.subscribed == {(3, USER_ID)}
+
+    def test_forged_token_unsubscribes_nobody(self):
+        repo = FakeSubscriptionsRepo()
+        repo.subscribed = {(3, USER_ID)}
+
+        result = _service(repo, FakeNotifier()).unsubscribe_by_token("forged")
+
+        assert result is None
+        assert repo.subscribed == {(3, USER_ID)}
+
+
+class TestDashboardService:
+    def test_read_caps_every_section_and_folds_the_agenda(self):
+        repo = FakeDashboardRepo()
+
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert repo.asked == [
+            (section, USER_ID, NOW)
+            for section in (
+                "agenda",
+                "open_encounters",
+                "sphere_feed",
+                "discover",
+                "past_events",
+            )
+        ]
+        assert dashboard.agenda + dashboard.agenda_more == repo.agenda
+        assert len(dashboard.agenda) == DASHBOARD_AGENDA_GLANCE
+        assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
+        assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED
+        assert len(dashboard.discover) == DASHBOARD_SPHERES_TO_DISCOVER
+        assert len(dashboard.past_events) == DASHBOARD_PAST_EVENTS
+        assert {c.role for c in dashboard.open_encounters} == {DashboardRole.OPEN}
+
+    def test_a_held_seat_past_the_glance_stays_in_view(self):
+        rows = [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
+        late = DASHBOARD_AGENDA_GLANCE + 3
+        rows[late] = _card(late, role=DashboardRole.OFFERED)
+        repo = FakeDashboardRepo(agenda=rows)
+
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert dashboard.agenda == [*rows[:DASHBOARD_AGENDA_GLANCE], rows[late]]
+        assert dashboard.agenda_more == [
+            row for row in rows[DASHBOARD_AGENDA_GLANCE:] if row is not rows[late]
+        ]
+
+    def test_a_short_agenda_folds_nothing(self):
+        rows = [
+            _card(n, role=DashboardRole.SIGNED_UP)
+            for n in range(DASHBOARD_AGENDA_GLANCE)
+        ]
+        repo = FakeDashboardRepo(agenda=rows)
+
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert dashboard.agenda == rows
+        assert dashboard.agenda_more == []

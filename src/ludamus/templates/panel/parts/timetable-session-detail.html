@@ -9,7 +9,6 @@
                 hx-swap="outerHTML">← {% translate "Back" %}</button>
         <h3 class="font-semibold text-foreground text-sm">{% translate "Session details" %}</h3>
     </div>
-    <!-- Session title and host -->
     <div class="mb-3">
         <div class="font-medium text-foreground">{{ session.title }}</div>
         {% for facilitator in facilitators %}
@@ -23,7 +22,6 @@
         {% translate "View proposal" as t_view_proposal %}
         {% tessera_button t_view_proposal href=proposal_url button_type="button" variant="secondary" size="sm" icon="document-text" %}
     </div>
-    <!-- Meta: duration, capacity, age -->
     <div class="flex flex-wrap gap-3 text-xs text-foreground-muted mb-3">
         {% if duration_minutes %}
             <span>{% icon "clock" class="w-3.5 h-3.5 inline" %} {{ duration_minutes }} min</span>
@@ -35,11 +33,9 @@
             <span>{% icon "shield-exclamation" class="w-3.5 h-3.5 inline" %} {% blocktranslate with age=session.min_age %}{{ age }}+{% endblocktranslate %}</span>
         {% endif %}
     </div>
-    <!-- Description -->
     {% if session.description %}
         <div class="text-sm text-foreground-secondary mb-3 line-clamp-4">{{ session.description }}</div>
     {% endif %}
-    <!-- Current assignment -->
     <div class="mb-3">
         <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Assignment" %}</div>
         {% if agenda_item %}
@@ -54,8 +50,9 @@
                         class="btn btn-secondary text-sm flex-1"
                         data-assign-session-pk="{{ session.pk }}"
                         data-assign-duration="{{ duration_minutes }}"
+                        data-assign-participants-limit="{{ session.participants_limit }}"
                         data-assign-back-url="{{ back_url }}"
-                        data-assign-confirmed="{{ agenda_item.session_confirmed|yesno:'true,false' }}"
+                        data-assign-confirmed="{{ agenda_item.schedule_confirmed|yesno:'true,false' }}"
                         data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Reassign" %}</button>
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
@@ -79,16 +76,16 @@
                   data-refresh-url="{{ detail_url }}"
                   data-refresh-target="#left-pane">
                 {% csrf_token %}
-                <input type="hidden" name="agenda_item_pk" value="{{ agenda_item.pk }}">
-                {% if agenda_item.session_confirmed %}
-                    <div class="text-xs text-success mb-2">{% icon "check-circle" class="w-3.5 h-3.5 inline" %} {% translate "Program item confirmed" %}</div>
+                <input type="hidden" name="session_pk" value="{{ session.pk }}">
+                {% if agenda_item.schedule_confirmed %}
+                    <div class="text-xs text-success mb-2">{% icon "check-circle" class="w-3.5 h-3.5 inline" %} {% translate "Schedule confirmed" %}</div>
                     <input type="hidden" name="confirmed" value="false">
                     {% translate "Undo confirmation" as t_unconfirm %}
                     {% tessera_button t_unconfirm variant="secondary" button_type="submit" size="sm" %}
                 {% else %}
-                    <div class="text-xs text-foreground-muted mb-2">{% translate "Program item not confirmed" %}</div>
+                    <div class="text-xs text-foreground-muted mb-2">{% translate "Schedule not confirmed" %}</div>
                     <input type="hidden" name="confirmed" value="true">
-                    {% translate "Confirm program item" as t_confirm %}
+                    {% translate "Confirm schedule" as t_confirm %}
                     {% tessera_button t_confirm variant="primary" button_type="submit" size="sm" %}
                 {% endif %}
             </form>
@@ -98,12 +95,12 @@
                     class="btn btn-secondary text-sm w-full"
                     data-assign-session-pk="{{ session.pk }}"
                     data-assign-duration="{{ duration_minutes }}"
+                    data-assign-participants-limit="{{ session.participants_limit }}"
                     data-assign-back-url="{{ back_url }}"
                     data-assign-confirmed="false"
                     data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Assign" %}</button>
         {% endif %}
     </div>
-    <!-- Preferred time slots -->
     {% if time_slots %}
         <div class="mb-3">
             <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">

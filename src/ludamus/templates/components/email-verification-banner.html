@@ -1,0 +1,33 @@
+{% load i18n tessera %}
+{% comment %}
+    Nag shown while the signed-in user's email is unverified. Dismissal is a
+    cookie with a max-age (set in actions.ts), so it quiets down for a while
+    and costs nothing to lose in a new browser. On phones both this and the
+    consent banner span the bottom edge, so this one waits while consent is
+    asked, and lifts over the chat button. Wider screens keep it at the
+    bottom centre, clear of the chat's corner; an open chat window stacks
+    above it.
+{% endcomment %}
+<section id="email-verification-banner"
+         class="max-sm:[body:has(#consent-banner:not([hidden]))_&]:hidden fixed z-40 bottom-3 left-3 right-3 max-sm:[body:has([data-parley-root])_&]:bottom-18 sm:bottom-4 sm:left-1/2 sm:right-auto sm:w-full sm:max-w-sm sm:-translate-x-1/2 sm:[body:has(.parley-frame)_&]:left-4 sm:[body:has(.parley-frame)_&]:translate-x-0 rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
+         aria-label="{% translate "Email verification" %}">
+    <div class="p-4 flex flex-col gap-3">
+        <div class="flex items-start gap-2.5">
+            {% icon "envelope" class="w-5 h-5 shrink-0 mt-0.5 text-primary" %}
+            <p class="text-sm text-foreground-secondary text-balance">
+                {% if current_user.email or current_user.pending_email %}
+                    {% translate "Verify your email address so waitlist offers and other notifications reach you." %}
+                {% else %}
+                    {% translate "Add an email address so waitlist offers and other notifications reach you." %}
+                {% endif %}
+            </p>
+        </div>
+        <div class="flex flex-row justify-end gap-2">
+            {% translate "Later" as later_label %}
+            {% translate "Go to profile" as profile_label %}
+            {% url 'web:crowd:profile' as profile_url %}
+            {% tessera_button later_label button_type="button" variant="secondary" full_width_mobile=False data_action="dismiss-banner" data_dismiss_target="email-verification-banner" data_dismiss_cookie="hide_email_verification_banner" %}
+            {% tessera_button profile_label href=profile_url variant="primary" %}
+        </div>
+    </div>
+</section>

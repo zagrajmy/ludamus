@@ -7,7 +7,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AccreditationType,
@@ -17,9 +17,11 @@ from ludamus.links.db.django.models import (
     Guild,
     GuildMembership,
     PersonalDataField,
+    PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
+from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, OrganizerFieldOptionDTO
 from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import (
     EventFactory,
@@ -72,6 +74,7 @@ def _tab_urls(event):
         "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": event.slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
     }
 
@@ -84,12 +87,12 @@ def _event_context(event, active_tab="list"):
     }
 
 
-def _field_dto(field):
+def _field_dto(field, *, options=()):
     return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,
-        options=[],
+        options=list(options),
         order=field.order,
         pk=field.pk,
         question=field.question,
@@ -213,6 +216,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
@@ -247,6 +252,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=facilitator.pk,
                 slug="alice",
                 user_id=None,
@@ -301,6 +308,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Hanna",
+                organizer_id=None,
+                organizer_name=None,
                 guild=GuildMarkDTO(pk=guild.pk, name="Topory"),
                 pk=rows[0].pk,
                 slug="hanna",
@@ -310,6 +319,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Imported",
+                organizer_id=None,
+                organizer_name=None,
                 pk=rows[1].pk,
                 slug="imported",
                 user_id=None,
@@ -318,6 +329,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Jonasz",
+                organizer_id=None,
+                organizer_name=None,
                 pk=rows[2].pk,
                 slug="jonasz",
                 user_id=joinable.pk,
@@ -361,6 +374,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Imported",
+                organizer_id=None,
+                organizer_name=None,
                 guild=GuildMarkDTO(pk=guild.pk, name="Topory"),
                 pk=rows[0].pk,
                 slug="imported",
@@ -438,6 +453,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
@@ -484,6 +501,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
@@ -557,6 +576,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="guest",
                 display_name="Guest",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="guest",
                 user_id=None,
@@ -591,6 +612,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name=name,
+                organizer_id=None,
+                organizer_name=None,
                 pk=listed[index].pk,
                 slug=name.lower(),
                 user_id=None,
@@ -630,6 +653,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Normal",
+                organizer_id=None,
+                organizer_name=None,
                 pk=normal.pk,
                 slug="normal",
                 user_id=None,
@@ -717,6 +742,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Free",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="free",
                 user_id=None,
@@ -749,6 +776,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
@@ -855,6 +884,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="No",
+                organizer_id=None,
+                organizer_name=None,
                 pk=no.pk,
                 slug="no",
                 user_id=None,
@@ -863,6 +894,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Yes",
+                organizer_id=None,
+                organizer_name=None,
                 pk=yes.pk,
                 slug="yes",
                 user_id=None,
@@ -928,6 +961,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Vegan",
+                organizer_id=None,
+                organizer_name=None,
                 pk=vegan.pk,
                 slug="vegan-f",
                 user_id=None,
@@ -959,6 +994,12 @@ class TestFacilitatorsPageView:
             field_type="select",
             order=0,
         )
+        reds_option = PersonalDataFieldOption.objects.create(
+            field=field, label="Reds", value="Reds", order=0
+        )
+        blues_option = PersonalDataFieldOption.objects.create(
+            field=field, label="Blues", value="Blues", order=1
+        )
         reds = Facilitator.objects.create(
             event=event, display_name="Reds member", slug="reds", user=None
         )
@@ -978,6 +1019,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Reds member",
+                organizer_id=None,
+                organizer_name=None,
                 pk=reds.pk,
                 slug="reds",
                 user_id=None,
@@ -995,7 +1038,22 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
-                "filterable_fields": [_field_dto(field)],
+                "filterable_fields": [
+                    _field_dto(
+                        field,
+                        options=[
+                            OrganizerFieldOptionDTO(
+                                label="Reds", order=0, pk=reds_option.pk, value="Reds"
+                            ),
+                            OrganizerFieldOptionDTO(
+                                label="Blues",
+                                order=1,
+                                pk=blues_option.pk,
+                                value="Blues",
+                            ),
+                        ],
+                    )
+                ],
                 "filter_fields": {field.pk: "Reds"},
             },
         )
@@ -1023,6 +1081,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Reds member",
+                organizer_id=None,
+                organizer_name=None,
                 pk=facilitator.pk,
                 slug="reds",
                 user_id=None,
@@ -1070,6 +1130,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Bob",
+                organizer_id=None,
+                organizer_name=None,
                 pk=bob.pk,
                 slug="bob",
                 user_id=None,
@@ -1078,6 +1140,8 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                organizer_id=None,
+                organizer_name=None,
                 pk=alice.pk,
                 slug="alice",
                 user_id=None,
@@ -1201,6 +1265,8 @@ class TestFacilitatorBinPageView:
                         accreditation_type="none",
                         deleted_at=_DELETED_AT,
                         display_name="Deleted",
+                        organizer_id=None,
+                        organizer_name=None,
                         pk=deleted.pk,
                         slug="deleted",
                         user_id=None,

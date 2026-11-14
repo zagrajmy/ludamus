@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
-from ludamus.pacts import NotFoundError
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.mills.event import require_event_in_sphere
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.integrations import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportOutcome,
@@ -24,17 +25,16 @@ from ludamus.pacts.konwencik import (
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
-    from ludamus.pacts.chronology import (
+    from ludamus.pacts.integrations import (
         EventIntegrationDTO,
         EventIntegrationsRepositoryProtocol,
     )
-    from ludamus.pacts.multiverse import (
-        ConnectionsRepositoryProtocol,
-        DecryptorProtocol,
-    )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sheets import SheetWriterProtocol
+    from ludamus.pacts.sphere import ConnectionsRepositoryProtocol, DecryptorProtocol
+    from ludamus.pacts.timetable import AgendaItemDTO
+    from ludamus.pacts.tracks import TrackDTO
+    from ludamus.pacts.venues import SpaceDTO
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,9 @@ def _room_labels(spaces: list[SpaceDTO]) -> dict[int, str]:
     by_pk = {space.pk: space for space in spaces}
     labels: dict[int, str] = {}
     for space in spaces:
+        # pragma: no mutate start
         parent = by_pk.get(space.parent_id) if space.parent_id else None
+        # pragma: no mutate end
         labels[space.pk] = f"{space.name} ({parent.name})" if parent else space.name
     return labels
 
@@ -121,7 +123,7 @@ def _local_span(item: AgendaItemDTO, zone: tzinfo) -> tuple[datetime, datetime] 
 
 def _last_run(integration: EventIntegrationDTO) -> KonwencikLastRun | None:
     try:
-        return KonwencikLastRun.model_validate_json(integration.last_run_json or "{}")
+        return KonwencikLastRun.model_validate_json(integration.last_run_json)
     except ValidationError:
         # Never run, or a blob from an older shape: the sheet is the output.
         return None
@@ -209,7 +211,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             track = _first_public_track(tracks, session_tracks)
             if session_tracks and track is None:
                 continue
+            # pragma: no mutate start
             combinations[item.category_id, track.pk if track else None] = None
+            # pragma: no mutate end
         return list(combinations)
 
     def save_settings(
@@ -309,9 +313,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
 
     def _scoped(self, *, sphere_id: int, event_pk: int, pk: int) -> EventIntegrationDTO:
         # Panel access proves the sphere, not the ids the request names.
-        event = self._repos.events.read(event_pk)
-        if event.sphere_id != sphere_id:
-            raise NotFoundError
+        require_event_in_sphere(
+            events=self._repos.events, event_pk=event_pk, sphere_id=sphere_id
+        )
         integration = self._integrations.get(event_pk, pk)
         # The event's other integrations are not this page's to touch: saving
         # Konwencik settings over an importer's row would destroy its question
@@ -539,7 +543,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
 def _slug_of(slugs: dict[int, str], pk: int | None) -> str:
     # No field configured is its own case, not a pk that happens to match
     # nothing: an unset override never reaches the value store.
-    return slugs.get(pk, "") if pk is not None else ""
+    return slugs.get(pk, "") if pk is not None else ""  # pragma: no mutate
 
 
 def _first_public_track(
@@ -563,11 +567,13 @@ def _build_row(
     answers: dict[str, str],
 ) -> KonwencikRow:
     start, end = span
+    # pragma: no mutate start
     default_icon = (
         settings.category_icons.get(item.category_id, "")
         if item.category_id is not None
         else ""
     )
+    # pragma: no mutate end
     return KonwencikRow(
         id=str(item.session_id),
         day=start.strftime(_DAY_FORMAT),

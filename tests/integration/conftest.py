@@ -1,24 +1,32 @@
+import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from secrets import token_urlsafe
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
+from django.core.cache import cache
 from django.urls import get_resolver
-from django.utils.timezone import localtime
-from factory import Faker, LazyAttribute, Sequence, SubFactory
+from django.utils.module_loading import import_string
+from django.utils.timezone import get_current_timezone, localtime
+from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
+from zeal import zeal_context
 
 from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
+    EncounterInvitee,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Listing,
     Party,
     PartyMembership,
     ProposalCategory,
@@ -30,8 +38,11 @@ from ludamus.links.db.django.models import (
     TimeSlot,
 )
 from ludamus.pacts.encounter import EncountersPolicy
+from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from tests.integration.catalog import compile_po
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
+from tests.template_checks import MissingTemplateVariableFilter
 
 User = get_user_model()
 
@@ -52,17 +63,77 @@ register(AnonymousUserFactory)
 
 @pytest.fixture(scope="session", autouse=True)
 def _urlconf_loaded():
-    # Load the whole URLconf while the clock is real. It imports the MCP tools
-    # module, which builds pydantic TypeAdapters at import time, and pydantic
+    # Load the whole URLconf and the middleware chain while the clock is real.
+    # They import modules that build pydantic models and TypeAdapters at
+    # import time (the MCP tools, the repository registry), and pydantic
     # cannot generate a schema for the datetime class freezegun swaps in. A
-    # test that freezes time before the first reverse() would otherwise fail on
+    # test that freezes time before the first request would otherwise fail on
     # whichever xdist worker happens to run it first.
     assert get_resolver().reverse_dict is not None
+    for middleware in django_settings.MIDDLEWARE:
+        import_string(middleware)
 
 
 @pytest.fixture(autouse=True)
 def _django_db(db):
     pass
+
+
+@pytest.fixture(autouse=True)
+def _fail_on_missing_template_variables():
+    """Raise exception when template variables cannot be resolved.
+
+    Django silently swallows AttributeError when accessing missing
+    methods/properties on template objects. This fixture ensures
+    such errors are caught during tests.
+    """
+    logger = logging.getLogger("django.template")
+    original_level = logger.level
+    filter_instance = MissingTemplateVariableFilter()
+
+    logger.setLevel(logging.DEBUG)
+    logger.addFilter(filter_instance)
+
+    yield
+
+    logger.removeFilter(filter_instance)
+    logger.setLevel(original_level)
+
+
+@pytest.fixture(autouse=True)
+def _zeal_n_plus_one_detection():
+    # The zeal middleware only monitors request paths; this covers tests that
+    # drive services and repositories directly.
+    with zeal_context():
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _media_root(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path / "media")
+
+
+@pytest.fixture(autouse=True)
+def english_language(settings):
+    # Assertions here read rendered pages and model __str__ output, so they are
+    # written against one language. Lives here, not in the root conftest: it is
+    # a `settings` mutation, which tests/unit may not take.
+    settings.LANGUAGE_CODE = "en"
+
+
+@pytest.fixture(scope="session", name="_compiled_polish_catalog")
+def compiled_polish_catalog_fixture(tmp_path_factory):
+    root = tmp_path_factory.mktemp("locale")
+    messages = root / "pl" / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    source = Path(django_settings.LOCALE_PATHS[0]) / "pl" / "LC_MESSAGES"
+    compile_po(po_path=source / "django.po", mo_path=messages / "django.mo")
+    return root
+
+
+@pytest.fixture
+def polish_catalog(settings, _compiled_polish_catalog):
+    settings.LOCALE_PATHS = [_compiled_polish_catalog]
 
 
 def sponsor_user(*, leader, member):
@@ -87,13 +158,22 @@ def sponsor_user(*, leader, member):
     return party
 
 
+@pytest.fixture
+def sixteen_plus_user(active_user):
+    active_user.age_band = "16_plus"
+    active_user.save(update_fields=["age_band"])
+    return active_user
+
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
-        django_get_or_create = ("username",)
 
-    username = Faker("user_name")
+    username = Sequence(lambda n: f"user{n}")
     email = Sequence(lambda n: f"user{n}@example.com")
+    # Verified by default, mirroring production after the grandfathering
+    # migration; suppression tests flip it off explicitly.
+    email_verified = True
     name = Faker("name")
     slug = LazyAttribute(lambda o: o.username)
     user_type = "active"  # Use the actual choice value
@@ -122,6 +202,22 @@ class SphereFactory(DjangoModelFactory):
     site = SubFactory(SiteFactory)
     # A sphere that runs encounters, since most tests that touch them want one.
     encounters_policy = EncountersPolicy.EVERYONE
+
+
+def dst_free_midnight():
+    # NOTE: wall-clock expectations break when an event's days span a DST
+    # switch (02:00 repeats on the autumn one). Among 7 consecutive midnights
+    # one always clears the switch; search from a week out so the event never
+    # starts sooner, as tests postpone publication_time by a day.
+    tz = get_current_timezone()
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    midnights = (today + timedelta(days=days) for days in range(7, 14))
+    return next(
+        midnight
+        for midnight in midnights
+        if (midnight - timedelta(days=1)).astimezone(tz).utcoffset()
+        == (midnight + timedelta(days=5)).astimezone(tz).utcoffset()
+    )
 
 
 class EventFactory(DjangoModelFactory):
@@ -233,13 +329,36 @@ class EncounterFactory(DjangoModelFactory):
     share_code = LazyAttribute(lambda __: token_urlsafe(4)[:6])
 
 
+class ListingFactory(DjangoModelFactory):
+    class Meta:
+        model = Listing
+
+    sphere = SubFactory(SphereFactory)
+    author = SubFactory(UserFactory)
+    seeking = ListingSeeking.PLAYERS
+    title = Faker("sentence", nb_words=4)
+    what = Faker("sentence", nb_words=3)
+    when_text = "Fridays"
+    contact = ListingContact.EMAIL
+    status = ListingStatus.OPEN
+    opened_at = LazyAttribute(lambda __: datetime.now(UTC))
+
+
 class EncounterRSVPFactory(DjangoModelFactory):
     class Meta:
         model = EncounterRSVP
 
     encounter = SubFactory(EncounterFactory)
     user = SubFactory(UserFactory)
-    ip_address = Faker("ipv4")
+
+
+class EncounterInviteeFactory(DjangoModelFactory):
+    class Meta:
+        model = EncounterInvitee
+
+    encounter = SubFactory(EncounterFactory)
+    creator = LazyAttribute(lambda o: o.encounter.creator)
+    email = Sequence(lambda n: f"invitee{n}@example.com")
 
 
 class AgendaItemFactory(DjangoModelFactory):
@@ -261,6 +380,15 @@ class AgendaItemFactory(DjangoModelFactory):
         + timedelta(microseconds=n)
     )
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
+    # The session's flag is the one read; the item's column mirrors it until it
+    # is dropped, the way production writes both.
+    session_confirmed = LazyAttribute(lambda o: o.session.schedule_confirmed)
+
+    @post_generation
+    def mirror_confirmation(self, _create, _extracted, **_kwargs):
+        if self.session.schedule_confirmed != self.session_confirmed:
+            self.session.schedule_confirmed = self.session_confirmed
+            self.session.save(update_fields=["schedule_confirmed"])
 
 
 @pytest.fixture
@@ -358,10 +486,11 @@ def non_root_sphere(settings, faker):
 
 @pytest.fixture(name="event")
 def event_fixture(sphere):
-    now = datetime.now(UTC)
-    midnight = (now + timedelta(days=7)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    # NOTE: noon keeps the proposal window's wall-clock times clear of the
+    # 02:00 hour a DST switch skips or repeats, which forms reject as
+    # ambiguous when a test posts them back.
+    now = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+    midnight = dst_free_midnight()
     return EventFactory(
         sphere=sphere,
         start_time=midnight,
@@ -478,6 +607,14 @@ def encounter_with_rsvps(sphere):
     EncounterRSVPFactory(encounter=encounter)
     EncounterRSVPFactory(encounter=encounter)
     return encounter
+
+
+@pytest.fixture(autouse=True)
+def _empty_cache():
+    # The locmem cache outlives a test's rolled-back database: a cached
+    # landing count or a rate-limit window reserved by one test would leak
+    # into the next test's assertions.
+    cache.clear()
 
 
 @pytest.fixture(autouse=True)

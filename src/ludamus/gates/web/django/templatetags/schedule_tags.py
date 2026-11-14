@@ -27,6 +27,7 @@ these same builders returned.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from functools import cache
 from html import escape
@@ -40,18 +41,18 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
-from ludamus.gates.web.django.templatetags.cfp_tags import space_sort_path_json
 from ludamus.pacts.durations import format_duration
+from ludamus.pacts.sessions import SessionAvailability
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
     from datetime import date, datetime, tzinfo
 
-    from ludamus.gates.web.django.chronology.event_presentation import SessionData
-    from ludamus.gates.web.django.chronology.schedule import RoomLaneTile, ScheduleTile
     from ludamus.gates.web.django.entities import UserInfo
+    from ludamus.gates.web.django.event.event_presentation import SessionData
+    from ludamus.gates.web.django.event.schedule import RoomLaneTile, ScheduleTile
     from ludamus.pacts.guild import GuildMarkDTO
-    from ludamus.pacts.legacy import LocationData
+    from ludamus.pacts.venues import LocationData
 
 register = template.Library()
 
@@ -192,6 +193,11 @@ _TILE_HOST = (
 )
 
 
+def space_sort_path_json(path: tuple[tuple[int, str, int], ...]) -> str:
+    # data-space-order: session-filters.ts parses it to sort cards by room.
+    return json.dumps(path, ensure_ascii=True, separators=(",", ":"))
+
+
 @dataclass(frozen=True)
 class _Words:
     # The translated strings a row repeats, looked up and escaped once.
@@ -302,7 +308,7 @@ def _session_attrs(
         # started session as in progress, while the label waits for a
         # limit_to_end_time window to shut it (should_show_as_inactive).
         "status": (
-            "in-progress"
+            SessionAvailability.IN_PROGRESS
             if data.is_ongoing and not data.is_ended
             else data.availability
         ),
@@ -378,31 +384,45 @@ def session_seat_count(data: SessionData, extra_class: str = "") -> SafeString:
     return SafeString(_seat_count(data, extra_class))
 
 
+_AVAILABILITY_TERMS = {term.name: term.value for term in SessionAvailability}
+
+
+@register.simple_tag
+def availability_terms() -> dict[str, str]:
+    """Name SessionAvailability's terms for a template and the page's client.
+
+    Returns:
+        Each term's value by its name, e.g. ``{"FULL": "full"}``.
+    """
+    return _AVAILABILITY_TERMS
+
+
 def _availability(sheet: _Sheet, data: SessionData) -> str:
     # The compact label of the ledger row and the room tile. Nothing for a
     # session that takes no enrollment: on big events a repeated negative
     # label on most rows is redundant noise.
     availability = data.availability
     words = sheet.words
-    if availability == "ended":
+    if availability is SessionAvailability.ENDED:
         return _MUTED_LABEL.format(words.ended)
-    if availability == "in-progress":
+    if availability is SessionAvailability.IN_PROGRESS:
         return _MUTED_LABEL.format(words.in_progress)
-    if availability == "unavailable":
+    if availability is SessionAvailability.UNAVAILABLE:
         return _seat_count(data, "")
-    if availability == "full":
+    if availability is SessionAvailability.FULL:
         if data.waiting_count > 0:
             return _FULL_WAITING_LABEL.format(
                 words.full, data.waiting_count, words.waiting
             )
         return _FULL_LABEL.format(words.full)
-    if availability == "available":
+    if availability is SessionAvailability.AVAILABLE:
         spots = data.spots_left
         return _SPOTS_LABEL.format(
             _CORAL if data.spots_scarce else _TEAL,
             escape(
-                ngettext("%(counter)s spot left", "%(counter)s spots left", spots)
-                % {"counter": spots}
+                ngettext("%(counter)s spot left", "%(counter)s spots left", spots) % {
+                    "counter": spots
+                }
             ),
         )
     return ""
@@ -458,6 +478,21 @@ def _bookmark(*, sheet: _Sheet, data: SessionData, wrapper_class: str) -> str:
             % {"counter": count}
         ),
     }
+
+
+@register.simple_tag(takes_context=True)
+def session_bookmark(
+    context: template.Context, data: SessionData, wrapper_class: str = ""
+) -> SafeString:
+    """Render the bookmark toggle (or read-only count) outside a schedule row.
+
+    Returns:
+        The same markup the ledger row and room tile carry, so
+        session-bookmarks.ts keeps every copy of one session in step.
+    """
+    return SafeString(
+        _bookmark(sheet=_sheet(context), data=data, wrapper_class=wrapper_class)
+    )
 
 
 def _guild_mark(*, sheet: _Sheet, data: SessionData, extra_class: str) -> str:
@@ -540,8 +575,7 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
     duration = sheet.duration(session.duration)
     availability = _availability(sheet, data)
     return SafeString(
-        _ROW
-        % {
+        _ROW % {
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
             "attrs": _session_attrs(
                 sheet=sheet, data=data, local_start=local_start, local_end=local_end
@@ -594,8 +628,7 @@ def room_lane_tile(
             "host": escape(session.facilitator_name),
         }
     return SafeString(
-        _TILE
-        % {
+        _TILE % {
             "slot": _TILE_SLOT_ATTR.format(escape(slot_key)) if slot_key else "",
             "tone": _ENROLLED_TONE if data.user_enrolled else "",
             "attrs": _session_attrs(

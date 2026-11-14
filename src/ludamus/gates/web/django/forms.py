@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -16,6 +15,7 @@ from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_log
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
+    requirement_fields,
 )
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
@@ -24,19 +24,26 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
-from ludamus.pacts.legacy import PromotionMode
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.enrollment import PromotionMode
+from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.fields import UNREQUIRABLE_FIELD_TYPES
+from ludamus.pacts.images import (
+    IMAGE_ACCEPT,
+    LOGO_ACCEPT,
+    CoverCrop,
+    StoredFile,
+    resolve_uploaded_file_field,
+)
+from ludamus.pacts.propose import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import SessionFieldRequirementDTO
-    from ludamus.pacts.multiverse import ConnectionDTO
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
+    from ludamus.pacts.sessions import SessionUpdateData
     from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -77,6 +84,24 @@ class DropzoneFileInput(forms.ClearableFileInput):
         super().__init__(attrs)
         self.fit = fit
         self.crop = crop
+
+
+class MarkdownTextarea(forms.Textarea):
+    """A textarea whose text is read as Markdown, edited with highlighting.
+
+    ``published`` text is shown to everyone the page is shown to, never
+    personal, so session recordings keep it readable; anything else stays
+    masked like every other input.
+    """
+
+    def __init__(
+        self,
+        *,
+        published: bool,
+        attrs: dict[str, str | int | _StrPromise] | None = None,
+    ) -> None:
+        super().__init__(attrs)
+        self.published = published
 
 
 def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
@@ -145,11 +170,15 @@ class EventSettingsForm(forms.Form):
         },
     )
     slug = forms.SlugField(
-        max_length=50, error_messages={"required": _("Event slug is required.")}
+        label=_("Slug"),
+        max_length=50,
+        help_text=_("URL identifier for this event. Must be unique."),
+        error_messages={"required": _("Event slug is required.")},
     )
     description = forms.CharField(
+        label=_("Description"),
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=MarkdownTextarea(published=True, attrs={"rows": 3}),
         help_text=_("Aim for about 230 characters."),
     )
     address = forms.CharField(
@@ -171,19 +200,47 @@ class EventSettingsForm(forms.Form):
     cover_image = cover_image_field(crop="top-and-bottom")
     logo = logo_field()
     start_time = forms.DateTimeField(
+        label=_("Start time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("Start time is required.")},
     )
     end_time = forms.DateTimeField(
+        label=_("End time"),
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
+    )
+    visibility = forms.ChoiceField(
+        choices=[
+            (
+                EventVisibility.PUBLIC.value,
+                _(
+                    "Public: listed and announced to followers from its "
+                    "publication time"
+                ),
+            ),
+            (
+                EventVisibility.UNLISTED.value,
+                _(
+                    "Link only: anyone with the link can open it now; never "
+                    "listed or announced"
+                ),
+            ),
+        ],
+        initial=EventVisibility.PUBLIC.value,
+        widget=forms.RadioSelect,
+        label=_("Who can see the event"),
     )
     publication_time = forms.DateTimeField(
         required=False,
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
+        label=_("Publication time"),
+        help_text=_(
+            "For a public event: when it appears in event lists and followers "
+            "are notified. Leave empty to keep it hidden."
+        ),
     )
     allow_facilitator_session_edit = forms.ChoiceField(
         required=False,
@@ -217,6 +274,19 @@ class EventSettingsForm(forms.Form):
             "rather than players."
         ),
     )
+    parley_enabled = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", pgettext_lazy("event chat", "On")),
+            ("false", pgettext_lazy("event chat", "Off")),
+        ],
+        label=_("Event chat"),
+        help_text=_(
+            "When on, everyone with a place or on a waitlist, the hosts and the "
+            "organizers share one chat. Turning it off closes it at once."
+        ),
+    )
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
@@ -224,46 +294,14 @@ class EventSettingsForm(forms.Form):
         return image
 
 
-class SphereSettingsForm(forms.Form):
-    """Form for sphere-wide settings."""
-
-    allow_facilitator_session_edit = forms.BooleanField(
-        required=False,
-        label=_("Allow facilitators to edit their own sessions"),
-        help_text=_("Default for the whole sphere. Events can override this setting."),
-    )
-    event_cover_buttons_at_bottom = forms.BooleanField(
-        required=False,
-        label=_("Place event cover buttons at the bottom right"),
-        help_text=_(
-            "Shows print and venue map buttons in a horizontal row at the bottom "
-            "right of event covers."
-        ),
-    )
-    encounters_policy = forms.ChoiceField(
-        choices=[
-            (EncountersPolicy.NONE.value, _("Nobody (encounters are off here)")),
-            (EncountersPolicy.MANAGERS.value, _("Sphere managers only")),
-            (EncountersPolicy.EVERYONE.value, _("Everyone")),
-        ],
-        widget=forms.RadioSelect,
-        label=_("Who may organize encounters"),
-        help_text=_(
-            "Encounters are small meetups organized by hand. Public ones are "
-            "listed for everyone on the events page."
-        ),
-    )
-    confirmed_encounters_disable = forms.BooleanField(
-        required=False, widget=forms.HiddenInput
-    )
-    logo = logo_field()
-
-
 class ProposalSettingsForm(forms.Form):
     """Form for proposal settings (description, dates, apply-to-categories)."""
 
     proposal_description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 4})
+        label=_("Proposal Description"),
+        required=False,
+        widget=MarkdownTextarea(published=True, attrs={"rows": 4}),
+        help_text=_("Shown above every step of the proposal form."),
     )
     proposal_start_time = forms.DateTimeField(
         required=False,
@@ -281,6 +319,9 @@ class ProposalSettingsForm(forms.Form):
 
 class ProposalCategoryForm(forms.Form):
     """Form for creating/editing proposal categories."""
+
+    # The mode the claim window belongs to, for the page's `data-show-when`.
+    OFFER_CLAIM: ClassVar = PromotionMode.OFFER_CLAIM.value
 
     name = forms.CharField(
         max_length=255,
@@ -339,129 +380,131 @@ class ProposalCategoryForm(forms.Form):
         return cleaned
 
 
-class PersonalDataFieldForm(forms.Form):
+def check_select_has_options(form: forms.Form, cleaned: dict[str, object]) -> None:
+    # A select with nothing to pick and no write-in cannot be answered, and a
+    # required one blocks every proposal.
+    options = cleaned.get("options")
+    if (
+        cleaned.get("field_type") == "select"
+        and not cleaned.get("allow_custom")
+        and not (isinstance(options, str) and options.strip())
+    ):
+        form.add_error("options", _("Add at least one option, or allow custom values."))
+
+
+class OrganizerFieldForm(forms.Form):
+    """What a session field and a personal-data field are both made of."""
+
+    FIELD_TYPE_CHOICES: ClassVar = [
+        ("text", _("Text")),
+        ("select", _("Select")),
+        ("checkbox", _("Checkbox")),
+    ]
+    # The types the Required controls leave with, space-separated for the
+    # page's `data-hide-when`.
+    UNREQUIRABLE_TYPES: ClassVar = " ".join(sorted(UNREQUIRABLE_FIELD_TYPES))
+
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        error_messages={
+            "max_length": _("Field name is too long (max 255 characters)."),
+            "required": _("Field name is required."),
+        },
+    )
+    question = forms.CharField(
+        max_length=500,
+        strip=True,
+        error_messages={
+            "max_length": _("Question text is too long (max 500 characters)."),
+            "required": _("Question text is required."),
+        },
+    )
+    field_type = forms.ChoiceField(
+        choices=FIELD_TYPE_CHOICES, initial="text", required=False
+    )
+    options = forms.CharField(
+        required=False,
+        widget=forms.Textarea,
+        help_text=_("One option per line (for Select fields only)."),
+    )
+    is_multiple = forms.BooleanField(
+        required=False,
+        initial=False,
+        help_text=_("Allow selecting multiple options (for Select fields only)."),
+    )
+    allow_custom = forms.BooleanField(
+        required=False,
+        initial=False,
+        help_text=_("Allow entering custom values (for Select fields only)."),
+    )
+    max_length = forms.IntegerField(
+        required=False,
+        min_value=0,
+        help_text=_(
+            "Maximum number of characters allowed (0 = no limit)."
+            " Applies to text fields and custom value inputs."
+        ),
+    )
+    help_text = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text=_(
+            "Supports markdown (links, bold)."
+            " Shown below the field in the proposal form."
+        ),
+    )
+    is_public = forms.BooleanField(required=False, initial=False)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or self.cleaned_data
+        check_select_has_options(self, cleaned)
+        return cleaned
+
+
+class PersonalDataFieldForm(OrganizerFieldForm):
     """Form for creating/editing personal data fields."""
 
     FIELD_TYPE_CHOICES: ClassVar = [
-        ("text", _("Text")),
-        ("select", _("Select")),
-        ("checkbox", _("Checkbox")),
+        *OrganizerFieldForm.FIELD_TYPE_CHOICES,
+        ("discord", _("Discord username")),
     ]
 
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Field name is too long (max 255 characters)."),
-            "required": _("Field name is required."),
-        },
-    )
-    question = forms.CharField(
-        max_length=500,
-        strip=True,
-        error_messages={
-            "max_length": _("Question text is too long (max 500 characters)."),
-            "required": _("Question text is required."),
-        },
-    )
     field_type = forms.ChoiceField(
         choices=FIELD_TYPE_CHOICES, initial="text", required=False
     )
-    options = forms.CharField(
-        required=False,
-        widget=forms.Textarea,
-        help_text=_("One option per line (for Select fields only)."),
-    )
-    is_multiple = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow selecting multiple options (for Select fields only)."),
-    )
-    allow_custom = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow entering custom values (for Select fields only)."),
-    )
-    max_length = forms.IntegerField(
-        required=False,
-        min_value=0,
-        help_text=_(
-            "Maximum number of characters allowed (0 = no limit)."
-            " Applies to text fields and custom value inputs."
-        ),
-    )
-    help_text = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 2}),
-        help_text=_(
-            "Supports markdown (links, bold)."
-            " Shown below the field in the proposal form."
-        ),
-    )
-    is_public = forms.BooleanField(required=False, initial=False)
+    is_required = forms.BooleanField(required=False, initial=False)
+    order = forms.IntegerField(required=False, min_value=0, initial=0)
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean()
+        # The database refuses the pair too; this is the message the organiser
+        # reads instead of a constraint error.
+        if cleaned.get("field_type") in UNREQUIRABLE_FIELD_TYPES and cleaned.get(
+            "is_required"
+        ):
+            # Also a non-field error: the edit page hides the Required control
+            # for a checkbox, so its own error paragraph never renders.
+            self.add_error("is_required", _("A checkbox cannot be required."))
+            self.add_error(None, _("A checkbox cannot be required."))
+        return cleaned
 
 
-class SessionFieldForm(forms.Form):
-    """Form for creating/editing session fields."""
+class PersonalDataFieldEditForm(PersonalDataFieldForm):
+    """Editing keeps a field's type, except a switch between text kinds."""
 
     FIELD_TYPE_CHOICES: ClassVar = [
         ("text", _("Text")),
-        ("select", _("Select")),
-        ("checkbox", _("Checkbox")),
+        ("discord", _("Discord username")),
     ]
 
-    name = forms.CharField(
-        max_length=255,
-        strip=True,
-        error_messages={
-            "max_length": _("Field name is too long (max 255 characters)."),
-            "required": _("Field name is required."),
-        },
-    )
-    question = forms.CharField(
-        max_length=500,
-        strip=True,
-        error_messages={
-            "max_length": _("Question text is too long (max 500 characters)."),
-            "required": _("Question text is required."),
-        },
-    )
-    field_type = forms.ChoiceField(
-        choices=FIELD_TYPE_CHOICES, initial="text", required=False
-    )
-    options = forms.CharField(
-        required=False,
-        widget=forms.Textarea,
-        help_text=_("One option per line (for Select fields only)."),
-    )
-    is_multiple = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow selecting multiple options (for Select fields only)."),
-    )
-    allow_custom = forms.BooleanField(
-        required=False,
-        initial=False,
-        help_text=_("Allow entering custom values (for Select fields only)."),
-    )
-    max_length = forms.IntegerField(
-        required=False,
-        min_value=0,
-        help_text=_(
-            "Maximum number of characters allowed (0 = no limit)."
-            " Applies to text fields and custom value inputs."
-        ),
-    )
-    help_text = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 2}),
-        help_text=_(
-            "Supports markdown (links, bold)."
-            " Shown below the field in the proposal form."
-        ),
-    )
+    field_type = forms.ChoiceField(choices=FIELD_TYPE_CHOICES, required=False)
+
+
+class SessionFieldForm(OrganizerFieldForm):
+    """Form for creating/editing session fields."""
+
     icon = forms.CharField(max_length=50, required=False)
-    is_public = forms.BooleanField(required=False, initial=False)
 
 
 class TimeSlotForm(forms.Form):
@@ -617,6 +660,11 @@ class TreeChoice(NamedTuple):
     children: list[TreeChoice]
 
 
+class ToggleRadioSelect(forms.RadioSelect):
+    # Read by the tessera renderer: a short row of options drawn as buttons.
+    toggle = True
+
+
 class CheckboxTreeSelect(forms.CheckboxSelectMultiple):
     # `choice_tree` is read by the tessera renderer, which draws the nesting the
     # flat `choices` cannot express. Both describe the same options, so
@@ -700,7 +748,10 @@ class SessionEditForm(forms.Form):
         error_messages={"required": _("Presenter name is required.")},
     )
     description = forms.CharField(
-        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
+        required=False,
+        label=_("Description"),
+        widget=MarkdownTextarea(published=True, attrs={"rows": 5}),
+        help_text=_("Supports Markdown formatting."),
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
@@ -726,6 +777,26 @@ class SessionEditForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+    def update_data(self) -> SessionUpdateData:
+        # The presenter's own edit and the organizer's share this form, so they
+        # share the write it makes: the panel's subclass adds `category_id`.
+        cleaned = self.cleaned_data
+        update: SessionUpdateData = {
+            "title": cleaned.get("title") or "",
+            "facilitator_name": cleaned.get("facilitator_name") or "",
+            "description": cleaned.get("description") or "",
+            "contact_email": cleaned.get("contact_email") or "",
+            "participants_limit": cleaned.get("participants_limit") or 0,
+            "min_age": cleaned.get("min_age") or 0,
+            "duration": cleaned.get("duration") or "",
+        }
+        if category_id := cleaned.get("category_id"):
+            update["category_id"] = int(category_id)
+        cover = resolve_uploaded_file_field(cleaned.get("cover_image"))
+        if cover is not None:
+            update["cover_image"] = cover
+        return update
 
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.
@@ -781,7 +852,7 @@ def create_proposal_form(
     }
 
     custom_required = build_dynamic_fields(
-        fields=attrs, requirements=requirements, prefix="session"
+        fields=attrs, pairs=requirement_fields(requirements), prefix="session"
     )
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
@@ -892,56 +963,3 @@ class DiscountForm(forms.Form):
         label=_("Note"),
         widget=forms.Textarea(attrs={"rows": 3}),
     )
-
-
-_SPREADSHEET_URL_ID_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
-_SPREADSHEET_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-
-
-class DiscountExportForm(forms.Form):
-    connection = forms.ChoiceField(label=_("Connection"))
-    spreadsheet = forms.CharField(
-        label=_("Google Sheets link"),
-        max_length=500,
-        strip=True,
-        help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
-    )
-    tab = forms.CharField(
-        label=_("Tab name"),
-        max_length=100,
-        strip=True,
-        help_text=_("The tab has to exist already; the export replaces its content."),
-    )
-    columns = forms.MultipleChoiceField(
-        label=_("Columns"),
-        widget=forms.CheckboxSelectMultiple,
-        help_text=_(
-            "Facilitator and personal data written before the discount columns."
-            " Pick what this sheet needs; nothing is exported by default."
-        ),
-    )
-
-    def __init__(
-        self,
-        *args: Any,
-        connections: Iterable[ConnectionDTO],
-        columns: Iterable[tuple[str, str]] = (),
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        connection_field = cast("forms.ChoiceField", self.fields["connection"])
-        connection_field.choices = [
-            (str(connection.pk), connection.display_name) for connection in connections
-        ]
-        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
-        columns_field.choices = list(columns)
-
-    def clean_spreadsheet(self) -> str:
-        raw = str(self.cleaned_data["spreadsheet"])
-        if match := _SPREADSHEET_URL_ID_RE.search(raw):
-            return match.group(1)
-        if _SPREADSHEET_ID_RE.fullmatch(raw):
-            return raw
-        raise forms.ValidationError(
-            _("Enter a Google Sheets link or a spreadsheet ID.")
-        )

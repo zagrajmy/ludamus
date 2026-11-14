@@ -1,5 +1,4 @@
 import json
-import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -18,7 +17,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.links.db.django.repositories.chronology import (
+from ludamus.links.db.django.repositories.event import (
     event_dto,
     location_data,
     public_scheduled_sessions,
@@ -30,43 +29,41 @@ from ludamus.links.db.django.repositories.storage import (
     with_original_names,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts import (
-    OCCUPYING_PARTICIPATION_STATUSES,
-    UNSCHEDULED_LIST_LIMIT,
-    AgendaItemDTO,
-    EventDTO,
-    FacilitatorDTO,
-    NotFoundError,
+from ludamus.pacts.durations import duration_minutes
+from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
+from ludamus.pacts.session_cards import (
+    SessionModalDTO,
+    SessionModalRepositoryProtocol,
+    SessionSeatDTO,
+)
+from ludamus.pacts.sessions import (
     SessionData,
     SessionDTO,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
     SessionListFilters,
     SessionListItemDTO,
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
-    SpaceOptionDTO,
-    TimeSlotDTO,
-    TrackDTO,
-    TrackSessionCountsDTO,
+)
+from ludamus.pacts.timetable import (
+    UNSCHEDULED_LIST_LIMIT,
+    AgendaItemDTO,
+    ConfirmationSessionRow,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import (
-    SessionModalDTO,
-    SessionModalRepositoryProtocol,
-    SessionSeatDTO,
-)
-from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import ConfirmationSessionRow
+from ludamus.pacts.tracks import TrackDTO, TrackSessionCountsDTO
+from ludamus.pacts.venues import SpaceOptionDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ludamus.pacts.ids import EventId, SessionId, UserId
-
-_ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
+    from ludamus.pacts.user import UserDTO
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
 # facilitator list. Anything else falls back to newest first.
@@ -91,12 +88,24 @@ def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
     return (f"-{order_field}" if descending else order_field, "-pk")
 
 
-def _parse_iso8601_duration_minutes(duration: str) -> int:
-    if not (m := _ISO8601_DURATION_RE.match(duration)):
-        return 0
-    hours = int(m.group(1) or 0)
-    minutes = int(m.group(2) or 0)
-    return hours * 60 + minutes
+def sessions_run_by(user_id: int) -> QuerySet[Session]:
+    # A subquery rather than a join: joining facilitators would repeat each
+    # session once per facilitator and inflate every count annotated on it.
+    return Session.objects.filter(
+        Q(presenter_id=user_id)
+        | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
+    )
+
+
+def session_host_ids(session: Session) -> frozenset[int]:
+    # NOTE: the inverse of sessions_run_by, and it must stay so. An imported or
+    # organizer-entered GM is a facilitator linked to an account, not the
+    # presenter.
+    linked = Facilitator.objects.filter(
+        sessions=session, user_id__isnull=False
+    ).values_list("user_id", flat=True)
+    presenter = () if session.presenter_id is None else (session.presenter_id,)
+    return frozenset((*linked, *presenter))
 
 
 def annotate_session_participation_counts(
@@ -162,17 +171,12 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
     # act on — accepting creates an AgendaItem and a Session has only one, so a
     # pending session already on the timetable cannot be accepted there. Those
     # belong to the panel, whose status machine knows about them.
-    # The participation annotation matters as much here as on the scheduled
-    # path: without it every card re-counts its own participants, and the
-    # review queue is unbounded.
     return (
-        annotate_session_participation_counts(
-            with_session_card_relations(
-                Session.objects.filter(
-                    event_id=event_id,
-                    status=SessionStatus.PENDING,
-                    agenda_item__isnull=True,
-                )
+        with_session_card_relations(
+            Session.objects.filter(
+                event_id=event_id,
+                status=SessionStatus.PENDING,
+                agenda_item__isnull=True,
             )
         )
         .prefetch_related(
@@ -200,6 +204,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
         field_slug=fv.field.slug,
         field_type=fv.field.field_type,
         is_public=fv.field.is_public,
+        show_on_cards=fv.field.show_on_cards,
         value=fv.value,
     )
 
@@ -250,6 +255,9 @@ def _session_modal_dto(
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
         ),
+        viewer_is_host=(
+            editor_user_id is not None and editor_user_id in session_host_ids(session)
+        ),
         can_edit=(
             edit_allowed
             and session.presenter_id is not None
@@ -272,11 +280,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # The same queryset the schedule is built from: the modal is public and
         # unauthenticated, so re-deciding visibility here would leave a session
         # hidden from the event page readable by anyone walking session ids.
-        base = annotate_session_participation_counts(
-            public_scheduled_sessions(event_id)
-        )
         try:
-            session = with_scheduled_card_relations(base).get(pk=session_id)
+            session = with_scheduled_card_relations(
+                public_scheduled_sessions(event_id)
+            ).get(pk=session_id)
         except Session.DoesNotExist:
             return None
         return _session_modal_dto(
@@ -334,7 +341,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             raise NotFoundError from exception
         if session.presenter is None:
             return None
-        return UserDTO.model_validate(session.presenter)
+        return user_dto(session.presenter)
 
     @staticmethod
     def lock(pk: int) -> None:
@@ -353,6 +360,41 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
         save_replacing_files(session, data)
+
+    @staticmethod
+    def set_schedule_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        session_pk: int | None = None,
+    ) -> int:
+        """Set the schedule confirmation over one facilitator's placed sessions.
+
+        Scoping to placed sessions is what keeps an unplaced one unconfirmable.
+        `contact_email` narrows to one address (including the empty one),
+        `session_pk` to one session.
+
+        Returns:
+            How many sessions the filter matched.
+        """
+        # One statement per column, whatever the scope — never a save loop.
+        # The agenda-item column is mirrored until it is dropped.
+        queryset = Session.objects.filter(
+            event_id=event_pk,
+            facilitators__pk=facilitator_pk,
+            agenda_item__isnull=False,
+        )
+        if contact_email is not None:
+            queryset = queryset.filter(contact_email=contact_email)
+        if session_pk is not None:
+            queryset = queryset.filter(pk=session_pk)
+        with transaction.atomic():
+            AgendaItem.objects.filter(session__in=queryset).update(
+                session_confirmed=confirmed
+            )
+            return queryset.update(schedule_confirmed=confirmed)
 
     @staticmethod
     def soft_delete(pk: int) -> None:
@@ -713,8 +755,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 "contact_email",
                 "category__name",
                 "facilitators__pk",
+                "schedule_confirmed",
                 "agenda_item__pk",
-                "agenda_item__session_confirmed",
                 "agenda_item__start_time",
                 "agenda_item__end_time",
                 "agenda_item__space__name",
@@ -729,13 +771,15 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(row["status"]),
                 contact_email=row["contact_email"],
                 category_name=row["category__name"] or "",
-                agenda_item_pk=row["agenda_item__pk"],
-                is_confirmed=bool(row["agenda_item__session_confirmed"]),
+                is_scheduled=bool(row["agenda_item__pk"]),
+                # Confirmation only means anything about a placed session; the
+                # dashboard totals count over agenda items, so an unplaced
+                # session carrying a stale flag would make the two disagree.
+                is_confirmed=bool(row["agenda_item__pk"]) and row["schedule_confirmed"],
                 start_time=row["agenda_item__start_time"],
                 end_time=row["agenda_item__end_time"],
                 room_name=row["agenda_item__space__name"] or "",
-            )
-            for row in rows
+            ) for row in rows
         ]
 
     @staticmethod
@@ -815,14 +859,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 FacilitatorDTO.model_validate(row.facilitator)
             )
         return result
-
-    @staticmethod
-    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
-        return dict(
-            Session.objects.filter(pk__in=session_ids).values_list(
-                "pk", "participants_limit"
-            )
-        )
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
@@ -917,10 +953,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         results: list[UnscheduledSessionDTO] = []
         has_more = False
         for s in qs.order_by("title").iterator():
-            duration_minutes = _parse_iso8601_duration_minutes(s.duration)
+            minutes = duration_minutes(s.duration)
             if (
                 filters.max_duration_minutes is not None
-                and duration_minutes > filters.max_duration_minutes
+                and minutes > filters.max_duration_minutes
             ):
                 continue
             if len(results) >= UNSCHEDULED_LIST_LIMIT:
@@ -933,7 +969,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                     facilitator_name=s.facilitator_name,
                     category_name=s.category.name if s.category else "",
                     category_pk=s.category_id,
-                    duration_minutes=duration_minutes,
+                    duration_minutes=minutes,
                     participants_limit=s.participants_limit,
                 )
             )

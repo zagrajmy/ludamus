@@ -1,20 +1,39 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final, Literal, TypedDict, get_args
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Final,
+    Literal,
+    NamedTuple,
+    TypedDict,
+    get_args,
+)
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.http import HttpRequest
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 
+from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
 from ludamus.gates.web.django.redirects import safe_url
-from ludamus.pacts.submissions import RequirementSelectionDTO
+from ludamus.gates.web.django.request_ids import parse_id, parse_ids
+from ludamus.pacts.propose import RequirementSelectionDTO
+from ludamus.pacts.sessions import SessionStatus
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
-    from django.http import HttpRequest, HttpResponseRedirect, QueryDict
+    from django.http import HttpResponseRedirect, QueryDict
+    from django.utils.functional import _StrPromise
 
-# Every value `active_nav` can take — one per entry in the panel sidebar
-# (`panel/base.html`). A value outside this set highlights nothing, silently.
+    from ludamus.pacts.services import AuthenticatedRequestContext, ServicesProtocol
+
+# Every value `active_nav` can take — one per `{% sidebar_link %}` in the panel
+# sidebar (`panel/base.html`), list row or header button. A value outside this
+# set highlights nothing, silently.
 # Most producers assign into loosely typed context mappings no type checker
 # sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
@@ -32,7 +51,9 @@ PanelNav = Literal[
     "settings",
     "bans",
     "guilds",
+    "team",
     "sphere-settings",
+    "event-create",
 ]
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
 
@@ -55,15 +76,42 @@ def parse_requirement_selection(
 ) -> RequirementSelectionDTO:
     requirements: dict[int, bool] = {}
     for key, value in post_data.items():
-        raw_pk = key.removeprefix(prefix) if key.startswith(prefix) else ""
-        if raw_pk.isdigit() and value in {"required", "optional"}:
-            requirements[int(raw_pk)] = value == "required"
-    order = [
-        int(raw_pk)
-        for raw_pk in post_data.get(order_key, "").split(",")
-        if raw_pk.isdigit()
-    ]
+        if not key.startswith(prefix) or value not in {"required", "optional"}:
+            continue
+        if (pk := parse_id(key.removeprefix(prefix))) is not None:
+            requirements[pk] = value == "required"
+    order = parse_ids(post_data.get(order_key, "").split(","))
     return RequirementSelectionDTO(requirements=requirements, order=order)
+
+
+class PanelRequest(HttpRequest):
+    context: AuthenticatedRequestContext
+    services: ServicesProtocol
+
+
+class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Any panel page: a sphere role reads it, the page's capability writes it."""
+
+    request: PanelRequest
+
+    # What this page's buttons stand for. A view whose writes a narrower role
+    # may perform names that capability instead; it never names the role.
+    write_capability: ClassVar[Capability] = Capability.PANEL_WRITE
+    no_permission_message: ClassVar[_StrPromise] = gettext_lazy(
+        "You don't have permission to access the backoffice panel."
+    )
+
+    def test_func(self) -> bool:
+        return passes_panel_access(self.request, write_capability=self.write_capability)
+
+    def handle_no_permission(self) -> HttpResponseRedirect:
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return refuse_panel_access(
+            request=self.request,
+            reads_panel=has_panel_access(self.request),
+            message=str(self.no_permission_message),
+        )
 
 
 def settings_tab_urls(slug: str) -> dict[str, str]:
@@ -77,6 +125,72 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
         "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
+    }
+
+
+def cfp_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "types": reverse("panel:cfp", kwargs={"slug": slug}),
+        "host": reverse("panel:personal-data-fields", kwargs={"slug": slug}),
+        "session": reverse("panel:session-fields", kwargs={"slug": slug}),
+        "time_slots": reverse("panel:time-slots", kwargs={"slug": slug}),
+    }
+
+
+def facilitator_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "list": reverse("panel:facilitators", kwargs={"slug": slug}),
+        "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
+        "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:facilitator-export", kwargs={"slug": slug}),
+        "bin": reverse("panel:facilitator-bin", kwargs={"slug": slug}),
+    }
+
+
+def proposal_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "list": reverse("panel:proposals", kwargs={"slug": slug}),
+        "columns": reverse("panel:proposal-columns", kwargs={"slug": slug}),
+        "export": reverse("panel:proposal-export", kwargs={"slug": slug}),
+    }
+
+
+def proposal_detail_tab_urls(slug: str, proposal_id: int) -> dict[str, str]:
+    kwargs = {"slug": slug, "proposal_id": proposal_id}
+    return {
+        "details": reverse("panel:proposal-detail", kwargs=kwargs),
+        "history": reverse("panel:proposal-history", kwargs=kwargs),
+    }
+
+
+def facilitator_detail_tab_urls(slug: str, facilitator_slug: str) -> dict[str, str]:
+    kwargs = {"slug": slug, "facilitator_slug": facilitator_slug}
+    return {
+        "details": reverse("panel:facilitator-detail", kwargs=kwargs),
+        "history": reverse("panel:facilitator-history", kwargs=kwargs),
+    }
+
+
+def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
+    kwargs = {"slug": slug, "pk": pk}
+    return {
+        "proposal": reverse("panel:import-integration", kwargs=kwargs),
+        "review": reverse("panel:import-review", kwargs=kwargs),
+        "json": reverse("panel:import-json", kwargs=kwargs),
+        "run": reverse("panel:import-run", kwargs=kwargs),
+        "log": reverse("panel:import-log", kwargs=kwargs),
+    }
+
+
+def timetable_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "timetable": reverse("panel:timetable", kwargs={"slug": slug}),
+        "log": reverse("panel:timetable-log", kwargs={"slug": slug}),
+        "overview": reverse("panel:timetable-overview", kwargs={"slug": slug}),
+        "problems": reverse("panel:timetable-problems", kwargs={"slug": slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": slug}
+        ),
     }
 
 
@@ -105,3 +219,36 @@ def refuse_panel_access(
     )
     back = safe_url(request, request.META.get("HTTP_REFERER"))
     return redirect(back) if back else redirect("web:index")
+
+
+PROPOSAL_STATUS_LABELS: Final[dict[SessionStatus, _StrPromise]] = {
+    SessionStatus.PENDING: gettext_lazy("Pending"),
+    SessionStatus.ACCEPTED: gettext_lazy("Accepted"),
+    SessionStatus.ON_HOLD: gettext_lazy("On hold"),
+    SessionStatus.REJECTED: gettext_lazy("Rejected"),
+}
+# Accepted and on the timetable: the badge and the list's filter both say so
+# instead of "Accepted".
+SCHEDULED_LABEL: Final = gettext_lazy("Scheduled")
+_PROPOSAL_STATUS_TONES: Final[dict[SessionStatus, str]] = {
+    SessionStatus.PENDING: "bg-warning-bg text-warning-text",
+    SessionStatus.ACCEPTED: "bg-success-bg text-success-text",
+    SessionStatus.ON_HOLD: "bg-bg-tertiary text-foreground-muted",
+    SessionStatus.REJECTED: "bg-danger-bg text-danger-text",
+}
+_SCHEDULED_TONE: Final = "bg-info-bg text-info-text"
+
+
+class ProposalStatusLook(NamedTuple):
+    label: str
+    tone: str
+
+
+def proposal_status_look(status: str, *, is_scheduled: bool) -> ProposalStatusLook:
+    session_status = SessionStatus(status)
+    if session_status is SessionStatus.ACCEPTED and is_scheduled:
+        return ProposalStatusLook(str(SCHEDULED_LABEL), _SCHEDULED_TONE)
+    return ProposalStatusLook(
+        str(PROPOSAL_STATUS_LABELS[session_status]),
+        _PROPOSAL_STATUS_TONES[session_status],
+    )

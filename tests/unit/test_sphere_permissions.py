@@ -1,183 +1,408 @@
-from unittest.mock import MagicMock
+from datetime import UTC, datetime
 
 import pytest
 
-from ludamus.mills.multiverse import SpherePanelService
+from ludamus.mills.sphere import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
-from ludamus.pacts.multiverse import Capability, SphereRole, SphereSettingsOutcome
+from ludamus.pacts.sphere import (
+    Capability,
+    SiteDTO,
+    SphereDTO,
+    SphereRole,
+    SphereSettingsOutcome,
+    SphereVisibility,
+)
+from tests.unit.factories import FakeTransaction, FakeUsers, event_dto, user_dto
+
+SPHERE_PK = 3
+OTHER_SPHERE_PK = 4
+_NOW = datetime(2026, 5, 1, 12, tzinfo=UTC)
 
 
-@pytest.fixture(name="spheres")
-def spheres_fixture():
-    return MagicMock()
+def _sphere(pk=SPHERE_PK, **overrides):
+    return SphereDTO(
+        name="Sfera",
+        pk=pk,
+        site=SiteDTO(domain="sfera.example.net", name="Sfera", pk=pk),
+        **overrides,
+    )
 
 
-@pytest.fixture(name="events")
-def events_fixture():
-    return MagicMock()
+def _event(pk=1):
+    return event_dto(
+        end_time=_NOW,
+        name="Konwencik",
+        pk=pk,
+        slug="konwencik",
+        sphere_id=SPHERE_PK,
+        start_time=_NOW,
+    )
 
 
-@pytest.fixture(name="encounters")
-def encounters_fixture():
-    return MagicMock()
+class FakeSpheres:
+    def __init__(self, sphere=None, *, roles=None):
+        self.sphere = sphere or _sphere()
+        self.roles = roles or {}
+        self.updates = []
+
+    def manager_role(self, sphere_id, user_slug):
+        return self.roles.get((sphere_id, user_slug))
+
+    def read(self, sphere_id):
+        assert sphere_id == self.sphere.pk
+        return self.sphere
+
+    def update(self, sphere_id, data):
+        self.updates.append((sphere_id, dict(data)))
 
 
-@pytest.fixture(name="service")
-def service_fixture(spheres, events, encounters):
-    return SpherePanelService(MagicMock(), spheres, events, encounters)
+class FakeEvents:
+    @staticmethod
+    def list_by_sphere(sphere_id):
+        return [_event()] if sphere_id == SPHERE_PK else []
+
+
+class FakeEncounters:
+    def __init__(self, *, exists=False):
+        self._exists = exists
+
+    def exists_for_sphere(self, sphere_id):
+        return self._exists and sphere_id == SPHERE_PK
+
+
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_sphere(self, *, sphere_id):
+        self.revoked.append(sphere_id)
+
+
+def _service(*, spheres=None, encounters=None, users=None, chat=None):
+    return SpherePanelService(
+        FakeTransaction(),
+        spheres or FakeSpheres(),
+        FakeEvents(),
+        encounters or FakeEncounters(),
+        users or FakeUsers(),
+        chat or FakeChat(),
+    )
 
 
 class TestSpherePanelServiceAccess:
-    def test_manager_holds_panel_write(self, service, spheres):
-        spheres.manager_role.return_value = SphereRole.MANAGER
+    def test_manager_holds_panel_write(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
 
-        access = service.access(3, "boss")
+        access = _service(spheres=spheres).access(SPHERE_PK, "boss", is_superuser=False)
 
         assert access.role is SphereRole.MANAGER
         assert Capability.PANEL_WRITE in access.capabilities
 
-    def test_comms_holds_the_acknowledgement_but_not_panel_write(
-        self, service, spheres
-    ):
-        spheres.manager_role.return_value = SphereRole.COMMS
+    def test_comms_holds_the_acknowledgement_but_not_panel_write(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "press"): SphereRole.COMMS})
 
-        access = service.access(3, "press")
+        access = _service(spheres=spheres).access(
+            SPHERE_PK, "press", is_superuser=False
+        )
 
         assert access.capabilities == frozenset({Capability.ERRATUM_ACK})
 
-    def test_stranger_holds_nothing(self, service, spheres):
-        spheres.manager_role.return_value = None
-
-        access = service.access(3, "passer-by")
+    def test_stranger_holds_nothing(self):
+        access = _service().access(SPHERE_PK, "passer-by", is_superuser=False)
 
         assert access.role is None
         assert not access.capabilities
 
-    def test_the_role_is_looked_up_once(self, service, spheres):
-        spheres.manager_role.return_value = SphereRole.MANAGER
+    def test_superuser_holds_every_capability_even_with_a_narrow_role(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "root"): SphereRole.COMMS})
 
-        service.access(3, "boss")
+        access = _service(spheres=spheres).access(SPHERE_PK, "root", is_superuser=True)
 
-        spheres.manager_role.assert_called_once_with(3, "boss")
+        assert access.role is SphereRole.COMMS
+        assert access.allows(Capability.PANEL_WRITE)
+        assert access.capabilities == frozenset(Capability)
+
+    def test_manager_role_is_scoped_to_the_sphere(self):
+        spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
+        service = _service(spheres=spheres)
+
+        assert service.manager_role(SPHERE_PK, "boss") is SphereRole.MANAGER
+        assert service.manager_role(OTHER_SPHERE_PK, "boss") is None
+
+
+class TestCanWriteProgramme:
+    def test_superuser_writes_anywhere(self):
+        users = FakeUsers(user_dto(slug="root", is_superuser=True))
+
+        assert can_write_programme(
+            users=users, spheres=FakeSpheres(), sphere_id=SPHERE_PK, user_slug="root"
+        )
+
+    def test_manager_writes_only_their_sphere(self):
+        users = FakeUsers(user_dto(slug="boss"))
+        spheres = FakeSpheres(roles={(SPHERE_PK, "boss"): SphereRole.MANAGER})
+        service = _service(spheres=spheres, users=users)
+
+        assert service.can_write_programme(SPHERE_PK, "boss") is True
+        assert service.can_write_programme(OTHER_SPHERE_PK, "boss") is False
+
+    def test_comms_member_reads_only(self):
+        users = FakeUsers(user_dto(slug="press"))
+        spheres = FakeSpheres(roles={(SPHERE_PK, "press"): SphereRole.COMMS})
+
+        assert (
+            _service(spheres=spheres, users=users).can_write_programme(
+                SPHERE_PK, "press"
+            )
+            is False
+        )
+
+
+class TestSpherePanelServiceReads:
+    def test_list_events_for_the_sphere(self):
+        service = _service()
+
+        assert service.list_events(SPHERE_PK) == [_event()]
+        assert service.list_events(OTHER_SPHERE_PK) == []
+
+    def test_read_returns_the_sphere(self):
+        assert _service().read(SPHERE_PK) == _sphere()
+
+    @pytest.mark.parametrize(
+        ("sphere_chat", "sphere_default", "own", "on"),
+        (
+            (True, True, None, True),
+            (True, False, None, False),
+            (True, False, True, True),
+            (True, True, False, False),
+            (False, True, True, False),
+        ),
+        ids=[
+            "inherits-on",
+            "inherits-off",
+            "overrides-on",
+            "overrides-off",
+            "sphere-chat-off",
+        ],
+    )
+    def test_an_event_s_chat_is_its_own_choice_else_its_sphere_s(
+        self, sphere_chat, sphere_default, own, on
+    ):
+        spheres = FakeSpheres(
+            _sphere().model_copy(
+                update={
+                    "parley_enabled": sphere_chat,
+                    "parley_events_enabled": sphere_default,
+                }
+            )
+        )
+        event = event_dto().model_copy(update={"parley_enabled": own})
+
+        assert (
+            _service(spheres=spheres).event_chat_on(sphere_id=SPHERE_PK, event=event)
+            is on
+        )
+
+
+CHAT_ON = {
+    "parley_enabled": True,
+    "parley_organizers_enabled": True,
+    "parley_events_enabled": True,
+}
+CHAT_OFF = dict.fromkeys(CHAT_ON, False)
 
 
 class TestSpherePanelServiceUpdateSettings:
-    def test_writes_the_policy(self, service, spheres):
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            event_cover_buttons_at_bottom=True,
-            encounters_policy=EncountersPolicy.MANAGERS,
-        )
+    @staticmethod
+    def _update(service, *, chat=None, **overrides):
+        kwargs = {
+            "allow_facilitator_session_edit": False,
+            "chat": CHAT_OFF | (chat or {}),
+            "event_cover_buttons_at_bottom": True,
+            "encounters_policy": EncountersPolicy.MANAGERS,
+        }
+        return service.update_settings(SPHERE_PK, **(kwargs | overrides))
+
+    def test_saves_every_named_field_and_keeps_the_logo(self):
+        spheres = FakeSpheres()
+
+        outcome = self._update(_service(spheres=spheres))
 
         assert outcome is SphereSettingsOutcome.SAVED
-        spheres.update.assert_called_once_with(
-            3,
-            {
-                "allow_facilitator_session_edit": True,
-                "event_cover_buttons_at_bottom": True,
-                "encounters_policy": "managers",
-            },
+        assert spheres.updates == [
+            (
+                SPHERE_PK,
+                {
+                    "allow_facilitator_session_edit": False,
+                    **CHAT_OFF,
+                    "event_cover_buttons_at_bottom": True,
+                    "encounters_policy": "managers",
+                },
+            )
+        ]
+
+    @pytest.mark.parametrize(
+        "switch",
+        ("parley_enabled", "parley_organizers_enabled", "parley_events_enabled"),
+    )
+    def test_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={switch: True}))
+
+        self._update(_service(spheres=spheres, chat=chat), chat=CHAT_ON)
+        self._update(
+            _service(spheres=spheres, chat=chat), chat=CHAT_ON | {switch: False}
         )
 
-    def test_logo_included_only_when_given(self, service, spheres):
-        service.update_settings(
-            3,
-            allow_facilitator_session_edit=False,
-            event_cover_buttons_at_bottom=False,
-            encounters_policy=EncountersPolicy.EVERYONE,
-            logo="",
-        )
+        assert chat.revoked == [SPHERE_PK]
 
-        assert not spheres.update.call_args.args[1]["logo"]
+    def test_saving_while_chat_is_off_revokes_nothing(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_OFF))
 
-    def test_a_patch_writes_only_what_it_names(self, service, spheres):
-        # The point of the patch shape: a caller changing one setting must not
-        # carry the others along, because it would be carrying whatever it
-        # read a moment ago and overwriting a change made in between.
-        service.patch_settings(
-            3, changes={"encounters_policy": EncountersPolicy.MANAGERS}
-        )
+        self._update(_service(spheres=spheres, chat=chat))
 
-        spheres.update.assert_called_once_with(3, {"encounters_policy": "managers"})
+        assert not chat.revoked
 
-    def test_a_logo_swap_touches_only_the_logo(self, service, spheres):
-        service.update_logo(3, "banner.svg")
+    def test_empty_logo_removes_it(self):
+        spheres = FakeSpheres()
 
-        spheres.update.assert_called_once_with(3, {"logo": "banner.svg"})
+        self._update(_service(spheres=spheres), logo="")
 
-    def test_refuses_to_hide_existing_encounters_unconfirmed(
-        self, service, spheres, encounters
-    ):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
-        encounters.exists_for_sphere.return_value = True
+        assert spheres.updates[0][1] == {
+            "allow_facilitator_session_edit": False,
+            **CHAT_OFF,
+            "event_cover_buttons_at_bottom": True,
+            "encounters_policy": "managers",
+            "logo": "",
+        }
 
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            event_cover_buttons_at_bottom=False,
-            encounters_policy=EncountersPolicy.NONE,
-        )
+    def test_refuses_to_hide_existing_encounters_unconfirmed(self):
+        spheres = FakeSpheres(_sphere(encounters_policy=EncountersPolicy.EVERYONE))
+        service = _service(spheres=spheres, encounters=FakeEncounters(exists=True))
+
+        outcome = self._update(service, encounters_policy=EncountersPolicy.NONE)
 
         assert outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION
-        spheres.update.assert_not_called()
+        assert not spheres.updates
 
-    def test_hides_them_once_confirmed(self, service, spheres, encounters):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
-        encounters.exists_for_sphere.return_value = True
+    def test_confirmed_hide_is_saved(self):
+        spheres = FakeSpheres(_sphere(encounters_policy=EncountersPolicy.EVERYONE))
+        service = _service(spheres=spheres, encounters=FakeEncounters(exists=True))
 
-        outcome = service.update_settings(
-            3,
-            allow_facilitator_session_edit=True,
-            event_cover_buttons_at_bottom=False,
+        outcome = self._update(
+            service,
             encounters_policy=EncountersPolicy.NONE,
             confirmed_encounters_disable=True,
         )
 
         assert outcome is SphereSettingsOutcome.SAVED
-        spheres.update.assert_called_once()
+        assert spheres.updates[0][1]["encounters_policy"] == "none"
+
+    def test_hiding_with_nothing_to_hide_needs_no_confirmation(self):
+        spheres = FakeSpheres(_sphere(encounters_policy=EncountersPolicy.EVERYONE))
+
+        outcome = self._update(
+            _service(spheres=spheres), encounters_policy=EncountersPolicy.NONE
+        )
+
+        assert outcome is SphereSettingsOutcome.SAVED
 
 
 class TestSpherePanelServicePatchSettings:
-    def test_writes_only_supplied_settings(self, service, spheres):
-        outcome = service.patch_settings(
-            3,
+    def test_a_patch_writes_only_what_it_names(self):
+        # The point of the patch shape: a caller changing one setting must not
+        # carry the others along, because it would be carrying whatever it
+        # read a moment ago and overwriting a change made in between.
+        spheres = FakeSpheres()
+
+        _service(spheres=spheres).patch_settings(
+            SPHERE_PK, changes={"encounters_policy": EncountersPolicy.MANAGERS}
+        )
+
+        assert spheres.updates == [(SPHERE_PK, {"encounters_policy": "managers"})]
+
+    def test_every_flag_is_carried_when_named(self):
+        spheres = FakeSpheres()
+
+        outcome = _service(spheres=spheres).patch_settings(
+            SPHERE_PK,
             changes={
+                "allow_facilitator_session_edit": False,
                 "event_cover_buttons_at_bottom": True,
-                "encounters_policy": EncountersPolicy.MANAGERS,
+                "visibility": SphereVisibility.PRIVATE,
             },
         )
 
         assert outcome is SphereSettingsOutcome.SAVED
-        spheres.update.assert_called_once_with(
-            3, {"event_cover_buttons_at_bottom": True, "encounters_policy": "managers"}
-        )
-        spheres.read.assert_not_called()
+        assert spheres.updates == [
+            (
+                SPHERE_PK,
+                {
+                    "allow_facilitator_session_edit": False,
+                    "event_cover_buttons_at_bottom": True,
+                    "visibility": SphereVisibility.PRIVATE,
+                },
+            )
+        ]
 
-    def test_refuses_to_hide_existing_encounters_unconfirmed(
-        self, service, spheres, encounters
-    ):
-        spheres.read.return_value.encounters_policy = EncountersPolicy.EVERYONE
-        encounters.exists_for_sphere.return_value = True
+    @pytest.mark.parametrize("switch", tuple(CHAT_ON))
+    def test_a_patch_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_ON))
+
+        _service(spheres=spheres, chat=chat).patch_settings(
+            SPHERE_PK, changes={switch: False}
+        )
+
+        assert spheres.updates == [(SPHERE_PK, {switch: False})]
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_a_patch_turning_chat_on_takes_nothing_back(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        _service(spheres=spheres, chat=chat).patch_settings(SPHERE_PK, changes=CHAT_ON)
+
+        assert spheres.updates == [(SPHERE_PK, CHAT_ON)]
+        assert not chat.revoked
+
+    def test_an_empty_patch_writes_nothing(self):
+        spheres = FakeSpheres()
+
+        outcome = _service(spheres=spheres).patch_settings(SPHERE_PK, changes={})
+
+        assert outcome is SphereSettingsOutcome.SAVED
+        assert not spheres.updates
+
+    def test_refuses_to_hide_existing_encounters_unconfirmed(self):
+        spheres = FakeSpheres(_sphere(encounters_policy=EncountersPolicy.EVERYONE))
+        service = _service(spheres=spheres, encounters=FakeEncounters(exists=True))
 
         outcome = service.patch_settings(
-            3, changes={"encounters_policy": EncountersPolicy.NONE}
+            SPHERE_PK, changes={"encounters_policy": EncountersPolicy.NONE}
         )
 
         assert outcome is SphereSettingsOutcome.NEEDS_CONFIRMATION
-        spheres.update.assert_not_called()
+        assert not spheres.updates
+
+    def test_confirmed_hide_is_saved(self):
+        spheres = FakeSpheres(_sphere(encounters_policy=EncountersPolicy.EVERYONE))
+        service = _service(spheres=spheres, encounters=FakeEncounters(exists=True))
+
+        outcome = service.patch_settings(
+            SPHERE_PK,
+            changes={"encounters_policy": EncountersPolicy.NONE},
+            confirmed_encounters_disable=True,
+        )
+
+        assert outcome is SphereSettingsOutcome.SAVED
+        assert spheres.updates == [(SPHERE_PK, {"encounters_policy": "none"})]
 
 
-class TestSpherePanelServiceUpdateLogo:
-    def test_writes_only_the_logo(self, service, spheres):
-        upload = MagicMock()
+def test_update_logo_writes_only_the_logo():
+    spheres = FakeSpheres()
 
-        service.update_logo(3, upload)
+    _service(spheres=spheres).update_logo(SPHERE_PK, "")
 
-        spheres.update.assert_called_once_with(3, {"logo": upload})
-
-    def test_clears_the_logo_without_reading_the_sphere(self, service, spheres):
-        service.update_logo(3, "")
-
-        spheres.update.assert_called_once_with(3, {"logo": ""})
-        spheres.read.assert_not_called()
+    assert spheres.updates == [(SPHERE_PK, {"logo": ""})]

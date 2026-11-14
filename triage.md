@@ -60,7 +60,7 @@ followed.
 
 ### 2. Import re-run resurrects a deleted facilitator with no log entry
 
-`src/ludamus/mills/submissions/engine.py` — `_resolve_facilitator`
+`src/ludamus/mills/propose/engine.py` — `_resolve_facilitator`
 
 The importer calls `self._repos.facilitators.restore(matched.pk)` straight
 through the repo. `FacilitatorPanelService.restore` is the only path that also
@@ -84,9 +84,9 @@ importer wants one log write.
   protocol `FacilitatorPanelRepos` already names in `pacts/panel.py`).
 - `src/ludamus/inits/services.py` (`ImportRepos(...)` construction) — wire the
   existing `FacilitatorChangeLogRepository`.
-- `src/ludamus/mills/submissions/engine.py` — after the `restore` call, write
+- `src/ludamus/mills/propose/engine.py` — after the `restore` call, write
   the entry via `log_facilitator_changes` from
-  `mills/submissions/personal_data_fields.py` (the helper
+  `mills/propose/personal_data_fields.py` (the helper
   `FacilitatorPanelService._log_deletion` already uses), with
   `user_id=None` and the same `{"field": "deleted", "old": "yes", "new": ""}`
   change. Move the `"deleted"`/`"yes"` literals out of
@@ -106,7 +106,7 @@ DI wiring. Manually: delete a facilitator, re-run the pull, open History.
 
 ### 3. Bulk `_apply`'s catch-all `else` means "restore"
 
-`src/ludamus/gates/web/django/chronology/panel/views/facilitators.py` —
+`src/ludamus/gates/web/django/event/panel/views/facilitators.py` —
 `FacilitatorBulkActionView._apply`
 
 `_apply` is `if mark-guest / elif delete / else restore`. That only holds
@@ -132,7 +132,7 @@ same). Fix in passing — the call site is one line.
 
 **Files.**
 
-- `src/ludamus/gates/web/django/chronology/panel/views/facilitators.py`
+- `src/ludamus/gates/web/django/event/panel/views/facilitators.py`
 - `tests/integration/web/panel/test_facilitator_bulk_action.py` — a case
   asserting every entry in `_BULK_FACILITATOR_ACTIONS` is handled (parametrize
   over the tuple, `merge` expecting the redirect to the merge basket). That is
@@ -145,7 +145,7 @@ same). Fix in passing — the call site is one line.
 
 ### 4. `has_sessions` counts deleted sessions, `_live_session_count` does not
 
-`src/ludamus/links/db/django/repositories/submissions.py` —
+`src/ludamus/links/db/django/repositories/propose.py` —
 `FacilitatorRepository.has_sessions` vs the module-level `_live_session_count`
 
 `has_sessions` filters `sessions__isnull=False` through `all_objects`, counting

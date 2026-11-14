@@ -8,12 +8,10 @@
     {% translate "Copy space" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} · {{ node.name }}
-    {% endif %}
+    {{ current_event.name }} · {{ node.name }}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
+    <div class="panel-bleed">
         <div class="card card-body max-w-xl">
             {% tessera_sole_choice form.target_event as sole_target %}
             <p class="mb-4 text-sm text-foreground-muted">
@@ -35,5 +33,5 @@
                 </div>
             </form>
         </div>
-    {% endif %}
+    </div>
 {% endblock content %}

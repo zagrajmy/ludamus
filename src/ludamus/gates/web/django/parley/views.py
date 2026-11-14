@@ -1,0 +1,302 @@
+from __future__ import annotations
+
+import logging
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from django.http import JsonResponse
+from django.middleware.csrf import get_token
+from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET, require_POST
+
+from ludamus.pacts.parley import ParleyReportData
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from django.http import HttpRequest
+
+    from ludamus.pacts.services import RequestContext, ServicesProtocol
+
+    class RootHttpRequest(HttpRequest):
+        context: RequestContext
+        services: ServicesProtocol
+
+
+logger = logging.getLogger(__name__)
+
+
+# NOTE: the browser picks a plural form by count, so each phrase ships the
+# catalog's forms for the counts Polish distinguishes (1, 2, 5); the client
+# fills in %(count)s itself.
+def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
+    return {f"{key}One": phrase(1), f"{key}Few": phrase(2), f"{key}Many": phrase(5)}
+
+
+def _copy() -> dict[str, str]:
+    return {
+        **_plural_forms(
+            "presence",
+            lambda count: ngettext(
+                "%(count)s person here", "%(count)s people here", count
+            ),
+        ),
+        **_plural_forms(
+            "unreadCount",
+            lambda count: ngettext(
+                "%(count)s unread conversation", "%(count)s unread conversations", count
+            ),
+        ),
+        **_plural_forms(
+            "members",
+            lambda count: ngettext("%(count)s member", "%(count)s members", count),
+        ),
+        "title": _("Chat"),
+        "closeLabel": _("Close chat"),
+        "loading": _("Gathering conversations…"),
+        "offline": _("Connection lost. Reconnecting…"),
+        "emptyEvent": _(
+            "Quiet in here. Say hello before someone starts a rules debate."
+        ),
+        "emptyOrganizers": _(
+            "Just the organizers in here. Plan away, nobody else can read it."
+        ),
+        "emptyParty": _("Your party's own chat. Say hello to everyone."),
+        "emptySession": _("You found the table first. Leave a note for the others."),
+        "readOnly": _("You can read this conversation, but not write in it."),
+        "emptyReadOnly": _("Nobody has written here yet."),
+        "deleteConfirm": _("Delete this message for everyone?"),
+        "muteConfirm": _("Mute this person indefinitely? They can still read."),
+        "muted": _("Writing access limited."),
+        "writingRestored": _("Writing access restored."),
+        "messageLabel": _("Message"),
+        "messageListLabel": _("Messages"),
+        "scrollLatest": _("Jump to the latest messages"),
+        "sendLabel": _("Send message"),
+        "roomsLabel": _("Conversations"),
+        "backLabel": _("Back to conversations"),
+        "loadEarlier": _("Load earlier messages"),
+        "retentionNote": _("Messages disappear a year after they are written."),
+        "deletedMessage": _("Message deleted"),
+        "retry": _("Try again"),
+        "sending": _("Sending…"),
+        "writePlaceholder": _("Write a message…"),
+        "connectionError": _("Could not connect to the chat."),
+        "messageTooLong": _("Messages can be up to 1,000 characters."),
+        "errorArchived": _("This conversation is archived."),
+        "errorForbidden": _("You do not have permission to do that."),
+        "errorInvalid": _("That message could not be sent."),
+        "errorMuted": _("Your writing access is currently muted."),
+        "errorRateLimited": _("Too many messages. Wait a moment and try again."),
+        "errorUnknown": _("Something went wrong. Try again."),
+        "deleteLabel": _("Delete message"),
+        "messageActions": _("Message actions"),
+        "linkCopied": _("Link copied."),
+        "sessionRoom": _("Programme point"),
+        "eventRoom": _("Event chat"),
+        "organizersRoom": _("Organizers"),
+        "partyRoom": _("Party"),
+        "partyHint": _(
+            "Everyone in your party is here. To leave this chat, leave the party."
+        ),
+        "moderatorDelete": _("Delete as moderator"),
+        "muteOneHour": _("Mute for 1 hour"),
+        "muteOneDay": _("Mute for 24 hours"),
+        "muteSevenDays": _("Mute for 7 days"),
+        "muteIndefinitely": _("Mute indefinitely"),
+        "muteLabel": _("Change writing access"),
+        "restoreWriting": _("Restore writing access"),
+        "unread": _("Unread"),
+        "copyLink": _("Copy message link"),
+        "reportMessage": _("Report message"),
+        "reported": _("Message reported. Zagrajmy staff will write to you."),
+        "reportConfirm": _(
+            "Report this message to Zagrajmy staff? You confirm you are reporting"
+            " it in good faith and that the report is accurate."
+        ),
+        "cancelLabel": _("Cancel"),
+        "mutedUntil": _("Your writing access is muted until %(time)s."),
+        "typingOne": _("%(name)s is typing…"),
+        "typingTwo": _("%(first)s and %(second)s are typing…"),
+        "typingMany": _("Several people are typing…"),
+        "typingSomeone": _("Someone"),
+        **_conversation_copy(),
+        **_reaction_copy(),
+    }
+
+
+def _reaction_copy() -> dict[str, str]:
+    return {
+        **_plural_forms(
+            "reactionCount",
+            lambda count: ngettext(
+                "%(reaction)s: %(count)s person",
+                "%(reaction)s: %(count)s people",
+                count,
+            ),
+        ),
+        "react": _("React"),
+        "reactionsLabel": _("Reactions"),
+        "reactionThumbsUp": _("Thumbs up"),
+        "reactionHeart": _("Heart"),
+        "reactionLaugh": _("Laughing"),
+        "reactionSurprised": _("Surprised"),
+        "reactionSad": _("Sad"),
+        "reactionDice": _("Dice"),
+        "errorReactionGone": _("That message no longer takes reactions."),
+        "errorReactionRateLimited": _(
+            "Too many reactions. Wait a moment and try again."
+        ),
+        "errorReactionFull": _(
+            "This message has as many kinds of reaction as it takes."
+        ),
+        "addReaction": _("Add a reaction"),
+        "reactionPicker": _("Choose an emoji"),
+        "searchEmoji": _("Search emoji"),
+        "loadingEmoji": _("Loading emoji…"),
+        "noEmoji": _("No emoji found."),
+        "reactorYou": _("you"),
+        "reactorBlocked": _("someone you blocked"),
+    }
+
+
+def _conversation_copy() -> dict[str, str]:
+    return {
+        "newMessage": _("New message"),
+        "newGroup": _("New group"),
+        "searchPeople": _("Find a person"),
+        "searchHint": _("Type at least two letters of their name."),
+        "searching": _("Searching…"),
+        "nobodyFound": _("Nobody by that name you can write to."),
+        "groupName": _("Name (optional)"),
+        "groupPeople": _("People in the group"),
+        "groupNeedsPeople": _("Add at least one person."),
+        "groupTitleTooLong": _("Group names can be up to 80 characters."),
+        "createGroup": _("Create group"),
+        "removeSelected": _("Remove %(name)s"),
+        "directMessage": _("Direct message"),
+        "requests": _("Requests"),
+        "onThisPage": _("On this page"),
+        "allChats": _("All chats"),
+        "messagingNeedsAge": _(
+            "To message people directly, confirm you're 16 or older."
+        ),
+        "confirmAge": _("Confirm your age"),
+        "messagingUnder16": _("Direct messages open once you turn 16."),
+        "requestFrom": _("Wants to message you"),
+        "requestQuestion": _("%(name)s wants to message you."),
+        "accept": _("Accept"),
+        "decline": _("Decline"),
+        "block": _("Block"),
+        "blockPerson": _("Block %(name)s"),
+        "blockConfirm": _(
+            "Block %(name)s? Neither of you will be able to write to the other."
+        ),
+        "emptyDirect": _(
+            "Say hello. Until they accept, they will see only your first message."
+        ),
+        "emptyGroup": _("A brand new group. Say hello to everyone."),
+        "errorPending": _(
+            "They have not accepted your message yet. You can write more once they do."
+        ),
+        "errorNotFound": _("That person or conversation is no longer available."),
+        "errorTooMany": _("A group can have up to 50 people."),
+        "detailsLabel": _("Conversation details"),
+        "backToConversation": _("Back to the conversation"),
+        "membersLabel": _("People"),
+        "mentionedYou": _("Mentioned you"),
+        "mentionPeople": _("People in this conversation"),
+        "you": _("(you)"),
+        "addPeople": _("Add people"),
+        "memberAdded": _("%(name)s added."),
+        "removeMember": _("Remove %(name)s from the group"),
+        "removeConfirm": _("Remove %(name)s from the group?"),
+        "removeLabel": _("Remove"),
+        "leaveGroup": _("Leave group"),
+        "leaveGroupConfirm": _(
+            "Leave this group? Its messages will stop reaching you."
+        ),
+        "leaveConversation": _("Leave conversation"),
+        "backToNewMessage": _("Back to new message"),
+        "nameLabel": _("Conversation name"),
+        "nameHint": _(
+            "Everyone in it sees this name. Leave it empty to go back to the default."
+        ),
+        "nameSaved": _("Name saved."),
+        "saveName": _("Save name"),
+        "blockedMessage": _("A message from someone you blocked."),
+        "blockedNotice": _("%(name)s blocked."),
+        "blockedPeople": _("Blocked people"),
+        "blockedHint": _(
+            "They cannot start a conversation with you, and their messages stay"
+            " hidden from you."
+        ),
+        "blockHideConfirm": _(
+            "Block %(name)s? Their messages will be hidden from you, and they will"
+            " not be able to start a conversation with you."
+        ),
+        "nobodyBlocked": _("You have not blocked anyone."),
+        "unblock": _("Unblock"),
+        "unblocked": _("%(name)s unblocked."),
+        "unblockPerson": _("Unblock %(name)s"),
+        "leaveConversationConfirm": _(
+            "Leave this conversation? It will disappear from your list."
+        ),
+    }
+
+
+@never_cache
+@require_GET
+def bootstrap(request: RootHttpRequest) -> JsonResponse:
+    if request.context.current_user_id is None:
+        return JsonResponse({"error": "authentication_required"}, status=401)
+
+    payload = request.services.parley.bootstrap(
+        user_id=request.context.current_user_id, now=datetime.now(tz=UTC)
+    )
+    if payload is None:
+        return JsonResponse({"error": "parley_unavailable"}, status=404)
+    response_data = payload.model_dump(mode="json", by_alias=True)
+    response_data["copy"] = _copy()
+    response_data["csrfToken"] = get_token(request)
+    response_data["ageUrl"] = reverse("user:profile-privacy")
+    return JsonResponse(response_data)
+
+
+@never_cache
+@require_POST
+def report(request: RootHttpRequest) -> JsonResponse:
+    if request.context.current_user_id is None:
+        return JsonResponse({"error": "authentication_required"}, status=401)
+    # DSA Art. 16(2)(d): the reporter vouches for the report.
+    if request.POST.get("good_faith") != "1":
+        return JsonResponse({"error": "invalid_report"}, status=422)
+    try:
+        data = ParleyReportData(
+            user_id=request.context.current_user_id,
+            room_id=request.POST["room_id"],
+            message_id=int(request.POST["message_id"]),
+            reason=request.POST.get("reason", ""),
+        )
+    except KeyError, ValueError:
+        return JsonResponse({"error": "invalid_report"}, status=422)
+    created = request.services.parley.report_message(
+        data=data, now=datetime.now(tz=UTC)
+    )
+    if not created:
+        return JsonResponse({"error": "invalid_report"}, status=422)
+    request.services.chat_report_intake.take(
+        reporter_id=data.user_id, room_id=data.room_id, message_id=data.message_id
+    )
+    logger.info(
+        "Parley message reported",
+        extra={
+            "message_id": data.message_id,
+            "room_id": data.room_id,
+            "user_id": data.user_id,
+        },
+    )
+    return JsonResponse({}, status=201)

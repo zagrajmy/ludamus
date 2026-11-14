@@ -9,7 +9,7 @@ include = ["pyproject.toml"]
 include = ["src/**/*.py"]
 
 [ranges.legacy-code]
-include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
+include = ["src/**/legacy.py"]
 
 [ranges.gates]
 include = ["src/ludamus/gates/**/*.py"]
@@ -84,6 +84,13 @@ type = "regex_count"
 group = "testing"
 pattern = '#\s*pragma'
 ranges = ["python-tests"]
+
+[[metrics]]
+name = "no-mutate-pragma"
+type = "regex_count"
+group = "testing"
+pattern = '#\s*pragma:\s*no mutate(?!\s+end)'
+ranges = ["python-src"]
 
 [[metrics]]
 base = "tingle.builtins.unittest_mock.any_used"

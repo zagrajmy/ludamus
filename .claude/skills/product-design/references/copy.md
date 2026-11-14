@@ -27,17 +27,10 @@ wrap it for translation, and use the project's terms.
 - **Empty states invite.** "No proposals yet — create the first one" beats "No
   results."
 
-## Polish term table (authoritative — from CLAUDE.md)
+## Polish terms
 
-Use these consistently; they were chosen to avoid collisions. Getting them wrong
-is a real translation bug, not a nuance.
-
-| English | Polish | Note |
-| --- | --- | --- |
-| session | **punkt programu** | except "RPG session" → **sesja RPG**; event-hero CTA "Sign up for sessions" → **Zapisz się na sesje** |
-| track | **blok** / **blok programowy** | |
-| facilitator | **twórca programu** | |
-| time slot | **przedział czasowy** | do **not** use "blok czasowy" — collides with *track* |
-
-When you introduce a new domain term, add it here (and to CLAUDE.md if it's
-load-bearing) so the next agent translates it the same way.
+The term table lives in
+[`src/ludamus/locale/CLAUDE.md`](../../../../src/ludamus/locale/CLAUDE.md). The
+terms were chosen to avoid collisions; getting one wrong is a real translation
+bug, not a nuance. When you introduce a new domain term, add it there so the
+next agent translates it the same way.

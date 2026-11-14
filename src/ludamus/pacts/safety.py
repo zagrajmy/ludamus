@@ -3,8 +3,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
+from ludamus.pacts.user import UserDTO
 
 
 class ShadowbanMeetSessionDTO(BaseModel):
@@ -55,7 +55,6 @@ class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     recipient_id: UserId
-    recipient_email: str
     banned_user_id: UserId
     in_session: bool
 
@@ -72,7 +71,6 @@ class ShadowbanEventSignupDTO(BaseModel):
 
 class ShadowbanSignupNotification(BaseModel):
     recipient_user_id: UserId
-    recipient_email: str
     event_slug: str
     event_name: str
     session_title: str
@@ -112,7 +110,7 @@ class EventBanRepositoryProtocol(Protocol):
         *, event_ids: set[EventId], user_id: UserId
     ) -> set[EventId]: ...
     @staticmethod
-    def ban(*, event_id: EventId, identifier: str, reason: str) -> bool: ...
+    def ban(*, event_id: EventId, identifier: str, reason: str) -> UserId | None: ...
     @staticmethod
     def unban(*, event_id: EventId, ban_id: EventBanId) -> None: ...
 

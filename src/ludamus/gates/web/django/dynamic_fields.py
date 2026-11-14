@@ -7,24 +7,21 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.mills.field_values import merge_custom, split_stored
-from ludamus.pacts import FieldAnswer
+from ludamus.pacts.fields import FieldAnswer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Collection, Mapping, Sequence
 
     from django.http import QueryDict
 
-    from ludamus.pacts import (
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts.fields import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
 
-type Requirement = PersonalFieldRequirementDTO | SessionFieldRequirementDTO
+type FieldPairs = Sequence[tuple[OrganizerFieldDTO, bool]]
 type WizardData = dict[str, FieldValue | int]
+type _StoredAnswer = str | list[str] | bool
+
+WRITE_IN_SEPARATOR = ";"
 
 
 class CustomAnswerFormMixin(forms.Form):
@@ -75,9 +72,8 @@ def build_field(
             )
 
     elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
         fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
+            label=label, help_text=help_text, required=control_required
         )
     else:
         fields[field_key] = forms.CharField(
@@ -94,26 +90,26 @@ def build_field(
 
 
 def build_dynamic_fields(
-    *, fields: dict[str, forms.Field], requirements: Sequence[Requirement], prefix: str
+    *, fields: dict[str, forms.Field], pairs: FieldPairs, prefix: str
 ) -> tuple[str, ...]:
     # Returns the keys whose requirement the choice field alone can no longer
     # enforce, for CustomAnswerFormMixin to check as a pair.
-    for req in requirements:
+    for field_def, is_required in pairs:
         build_field(
             fields=fields,
-            field_key=f"{prefix}_{req.field.slug}",
-            field_def=req.field,
-            is_required=req.is_required,
+            field_key=f"{prefix}_{field_def.slug}",
+            field_def=field_def,
+            is_required=is_required,
         )
     return tuple(
-        f"{prefix}_{req.field.slug}"
-        for req in requirements
-        if req.is_required and req.field.offers_custom_input
+        f"{prefix}_{field_def.slug}"
+        for field_def, is_required in pairs
+        if is_required and field_def.offers_custom_input
     )
 
 
 def requirement_fields(
-    requirements: Sequence[Requirement],
+    requirements: Sequence[SessionFieldRequirementDTO],
 ) -> list[tuple[OrganizerFieldDTO, bool]]:
     return [(req.field, req.is_required) for req in requirements]
 
@@ -163,6 +159,43 @@ def dynamic_fields_form(
             prefix=prefix,
         ),
     )
+
+
+def merge_custom(
+    *, chosen: _StoredAnswer | None, custom: str, is_multiple: bool
+) -> _StoredAnswer:
+    if isinstance(chosen, bool):
+        return chosen
+    if not is_multiple:
+        return chosen or custom
+    values = (
+        [value for value in chosen if isinstance(value, str)]
+        if isinstance(chosen, list)
+        else []
+    )
+    for part in (part.strip() for part in custom.split(WRITE_IN_SEPARATOR)):
+        if part and part not in values:
+            values.append(part)
+    return values
+
+
+def split_stored(
+    *, stored: _StoredAnswer | None, known: Collection[str], is_multiple: bool
+) -> tuple[str | list[str], str]:
+    if not isinstance(stored, str | list):
+        return ([] if is_multiple else ""), ""
+    values = (
+        [value for value in stored if isinstance(value, str)]
+        if isinstance(stored, list)
+        else [stored]
+    )
+    chosen = [value for value in values if value in known]
+    custom = f"{WRITE_IN_SEPARATOR} ".join(
+        value for value in values if value not in known
+    )
+    if is_multiple:
+        return chosen, custom
+    return (chosen[0] if chosen else ""), custom
 
 
 def answered_value(
@@ -240,28 +273,28 @@ def unfold_custom_answers(
 
 
 def fold_custom_answers(
-    *, cleaned: WizardData, requirements: Sequence[Requirement], prefix: str
+    *, cleaned: WizardData, fields: Sequence[OrganizerFieldDTO], prefix: str
 ) -> WizardData:
-    keys = {f"{prefix}_{req.field.slug}" for req in requirements}
+    keys = {f"{prefix}_{field_def.slug}" for field_def in fields}
     # Minus the real keys: a field slugged "triggers_custom" alongside
     # "triggers" owns its answer, companion spelling notwithstanding.
     companions = {
-        f"{prefix}_{req.field.slug}_custom"
-        for req in requirements
-        if req.field.offers_custom_input
+        f"{prefix}_{field_def.slug}_custom"
+        for field_def in fields
+        if field_def.offers_custom_input
     } - keys
     folded: WizardData = {
         key: value for key, value in cleaned.items() if key not in companions
     }
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
+    for field_def in fields:
+        key = f"{prefix}_{field_def.slug}"
         value = folded.get(key)
-        if not req.field.allow_custom or not isinstance(value, str | list | bool):
+        if not field_def.allow_custom or not isinstance(value, str | list | bool):
             continue
         custom_key = f"{key}_custom"
         folded[key] = merge_custom(
             chosen=value,
             custom="" if custom_key in keys else str(cleaned.get(custom_key) or ""),
-            is_multiple=req.field.is_multiple,
+            is_multiple=field_def.is_multiple,
         )
     return folded

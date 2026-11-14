@@ -6,46 +6,57 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_credentials_decryptor,
+    build_credentials_encryptor,
+    build_email_verification,
+    build_encounter_guests,
+    build_encounters,
     build_konwencik_export,
+    build_listings,
     build_printables_reminder,
+    build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
-from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
+from ludamus.inits.dbos_scheduler import (
+    announcement_fanout_scheduler,
+    offer_expiry_scheduler,
+    parley_membership_outbox,
+    parley_revocation_outbox,
+    staff_thread,
+)
+from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
-from ludamus.links.cache import DjangoCache
+from ludamus.links.cache import (
+    CacheAuthorizationCodeStore,
+    DjangoCache,
+    DjangoCacheCounter,
+)
+from ludamus.links.client_metadata import HttpClientMetadataFetcher
+from ludamus.links.db.django.encounter_invites import SignedReplyAddress
+from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
-from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
+from ludamus.links.db.django.parley_mention_mail import DjangoParleyMentionMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
+from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
-from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
-from ludamus.links.gravatar import gravatar_url
-from ludamus.links.scheduler import CronSweepOfferScheduler
+from ludamus.links.google_sheets import KonwencikSheetExporter
+from ludamus.links.parley_mention_tokens import HmacMentionVerifier
+from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
-from ludamus.mills.chronology import (
-    ProposalAcceptanceService,
-    ProposalStatusService,
-    SessionConfirmationService,
-    SessionContentEditService,
-    SessionDeletionService,
-    SessionSelfEditService,
-)
-from ludamus.mills.crowd import (
-    ClaimService,
-    CompanionsService,
-    CrowdAuthService,
-    ProfileService,
-)
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
-from ludamus.mills.discounts import DiscountsExportService, DiscountsService
-from ludamus.mills.encounter import EncounterService
+from ludamus.mills.discounts import DiscountsService
+from ludamus.mills.encounter_replies import EncounterReplyService
 from ludamus.mills.enrollment import (
-    AnonymousEnrollmentService,
     EnrollmentService,
     EnrollmentSettingsService,
     WaitlistPromotionService,
+)
+from ludamus.mills.enrollment_anonymous import AnonymousEnrollmentService
+from ludamus.mills.enrollment_member import (
+    MemberEnrollmentPeers,
+    MemberEnrollmentService,
 )
 from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import (
@@ -53,7 +64,9 @@ from ludamus.mills.event import (
     EventPanelService,
     EventsService,
     LandingService,
+    PanelTimeSlotsService,
 )
+from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import (
@@ -61,75 +74,164 @@ from ludamus.mills.integrations import (
     IntegrationImplementations,
 )
 from ludamus.mills.maps import EventMapsService
-from ludamus.mills.multiverse import (
+from ludamus.mills.mcp import McpAuthorizationService
+from ludamus.mills.moderation import (
+    ActiveRecipientsService,
+    ChatReportIntakeService,
+    ModerationDecisionService,
+    NoticeService,
+    StatementOfReasonsService,
+)
+from ludamus.mills.notifications import (
+    NotificationsService,
+    NotificationSubscriptionsService,
+)
+from ludamus.mills.panel_facilitators import FacilitatorPanelService
+from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelService
+from ludamus.mills.parley import ParleyRevocationService, ParleyService
+from ludamus.mills.parley_conversations import (
+    ParleyConversationService,
+    ParleyPartyChatService,
+)
+from ludamus.mills.parley_mentions import ParleyMentionMailService
+from ludamus.mills.party import PartyService
+from ludamus.mills.party_history import PartySessionHistoryService
+from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_categories import ProposalCategoriesService
+from ludamus.mills.propose.field_layout import ImportFieldLayoutService
+from ludamus.mills.propose.import_log import ImportLogService
+from ludamus.mills.propose.importing import ProposalImportService
+from ludamus.mills.propose.personal_data_fields import (
+    CFPPersonalDataFieldService,
+    PersonalDataFieldValueService,
+)
+from ludamus.mills.propose.proposal_category_settings import (
+    ProposalCategorySettingsService,
+)
+from ludamus.mills.propose.session_fields import CFPSessionFieldService
+from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
+from ludamus.mills.sessions import (
+    ProposalAcceptanceService,
+    ProposalStatusService,
+    SessionConfirmationService,
+    SessionContentEditService,
+    SessionDeletionService,
+    SessionSelfEditService,
+)
+from ludamus.mills.sphere import (
     AnnouncementsService,
     ConnectionsService,
     SitesService,
     SpherePanelService,
 )
-from ludamus.mills.notifications import NotificationsService
-from ludamus.mills.panel_facilitators import FacilitatorPanelService
-from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.mills.panel_time_slots import PanelTimeSlotsService
-from ludamus.mills.party import PartyService
-from ludamus.mills.party_history import PartySessionHistoryService
-from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
-from ludamus.mills.proposal_categories import ProposalCategoriesService
-from ludamus.mills.propose import ProposeSessionService
-from ludamus.mills.safety import EventBanService, ShadowbanService
-from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
-from ludamus.mills.submissions.import_log import ImportLogService
-from ludamus.mills.submissions.importing import ProposalImportService
-from ludamus.mills.submissions.personal_data_fields import (
-    CFPPersonalDataFieldService,
-    PersonalDataFieldValueService,
-)
-from ludamus.mills.submissions.proposal_category_settings import (
-    ProposalCategorySettingsService,
-)
-from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.staff_cases import StaffCaseService
+from ludamus.mills.tags import TagService
+from ludamus.mills.team import SphereTeamService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
     TimetableService,
 )
 from ludamus.mills.tracks import TracksPanelService
+from ludamus.mills.user import (
+    ClaimService,
+    CompanionsService,
+    CrowdAuthService,
+    EmailVerificationService,
+    ProfileService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
-from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
-from ludamus.pacts.propose import ProposeRepos
-from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.integrations import IntegrationImplementationId
+from ludamus.pacts.panel import (
+    FacilitatorPanelRepos,
+    ProposalPanelRepos,
+    ProposalRecordRepos,
+)
+from ludamus.pacts.propose import (
+    ImportRepos,
+    ProposalCategorySettingsRepos,
+    ProposeRepos,
+)
 from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
+    from ludamus.mills.encounter import EncounterService
+    from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
-    from ludamus.pacts.chronology import (
+    from ludamus.mills.listing import ListingService
+    from ludamus.pacts.integrations import (
         ImportIntegrationImplementation,
         IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
-    from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
 class Services:
-    """Lazy flat service namespace exposed on `request.services`.
-
-    Buckets will appear when the leaf count grows past ~12.
-    """
+    """Lazy flat service namespace exposed on `request.services`."""
 
     def __init__(self) -> None:
         self._repos = Repositories()
         self._transaction = DjangoTransaction()
 
     @cached_property
+    def parley(self) -> ParleyService:
+        signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        agent_host: str = settings.PARLEY_AGENT_HOST
+        return ParleyService(
+            repository=self._repos.parley,
+            conversations=self._repos.parley_conversations,
+            signer=JwtSigner(signing_private_key),
+            messages=parley_message_reader(),
+            agent_host=agent_host,
+        )
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationService:
+        return ParleyConversationService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
+    def parley_mentions(self) -> ParleyMentionMailService:
+        secret: str = settings.PARLEY_MENTIONS_SECRET
+        return ParleyMentionMailService(
+            transaction=self._transaction,
+            verifier=HmacMentionVerifier(secret),
+            repository=self._repos.parley_mentions,
+            conversations=self._repos.parley_conversations,
+            mailer=DjangoParleyMentionMailer(),
+            tokens=DjangoParleyMentionUnsubscribeCodec(),
+        )
+
+    @cached_property
+    def parley_party_chats(self) -> ParleyPartyChatService:
+        return ParleyPartyChatService(
+            transaction=self._transaction,
+            repository=self._repos.parley_conversations,
+            outbox=parley_membership_outbox(),
+        )
+
+    @cached_property
+    def parley_revocations(self) -> ParleyRevocationService:
+        return ParleyRevocationService(
+            repository=self._repos.parley,
+            outbox=parley_revocation_outbox(),
+            conversations=self._repos.parley_conversations,
+            memberships=parley_membership_outbox(),
+            party_chats=self.parley_party_chats,
+        )
+
+    @cached_property
     def personal_data_fields(self) -> CFPPersonalDataFieldService:
         return CFPPersonalDataFieldService(
-            transaction=self._transaction,
-            fields=self._repos.personal_data_fields,
-            categories=self._repos.proposal_categories,
+            transaction=self._transaction, fields=self._repos.personal_data_fields
         )
 
     @cached_property
@@ -169,9 +271,8 @@ class Services:
 
     @cached_property
     def connections(self) -> ConnectionsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return ConnectionsService(
-            self._transaction, self._repos.connections, FernetEncryptor(key)
+            self._transaction, self._repos.connections, build_credentials_encryptor()
         )
 
     @cached_property
@@ -183,7 +284,6 @@ class Services:
         return ProfileService(
             transaction=self._transaction,
             users=self._repos.active_users,
-            participations=self._repos.profile_stats,
             avatar_url=gravatar_url,
         )
 
@@ -192,12 +292,18 @@ class Services:
         return CompanionsService(self._transaction, self._repos.companions)
 
     @cached_property
+    def email_verification(self) -> EmailVerificationService:
+        return build_email_verification()
+
+    @cached_property
     def crowd_auth(self) -> CrowdAuthService:
         return CrowdAuthService(
             transaction=self._transaction,
             users=self._repos.active_users,
             spheres=self._repos.spheres,
             claims=self.claims,
+            subscriptions=self._repos.sphere_subscriptions,
+            chat=self.parley_revocations,
         )
 
     @cached_property
@@ -205,9 +311,30 @@ class Services:
         return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
 
     @cached_property
+    def staff_cases(self) -> StaffCaseService:
+        return StaffCaseService(
+            transaction=self._transaction,
+            repository=self._repos.staff_cases,
+            thread=staff_thread(),
+            mailer=DjangoModerationMailer(),
+            memberships=parley_membership_outbox(),
+            decisions=self.moderation_decisions,
+            chat=self.parley,
+        )
+
+    @cached_property
+    def sphere_team(self) -> SphereTeamService:
+        return SphereTeamService(
+            transaction=self._transaction, team=self._repos.sphere_team
+        )
+
+    @cached_property
     def parties(self) -> PartyService:
         return PartyService(
-            self._transaction, self._repos.parties, DjangoUserNotifier()
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            notifier=DjangoUserNotifier(),
+            chat=self.parley_party_chats,
         )
 
     @cached_property
@@ -219,6 +346,14 @@ class Services:
         )
 
     @cached_property
+    def event_schedule(self) -> EventScheduleService:
+        return EventScheduleService(
+            schedule=self._repos.event_schedule,
+            windows=self._repos.enrollment_windows,
+            session_fields=self._repos.session_fields,
+        )
+
+    @cached_property
     def session_modal(self) -> SessionModalService:
         return SessionModalService(
             transaction=self._transaction, sessions=self._repos.sessions
@@ -226,7 +361,11 @@ class Services:
 
     @cached_property
     def announcements(self) -> AnnouncementsService:
-        return AnnouncementsService(self._transaction, self._repos.announcements)
+        return AnnouncementsService(
+            self._transaction,
+            self._repos.announcements,
+            announcement_fanout_scheduler(),
+        )
 
     @cached_property
     def events(self) -> EventsService:
@@ -235,6 +374,7 @@ class Services:
             events=self._repos.events,
             spheres=self._repos.spheres,
             spaces=self._repos.space_tree,
+            setup=self._repos.event_setup,
         )
 
     @cached_property
@@ -263,17 +403,19 @@ class Services:
             transaction=self._transaction,
             repos=EventSettingsRepos(
                 events=self._repos.events,
-                event_settings=self._repos.event_settings,
                 event_proposal_settings=self._repos.event_proposal_settings,
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
             ),
+            chat=self.parley_revocations,
         )
 
     @cached_property
     def panel_time_slots(self) -> PanelTimeSlotsService:
         return PanelTimeSlotsService(
-            transaction=self._transaction, time_slots=self._repos.time_slots
+            transaction=self._transaction,
+            time_slots=self._repos.time_slots,
+            events=self._repos.events,
         )
 
     @cached_property
@@ -295,12 +437,25 @@ class Services:
 
     @cached_property
     def space_tree(self) -> SpaceTreeService:
-        return SpaceTreeService(self._transaction, self._repos.space_tree)
+        return SpaceTreeService(
+            transaction=self._transaction,
+            spaces=self._repos.space_tree,
+            events=self._repos.events,
+        )
 
     @cached_property
     def event_maps(self) -> EventMapsService:
         return EventMapsService(
             self._transaction, self._repos.event_maps, self._repos.spaces
+        )
+
+    @cached_property
+    def mcp_authorization(self) -> McpAuthorizationService:
+        return McpAuthorizationService(
+            fetcher=HttpClientMetadataFetcher(),
+            codes=CacheAuthorizationCodeStore(),
+            spheres=self.sphere_panel,
+            users=self._repos.active_users,
         )
 
     @cached_property
@@ -310,15 +465,20 @@ class Services:
             self._repos.spheres,
             self._repos.events,
             self._repos.encounters,
+            self._repos.active_users,
+            self.parley_revocations,
         )
 
     @cached_property
     def sites(self) -> SitesService:
-        return SitesService(self._repos.spheres, self._repos.spheres)
+        return build_sites()
 
     @cached_property
     def landing(self) -> LandingService:
-        return LandingService(self._repos.landing_stats)
+        domains: tuple[str, ...] = settings.LANDING_CONVENTION_DOMAINS
+        return LandingService(
+            self._repos.landing_stats, cache=DjangoCache(), convention_domains=domains
+        )
 
     @cached_property
     def dashboard(self) -> DashboardService:
@@ -336,6 +496,7 @@ class Services:
             session_fields=self._repos.session_fields,
             content_change_logs=self._repos.content_change_logs,
             agenda_items=self._repos.agenda_items,
+            waitlist_promotion=self.waitlist_promotion,
         )
 
     @cached_property
@@ -350,22 +511,38 @@ class Services:
             self._transaction,
             self._repos.sessions,
             self._repos.agenda_items,
-            ScheduleChangeLogRepository(),
+            self._repos.schedule_change_logs,
         )
 
     @cached_property
     def proposal_panel(self) -> ProposalPanelService:
-        return ProposalPanelService(
-            self._transaction,
-            ProposalPanelRepos(
-                sessions=self._repos.sessions,
-                session_fields=self._repos.session_fields,
-                proposal_categories=self._repos.proposal_categories,
-                panel_settings=self._repos.event_panel_settings,
-                facilitators=self._repos.facilitators,
-                tracks=self._repos.tracks,
-                time_slots=self._repos.time_slots,
+        return ProposalPanelService(self._transaction, self._proposal_panel_repos)
+
+    @cached_property
+    def proposal_page(self) -> ProposalPageService:
+        return ProposalPageService(
+            transaction=self._transaction,
+            repos=self._proposal_panel_repos,
+            records=ProposalRecordRepos(
+                agenda_items=self._repos.agenda_items,
+                schedule_change_logs=self._repos.schedule_change_logs,
+                personal_data_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
             ),
+            content_edit=self.session_content_edit,
+            personal_data=self.personal_data_field_values,
+        )
+
+    @cached_property
+    def _proposal_panel_repos(self) -> ProposalPanelRepos:
+        return ProposalPanelRepos(
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            proposal_categories=self._repos.proposal_categories,
+            panel_settings=self._repos.event_panel_settings,
+            facilitators=self._repos.facilitators,
+            tracks=self._repos.tracks,
+            time_slots=self._repos.time_slots,
         )
 
     @cached_property
@@ -374,6 +551,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property
@@ -382,8 +560,10 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property
@@ -397,7 +577,7 @@ class Services:
 
     @cached_property
     def waitlist_promotion(self) -> WaitlistPromotionService:
-        return build_waitlist_promotion(self._offer_expiry_scheduler())
+        return build_waitlist_promotion(offer_expiry_scheduler())
 
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentService:
@@ -408,18 +588,15 @@ class Services:
             waitlist_promotion=self.waitlist_promotion,
         )
 
-    @staticmethod
-    def _offer_expiry_scheduler() -> OfferExpirySchedulerProtocol:
-        scheduler_mode: str = settings.SCHEDULER_MODE
-        return (
-            DBOSOfferExpiryScheduler()
-            if scheduler_mode == "dbos"
-            else CronSweepOfferScheduler()
-        )
-
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionsService:
+        return NotificationSubscriptionsService(
+            self._transaction, self._repos.notification_subscriptions
+        )
 
     @cached_property
     def enrollment_settings(self) -> EnrollmentSettingsService:
@@ -433,7 +610,6 @@ class Services:
             self._transaction,
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
-                personal_fields=self._repos.personal_data_fields,
                 session_fields=self._repos.session_fields,
                 time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,
@@ -455,6 +631,20 @@ class Services:
         )
 
     @cached_property
+    def member_enrollment(self) -> MemberEnrollmentService:
+        return MemberEnrollmentService(
+            transaction=self._transaction,
+            repository=self._repos.member_enrollment,
+            peers=MemberEnrollmentPeers(
+                enrollment=self.enrollment,
+                waitlist_promotion=self.waitlist_promotion,
+                shadowban=self.shadowban,
+                parties=self.parties,
+                event_bans=self.event_bans,
+            ),
+        )
+
+    @cached_property
     def shadowban(self) -> ShadowbanService:
         return ShadowbanService(
             self._transaction, self._repos.shadowban, DjangoUserNotifier()
@@ -462,7 +652,54 @@ class Services:
 
     @cached_property
     def event_bans(self) -> EventBanService:
-        return EventBanService(self._transaction, self._repos.event_bans)
+        return EventBanService(
+            transaction=self._transaction,
+            repo=self._repos.event_bans,
+            chat=self.parley_revocations,
+        )
+
+    @cached_property
+    def notices(self) -> NoticeService:
+        return NoticeService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            notices=self._repos.content_notices,
+            counter=DjangoCacheCounter(),
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def chat_report_intake(self) -> ChatReportIntakeService:
+        return ChatReportIntakeService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            reports=self._repos.chat_reports,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def statements_of_reasons(self) -> StatementOfReasonsService:
+        return StatementOfReasonsService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            statements=self._repos.statements_of_reasons,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def moderation_decisions(self) -> ModerationDecisionService:
+        return ModerationDecisionService(
+            transaction=self._transaction,
+            cases=self._repos.moderation_cases,
+            notices=self._repos.content_notices,
+            reports=self._repos.chat_reports,
+            statements=self.statements_of_reasons,
+            mailer=DjangoModerationMailer(),
+        )
+
+    @cached_property
+    def active_recipients(self) -> ActiveRecipientsService:
+        return ActiveRecipientsService(repository=self._repos.active_recipients)
 
     @cached_property
     def bookmarks(self) -> BookmarkService:
@@ -486,19 +723,12 @@ class Services:
         )
 
     @cached_property
-    def _decryptor(self) -> FernetDecryptor:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        return FernetDecryptor(key)
+    def tags(self) -> TagService:
+        return TagService(self._transaction, self._repos.tags)
 
     @cached_property
-    def discounts_export(self) -> DiscountsExportService:
-        return DiscountsExportService(
-            discounts=self._repos.discounts,
-            facilitators=self._repos.facilitators,
-            connections=self._repos.connections,
-            decryptor=self._decryptor,
-            sheet_writer=GoogleSheetsWriter(),
-        )
+    def listings(self) -> ListingService:
+        return build_listings()
 
     @cached_property
     def konwencik_export(self) -> KonwencikExportService:
@@ -506,12 +736,21 @@ class Services:
 
     @cached_property
     def encounters(self) -> EncounterService:
-        return EncounterService(
+        return build_encounters(self.sites, self._encounter_guests)
+
+    @cached_property
+    def _encounter_guests(self) -> EncounterGuests:
+        return build_encounter_guests(self.sites)
+
+    @cached_property
+    def encounter_replies(self) -> EncounterReplyService:
+        return EncounterReplyService(
             transaction=self._transaction,
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
-            spheres=self._repos.spheres,
+            guests=self._encounter_guests,
+            reply_addresses=SignedReplyAddress(),
             sites=self.sites,
         )
 
@@ -547,7 +786,7 @@ class Services:
             transaction=self._transaction,
             integrations=self._repos.event_integrations,
             connections=self._repos.connections,
-            decryptor=self._decryptor,
+            decryptor=build_credentials_decryptor(),
             implementations=IntegrationImplementations(
                 imports=self._import_implementations,
                 ticketing=self._ticketing_implementations,
@@ -599,6 +838,7 @@ class Services:
                 categories=self._repos.proposal_categories,
                 tracks=self._repos.tracks,
                 sessions=self._repos.sessions,
+                reusable_sessions=self._repos.reusable_sessions,
                 session_fields=self._repos.session_fields,
                 personal_fields=self._repos.personal_data_fields,
                 personal_data_field_values=self._repos.personal_data_field_values,
@@ -620,6 +860,7 @@ class Services:
     @cached_property
     def _timetable_repos(self) -> TimetableRepos:
         return TimetableRepos(
+            events=self._repos.events,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,
@@ -630,7 +871,11 @@ class Services:
 
     @cached_property
     def timetable(self) -> TimetableService:
-        return TimetableService(self._transaction, self._timetable_repos)
+        return TimetableService(
+            self._transaction,
+            self._timetable_repos,
+            categories=self._repos.proposal_categories,
+        )
 
     @cached_property
     def timetable_conflicts(self) -> ConflictDetectionService:

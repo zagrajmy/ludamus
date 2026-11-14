@@ -2,39 +2,57 @@ from functools import cached_property
 
 from ludamus.links.db.django import repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.announcements import AnnouncementFanoutRepository
 from ludamus.links.db.django.bookmarks import BookmarkRepository
 from ludamus.links.db.django.content_change_log import ContentChangeLogRepository
-from ludamus.links.db.django.crowd import (
-    ClaimRepository,
-    CompanionRepository,
-    ProfileStatsRepository,
-    UserRepository,
-)
 from ludamus.links.db.django.enrollment import (
     AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
     EnrollmentWindowRepository,
+    MemberEnrollmentRepository,
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
 from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
+from ludamus.links.db.django.moderation import (
+    ActiveRecipientsRepository,
+    ChatReportRepository,
+    ContentNoticeRepository,
+    ModerationCaseRepository,
+    StatementOfReasonsRepository,
+)
+from ludamus.links.db.django.notification_inbox import NotificationReadRepository
+from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
+from ludamus.links.db.django.parley import ParleyRepository
+from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
+from ludamus.links.db.django.parley_mentions import ParleyMentionRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
+from ludamus.links.db.django.repositories.encounter import EncounterInviteeRepository
+from ludamus.links.db.django.repositories.session_cards import EventScheduleRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
-from ludamus.pacts.crowd import UserType
+from ludamus.links.db.django.staff_cases import StaffCaseRepository
+from ludamus.links.db.django.tags import TagRepository
+from ludamus.links.db.django.team import SphereTeamRepository
+from ludamus.links.db.django.users import (
+    ClaimRepository,
+    CompanionRepository,
+    EmailVerificationReminderRepository,
+    UserRepository,
+)
+from ludamus.pacts.user import UserType
 
 
 class Repositories:
     """Lazy flat repository registry.
 
     Internal to inits — never imported from gates. Mills services receive
-    specific repo protocols from this tree, not the tree itself. Buckets
-    will appear when the leaf count grows past ~12.
+    specific repo protocols from this tree, not the tree itself.
     """
 
     @cached_property
@@ -68,8 +86,24 @@ class Repositories:
         return GuildRepository()
 
     @cached_property
+    def sphere_team(self) -> SphereTeamRepository:
+        return SphereTeamRepository()
+
+    @cached_property
     def parties(self) -> PartyRepository:
         return PartyRepository()
+
+    @cached_property
+    def tags(self) -> TagRepository:
+        return TagRepository()
+
+    @cached_property
+    def listings(self) -> ListingRepository:
+        return ListingRepository()
+
+    @cached_property
+    def listing_responses(self) -> ListingResponseRepository:
+        return ListingResponseRepository()
 
     @cached_property
     def party_session_history(self) -> repositories.PartySessionHistoryRepository:
@@ -96,16 +130,20 @@ class Repositories:
         return repositories.LandingStatsRepository()
 
     @cached_property
-    def event_settings(self) -> repositories.EventSettingsRepository:
-        return repositories.EventSettingsRepository()
-
-    @cached_property
     def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
         return repositories.EventProposalSettingsRepository()
 
     @cached_property
+    def reusable_sessions(self) -> repositories.ReusableSessionRepository:
+        return repositories.ReusableSessionRepository()
+
+    @cached_property
     def sessions(self) -> repositories.SessionRepository:
         return repositories.SessionRepository()
+
+    @cached_property
+    def event_schedule(self) -> EventScheduleRepository:
+        return EventScheduleRepository()
 
     @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
@@ -118,6 +156,10 @@ class Repositories:
     @cached_property
     def anonymous_enrollment(self) -> AnonymousEnrollmentRepository:
         return AnonymousEnrollmentRepository()
+
+    @cached_property
+    def member_enrollment(self) -> MemberEnrollmentRepository:
+        return MemberEnrollmentRepository()
 
     @cached_property
     def enrollment_participations(self) -> EnrollmentParticipationRepository:
@@ -144,16 +186,24 @@ class Repositories:
         return CompanionRepository()
 
     @cached_property
-    def profile_stats(self) -> ProfileStatsRepository:
-        return ProfileStatsRepository()
-
-    @cached_property
     def notifications(self) -> NotificationReadRepository:
         return NotificationReadRepository()
 
     @cached_property
+    def notification_subscriptions(self) -> NotificationSubscriptionRepository:
+        return NotificationSubscriptionRepository()
+
+    @cached_property
+    def announcement_fanout(self) -> AnnouncementFanoutRepository:
+        return AnnouncementFanoutRepository()
+
+    @cached_property
     def printables_reminders(self) -> PrintablesReminderRepository:
         return PrintablesReminderRepository()
+
+    @cached_property
+    def verification_reminders(self) -> EmailVerificationReminderRepository:
+        return EmailVerificationReminderRepository()
 
     @cached_property
     def dashboard(self) -> repositories.DashboardRepository:
@@ -182,6 +232,10 @@ class Repositories:
     @cached_property
     def spaces(self) -> repositories.SpaceRepository:
         return repositories.SpaceRepository()
+
+    @cached_property
+    def event_setup(self) -> repositories.EventSetupRepository:
+        return repositories.EventSetupRepository()
 
     @cached_property
     def space_tree(self) -> repositories.SpaceTreeRepository:
@@ -234,3 +288,43 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def parley(self) -> ParleyRepository:
+        return ParleyRepository()
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationRepository:
+        return ParleyConversationRepository()
+
+    @cached_property
+    def parley_mentions(self) -> ParleyMentionRepository:
+        return ParleyMentionRepository()
+
+    @cached_property
+    def encounter_invitees(self) -> EncounterInviteeRepository:
+        return EncounterInviteeRepository()
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseRepository:
+        return StaffCaseRepository()
+
+    @cached_property
+    def moderation_cases(self) -> ModerationCaseRepository:
+        return ModerationCaseRepository()
+
+    @cached_property
+    def content_notices(self) -> ContentNoticeRepository:
+        return ContentNoticeRepository()
+
+    @cached_property
+    def chat_reports(self) -> ChatReportRepository:
+        return ChatReportRepository()
+
+    @cached_property
+    def statements_of_reasons(self) -> StatementOfReasonsRepository:
+        return StatementOfReasonsRepository()
+
+    @cached_property
+    def active_recipients(self) -> ActiveRecipientsRepository:
+        return ActiveRecipientsRepository()

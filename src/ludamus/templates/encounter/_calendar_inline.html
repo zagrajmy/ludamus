@@ -1,0 +1,11 @@
+{% load i18n tessera %}
+{% translate "Download .ics" as t_ics %}
+{% url 'web:notice-board:encounter-ics' share_code=encounter.share_code as ics_url %}
+{% tessera_action_dropdown id=menu_id hover=False trigger_variant="secondary" trigger_class="w-full" %}
+    {% icon "calendar" class="h-4 w-4" variant="mini" %}
+    {% translate "Add to calendar" %}
+    {% action_dropdown_menu %}
+    {% tessera_action_dropdown_item "Google Calendar" href=google_calendar_url icon="calendar-days" external=True %}
+    {% tessera_action_dropdown_item "Outlook" href=outlook_calendar_url icon="calendar-days" external=True %}
+    {% tessera_action_dropdown_item t_ics href=ics_url icon="arrow-down-tray" %}
+{% end_tessera_action_dropdown %}

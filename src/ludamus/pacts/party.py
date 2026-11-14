@@ -10,8 +10,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import CompanionDTO
 from ludamus.pacts.ids import UserId
+from ludamus.pacts.user import CompanionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -143,14 +143,12 @@ class DeletePartyOutcome(StrEnum):
 
 class PartyInviteNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     party_name: str
     actor_name: str
 
 
 class PartyEnrolledNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     actor_name: str
     session_id: int
     session_title: str
@@ -159,7 +157,6 @@ class PartyEnrolledNotification(BaseModel):
 
 class HeldSeatNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     actor_name: str
     session_id: int
     session_title: str

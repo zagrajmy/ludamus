@@ -1,27 +1,28 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
+from ludamus.gates.web.django.event.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     SessionField,
+    SessionFieldOption,
     SessionFieldValue,
     Track,
 )
-from ludamus.pacts import (
+from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.fields import (
     OrganizerFieldDTO,
-    ProposalCategoryDTO,
-    SessionDTO,
+    OrganizerFieldOptionDTO,
     SessionFieldValueDTO,
-    SessionListItemDTO,
-    SessionStatus,
-    TrackDTO,
 )
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.tracks import TrackDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -90,6 +91,7 @@ def _list_chrome(event, proposals=()):
         "tab_urls": {
             "list": reverse("panel:proposals", kwargs={"slug": event.slug}),
             "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
+            "export": reverse("panel:proposal-export", kwargs={"slug": event.slug}),
         },
         "columns": _DEFAULT_COLUMNS,
         "proposals": list(proposals),
@@ -711,6 +713,12 @@ class TestProposalsPageView:
             slug="system",
             field_type="select",
         )
+        dnd_option = SessionFieldOption.objects.create(
+            field=field, label="D&D 5e", value="D&D 5e", order=0
+        )
+        fate_option = SessionFieldOption.objects.create(
+            field=field, label="Fate Core", value="Fate Core", order=1
+        )
         session1 = Session.objects.create(
             event=event,
             category=category,
@@ -765,6 +773,20 @@ class TestProposalsPageView:
                         question="What system?",
                         slug="system",
                         field_type="select",
+                        options=[
+                            OrganizerFieldOptionDTO(
+                                label="D&D 5e",
+                                order=0,
+                                pk=dnd_option.pk,
+                                value="D&D 5e",
+                            ),
+                            OrganizerFieldOptionDTO(
+                                label="Fate Core",
+                                order=1,
+                                pk=fate_option.pk,
+                                value="Fate Core",
+                            ),
+                        ],
                         order=0,
                     )
                 ],
@@ -1202,6 +1224,46 @@ class TestProposalsPageView:
                 "filter_track_pk": track.pk,
                 "filter_track_multi": False,
                 "filter_track_value": str(track.pk),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+                "categories": [],
+                "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
+                "filter_sort": "",
+                "statuses": _STATUSES,
+            },
+        )
+
+    @pytest.mark.parametrize("raw", ("²", "\u0661", "+1", "9" * 4301))
+    def test_a_track_param_that_is_not_an_id_filters_nothing(
+        self, authenticated_client, active_user, sphere, event, raw
+    ):
+        # `"²".isdigit()` is true and `int("²")` raises: an id is ASCII digits.
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="Alpha Track", slug="alpha-track", is_public=True
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"track": raw})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                **_list_chrome(event),
+                "deleted_proposals": [],
+                "proposals": [],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "managed_track_pks": set(),
+                "filter_track_pk": None,
+                "filter_track_multi": False,
+                "filter_track_value": "",
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
                 "categories": [],
@@ -1724,7 +1786,7 @@ class TestProposalDetailPageView:
                     )
                 ],
                 "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
+                "presenter": user_dto(active_user),
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,

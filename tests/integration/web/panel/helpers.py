@@ -17,17 +17,15 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorListItemDTO,
-    SessionDTO,
-    SessionStatus,
-    SpaceDTO,
-)
-from ludamus.pacts.chronology import (
+from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
+)
+from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.timetable import (
     SessionPositionDTO,
     SpaceColumnDTO,
     SpaceGroupDTO,
@@ -35,8 +33,12 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.crowd import UserDTO
-from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
+from ludamus.pacts.venues import SpaceDTO
+from ludamus.specs.timetable import (
+    TIMETABLE_ROOM_PAGE_SIZE,
+    TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -214,6 +216,17 @@ def make_overlapping_sessions(event, category):
     return space, sessions
 
 
+def make_room_and_facilitator_clash(event, category):
+    # The minimal clash plus one shared host: one pair, two distinct problems.
+    space, sessions = make_overlapping_sessions(event, category)
+    facilitator = Facilitator.objects.create(
+        event=event, display_name="Double-booked host", slug="double-booked-host"
+    )
+    for session in sessions:
+        session.facilitators.add(facilitator)
+    return space, sessions, facilitator
+
+
 def schedule_outside_preferred_slot(*, event, category, space):
     # Scheduled at the event start while its only preferred slot sits hours
     # later: a slot violation, which the conflict panel deliberately ignores.
@@ -263,6 +276,7 @@ def grid_with(
     day_start=None,
     extra_days=0,
     total_minutes=0,
+    closed_ranges=None,
     sessions_by_space=None,
     page=1,
     total_pages=1,
@@ -290,8 +304,7 @@ def grid_with(
                     # A block sits on one day, and `sessions_by_space` places
                     # it on the first one.
                     sessions=sessions.get(space.pk, []) if index == 0 else [],
-                )
-                for space in space_dtos
+                ) for space in space_dtos
             ],
             event_start_iso=start.isoformat(),
             total_minutes=total_minutes,
@@ -301,8 +314,8 @@ def grid_with(
                 )
                 for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
             ],
-        )
-        for index, start in enumerate(day_starts)
+            closed_ranges=closed_ranges or [],
+        ) for index, start in enumerate(day_starts)
     ]
     return TimetableGridDTO(
         spaces=space_dtos,
@@ -317,6 +330,8 @@ def grid_with(
         page=page,
         total_pages=total_pages,
         total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
+        first_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + 1,
+        last_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + len(space_dtos),
         total_columns=len(space_dtos) * len(days),
         available_dates=[day.date for day in days],
         date_selection=date_selection,
@@ -452,7 +467,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
         "schedule_logs": [],
         "field_values": [],
         "facilitators": [],
-        "presenter": UserDTO.model_validate(presenter),
+        "presenter": user_dto(presenter),
         "preferred_time_slots": [],
         "import_log_entry": None,
         "import_log_integration": None,
@@ -463,6 +478,8 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     return FacilitatorListItemDTO(
         accreditation_type=facilitator.accreditation_type,
         display_name=facilitator.display_name,
+        organizer_id=facilitator.organizer_id,
+        organizer_name=facilitator.organizer.name if facilitator.organizer else None,
         pk=facilitator.pk,
         session_count=session_count,
         slug=facilitator.slug,
@@ -470,7 +487,9 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     )
 
 
-def make_optional_session_field(*, event, category, slug="system", name="System"):
+def make_session_field(
+    *, event, category, slug="system", name="System", is_required=False
+):
     field = SessionField.objects.create(
         event=event,
         name=name,
@@ -480,7 +499,7 @@ def make_optional_session_field(*, event, category, slug="system", name="System"
         order=0,
     )
     SessionFieldRequirement.objects.create(
-        category=category, field=field, is_required=False, order=0
+        category=category, field=field, is_required=is_required, order=0
     )
     return field
 
