@@ -18,6 +18,10 @@ from ludamus.pacts.dashboard import (
     SphereUnsubscribeTokenCodecProtocol,
     SphereUnsubscribeTokenPayload,
 )
+from ludamus.pacts.parley_mentions import (
+    ParleyMentionUnsubscribeCodecProtocol,
+    ParleyMentionUnsubscribePayload,
+)
 from ludamus.pacts.user import (
     EMAIL_LINK_MAX_AGE,
     EmailTokenCodecProtocol,
@@ -29,6 +33,7 @@ if TYPE_CHECKING:
 
 EMAIL_VERIFICATION_SALT = "ludamus.email-verification"
 SPHERE_UNSUBSCRIBE_SALT = "ludamus.sphere-unsubscribe"
+PARLEY_MENTION_UNSUBSCRIBE_SALT = "ludamus.parley-mention-unsubscribe"
 
 
 class _SignedPayloadCodec[PayloadT: BaseModel]:
@@ -86,4 +91,15 @@ class DjangoSphereUnsubscribeTokenCodec(
     def __init__(self) -> None:
         super().__init__(
             payload_type=SphereUnsubscribeTokenPayload, salt=SPHERE_UNSUBSCRIBE_SALT
+        )
+
+
+class DjangoParleyMentionUnsubscribeCodec(
+    _SignedPayloadCodec[ParleyMentionUnsubscribePayload],
+    ParleyMentionUnsubscribeCodecProtocol,
+):
+    def __init__(self) -> None:
+        super().__init__(
+            payload_type=ParleyMentionUnsubscribePayload,
+            salt=PARLEY_MENTION_UNSUBSCRIBE_SALT,
         )

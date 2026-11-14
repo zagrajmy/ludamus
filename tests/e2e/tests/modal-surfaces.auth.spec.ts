@@ -1,4 +1,5 @@
-import { devices, type Page } from "@playwright/test";
+import { devices, type Locator, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
@@ -135,4 +136,75 @@ test("a seatless session's modal offers the bookmark at the end of its facts", a
   await expect(bookmark).toHaveAttribute("aria-pressed", String(was));
 
   await context.close();
+});
+
+test("saving the session from its modal keeps the heading's look and shows a new cover", async ({
+  browser,
+  browserName,
+}) => {
+  test.skip(browserName === "firefox", "Mutates the seeded session shared across browser projects");
+
+  const context = await browser.newContext({
+    storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
+  });
+  const page = await context.newPage();
+  const cover = readFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "src",
+      "ludamus",
+      "static",
+      "placeholder-images",
+      "01.webp",
+    ),
+  );
+  const open = async (title: RegExp | string = "Own Table Demo") => {
+    await page.goto("/event/facilitator-edit-demo/");
+    await page.getByRole("link", { name: /^Open details for Own Table Demo/u }).press("Enter");
+    const dialog = page.getByRole("dialog", { name: title });
+    await expect(dialog).toBeVisible();
+    return dialog;
+  };
+  // A save closes the dialog; the next open fetches the session fresh.
+  const save = async (dialog: Locator) => {
+    await dialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(dialog).toBeHidden();
+  };
+
+  try {
+    let dialog = await open();
+    await expect(dialog.locator("[data-cover-image]")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Edit session" }).click();
+    await dialog.locator('input[name="cover_image"]').setInputFiles({
+      buffer: cover,
+      mimeType: "image/webp",
+      name: "cover.webp",
+    });
+    await save(dialog);
+    dialog = await open();
+    await expect(dialog.locator("[data-cover-image]")).toBeVisible();
+
+    // A renamed title lands in the heading on the cover, still white.
+    await dialog.getByRole("button", { name: "Edit session" }).click();
+    await dialog.getByLabel("Title").fill("Own Table Demo, renamed");
+    await save(dialog);
+    dialog = await open("Own Table Demo, renamed");
+    const heading = dialog.getByRole("heading", { name: "Own Table Demo, renamed" });
+    await expect(heading).toHaveCSS("color", "rgb(255, 255, 255)");
+  } finally {
+    // Put the seeded session back for the other specs.
+    const dialog = await open(/Own Table Demo/u);
+    await dialog.getByRole("button", { name: "Edit session" }).click();
+    await dialog.getByLabel("Title").fill("Own Table Demo");
+    const remove = dialog.getByRole("button", { name: "Remove image" });
+    if (await remove.isVisible()) {
+      await remove.click();
+    }
+    await save(dialog);
+    await context.close();
+  }
 });

@@ -21,6 +21,7 @@ from ludamus.gates.web.django.mcp.oauth import (
 )
 from ludamus.gates.web.django.mcp.views import McpEndpointView, McpOrganizerEndpointView
 from ludamus.gates.web.django.pages import PAGES, content_page
+from ludamus.gates.web.django.report import ReportPageView
 from ludamus.gates.web.django.sphere.urls import multiverse_urlpatterns
 from ludamus.pacts.mcp import ToolScope
 
@@ -114,6 +115,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("parley/", include("ludamus.gates.web.django.parley.urls")),
     path("admin/", admin.site.urls),
     path("about/", about_page, name="about"),
+    path("report/", ReportPageView.as_view(), name="report"),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
     # These were flatpages under /page/, and that URL is in sent email and on
     # the Auth0 consent screen. The doubled slash is not a typo: the flatpage

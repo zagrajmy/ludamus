@@ -46,6 +46,21 @@ class ParleyWorkerClient:
     def sync_conversation(self, token: str) -> None:
         self._post("/conversations", token)
 
+    def post_to_conversation(self, token: str) -> None:
+        self._post("/conversations/messages", token)
+
+    def moderate(self, token: str) -> None:
+        # A message the room no longer has is as deleted as it gets.
+        body: dict[str, str] = {"token": token}
+        try:
+            response = requests.post(
+                f"{self._base_url}/moderation", json=body, timeout=_TIMEOUT_SECONDS
+            )
+        except requests.RequestException as error:
+            raise ParleyWorkerUnavailableError from error
+        if not response.ok and response.status_code != HTTPStatus.NOT_FOUND:
+            raise ParleyWorkerUnavailableError(response.status_code)
+
     def read_message(self, token: str, /) -> ParleyReportedMessage | None:
         body: dict[str, str] = {"token": token}
         try:

@@ -34,6 +34,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.event import session_card_stats
+from ludamus.links.db.django.repositories.sessions import session_host_ids
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.links.db.django.session_visibility import is_publicly_scheduled
 from ludamus.links.db.django.users import user_dto
@@ -136,6 +137,7 @@ class SeatRepository(SeatHolderLocks, SeatRepositoryProtocol):
             title=session.title,
             participants_limit=session.participants_limit,
             presenter_id=session.presenter_id,
+            host_ids=session_host_ids(session),
             enrolled_count=SessionParticipation.objects.filter(
                 session_id=session.pk, status__in=OCCUPYING_PARTICIPATION_STATUSES
             ).count(),
@@ -360,7 +362,7 @@ class ParticipationPromotionRepository(SeatRepository):
             start_time=session.agenda_item.start_time,
             promotion_mode=mode,
             offer_claim_window=window,
-            presenter_id=session.presenter_id,
+            host_ids=session_host_ids(session),
             seats=session_card_stats(session),
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
@@ -578,6 +580,7 @@ class ParticipationPromotionRepository(SeatRepository):
             user_ids=[p.user_id for p in party],
             recipients=recipients,
             offer_expires_at=lead.offer_expires_at or datetime.now(UTC),
+            host_ids=session_host_ids(session),
         )
 
     @staticmethod
@@ -763,6 +766,7 @@ class MemberEnrollmentRepository(SeatRepository, MemberEnrollmentRepositoryProto
             participants_limit=session.participants_limit,
             presenter_id=session.presenter_id,
             presenter=user_dto(session.presenter) if session.presenter else None,
+            host_ids=session_host_ids(session),
             agenda_item=(
                 EnrollAgendaDTO(
                     start_time=agenda_item.start_time,

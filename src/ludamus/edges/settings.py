@@ -59,6 +59,7 @@ env = environ.Env(
     # Parley
     PARLEY_AGENT_HOST=(str, ""),
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
+    PARLEY_MENTIONS_SECRET=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -74,6 +75,9 @@ env = environ.Env(
     # Bearer secret the Email Worker sends with each forwarded reply. Empty
     # closes the webhook.
     ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
+    # HMAC key the posta mail Worker signs each staff@ mail it forwards with.
+    # Empty closes the webhook.
+    STAFF_MAIL_WEBHOOK_SECRET=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -419,6 +423,9 @@ AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# The DSA point of contact (Art. 11, 12): named in the terms and on the notice
+# form, the reply-to of every moderation mail, and where staff alerts go.
+STAFF_EMAIL = "staff@zagrajmy.net"
 # Sender's postal address, printed under every opt-in (non-transactional) email.
 MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
 
@@ -609,6 +616,7 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
 ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
+STAFF_MAIL_WEBHOOK_SECRET = env("STAFF_MAIL_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
@@ -722,6 +730,16 @@ if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
         raise ImproperlyConfigured(
             "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
         )
+# NOTE: the Worker signs unread mentions with this; workers/parley holds the
+# same development value, which a deployment refuses.
+_PARLEY_DEV_MENTIONS_KEY = "parley-dev-mentions-secret-not-for-production"
+PARLEY_MENTIONS_SECRET = env("PARLEY_MENTIONS_SECRET") or (
+    _PARLEY_DEV_MENTIONS_KEY if ENV in _PARLEY_DEV_ENVS else ""
+)
+if PARLEY_MENTIONS_SECRET == _PARLEY_DEV_MENTIONS_KEY and ENV not in _PARLEY_DEV_ENVS:
+    raise ImproperlyConfigured(
+        "PARLEY_MENTIONS_SECRET is the committed development secret."
+    )
 if PARLEY_AGENT_HOST:
     # Same rule as links.parley_worker.is_local, which settings cannot import.
     _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""

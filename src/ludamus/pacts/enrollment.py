@@ -171,7 +171,7 @@ class PromotionStateDTO(BaseModel):
     start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
-    presenter_id: int | None
+    host_ids: frozenset[int]
     seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
@@ -201,6 +201,10 @@ class OfferDTO(BaseModel):
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
     offer_expires_at: datetime
+    # On the claim path this is read under the session lock: someone linked
+    # as a facilitator after the offer was made must not claim a seat at
+    # their own table.
+    host_ids: frozenset[int]
 
 
 class PromotionResult(BaseModel):
@@ -211,8 +215,9 @@ class PromotionResult(BaseModel):
 
 
 # "conflict": the offered seat overlaps one the member already holds, so it
-# was released rather than claimed.
-type ClaimFailure = Literal["not_found", "expired", "conflict"]
+# was released rather than claimed. "host": someone in the offer runs the
+# session, so it was released the same way.
+type ClaimFailure = Literal["not_found", "expired", "conflict", "host"]
 
 
 class ClaimResult(BaseModel):
@@ -614,6 +619,7 @@ class SessionSeatingDTO(BaseModel):
     title: str
     participants_limit: int
     presenter_id: int | None = None
+    host_ids: frozenset[int]
     # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
     eligible_windows: list[EnrollmentWindowSnapshot]

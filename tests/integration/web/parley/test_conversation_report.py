@@ -46,6 +46,7 @@ def _report(client, conversation_id, message_id=MESSAGE_ID):
     return client.post(
         reverse("parley_report"),
         data={
+            "good_faith": "1",
             "message_id": message_id,
             "reason": "Abuse",
             "room_id": f"conversation:{conversation_id}",
@@ -145,7 +146,7 @@ def test_only_someone_in_the_conversation_reports_from_it(
 def test_a_room_that_is_not_a_conversation_id_is_refused(authenticated_client):
     response = authenticated_client.post(
         reverse("parley_report"),
-        data={"message_id": MESSAGE_ID, "room_id": "conversation:x"},
+        data={"good_faith": "1", "message_id": MESSAGE_ID, "room_id": "conversation:x"},
     )
 
     assert_response(response, HTTPStatus.UNPROCESSABLE_CONTENT)

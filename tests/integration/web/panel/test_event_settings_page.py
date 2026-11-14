@@ -129,6 +129,35 @@ class TestEventSettingsPageViewGet:
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
 
+    @pytest.mark.parametrize(("events_on", "shown"), ((True, "on"), (False, "off")))
+    def test_event_chat_says_what_following_the_sphere_comes_to(
+        self, panel_client, sphere, event, events_on, shown
+    ):
+        sphere.parley_events_enabled = events_on
+        sphere.save()
+        event.parley_enabled = True
+        event.save()
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "is_proposal_active": response.context["is_proposal_active"],
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "form": ANY,
+            },
+        )
+        form = response.context["form"]
+        assert dict(form.fields["parley_enabled"].choices)[""] == (
+            f"Use sphere default (currently: {shown})"
+        )
+        assert form.initial["parley_enabled"] == "true"
+
     def test_form_initial_uses_false_when_event_disallows_edits(
         self, panel_client, event
     ):
@@ -846,3 +875,22 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.use_participants_label is False
+
+    @pytest.mark.parametrize(
+        ("choice", "stored"), (("true", True), ("false", False), ("", None))
+    )
+    def test_event_chat_overrides_or_follows_the_sphere(
+        self, panel_client, event, choice, stored
+    ):
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, parley_enabled=choice)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.parley_enabled is stored

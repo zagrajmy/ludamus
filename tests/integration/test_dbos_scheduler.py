@@ -14,11 +14,13 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import responses
 from dbos import DBOS
 from django.core.exceptions import ImproperlyConfigured
 from django.db import DEFAULT_DB_ALIAS, connections
 
 from ludamus.inits import dbos_scheduler as scheduler_module
+from ludamus.inits.parley import DisabledStaffThread, InlineStaffThread
 from ludamus.inits.sweeps import SWEEPS
 from ludamus.links.db.django.models import (
     Announcement,
@@ -26,7 +28,9 @@ from ludamus.links.db.django.models import (
     NotificationSubscription,
 )
 from ludamus.pacts.listing import ListingStatus
+from ludamus.pacts.staff_cases import EmailInPost, StaffThreadEntry
 from tests.integration.conftest import ListingFactory, SphereFactory, UserFactory
+from tests.integration.web.parley.helpers import configure_parley
 
 _MISSING_PARTICIPATION_ID = 10_000_000
 # The scheduled workflow has zero delay; this is slack for the DBOS worker
@@ -198,3 +202,50 @@ def test_step_releases_its_thread_db_connection():
     thread.join()
 
     assert [wrapper.connection for wrapper in used] == [None]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_a_case_thread_post_is_retried_until_the_chat_takes_it(
+    settings, tmp_path, monkeypatch
+):
+    settings.DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{tmp_path / 'dbos_sys.sqlite'}"
+    settings.SCHEDULER_MODE = "dbos"
+    configure_parley(settings)
+    monkeypatch.setattr(scheduler_module, "_launched", threading.Event())
+    entry = StaffThreadEntry(
+        thread_id=9,
+        reference="Z-1",
+        message=EmailInPost(sender="Ola W.", subject="Hm"),
+        nonce="n-1",
+    )
+
+    try:
+        with responses.RequestsMock() as worker:
+            url = "https://parley.example.com/conversations/messages"
+            worker.post(url, status=503)
+            worker.post(url, status=204)
+            thread = scheduler_module.staff_thread()
+            thread.post(entry)
+            (started,) = DBOS.list_workflows(name="_staff_thread_workflow")
+            DBOS.retrieve_workflow(started.workflow_id).get_result()
+            calls = len(worker.calls)
+    finally:
+        DBOS.destroy()
+
+    assert (type(thread), calls) == (scheduler_module.DBOSStaffThread, 2)
+
+
+@pytest.mark.parametrize(
+    ("mode", "configured", "kind"),
+    (("cron", True, InlineStaffThread), ("dbos", False, DisabledStaffThread)),
+)
+def test_case_thread_posts_go_the_way_the_scheduler_and_chat_allow(
+    settings, mode, configured, kind
+):
+    settings.SCHEDULER_MODE = mode
+    if configured:
+        configure_parley(settings)
+    else:
+        settings.PARLEY_AGENT_HOST = ""
+
+    assert isinstance(scheduler_module.staff_thread(), kind)

@@ -342,12 +342,19 @@ class TestSessionEditViewPost:
         old_name = owned_session.cover_image.name
 
         with django_capture_on_commit_callbacks(execute=True):
-            authenticated_client.post(
+            response = authenticated_client.post(
                 _url(event, owned_session),
                 data=self._data(**{"cover_image-clear": "on"}),
                 headers={"hx-request": "true"},
             )
 
+        assert_response(
+            response,
+            HTTPStatus.NO_CONTENT,
+            headers={
+                "HX-Trigger": json.dumps({"session-saved": {"id": owned_session.pk}})
+            },
+        )
         owned_session.refresh_from_db()
         assert not owned_session.cover_image
         assert not storage.exists(old_name)

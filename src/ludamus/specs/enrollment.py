@@ -24,11 +24,11 @@ MEMBERSHIP_CHECK_INTERVAL_MINUTES = 15
 def _is_eligible(
     participant: WaitingParticipantDTO,
     *,
-    presenter_id: int | None,
+    host_ids: frozenset[int],
     shadowbanned_user_ids: frozenset[int],
 ) -> bool:
     return (
-        participant.user_id != presenter_id
+        participant.user_id not in host_ids
         and not participant.has_conflict
         and participant.user_id not in shadowbanned_user_ids
     )
@@ -106,7 +106,7 @@ def select_promotable_parties(
             for p in party
             if _is_eligible(
                 p,
-                presenter_id=state.presenter_id,
+                host_ids=state.host_ids,
                 shadowbanned_user_ids=state.shadowbanned_user_ids,
             )
         ]

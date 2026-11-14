@@ -10,6 +10,7 @@ from ludamus.inits.services import Services
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
+    Facilitator,
     Notification,
     Party,
     SessionParticipation,
@@ -183,6 +184,26 @@ class TestFillFreedSeats:
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.WAITING.value
 
+    def test_facilitator_linked_host_not_promoted(self, session, waiter):
+        # Waiting from before their facilitator profile was tied to them.
+        session.presenter = None
+        session.participants_limit = 1
+        session.save()
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=session.event, display_name="GM", slug="gm", user=waiter
+            )
+        )
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert not result.promoted
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.WAITING.value
+
     def test_promotion_respects_membership_across_distinct_parties(
         self, session, enrollment_config
     ):
@@ -318,6 +339,46 @@ class TestOfferClaimAndExpiry:
         rolled = SessionParticipation.objects.get(user=next_waiter)
         assert rolled.status == SessionParticipationStatus.OFFERED.value
 
+    def test_claim_view_releases_a_spot_the_waiter_now_hosts(
+        self, client, session, event, waiter
+    ):
+        participation = self._offer(session, event, waiter)
+        next_waiter = UserFactory(username="next", email="next@example.com")
+        SessionParticipation.objects.create(
+            session=session, user=next_waiter, status=SessionParticipationStatus.WAITING
+        )
+        # Linked as one of the session's facilitators after the offer went out.
+        session.facilitators.add(
+            Facilitator.objects.create(
+                event=event, display_name="GM", slug="gm", user=waiter
+            )
+        )
+
+        response = client.post(
+            reverse(
+                "web:chronology:offer-claim",
+                kwargs={"token": participation.claim_token},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Someone in this offer runs this session, so this spot "
+                        "was released."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
+        rolled = SessionParticipation.objects.get(user=next_waiter)
+        assert rolled.status == SessionParticipationStatus.OFFERED.value
+
     def test_claim_view_get_shows_offer(self, client, session, event, waiter):
         participation = self._offer(session, event, waiter)
 
@@ -341,6 +402,7 @@ class TestOfferClaimAndExpiry:
                     user_ids=[waiter.pk],
                     recipients=[waiter.pk],
                     offer_expires_at=participation.offer_expires_at,
+                    host_ids=frozenset({session.presenter_id}),
                 ),
                 "token": participation.claim_token,
             },
@@ -597,8 +659,8 @@ class TestPromotionRepositoryUnscheduledSession:
 # seat-holder lock on the waiters and their owners, batched conflicts,
 # user-config __in, domain-config __in, companions (one config-holding owner),
 # one occupancy snapshot for seated waiters and used slots, available-seats
-# count, shadowban ids.
-STATE_QUERIES = 12
+# count, shadowban ids, the session's facilitator-linked hosts.
+STATE_QUERIES = 13
 BASE_WAITERS = 3
 GROWN_WAITERS = 5
 

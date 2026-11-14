@@ -11,20 +11,24 @@ function palette(name: string): string {
   return "bg-warm-400 text-neutral-900 dark:bg-warm-800 dark:text-neutral-50";
 }
 
+// People are discs. In the chat's lists every row's face is a rounded square,
+// a person's too, nested in the curve of the window around it.
 export function Avatar({
   className = "size-8 text-xs",
   name,
+  square = false,
   src = "",
 }: {
   className?: string;
   name: string;
+  square?: boolean;
   src?: string;
 }) {
   const [failed, setFailed] = useState(false);
   return (
     <span
       aria-hidden="true"
-      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold select-none ${palette(name)} ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden font-semibold select-none ${square ? "" : "rounded-full"} ${palette(name)} ${className}`}
     >
       {name.slice(0, 2).toUpperCase()}
       {src !== "" && !failed && (

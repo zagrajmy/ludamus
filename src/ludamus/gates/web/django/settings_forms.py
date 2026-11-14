@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext
+from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
@@ -146,6 +146,19 @@ class EventSettingsForm(forms.Form):
         help_text=_(
             "Turn on for non-gaming events so the public page counts participants "
             "rather than players."
+        ),
+    )
+    parley_enabled = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", pgettext_lazy("event chat", "On")),
+            ("false", pgettext_lazy("event chat", "Off")),
+        ],
+        label=_("Event chat"),
+        help_text=_(
+            "When on, everyone with a place or on a waitlist, the hosts and the "
+            "organizers share one chat. Turning it off closes it at once."
         ),
     )
 
