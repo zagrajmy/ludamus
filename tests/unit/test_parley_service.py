@@ -204,6 +204,8 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "title": "Session 5",
         "canWrite": True,
         "canModerate": False,
+        "moderating": False,
+        "eventTitle": None,
     }
     assert (result.can_message, result.age_gate) == (False, "unconfirmed")
     assert access.asked == [(NOW, frozenset())]

@@ -5,6 +5,7 @@ export type Copy = Record<
   | "allChats"
   | "backLabel"
   | "backToConversation"
+  | "backToModeration"
   | "backToNewMessage"
   | "block"
   | "blockConfirm"
@@ -71,7 +72,15 @@ export type Copy = Record<
   | "messageTooLong"
   | "messagingNeedsAge"
   | "messagingUnder16"
+  | "moderatedRoomsFew"
+  | "moderatedRoomsMany"
+  | "moderatedRoomsOne"
+  | "moderation"
+  | "moderationEmpty"
+  | "moderationHint"
   | "moderatorDelete"
+  | "moderatorReading"
+  | "moderatorView"
   | "muteConfirm"
   | "muted"
   | "mutedUntil"
@@ -90,6 +99,7 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizerPlaceholder"
   | "organizersRoom"
   | "partyHint"
   | "partyRoom"
@@ -146,6 +156,7 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
+  | "writeAsOrganizer"
   | "writePlaceholder"
   | "writingRestored"
   | "you",
@@ -173,8 +184,12 @@ export type Room = {
   canModerate: boolean;
   canWrite: boolean;
   conversation?: ConversationInfo;
+  // A programme point's event, by name.
+  eventTitle?: string | null;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
+  // Here only because this person moderates its sphere: they are not in it.
+  moderating?: boolean;
   // The sphere a sphere's room belongs to; a conversation has none.
   sphere?: number;
   title: string;

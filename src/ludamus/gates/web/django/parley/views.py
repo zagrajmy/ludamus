@@ -39,6 +39,12 @@ def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
 def _copy() -> dict[str, str]:
     return {
         **_plural_forms(
+            "moderatedRooms",
+            lambda count: ngettext(
+                "%(count)s chat you moderate", "%(count)s chats you moderate", count
+            ),
+        ),
+        **_plural_forms(
             "presence",
             lambda count: ngettext(
                 "%(count)s person here", "%(count)s people here", count
@@ -181,6 +187,17 @@ def _conversation_copy() -> dict[str, str]:
         "requests": _("Requests"),
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
+        "moderation": _("Moderation"),
+        "moderationHint": _(
+            "Chats from your events that you are not part of. Read them here and "
+            "step in when needed."
+        ),
+        "moderationEmpty": _("Nothing to moderate right now."),
+        "backToModeration": _("Back to moderation"),
+        "moderatorView": _("Moderator view"),
+        "moderatorReading": _("You are reading this chat as a moderator."),
+        "writeAsOrganizer": _("Write as organizer"),
+        "organizerPlaceholder": _("Write to everyone in this chat…"),
         "messagingNeedsAge": _(
             "To message people directly, confirm you're 16 or older."
         ),

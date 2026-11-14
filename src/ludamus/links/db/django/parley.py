@@ -79,6 +79,33 @@ def _organizers_rooms(moderated: frozenset[int]) -> QuerySet[Sphere]:
     return Sphere.objects.filter(pk__in=moderated, parley_organizers_enabled=True)
 
 
+def _own_rooms(
+    *, user_id: int, moderated: frozenset[int], window: ParleyTimeWindow
+) -> tuple[set[int], set[int]]:
+    """List the events and programme points this person is in themselves.
+
+    Returns:
+        The pks of the events, then of the programme points, they would have
+        a room in without moderating any sphere; nothing to tell apart for
+        someone who moderates none.
+    """
+    if not moderated:
+        return set(), set()
+    nothing: frozenset[int] = frozenset()
+    return (
+        set(
+            _events(user_id=user_id, moderated=nothing, window=window).values_list(
+                "pk", flat=True
+            )
+        ),
+        set(
+            _sessions(user_id=user_id, moderated=nothing, window=window).values_list(
+                "pk", flat=True
+            )
+        ),
+    )
+
+
 class ParleyRepository(ParleyRepositoryProtocol):
     @staticmethod
     def read_access(
@@ -86,6 +113,9 @@ class ParleyRepository(ParleyRepositoryProtocol):
     ) -> ParleyAccessDTO | None:
         if (user := _chat_user(user_id)) is None:
             return None
+        own_events, own_sessions = _own_rooms(
+            user_id=user_id, moderated=moderated, window=window
+        )
         rooms = [
             ParleyRoomDTO(
                 kind=ParleyRoomKind.ORGANIZERS,
@@ -104,6 +134,9 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 title=event.name,
                 can_write=event.end_time > window.writable_after,
                 can_moderate=event.sphere_id in moderated,
+                moderating=(
+                    event.sphere_id in moderated and event.pk not in own_events
+                ),
                 starts_at=int(event.start_time.timestamp()),
                 ends_at=int(event.end_time.timestamp()),
             )
@@ -123,6 +156,11 @@ class ParleyRepository(ParleyRepositoryProtocol):
                     and session.event.end_time > window.writable_after
                 ),
                 can_moderate=session.event.sphere_id in moderated,
+                moderating=(
+                    session.event.sphere_id in moderated
+                    and session.pk not in own_sessions
+                ),
+                event_title=session.event.name,
                 starts_at=int(session.event.start_time.timestamp()),
                 ends_at=int(session.event.end_time.timestamp()),
             )

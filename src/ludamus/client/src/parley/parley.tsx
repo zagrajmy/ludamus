@@ -33,14 +33,16 @@ import { type Activity, type Source, useActivity } from "./use-activity";
 import { useFloatingWindow } from "./use-floating-window";
 
 type OpenView =
+  | { from?: "moderation"; kind: "room"; roomId: string }
   | { kind: "blocked" }
   | { kind: "compose" }
-  | { kind: "details"; roomId: string }
   // Not chosen yet: this page's room, else the only room, else the list.
+  | { kind: "details"; roomId: string }
   | { kind: "entry" }
   | { kind: "group" }
   | { kind: "list" }
-  | { kind: "room"; roomId: string };
+  // Opened from the moderation list, a room goes back there.
+  | { kind: "moderation" };
 // Closed, the chat keeps what was open for the button to bring back.
 type View = OpenView | { kind: "closed"; left: OpenView };
 type Shown = Exclude<View, { kind: "entry" }>;
@@ -174,6 +176,104 @@ function moveAmongRows(event: KeyboardEvent<HTMLElement>): void {
   next.focus();
 }
 
+// One tab stop for a whole list, on the row last focused while it lasts;
+// the first row takes focus as the list opens.
+function useRowFocus(ids: string[]) {
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    first.current?.focus();
+  }, []);
+  const [lastFocused, setLastFocused] = useState<string>();
+  const tabStop = ids.includes(lastFocused ?? "") ? lastFocused : ids[0];
+  return (id: string) => ({
+    "data-room-row": true,
+    onFocus: () => setLastFocused(id),
+    ref: id === ids[0] ? first : undefined,
+    tabIndex: id === tabStop ? 0 : -1,
+  });
+}
+
+const ROW =
+  "relative flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-focus";
+
+function UnreadDot({ label }: { label: string }) {
+  return (
+    <span className="size-2 shrink-0 rounded-full bg-primary">
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+type Sorted = { order: number; room: Room; seen: RoomActivity | undefined };
+
+// The most recently active first, the rest in the order they came.
+const byActivity = (rooms: Room[], activity: Record<string, RoomActivity>): Sorted[] =>
+  rooms
+    .map((room, order) => ({ order, room, seen: activity[room.id] }))
+    .toSorted((a, b) => (b.seen?.at ?? 0) - (a.seen?.at ?? 0) || a.order - b.order);
+
+function RoomRow({
+  blocked,
+  bootstrap,
+  current,
+  focus,
+  open,
+  sorted: { room, seen },
+}: {
+  blocked: Set<string>;
+  bootstrap: Bootstrap;
+  current: string | null;
+  focus: ReturnType<ReturnType<typeof useRowFocus>>;
+  open: (room: Room) => void;
+  sorted: Sorted;
+}) {
+  const { copy } = bootstrap;
+  const unread = seen?.unread === true;
+  // A mention from someone this person blocked stays as hidden as its message.
+  const mentioned = seen?.mentionedBy.some((id) => !blocked.has(id)) === true;
+  const { conversation } = room;
+  const face =
+    conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
+  return (
+    <li>
+      <button
+        aria-current={room.id === current ? "true" : undefined}
+        className={`${ROW} ${room.id === current ? "bg-primary-light" : ""}`}
+        onClick={() => open(room)}
+        type="button"
+        {...focus}
+      >
+        <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
+        <span className="min-w-0 flex-1">
+          <span
+            className={`block truncate text-[0.9375rem] ${unread ? "font-bold" : "font-medium"}`}
+          >
+            {room.title}
+          </span>
+          <span
+            className={`block truncate text-xs ${unread ? "font-semibold text-foreground" : "text-foreground-muted"}`}
+          >
+            {conversation?.state === "request" ? (
+              copy.requestFrom
+            ) : mentioned ? (
+              <span className="text-coral-700 dark:text-coral-300">{copy.mentionedYou}</span>
+            ) : (
+              roomKind(copy, room)
+            )}
+            {seen !== undefined && seen.at > 0 && ` · ${ago(seen.at)}`}
+          </span>
+        </span>
+        {unread && <UnreadDot label={copy.unread} />}
+        {!room.canWrite && conversation?.state !== "request" && (
+          <Icon className="size-4 shrink-0 text-foreground-muted" name="Lock" />
+        )}
+      </button>
+    </li>
+  );
+}
+
+const MODERATION_ROW = "moderation";
+
 function RoomList({
   activity,
   blocked,
@@ -182,6 +282,7 @@ function RoomList({
   compose,
   current,
   here,
+  moderation,
   open,
   rooms,
   showBlocked,
@@ -194,81 +295,37 @@ function RoomList({
   current: string | null;
   // The room of the page being looked at, kept on top.
   here: Room | undefined;
+  // The rooms this person only moderates, kept behind one row of their own.
+  moderation: { open: () => void; rooms: Room[] } | null;
   open: (room: Room) => void;
   rooms: Room[];
   showBlocked: (() => void) | null;
 }) {
   const { copy } = bootstrap;
-  const firstRoom = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    firstRoom.current?.focus();
-  }, []);
-  const sorted = rooms
-    .map((room, order) => ({ order, room, seen: activity[room.id] }))
-    .toSorted((a, b) => (b.seen?.at ?? 0) - (a.seen?.at ?? 0) || a.order - b.order);
+  const sorted = byActivity(rooms, activity);
   // Someone asking to talk waits on top until answered.
   const pinned = sorted.filter(({ room }) => room.id === here?.id);
   const requests = sorted.filter(({ room }) => room.conversation?.state === "request");
   const others = sorted.filter(
     ({ room }) => room.conversation?.state !== "request" && room.id !== here?.id,
   );
-  const firstId = (pinned[0] ?? requests[0] ?? others[0])?.room.id;
-  // One tab stop for the whole list, on the row last focused while it lasts.
-  const [lastFocused, setLastFocused] = useState<string>();
-  const tabStop = sorted.some(({ room }) => room.id === lastFocused) ? lastFocused : firstId;
-  const row = ({ room, seen }: (typeof sorted)[number]) => {
-    const unread = seen?.unread === true;
-    // A mention from someone this person blocked stays as hidden as its message.
-    const mentioned = seen?.mentionedBy.some((id) => !blocked.has(id)) === true;
-    const { conversation } = room;
-    const face =
-      conversation?.kind === "direct"
-        ? counterpart(conversation, bootstrap.user.id)?.avatarUrl
-        : "";
-    return (
-      <li key={room.id}>
-        <button
-          aria-current={room.id === current ? "true" : undefined}
-          className={`relative flex w-full items-center gap-3 rounded-[14px] p-1 pe-2 text-left hover:bg-bg-tertiary focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-border-focus ${room.id === current ? "bg-primary-light" : ""}`}
-          data-room-row
-          onClick={() => open(room)}
-          onFocus={() => setLastFocused(room.id)}
-          ref={room.id === firstId ? firstRoom : undefined}
-          tabIndex={room.id === tabStop ? 0 : -1}
-          type="button"
-        >
-          <Avatar className="size-10 rounded-[10px] text-xs" name={room.title} square src={face} />
-          <span className="min-w-0 flex-1">
-            <span
-              className={`block truncate text-[0.9375rem] ${unread ? "font-bold" : "font-medium"}`}
-            >
-              {room.title}
-            </span>
-            <span
-              className={`block truncate text-xs ${unread ? "font-semibold text-foreground" : "text-foreground-muted"}`}
-            >
-              {conversation?.state === "request" ? (
-                copy.requestFrom
-              ) : mentioned ? (
-                <span className="text-coral-700 dark:text-coral-300">{copy.mentionedYou}</span>
-              ) : (
-                roomKind(copy, room)
-              )}
-              {seen !== undefined && seen.at > 0 && ` · ${ago(seen.at)}`}
-            </span>
-          </span>
-          {unread && (
-            <span className="size-2 shrink-0 rounded-full bg-primary">
-              <span className="sr-only">{copy.unread}</span>
-            </span>
-          )}
-          {!room.canWrite && conversation?.state !== "request" && (
-            <Icon className="size-4 shrink-0 text-foreground-muted" name="Lock" />
-          )}
-        </button>
-      </li>
-    );
-  };
+  const focus = useRowFocus([
+    ...[...pinned, ...requests, ...others].map(({ room }) => room.id),
+    ...(moderation === null ? [] : [MODERATION_ROW]),
+  ]);
+  const row = (each: Sorted) => (
+    <RoomRow
+      blocked={blocked}
+      bootstrap={bootstrap}
+      current={current}
+      focus={focus(each.room.id)}
+      key={each.room.id}
+      open={open}
+      sorted={each}
+    />
+  );
+  const moderationUnread =
+    moderation?.rooms.some(({ id }) => activity[id]?.unread === true) === true;
   return (
     <>
       <PanelHeader back={null} close={close} closeLabel={copy.closeLabel} title={copy.roomsLabel}>
@@ -300,6 +357,34 @@ function RoomList({
           <h3 className={SECTION}>{copy.allChats}</h3>
         )}
         <ul>{others.map(row)}</ul>
+        {moderation !== null && (
+          <div className={sorted.length > 0 ? "mt-1 border-t border-border pt-1" : ""}>
+            <button
+              className={ROW}
+              onClick={moderation.open}
+              type="button"
+              {...focus(MODERATION_ROW)}
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-bg-tertiary text-foreground-secondary">
+                <Icon className="size-5" name="Shield" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block truncate text-[0.9375rem] ${moderationUnread ? "font-bold" : "font-medium"}`}
+                >
+                  {copy.moderation}
+                </span>
+                <span
+                  className={`block truncate text-xs ${moderationUnread ? "font-semibold text-foreground" : "text-foreground-muted"}`}
+                >
+                  {counted(copy, "moderatedRooms", moderation.rooms.length)}
+                </span>
+              </span>
+              {moderationUnread && <UnreadDot label={copy.unread} />}
+              <Icon className="size-4 shrink-0 rotate-180 text-foreground-muted" name="Back" />
+            </button>
+          </div>
+        )}
         {bootstrap.ageGate !== null && (
           <p className="mx-0.5 mt-2 rounded-[14px] bg-bg-tertiary px-3 py-2.5 text-sm text-foreground-secondary">
             {bootstrap.ageGate === "under_16" ? (
@@ -317,6 +402,77 @@ function RoomList({
             )}
           </p>
         )}
+      </nav>
+    </>
+  );
+}
+
+// The rooms this person only moderates, under the event each belongs to.
+function ModerationList({
+  activity,
+  back,
+  blocked,
+  bootstrap,
+  close,
+  current,
+  open,
+  rooms,
+}: {
+  activity: Record<string, RoomActivity>;
+  back: () => void;
+  blocked: Set<string>;
+  bootstrap: Bootstrap;
+  close: () => void;
+  current: string | null;
+  open: (room: Room) => void;
+  rooms: Room[];
+}) {
+  const { copy } = bootstrap;
+  const events = Map.groupBy(
+    byActivity(rooms, activity),
+    ({ room }) => `${room.sphere}:${room.kind === "event" ? room.title : (room.eventTitle ?? "")}`,
+  );
+  const groups = [...events.values()];
+  const focus = useRowFocus(groups.flat().map(({ room }) => room.id));
+  return (
+    <>
+      <PanelHeader
+        back={{ label: copy.backLabel, run: back }}
+        close={close}
+        closeLabel={copy.closeLabel}
+        title={copy.moderation}
+      />
+      <nav
+        aria-label={copy.moderation}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pt-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
+        onKeyDown={moveAmongRows}
+      >
+        <p className="px-2 pt-1.5 pb-1 text-sm text-foreground-secondary">
+          {rooms.length === 0 ? copy.moderationEmpty : copy.moderationHint}
+        </p>
+        {groups.map((group) => {
+          const [{ room }] = group;
+          return (
+            <section key={`${room.sphere}:${room.id}`}>
+              <h3 className={SECTION}>
+                {room.kind === "event" ? room.title : (room.eventTitle ?? "")}
+              </h3>
+              <ul>
+                {group.map((each) => (
+                  <RoomRow
+                    blocked={blocked}
+                    bootstrap={bootstrap}
+                    current={current}
+                    focus={focus(each.room.id)}
+                    key={each.room.id}
+                    open={open}
+                    sorted={each}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </nav>
     </>
   );
@@ -390,16 +546,28 @@ function Connected({
     ...Object.values(feeds).map((feed) => feed.activity),
   ) as Record<string, RoomActivity>;
   const here = rooms.find(({ id }) => id === pageRoom);
+  // A room this person only moderates stays out of their own list, unless
+  // it is this page's; the chat never opens on one by itself.
+  const moderated = rooms.filter(({ moderating }) => moderating === true);
+  const listed = rooms.filter(({ id, moderating }) => moderating !== true || id === here?.id);
   const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
-  const single = rooms.length === 1 && !bootstrap.canMessage ? rooms[0] : undefined;
-  const shown = settle(view, rooms, linkedRoom ?? here ?? single);
+  const single =
+    listed.length === 1 && moderated.length === 0 && !bootstrap.canMessage ? listed[0] : undefined;
+  const shown = settle(
+    view,
+    rooms,
+    linkedRoom ?? (here?.moderating === true ? undefined : here) ?? single,
+  );
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   useEffect(() => {
     if (roomId !== null) setCurrent(roomId);
   }, [roomId]);
   const unreadRooms = rooms.filter(
-    ({ id }) => activity[id]?.unread === true && !(shown.kind === "room" && roomId === id),
+    ({ id, moderating }) =>
+      moderating !== true &&
+      activity[id]?.unread === true &&
+      !(shown.kind === "room" && roomId === id),
   ).length;
 
   const refresh = useCallback(async () => {
@@ -454,6 +622,7 @@ function Connected({
     open(asRoom(conversation, copy.typingSomeone));
   };
   const toList = () => setView({ kind: "list" });
+  const toModeration = () => setView({ kind: "moderation" });
 
   // Into the details and back, focus follows: to their back button, then
   // to the button that opened them.
@@ -546,13 +715,26 @@ function Connected({
               compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
               current={current}
               here={here}
+              moderation={moderated.length > 0 ? { open: toModeration, rooms: moderated } : null}
               open={open}
-              rooms={rooms}
+              rooms={listed}
               showBlocked={
                 !bootstrap.canMessage && blocked.length > 0
                   ? () => setView({ kind: "blocked" })
                   : null
               }
+            />
+          )}
+          {shown.kind === "moderation" && (
+            <ModerationList
+              activity={activity}
+              back={toList}
+              blocked={blockedIds}
+              bootstrap={bootstrap}
+              close={close}
+              current={current}
+              open={(target) => setView({ from: "moderation", kind: "room", roomId: target.id })}
+              rooms={moderated}
             />
           )}
           {shown.kind === "compose" && (
@@ -595,7 +777,13 @@ function Connected({
               <div className={shown.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
                 <Conversation
                   answers={answersFor(room)}
-                  back={single === undefined ? toList : null}
+                  back={
+                    single === undefined
+                      ? shown.kind === "room" && shown.from === "moderation"
+                        ? { label: copy.backToModeration, run: toModeration }
+                        : { label: copy.backLabel, run: toList }
+                      : null
+                  }
                   blocked={blockedIds}
                   bootstrap={bootstrap}
                   close={close}

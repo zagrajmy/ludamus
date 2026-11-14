@@ -3587,6 +3587,15 @@ msgstr "Odrzucone"
 
 #: src/ludamus/gates/web/django/parley/views.py
 #, python-format
+msgid "%(count)s chat you moderate"
+msgid_plural "%(count)s chats you moderate"
+msgstr[0] "%(count)s czat do moderacji"
+msgstr[1] "%(count)s czaty do moderacji"
+msgstr[2] "%(count)s czatów do moderacji"
+msgstr[3] "%(count)s czatu do moderacji"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
 msgid "%(count)s person here"
 msgid_plural "%(count)s people here"
 msgstr[0] "%(count)s osoba tutaj"
@@ -4001,6 +4010,42 @@ msgstr "Na tej stronie"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "All chats"
 msgstr "Wszystkie rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Moderation"
+msgstr "Moderacja"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"Chats from your events that you are not part of. Read them here and step in "
+"when needed."
+msgstr ""
+"Czaty z twoich wydarzeń, w których nie bierzesz udziału. Czytaj je tutaj i "
+"reaguj, gdy trzeba."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Nothing to moderate right now."
+msgstr "Na razie nie ma czego moderować."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Back to moderation"
+msgstr "Wróć do moderacji"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Moderator view"
+msgstr "Widok moderatora"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You are reading this chat as a moderator."
+msgstr "Czytasz ten czat jako moderator."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write as organizer"
+msgstr "Napisz jako organizator"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write to everyone in this chat…"
+msgstr "Napisz do wszystkich na tym czacie…"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "To message people directly, confirm you're 16 or older."
@@ -15410,9 +15455,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "LIVE"
 #~ msgstr "W TRAKCIE"
-
-#~ msgid "You're already on this sphere's team as a manager."
-#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
 
 #, python-format
 #~ msgid "%(name)s invited you to manage this sphere."

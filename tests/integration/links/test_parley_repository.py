@@ -126,6 +126,49 @@ def test_a_manager_has_the_organizers_room_and_every_room_of_their_sphere(
     assert access.rooms[0].title == sphere.name
 
 
+def test_a_manager_s_own_rooms_stand_apart_from_the_ones_they_only_moderate(
+    sphere, active_user, now, window
+):
+    sphere.managers.add(active_user)
+    event = _event(sphere, now, name="Bachanalia")
+    played = SessionFactory(
+        event=event, category=None, title="Played", status=SessionStatus.ACCEPTED
+    )
+    SessionParticipationFactory(
+        session=played, user=active_user, status=SessionParticipationStatus.CONFIRMED
+    )
+    watched = SessionFactory(
+        event=event, category=None, title="Watched", status=SessionStatus.ACCEPTED
+    )
+    unvisited = _event(sphere, now, name="Polcon")
+    elsewhere = _event(SphereFactory(), now, name="Elsewhere")
+    joined = SessionFactory(
+        event=elsewhere, category=None, title="Joined", status=SessionStatus.ACCEPTED
+    )
+    SessionParticipationFactory(
+        session=joined, user=active_user, status=SessionParticipationStatus.CONFIRMED
+    )
+
+    access = ParleyRepository().read_access(
+        user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+    )
+
+    assert access is not None
+    assert sorted(
+        (room.id, room.moderating, room.event_title) for room in access.rooms
+    ) == sorted(
+        [
+            (f"organizers:{sphere.pk}", False, None),
+            (f"event:{sphere.pk}:{event.pk}", False, None),
+            (f"event:{sphere.pk}:{unvisited.pk}", True, None),
+            (f"event:{elsewhere.sphere_id}:{elsewhere.pk}", False, None),
+            (f"session:{sphere.pk}:{played.pk}", False, "Bachanalia"),
+            (f"session:{sphere.pk}:{watched.pk}", True, "Bachanalia"),
+            (f"session:{elsewhere.sphere_id}:{joined.pk}", False, "Elsewhere"),
+        ]
+    )
+
+
 @pytest.mark.parametrize(
     ("sphere_events", "own", "has_chat"),
     (

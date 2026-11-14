@@ -31,6 +31,11 @@ class ParleyRoomDTO(BaseModel):
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
+    # Listed only because this person moderates its sphere: they neither run
+    # nor take part in it.
+    moderating: bool = False
+    # The event a programme point belongs to, by name.
+    event_title: str | None = Field(default=None, serialization_alias="eventTitle")
     # When the event the room belongs to ends and starts; the organizers'
     # room has neither.
     ends_at: int | None = Field(default=None, exclude=True)
