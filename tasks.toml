@@ -229,3 +229,55 @@ env = { _.file = '.env.e2e' }
 description = "Run the window-policy properties through CrossHair's solver instead of random examples"
 run = "pytest -n 0 -q tests/unit/test_enrollment_policy_properties.py"
 env = { _.file = '.env.test', HYPOTHESIS_PROFILE = "crosshair" }
+
+["experiment:install"]
+description = "Install the rat-stack experiment's pnpm workspace (experiment/), retrying once when the lockfile moved"
+dir = "experiment"
+run = "pnpm install || pnpm install"
+
+["experiment:build"]
+description = "Build the experiment: packages with tsc, the Foldkit web app with Vite, then the Node host"
+dir = "experiment"
+run = "pnpm build"
+
+["experiment:check"]
+description = "Typecheck, lint and format-check the experiment (rat-stack's fence)"
+dir = "experiment"
+run = "pnpm check"
+
+["experiment:test"]
+description = "Run the experiment's vitest suites across the workspace"
+dir = "experiment"
+run = "pnpm test"
+
+["experiment:serve"]
+description = "Serve the experiment's Node host on :8000 against the seeded dev.e2e.sqlite3 (builds first if dist is missing)"
+dir = "experiment"
+run = '''
+set -eu
+if lsof -ti :8000 -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "Port 8000 is already taken. Stop it first: mise run test:e2e:kill" >&2
+  exit 1
+fi
+if [ ! -f "$DATABASE_PATH" ]; then
+  echo "$DATABASE_PATH is missing. Seed it first: mise run test:e2e:prep" >&2
+  exit 1
+fi
+if [ ! -f apps/server/dist/main.js ] || [ ! -f apps/web/dist/server/foldkit.build.json ]; then
+  pnpm build
+fi
+exec node apps/server/dist/main.js
+'''
+env = { _.file = '.env.e2e', DATABASE_PATH = "{{ config_root }}/dev.e2e.sqlite3", PORT = "8000", PUBLIC_ORIGIN = "http://localhost:8000" }
+
+["experiment:e2e"]
+description = "Run existing Playwright specs (chromium + chromium-auth) against the experiment's server; reuses one on :8000, else starts and stops it (e.g. mise run experiment:e2e -- feed-cards.spec.ts)"
+dir = "experiment"
+run = "node evals/harness/e2e.ts"
+raw_args = true
+
+["experiment:e2e:matrix"]
+description = "Run the whole e2e suite against the experiment (or Django with -- --baseline) and write evals/results/e2e-matrix.{json,md}"
+dir = "experiment"
+run = "node evals/harness/matrix.ts"
+raw_args = true

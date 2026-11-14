@@ -1,0 +1,41 @@
+{
+  "name": "zagrajmy-experiment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zagrajmy on rat-stack: Effect 4, Foldkit UI, capability contracts, one typed program.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run typecheck && pnpm run typecheck:tooling && pnpm run lint",
+    "dev": "pnpm --filter @zagrajmy/web dev",
+    "e2e": "node evals/harness/e2e.ts",
+    "e2e:matrix": "node evals/harness/matrix.ts",
+    "fix": "oxlint --fix && oxfmt .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint && oxfmt --check .",
+    "serve": "pnpm --filter @zagrajmy/server start",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "typecheck:tooling": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@foldkit/oxlint-plugin": "0.15.3",
+    "@oxlint/plugins": "1.88.0",
+    "@types/node": "24.19.2",
+    "effect": "4.0.7",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "turbo": "2.11.9",
+    "typescript": "7.0.2",
+    "ultracite": "8.0.1",
+    "vitest": "5.0.5"
+  },
+  "engines": {
+    "node": ">=24.18.0",
+    "pnpm": ">=11.1.2"
+  },
+  "packageManager": "pnpm@11.3.0"
+}

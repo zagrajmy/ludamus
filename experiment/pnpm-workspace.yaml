@@ -1,0 +1,35 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+overrides:
+  "@effect/platform-node": 4.0.7
+  "@effect/platform-node-shared": 4.0.7
+
+# Foldkit 0.169 peer-pins effect and @effect/platform-browser to exactly 4.0.0.
+# These allowances travel with patches/@foldkit__vite-plugin@0.28.0.patch,
+# both inherited from rat-stack (its vendor/README.md says why and when to drop them).
+peerDependencyRules:
+  allowedVersions:
+    "foldkit>effect": 4.0.7
+    "foldkit>@effect/platform-browser": 4.0.7
+    "@foldkit/ui>effect": 4.0.7
+    "@foldkit/vite-plugin>effect": 4.0.7
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - effect@4.0.7
+  - foldkit@0.169.0
+  - "@foldkit/ui@0.169.0"
+  - "@foldkit/vite-plugin@0.28.0"
+  - "@foldkit/oxlint-plugin@0.15.3"
+  - "@effect/platform-browser@4.0.7"
+  - "@effect/platform-node@4.0.7"
+  - "@effect/platform-node-shared@4.0.7"
+  - "@effect/sql-sqlite-node@4.0.7"
+  - "@effect/vitest@4.0.7"
+
+patchedDependencies:
+  "@foldkit/vite-plugin@0.28.0": patches/@foldkit__vite-plugin@0.28.0.patch
