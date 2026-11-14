@@ -39,7 +39,11 @@ test("a card's room stays readable when the venue name is long", async ({ page }
   });
 });
 
-test("the unread badge caps at 99+ and the label keeps the count", async ({ page }) => {
+// TODO: quarantined, flaky in CI. Failed on all 3 attempts in two shards, then
+// passed on a re-run of the same SHA: the "Notifications (1284 unread)" button
+// was not found. Root cause not yet determined.
+// https://github.com/zagrajmy/ludamus/actions/runs/42348691847
+test.skip("the unread badge caps at 99+ and the label keeps the count", async ({ page }) => {
   await page.goto(EVENT);
   const bell = page.getByRole("button", { name: "Notifications (1284 unread)" });
 
