@@ -31,7 +31,8 @@ def _erratum(*logs: ScheduleChangeLogDTO) -> ErratumDTO:
         kind=(
             ErratumKind.MOVED
             if len(logs) > 1
-            else ErratumKind.ADDED if last.new_space_id else ErratumKind.REMOVED
+            # Keyed on the time: a session placed without a space has none.
+            else ErratumKind.ADDED if last.new_start_time else ErratumKind.REMOVED
         ),
         session_id=last.session_id,
         session_title=last.session_title,

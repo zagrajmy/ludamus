@@ -1,4 +1,5 @@
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
@@ -17,6 +18,7 @@ from ludamus.pacts.event import (
     TimeSlotRepositoryProtocol,
 )
 from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
+from ludamus.pacts.sphere import SphereRepositoryProtocol
 from ludamus.pacts.timetable import (
     AgendaItemDTO,
     AgendaItemRepositoryProtocol,
@@ -53,6 +55,14 @@ from tests.unit.factories import event_dto, session_dto, track_dto
 UNASSIGN_LOG_PK = 77
 
 
+def _spheres(*, require_session_space: bool) -> MagicMock:
+    spheres = MagicMock(spec=SphereRepositoryProtocol)
+    spheres.read.return_value = SimpleNamespace(
+        require_session_space=require_session_space
+    )
+    return spheres
+
+
 def _timetable_repos(uow) -> TimetableRepos:
     return TimetableRepos(
         events=uow.events,
@@ -69,7 +79,10 @@ def _timetable_service(uow, *, categories=None) -> TimetableService:
     transaction = MagicMock()
     transaction.atomic = uow.atomic
     return TimetableService(
-        transaction, _timetable_repos(uow), categories=categories or MagicMock()
+        transaction,
+        _timetable_repos(uow),
+        categories=categories or MagicMock(),
+        spheres=uow.spheres,
     )
 
 
@@ -685,6 +698,32 @@ class TestAssignSession:
         session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
 
+    def test_assign_without_a_space_is_refused_where_one_is_required(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow)
+        mock_uow.sessions.read_event.return_value.require_session_space = True
+        placement = replace(self._placement(), space_pk=None)
+
+        with pytest.raises(PlacementRejectedError) as excinfo:
+            service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.SPACE_REQUIRED
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_without_a_space_places_it_where_none_is_required(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow)
+        mock_uow.sessions.read_event.return_value.require_session_space = False
+        placement = replace(self._placement(), space_pk=None)
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        (created,) = mock_uow.agenda_items.create.call_args.args
+        assert created["space_id"] is None
+        mock_uow.spaces.lock.assert_not_called()
+
     def test_assign_is_a_noop_for_the_existing_placement(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow)
         placement = self._placement()
@@ -971,6 +1010,15 @@ class TestListAllForTrack:
         uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
+
+    def test_sessions_without_a_space_share_no_room_to_clash_over(self):
+        first = _make_item(pk=1, session_id=10, space_id=None, session_title="First")
+        second = _make_item(pk=2, session_id=20, space_id=None, session_title="Other")
+        uow = self._uow(all_items=[first, second], spaces=[_space(1, capacity=2)])
+
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        assert not conflicts
 
     def test_space_overlap_detected_and_deduplicated(self):
         first = _make_item(pk=1, session_id=10, space_id=1, session_title="First")
@@ -1436,6 +1484,7 @@ def _spec_uow(**repos):
         time_slots=MagicMock(spec=TimeSlotRepositoryProtocol),
         tracks=MagicMock(spec=TrackRepositoryProtocol),
         schedule_change_logs=MagicMock(spec=ScheduleChangeLogRepositoryProtocol),
+        spheres=_spheres(require_session_space=True),
     )
     uow.__dict__.update(repos)
     return uow
@@ -1647,6 +1696,42 @@ class TestSpaceTree:
             )
             for grid in (first, second)
         ] == [(1, 2, 7, 1, 5, [1, 2, 3, 4, 5]), (2, 2, 7, 6, 7, [6, 7])]
+
+    def test_an_event_needing_no_space_adds_a_column_for_sessions_without_one(
+        self, uow
+    ):
+        uow.events.read.return_value = event_dto(require_session_space=False)
+        uow.agenda_items.rows = {1: _make_item(space_id=None)}
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert [
+            (
+                column.space.pk if column.space else None,
+                [pos.agenda_item.session_title for pos in column.sessions],
+            )
+            for column in grid.days[0].columns
+        ] == [(3, []), (4, []), (5, []), (None, ["Session"])]
+        assert grid.columns_per_day == len(grid.days[0].columns)
+        assert grid.groups[-1].span == 1
+
+    def test_a_session_placed_without_a_space_keeps_its_column_once_one_is_required(
+        self, uow
+    ):
+        uow.agenda_items.rows = {1: _make_item(space_id=None)}
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert grid.days[0].columns[-1].space is None
+
+    def test_a_room_filter_leaves_the_no_space_column_out(self, uow):
+        uow.events.read.return_value = event_dto(require_session_space=False)
+
+        grid = _timetable_service(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks={2})
+        )
+
+        assert None not in [column.space for column in grid.days[0].columns]
 
     def test_a_booking_renders_in_its_rooms_column(self, uow):
         uow.agenda_items.rows = {1: _make_item(space_id=4)}
@@ -1904,9 +1989,7 @@ class TestRevertChangeOutcomes:
             }
         ]
 
-    @pytest.mark.parametrize(
-        "missing", ("old_space_id", "old_start_time", "old_end_time")
-    )
+    @pytest.mark.parametrize("missing", ("old_start_time", "old_end_time"))
     def test_an_unassign_missing_any_part_of_its_placement_cannot_revert(
         self, uow, missing
     ):
@@ -1924,6 +2007,36 @@ class TestRevertChangeOutcomes:
             self._revert(uow)
 
         assert uow.agenda_items.created == []
+
+    def test_an_unassign_without_a_space_cannot_revert_where_one_is_required(self, uow):
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(
+                action=ScheduleChangeAction.UNASSIGN,
+                old_space_id=None,
+                old_start_time=_START,
+                old_end_time=_END,
+            )
+        }
+
+        with pytest.raises(ValueError, match="its space no longer exists"):
+            self._revert(uow)
+
+        assert uow.agenda_items.created == []
+
+    def test_an_unassign_without_a_space_reverts_where_none_is_required(self, uow):
+        uow.spheres = _spheres(require_session_space=False)
+        uow.schedule_change_logs.rows = {
+            1: _schedule_log(
+                action=ScheduleChangeAction.UNASSIGN,
+                old_space_id=None,
+                old_start_time=_START,
+                old_end_time=_END,
+            )
+        }
+
+        self._revert(uow)
+
+        assert [item["space_id"] for item in uow.agenda_items.created] == [None]
 
     def test_a_revert_row_itself_cannot_be_reverted(self, uow):
         uow.schedule_change_logs.rows = {

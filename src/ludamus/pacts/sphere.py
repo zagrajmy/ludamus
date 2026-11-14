@@ -185,6 +185,7 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
     parley_enabled: bool
     parley_organizers_enabled: bool
     parley_events_enabled: bool
@@ -217,6 +218,7 @@ class SpherePanelServiceProtocol(Protocol):
         chat: SphereChatSettings,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
+        require_session_space: bool | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...
@@ -248,6 +250,7 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    require_session_space: bool = True
     parley_enabled: bool = True
     parley_organizers_enabled: bool = True
     parley_events_enabled: bool = False
@@ -263,6 +266,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
     parley_enabled: bool
     parley_organizers_enabled: bool
     parley_events_enabled: bool

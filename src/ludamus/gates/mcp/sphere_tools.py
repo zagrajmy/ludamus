@@ -25,6 +25,13 @@ class _UpdateSphereSettingsInput(BaseModel):
         default=None,
         description="Whether facilitators may edit their accepted sessions",
     )
+    require_session_space: bool | None = Field(
+        default=None,
+        description=(
+            "Whether every scheduled session needs a space; false lets events "
+            "place sessions with only a time (meetups). Events can override it"
+        ),
+    )
     event_cover_buttons_at_bottom: bool | None = Field(
         default=None,
         description=(
@@ -78,6 +85,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["allow_facilitator_session_edit"] = (
                 self.allow_facilitator_session_edit
             )
+        if self.require_session_space is not None:
+            changes["require_session_space"] = self.require_session_space
         if self.event_cover_buttons_at_bottom is not None:
             changes["event_cover_buttons_at_bottom"] = (
                 self.event_cover_buttons_at_bottom

@@ -216,7 +216,7 @@
                                         </div>
                                         {% for name in page.space_names %}
                                             <div class="row-start-1 border-b-2 border-r border-neutral-900 p-[1mm] font-bold"
-                                                 data-col="{{ forloop.counter }}">{{ name }}</div>
+                                                 data-col="{{ forloop.counter }}">{{ name|default_if_none:_("No space") }}</div>
                                         {% endfor %}
                                         {% for row in page.rows %}
                                             <div class="col-start-1 border-b border-r border-neutral-300 p-[1mm] tabular-nums text-neutral-700"

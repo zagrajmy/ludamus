@@ -59,12 +59,13 @@
                                     {% include "panel/parts/_bulk_select.html" with name="log_pk" value=erratum.log_pks|join:"," aria_label=t_select_row only %}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-foreground">
+                                    {% translate "No space" as no_space %}
                                     {% if erratum.kind == "added" %}
-                                        {% blocktranslate with title=erratum.session_title space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was added to the agenda: {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% blocktranslate with title=erratum.session_title space=erratum.new_space_name|default:no_space when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was added to the agenda: {{ space }}, {{ when }}{% endblocktranslate %}
                                     {% elif erratum.kind == "moved" %}
-                                        {% blocktranslate with title=erratum.session_title old_space=erratum.old_space_name old_when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was moved from {{ old_space }}, {{ old_when }} to {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% blocktranslate with title=erratum.session_title old_space=erratum.old_space_name|default:no_space old_when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" space=erratum.new_space_name|default:no_space when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was moved from {{ old_space }}, {{ old_when }} to {{ space }}, {{ when }}{% endblocktranslate %}
                                     {% else %}
-                                        {% blocktranslate with title=erratum.session_title space=erratum.old_space_name when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was removed from the agenda: it was {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% blocktranslate with title=erratum.session_title space=erratum.old_space_name|default:no_space when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was removed from the agenda: it was {{ space }}, {{ when }}{% endblocktranslate %}
                                     {% endif %}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">

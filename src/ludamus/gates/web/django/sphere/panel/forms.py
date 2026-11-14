@@ -60,6 +60,14 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    require_session_space = forms.BooleanField(
+        required=False,
+        label=_("Require a space for every scheduled session"),
+        help_text=_(
+            "Default for the whole sphere; events can override it. Turn off for "
+            "meetups that only need a time."
+        ),
+    )
     parley_enabled = forms.BooleanField(
         required=False,
         label=_("Enable chat"),

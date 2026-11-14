@@ -2,7 +2,9 @@
 {% load cfp_tags %}
 {% load schedule_tags %}
 {% load tessera %}
-<article class="h-full min-w-0 print:break-inside-avoid" data-session-wrapper>
+<article class="h-full min-w-0 print:break-inside-avoid"
+         data-session-wrapper
+         data-session-card="{{ data.session.pk }}">
     {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
     {# border — this codebase's mark for a slot with nothing real in it — on a #}
     {# warmer ground. Both are near the limit of perceptible on purpose; #}
@@ -11,15 +13,16 @@
     {# The surface is named once, as --card-surface, because the guild notch's #}
     {# ring has to punch through the same colour — see the presenter row. #}
     {# The hover lift is conditional on there being somewhere to go: an #}
-    {# author's proposal card has no link yet (#906), and a card that lifts #}
-    {# under the cursor and then does nothing is a worse lie than a flat one. #}
+    {# author's proposal card has no link where self-edit is switched off, and #}
+    {# a card that lifts under the cursor and then does nothing is a worse lie #}
+    {# than a flat one. #}
     <div class="session relative flex h-full w-full flex-col rounded-2xl border duration-100 ring-offset-background ring-offset-[.5px] bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if not data.is_unscheduled or proposal_url %}hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01]{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% session_data_attrs data %}>
         {% if data.is_unscheduled %}
             {# proposal_url is the page that acts on the proposal: the review #}
-            {# screen, for an organizer. Guarded because the author's own card #}
-            {# has no such page yet — see _proposal_section.html — and an empty #}
-            {# href would link the card to the page it is already on. #}
+            {# screen for an organizer, the edit page for its author. Guarded #}
+            {# because the author's card may have none (_proposal_section.html), #}
+            {# and an empty href would link the card to the page it is on. #}
             {% if proposal_url %}
                 <a href="{{ proposal_url }}"
                    class="session-link absolute inset-0 z-10 rounded-2xl">

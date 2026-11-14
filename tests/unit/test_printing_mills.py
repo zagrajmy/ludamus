@@ -171,6 +171,36 @@ class TestBuildTimetable:
         assert [row.minutes for row in page.rows] == [60]
         assert [(t.row, t.span) for t in page.tiles] == [(1, 1)]
 
+    def test_spaceless_sessions_overlapping_across_the_autumn_fold_take_two_lanes(self):
+        # Read off the wall clock, "02:00–02:30 (CET)" ends before "02:45
+        # (CEST)" starts; as instants it runs an hour past it.
+        tz = ZoneInfo("Europe/Warsaw")
+        night = AgendaItemDTO(
+            pk=1,
+            schedule_confirmed=True,
+            start_time=datetime(2026, 10, 25, 2, 0, tzinfo=tz, fold=0),
+            end_time=datetime(2026, 10, 25, 2, 30, tzinfo=tz, fold=1),
+            space_id=None,
+            session_title="Night",
+        )
+        late = AgendaItemDTO(
+            pk=2,
+            schedule_confirmed=True,
+            start_time=datetime(2026, 10, 25, 2, 45, tzinfo=tz, fold=0),
+            end_time=datetime(2026, 10, 25, 2, 50, tzinfo=tz, fold=1),
+            space_id=None,
+            session_title="Late",
+        )
+        service = _service(spaces=[], items=[night, late])
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == [None, None]
+        assert sorted((t.session.title, t.col) for t in page.tiles) == [
+            ("Late", 2),
+            ("Night", 1),
+        ]
+
     def test_a_long_session_spans_the_rows_a_short_one_cuts(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
@@ -389,12 +419,68 @@ class TestBuildTimetable:
 
         assert document.pages == []
 
+    def test_a_meetup_without_spaces_prints_its_sessions(self):
+        items = [_item(1, None, 18, 20, title="Board games", confirmed=True)]
+        service = _service(spaces=[], items=items)
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == [None]
+        assert page.space_range_name is None
+        assert [(t.session.title, t.col) for t in page.tiles] == [("Board games", 1)]
+
+    def test_overlapping_sessions_without_a_space_take_lanes_after_the_rooms(self):
+        # Nothing stops two of them at once, and tiles in one column would
+        # paint over each other; a lane frees as its session ends.
+        items = [
+            _item(1, 1, 10, 11, title="In Alfa", confirmed=True),
+            _item(2, None, 10, 12, title="Long", confirmed=True),
+            _item(3, None, 11, 12, title="Beside", confirmed=True),
+            _item(4, None, 12, 13, title="After", confirmed=True),
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        (page,) = _timetable(service).pages
+
+        assert page.space_names == ["Alfa", None, None]
+        assert page.space_range_name == "Alfa"
+        assert sorted((t.session.title, t.col) for t in page.tiles) == [
+            ("After", 2),
+            ("Beside", 3),
+            ("In Alfa", 1),
+            ("Long", 2),
+        ]
+
+    def test_a_room_sheet_leaves_sessions_without_a_space_off(self):
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True),
+            _item(2, None, 9, 10, title="Anywhere", confirmed=True),
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        (page,) = _timetable(service, scope_space_pks=frozenset({1})).pages
+
+        assert page.space_names == ["Alfa"]
+        assert [t.session.title for t in page.tiles] == ["RPG"]
+
 
 def _session_list(service, **kwargs):
     return service.build_session_list(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 class TestBuildSessionList:
+    def test_a_session_without_a_space_lists_after_the_rooms_at_its_time(self):
+        spaces = [_space(1, "Alfa", 1)]
+        items = [
+            _item(1, None, 9, 10, title="Roomless", confirmed=True),
+            _item(2, 1, 9, 10, title="In Alfa", confirmed=True, space_name="Alfa"),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        document = _session_list(service)
+
+        assert [s.title for s in document.pages[0].sessions] == ["In Alfa", "Roomless"]
+
     def test_whole_event_in_time_then_programme_room_order(self):
         spaces = [_space(1, "Alfa", 1), _space(2, "Bravo", 0)]
         spaces[0].programme_order = 0

@@ -89,7 +89,7 @@ class _SessionRow(BaseModel):
     agenda_item__pk: int
     agenda_item__start_time: datetime
     agenda_item__end_time: datetime
-    agenda_item__space_id: int
+    agenda_item__space_id: int | None
     enrolled_count_cached: int
     waiting_count_cached: int
 
@@ -206,7 +206,9 @@ def _location_index(event_id: int) -> dict[int, LocationData]:
     return index
 
 
-def _location(space_id: int, *, index: dict[int, LocationData]) -> LocationData:
+def _location(space_id: int | None, *, index: dict[int, LocationData]) -> LocationData:
+    if space_id is None:
+        return NO_LOCATION
     if (found := index.get(space_id)) is not None:
         return found
     # A room filed under another event: the schema allows it, nothing writes

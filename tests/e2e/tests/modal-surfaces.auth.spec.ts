@@ -168,34 +168,32 @@ test("saving the session from its modal keeps the heading's look and shows a new
     await expect(dialog).toBeVisible();
     return dialog;
   };
+  // A save closes the dialog; the next open fetches the session fresh.
   const save = async (dialog: Locator) => {
     await dialog.getByRole("button", { name: "Save changes" }).click();
-    await expect(dialog.getByRole("button", { name: "Saved" })).toBeVisible();
+    await expect(dialog).toBeHidden();
   };
 
   try {
     let dialog = await open();
     await expect(dialog.locator("[data-cover-image]")).toHaveCount(0);
 
-    // A new cover reshapes the header, so the page reloads on this session.
     await dialog.getByRole("button", { name: "Edit session" }).click();
     await dialog.locator('input[name="cover_image"]').setInputFiles({
       buffer: cover,
       mimeType: "image/webp",
       name: "cover.webp",
     });
-    await Promise.all([
-      page.waitForEvent("load"),
-      dialog.getByRole("button", { name: "Save changes" }).click(),
-    ]);
-    dialog = page.getByRole("dialog", { name: "Own Table Demo" });
+    await save(dialog);
+    dialog = await open();
     await expect(dialog.locator("[data-cover-image]")).toBeVisible();
 
     // A renamed title lands in the heading on the cover, still white.
     await dialog.getByRole("button", { name: "Edit session" }).click();
     await dialog.getByLabel("Title").fill("Own Table Demo, renamed");
     await save(dialog);
-    const heading = page.getByRole("heading", { name: "Own Table Demo, renamed" });
+    dialog = await open("Own Table Demo, renamed");
+    const heading = dialog.getByRole("heading", { name: "Own Table Demo, renamed" });
     await expect(heading).toHaveCSS("color", "rgb(255, 255, 255)");
   } finally {
     // Put the seeded session back for the other specs.
@@ -205,13 +203,8 @@ test("saving the session from its modal keeps the heading's look and shows a new
     const remove = dialog.getByRole("button", { name: "Remove image" });
     if (await remove.isVisible()) {
       await remove.click();
-      await Promise.all([
-        page.waitForEvent("load"),
-        dialog.getByRole("button", { name: "Save changes" }).click(),
-      ]);
-    } else {
-      await save(dialog);
     }
+    await save(dialog);
     await context.close();
   }
 });

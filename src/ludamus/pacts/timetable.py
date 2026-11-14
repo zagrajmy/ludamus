@@ -28,6 +28,7 @@ class PlacementRejection(StrEnum):
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
     BEFORE_PUBLICATION = "before_publication"
+    SPACE_REQUIRED = "space_required"
 
 
 class PlacementRejectedError(Exception):
@@ -165,7 +166,8 @@ class AgendaItemDTO(BaseModel):
     pk: int
     schedule_confirmed: bool
     start_time: datetime
-    space_id: int = 0
+    # None where the event does not require a space and none was given.
+    space_id: int | None = None
     space_name: str = ""
     session_id: int = 0
     session_title: str = ""
@@ -183,14 +185,14 @@ class AgendaItemData(TypedDict):
     end_time: datetime
     session_confirmed: bool
     session_id: int
-    space_id: int
+    space_id: int | None
     start_time: datetime
 
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
     session_confirmed: bool
-    space_id: int
+    space_id: int | None
     start_time: datetime
 
 
@@ -398,7 +400,9 @@ class ClosedRangeDTO(BaseModel):
 
 
 class SpaceColumnDTO(BaseModel):
-    space: SpaceDTO
+    # None is the column of sessions placed without a space, shown where the
+    # event does not require one or still holds such sessions.
+    space: SpaceDTO | None
     sessions: list[SessionPositionDTO] = []
 
 
@@ -458,9 +462,12 @@ class ConflictSeverity(StrEnum):
 
 @dataclass(frozen=True)
 class SessionPlacement:
-    """A space and time window a session can be scheduled into."""
+    """A space and time window a session can be scheduled into.
 
-    space_pk: int
+    No space where the event does not require one (require_session_space).
+    """
+
+    space_pk: int | None
     start_time: datetime
     end_time: datetime
 
@@ -493,6 +500,8 @@ class TimetableGridDTO(BaseModel):
     # 1-based, for "Rooms 6–10 of 11".
     first_space_number: int
     last_space_number: int
+    # The spaces on screen, plus the column of spaceless sessions when shown.
+    columns_per_day: int
     total_columns: int
     available_dates: list[date] = []
     date_selection: DateSelection = "all"

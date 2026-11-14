@@ -253,18 +253,21 @@ const initSessionFilters = (): void => {
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
   // search is where it stays findable.
-  const cardHaystacks = new Map<HTMLElement, string>();
-  for (const card of sessionCards) {
-    const descEl = card.querySelector("[data-session-description]");
-    const description = descEl ? (descEl.textContent ?? "") : "";
-    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
-    cardHaystacks.set(
-      card,
-      normalizeText(
+  // Per element, so a card swapped in after an edit is read afresh.
+  const cardHaystacks = new WeakMap<HTMLElement, string>();
+  const haystackOf = (card: HTMLElement): string => {
+    let haystack = cardHaystacks.get(card);
+    if (haystack === undefined) {
+      const descEl = card.querySelector("[data-session-description]");
+      const description = descEl ? (descEl.textContent ?? "") : "";
+      const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
+      haystack = normalizeText(
         `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
-      ),
-    );
-  }
+      );
+      cardHaystacks.set(card, haystack);
+    }
+    return haystack;
+  };
 
   /** Distinct values of one card dataset key, keeping first-seen labels. */
   const cardValues = (key: "day" | "host" | "hour", labelKey?: "dayLabel"): Map<string, string> => {
@@ -603,11 +606,11 @@ const initSessionFilters = (): void => {
       .map((filter) => ({ filter, values: filter.values() }))
       .filter(({ values }) => values.length > 0);
 
-    for (const card of sessionCards) {
+    for (const card of document.querySelectorAll<HTMLElement>(".session")) {
       let show = true;
 
       if (searchTokens.length > 0) {
-        const haystack = cardHaystacks.get(card) ?? "";
+        const haystack = haystackOf(card);
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
       for (const f of activeFlags) show &&= f.matches(card);
@@ -939,6 +942,11 @@ const initSessionFilters = (): void => {
     },
     { signal: documentListeners.signal },
   );
+
+  // A card swapped in on its own, as an edit refreshes it, arrives unfiltered.
+  document.body.addEventListener("htmx:afterSettle", filterSessions, {
+    signal: documentListeners.signal,
+  });
 
   // NOTE: Firefox can restore control values before boot; the cards still need filtering.
   applyUrlState();
