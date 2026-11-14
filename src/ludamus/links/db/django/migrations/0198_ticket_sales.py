@@ -10,7 +10,7 @@ import ludamus.pacts.tickets
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0196_case_inbox")]
+    dependencies = [("db_main", "0197_require_session_space")]
 
     operations = [
         migrations.CreateModel(
