@@ -28,12 +28,15 @@ const guildRow = (page: Page) => page.getByRole("row").filter({ hasText: GUILD }
 // the facilitator too.
 const deleteGuildIfPresent = async (page: Page): Promise<void> => {
   await page.goto("/multiverse/panel/guilds/");
-  if ((await guildRow(page).count()) === 0) return;
-  await guildRow(page).getByRole("link", { name: "Delete" }).click();
-  await page.getByRole("button", { name: "Delete guild" }).click();
-  // Back on the list first: a refused POST lands on an error page with no
-  // rows, which would pass the count below and leave the guild behind.
-  await expect(page).toHaveURL("/multiverse/panel/guilds/");
+  // Every row, not just one: a duplicate left by an earlier try would
+  // otherwise trip strict mode here and fail every retry after it.
+  while ((await guildRow(page).count()) > 0) {
+    await guildRow(page).first().getByRole("link", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Delete guild" }).click();
+    // Back on the list first: a refused POST lands on an error page with no
+    // rows, which would end the loop and leave the guild behind.
+    await expect(page).toHaveURL("/multiverse/panel/guilds/");
+  }
   // The row itself, not the "Guild deleted." toast: transient flashes clear
   // themselves after five seconds, which a slow page load can outlast.
   await expect(guildRow(page)).toHaveCount(0);
