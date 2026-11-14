@@ -28,7 +28,9 @@ from django.contrib.sites.models import Site
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.management import call_command
+from django.middleware.csrf import CSRF_ALLOWED_CHARS, CSRF_SECRET_LENGTH
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django.utils.timezone import get_current_timezone
 from PIL import Image
 
@@ -239,19 +241,36 @@ def _write_storage_state(
     session["_auth_user_backend"] = "django.contrib.auth.backends.ModelBackend"
     session["_auth_user_hash"] = user.get_session_auth_hash()
     session.create()
+    # NOTE: without a CSRF cookie up front, every cookieless request that calls
+    # get_token (the parley bootstrap fetch does, on every page) mints its own
+    # secret. One landing after a form rendered swaps the cookie under it and
+    # the form's POST 403s, so a context starts with the cookie already set.
+    csrf_secret = get_random_string(CSRF_SECRET_LENGTH, CSRF_ALLOWED_CHARS)
 
     storage_state = {
         "cookies": [
-            {
-                "name": "sessionid",
-                "value": session.session_key,
-                "domain": cookie_domain,
-                "path": "/",
-                "httpOnly": True,
-                "secure": False,
-                "sameSite": "Lax",
-            }
+            cookie
             for cookie_domain in (domain, *also_on)
+            for cookie in (
+                {
+                    "name": settings.SESSION_COOKIE_NAME,
+                    "value": session.session_key,
+                    "domain": cookie_domain,
+                    "path": "/",
+                    "httpOnly": True,
+                    "secure": False,
+                    "sameSite": "Lax",
+                },
+                {
+                    "name": settings.CSRF_COOKIE_NAME,
+                    "value": csrf_secret,
+                    "domain": cookie_domain,
+                    "path": "/",
+                    "httpOnly": settings.CSRF_COOKIE_HTTPONLY,
+                    "secure": False,
+                    "sameSite": "Lax",
+                },
+            )
         ],
         "origins": [],
     }
