@@ -14,22 +14,22 @@ public `autumn-open` page.
 ## How to get to it (user POV)
 
 - Sign in as a sphere manager, open `/panel/event/sunhaven-festival/timetable/`.
-- Staff can use `/admin/login/` as `admin` / `admin` or `e2e-manager` /
-  `e2e-manager-123`, then the same path.
-- Simulator login is `default@example.com` / `12345`, then the panel.
+- Staff sign in at `/admin/login/` as `e2e-manager` / `e2e-manager-123`
+  (manages the root sphere), then open the same path.
 
 ## Driving it with control-ludamus
 
 Preconditions:
 
-- Seed includes `sunhaven-festival` (bootstrap runs `bootstrap_timetable.py`).
+- Seed includes `sunhaven-festival` (launch runs `bootstrap_timetable.py`).
 - You are a manager of that event's sphere. Doctor MCP `--event sunhaven-festival`
   `get_current_event` is a useful pre-check, not the proof.
 - Restore any assignment you make.
 
-- **Sign in.** Open `/admin/login/`, fill username `admin` and password `admin`,
-  submit. The admin index loads. Auth0 simulator is the user-facing login.
-  Admin is the shortest staff path.
+- **Sign in.** Open `/admin/login/`, fill username `e2e-manager` and
+  password `e2e-manager-123`, submit. The admin index loads. Auth0 login
+  does not work on the launched instance (fake tenant in `.env.e2e`), so
+  admin login is the staff path, as in the panel e2e specs.
 - **Open the grid.** Run
   `mise run control-ludamus -- open /panel/event/sunhaven-festival/timetable/`.
   The heading is `Schedule`. `#timetable-grid` is present. Unscheduled
