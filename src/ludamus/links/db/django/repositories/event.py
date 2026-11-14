@@ -34,6 +34,8 @@ from ludamus.pacts.enrollment import (
     SessionParticipationStatus,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
+    allowance_windows,
+    open_windows,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
@@ -257,7 +259,7 @@ def card_stats(
     start_time: datetime | None,
     enrolled_count: int,
     waiting_count: int,
-    active_configs: Collection[EnrollmentConfig],
+    configs: Collection[EnrollmentConfig],
 ) -> SessionCardStatsDTO:
     """State a session's seats from the facts Session's own properties read.
 
@@ -265,19 +267,25 @@ def card_stats(
         The counts, whether it is full, the windows that can seat it and the
         cap they leave: what a card, a row read or an instance, prints.
     """
+    now = datetime.now(tz=UTC)
     eligible = [
         config
-        for config in active_configs
+        for config in configs
         if config.can_seat(participants_limit=participants_limit, start_time=start_time)
     ]
+    # Once sign-ups close the last window's share still caps the seats, so a
+    # waiting list refilling a half-capped session stops at half.
+    seating = allowance_windows(eligible, now=now)
     return SessionCardStatsDTO(
         participants_limit=participants_limit,
         seating_percentage=max(
-            (config.percentage_slots for config in eligible), default=None
+            (config.percentage_slots for config in seating), default=None
         ),
         enrolled_count=enrolled_count,
         waiting_count=waiting_count,
-        enrollment_window_ids=frozenset(config.pk for config in eligible),
+        enrollment_window_ids=frozenset(
+            config.pk for config in open_windows(eligible, now=now)
+        ),
     )
 
 
@@ -293,7 +301,7 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
             status in OCCUPYING_PARTICIPATION_STATUSES for status in statuses
         ),
         waiting_count=statuses.count(SessionParticipationStatus.WAITING),
-        active_configs=session.event.get_active_enrollment_configs(),
+        configs=session.event.enrollment_configs.all(),
     )
 
 
