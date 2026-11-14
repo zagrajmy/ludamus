@@ -58,7 +58,7 @@ jobs:
       # varlock comes from the lockfile rather than a version pinned a second
       # time here. --no-install below then makes a missing one fail loudly
       # rather than cold-start an unpinned fetch mid-deploy.
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - run: aube install --no-optional
 
       - name: Build Coolify env payload and validate with varlock
@@ -99,6 +99,13 @@ jobs:
           AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
           GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
+          # Turns the chat on; deploy-parley.yml deploys the Worker holding
+          # its public half.
+          PARLEY_SIGNING_PRIVATE_KEY: ${{ secrets.PARLEY_SIGNING_PRIVATE_KEY }}
+          # Proves the posta mail Worker posted the staff@ mail it hands over.
+          STAFF_MAIL_WEBHOOK_SECRET: ${{ secrets.STAFF_MAIL_WEBHOOK_SECRET }}
+          # Shared with the Worker: signs the mentions it asks the app to email.
+          PARLEY_MENTIONS_SECRET: ${{ secrets.PARLEY_MENTIONS_SECRET }}
         run: |
           set -euo pipefail
           # Previously injected by compose `environment:` on the host.

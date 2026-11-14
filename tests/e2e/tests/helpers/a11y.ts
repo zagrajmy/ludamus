@@ -7,10 +7,11 @@ import { expect, type Page } from "@playwright/test";
  */
 export const analyzePageAccessibility = async (
   page: Page,
-  options: { include?: string } = {},
+  options: { exclude?: string; include?: string } = {},
 ): Promise<void> => {
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]);
   if (options.include) builder = builder.include(options.include);
+  if (options.exclude) builder = builder.exclude(options.exclude);
 
   const results = await builder.analyze();
   const blocking = results.violations.filter(

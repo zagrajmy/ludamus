@@ -37,21 +37,23 @@
         {% endif %}
         {% session_cover_image data.session as cover_image_url %}
         {% if cover_image_url %}
-            {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0" only %}
+            {% include "components/cover-heading.html" with url=cover_image_url title=data.session.title title_inset="ps-3" extra_class="min-h-40" only %}
         {% endif %}
-        <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none pt-4 print:px-3 print:pb-3 print:pt-2">
+        <div class="relative z-10 flex min-h-0 flex-1 flex-col px-4 pb-4 pointer-events-none pt-4 print:px-3 print:pb-3 print:pt-2">
             <header>
-                <h3 class="w-fit overflow-hidden wrap-anywhere text-pretty text-3xl font-bold leading-tight tracking-tight text-foreground-primary print:text-lg"
-                    data-morph="title">{{ data.session.title }}</h3>
+                {% if not cover_image_url %}
+                    <h3 class="w-fit overflow-hidden wrap-anywhere text-pretty text-3xl font-bold leading-tight tracking-tight text-foreground-primary print:text-lg"
+                        data-morph="title">{{ data.session.title }}</h3>
+                {% endif %}
                 {# This row must not clip: the avatar's warning badge and guild #}
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
                 {# which shaved them. Nothing here needs it — the name bounds itself #}
-                {# with max-w + truncate, and 20px of card padding is the backstop. #}
+                {# with max-w + truncate, and 16px of card padding is the backstop. #}
                 {# A session with no facilitator still has a presenter object: the #}
                 {# card DTO substitutes one carrying the display name, so the name #}
                 {# is what says whether there is anybody to show. #}
                 {% if data.session.facilitator_name or data.enrolled_count %}
-                    <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
+                    <div class="flex items-center gap-2.5 my-3.5 first:mt-0 min-w-0 flex-nowrap">
                         {% if data.session.facilitator_name %}
                             <span class="shrink-0 relative" data-morph="avatar">
                                 {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}

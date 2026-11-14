@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Report illegal content" %}
+{% endblock title %}
+{% block extra_head %}
+    <meta name="robots" content="noindex">
+{% endblock extra_head %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    <div class="max-w-xl mx-auto">
+        {% if sent_reference %}
+            <h1 class="text-2xl font-bold text-foreground">{% translate "Report sent" %}</h1>
+            <p class="mt-3 text-foreground-secondary text-pretty">
+                {% blocktranslate trimmed with reference=sent_reference %}
+                    Its reference is <strong class="text-foreground">{{ reference }}</strong>. If you gave an email address, a confirmation is on its way there, and Zagrajmy staff will write to you with the decision.
+                {% endblocktranslate %}
+            </p>
+            <div class="mt-6">
+                {% url 'web:index' as home_url %}
+                {% translate "Back to Home" as back_label %}
+                {% tessera_button back_label href=home_url variant="secondary" icon="arrow-left" %}
+            </div>
+        {% else %}
+            <h1 class="text-2xl font-bold text-foreground">{% translate "Report illegal content" %}</h1>
+            <div class="mt-3 space-y-2 text-sm text-foreground-secondary text-pretty [&_a]:text-primary [&_a]:underline [&_a:hover]:decoration-primary">
+                <p>
+                    {% translate "Tell Zagrajmy staff about content here that you believe is illegal. Staff read every report and write back with the decision." %}
+                </p>
+                <p>{% translate "If someone is in immediate danger, call 112 first." %}</p>
+                <p>
+                    {% url 'terms-of-service' as terms_url %}
+                    {% blocktranslate trimmed %}
+                        How reports are decided is set out in the <a href="{{ terms_url }}">Terms of Service</a>. Questions go to <a href="mailto:{{ staff_email }}">{{ staff_email }}</a>.
+                    {% endblocktranslate %}
+                </p>
+            </div>
+            <form method="post" class="mt-6 space-y-4" data-ph-no-capture>
+                {% csrf_token %}
+                {% tessera_form form %}
+                {% translate "Send report" as send_label %}
+                {% tessera_button send_label extra_class="w-full" %}
+            </form>
+        {% endif %}
+    </div>
+{% endblock body %}

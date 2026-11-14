@@ -154,5 +154,7 @@ constructor, and own transactional boundaries.
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
+- [Moderation](docs/agents/moderation.md) — notices, chat reports, staff
+  decisions, statements of reasons, police and UKE requests
 - [Verification](docs/VERIFICATION.md) — Hypothesis/CrossHair properties, Bend
   models, the differential test and Bombadil: which layer each covers

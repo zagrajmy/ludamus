@@ -85,7 +85,7 @@ pytest-xdist = "^3.8.0"
 # Imported directly by scripts/djlint_underscore_end.py, the copy of djlint's
 # T038 rule. djlint compiles its patterns with regex, not stdlib re, and the
 # copy has to use the same flavour.
-regex = "^2026.7.19"
+regex = "^2026.11.9"
 responses = "^0.26.0"
 ruff = "^0.17.0"
 taplo = "^0.9.3"
@@ -109,14 +109,15 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-# The two legal documents are published Polish text, skipped for the same reason
-# as the *.po catalogs above: an English dictionary flags ordinary Polish words.
+# The legal documents and the moderation FAQ are Polish text, skipped for the
+# same reason as the *.po catalogs above: an English dictionary flags ordinary
+# Polish words.
 # Named individually rather than by directory, so anything else added under
 # content/ stays checked.
 # `./.claude` only matches when codespell is handed the repo root; hk and CI
 # pass explicit paths, so the vendored skills need a glob that matches the
 # path as given too.
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,zagrajmy-landing-notes.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,zagrajmy-landing-notes.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md,src/ludamus/content/moderation-faq.md'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
@@ -561,6 +562,7 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    "is_open_to",
     # Named by dotted path in LOGGING in settings.py, which is excluded above
     "JsonFormatter",
     "posthog_handler",

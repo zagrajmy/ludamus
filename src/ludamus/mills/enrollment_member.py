@@ -176,6 +176,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
             fields=tuple(
                 person_field(
                     member,
+                    is_host=member.user.pk in session.host_ids,
                     is_member=member.user.pk in member_pks,
                     status=statuses.get(member.user.pk),
                     has_conflict=member.user.pk in conflicted,
@@ -408,6 +409,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
             SessionSeatingDTO(
                 title=session.title,
                 participants_limit=session.participants_limit,
+                host_ids=session.host_ids,
                 enrolled_count=session.seats.enrolled_count,
                 eligible_windows=session.eligible_windows,
             ),
@@ -580,7 +582,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
                 continue
             reason = skip_reason(
                 user_id=req.user.pk,
-                presenter_id=seating.presenter_id,
+                host_ids=seating.host_ids,
                 shadowbanned=req.user.pk in shadowbanned,
                 conflicted=req.user.pk in conflicted,
                 choice=req.choice,

@@ -30,6 +30,7 @@ from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     sessions_run_by,
 )
+from ludamus.links.db.django.session_urls import session_popup_url
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,
@@ -59,12 +60,8 @@ def _session_card(
     item = session.agenda_item
     return DashboardCardDTO(
         title=session.title,
-        url=absolute_url(
-            reverse(
-                "web:chronology:session-enrollment",
-                kwargs={"event_slug": event.slug, "session_id": session.pk},
-            ),
-            domain=sphere.site.domain,
+        url=session_popup_url(
+            event_slug=event.slug, session_id=session.pk, domain=sphere.site.domain
         ),
         start_time=item.start_time,
         origin_name=event.name,

@@ -172,13 +172,26 @@ class FakeSpheres:
         return domain in self._domains
 
 
-def _service(*, users, claims=None, spheres=None, subscriptions=None):
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+        self.aged = []
+
+    def revoke_user(self, *, user_id):
+        self.revoked.append(user_id)
+
+    def age_changed(self, *, user_id):
+        self.aged.append(user_id)
+
+
+def _service(*, users, claims=None, spheres=None, subscriptions=None, chat=None):
     return CrowdAuthService(
         transaction=FakeTransaction(),
         users=users,
         spheres=spheres or FakeSpheres(),
         claims=claims or FakeClaims(),
         subscriptions=subscriptions or FakeSubscriptions(),
+        chat=chat or FakeChat(),
     )
 
 
@@ -641,6 +654,18 @@ class TestAgeConfirmation:
 
         assert users.read(user.slug).privacy_revision != user.privacy_revision
 
+    def test_the_chat_hears_of_an_age_change_and_not_of_the_same_age(self):
+        # Who may be in someone's chats can hang on their age, the two-person
+        # party chat among them.
+        user = _user_dto(age_band=AgeBand.SIXTEEN_PLUS)
+        chat = FakeChat()
+        service = _service(users=FakeUsers(users=[user]), chat=chat)
+
+        service.confirm_age(user_slug=user.slug, age_band=AgeBand.SIXTEEN_PLUS)
+        service.confirm_age(user_slug=user.slug, age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
+
+        assert chat.aged == [user.pk]
+
     def test_reconfirming_the_same_age_preserves_browser_consent(self):
         user = _user_dto(age_band=AgeBand.SIXTEEN_PLUS)
         users = FakeUsers(users=[user])
@@ -653,12 +678,14 @@ class TestAgeConfirmation:
 
     def test_underage_account_cannot_keep_independent_access(self):
         users = FakeUsers(users=[_user_dto(age_band=AgeBand.SIXTEEN_PLUS)])
+        chat = FakeChat()
 
-        _service(users=users).disable_underage_account("auth0user")
+        _service(users=users, chat=chat).disable_underage_account("auth0user")
 
         user = users.read("auth0user")
         assert user.is_active is False
         assert user.age_band == AgeBand.UNKNOWN
+        assert chat.revoked == [user.pk]
 
     @pytest.mark.parametrize(
         "age_band", (AgeBand.THIRTEEN_TO_FIFTEEN, AgeBand.SIXTEEN_PLUS)

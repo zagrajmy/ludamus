@@ -317,7 +317,7 @@ class WaitlistPromotionService:
         with self._transaction.atomic():
             offer = read()
             result = self._claim(offer)
-        if offer is not None and result.reason == "conflict":
+        if offer is not None and result.reason in {"conflict", "host"}:
             self.fill_freed_seats(session_id=offer.session_id)
         return result
 
@@ -328,6 +328,20 @@ class WaitlistPromotionService:
             return ClaimResult(
                 success=False,
                 reason="expired",
+                session_id=offer.session_id,
+                event_slug=offer.event_slug,
+            )
+        if hosting := offer.host_ids.intersection(offer.user_ids):
+            self._participations.drop(offer.participant_ids)
+            logger.info(
+                "Claim on session %s released the offer of %s: %s host it",
+                offer.session_id,
+                offer.user_ids,
+                sorted(hosting),
+            )
+            return ClaimResult(
+                success=False,
+                reason="host",
                 session_id=offer.session_id,
                 event_slug=offer.event_slug,
             )

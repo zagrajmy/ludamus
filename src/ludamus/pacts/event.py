@@ -68,6 +68,8 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    # None follows the sphere's parley_events_enabled.
+    parley_enabled: bool | None = None
     visibility: EventVisibility = EventVisibility.PUBLIC
     cover_image_url: str = ""
     cover_image_original_name: str = ""
@@ -162,6 +164,7 @@ class EventUpdateData(TypedDict, total=False):
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
     use_participants_label: bool
+    parley_enabled: bool | None
 
 
 class EventStatsData(BaseModel):
