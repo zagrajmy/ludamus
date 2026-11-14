@@ -86,6 +86,11 @@ crowd_urlpatterns: list[URLPattern | URLResolver] = [
         name="parties-consent",
     ),
     path(
+        "profile/parties/<int:pk>/do/enrolls-together",
+        views.PartyEnrollsTogetherActionView.as_view(),
+        name="parties-enrolls-together",
+    ),
+    path(
         "profile/parties/<int:pk>/do/leave",
         views.PartyLeaveActionView.as_view(),
         name="parties-leave",

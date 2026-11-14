@@ -224,7 +224,7 @@ names; they are renamed opportunistically, tracked by the
 | Crowd            | user      | Authentication, profiles, delegate accounts                |
 | Multiverse       | sphere    | Sphere and concepts depending only on Sphere               |
 | Notice Board     | encounter | Informal gatherings decoupled from events                  |
-| — (RFC 0001)     | party     | The drużyna: the group that enrolls together               |
+| — (RFC 0001)     | party     | The drużyna: a group that plays and may enroll together    |
 | —                | listing   | Looking-for-group board on the root sphere                 |
 
 ---
@@ -575,10 +575,10 @@ User profile management and delegate (connected) accounts.
 
 ### party
 
-The drużyna: the group that enrolls together. Party CRUD, membership
-invites, consent, and the companion (login-less member) lifecycle. See
-RFC 0001. Already noun-named: `pacts/party.py`, `mills/party.py`,
-`links/db/django/party.py`.
+The drużyna: a group that plays together, and enrolls together while its
+`enrolls_together` setting is on. Party CRUD, membership invites, consent,
+and the companion (login-less member) lifecycle. See RFC 0001. Already
+noun-named: `pacts/party.py`, `mills/party.py`, `links/db/django/party.py`.
 
 ---
 

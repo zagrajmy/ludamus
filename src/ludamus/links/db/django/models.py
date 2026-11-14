@@ -613,7 +613,8 @@ class ParleyReport(models.Model):
 
 
 class Party(models.Model):
-    # The group that enrolls together. See RFC 0001.
+    # A group that plays together, and that also enrolls together while
+    # `enrolls_together` is on. See RFC 0001.
     name = models.CharField(max_length=255, blank=True, default="")
     leader = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="led_parties"
@@ -622,6 +623,7 @@ class Party(models.Model):
     invite_token = models.CharField(
         max_length=64, default=token_urlsafe, db_index=True, unique=True
     )
+    enrolls_together = models.BooleanField(default=True)
 
     class Meta:
         db_table = "party"

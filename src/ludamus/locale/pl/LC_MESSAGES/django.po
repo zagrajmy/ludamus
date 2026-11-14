@@ -1234,6 +1234,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/sphere/panel/connections/edit.html
 #: src/ludamus/templates/sphere/panel/guilds/create.html
 #: src/ludamus/templates/sphere/panel/guilds/delete.html
+#: src/ludamus/templates/user/user/_party_create_modal.html
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Cancel"
@@ -5320,8 +5321,8 @@ msgid "Party created."
 msgstr "Drużyna została utworzona."
 
 #: src/ludamus/gates/web/django/user/views.py
-msgid "Give the party a name."
-msgstr "Nadaj drużynie nazwę."
+msgid "Could not create this party. Check its name and try again."
+msgstr "Nie udało się utworzyć drużyny. Sprawdź jej nazwę i spróbuj ponownie."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Party renamed."
@@ -5438,6 +5439,18 @@ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Enrollments now wait for your approval."
 msgstr "Od teraz zapisy czekają na Twoją zgodę."
+
+#: src/ludamus/gates/web/django/user/views.py
+msgid "This party can now enroll together."
+msgstr "Ta drużyna może się teraz zapisywać razem."
+
+#: src/ludamus/gates/web/django/user/views.py
+msgid "This party no longer enrolls together."
+msgstr "Ta drużyna nie zapisuje się już razem."
+
+#: src/ludamus/gates/web/django/user/views.py
+msgid "A party that has enrolled keeps enrolling together."
+msgstr "Drużyna, która już się zapisała, nadal zapisuje się razem."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "You left the party."
@@ -14474,6 +14487,10 @@ msgstr "Wyślij email ponownie"
 msgid "Send email"
 msgstr "Wyślij email"
 
+#: src/ludamus/templates/user/user/_party_create_modal.html
+msgid "Create party"
+msgstr "Utwórz drużynę"
+
 #: src/ludamus/templates/user/user/_profile_tabs.html
 #: src/ludamus/templates/user/user/parties.html
 msgid "Parties"
@@ -14615,19 +14632,32 @@ msgid "Your parties"
 msgstr "Twoje drużyny"
 
 #: src/ludamus/templates/user/user/parties.html
-msgid ""
-"A party signs up for sessions together and moves up a waiting list together."
+msgid "Sign up for sessions together, or keep a group you play with."
 msgstr ""
-"Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
-"oczekujących."
+"Zapisujcie się razem na punkty programu albo po prostu trzymajcie się jako "
+"grupa do grania."
 
 #: src/ludamus/templates/user/user/parties.html
-msgid "Create party"
-msgstr "Utwórz drużynę"
+msgid "Create play party"
+msgstr "Utwórz drużynę do grania"
 
 #: src/ludamus/templates/user/user/parties.html
-msgid "Name your party — invite friends once it exists."
-msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
+msgid "Create enrollment party"
+msgstr "Utwórz drużynę do zapisów"
+
+#: src/ludamus/templates/user/user/parties.html
+msgid "Sign up for sessions together — invite friends once it exists."
+msgstr ""
+"Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy drużyna "
+"już powstanie."
+
+#: src/ludamus/templates/user/user/parties.html
+msgid ""
+"A group to play with, without enrolling together — invite friends once it "
+"exists."
+msgstr ""
+"Grupa do grania, bez wspólnych zapisów — znajomych zaprosisz, gdy już "
+"powstanie."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invitations"
@@ -14674,6 +14704,10 @@ msgstr "lider: %(leader)s"
 #, python-format
 msgid "created %(created)s"
 msgstr "utworzona %(created)s"
+
+#: src/ludamus/templates/user/user/parties.html
+msgid "enrolls together"
+msgstr "zapisuje się razem"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invite"
@@ -14911,6 +14945,35 @@ msgstr ""
 "Nie macie jeszcze wspólnych punktów programu — wybierz punkt programu na "
 "wydarzeniu i zapisz się jako drużyna."
 
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Enrolling together"
+msgstr "Wspólne zapisy"
+
+#: src/ludamus/templates/user/user/party_detail.html
+msgid ""
+"This party is for playing. Turn this on to sign up for sessions together."
+msgstr ""
+"Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na "
+"punkty programu."
+
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Turn on enrolling together"
+msgstr "Włącz wspólne zapisy"
+
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "This party has enrolled in sessions, so this stays on."
+msgstr ""
+"Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
+"włączona."
+
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "This party can sign up for sessions together."
+msgstr "Ta drużyna może zapisywać się razem na punkty programu."
+
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Turn off enrolling together"
+msgstr "Wyłącz wspólne zapisy"
+
 #: src/ludamus/templates/user/user/party_join.html
 #, python-format
 msgid "%(leader)s's party"
@@ -14927,6 +14990,10 @@ msgid ""
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
 "oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#: src/ludamus/templates/user/user/party_join.html
+msgid "A party is a group you play with. You can leave anytime."
+msgstr "Drużyna to grupa, z którą grasz. Możesz odejść w dowolnej chwili."
 
 #: src/ludamus/templates/user/user/privacy.html
 msgid ""
@@ -15299,6 +15366,19 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
+
+#~ msgid "Give the party a name."
+#~ msgstr "Nadaj drużynie nazwę."
+
+#~ msgid ""
+#~ "A party signs up for sessions together and moves up a waiting list "
+#~ "together."
+#~ msgstr ""
+#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
+#~ "kolejce oczekujących."
+
+#~ msgid "Name your party — invite friends once it exists."
+#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
 
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"

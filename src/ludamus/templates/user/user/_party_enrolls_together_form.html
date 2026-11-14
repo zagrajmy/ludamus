@@ -1,0 +1,8 @@
+{% load tessera %}
+<form method="post"
+      action="{% url 'web:crowd:parties-enrolls-together' pk=party.pk %}"
+      class="mt-3">
+    {% csrf_token %}
+    <input type="hidden" name="enrolls_together" value="{{ value }}">
+    {% tessera_button label variant="secondary" full_width_mobile=False %}
+</form>
