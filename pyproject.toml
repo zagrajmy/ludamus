@@ -25,7 +25,7 @@ package-mode = false
 requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
-authlib = "~1.9.1"
+authlib = "~1.9.5"
 comrak = "0.0.16"
 cryptography = "~50.0.1"
 dbos = ">=3.2.0,<4"
