@@ -7334,6 +7334,14 @@ msgstr "Usuń"
 msgid "%(name_value)s (flagged)"
 msgstr "%(name_value)s (oznaczony)"
 
+#: src/ludamus/templates/components/bottom-sheet-handle.html
+msgid "Expand to full height"
+msgstr "Rozwiń na pełną wysokość"
+
+#: src/ludamus/templates/components/bottom-sheet-handle.html
+msgid "Shrink to half height"
+msgstr "Zwiń do połowy wysokości"
+
 #: src/ludamus/templates/components/color-field.html
 msgid "Color picker"
 msgstr "Wybierz kolor"
@@ -7405,6 +7413,16 @@ msgstr ""
 #: src/ludamus/templates/encounter/create.html
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
+
+#: src/ludamus/templates/components/design/bottom-sheet.html
+#: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/notifications/parts/modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+#: src/ludamus/templates/user/user/profile_base.html
+msgid "Close"
+msgstr "Zamknij"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -7531,7 +7549,7 @@ msgstr "Zamknij"
 #: src/ludamus/templates/components/flash-region.html
 #: src/ludamus/templates/components/notifications.html
 #: src/ludamus/templates/notifications/index.html
-#: src/ludamus/templates/user/user/_profile_tabs.html
+#: src/ludamus/templates/user/user/_profile_sidebar.html
 #: src/ludamus/templates/user/user/notifications.html
 msgid "Notifications"
 msgstr "Powiadomienia"
@@ -8690,14 +8708,6 @@ msgstr "Wprowadź Inny Kod"
 #: src/ludamus/templates/event/event.html
 msgid "Finish"
 msgstr "Zakończ"
-
-#: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
 
 #: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"
@@ -11493,7 +11503,8 @@ msgstr "np. Jan Kowalski"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/user/user/_profile_tabs.html
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#: src/ludamus/templates/user/user/edit.html
 msgid "Personal Information"
 msgstr "Dane osobiste"
 
@@ -14474,24 +14485,116 @@ msgstr "Wyślij email ponownie"
 msgid "Send email"
 msgstr "Wyślij email"
 
-#: src/ludamus/templates/user/user/_profile_tabs.html
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Change avatar"
+msgstr "Zmień awatar"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Profile sections"
+msgstr "Sekcje profilu"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Email not verified"
+msgstr "Email niezweryfikowany"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Name, email, Discord"
+msgstr "Nazwa, email, Discord"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
 #: src/ludamus/templates/user/user/parties.html
 msgid "Parties"
 msgstr "Drużyny"
 
-#: src/ludamus/templates/user/user/_profile_tabs.html
-#: src/ludamus/templates/user/user/avatar.html
-msgid "Avatar"
-msgstr "Awatar"
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(parties)s party"
+msgid_plural "%(parties)s parties"
+msgstr[0] "%(parties)s drużyna"
+msgstr[1] "%(parties)s drużyny"
+msgstr[2] "%(parties)s drużyn"
+msgstr[3] "%(parties)s drużyn"
 
-#: src/ludamus/templates/user/user/_profile_tabs.html
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(companions)s companion"
+msgid_plural "%(companions)s companions"
+msgstr[0] "%(companions)s towarzysz"
+msgstr[1] "%(companions)s towarzyszy"
+msgstr[2] "%(companions)s towarzyszy"
+msgstr[3] "%(companions)s towarzyszy"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(parties_count)s · %(companions_count)s"
+msgstr "%(parties_count)s · %(companions_count)s"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "No parties yet"
+msgstr "Nie masz jeszcze drużyn"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(invites)s invitation"
+msgid_plural "%(invites)s invitations"
+msgstr[0] "%(invites)s zaproszenie"
+msgstr[1] "%(invites)s zaproszenia"
+msgstr[2] "%(invites)s zaproszeń"
+msgstr[3] "%(invites)s zaproszeń"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#: src/ludamus/templates/user/user/safety.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
 
-#: src/ludamus/templates/user/user/_profile_tabs.html
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(players)s shadowbanned player"
+msgid_plural "%(players)s shadowbanned players"
+msgstr[0] "%(players)s osoba z cichym banem"
+msgstr[1] "%(players)s osoby z cichym banem"
+msgstr[2] "%(players)s osób z cichym banem"
+msgstr[3] "%(players)s osób z cichym banem"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Nobody shadowbanned"
+msgstr "Nikt nie ma cichego bana"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(spheres)s sphere"
+msgid_plural "%(spheres)s spheres"
+msgstr[0] "%(spheres)s sfera"
+msgstr[1] "%(spheres)s sfery"
+msgstr[2] "%(spheres)s sfer"
+msgstr[3] "%(spheres)s sfer"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#, python-format
+msgid "%(spheres_count)s · %(muted)s muted"
+msgstr "%(spheres_count)s · wyciszone: %(muted)s"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+#: src/ludamus/templates/user/user/notifications.html
+msgid "No subscriptions yet"
+msgstr "Nie masz jeszcze subskrypcji"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
 #: src/ludamus/templates/user/user/privacy.html
 msgid "Privacy"
 msgstr "Prywatność"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Age range 16 or older"
+msgstr "Przedział wiekowy: 16 lub więcej"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Age range 13–15"
+msgstr "Przedział wiekowy: 13–15"
+
+#: src/ludamus/templates/user/user/_profile_sidebar.html
+msgid "Age range not confirmed"
+msgstr "Przedział wiekowy niepotwierdzony"
 
 #: src/ludamus/templates/user/user/age_range.html
 msgid ""
@@ -14520,6 +14623,10 @@ msgstr "Wyłącz moje konto"
 #: src/ludamus/templates/user/user/age_range.html
 msgid "Choose again"
 msgstr "Wybierz ponownie"
+
+#: src/ludamus/templates/user/user/avatar.html
+msgid "Avatar"
+msgstr "Awatar"
 
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Provider avatar"
@@ -14601,10 +14708,6 @@ msgstr ""
 #: src/ludamus/templates/user/user/notifications.html
 msgid "Muted"
 msgstr "Wyciszona"
-
-#: src/ludamus/templates/user/user/notifications.html
-msgid "No subscriptions yet"
-msgstr "Nie masz jeszcze subskrypcji"
 
 #: src/ludamus/templates/user/user/notifications.html
 msgid "Subscriptions appear here when you visit a sphere."
@@ -14999,6 +15102,14 @@ msgid ""
 msgstr ""
 "Analityka nie jest skonfigurowana na tym serwerze. Nic nie jest zbierane, "
 "więc nie ma tu nic do decydowania."
+
+#: src/ludamus/templates/user/user/profile_base.html
+msgid "Discard your unsaved changes?"
+msgstr "Odrzucić niezapisane zmiany?"
+
+#: src/ludamus/templates/user/user/profile_base.html
+msgid "Discard"
+msgstr "Odrzuć"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned players"

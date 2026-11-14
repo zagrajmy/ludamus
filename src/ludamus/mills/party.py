@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.party import (
         InvitablePartyDTO,
         PartiesOverviewDTO,
+        PartyCountsDTO,
         PartyDTO,
         PartyEnrolledNotification,
         PartyNotifierProtocol,
@@ -56,6 +57,9 @@ class PartyService(PartyServiceProtocol):
 
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO:
         return self._parties.overview(viewer_pk)
+
+    def counts(self, viewer_pk: int) -> PartyCountsDTO:
+        return self._parties.counts(viewer_pk)
 
     def create(self, *, leader_pk: int, name: str) -> int:
         with self._transaction.atomic():

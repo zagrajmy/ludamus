@@ -3,8 +3,14 @@
 {% block title %}
     {% translate "Confirm age range" %}
 {% endblock title %}
+{% block profile_heading %}
+    {% translate "Confirm your age range" %}
+{% endblock profile_heading %}
+{% block profile_sheet_height %}full{% endblock profile_sheet_height %}
+{% block profile_close_url %}
+    {% url 'user:profile-privacy' %}
+{% endblock profile_close_url %}
 {% block profile_content %}
-    <h1 class="font-semibold text-sm mb-1">{% translate "Confirm your age range" %}</h1>
     {% include "user/_age_range_intro.html" %}
     <p class="text-sm text-foreground-secondary mt-3">
         {% translate "Choosing Under 13 disables independent sign-in. Contact us if you already have bookings." %}

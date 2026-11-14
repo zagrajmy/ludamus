@@ -7,6 +7,17 @@
         {% translate "Your party" %}
     {% endif %}
 {% endblock title %}
+{% block profile_heading %}
+    {% if party.name %}
+        {{ party.name }}
+    {% else %}
+        {% translate "Your party" %}
+    {% endif %}
+{% endblock profile_heading %}
+{% block profile_sheet_height %}full{% endblock profile_sheet_height %}
+{% block profile_close_url %}
+    {% url 'web:crowd:profile-parties' %}
+{% endblock profile_close_url %}
 {% block profile_content %}
     <section class="pb-6">
         <div class="flex items-start justify-between gap-3">
@@ -49,13 +60,6 @@
         </div>
         <div class="mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div class="min-w-0">
-                <h5 class="text-3xl font-semibold leading-tight">
-                    {% if party.name %}
-                        {{ party.name }}
-                    {% else %}
-                        {% translate "Your party" %}
-                    {% endif %}
-                </h5>
                 <p class="mt-2 text-sm text-foreground-muted">
                     {% blocktranslate with created=party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}
                     {% if not party.is_leader %}

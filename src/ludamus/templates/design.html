@@ -9,6 +9,7 @@
 {% endblock title %}
 {% block extra_head %}
     {% vite_asset 'src/design-page.ts' %}
+    {% include "components/bottom-sheet-head.html" %}
 {% endblock extra_head %}
 {% block header %}
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">Tessera</h1>
@@ -466,6 +467,13 @@
                 <code class="text-xs text-foreground-muted">tab-shell-body.html</code>
             </div>
             {% include "components/design/tab-shell.html" %}
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2">
+            <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+                <code class="text-xs text-foreground-muted">bottom-sheet-head.html</code>
+                <code class="text-xs text-foreground-muted">bottom-sheet-handle.html</code>
+            </div>
+            {% include "components/design/bottom-sheet.html" %}
         </div>
     </div>
 {% endblock body %}

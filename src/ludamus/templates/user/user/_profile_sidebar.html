@@ -1,0 +1,68 @@
+{% load i18n profile_tags tessera %}
+{% url 'web:crowd:profile' as profile_url %}
+{% url 'web:crowd:profile-parties' as parties_url %}
+{% url 'web:crowd:profile-safety' as safety_url %}
+{% url 'web:crowd:profile-notifications' as notifications_url %}
+{% url 'user:profile-privacy' as privacy_url %}
+{% profile_summary as summary %}
+<aside class="w-full lg:w-66 lg:shrink-0 overflow-hidden rounded-2xl border border-border bg-bg-secondary">
+    <div class="flex flex-col items-center gap-1 px-4 pt-6 pb-2 text-center border-b border-border">
+        {% include "components/avatar.html" with user=current_user size="size-22" %}
+        <p class="mt-2 max-w-full break-words font-semibold"
+           data-ph-mask>{{ current_user.full_name|default:current_user.name }}</p>
+        {% if current_user.email %}
+            <p class="max-w-full break-words text-sm text-foreground-muted"
+               data-ph-mask>{{ current_user.email }}</p>
+        {% endif %}
+        <a href="{% url 'web:crowd:profile-avatar' %}"
+           class="inline-flex items-center min-h-11 px-3 text-sm text-primary hover:underline">
+            {% translate "Change avatar" %}
+        </a>
+    </div>
+    <nav class="flex flex-col gap-0.5 p-2"
+         aria-label="{% translate "Profile sections" %}">
+        {% translate "Personal Information" as t_personal %}
+        {% if current_user.pending_email or current_user.email and not current_user.email_verified %}
+            {% translate "Email not verified" as personal_hint %}
+        {% else %}
+            {% translate "Name, email, Discord" as personal_hint %}
+        {% endif %}
+        {% include "user/user/_profile_nav_link.html" with key="profile" icon="user" href=profile_url|add:"#personal" label=t_personal hint=personal_hint %}
+        {% translate "Parties" as t_parties %}
+        {% if summary.parties or summary.companions %}
+            {% blocktranslate count parties=summary.parties asvar parties_count %}{{ parties }} party{% plural %}{{ parties }} parties{% endblocktranslate %}
+            {% blocktranslate count companions=summary.companions asvar companions_count %}{{ companions }} companion{% plural %}{{ companions }} companions{% endblocktranslate %}
+            {% blocktranslate asvar parties_hint %}{{ parties_count }} · {{ companions_count }}{% endblocktranslate %}
+        {% else %}
+            {% translate "No parties yet" as parties_hint %}
+        {% endif %}
+        {% blocktranslate count invites=summary.pending_invites asvar parties_badge %}{{ invites }} invitation{% plural %}{{ invites }} invitations{% endblocktranslate %}
+        {% include "user/user/_profile_nav_link.html" with key="parties" icon="users" href=parties_url label=t_parties hint=parties_hint badge=parties_badge has_badge=summary.pending_invites %}
+        {% translate "Safety" as t_safety %}
+        {% if summary.shadowbanned %}
+            {% blocktranslate count players=summary.shadowbanned asvar safety_hint %}{{ players }} shadowbanned player{% plural %}{{ players }} shadowbanned players{% endblocktranslate %}
+        {% else %}
+            {% translate "Nobody shadowbanned" as safety_hint %}
+        {% endif %}
+        {% include "user/user/_profile_nav_link.html" with key="safety" icon="shield-exclamation" href=safety_url label=t_safety hint=safety_hint %}
+        {% translate "Notifications" as t_notifications %}
+        {% if summary.muted %}
+            {% blocktranslate count spheres=summary.subscriptions asvar spheres_count %}{{ spheres }} sphere{% plural %}{{ spheres }} spheres{% endblocktranslate %}
+            {% blocktranslate with muted=summary.muted asvar notifications_hint %}{{ spheres_count }} · {{ muted }} muted{% endblocktranslate %}
+        {% elif summary.subscriptions %}
+            {% blocktranslate count spheres=summary.subscriptions asvar notifications_hint %}{{ spheres }} sphere{% plural %}{{ spheres }} spheres{% endblocktranslate %}
+        {% else %}
+            {% translate "No subscriptions yet" as notifications_hint %}
+        {% endif %}
+        {% include "user/user/_profile_nav_link.html" with key="notifications" icon="bell" href=notifications_url label=t_notifications hint=notifications_hint %}
+        {% translate "Privacy" as t_privacy %}
+        {% if optional_features_available %}
+            {% translate "Age range 16 or older" as privacy_hint %}
+        {% elif current_user.age_band.is_confirmed %}
+            {% translate "Age range 13–15" as privacy_hint %}
+        {% else %}
+            {% translate "Age range not confirmed" as privacy_hint %}
+        {% endif %}
+        {% include "user/user/_profile_nav_link.html" with key="privacy" icon="finger-print" href=privacy_url label=t_privacy hint=privacy_hint %}
+    </nav>
+</aside>

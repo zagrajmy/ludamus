@@ -1,0 +1,27 @@
+{% load i18n tessera %}
+<div class="w-full max-w-md flex flex-col gap-3">
+    <a href="#design-bottom-sheet" class="btn btn-secondary lg:hidden">Open sheet</a>
+    <section id="design-bottom-sheet"
+             class="bottom-sheet"
+             data-bottom-sheet
+             data-height="half"
+             aria-labelledby="design-bottom-sheet-title">
+        {% include "components/bottom-sheet-handle.html" %}
+        <div class="bottom-sheet-header">
+            <h3 id="design-bottom-sheet-title"
+                class="text-lg font-semibold outline-none"
+                tabindex="-1"
+                data-bottom-sheet-title>Section</h3>
+            <a href="{% url 'web:design' %}"
+               class="bottom-sheet-close icon-btn size-11 items-center justify-center"
+               data-bottom-sheet-close>
+                {% icon "x-mark" class="w-5 h-5" %}
+                <span class="sr-only">{% translate "Close" %}</span>
+            </a>
+        </div>
+        <div class="bottom-sheet-body">
+            <p class="text-sm text-foreground-secondary">A card in the page from lg up, a bottom sheet below it.</p>
+        </div>
+    </section>
+    <div class="bottom-sheet-backdrop" data-bottom-sheet-backdrop hidden></div>
+</div>
