@@ -71,6 +71,39 @@ class TestPartyThatDoesNotEnroll:
         assert not SessionParticipation.objects.exists()
 
 
+class TestHostingMember:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_leader_cannot_release_a_hosting_members_own_row(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        gm = UserFactory(username="gm-member", email="gm-member@example.com")
+        PartyMembership.objects.create(
+            party=party,
+            member=gm,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+        session = agenda_item.session
+        session.presenter = gm
+        session.save(update_fields=["presenter_id"])
+        row = SessionParticipation.objects.create(
+            session=session, user=gm, status=SessionParticipationStatus.WAITING
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={"party": str(party.pk), "enroll_mode": "desired"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        assert SessionParticipation.objects.filter(pk=row.pk).exists()
+
+
 class TestEnrollRecordsParty:
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_records_default_party_on_all_seats(

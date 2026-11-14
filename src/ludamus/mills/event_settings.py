@@ -11,6 +11,7 @@ from ludamus.pacts.event_settings import (
     EventSettingsServiceProtocol,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.specs.parley import event_chat_may_close
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
         EventSettingsRepos,
         ProposalSettingsUpdateData,
     )
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -46,10 +48,15 @@ def _check_dates(current: EventDTO, data: EventUpdateData) -> None:
 
 class EventSettingsService(EventSettingsServiceProtocol):
     def __init__(
-        self, *, transaction: TransactionProtocol, repos: EventSettingsRepos
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: EventSettingsRepos,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._chat = chat
 
     def update_general(
         self, *, sphere_id: int, slug: str, data: EventUpdateData
@@ -71,6 +78,15 @@ class EventSettingsService(EventSettingsServiceProtocol):
             ):
                 raise EventSlugConflictError from exc
             raise
+        if "parley_enabled" in data and event_chat_may_close(
+            was=current_event.parley_enabled, becomes=data["parley_enabled"]
+        ):
+            logger.info(
+                "parley event chat changed: event=%s to=%s",
+                current_event.pk,
+                data["parley_enabled"],
+            )
+            self._chat.revoke_event(event_id=current_event.pk)
 
     def _slug_held_by_other(
         self, *, slug: str | None, sphere_id: int, event_pk: int

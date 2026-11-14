@@ -20,11 +20,14 @@ test.describe("Dashboard", () => {
 
     const comingUp = page.getByRole("region", { name: "Coming up" });
     const card = comingUp.getByRole("link", { name: /Starred Dungeon Crawl/ });
+    await expect(card).toBeHidden();
+    await comingUp.getByText(/Show \d+ more/).click();
+    await expect(card).toBeVisible();
     await expect(card).toContainText("Foreign Programme");
     await expect(card).toContainText("Bookmarked · 5 spots left");
     await expect(card).toHaveAttribute(
       "href",
-      /^https?:\/\/foreign\.localhost:8000\/event\/foreign-programme\/session\/\d+\/enrollment\/$/,
+      /^https?:\/\/foreign\.localhost:8000\/event\/foreign-programme\/\?session=\d+$/,
     );
   });
 
@@ -53,7 +56,7 @@ test.describe("Dashboard", () => {
   });
 
   for (const width of [375, 1440]) {
-    test(`keeps your spheres with the agenda and past events last at ${width}px`, async ({
+    test(`keeps your spheres with the agenda, rows lined up, and past events last at ${width}px`, async ({
       page,
     }, testInfo) => {
       await page.setViewportSize({ width, height: 1080 });
@@ -78,9 +81,12 @@ test.describe("Dashboard", () => {
       expect(boxes.spheres!.y).toBeGreaterThanOrEqual(boxes.agenda!.y + boxes.agenda!.height);
       expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
       expect(boxes.past!.y).toBeGreaterThanOrEqual(boxes.discover!.y + boxes.discover!.height);
-      if (width >= 1024)
+      if (width >= 1024) {
         expect(boxes.forYou!.x).toBeGreaterThan(boxes.spheres!.x + boxes.spheres!.width);
-      else expect(boxes.forYou!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
+        expect(boxes.forYou!.y).toBe(boxes.agenda!.y);
+        expect(boxes.discover!.y).toBe(boxes.spheres!.y);
+      } else
+        expect(boxes.forYou!.y).toBeGreaterThanOrEqual(boxes.spheres!.y + boxes.spheres!.height);
       const main = page.getByRole("main");
       await page.setViewportSize({
         width,

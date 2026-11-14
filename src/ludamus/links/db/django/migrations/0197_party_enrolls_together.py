@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0188_session_contact_language")]
+    dependencies = [("db_main", "0196_case_inbox")]
 
     operations = [
         migrations.AddField(

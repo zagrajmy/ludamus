@@ -5,6 +5,9 @@ from typing import Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.forms import logo_field
+from ludamus.pacts.encounter import EncountersPolicy
+
 
 class AnnouncementForm(forms.Form):
     title = forms.CharField(label=_("Title"), max_length=255, strip=True)
@@ -47,3 +50,60 @@ class ConnectionForm(forms.Form):
         ):
             self.add_error("secret", _("Secret is required when replacing."))
         return cleaned
+
+
+class SphereSettingsForm(forms.Form):
+    """Form for sphere-wide settings."""
+
+    allow_facilitator_session_edit = forms.BooleanField(
+        required=False,
+        label=_("Allow facilitators to edit their own sessions"),
+        help_text=_("Default for the whole sphere. Events can override this setting."),
+    )
+    parley_enabled = forms.BooleanField(
+        required=False,
+        label=_("Enable chat"),
+        help_text=_(
+            "Signed-in people can talk in the rooms of the programme points they "
+            "take part in. Turning it off closes every chat of the sphere."
+        ),
+    )
+    parley_organizers_enabled = forms.BooleanField(
+        required=False,
+        label=_("Organizers' room"),
+        help_text=_("A room only the sphere's team can read and write in."),
+    )
+    parley_events_enabled = forms.BooleanField(
+        required=False,
+        label=_("Event chats"),
+        help_text=_(
+            "Default for the whole sphere: one chat per event for everyone with a "
+            "place or on a waitlist, the hosts and the team. Events can override "
+            "this setting."
+        ),
+    )
+    event_cover_buttons_at_bottom = forms.BooleanField(
+        required=False,
+        label=_("Place event cover buttons at the bottom right"),
+        help_text=_(
+            "Shows print and venue map buttons in a horizontal row at the bottom "
+            "right of event covers."
+        ),
+    )
+    encounters_policy = forms.ChoiceField(
+        choices=[
+            (EncountersPolicy.NONE.value, _("Nobody (encounters are off here)")),
+            (EncountersPolicy.MANAGERS.value, _("Sphere managers only")),
+            (EncountersPolicy.EVERYONE.value, _("Everyone")),
+        ],
+        widget=forms.RadioSelect,
+        label=_("Who may organize encounters"),
+        help_text=_(
+            "Encounters are small meetups organized by hand. Public ones are "
+            "listed for everyone on the events page."
+        ),
+    )
+    confirmed_encounters_disable = forms.BooleanField(
+        required=False, widget=forms.HiddenInput
+    )
+    logo = logo_field()

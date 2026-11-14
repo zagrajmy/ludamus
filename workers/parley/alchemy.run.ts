@@ -1,0 +1,118 @@
+import * as Cloudflare from "@alchemy.run/cloudflare";
+import agents from "agents/vite";
+import * as Alchemy from "alchemy";
+import * as Config from "effect/Config";
+import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
+import { createPublicKey } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { isAbsolute } from "node:path";
+import { fileURLToPath } from "node:url";
+import { rolldown } from "rolldown";
+
+type WranglerConfig = {
+  name: string;
+  compatibility_date: string;
+  durable_objects: { bindings: { name: string; class_name: string }[] };
+  vars: Record<string, string>;
+};
+
+const testedRuntime: WranglerConfig = JSON.parse(
+  readFileSync(new URL("./wrangler.json", import.meta.url), "utf8"),
+);
+
+const durableObjects = Object.fromEntries(
+  testedRuntime.durable_objects.bindings.map(({ name, class_name }) => [
+    name,
+    Cloudflare.DurableObject(class_name),
+  ]),
+);
+
+// NOTE: Cloudflare's published API types predate Workers Issues, so `issues`
+// cannot sit in the Worker's props literal; Alchemy forwards the key anyway.
+// Every deploy uploads this whole block, and one without `issues` turns
+// Issues off.
+const observability = {
+  enabled: true,
+  issues: { enabled: true },
+  logs: { enabled: true, invocationLogs: false },
+};
+
+// The committed dev pair's private half is public, so a Worker that trusts
+// its public half would accept passes anyone can sign.
+const devPublicKey = createPublicKey(
+  readFileSync(new URL("./dev-signing-key.pem", import.meta.url), "utf8"),
+).export({ format: "der", type: "spki" });
+
+// NOTE: workerd cannot parse the agents' @callable() decorators, and Alchemy
+// strips the functions from a Worker's build plugins, so the Agents SDK
+// plugin that compiles them cannot run inside Alchemy's bundle. It compiles
+// the Worker's own modules here, leaving packages for Alchemy to bundle.
+// TODO: pass agents() as build.input.plugins again once a release carries
+// https://github.com/alchemy-run/alchemy/pull/3176.
+const compileDecorators = Effect.promise(async () => {
+  const file = fileURLToPath(new URL("./.alchemy/decorated/index.js", import.meta.url));
+  const build = await rolldown({
+    input: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
+    plugins: agents(),
+    external: (id) => !id.startsWith(".") && !isAbsolute(id),
+  });
+  await build.write({ file, format: "esm" });
+  await build.close();
+  return file;
+});
+
+const DEV_MENTIONS_SECRET = "parley-dev-mentions-secret-not-for-production";
+
+function refuseDevSecret(secret: Redacted.Redacted<string>): Redacted.Redacted<string> {
+  if (Redacted.value(secret) === DEV_MENTIONS_SECRET) {
+    throw new Error("PARLEY_MENTIONS_SECRET is the committed development value");
+  }
+  return secret;
+}
+
+function refuseDevKey(pem: string): string {
+  const key = createPublicKey(pem.replaceAll("\\n", "\n"));
+  if (key.export({ format: "der", type: "spki" }).equals(devPublicKey)) {
+    throw new Error("PARLEY_PUBLIC_KEY is the committed development key");
+  }
+  return pem;
+}
+
+export default Alchemy.Stack(
+  "Parley",
+  { providers: Cloudflare.providers(), state: Cloudflare.state() },
+  Effect.gen(function* () {
+    const stage = yield* Alchemy.Stage;
+    // The app's own environments, each with a Worker and Durable Objects of
+    // its own. Any other stage is a preview: workers.dev only.
+    const hosted = { prod: testedRuntime.name, staging: `${testedRuntime.name}-staging` }[stage];
+    const parley = yield* Cloudflare.Worker("Parley", {
+      name: hosted,
+      // NOTE: the capability cookie is SameSite=Strict, so browsers send it
+      // only to a Worker on the app's own site, never to workers.dev.
+      domain: hosted === undefined ? undefined : `parley.${yield* Config.String("ROOT_DOMAIN")}`,
+      main: yield* compileDecorators,
+      compatibility: {
+        date: testedRuntime.compatibility_date,
+        // NOTE: Alchemy switches Workers to the new module registry unless
+        // told otherwise, and the tests run the legacy one this date
+        // defaults to. nodejs_compat is on by default from 2026-08-04, so
+        // Alchemy leaves it out.
+        flags: ["legacy_module_registry"],
+      },
+      observability,
+      env: {
+        ...durableObjects,
+        ...testedRuntime.vars,
+        ROOT_DOMAIN: Config.String("ROOT_DOMAIN"),
+        PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY").pipe(Config.map(refuseDevKey)),
+        PARLEY_MENTIONS_SECRET: Config.Redacted("PARLEY_MENTIONS_SECRET").pipe(
+          Config.withDefault(Redacted.make("")),
+          Config.map(refuseDevSecret),
+        ),
+      },
+    });
+    return { url: parley.url };
+  }),
+);

@@ -52,12 +52,13 @@ RUN mise trust && mise install
 
 # Install frontend deps reproducibly from the aube workspace lockfile, scoped to
 # the client package. Copy only the manifests + lockfile first so a source-only
-# change reuses this cached node_modules layer. tests/e2e/package.json is needed
-# for the frozen-lockfile workspace integrity check even though --filter +
-# --no-optional keep its (Playwright) deps out of the image. Independent of the
+# change reuses this cached node_modules layer. The tests/e2e and workers/parley
+# manifests are needed for the frozen-lockfile workspace integrity check even
+# though --filter + --no-optional keep their deps out of the image. Independent of the
 # Python deps, so it lives in base and is built once for both stages.
 COPY --chown=appuser:appuser .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
 COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
+COPY --chown=appuser:appuser workers/parley/package.json ./workers/parley/
 COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/
 # Retry to ride out transient registry stream errors: this install pulls from
 # the npm registry over the host's network, which occasionally stalls mid-stream

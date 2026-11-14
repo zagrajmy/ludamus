@@ -133,6 +133,11 @@ crowd_urlpatterns: list[URLPattern | URLResolver] = [
         name="profile-notifications",
     ),
     path(
+        "profile/notifications/do/mention-mail",
+        profile.ProfileMentionMailActionView.as_view(),
+        name="profile-notifications-mention-mail",
+    ),
+    path(
         "profile/notifications/<int:pk>/do/mute",
         profile.ProfileNotificationsMuteActionView.as_view(),
         name="profile-notifications-mute",

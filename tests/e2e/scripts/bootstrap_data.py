@@ -24,6 +24,7 @@ django.setup()
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
+from django.core.files import File
 from django.core.management import call_command
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -61,6 +62,8 @@ from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.event import EventVisibility
 from ludamus.pacts.notifications import NotificationKind
+from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
+from ludamus.pacts.parley_mentions import ParleyMentionUnsubscribePayload
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -412,6 +415,32 @@ def _create_notifications_scenario() -> None:
         title="Autumn Open: doors to hall B open at 9:00",
         body="Bring your badge. Coffee is by the entrance.",
         url="",
+    )
+
+
+def _create_mention_mail_scenario() -> None:
+    """Seed a user whose chat mention emails the settings and unsubscribe e2e flip.
+
+    Its own account, so turning mention emails off never reaches another spec.
+    """
+    user = User.objects.create_user(
+        username="e2e-mentioned",
+        email="e2e-mentioned@test.local",
+        password="e2e-mentioned-123",
+        name="E2E Mentioned",
+        slug="e2e-mentioned",
+        email_verified=True,
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-mentioned.json",
+    )
+    token = DjangoParleyMentionUnsubscribeCodec().dumps(
+        ParleyMentionUnsubscribePayload(user_id=user.pk)
+    )
+    (REPO_ROOT / "tests" / "e2e" / ".parley-mention-mail.json").write_text(
+        json.dumps({"unsubscribeToken": token}), encoding="utf-8"
     )
 
 
@@ -1402,6 +1431,56 @@ def _create_single_slot_event(sphere: Sphere) -> None:
     )
 
 
+def _create_session_covers_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Gallery Night",
+        slug="session-covers",
+        description="Two tables, one with a picture.",
+        start_offset=timedelta(days=19),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    venue = _create_venue(event, name="Gallery Venue", slug="gallery-venue")
+    area = _create_area(venue, name="Gallery Area", slug="gallery-area")
+    space = _create_space(area, name="Gallery Room", slug="gallery-room", capacity=6)
+    pictured = _scheduled_session(
+        event,
+        space,
+        title="Meeple Painting",
+        slug="meeple-painting",
+        presenter="Gallery GM",
+        description=(
+            "Bring a brush; the meeples are on us.\n\n"
+            "We start with a base coat and a wash, then move on to "
+            "highlights and a simple two-tone cloak. Every table has "
+            "paints, water pots and spare brushes, so come empty-handed "
+            "if you like.\n\n"
+            "Painted meeples go home with you. Wear something you do "
+            "not mind getting a little colourful.\n\n"
+            "No experience needed. If you have painted before, bring "
+            "your own figures and we will help you push them further.\n\n"
+            "The last half hour is a quiet gallery walk: every table "
+            "lines up its work and we vote on a favourite."
+        ),
+        seats=6,
+        hour=1,
+    )
+    cover = settings.BASE_DIR / "static" / "placeholder-images" / "01.webp"
+    with cover.open("rb") as image:
+        pictured.cover_image.save("meeple-painting.webp", File(image))
+    _scheduled_session(
+        event,
+        space,
+        title="Blank Canvas",
+        slug="blank-canvas",
+        presenter="Gallery GM",
+        description="A session with no cover of its own.",
+        seats=6,
+        hour=2,
+    )
+
+
 def _flow_user(slug: str, *, name: str) -> User:
     # A user of its own per role in a flow spec, so no other spec reads its
     # seats, notifications or RSVPs.
@@ -2040,6 +2119,7 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+    _create_mention_mail_scenario()
     _create_unlisted_and_team_scenario(sphere)
 
     _create_party_companion_scenario()
@@ -2312,6 +2392,7 @@ def main() -> None:
     _create_accept_lab_event(sphere)
     _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
+    _create_session_covers_event(sphere)
     _create_slot_states_event(sphere)
     _create_anonymous_signup_event(sphere)
     _create_party_seats_event(sphere)

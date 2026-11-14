@@ -97,6 +97,17 @@ def sessions_run_by(user_id: int) -> QuerySet[Session]:
     )
 
 
+def session_host_ids(session: Session) -> frozenset[int]:
+    # NOTE: the inverse of sessions_run_by, and it must stay so. An imported or
+    # organizer-entered GM is a facilitator linked to an account, not the
+    # presenter.
+    linked = Facilitator.objects.filter(
+        sessions=session, user_id__isnull=False
+    ).values_list("user_id", flat=True)
+    presenter = () if session.presenter_id is None else (session.presenter_id,)
+    return frozenset((*linked, *presenter))
+
+
 def annotate_session_participation_counts(
     queryset: QuerySet[Session],
 ) -> QuerySet[Session]:
@@ -243,6 +254,9 @@ def _session_modal_dto(
             participation.user_id in viewer_ids
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
+        ),
+        viewer_is_host=(
+            editor_user_id is not None and editor_user_id in session_host_ids(session)
         ),
         can_edit=(
             edit_allowed

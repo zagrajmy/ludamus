@@ -26,7 +26,7 @@ from ludamus.gates.mcp.konwencik_tools import (
     OrganizerGetKonwencikSettingsTool,
     OrganizerUpdateKonwencikStylesTool,
 )
-from ludamus.gates.mcp.organizer_context import MaintainerTool, actor_sphere
+from ludamus.gates.mcp.organizer_context import MaintainerTool, actor_sphere, event_json
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolRegistry
 from ludamus.pacts.event import EventDTO, EventListItemDTO
@@ -225,7 +225,7 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
         event: EventDTO = call.services.events.read_by_slug(
             actor_sphere(call.actor), call.data.slug
         )
-        return event.model_dump_json(indent=2)
+        return event_json(services=call.services, actor=call.actor, event=event)
 
 
 class _CreateEventBody(BaseModel):

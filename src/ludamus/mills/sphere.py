@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.sphere import Capability, SphereSettingsOutcome
+from ludamus.specs.parley import event_chat_on
 from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
     from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sphere import (
         AnnouncementData,
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
         SphereAccessDTO,
+        SphereChatSettings,
         SphereDirectoryRepositoryProtocol,
         SphereDTO,
         SphereListItemDTO,
@@ -143,6 +146,45 @@ class ConnectionsService:
             self._connections.delete(sphere_id, pk)
 
 
+def _update_data(changes: SphereSettingsPatch) -> SphereUpdateData:
+    data: SphereUpdateData = {}
+    if "allow_facilitator_session_edit" in changes:
+        data["allow_facilitator_session_edit"] = changes[
+            "allow_facilitator_session_edit"
+        ]
+    if "event_cover_buttons_at_bottom" in changes:
+        data["event_cover_buttons_at_bottom"] = changes["event_cover_buttons_at_bottom"]
+    if "visibility" in changes:
+        data["visibility"] = changes["visibility"]
+    if (encounters_policy := changes.get("encounters_policy")) is not None:
+        data["encounters_policy"] = encounters_policy.value
+    if "parley_enabled" in changes:
+        data["parley_enabled"] = changes["parley_enabled"]
+    if "parley_organizers_enabled" in changes:
+        data["parley_organizers_enabled"] = changes["parley_organizers_enabled"]
+    if "parley_events_enabled" in changes:
+        data["parley_events_enabled"] = changes["parley_events_enabled"]
+    return data
+
+
+def _closes_chat(current: SphereDTO, data: SphereUpdateData) -> bool:
+    """Whether the change turns off a part of the chat that passes still name.
+
+    The sphere's chat, its organizers' room and its events' chats each live
+    in the passes already issued until those are taken back.
+    """
+    return (
+        (data.get("parley_enabled") is False and current.parley_enabled)
+        or (
+            data.get("parley_organizers_enabled") is False
+            and current.parley_organizers_enabled
+        )
+        or (
+            data.get("parley_events_enabled") is False and current.parley_events_enabled
+        )
+    )
+
+
 class SpherePanelService:
     """Read-side context loader for the sphere panel."""
 
@@ -153,12 +195,14 @@ class SpherePanelService:
         events: EventRepositoryProtocol,
         encounters: EncounterRepositoryProtocol,
         users: UserRepositoryProtocol,
+        chat: ParleyRevocationServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._spheres = spheres
         self._events = events
         self._encounters = encounters
         self._users = users
+        self._chat = chat
 
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
         return self._spheres.manager_role(sphere_id, user_slug)
@@ -189,6 +233,7 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        chat: SphereChatSettings,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
         logo: UploadedFileProtocol | str | None = None,
@@ -215,6 +260,9 @@ class SpherePanelService:
         """
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "parley_enabled": chat["parley_enabled"],
+            "parley_organizers_enabled": chat["parley_organizers_enabled"],
+            "parley_events_enabled": chat["parley_events_enabled"],
             "event_cover_buttons_at_bottom": event_cover_buttons_at_bottom,
             "encounters_policy": encounters_policy.value,
         }
@@ -230,6 +278,8 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if _closes_chat(self._spheres.read(sphere_id), data):
+                self._chat.revoke_sphere(sphere_id=sphere_id)
             self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
 
@@ -240,20 +290,8 @@ class SpherePanelService:
         changes: SphereSettingsPatch,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
-        data: SphereUpdateData = {}
-        if "allow_facilitator_session_edit" in changes:
-            data["allow_facilitator_session_edit"] = changes[
-                "allow_facilitator_session_edit"
-            ]
-        if "event_cover_buttons_at_bottom" in changes:
-            data["event_cover_buttons_at_bottom"] = changes[
-                "event_cover_buttons_at_bottom"
-            ]
-        if "visibility" in changes:
-            data["visibility"] = changes["visibility"]
-        if (encounters_policy := changes.get("encounters_policy")) is not None:
-            data["encounters_policy"] = encounters_policy.value
-
+        data = _update_data(changes)
+        encounters_policy = changes.get("encounters_policy")
         with self._transaction.atomic():
             if (
                 not confirmed_encounters_disable
@@ -263,9 +301,19 @@ class SpherePanelService:
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
+            if _closes_chat(self._spheres.read(sphere_id), data):
+                self._chat.revoke_sphere(sphere_id=sphere_id)
             if data:
                 self._spheres.update(sphere_id, data)
             return SphereSettingsOutcome.SAVED
+
+    def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool:
+        sphere = self._spheres.read(sphere_id)
+        return event_chat_on(
+            sphere_chat=sphere.parley_enabled,
+            own=event.parley_enabled,
+            sphere_default=sphere.parley_events_enabled,
+        )
 
     def update_logo(self, sphere_id: int, logo: UploadedFileProtocol | str) -> None:
         data: SphereUpdateData = {"logo": logo}

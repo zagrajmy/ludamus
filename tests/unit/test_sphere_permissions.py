@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from ludamus.mills.sphere import SpherePanelService, can_write_programme
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.sphere import (
@@ -68,13 +70,22 @@ class FakeEncounters:
         return self._exists and sphere_id == SPHERE_PK
 
 
-def _service(*, spheres=None, encounters=None, users=None):
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_sphere(self, *, sphere_id):
+        self.revoked.append(sphere_id)
+
+
+def _service(*, spheres=None, encounters=None, users=None, chat=None):
     return SpherePanelService(
         FakeTransaction(),
         spheres or FakeSpheres(),
         FakeEvents(),
         encounters or FakeEncounters(),
         users or FakeUsers(),
+        chat or FakeChat(),
     )
 
 
@@ -157,12 +168,56 @@ class TestSpherePanelServiceReads:
     def test_read_returns_the_sphere(self):
         assert _service().read(SPHERE_PK) == _sphere()
 
+    @pytest.mark.parametrize(
+        ("sphere_chat", "sphere_default", "own", "on"),
+        (
+            (True, True, None, True),
+            (True, False, None, False),
+            (True, False, True, True),
+            (True, True, False, False),
+            (False, True, True, False),
+        ),
+        ids=[
+            "inherits-on",
+            "inherits-off",
+            "overrides-on",
+            "overrides-off",
+            "sphere-chat-off",
+        ],
+    )
+    def test_an_event_s_chat_is_its_own_choice_else_its_sphere_s(
+        self, sphere_chat, sphere_default, own, on
+    ):
+        spheres = FakeSpheres(
+            _sphere().model_copy(
+                update={
+                    "parley_enabled": sphere_chat,
+                    "parley_events_enabled": sphere_default,
+                }
+            )
+        )
+        event = event_dto().model_copy(update={"parley_enabled": own})
+
+        assert (
+            _service(spheres=spheres).event_chat_on(sphere_id=SPHERE_PK, event=event)
+            is on
+        )
+
+
+CHAT_ON = {
+    "parley_enabled": True,
+    "parley_organizers_enabled": True,
+    "parley_events_enabled": True,
+}
+CHAT_OFF = dict.fromkeys(CHAT_ON, False)
+
 
 class TestSpherePanelServiceUpdateSettings:
     @staticmethod
-    def _update(service, **overrides):
+    def _update(service, *, chat=None, **overrides):
         kwargs = {
             "allow_facilitator_session_edit": False,
+            "chat": CHAT_OFF | (chat or {}),
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": EncountersPolicy.MANAGERS,
         }
@@ -179,11 +234,35 @@ class TestSpherePanelServiceUpdateSettings:
                 SPHERE_PK,
                 {
                     "allow_facilitator_session_edit": False,
+                    **CHAT_OFF,
                     "event_cover_buttons_at_bottom": True,
                     "encounters_policy": "managers",
                 },
             )
         ]
+
+    @pytest.mark.parametrize(
+        "switch",
+        ("parley_enabled", "parley_organizers_enabled", "parley_events_enabled"),
+    )
+    def test_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={switch: True}))
+
+        self._update(_service(spheres=spheres, chat=chat), chat=CHAT_ON)
+        self._update(
+            _service(spheres=spheres, chat=chat), chat=CHAT_ON | {switch: False}
+        )
+
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_saving_while_chat_is_off_revokes_nothing(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_OFF))
+
+        self._update(_service(spheres=spheres, chat=chat))
+
+        assert not chat.revoked
 
     def test_empty_logo_removes_it(self):
         spheres = FakeSpheres()
@@ -192,6 +271,7 @@ class TestSpherePanelServiceUpdateSettings:
 
         assert spheres.updates[0][1] == {
             "allow_facilitator_session_edit": False,
+            **CHAT_OFF,
             "event_cover_buttons_at_bottom": True,
             "encounters_policy": "managers",
             "logo": "",
@@ -265,6 +345,27 @@ class TestSpherePanelServicePatchSettings:
                 },
             )
         ]
+
+    @pytest.mark.parametrize("switch", tuple(CHAT_ON))
+    def test_a_patch_turning_any_part_of_chat_off_takes_back_every_pass(self, switch):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update=CHAT_ON))
+
+        _service(spheres=spheres, chat=chat).patch_settings(
+            SPHERE_PK, changes={switch: False}
+        )
+
+        assert spheres.updates == [(SPHERE_PK, {switch: False})]
+        assert chat.revoked == [SPHERE_PK]
+
+    def test_a_patch_turning_chat_on_takes_nothing_back(self):
+        chat = FakeChat()
+        spheres = FakeSpheres(_sphere().model_copy(update={"parley_enabled": False}))
+
+        _service(spheres=spheres, chat=chat).patch_settings(SPHERE_PK, changes=CHAT_ON)
+
+        assert spheres.updates == [(SPHERE_PK, CHAT_ON)]
+        assert not chat.revoked
 
     def test_an_empty_patch_writes_nothing(self):
         spheres = FakeSpheres()

@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.calendar import (
@@ -33,6 +34,7 @@ from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
     CALENDAR_MAILS_PER_NEW_CREATOR_PER_DAY,
     ENCOUNTER_DEFAULT_DURATION,
+    ENCOUNTER_RSVP_THROTTLE_SECONDS,
     INVITEE_WINDOW,
     INVITEES_PER_CREATOR_PER_DAY,
     INVITEES_PER_NEW_CREATOR_PER_DAY,
@@ -42,6 +44,7 @@ from ludamus.specs.encounter import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.cache import CacheProtocol
     from ludamus.pacts.encounter import (
         EncounterDTO,
         EncounterInviteeRepositoryProtocol,
@@ -142,12 +145,24 @@ class EncounterGuests:
         users: UserRepositoryProtocol,
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
+        cache: CacheProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
         self._users = users
         self._sites = sites
         self._mailer = mailer
+        self._cache = cache
+
+    def recently_rsvpd(self, ip_address: str) -> bool:
+        # The address lives in the cache for the length of the window and
+        # nowhere else. Reserving it here rather than reading a stored IP is
+        # what keeps the throttle from needing a column that outlives it.
+        key = f"encounter_rsvp_rate:{sha256(ip_address.encode()).hexdigest()}"
+        if self._cache.get(key) is not None:
+            return True
+        self._cache.set(key, 1, timeout=ENCOUNTER_RSVP_THROTTLE_SECONDS)
+        return False
 
     def has_room(self, encounter: EncounterDTO, *, email: str) -> bool:
         if not (limit := encounter.max_participants):
@@ -163,12 +178,7 @@ class EncounterGuests:
         return spots_remaining(limit=limit, taken=taken) != 0
 
     def admit(
-        self,
-        encounter: EncounterDTO,
-        *,
-        email: str,
-        user: UserDTO | None,
-        ip_address: str | None,
+        self, encounter: EncounterDTO, *, email: str, user: UserDTO | None
     ) -> bool:
         """Take a spot for `email`: a signup for an account, else the invite.
 
@@ -178,7 +188,7 @@ class EncounterGuests:
         if not self.has_room(encounter, email=email):
             return False
         if user is not None:
-            self._rsvps.create(encounter.pk, ip_address, user.pk)
+            self._rsvps.create(encounter.pk, user.pk)
         self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
         )

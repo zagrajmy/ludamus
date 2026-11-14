@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 Label = EnrollOptionLabel
 _NO_CHANGE = EnrollOption("", Label.NO_CHANGE)
+_SEAT_TAKING = frozenset({EnrollmentChoice.ENROLL, EnrollmentChoice.WAITLIST})
 
 
 def can_join_waitlist(policy: EnrollmentPolicy, *, waiting: int) -> bool:
@@ -38,6 +39,7 @@ def can_join_waitlist(policy: EnrollmentPolicy, *, waiting: int) -> bool:
 def person_field(
     member: RosterMember,
     *,
+    is_host: bool,
     is_member: bool,
     status: str | None,
     has_conflict: bool,
@@ -45,6 +47,7 @@ def person_field(
     can_join_wl: bool,
     restricted_out: bool,
 ) -> EnrollField:
+    options: tuple[EnrollOption, ...]
     if member.needs_accept:
         options, help_text = _held_seat_options(
             status=status,
@@ -71,6 +74,12 @@ def person_field(
             options, help_text = _fallback_options(
                 restricted_out=restricted_out, has_email=bool(member.user.email)
             )
+    if is_host:
+        # Never a seat at their own table. Whose row it is still decides who
+        # may give it back, so only the ways in are taken out.
+        options = tuple(o for o in options if o.value not in _SEAT_TAKING)
+        if status is None:
+            help_text = EnrollHelp.SESSION_HOST
     return EnrollField(user=member.user, options=options, help=help_text)
 
 
@@ -196,7 +205,7 @@ def _if(option: EnrollOption, *, when: bool) -> tuple[EnrollOption, ...]:
 def skip_reason(
     *,
     user_id: int,
-    presenter_id: int | None,
+    host_ids: frozenset[int],
     shadowbanned: bool,
     conflicted: bool,
     choice: EnrollmentChoice,
@@ -208,7 +217,7 @@ def skip_reason(
     Returns:
         The reason the person is skipped, or None when they are seated.
     """
-    if presenter_id and user_id == presenter_id:
+    if user_id in host_ids:
         return SkipReason.SESSION_HOST
     # Shadowbanned: skipped with a neutral reason that reveals nothing.
     if shadowbanned:

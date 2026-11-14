@@ -33,21 +33,40 @@ import functools
 import logging
 import threading
 from datetime import UTC, datetime
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from dbos import DBOS
 from django.conf import settings
 from django.db import connection, transaction
+from requests import HTTPError
 
 from ludamus.inits.builders import build_announcement_fanout, build_waitlist_promotion
 from ludamus.inits.config import SchedulerMode, scheduler_mode
+from ludamus.inits.parley import (
+    DisabledParleyMembershipOutbox,
+    DisabledParleyRevocationOutbox,
+    DisabledStaffThread,
+    InlineParleyMembershipOutbox,
+    InlineParleyRevocationOutbox,
+    InlineStaffThread,
+    deliver_membership,
+    deliver_revocations,
+    deliver_thread_post,
+)
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
+from ludamus.pacts.staff_cases import StaffThreadEntry
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
     from ludamus.pacts.notifications import AnnouncementFanoutSchedulerProtocol
+    from ludamus.pacts.parley import (
+        ParleyMembershipOutboxProtocol,
+        ParleyRevocationOutboxProtocol,
+    )
+    from ludamus.pacts.staff_cases import StaffThreadProtocol
     from ludamus.pacts.sweeps import Sweep
 
 logger = logging.getLogger(__name__)
@@ -122,6 +141,66 @@ def register_sweeps(sweeps: Iterable[Sweep]) -> None:
     # name, so each workflow must exist in every process before launch, under
     # the name the system database already holds.
     _cron_workflows.extend((_cron_workflow(sweep), sweep) for sweep in sweeps)
+
+
+def _worth_retrying(error: BaseException) -> bool:
+    # A refused signature or claim is refused again; the Worker being away
+    # or failing is what a retry waits out.
+    response = error.response if isinstance(error, HTTPError) else None
+    return response is None or response.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+# 12 attempts doubling from 2 s keep trying for about an hour, well inside
+# the pass lifetime, past which the revocation would be moot anyway.
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+def _deliver_parley_revocation_step(sphere_id: int, subject: str) -> None:
+    deliver_revocations(sphere_ids=[sphere_id], subject=subject)
+
+
+@DBOS.workflow()
+def _parley_revocation_workflow(sphere_ids: list[int], subject: str) -> None:
+    for sphere_id in sphere_ids:
+        _deliver_parley_revocation_step(sphere_id, subject)
+
+
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+@_releases_db_connection
+def _deliver_parley_membership_step(conversation_id: int) -> None:
+    deliver_membership(conversation_id)
+
+
+@DBOS.workflow()
+def _parley_membership_workflow(conversation_ids: list[int]) -> None:
+    for conversation_id in conversation_ids:
+        _deliver_parley_membership_step(conversation_id)
+
+
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+def _deliver_staff_thread_step(entry_json: str) -> None:
+    deliver_thread_post(StaffThreadEntry.model_validate_json(entry_json))
+
+
+@DBOS.workflow()
+def _staff_thread_workflow(entry_json: str) -> None:
+    _deliver_staff_thread_step(entry_json)
 
 
 def _apply_schedules() -> None:
@@ -205,3 +284,67 @@ def announcement_fanout_scheduler() -> AnnouncementFanoutSchedulerProtocol:
     if scheduler_mode() is SchedulerMode.DBOS:
         return DBOSAnnouncementFanoutScheduler()
     return CronSweepAnnouncementFanout()
+
+
+class DBOSParleyRevocationOutbox:
+    @staticmethod
+    def schedule(*, sphere_ids: list[int], subject: str) -> None:
+        _ensure_launched()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(
+                _parley_revocation_workflow, sphere_ids, subject
+            )
+        )
+
+
+def parley_revocation_outbox() -> ParleyRevocationOutboxProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledParleyRevocationOutbox()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSParleyRevocationOutbox()
+    return InlineParleyRevocationOutbox()
+
+
+class DBOSParleyMembershipOutbox:
+    @staticmethod
+    def schedule(*, conversation_ids: list[int]) -> None:
+        if not conversation_ids:
+            return
+        _ensure_launched()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_parley_membership_workflow, conversation_ids)
+        )
+
+
+def parley_membership_outbox() -> ParleyMembershipOutboxProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledParleyMembershipOutbox()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSParleyMembershipOutbox()
+    return InlineParleyMembershipOutbox()
+
+
+class DBOSStaffThread:
+    """Posts into a case's thread after commit, retrying while the chat is away."""
+
+    @staticmethod
+    def post(entry: StaffThreadEntry) -> None:
+        _ensure_launched()
+        payload = entry.model_dump_json()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_staff_thread_workflow, payload)
+        )
+
+
+def staff_thread() -> StaffThreadProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledStaffThread()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSStaffThread()
+    return InlineStaffThread()

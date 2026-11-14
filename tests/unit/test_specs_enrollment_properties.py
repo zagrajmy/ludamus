@@ -20,6 +20,7 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.specs.enrollment import select_promotable_parties
+from tests.unit.factories import promotion_state
 
 _BASE = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _USERS = range(1, 7)
@@ -39,22 +40,6 @@ def _member(
         owner_slots_remaining=slots,
         holds_event_seat=seated,
         recipient_user_id=user_id,
-    )
-
-
-def _state(waiting: list[WaitingParticipantDTO], *, seats: int) -> PromotionStateDTO:
-    return PromotionStateDTO(
-        session_id=1,
-        session_title="S",
-        event_slug="ev",
-        start_time=_BASE + timedelta(days=7),
-        promotion_mode=PromotionMode.AUTO,
-        offer_claim_window=timedelta(hours=24),
-        presenter_id=None,
-        seats=SessionSeatsDTO(
-            participants_limit=seats, seating_percentage=None, enrolled_count=0
-        ),
-        waiting=waiting,
     )
 
 
@@ -97,7 +82,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
         start_time=_BASE + timedelta(days=7),
         promotion_mode=PromotionMode.AUTO,
         offer_claim_window=timedelta(hours=24),
-        presenter_id=draw(st.none() | st.sampled_from(_USERS)),
+        host_ids=frozenset(draw(st.sets(st.sampled_from(_USERS), max_size=2))),
         seats=SessionSeatsDTO(
             participants_limit=draw(st.integers(min_value=0, max_value=6)),
             seating_percentage=None,
@@ -112,7 +97,7 @@ def promotion_states(draw: st.DrawFn) -> PromotionStateDTO:
 
 def _eligible(state: PromotionStateDTO, member: WaitingParticipantDTO) -> bool:
     return (
-        member.user_id != state.presenter_id
+        member.user_id not in state.host_ids
         and not member.has_conflict
         and member.user_id not in state.shadowbanned_user_ids
     )
@@ -175,10 +160,14 @@ def test_never_spends_more_slots_than_an_owner_has(state):
 @given(promotion_states())
 # The head of the line has no slots left, so the seat goes to the next party.
 @example(
-    _state([_member(user_id=1, order=0, slots=0), _member(user_id=2, order=1)], seats=1)
+    promotion_state(
+        [_member(user_id=1, order=0, slots=0), _member(user_id=2, order=1)], seats=1
+    )
 )
 # Both parties fit, so the first is charged before the second is judged.
-@example(_state([_member(user_id=1, order=0), _member(user_id=2, order=1)], seats=2))
+@example(
+    promotion_state([_member(user_id=1, order=0), _member(user_id=2, order=1)], seats=2)
+)
 def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
     selected = [_ids(party) for party in select_promotable_parties(state)]
     parties = _eligible_parties(state)
@@ -200,9 +189,9 @@ def test_passes_over_a_party_only_when_its_owner_is_out_of_slots(state):
 
 @given(promotion_states())
 # No slots left, but the waiter is already seated elsewhere in the event.
-@example(_state([_member(user_id=1, order=0, slots=0, seated=True)], seats=1))
+@example(promotion_state([_member(user_id=1, order=0, slots=0, seated=True)], seats=1))
 # Seated past the passes: even a waiter who costs nothing does not fit.
-@example(_state([_member(user_id=1, order=0, slots=-1, seated=True)], seats=1))
+@example(promotion_state([_member(user_id=1, order=0, slots=-1, seated=True)], seats=1))
 def test_promotes_the_head_of_the_line_when_it_fits(state):
     if not (parties := _eligible_parties(state)):
         return

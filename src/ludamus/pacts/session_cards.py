@@ -91,6 +91,7 @@ class SessionModalDTO(SessionCardStatsDTO):
     field_values: list[SessionFieldValueDTO]
     viewer_enrolled: bool
     viewer_waiting: bool
+    viewer_is_host: bool = False
     can_edit: bool
     is_ongoing: bool
     is_ended: bool
