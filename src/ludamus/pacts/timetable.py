@@ -28,6 +28,7 @@ class PlacementRejection(StrEnum):
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
     BEFORE_PUBLICATION = "before_publication"
+    SPACE_TIME_CONFLICT = "space_time_conflict"
 
 
 class PlacementRejectedError(Exception):
