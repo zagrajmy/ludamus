@@ -81,10 +81,9 @@ test.describe("Accepting a proposal", () => {
     await page.getByRole("link", { name: "Open details for Solo Encore" }).click();
     const details = page.getByRole("dialog");
     await expect(details).toContainText(namedRoom.trim());
-    const modalCover = details.locator("[data-session-cover]");
-    await expectCoverShown(modalCover);
-    const box = (await modalCover.boundingBox())!;
-    expect(box.width / box.height).toBeCloseTo(16 / 9, 1);
+    // The modal leads with the cover as its title's backdrop, whose shape
+    // session-modal-cover.spec.ts owns; here it only has to have loaded.
+    await expectCoverShown(details.locator("[data-cover-image]"));
     const [start, end] = namedSlot.trim().split("–");
     await expect(details).toContainText(`${start.slice(-5)}–${end}`);
 
