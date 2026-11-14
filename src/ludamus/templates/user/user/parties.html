@@ -12,20 +12,10 @@
             </p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row shrink-0">
-            <a href="?new-play-party=1"
-               class="btn btn-secondary"
-               aria-controls="new-play-party-modal"
-               aria-haspopup="dialog">
-                {% icon "plus-circle" class="w-4 h-4" %}
-                {% translate "Create play party" %}
-            </a>
-            <a href="?new-party=1"
-               class="btn btn-primary"
-               aria-controls="new-party-modal"
-               aria-haspopup="dialog">
-                {% icon "plus-circle" class="w-4 h-4" %}
-                {% translate "Create enrollment party" %}
-            </a>
+            {% translate "Create play party" as t_create_play_party %}
+            {% tessera_button t_create_play_party href="?new-play-party=1" variant="secondary" icon="plus-circle" aria_controls="new-play-party-modal" aria_haspopup="dialog" %}
+            {% translate "Create enrollment party" as t_create_enrollment_party %}
+            {% tessera_button t_create_enrollment_party href="?new-party=1" icon="plus-circle" aria_controls="new-party-modal" aria_haspopup="dialog" %}
         </div>
     </div>
     {% translate "Create enrollment party" as enrollment_party_title %}

@@ -24,7 +24,10 @@ test("a play party hides enrollment until its leader turns it on", async ({ page
   await expect(page.getByRole("heading", { name: "Sessions together" })).toHaveCount(0);
 
   await page.goto(PARTIES_URL);
-  const row = page.locator(".card", { hasText: name });
+  const row = page
+    .locator(".card")
+    .filter({ has: page.getByRole("heading", { name, exact: true }) });
+  await expect(row).toBeVisible();
   await expect(row.getByText("enrolls together")).toHaveCount(0);
 
   await page.goto(party.url);
