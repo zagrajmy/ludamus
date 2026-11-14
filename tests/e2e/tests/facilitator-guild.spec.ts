@@ -31,6 +31,9 @@ const deleteGuildIfPresent = async (page: Page): Promise<void> => {
   if ((await guildRow(page).count()) === 0) return;
   await guildRow(page).getByRole("link", { name: "Delete" }).click();
   await page.getByRole("button", { name: "Delete guild" }).click();
+  // Back on the list first: a refused POST lands on an error page with no
+  // rows, which would pass the count below and leave the guild behind.
+  await expect(page).toHaveURL("/multiverse/panel/guilds/");
   // The row itself, not the "Guild deleted." toast: transient flashes clear
   // themselves after five seconds, which a slow page load can outlast.
   await expect(guildRow(page)).toHaveCount(0);
