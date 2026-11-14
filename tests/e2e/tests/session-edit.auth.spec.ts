@@ -4,7 +4,7 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
 import { DENSE_EVENT_URL } from "./helpers/urls";
 
-const SEEDED_DESCRIPTION = "A session its presenter can edit from the modal.";
+const SEEDED_DESCRIPTION = "A session whose card a saved edit refreshes.";
 
 test.describe("Editing a scheduled session from its modal", () => {
   test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
@@ -12,9 +12,9 @@ test.describe("Editing a scheduled session from its modal", () => {
   test("saving an edit closes the modal and the card shows it", async ({ page }) => {
     const edited = `Edited from the modal ${Date.now()}`;
     await page.goto("/event/facilitator-edit-demo/");
-    const card = page.locator("[data-session-card]").filter({ hasText: "Own Table Demo" });
-    await page.getByRole("link", { name: "Open details for Own Table Demo" }).press("Enter");
-    const dialog = page.getByRole("dialog", { name: "Own Table Demo" });
+    const card = page.locator("[data-session-card]").filter({ hasText: "Card Refresh Demo" });
+    await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Card Refresh Demo" });
     await dialog.getByRole("button", { name: "Edit session" }).click();
 
     try {
@@ -40,16 +40,47 @@ test.describe("Editing a scheduled session from its modal", () => {
       });
 
       // Reopening shows the edit, not the dialog cached before it.
-      await page.getByRole("link", { name: "Open details for Own Table Demo" }).press("Enter");
+      await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
       await expect(dialog).toContainText(edited);
     } finally {
       await page.goto("/event/facilitator-edit-demo/");
-      await page.getByRole("link", { name: "Open details for Own Table Demo" }).press("Enter");
+      await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
       await dialog.getByRole("button", { name: "Edit session" }).click();
       await dialog.getByLabel("Description").fill(SEEDED_DESCRIPTION);
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();
     }
+  });
+
+  test("a save that lands after the dialog was closed still refreshes the card", async ({
+    page,
+  }) => {
+    await page.goto("/event/facilitator-edit-demo/");
+    await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Card Refresh Demo" });
+    await expect(dialog).toBeVisible();
+    const sessionId = (await dialog.getAttribute("id"))!.replace("session-", "");
+
+    // Esc while the save is still in flight: its answer arrives after the
+    // dialog's close event (a task after `open` turns false), so none follows.
+    const cached = page.locator(`#session-${sessionId}`);
+    const closed = cached.evaluate(
+      (el) => new Promise<void>((resolve) => el.addEventListener("close", () => resolve())),
+    );
+    await page.keyboard.press("Escape");
+    await closed;
+    const refresh = page.waitForRequest(
+      (request) =>
+        request.headers()["hx-request"] === "true" &&
+        new URL(request.url()).pathname === "/event/facilitator-edit-demo/",
+    );
+    await page.evaluate((id) => {
+      document.body.dispatchEvent(new CustomEvent("session-saved", { detail: { id: Number(id) } }));
+    }, sessionId);
+
+    await refresh;
+    // The cached copy goes too, so the next open fetches the saved one.
+    await expect(cached).toHaveCount(0);
   });
 
   test("an overnight session's rows each come back as their own day's", async ({ page }) => {

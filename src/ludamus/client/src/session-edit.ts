@@ -87,14 +87,16 @@ document.body.addEventListener("session-saved", (e) => {
   const sessionId = String((e as CustomEvent<{ id?: number }>).detail?.id ?? "");
   const dialog = document.getElementById(`session-${sessionId}`);
   if (!(dialog instanceof HTMLDialogElement)) return;
-  dialog.addEventListener(
-    "close",
-    () => {
-      dialog.remove();
-      refreshSessionCard(sessionId);
-    },
-    { once: true },
-  );
+  const finish = (): void => {
+    dialog.remove();
+    refreshSessionCard(sessionId);
+  };
+  // Closed while the save was in flight (Esc): no close event is coming.
+  if (!dialog.open) {
+    finish();
+    return;
+  }
+  dialog.addEventListener("close", finish, { once: true });
   dialog.querySelector<HTMLElement>("[data-modal-close]")?.click();
 });
 

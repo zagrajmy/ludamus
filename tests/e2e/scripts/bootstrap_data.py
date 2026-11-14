@@ -561,6 +561,23 @@ def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> Non
     )
     session.presenter = superuser
     session.save(update_fields=["presenter"])
+    # Its own session for the save-closes-the-dialog spec: modal-surfaces
+    # renames Own Table Demo in parallel, and a save loaded before that rename
+    # would write the old title back.
+    refreshed = _create_session(
+        event,
+        space,
+        title="Card Refresh Demo",
+        slug="card-refresh-demo",
+        presenter=superuser.name,
+        description="A session whose card a saved edit refreshes.",
+        start_offset=timedelta(hours=4),
+        duration_hours=2,
+        participants_limit=8,
+        min_age=0,
+    )
+    refreshed.presenter = superuser
+    refreshed.save(update_fields=["presenter"])
     # A proposal its author still waits on: no panel access, so the event page
     # shows it under their own pending proposals, which open the edit page.
     author = User.objects.create_user(
