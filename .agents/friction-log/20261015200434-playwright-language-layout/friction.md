@@ -1,6 +1,7 @@
 ---
 title: 'Localized E2E checks need compiled translation catalogs'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1519'
 ---
 
 ## Expected Behavior
