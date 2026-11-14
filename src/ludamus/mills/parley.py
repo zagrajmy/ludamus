@@ -93,6 +93,21 @@ def _event_grants(rooms: list[ParleyRoomDTO]) -> dict[str, ParleyEventGrant]:
     return grants
 
 
+def _by_event(room: ParleyRoomDTO) -> tuple[int, str, bool, str, int]:
+    """Order rooms by when their event starts, its own chat before its points'.
+
+    Returns:
+        The sort key.
+    """
+    return (
+        room.starts_at or 0,
+        room.event_title or "",
+        room.kind != ParleyRoomKind.EVENT,
+        room.title,
+        room.pk or 0,
+    )
+
+
 def _managed(
     rooms: list[ParleyRoomDTO], moderated: frozenset[int]
 ) -> dict[str, ParleyManagedSphere]:
@@ -245,6 +260,23 @@ class ParleyService:
             capability_token=capability_token,
             agent_host=self._agent_host,
         )
+
+    def moderated_rooms(
+        self, *, user_id: int, sphere_id: int, now: datetime
+    ) -> list[ParleyRoomDTO]:
+        """List the sphere's rooms this person moderates without being in them.
+
+        Returns:
+            Each event's chat, then its programme points', events in the order
+            they start; nothing for someone who does not moderate the sphere.
+        """
+        if sphere_id not in self._moderated(user_id):
+            return []
+        access = self._repository.read_access(
+            user_id=user_id, window=self._window(now), moderated=frozenset({sphere_id})
+        )
+        rooms = [] if access is None else access.rooms
+        return sorted((room for room in rooms if room.moderating), key=_by_event)
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool:
         """Keep a report of a message the reporter can see and did not write.

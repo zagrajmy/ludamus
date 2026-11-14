@@ -159,9 +159,9 @@ def test_a_manager_s_own_rooms_stand_apart_from_the_ones_they_only_moderate(
     ) == sorted(
         [
             (f"organizers:{sphere.pk}", False, None),
-            (f"event:{sphere.pk}:{event.pk}", False, None),
-            (f"event:{sphere.pk}:{unvisited.pk}", True, None),
-            (f"event:{elsewhere.sphere_id}:{elsewhere.pk}", False, None),
+            (f"event:{sphere.pk}:{event.pk}", False, "Bachanalia"),
+            (f"event:{sphere.pk}:{unvisited.pk}", True, "Polcon"),
+            (f"event:{elsewhere.sphere_id}:{elsewhere.pk}", False, "Elsewhere"),
             (f"session:{sphere.pk}:{played.pk}", False, "Bachanalia"),
             (f"session:{sphere.pk}:{watched.pk}", True, "Bachanalia"),
             (f"session:{elsewhere.sphere_id}:{joined.pk}", False, "Elsewhere"),

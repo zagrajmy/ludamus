@@ -188,12 +188,6 @@ def _conversation_copy() -> dict[str, str]:
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
         "moderation": _("Moderation"),
-        "moderationHint": _(
-            "Chats from your events that you are not part of. Read them here and "
-            "step in when needed."
-        ),
-        "moderationEmpty": _("Nothing to moderate right now."),
-        "backToModeration": _("Back to moderation"),
         "moderatorView": _("Moderator view"),
         "moderatorReading": _("You are reading this chat as a moderator."),
         "writeAsOrganizer": _("Write as organizer"),
@@ -277,6 +271,16 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
+    # The rooms someone only moderates live on their sphere's own page; the
+    # chat links there from the sphere it is open on.
+    sphere_id = request.context.current_sphere_id
+    response_data["moderation"] = (
+        {"sphere": sphere_id, "url": reverse("multiverse:panel:chats")}
+        if any(
+            room.moderating and room.sphere_id == sphere_id for room in payload.rooms
+        )
+        else None
+    )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
     response_data["ageUrl"] = reverse("user:profile-privacy")

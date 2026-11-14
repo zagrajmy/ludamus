@@ -14,6 +14,17 @@ export type Conversation = {
   title: string;
 };
 
+export type BootstrapRoom = {
+  canModerate: boolean;
+  canWrite: boolean;
+  eventTitle?: string | null;
+  id: string;
+  kind: string;
+  moderating?: boolean;
+  sphere: number;
+  title: string;
+};
+
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
 // sphere 1 with its event's chat and one read-only programme point.
 export const bootstrap = {
@@ -30,7 +41,6 @@ export const bootstrap = {
     allChats: "All chats",
     backLabel: "Back to conversations",
     backToConversation: "Back to the conversation",
-    backToModeration: "Back to moderation",
     backToNewMessage: "Back to new message",
     block: "Block",
     blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
@@ -108,9 +118,6 @@ export const bootstrap = {
     moderatedRoomsMany: "%(count)s chats you moderate",
     moderatedRoomsOne: "%(count)s chat you moderate",
     moderation: "Moderation",
-    moderationEmpty: "Nothing to moderate right now.",
-    moderationHint:
-      "Chats from your events that you are not part of. Read them here and step in when needed.",
     moderatorDelete: "Delete as moderator",
     moderatorReading: "You are reading this chat as a moderator.",
     moderatorView: "Moderator view",
@@ -192,6 +199,7 @@ export const bootstrap = {
   },
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
+  moderation: null as { sphere: number; url: string } | null,
   rooms: [
     {
       canModerate: true,
@@ -209,7 +217,7 @@ export const bootstrap = {
       sphere: 1,
       title: "Mothership",
     },
-  ],
+  ] as BootstrapRoom[],
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },
 };
 

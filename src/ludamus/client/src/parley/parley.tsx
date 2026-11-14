@@ -33,7 +33,6 @@ import { type Activity, type Source, useActivity } from "./use-activity";
 import { useFloatingWindow } from "./use-floating-window";
 
 type OpenView =
-  | { from?: "moderation"; kind: "room"; roomId: string }
   | { kind: "blocked" }
   | { kind: "compose" }
   // Not chosen yet: this page's room, else the only room, else the list.
@@ -41,8 +40,7 @@ type OpenView =
   | { kind: "entry" }
   | { kind: "group" }
   | { kind: "list" }
-  // Opened from the moderation list, a room goes back there.
-  | { kind: "moderation" };
+  | { kind: "room"; roomId: string };
 // Closed, the chat keeps what was open for the button to bring back.
 type View = OpenView | { kind: "closed"; left: OpenView };
 type Shown = Exclude<View, { kind: "entry" }>;
@@ -179,7 +177,7 @@ function moveAmongRows(event: KeyboardEvent<HTMLElement>): void {
 // One tab stop for a whole list, on the row last focused while it lasts;
 // the first row takes focus as the list opens.
 function useRowFocus(ids: string[]) {
-  const first = useRef<HTMLButtonElement>(null);
+  const first = useRef<HTMLElement | null>(null);
   useEffect(() => {
     first.current?.focus();
   }, []);
@@ -188,7 +186,12 @@ function useRowFocus(ids: string[]) {
   return (id: string) => ({
     "data-room-row": true,
     onFocus: () => setLastFocused(id),
-    ref: id === ids[0] ? first : undefined,
+    ref:
+      id === ids[0]
+        ? (node: HTMLElement | null) => {
+            first.current = node;
+          }
+        : undefined,
     tabIndex: id === tabStop ? 0 : -1,
   });
 }
@@ -295,8 +298,9 @@ function RoomList({
   current: string | null;
   // The room of the page being looked at, kept on top.
   here: Room | undefined;
-  // The rooms this person only moderates, kept behind one row of their own.
-  moderation: { open: () => void; rooms: Room[] } | null;
+  // The rooms this person only moderates here, read on the page the row
+  // links to.
+  moderation: { rooms: Room[]; url: string } | null;
   open: (room: Room) => void;
   rooms: Room[];
   showBlocked: (() => void) | null;
@@ -359,12 +363,7 @@ function RoomList({
         <ul>{others.map(row)}</ul>
         {moderation !== null && (
           <div className={sorted.length > 0 ? "mt-1 border-t border-border pt-1" : ""}>
-            <button
-              className={ROW}
-              onClick={moderation.open}
-              type="button"
-              {...focus(MODERATION_ROW)}
-            >
+            <a className={ROW} href={moderation.url} {...focus(MODERATION_ROW)}>
               <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-bg-tertiary text-foreground-secondary">
                 <Icon className="size-5" name="Shield" />
               </span>
@@ -382,7 +381,7 @@ function RoomList({
               </span>
               {moderationUnread && <UnreadDot label={copy.unread} />}
               <Icon className="size-4 shrink-0 rotate-180 text-foreground-muted" name="Back" />
-            </button>
+            </a>
           </div>
         )}
         {bootstrap.ageGate !== null && (
@@ -402,77 +401,6 @@ function RoomList({
             )}
           </p>
         )}
-      </nav>
-    </>
-  );
-}
-
-// The rooms this person only moderates, under the event each belongs to.
-function ModerationList({
-  activity,
-  back,
-  blocked,
-  bootstrap,
-  close,
-  current,
-  open,
-  rooms,
-}: {
-  activity: Record<string, RoomActivity>;
-  back: () => void;
-  blocked: Set<string>;
-  bootstrap: Bootstrap;
-  close: () => void;
-  current: string | null;
-  open: (room: Room) => void;
-  rooms: Room[];
-}) {
-  const { copy } = bootstrap;
-  const events = Map.groupBy(
-    byActivity(rooms, activity),
-    ({ room }) => `${room.sphere}:${room.kind === "event" ? room.title : (room.eventTitle ?? "")}`,
-  );
-  const groups = [...events.values()];
-  const focus = useRowFocus(groups.flat().map(({ room }) => room.id));
-  return (
-    <>
-      <PanelHeader
-        back={{ label: copy.backLabel, run: back }}
-        close={close}
-        closeLabel={copy.closeLabel}
-        title={copy.moderation}
-      />
-      <nav
-        aria-label={copy.moderation}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pt-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
-        onKeyDown={moveAmongRows}
-      >
-        <p className="px-2 pt-1.5 pb-1 text-sm text-foreground-secondary">
-          {rooms.length === 0 ? copy.moderationEmpty : copy.moderationHint}
-        </p>
-        {groups.map((group) => {
-          const [{ room }] = group;
-          return (
-            <section key={`${room.sphere}:${room.id}`}>
-              <h3 className={SECTION}>
-                {room.kind === "event" ? room.title : (room.eventTitle ?? "")}
-              </h3>
-              <ul>
-                {group.map((each) => (
-                  <RoomRow
-                    blocked={blocked}
-                    bootstrap={bootstrap}
-                    current={current}
-                    focus={focus(each.room.id)}
-                    key={each.room.id}
-                    open={open}
-                    sorted={each}
-                  />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
       </nav>
     </>
   );
@@ -547,12 +475,16 @@ function Connected({
   ) as Record<string, RoomActivity>;
   const here = rooms.find(({ id }) => id === pageRoom);
   // A room this person only moderates stays out of their own list, unless
-  // it is this page's; the chat never opens on one by itself.
-  const moderated = rooms.filter(({ moderating }) => moderating === true);
+  // it is this page's, and the chat opens on one only from a link. This
+  // sphere's are read on its moderation page, which the list links to.
+  const { moderation } = bootstrap;
+  const moderated = rooms.filter(
+    ({ moderating, sphere }) => moderating === true && sphere === moderation?.sphere,
+  );
   const listed = rooms.filter(({ id, moderating }) => moderating !== true || id === here?.id);
   const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
   const single =
-    listed.length === 1 && moderated.length === 0 && !bootstrap.canMessage ? listed[0] : undefined;
+    listed.length === 1 && moderation === null && !bootstrap.canMessage ? listed[0] : undefined;
   const shown = settle(
     view,
     rooms,
@@ -622,7 +554,6 @@ function Connected({
     open(asRoom(conversation, copy.typingSomeone));
   };
   const toList = () => setView({ kind: "list" });
-  const toModeration = () => setView({ kind: "moderation" });
 
   // Into the details and back, focus follows: to their back button, then
   // to the button that opened them.
@@ -715,7 +646,7 @@ function Connected({
               compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
               current={current}
               here={here}
-              moderation={moderated.length > 0 ? { open: toModeration, rooms: moderated } : null}
+              moderation={moderation === null ? null : { rooms: moderated, url: moderation.url }}
               open={open}
               rooms={listed}
               showBlocked={
@@ -723,18 +654,6 @@ function Connected({
                   ? () => setView({ kind: "blocked" })
                   : null
               }
-            />
-          )}
-          {shown.kind === "moderation" && (
-            <ModerationList
-              activity={activity}
-              back={toList}
-              blocked={blockedIds}
-              bootstrap={bootstrap}
-              close={close}
-              current={current}
-              open={(target) => setView({ from: "moderation", kind: "room", roomId: target.id })}
-              rooms={moderated}
             />
           )}
           {shown.kind === "compose" && (
@@ -777,13 +696,7 @@ function Connected({
               <div className={shown.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
                 <Conversation
                   answers={answersFor(room)}
-                  back={
-                    single === undefined
-                      ? shown.kind === "room" && shown.from === "moderation"
-                        ? { label: copy.backToModeration, run: toModeration }
-                        : { label: copy.backLabel, run: toList }
-                      : null
-                  }
+                  back={single === undefined ? { label: copy.backLabel, run: toList } : null}
                   blocked={blockedIds}
                   bootstrap={bootstrap}
                   close={close}

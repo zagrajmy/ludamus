@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test";
 import path from "node:path";
 
 import { analyzePageAccessibility } from "./helpers/a11y";
+import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 import {
   bootstrap,
@@ -13,9 +14,8 @@ import {
   routeBootstrap,
 } from "./helpers/parley";
 
-test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
-
 const { copy } = bootstrap;
+const CHATS_URL = "/multiverse/panel/chats/";
 
 const organizers = {
   canModerate: true,
@@ -39,6 +39,7 @@ const played = {
 const watchedEvent = {
   canModerate: true,
   canWrite: true,
+  eventTitle: "Bachanalia",
   id: "event:1:5",
   kind: "event",
   moderating: true,
@@ -56,8 +57,10 @@ const watched = {
   title: "Wsiąść do pociągu",
 };
 const rooms = [organizers, watchedEvent, played, watched];
+const moderation = { sphere: 1, url: CHATS_URL };
 
-const listOf = (panel: Locator, name: string): Locator => panel.getByRole("navigation", { name });
+const ownList = (panel: Locator): Locator =>
+  panel.getByRole("navigation", { name: copy.roomsLabel });
 
 // Stands in for a page whose template names its room.
 async function onPageOf(page: Page, roomId: string): Promise<void> {
@@ -74,121 +77,148 @@ async function onPageOf(page: Page, roomId: string): Promise<void> {
   );
 }
 
-test("A manager's own chats stay apart from the ones they only moderate", async ({ page }) => {
-  await routeBootstrap(page, [{ rooms }]);
-  const worker = await FakeWorker.install(page);
-  await page.goto("/");
-  await expect
-    .poll(() => worker.sockets.some((socket) => socket.url().includes("parley-sphere-agent/1")))
-    .toBe(true);
-  worker.push(
-    "room.activity",
-    { at: Date.now(), latestMessageId: 3, mentionedBy: [], roomId: watched.id },
-    /parley-sphere-agent\/1/u,
-  );
+test.describe("The chat of a sphere's organizer", () => {
+  test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
 
-  // News in a chat they only moderate does not call them to the chat.
-  await expect(launcherOf(page)).not.toHaveAccessibleDescription(/unread/u);
-  await launcherOf(page).click();
-  const panel = panelOf(page);
-  const own = listOf(panel, copy.roomsLabel);
-  await expect(own.getByRole("button", { name: /Mothership/u })).toBeVisible();
-  await expect(own.getByRole("button", { name: /Wsiąść do pociągu/u })).toHaveCount(0);
-  const entry = own.getByRole("button", { name: new RegExp(copy.moderation, "u") });
-  await expect(entry).toContainText("2 chats you moderate");
-  await expect(entry).toContainText(copy.unread);
-  await analyzePageAccessibility(page);
-  await page.screenshot({
-    animations: "disabled",
-    path: "screenshots/parley-moderation-entry.png",
+  test("keeps their own chats apart from the ones they only moderate", async ({ page }) => {
+    await routeBootstrap(page, [{ moderation, rooms }]);
+    const worker = await FakeWorker.install(page);
+    await page.goto("/");
+    await expect
+      .poll(() => worker.sockets.some((socket) => socket.url().includes("parley-sphere-agent/1")))
+      .toBe(true);
+    worker.push(
+      "room.activity",
+      { at: Date.now(), latestMessageId: 3, mentionedBy: [], roomId: watched.id },
+      /parley-sphere-agent\/1/u,
+    );
+
+    // News in a chat they only moderate does not call them to the chat.
+    await expect(launcherOf(page)).not.toHaveAccessibleDescription(/unread/u);
+    await launcherOf(page).click();
+    const panel = panelOf(page);
+    await expect(ownList(panel).getByRole("button", { name: /Mothership/u })).toBeVisible();
+    await expect(ownList(panel).getByRole("button", { name: /Wsiąść do pociągu/u })).toHaveCount(0);
+    const entry = ownList(panel).getByRole("link", { name: new RegExp(copy.moderation, "u") });
+    await expect(entry).toHaveAttribute("href", CHATS_URL);
+    await expect(entry).toContainText("2 chats you moderate");
+    await expect(entry).toContainText(copy.unread);
+    await analyzePageAccessibility(page);
+    await page.screenshot({
+      animations: "disabled",
+      path: "screenshots/parley-moderation-entry.png",
+    });
   });
 
-  await entry.click();
-  const moderation = listOf(panel, copy.moderation);
-  await expect(moderation.getByText(copy.moderationHint)).toBeVisible();
-  await expect(moderation.getByRole("heading", { name: "Bachanalia" })).toBeVisible();
-  await expect(moderation.getByRole("button", { name: /Mothership/u })).toHaveCount(0);
-  await analyzePageAccessibility(page);
-  await page.screenshot({ animations: "disabled", path: "screenshots/parley-moderation-list.png" });
+  test("writes where they only moderate only after a deliberate step", async ({ page }) => {
+    await routeBootstrap(page, [{ moderation, rooms }]);
+    const worker = (await FakeWorker.install(page))
+      .on("loadBefore", (_input, url) => ({
+        ok: true,
+        value: url.includes("session-agent/1:41") ? [message({ id: 3 })] : [],
+      }))
+      .on("sendMessage", (input) => ({
+        ok: true,
+        value: message({ authorId: bootstrap.user.id, body: String(input.body), id: 9 }),
+      }));
+    // The moderation page links here, and the chat opens on the room.
+    await page.goto(`/#parley:${watched.id}`);
+    const panel = panelOf(page);
+    await expect(panel.getByText("Message 3")).toBeVisible();
+    await expect(panel.getByText(`${copy.sessionRoom} · ${copy.moderatorView}`)).toBeVisible();
+    await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
+    await expect(panel.getByLabel(copy.messageLabel)).toHaveCount(0);
+    await analyzePageAccessibility(page);
+    await page.screenshot({
+      animations: "disabled",
+      path: "screenshots/parley-moderation-room.png",
+    });
 
-  worker.on("loadBefore", (_input, url) => ({
-    ok: true,
-    value: url.includes("session-agent/1:41") ? [message({ id: 3 })] : [],
-  }));
-  await moderation.getByRole("button", { name: /Wsiąść do pociągu/u }).click();
-  await expect(panel.getByText("Message 3")).toBeVisible();
-  await expect(panel.getByText(`${copy.sessionRoom} · ${copy.moderatorView}`)).toBeVisible();
-  await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
-  await expect(panel.getByLabel(copy.messageLabel)).toHaveCount(0);
-  await analyzePageAccessibility(page);
-  await page.screenshot({ animations: "disabled", path: "screenshots/parley-moderation-room.png" });
+    await panel.getByRole("button", { name: copy.writeAsOrganizer }).click();
+    const composer = panel.getByLabel(copy.messageLabel);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveAttribute("placeholder", copy.organizerPlaceholder);
+    await page.screenshot({
+      animations: "disabled",
+      path: "screenshots/parley-moderation-writing.png",
+    });
+    await composer.fill("The table moved to room 2.");
+    await composer.press("Enter");
+    await expect.poll(() => worker.called("sendMessage").length).toBe(1);
+    await expect(panel.getByText("The table moved to room 2.")).toBeVisible();
 
-  await panel.getByRole("button", { name: copy.backToModeration }).click();
-  await expect(listOf(panel, copy.moderation)).toBeVisible();
-  await panel.getByRole("button", { name: copy.backLabel }).click();
-  await expect(own).toBeVisible();
-});
-
-test("Writing where they only moderate takes a deliberate step", async ({ page }) => {
-  await routeBootstrap(page, [{ rooms }]);
-  const worker = (await FakeWorker.install(page)).on("sendMessage", (input) => ({
-    ok: true,
-    value: message({ authorId: bootstrap.user.id, body: String(input.body), id: 9 }),
-  }));
-  await page.goto("/");
-  await launcherOf(page).click();
-  const panel = panelOf(page);
-  await listOf(panel, copy.roomsLabel)
-    .getByRole("button", { name: new RegExp(copy.moderation, "u") })
-    .click();
-  await listOf(panel, copy.moderation)
-    .getByRole("button", { name: /Wsiąść do pociągu/u })
-    .click();
-
-  await page.keyboard.type("Hello");
-  expect(worker.called("sendMessage")).toHaveLength(0);
-
-  await panel.getByRole("button", { name: copy.writeAsOrganizer }).click();
-  const composer = panel.getByLabel(copy.messageLabel);
-  await expect(composer).toBeFocused();
-  await expect(composer).toHaveAttribute("placeholder", copy.organizerPlaceholder);
-  await page.screenshot({
-    animations: "disabled",
-    path: "screenshots/parley-moderation-writing.png",
+    // In a room of their own, the composer is there from the start.
+    await panel.getByRole("button", { name: copy.backLabel }).click();
+    await ownList(panel)
+      .getByRole("button", { name: /Mothership/u })
+      .click();
+    await expect(panel.getByLabel(copy.messageLabel)).toHaveAttribute(
+      "placeholder",
+      copy.writePlaceholder,
+    );
+    await expect(panel.getByText(copy.moderatorReading)).toHaveCount(0);
   });
-  await composer.fill("The table moved to room 2.");
-  await composer.press("Enter");
-  await expect.poll(() => worker.called("sendMessage").length).toBe(1);
-  await expect(panel.getByText("The table moved to room 2.")).toBeVisible();
 
-  // Back in a room of their own, the composer is there from the start.
-  await panel.getByRole("button", { name: copy.backToModeration }).click();
-  await panel.getByRole("button", { name: copy.backLabel }).click();
-  await listOf(panel, copy.roomsLabel)
-    .getByRole("button", { name: /Mothership/u })
-    .click();
-  await expect(panel.getByLabel(copy.messageLabel)).toHaveAttribute(
-    "placeholder",
-    copy.writePlaceholder,
-  );
-  await expect(panel.getByText(copy.moderatorReading)).toHaveCount(0);
+  test("waits on top of the list on the page of a chat they only moderate", async ({ page }) => {
+    await routeBootstrap(page, [{ moderation, rooms }]);
+    await FakeWorker.install(page);
+    await onPageOf(page, watched.id);
+    await page.goto("/");
+    await launcherOf(page).click();
+    const panel = panelOf(page);
+
+    await expect(ownList(panel).getByRole("heading", { name: copy.onThisPage })).toBeVisible();
+    await ownList(panel)
+      .getByRole("button", { name: /Wsiąść do pociągu/u })
+      .click();
+    await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
+  });
 });
 
-test("On the page of a programme point they only moderate, its chat waits on top", async ({
-  page,
-}) => {
-  await routeBootstrap(page, [{ rooms }]);
-  await FakeWorker.install(page);
-  await onPageOf(page, watched.id);
-  await page.goto("/");
-  await launcherOf(page).click();
-  const panel = panelOf(page);
+test.describe("The sphere's chat moderation page", () => {
+  test.use({ storageState: managerState });
 
-  const own = listOf(panel, copy.roomsLabel);
-  await expect(own.getByRole("heading", { name: copy.onThisPage })).toBeVisible();
-  await expect(own.getByRole("button", { name: /Wsiąść do pociągu/u })).toBeVisible();
-  await own.getByRole("button", { name: /Wsiąść do pociągu/u }).click();
-  await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
-  await panel.getByRole("button", { name: copy.backLabel }).click();
-  await expect(own).toBeVisible();
+  test("lists the chats an organizer is not in and opens the chat on one", async ({ page }) => {
+    await page.goto(CHATS_URL);
+    await expect(page.getByRole("heading", { name: "Chat moderation" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chat moderation" })).toHaveAttribute(
+      "href",
+      CHATS_URL,
+    );
+    const list = page.getByRole("navigation", { name: "Chats to moderate" });
+    const first = list.locator('a[href*="/chats/session/"]').first();
+    const href = (await first.getAttribute("href")) ?? "";
+    const roomId = href.split("#parley:")[1] ?? "";
+    expect(roomId).toMatch(/^session:\d+:\d+$/u);
+    await analyzePageAccessibility(page);
+    await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-list.png" });
+
+    const title = (await first.innerText()).trim();
+    await routeBootstrap(page, [
+      {
+        moderation: { sphere: Number(roomId.split(":")[1]), url: CHATS_URL },
+        rooms: [
+          {
+            canModerate: true,
+            canWrite: true,
+            id: roomId,
+            kind: "session",
+            moderating: true,
+            sphere: Number(roomId.split(":")[1]),
+            title,
+          },
+        ],
+      },
+    ]);
+    await FakeWorker.install(page);
+    await first.click();
+
+    await expect(page).toHaveURL(/\/multiverse\/panel\/chats\/session\/\d+\/#parley:/u);
+    await expect(first).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
+    const panel = panelOf(page);
+    await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
+    await analyzePageAccessibility(page);
+    await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-room.png" });
+  });
 });

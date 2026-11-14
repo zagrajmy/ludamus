@@ -9,12 +9,14 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 from django.urls import reverse
 
+from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.panel import (
     PANEL_CAT_KEYS,
     PANEL_NAV_KEYS,
     ProposalStatusLook,
     proposal_status_look,
 )
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from django.template import Context
@@ -28,6 +30,13 @@ register = template.Library()
 @register.simple_tag
 def proposal_status(status: str, *, is_scheduled: bool = False) -> ProposalStatusLook:
     return proposal_status_look(status, is_scheduled=bool(is_scheduled))
+
+
+# Whether the viewer's role in this sphere grants the capability, for the
+# sidebar entries only some roles may follow.
+@register.simple_tag(takes_context=True)
+def panel_allows(context: Context, capability: str) -> bool:
+    return panel_access(context["request"]).allows(Capability(capability))
 
 
 # One collapsible category of the panel sidebar, wrapping its links.

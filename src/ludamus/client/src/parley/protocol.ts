@@ -5,7 +5,6 @@ export type Copy = Record<
   | "allChats"
   | "backLabel"
   | "backToConversation"
-  | "backToModeration"
   | "backToNewMessage"
   | "block"
   | "blockConfirm"
@@ -76,8 +75,6 @@ export type Copy = Record<
   | "moderatedRoomsMany"
   | "moderatedRoomsOne"
   | "moderation"
-  | "moderationEmpty"
-  | "moderationHint"
   | "moderatorDelete"
   | "moderatorReading"
   | "moderatorView"
@@ -207,6 +204,9 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
+  // Where this sphere's organizer reads the rooms they only moderate; null
+  // when they moderate none here.
+  moderation: { sphere: number; url: string } | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };
 };

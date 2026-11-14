@@ -149,6 +149,11 @@ floating UI for the same corner.{% endcomment %}
                         {% sidebar_link url="multiverse:panel:team" icon="key" label=t_team key="team" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
+                        {% panel_allows "chat_moderate" as can_moderate_chats %}
+                        {% if can_moderate_chats and PARLEY_OPEN %}
+                            {% translate "Chat moderation" as t_chats %}
+                            {% sidebar_link url="multiverse:panel:chats" icon="shield-check" label=t_chats key="chats" %}
+                        {% endif %}
                         {% translate "Sphere settings" as t_sphere_settings %}
                         {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
                     {% end_sidebar_cat %}

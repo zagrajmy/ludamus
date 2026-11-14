@@ -105,6 +105,8 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": elsewhere.name,
             "canWrite": True,
             "canModerate": True,
+            "moderating": False,
+            "eventTitle": None,
         },
         {
             "id": f"event:{sphere.pk}:{event.pk}",
@@ -113,6 +115,8 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": event.name,
             "canWrite": True,
             "canModerate": False,
+            "moderating": False,
+            "eventTitle": event.name,
         },
         {
             "id": f"session:{sphere.pk}:{confirmed.pk}",
@@ -121,6 +125,8 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Mothership",
             "canWrite": True,
             "canModerate": False,
+            "moderating": False,
+            "eventTitle": event.name,
         },
         {
             "id": f"session:{sphere.pk}:{facilitated.pk}",
@@ -129,6 +135,8 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Workshop",
             "canWrite": False,
             "canModerate": False,
+            "moderating": False,
+            "eventTitle": event.name,
         },
     ]
     assert payload["agentHost"] == "parley.example.com"

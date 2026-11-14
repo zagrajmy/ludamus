@@ -34,8 +34,9 @@ class ParleyRoomDTO(BaseModel):
     # Listed only because this person moderates its sphere: they neither run
     # nor take part in it.
     moderating: bool = False
-    # The event a programme point belongs to, by name.
+    # The event the room belongs to; the organizers' room has none.
     event_title: str | None = Field(default=None, serialization_alias="eventTitle")
+    event_slug: str = Field(default="", exclude=True)
     # When the event the room belongs to ends and starts; the organizers'
     # room has neither.
     ends_at: int | None = Field(default=None, exclude=True)
@@ -395,6 +396,10 @@ class ParleyServiceProtocol(Protocol):
     def is_open_to(self, *, user_id: int, now: datetime) -> bool: ...
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
+
+    def moderated_rooms(
+        self, *, user_id: int, sphere_id: int, now: datetime
+    ) -> list[ParleyRoomDTO]: ...
 
     def delete_reported(
         self, *, report_ids: list[int], now: datetime

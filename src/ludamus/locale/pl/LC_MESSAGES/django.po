@@ -3087,6 +3087,7 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/sphere/panel/chats.html
 msgid "Event chat"
 msgstr "Czat wydarzenia"
 
@@ -3770,6 +3771,7 @@ msgid "Link copied."
 msgstr "Skopiowano link."
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/sphere/panel/chats.html
 msgid "Programme point"
 msgstr "Punkt programu"
 
@@ -4014,22 +4016,6 @@ msgstr "Wszystkie rozmowy"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Moderation"
 msgstr "Moderacja"
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid ""
-"Chats from your events that you are not part of. Read them here and step in "
-"when needed."
-msgstr ""
-"Czaty z twoich wydarzeń, w których nie bierzesz udziału. Czytaj je tutaj i "
-"reaguj, gdy trzeba."
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid "Nothing to moderate right now."
-msgstr "Na razie nie ma czego moderować."
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid "Back to moderation"
-msgstr "Wróć do moderacji"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Moderator view"
@@ -10850,6 +10836,11 @@ msgid "Guilds"
 msgstr "Gildie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Chat moderation"
+msgstr "Moderacja czatów"
+
+#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/sphere/panel/sphere-settings.html
 msgid "Sphere settings"
 msgstr "Ustawienia sfery"
@@ -13770,6 +13761,64 @@ msgstr "Akcje wiersza"
 msgid "No announcements yet."
 msgstr "Brak ogłoszeń."
 
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Chats to moderate"
+msgstr "Czaty do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"Chats from your events that you are not part of. Open one to read it, delete "
+"messages and mute people."
+msgstr ""
+"Czaty z twoich wydarzeń, w których nie bierzesz udziału. Otwórz czat, żeby "
+"go przeczytać, usuwać wiadomości i wyciszać osoby."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Read only"
+msgstr "Tylko do odczytu"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "No chats to moderate"
+msgstr "Brak czatów do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"Chats of your sphere's events that you are not part of show up here while "
+"the chat keeps them."
+msgstr ""
+"Tu pojawiają się czaty wydarzeń twojej sfery, w których nie bierzesz "
+"udziału, dopóki czat je przechowuje."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "All chats to moderate"
+msgstr "Wszystkie czaty do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"The chat opens on this room and keeps it on top of its list, under “On this "
+"page”. Delete a message or mute its author from the message's menu."
+msgstr ""
+"Czat otwiera się na tej rozmowie i trzyma ją na górze listy, w sekcji „Na "
+"tej stronie”. Wiadomość usuniesz, a jej autora wyciszysz z menu wiadomości."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"You read it as a moderator, so nothing goes out by accident. To post, for "
+"example about a changed room, press “Write as organizer” first."
+msgstr ""
+"Czytasz jako moderator, więc nic nie wyślesz przez przypadek. Żeby coś "
+"napisać, na przykład o zmianie sali, najpierw naciśnij „Napisz jako "
+"organizator”."
+
+#
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Open the event page"
+msgstr "Otwórz stronę wydarzenia"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Open the programme point"
+msgstr "Otwórz punkt programu"
+
 #: src/ludamus/templates/sphere/panel/connections/create.html
 #: src/ludamus/templates/sphere/panel/connections/list.html
 msgid "New connection"
@@ -15119,6 +15168,9 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
 
 #
 #~ msgid "Note added to the thread."
@@ -16547,9 +16599,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
-
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
 
 #, python-format
 #~ msgid "%(count)d facilitator runs sessions and was kept."

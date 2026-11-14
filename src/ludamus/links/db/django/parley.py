@@ -137,6 +137,8 @@ class ParleyRepository(ParleyRepositoryProtocol):
                 moderating=(
                     event.sphere_id in moderated and event.pk not in own_events
                 ),
+                event_title=event.name,
+                event_slug=event.slug,
                 starts_at=int(event.start_time.timestamp()),
                 ends_at=int(event.end_time.timestamp()),
             )
@@ -161,6 +163,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
                     and session.pk not in own_sessions
                 ),
                 event_title=session.event.name,
+                event_slug=session.event.slug,
                 starts_at=int(session.event.start_time.timestamp()),
                 ends_at=int(session.event.end_time.timestamp()),
             )
