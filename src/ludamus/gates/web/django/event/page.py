@@ -128,6 +128,9 @@ class EventPageView(TemplateView):
             for sid, data in sessions_data.items()
         }
         has_maps = self.request.services.event_maps.has_maps(self.event.pk)
+        ticket_shop = self.request.services.ticket_sales.shop(
+            event=self.event, viewer_id=current_user_id
+        )
 
         hour_data = self._get_hour_data(sessions_data)
 
@@ -186,6 +189,7 @@ class EventPageView(TemplateView):
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "event_banned": event_banned,
+                "ticket_shop": ticket_shop,
                 "status_pills": event_status_pills(
                     is_live=self.event.is_live,
                     is_ended=self.event.is_ended,

@@ -75,6 +75,11 @@ env = environ.Env(
     # Bearer secret the Email Worker sends with each forwarded reply. Empty
     # closes the webhook.
     ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
+    # Stripe: ticket sales on organizers' connected accounts, and the yearly
+    # plan billed on Zagrajmy's own. No secret key turns both off.
+    STRIPE_SECRET_KEY=(str, ""),
+    STRIPE_CONNECT_WEBHOOK_SECRET=(str, ""),
+    STRIPE_BILLING_WEBHOOK_SECRET=(str, ""),
     # HMAC key the posta mail Worker signs each staff@ mail it forwards with.
     # Empty closes the webhook.
     STAFF_MAIL_WEBHOOK_SECRET=(str, ""),
@@ -386,7 +391,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
 
 # What a private sphere still serves to strangers: signing in, the MCP
 # endpoints, which authenticate by token and scope themselves to its sphere,
-# and the calendar-reply webhook, which authenticates by bearer secret.
+# and the webhooks, which authenticate by a bearer secret or Stripe signature.
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
@@ -395,6 +400,7 @@ PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     "/auth-error/",
     "/mcp/",
     "/hooks/calendar-replies",
+    "/hooks/stripe/",
     "/.well-known/",
 )
 
@@ -616,6 +622,9 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
 ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+STRIPE_CONNECT_WEBHOOK_SECRET = env("STRIPE_CONNECT_WEBHOOK_SECRET")
+STRIPE_BILLING_WEBHOOK_SECRET = env("STRIPE_BILLING_WEBHOOK_SECRET")
 STAFF_MAIL_WEBHOOK_SECRET = env("STAFF_MAIL_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 

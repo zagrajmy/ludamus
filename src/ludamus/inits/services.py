@@ -37,13 +37,17 @@ from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.parley_mention_mail import DjangoParleyMentionMailer
+from ludamus.links.db.django.tickets import DjangoTicketMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
+from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
 from ludamus.links.parley_mention_tokens import HmacMentionVerifier
+from ludamus.links.payment_api.stripe import StripeBilling, StripeConnect, build_client
 from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.mills.billing import PlanService
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
@@ -129,6 +133,7 @@ from ludamus.mills.sphere import (
 from ludamus.mills.staff_cases import StaffCaseService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
+from ludamus.mills.tickets import PayoutService, TicketPanelService, TicketSalesService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -156,10 +161,13 @@ from ludamus.pacts.propose import (
     ProposalCategorySettingsRepos,
     ProposeRepos,
 )
+from ludamus.pacts.tickets import TicketRepos
 from ludamus.pacts.timetable import TimetableRepos
 from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
+    import stripe
+
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
@@ -169,6 +177,17 @@ if TYPE_CHECKING:
         IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
+
+
+_STRIPE_CLIENTS: dict[str, stripe.StripeClient | None] = {}
+
+
+def _stripe_client(api_key: str) -> stripe.StripeClient | None:
+    # One pooled client per process; keyed by key, so a test overriding the
+    # setting gets its own.
+    if api_key not in _STRIPE_CLIENTS:
+        _STRIPE_CLIENTS[api_key] = build_client(api_key)
+    return _STRIPE_CLIENTS[api_key]
 
 
 class Services:
@@ -891,4 +910,63 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def _ticket_repos(self) -> TicketRepos:
+        return TicketRepos(
+            ticket_types=self._repos.ticket_types,
+            orders=self._repos.ticket_orders,
+            accounts=self._repos.payout_accounts,
+            plans=self._repos.sphere_plans,
+            users=self._repos.active_users,
+        )
+
+    @cached_property
+    def _stripe_connect(self) -> StripeConnect:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_CONNECT_WEBHOOK_SECRET
+        root_domain: str = settings.ROOT_DOMAIN
+        return StripeConnect(
+            client=_stripe_client(api_key),
+            webhook_secret=webhook_secret,
+            idempotency_namespace=root_domain,
+        )
+
+    @cached_property
+    def payouts(self) -> PayoutService:
+        return PayoutService(
+            transaction=self._transaction,
+            accounts=self._repos.payout_accounts,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def ticket_sales(self) -> TicketSalesService:
+        return TicketSalesService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+            mailer=DjangoTicketMailer(),
+            claims=DjangoOrderClaimCodec(),
+        )
+
+    @cached_property
+    def ticket_panel(self) -> TicketPanelService:
+        return TicketPanelService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def plan(self) -> PlanService:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_BILLING_WEBHOOK_SECRET
+        return PlanService(
+            transaction=self._transaction,
+            plans=self._repos.sphere_plans,
+            billing=StripeBilling(
+                client=_stripe_client(api_key), webhook_secret=webhook_secret
+            ),
         )

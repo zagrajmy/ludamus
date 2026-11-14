@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     import re
 
-SECRET_URL_KWARGS = frozenset({"token"})
+SECRET_URL_KWARGS = frozenset({"token", "reference"})
 
 
 class RedactionRule(NamedTuple):

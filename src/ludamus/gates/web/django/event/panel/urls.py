@@ -29,6 +29,7 @@ from ludamus.gates.web.django.event.panel.views import (
     proposal_edit,
     proposals,
     session_fields,
+    tickets,
     time_slots,
     timetable,
     tracks,
@@ -173,6 +174,36 @@ urlpatterns = [
         "event/<slug:slug>/settings/discounts/<int:pk>/do/delete",
         discount_settings.DiscountRuleDeleteActionView.as_view(),
         name="discount-rule-delete",
+    ),
+    path(
+        "event/<slug:slug>/tickets/",
+        tickets.EventTicketsPageView.as_view(),
+        name="tickets",
+    ),
+    path(
+        "event/<slug:slug>/tickets/create/",
+        tickets.TicketTypeCreatePageView.as_view(),
+        name="ticket-type-create",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/edit/",
+        tickets.TicketTypeEditPageView.as_view(),
+        name="ticket-type-edit",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/archive",
+        tickets.TicketTypeArchiveActionView.as_view(),
+        name="ticket-type-archive",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/restore",
+        tickets.TicketTypeRestoreActionView.as_view(),
+        name="ticket-type-restore",
+    ),
+    path(
+        "event/<slug:slug>/tickets/orders/<int:pk>/do/refund",
+        tickets.TicketOrderRefundActionView.as_view(),
+        name="ticket-order-refund",
     ),
     path(
         "event/<slug:slug>/settings/display/",
