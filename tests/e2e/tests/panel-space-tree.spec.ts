@@ -14,14 +14,14 @@ function venueNode(page: Page, name: string) {
 
 function disclosureHandle(page: Page, name: string) {
   return venueNode(page, auroraName).getByRole("button", {
-    name: `Reorder or toggle ${name} — arrow keys reorder; Enter or Space toggles children`,
+    name: `Reorder or toggle ${name}`,
     exact: true,
   });
 }
 
 function dragHandle(page: Page, name: string) {
   return venueNode(page, auroraName).getByRole("button", {
-    name: new RegExp(`^Reorder(?: or toggle)? ${name} —`),
+    name: new RegExp(`^Reorder(?: or toggle)? ${name}$`),
   });
 }
 
@@ -73,26 +73,58 @@ test.describe("Venue tree handles", () => {
     await expect(gallery).toBeVisible();
   });
 
-  test("Enter and Space toggle children without changing sibling order", async ({ page }) => {
+  test("Enter toggles children without changing sibling order", async ({ page }) => {
     const toggle = disclosureHandle(page, auroraName);
     const aurora = venueNode(page, auroraName);
     const galleryLink = aurora.getByRole("link", { name: "Edit Frost Gallery", exact: true });
     const orderBefore = await aurora.getByRole("listitem").allTextContents();
     await expect(toggle).toHaveAttribute("aria-controls", /.+/);
     expect(
-      await toggle.evaluate(
-        (button) => document.getElementById(button.getAttribute("aria-controls") ?? "")?.tagName,
+      await toggle.evaluate((button) =>
+        document.getElementById(button.getAttribute("aria-controls") ?? "")?.getAttribute("role"),
       ),
-    ).toBe("UL");
+    ).toBe("list");
 
     await toggle.focus();
     await toggle.press("Enter");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(galleryLink).toBeHidden();
-    await toggle.press("Space");
+    await toggle.press("Enter");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(galleryLink).toBeVisible();
     expect(await aurora.getByRole("listitem").allTextContents()).toEqual(orderBefore);
+  });
+
+  test("Space picks a venue up, Escape puts it back, and both are announced", async ({ page }) => {
+    let siblingReorders = 0;
+    await page.route("**/venues/do/reorder", async (route) => {
+      siblingReorders += 1;
+      await route.fulfill({ json: { success: true } });
+    });
+    const handle = dragHandle(page, "North Wing");
+    // NOTE: panel.spec.ts copies venues into this event, so scope to Aurora
+    // and don't count on how many siblings it has.
+    const row = venueNode(page, auroraName).locator('space-list-item[label="North Wing"]');
+    const siblingNames = venueNode(page, auroraName).getByText(/^(Hearth Lounge|North Wing)$/);
+    const originalOrder = await siblingNames.allTextContents();
+    const announcer = page.locator("[data-ui-sdk-announcer]");
+    await expect(handle).toHaveAccessibleDescription(/Press Space to pick up/);
+
+    await handle.focus();
+    await handle.press("Space");
+    await expect(row).toHaveAttribute("data-grabbed", "");
+    await expect(announcer).toHaveText(/^Picked up North Wing\. Position \d of \d\.$/);
+    await handle.press(originalOrder[0] === "North Wing" ? "ArrowDown" : "ArrowUp");
+    await expect(announcer).toHaveText(/^North Wing, position \d of \d\.$/);
+    expect(await siblingNames.allTextContents()).not.toEqual(originalOrder);
+
+    await handle.press("Escape");
+    await expect(row).not.toHaveAttribute("data-grabbed");
+    await expect(announcer).toHaveText(/^Move cancelled\./);
+    expect(await siblingNames.allTextContents()).toEqual(originalOrder);
+    await expect(handle).toBeFocused();
+    await expect(disclosureHandle(page, "North Wing")).toHaveAttribute("aria-expanded", "true");
+    expect(siblingReorders).toBe(0);
   });
 
   test("leaf drag handles and secondary clicks do not collapse the tree", async ({ page }) => {
@@ -101,10 +133,9 @@ test.describe("Venue tree handles", () => {
     await page.keyboard.press("Escape");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     const leafHandle = page.getByRole("button", {
-      name: `Reorder ${glacierName} — use the arrow keys`,
+      name: `Reorder ${glacierName}`,
       exact: true,
     });
-    await expect(leafHandle).toHaveAttribute("draggable", "true");
     await expect(leafHandle).not.toHaveAttribute("aria-expanded");
     await expect(leafHandle).not.toHaveAttribute("aria-controls");
     await leafHandle.click();
@@ -160,8 +191,13 @@ test.describe("Venue tree handles", () => {
       await toggle.click();
       const response = savedOrder(page);
       if (interaction === "keyboard") {
+        await handle.press("Space");
         await handle.press(from === 0 ? "ArrowDown" : "ArrowUp");
+        await handle.press("Space");
         await expect(handle).toBeFocused();
+        await expect(page.locator("[data-ui-sdk-announcer]")).toHaveText(
+          /^Dropped North Wing at position \d of \d\.$/,
+        );
       } else {
         const target = dragHandle(page, originalOrder[to]);
         const targetBox = await target.boundingBox();

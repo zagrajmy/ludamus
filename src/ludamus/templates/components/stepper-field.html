@@ -1,35 +1,52 @@
 {% load i18n %}
 {% load tessera %}
+{% load vite_tags %}
+{# The behaviour ships with the component, as with the combobox. #}
+{% vite_asset_once 'src/stepper.ts' %}
 {# Number input rendered as a − / + stepper. Always pass `name`. #}
-{# Optional: id, value, min, max, required, disabled, has_errors, aria_describedby, aria_label #}
+{# Optional: id, value, min, max, required, disabled, has_errors, aria_describedby, aria_label, label #}
+{# `label` (or `aria_label`) names the − / + buttons after their field, so two #}
+{# steppers side by side don't read as four identical buttons. #}
 {# The input stays a real number field so the control degrades to typing #}
-{# without JS; src/stepper.ts drives the buttons via [data-stepper-*]. #}
-<span data-stepper
-      class="inline-flex self-start items-stretch rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} overflow-hidden">
-    <button type="button"
-            data-stepper-down
-            aria-label="{% translate "Decrease" %}"
-            class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
-        {% icon "minus" class="w-4 h-4" variant="mini" %}
-    </button>
-    {# text-base keeps 16px on mobile so iOS Safari doesn't auto-zoom on focus. #}
-    <input type="number"
-           inputmode="numeric"
-           class="w-10 py-1.5 text-center text-base sm:text-sm border-0 bg-bg-secondary text-foreground tabular-nums focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-           name="{{ name }}"
-           {% if id|default:"" %}id="{{ id }}"{% endif %}
-           {% if value|default:"" %}value="{{ value }}"{% endif %}
-           {% if min|default:"" %}min="{{ min }}"{% endif %}
-           {% if max|default:"" %}max="{{ max }}"{% endif %}
-           {% if required|default:False %}required{% endif %}
-           {% if disabled|default:False %}disabled{% endif %}
-           {% if has_errors|default:False %}aria-invalid="true"{% endif %}
-           {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
-           {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}>
-    <button type="button"
-            data-stepper-up
-            aria-label="{% translate "Increase" %}"
-            class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary">
-        {% icon "plus" class="w-4 h-4" variant="mini" %}
-    </button>
-</span>
+{# without JS; src/stepper.ts upgrades it to UI SDK's Number Input, which #}
+{# steps, clamps, repeats while a button is held and disables a button at #}
+{# its bound. #}
+{% firstof label aria_label as stepper_label %}
+<ui-number-input data-stepper
+                 class="inline-flex self-start"
+                 {% if value|default:"" %}default-value="{{ value }}"{% endif %}
+                 {% if min|default:"" %}min="{{ min }}"{% endif %}
+                 {% if max|default:"" %}max="{{ max }}"{% endif %}
+                 {% if required|default:False %}required{% endif %}
+                 {% if disabled|default:False %}disabled{% endif %}>
+    <ui-number-input-group class="inline-flex items-stretch rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} overflow-hidden has-[input:focus-visible]:border-border-focus has-[input:focus-visible]:shadow-[0_0_0_2px_var(--color-background),0_0_0_4px_var(--color-primary)]">
+        <ui-number-input-decrement class="contents">
+            <button type="button" aria-label="{% if stepper_label %}{% blocktranslate with label=stepper_label %}Decrease: {{ label }}{% endblocktranslate %}{% else %}{% translate "Decrease" %}{% endif %}" class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-foreground-secondary">
+                {% icon "minus" class="w-4 h-4" variant="mini" %}
+            </button>
+        </ui-number-input-decrement>
+        <ui-number-input-control class="contents">
+            {# text-base keeps 16px on mobile so iOS Safari doesn't auto-zoom on focus. #}
+            {# shadow-none!: the ring is drawn on the group around it, and the #}
+            {# page-wide :focus-visible ring is unlayered CSS. #}
+            <input type="number"
+                   inputmode="numeric"
+                   class="w-10 py-1.5 text-center text-base sm:text-sm border-0 bg-bg-secondary text-foreground tabular-nums focus:ring-0 focus-visible:shadow-none! disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                   name="{{ name }}"
+                   {% if id|default:"" %}id="{{ id }}"{% endif %}
+                   {% if value|default:"" %}value="{{ value }}"{% endif %}
+                   {% if min|default:"" %}min="{{ min }}"{% endif %}
+                   {% if max|default:"" %}max="{{ max }}"{% endif %}
+                   {% if required|default:False %}required{% endif %}
+                   {% if disabled|default:False %}disabled{% endif %}
+                   {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+                   {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
+                   {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}>
+        </ui-number-input-control>
+        <ui-number-input-increment class="contents">
+            <button type="button" aria-label="{% if stepper_label %}{% blocktranslate with label=stepper_label %}Increase: {{ label }}{% endblocktranslate %}{% else %}{% translate "Increase" %}{% endif %}" class="w-8 grid place-items-center bg-bg-tertiary text-foreground-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-foreground-secondary">
+                {% icon "plus" class="w-4 h-4" variant="mini" %}
+            </button>
+        </ui-number-input-increment>
+    </ui-number-input-group>
+</ui-number-input>

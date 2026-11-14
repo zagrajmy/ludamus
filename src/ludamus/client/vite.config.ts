@@ -81,6 +81,7 @@ export default defineConfig({
         "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
         "color-field": resolve(rootDir, "src/color-field.ts"),
         combobox: resolve(rootDir, "src/combobox.ts"),
+        "combobox-chips": resolve(rootDir, "src/combobox-chips.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
         "design-page": resolve(rootDir, "src/design-page.ts"),

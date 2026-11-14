@@ -274,6 +274,20 @@
             </form>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">tessera_combobox multiple=True chips=True</code>
+            <form class="w-full max-w-xs" aria-label="{% translate "Fruit as chips" %}">
+                <label for="t-combobox-chips"
+                       class="block mb-1.5 text-sm font-medium text-foreground-primary">{% translate "Fruit as chips" %}</label>
+                {% tessera_combobox id="t-combobox-chips" name="fruit" multiple=True chips=True %}
+                    <option value="apple" selected>{% translate "Apple" %}</option>
+                    <option value="apricot">{% translate "Apricot" %}</option>
+                    <option value="banana">{% translate "Banana" %}</option>
+                    <option value="cherry" selected>{% translate "Cherry" %}</option>
+                    <option value="plum" disabled>{% translate "Plum" %}</option>
+                {% end_tessera_combobox %}
+            </form>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
             {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
         </div>
