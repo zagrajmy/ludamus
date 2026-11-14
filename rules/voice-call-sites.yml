@@ -8,6 +8,7 @@ ignores:
   - src/ludamus/links/db/django/delivery.py
   - src/ludamus/links/db/django/encounter_invites.py
   - src/ludamus/links/db/django/tickets.py
+  - src/ludamus/links/db/django/moderation_mail.py
 rule:
   kind: identifier
   regex: ^Voice$
@@ -31,6 +32,7 @@ message: |
   A Voice speaks whatever language it is handed, so mail composed under one
   is only as right as that language. It is for addresses with no account
   behind them, in the language resolved for them: encounter guests
-  (`address_languages`) and anonymous proposers (stored at submission).
+  (`address_languages`), anonymous proposers and notice senders (stored at
+  submission), and the staff address.
   Mail to an account goes through `speaking_to(user_id)`.
   A new use must be added to this rule, in review.

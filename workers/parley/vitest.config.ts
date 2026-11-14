@@ -9,11 +9,16 @@ import { defineConfig } from "vitest/config";
 const devSigningKey = readFileSync(new URL("./dev-signing-key.pem", import.meta.url), "utf8");
 
 export default defineConfig({
+  test: {
+    // NOTE: the Workers pool runs no V8 inspector, so coverage is Istanbul's.
+    coverage: { include: ["src/**"], provider: "istanbul", reporter: ["text-summary", "text"] },
+  },
   plugins: [
     agents(),
     cloudflareTest({
       miniflare: {
         bindings: {
+          PARLEY_MENTIONS_SECRET: "parley-dev-mentions-secret-not-for-production",
           PARLEY_PUBLIC_KEY: createPublicKey(devSigningKey)
             .export({ format: "pem", type: "spki" })
             .toString(),

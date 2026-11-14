@@ -1,9 +1,9 @@
 """Startup wiring for the hooks that gates and links leave open.
 
 Some entry points are found by the framework rather than built by a composition
-root: Django dispatches a management command by name, and the analytics link
-needs rules only the URLconf can derive. Each exposes a registry, and this is
-where the registries are filled.
+root: Django dispatches a management command by name, builds the admin and its
+actions itself, and the analytics link needs rules only the URLconf can derive.
+Each exposes a registry, and this is where the registries are filled.
 """
 
 from typing import override
@@ -27,6 +27,7 @@ class InitsConfig(AppConfig):
         from ludamus.inits.dbos_scheduler import register_sweeps
         from ludamus.inits.services import Services
         from ludamus.inits.sweeps import SWEEPS
+        from ludamus.links.db.django import admin
 
         # Fail on a mistyped SCHEDULER_MODE while the process starts, not on
         # the first request that schedules something.
@@ -36,3 +37,4 @@ class InitsConfig(AppConfig):
         redaction.register_builder(build_redaction_rules)
         register_sweeps(SWEEPS)
         wiring.register(make_services=Services, sweeps=SWEEPS)
+        admin.register(make_services=Services)

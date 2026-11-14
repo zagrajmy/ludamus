@@ -9,6 +9,8 @@ ignores:
   - src/ludamus/links/db/django/tickets.py
   - src/ludamus/links/db/django/announcements.py
   - src/ludamus/links/db/django/admin.py
+  - src/ludamus/links/db/django/moderation_mail.py
+  - src/ludamus/links/db/django/parley_mention_mail.py
 rule:
   any:
     - pattern: from ludamus.links.db.django.delivery import $$$
@@ -18,6 +20,7 @@ rule:
     - pattern: import ludamus.links.db.django.delivery as $A
 message: |
   Delivery primitives are used by the notifier, the encounter invite
-  mailer, the announcement fan-out and the admin alone. A new module that
-  delivers must be added to this rule's ignores, in review, so its
-  language handling gets a look.
+  mailer, the announcement fan-out, the moderation mailer, the chat
+  mention mailer and the admin alone. A new module that delivers must be
+  added to this rule's ignores, in review, so its language handling gets
+  a look.

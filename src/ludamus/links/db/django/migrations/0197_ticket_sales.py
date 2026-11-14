@@ -10,7 +10,7 @@ import ludamus.pacts.tickets
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0192_remove_encounterrsvp_ip_address")]
+    dependencies = [("db_main", "0196_case_inbox")]
 
     operations = [
         migrations.CreateModel(

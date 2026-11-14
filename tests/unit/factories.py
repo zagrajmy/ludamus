@@ -1,7 +1,13 @@
 from contextlib import AbstractContextManager, nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from ludamus.pacts.enrollment import (
+    PromotionMode,
+    PromotionStateDTO,
+    SessionSeatsDTO,
+    WaitingParticipantDTO,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
@@ -152,4 +158,23 @@ def category(
         pk=pk,
         slug=slug,
         start_time=None,
+    )
+
+
+def promotion_state(
+    waiting: list[WaitingParticipantDTO], *, seats: int = 1
+) -> PromotionStateDTO:
+    """Build the state of an auto-promoting session a week out that nobody hosts."""
+    return PromotionStateDTO(
+        session_id=1,
+        session_title="S",
+        event_slug="ev",
+        start_time=datetime(2026, 6, 4, 12, 0, tzinfo=UTC) + timedelta(days=7),
+        promotion_mode=PromotionMode.AUTO,
+        offer_claim_window=timedelta(hours=24),
+        host_ids=frozenset(),
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
+        waiting=waiting,
     )

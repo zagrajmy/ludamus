@@ -3,12 +3,11 @@ import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import type { Env } from "../src/room-agent";
-import type { ParleySphereAgent } from "../src/sphere-agent";
+import type { Env, RoomAgent } from "../src/room-agent";
 
 import { LOOKUP_AUDIENCE } from "../src/auth";
 import { DAY_MS, MESSAGE_LIFETIME_MS } from "../src/limits";
-import { now, open, pass, post, settle } from "./support";
+import { manager, now, open, pass, post, settle } from "./support";
 
 // What could go wrong, and so what the tests below check:
 // - a message past its year is still served, by history, a moderator's
@@ -30,13 +29,16 @@ const YEAR_LESS_A_MINUTE = MESSAGE_LIFETIME_MS - 60_000;
 type Result<T = unknown> = { code?: string; ok: boolean; value?: T };
 type Shown = { body: string; createdAt: number };
 
-const sphereRoom = (name: string) =>
-  getAgentByName<Env, ParleySphereAgent>(workerEnv.ParleySphereAgent, name);
+const organizersRoom = (name: string) =>
+  getAgentByName<Env, RoomAgent>(
+    workerEnv.ParleyOrganizersAgent as unknown as DurableObjectNamespace<RoomAgent>,
+    name,
+  );
 
 type Stub = DurableObjectStub;
 
 // The pool's types know a stub's object only as a DurableObject.
-function inside<A extends Agent<Env> = ParleySphereAgent, R = unknown>(
+function inside<A extends Agent<Env> = RoomAgent, R = unknown>(
   stub: Stub,
   callback: (agent: A) => R | Promise<R>,
 ): Promise<R> {
@@ -71,14 +73,14 @@ const lookup = (room: string, message: number) =>
 
 // The tables come with a room's first visit.
 async function visit(name: string): Promise<Stub> {
-  (await open(`parley-sphere-agent/${name}`, await pass("7", name))).socket.close();
-  return sphereRoom(name);
+  (await open(`parley-organizers-agent/${name}`, await manager("7", name))).socket.close();
+  return organizersRoom(name);
 }
 
 describe("a message a year old", () => {
   it("is never served again, even before the room's alarm comes round", async () => {
-    const member = await open("parley-sphere-agent/61", await pass("7", "61"));
-    const stub = await sphereRoom("61");
+    const member = await open("parley-organizers-agent/61", await manager("7", "61"));
+    const stub = await organizersRoom("61");
     const [old, young] = await seed(stub, [
       { age: YEAR_AND_A_MINUTE, body: "A year and a minute ago" },
       { age: YEAR_LESS_A_MINUTE, body: "A minute short of a year" },
@@ -95,8 +97,8 @@ describe("a message a year old", () => {
     expect(history.value).toEqual([
       expect.objectContaining({ body: "A minute short of a year", reactions: { "👍": ["9"] } }),
     ]);
-    expect((await lookup("sphere:61", old)).status).toBe(404);
-    expect((await lookup("sphere:61", young)).status).toBe(200);
+    expect((await lookup("organizers:61", old)).status).toBe(404);
+    expect((await lookup("organizers:61", young)).status).toBe(200);
     expect(await stored(stub)).toEqual(["A minute short of a year"]);
     const reacted = await inside(stub, (room) =>
       room.sql<{ message_id: number }>`SELECT message_id FROM reactions`.map(
@@ -108,19 +110,16 @@ describe("a message a year old", () => {
   }, 20_000);
 
   it("is gone from what a moderator reads around a report", async () => {
-    const manager = await open(
-      "parley-sphere-agent/64",
-      await pass("1", "64", now(), { role: "manager", sessions: {} }),
-    );
-    const [old] = await seed(await sphereRoom("64"), [
+    const moderator = await open("parley-organizers-agent/64", await manager("1", "64"));
+    const [old] = await seed(await organizersRoom("64"), [
       { age: YEAR_AND_A_MINUTE, body: "Reported long ago" },
       { age: DAY_MS, body: "Said yesterday" },
     ]);
 
-    const around = await manager.call<Result<Shown[]>>("loadAround", { messageId: old });
+    const around = await moderator.call<Result<Shown[]>>("loadAround", { messageId: old });
 
     expect(around.value!.map((message) => message.body)).toEqual(["Said yesterday"]);
-    manager.socket.close();
+    moderator.socket.close();
   }, 20_000);
 });
 
@@ -165,7 +164,7 @@ describe("a room's sweep", () => {
   }, 20_000);
 
   it("stays where the first message set it, however much is written after", async () => {
-    const member = await open("parley-sphere-agent/67", await pass("7", "67"));
+    const member = await open("parley-organizers-agent/67", await manager("7", "67"));
     const first = await member.call<Result<Shown>>("sendMessage", {
       body: "First",
       nonce: crypto.randomUUID(),
@@ -173,7 +172,7 @@ describe("a room's sweep", () => {
     for (const body of ["Second", "Third"]) {
       await member.call("sendMessage", { body, nonce: crypto.randomUUID() });
     }
-    const stub = await sphereRoom("67");
+    const stub = await organizersRoom("67");
     await inside(stub, (room) => room.onStart());
 
     expect(await sweeps(stub)).toEqual([
@@ -219,7 +218,7 @@ describe("an unread flag", () => {
 
   it("leaves a sphere's rooms, read positions and all", async () => {
     const member = await open("parley-sphere-agent/69", await pass("7", "69"));
-    const stub = await sphereRoom("69");
+    const stub = await getAgentByName(workerEnv.ParleySphereAgent, "69");
     await inside(stub, (room) => {
       void room.sql`INSERT INTO room_activity (room_id, latest_message_id, updated_at)
         VALUES ('session:69:101', 4, ${Date.now() - YEAR_AND_A_MINUTE})`;

@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Capability } from "../src/protocol";
 
 import { REVOCATION_AUDIENCE, verifyCapability, verifyRevocation } from "../src/auth";
-import { revokes } from "../src/room-agent";
+import { revokes } from "../src/passes";
 
 let env: {
   ROOT_DOMAIN: string;
@@ -20,9 +20,10 @@ const valid = {
   name: "Ada",
   readOnlyAfter: 172_800,
   retainFor: 2_592_000,
-  role: "member",
-  sessions: { "101": { endsAt: 1_900_000_000, writable: true } },
-  sphere: "3",
+  events: {
+    "3:9": { chat: true, endsAt: 1_900_000_000, sessions: { "101": true }, writable: true },
+  },
+  managed: {},
   sub: "7",
 };
 
@@ -47,22 +48,64 @@ beforeAll(async () => {
 describe("verifyCapability", () => {
   it("accepts a member and a manager token", async () => {
     await expect(verifyCapability(await sign(valid), env)).resolves.toMatchObject({
-      role: "member",
-      sphere: "3",
+      events: valid.events,
+      managed: {},
     });
+    const managed = { "3": { organizers: true }, "4": { organizers: false } };
     await expect(
-      verifyCapability(await sign({ ...valid, role: "manager", sessions: {} }), env),
-    ).resolves.toMatchObject({ role: "manager" });
+      verifyCapability(await sign({ ...valid, events: {}, managed }), env),
+    ).resolves.toMatchObject({ managed });
   });
 
+  it("takes a one-sphere pass from before as its sphere's rooms alone", async () => {
+    const oneSphere = { ...valid, events: undefined, managed: undefined };
+    const member = await verifyCapability(
+      await sign({
+        ...oneSphere,
+        role: "member",
+        sessions: { "101": { endsAt: 1_900_000_000, writable: false } },
+        sphere: "3",
+      }),
+      env,
+    );
+    const manager = await verifyCapability(
+      await sign({ ...oneSphere, role: "manager", sessions: {}, sphere: "3" }),
+      env,
+    );
+
+    expect(member.managed).toEqual({});
+    expect(member.events).toEqual({
+      "3:101": { chat: false, endsAt: 1_900_000_000, sessions: { "101": false }, writable: false },
+    });
+    expect(manager.managed).toEqual({ "3": { organizers: false } });
+  });
+
+  const event = valid.events["3:9"];
   it.each([
-    ["an unknown role", { role: "admin" }],
-    ["sessions as a list", { sessions: ["101"] }],
-    ["a grant without an end", { sessions: { "101": { writable: true } } }],
-    ["a grant with a string flag", { sessions: { "101": { endsAt: 1, writable: "yes" } } }],
-    ["a non-numeric session key", { sessions: { abc: { endsAt: 1, writable: true } } }],
+    ["a managed sphere that is not an id", { managed: { "3:101": { organizers: true } } }],
+    ["managed spheres as a list", { managed: ["3"] }],
+    ["a managed sphere without its organizers' room", { managed: { "3": {} } }],
+    ["no events", { events: undefined }],
+    ["events as a list", { events: ["3:9"] }],
+    ["an event without an end", { events: { "3:9": { ...event, endsAt: undefined } } }],
+    ["an event key without its sphere", { events: { "9": event } }],
+    [
+      "a programme point with a string flag",
+      { events: { "3:9": { ...event, sessions: { "101": "yes" } } } },
+    ],
+    ["a non-numeric programme point", { events: { "3:9": { ...event, sessions: { abc: true } } } }],
     ["no retention", { retainFor: undefined }],
-    ["the old per-room lists", { readOnlyAfter: undefined, rooms: ["sphere:3"] }],
+    ["a one-sphere pass with no role", { events: undefined, managed: undefined, sphere: "3" }],
+    [
+      "a one-sphere pass with a broken grant",
+      {
+        events: undefined,
+        managed: undefined,
+        role: "member",
+        sessions: { "101": 7 },
+        sphere: "3",
+      },
+    ],
   ])("rejects %s", async (_label, overrides) => {
     const token = await sign({ ...valid, ...overrides });
     await expect(verifyCapability(token, env)).rejects.toThrow();
@@ -115,8 +158,8 @@ describe("revokes", () => {
     aud: "parley",
     exp: iat + 1,
     iat,
+    events: {},
     iss: "ludamus",
-    role: "member",
     sub,
   });
 

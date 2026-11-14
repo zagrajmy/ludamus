@@ -25,6 +25,7 @@ Status = SessionParticipationStatus
 
 def _field(member=None, **overrides):
     values = {
+        "is_host": False,
         "is_member": False,
         "status": None,
         "has_conflict": False,
@@ -50,6 +51,18 @@ class TestOwnRow:
                     ("enroll", Label.ENROLL),
                     ("waitlist", Label.JOIN_WAITLIST),
                 ],
+                EnrollHelp.NONE,
+            ),
+            ({"is_host": True}, [("", Label.NO_CHANGE)], EnrollHelp.SESSION_HOST),
+            # A host who already holds a row can only give it back.
+            (
+                {"is_host": True, "status": Status.WAITING},
+                [("", Label.NO_CHANGE), ("cancel", Label.CANCEL_ENROLLMENT)],
+                EnrollHelp.NONE,
+            ),
+            (
+                {"is_host": True, "status": Status.OFFERED},
+                [("", Label.NO_CHANGE), ("cancel", Label.DECLINE_OFFER)],
                 EnrollHelp.NONE,
             ),
             (
@@ -178,6 +191,16 @@ class TestTrustingMemberRow:
 
         assert _shape(field) == ([("", Label.NO_CHANGE)], EnrollHelp.OWN_ENROLLMENT)
 
+    @pytest.mark.parametrize("needs_accept", (False, True))
+    def test_hosting_their_session_leaves_their_row_theirs(self, needs_accept):
+        # The leader must not gain a cancel over a member's own row because
+        # the member hosts the session.
+        member = RosterMember(user=user_dto(), needs_accept=needs_accept)
+
+        field = _field(member, is_member=True, is_host=True, status=Status.CONFIRMED)
+
+        assert _shape(field) == ([("", Label.NO_CHANGE)], EnrollHelp.OWN_ENROLLMENT)
+
     def test_without_passes_on_a_restricted_event_gets_no_moves(self):
         member = RosterMember(user=user_dto(), can_enroll=False)
 
@@ -209,7 +232,7 @@ class TestSkipReason:
     def _reason(self, **overrides):
         values = {
             "user_id": 7,
-            "presenter_id": 1,
+            "host_ids": frozenset({1, 2}),
             "shadowbanned": False,
             "conflicted": False,
             "choice": EnrollmentChoice.ENROLL,
@@ -222,8 +245,10 @@ class TestSkipReason:
         ("overrides", "expected"),
         (
             ({}, None),
-            ({"presenter_id": None}, None),
+            ({"host_ids": frozenset()}, None),
             ({"user_id": 1}, SkipReason.SESSION_HOST),
+            # A facilitator linked to an account hosts as much as the presenter.
+            ({"user_id": 2}, SkipReason.SESSION_HOST),
             ({"shadowbanned": True, "conflicted": True}, SkipReason.NOT_AVAILABLE),
             ({"conflicted": True}, SkipReason.TIME_CONFLICT),
             # The waiting list takes nobody's seat, so a clash does not stop it.

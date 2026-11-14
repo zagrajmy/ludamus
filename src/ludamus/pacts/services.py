@@ -48,6 +48,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
+    from ludamus.pacts.moderation import (
+        ActiveRecipientsServiceProtocol,
+        ChatReportIntakeServiceProtocol,
+        ModerationDecisionServiceProtocol,
+        NoticeServiceProtocol,
+        StatementOfReasonsServiceProtocol,
+    )
     from ludamus.pacts.notifications import (
         NotificationsServiceProtocol,
         NotificationSubscriptionsServiceProtocol,
@@ -59,8 +66,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.parley import (
         ParleyConversationServiceProtocol,
+        ParleyPartyChatProtocol,
+        ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
     )
+    from ludamus.pacts.parley_mentions import ParleyMentionMailServiceProtocol
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -96,6 +106,7 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.staff_cases import StaffCaseServiceProtocol
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
     from ludamus.pacts.tickets import (
@@ -145,6 +156,14 @@ class ServicesProtocol(Protocol):
     def parley(self) -> ParleyServiceProtocol: ...
     @property
     def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
+    @property
+    def staff_cases(self) -> StaffCaseServiceProtocol: ...
+    @property
+    def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
+    @property
+    def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
+    @property
+    def parley_revocations(self) -> ParleyRevocationServiceProtocol: ...
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
@@ -253,6 +272,16 @@ class ServicesProtocol(Protocol):
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
+    @property
+    def notices(self) -> NoticeServiceProtocol: ...
+    @property
+    def chat_report_intake(self) -> ChatReportIntakeServiceProtocol: ...
+    @property
+    def statements_of_reasons(self) -> StatementOfReasonsServiceProtocol: ...
+    @property
+    def moderation_decisions(self) -> ModerationDecisionServiceProtocol: ...
+    @property
+    def active_recipients(self) -> ActiveRecipientsServiceProtocol: ...
     @property
     def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property

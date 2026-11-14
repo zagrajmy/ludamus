@@ -93,11 +93,11 @@ class TestEmailLink:
                 )
             )
 
-        path = reverse(
-            "web:chronology:session-enrollment",
-            kwargs={"event_slug": "con-2026", "session_id": 404_404},
+        path = reverse("web:chronology:event", kwargs={"slug": "con-2026"})
+        assert (
+            _mailed_link(mailoutbox)
+            == f"https://zagrajmy.example.net{path}?session=404404"
         )
-        assert _mailed_link(mailoutbox) == f"https://zagrajmy.example.net{path}"
         assert "No sphere host for session 404404" in caplog.text
 
     def test_unproven_recipient_gets_the_bell_but_no_mail(
