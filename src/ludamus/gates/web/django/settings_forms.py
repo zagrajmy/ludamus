@@ -159,6 +159,15 @@ class EventSettingsForm(forms.Form):
         ),
     )
 
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or {}
+        # NOTE: the time field shows only for "Publish at", so its error would
+        # block a save under any other choice with nothing on screen to fix.
+        if cleaned.get("publication") != PublicationChoice.SCHEDULED:
+            self.errors.pop("publication_time", None)
+            cleaned["publication_time"] = None
+        return cleaned
+
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)

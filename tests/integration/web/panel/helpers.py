@@ -408,6 +408,28 @@ def time_slots_page_context(
     }
 
 
+def settings_url(event):
+    return reverse("panel:event-settings", kwargs={"slug": event.slug})
+
+
+def settings_post_data(event, **overrides):
+    data = {
+        "name": event.name,
+        "slug": event.slug,
+        "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
+        "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
+        # NOTE: re-posts the stored publication as it stands.
+        "publication": "scheduled",
+        "publication_time": (
+            localtime(event.publication_time).strftime("%Y-%m-%dT%H:%M")
+            if event.publication_time
+            else ""
+        ),
+    }
+    data.update(overrides)
+    return data
+
+
 def settings_tab_urls(event):
     return {
         "general": reverse("panel:event-settings", kwargs={"slug": event.slug}),

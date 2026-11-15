@@ -10,9 +10,9 @@ const wired = new WeakSet<HTMLElement>();
 // NOTE: a pinned panel no longer follows the page, so any scroll or resize closes
 // it. One pair of listeners serves every menu and holds only the open pinned
 // ones, so a menu that htmx swaps out leaves nothing behind.
-const openPinned = new Set<() => void>();
-const closePinned = (): void => {
-  for (const closeMenu of openPinned) closeMenu();
+const openPinned = new Set<(event: Event) => void>();
+const closePinned = (event: Event): void => {
+  for (const closeMenu of openPinned) closeMenu(event);
 };
 document.addEventListener("scroll", closePinned, { capture: true, passive: true });
 window.addEventListener("resize", closePinned, { passive: true });
@@ -91,8 +91,10 @@ const init = (root: HTMLElement): void => {
   if (!button || !panel || !surface) return;
   const isOpen = (): boolean => button.getAttribute("aria-expanded") === "true";
 
-  const closeIfPinned = (): void => {
+  const closeIfPinned = (event: Event): void => {
     if (!isOpen() || !isPinned(panel)) return;
+    // NOTE: a long panel scrolls its own items; only the page moving detaches it.
+    if (event.target instanceof Node && panel.contains(event.target)) return;
     // NOTE: a manual popover hands focus back to nobody when it hides, so an
     // item that had it would leave keyboard users at the top of the page.
     if (panel.contains(document.activeElement)) button.focus({ preventScroll: true });
