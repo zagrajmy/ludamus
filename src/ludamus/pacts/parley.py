@@ -67,7 +67,8 @@ class ParleyRoomRef(BaseModel):
 
 class ParleyOpenedRoomDTO(BaseModel):
     room: ParleyRoomDTO
-    event: ParleyModeratedEventDTO
+    event_title: str
+    event_slug: str
 
 
 class ParleyModerationPageDTO(BaseModel):
@@ -199,11 +200,6 @@ class ParleyBootstrapDTO(BaseModel):
     blocked: list[ParleyPersonDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")
-    # The rooms of the sphere the chat opens on that this person only
-    # moderates; they are read on that sphere's moderation page.
-    moderated_room_ids: list[str] = Field(
-        default_factory=list, serialization_alias="moderatedRoomIds"
-    )
 
 
 class ParleyManagedSphere(BaseModel):
@@ -345,10 +341,15 @@ class ParleyTimeWindow(BaseModel):
 
 
 class ParleyRepositoryProtocol(Protocol):
-    # `moderated` are the spheres whose every room this person moderates.
+    # `moderated` are the spheres whose every room this person moderates;
+    # `watched`, those of them whose rooms they are not in are listed too.
     @staticmethod
     def read_access(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> ParleyAccessDTO | None: ...
 
     @staticmethod

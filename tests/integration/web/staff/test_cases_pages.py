@@ -198,6 +198,7 @@ def _case_page(case, staff_user, *, statement=DEFAULT_PREVIEW):
     return {
         **_inbox(open_=1),
         "detail": _notice_detail(case, staff_user),
+        "opened_case_pk": case.pk,
         "reply_form": ANY,
         "assign_form": ANY,
         "decision_form": ANY,
@@ -263,7 +264,11 @@ class TestInboxPage:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data={**_inbox(open_=1, closed=1), "detail": None},
+            context_data={
+                **_inbox(open_=1, closed=1),
+                "detail": None,
+                "opened_case_pk": None,
+            },
         )
         assert list(response.context_data["page_obj"]) == [_notice_row(notice_case)]
 
@@ -274,7 +279,7 @@ class TestInboxPage:
             response,
             HTTPStatus.OK,
             template_name="staff/cases.html",
-            context_data={**_inbox(), "detail": None},
+            context_data={**_inbox(), "detail": None, "opened_case_pk": None},
         )
 
 
@@ -455,6 +460,7 @@ class TestDecidedCase:
             template_name="staff/cases.html",
             context_data={
                 **_inbox(active="closed", closed=1),
+                "opened_case_pk": case.pk,
                 "detail": CaseDetailDTO(
                     case=CaseDTO(
                         pk=case.pk,

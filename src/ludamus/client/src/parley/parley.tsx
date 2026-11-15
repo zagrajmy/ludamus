@@ -51,6 +51,21 @@ const ENTRY: OpenView = { kind: "entry" };
 const toggled = (view: View): View =>
   view.kind === "closed" ? view.left : { kind: "closed", left: view };
 
+// Which rooms the list shows and which one the chat opens on by itself. A
+// room this person only moderates is listed only as this page's own, and
+// opens only from a link.
+function arrange(rooms: Room[], pageRoom: string) {
+  const here = rooms.find(({ id }) => id === pageRoom);
+  const own = rooms.filter(({ moderating }) => !moderating);
+  return {
+    here,
+    listed: here?.moderating ? [here, ...own] : own,
+    moderated: rooms.filter(({ moderating }) => moderating),
+    opensOn: here?.moderating ? undefined : here,
+    own,
+  };
+}
+
 // A room gone since it was opened falls back like an unchosen one.
 function settle(view: View, rooms: Room[], first: Room | undefined): Shown {
   const gone = "roomId" in view && !rooms.some(({ id }) => id === view.roomId);
@@ -224,17 +239,15 @@ function Connected({
     {},
     ...Object.values(feeds).map((feed) => feed.activity),
   ) as Record<string, RoomActivity>;
-  const here = rooms.find(({ id }) => id === pageRoom);
-  // A room this person only moderates stays out of their own list, except
-  // as this page's, and opens only from a link.
-  const own = rooms.filter(({ moderating }) => !moderating);
-  const listed = here?.moderating ? [here, ...own] : own;
-  const moderatedRoomIds = new Set(bootstrap.moderatedRoomIds);
+  const { here, listed, moderated, opensOn, own } = arrange(rooms, pageRoom);
   const { moderationUrl } = bootstrap;
   const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
+  // A link to a chat this person cannot open here says so, until they open
+  // another.
+  const [linkFailed, setLinkFailed] = useState(linked !== "" && linkedRoom === undefined);
   const single =
     own.length === 1 && moderationUrl === null && !bootstrap.canMessage ? own[0] : undefined;
-  const shown = settle(view, rooms, linkedRoom ?? (here?.moderating ? undefined : here) ?? single);
+  const shown = settle(view, rooms, linkedRoom ?? opensOn ?? single);
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   useEffect(() => {
@@ -290,7 +303,10 @@ function Connected({
   };
 
   const close = useCallback(() => setView(toggled), [setView]);
-  const open = (target: Room) => setView({ kind: "room", roomId: target.id });
+  const open = (target: Room) => {
+    setLinkFailed(false);
+    setView({ kind: "room", roomId: target.id });
+  };
   const opened = (conversation: ConversationInfo) => {
     upsert(conversation);
     open(asRoom(conversation, copy.typingSomeone));
@@ -388,14 +404,8 @@ function Connected({
               compose={bootstrap.canMessage ? () => setView({ kind: "compose" }) : null}
               current={current}
               here={here}
-              moderation={
-                moderationUrl === null
-                  ? null
-                  : {
-                      rooms: rooms.filter(({ id }) => moderatedRoomIds.has(id)),
-                      url: moderationUrl,
-                    }
-              }
+              moderation={moderationUrl === null ? null : { rooms: moderated, url: moderationUrl }}
+              notice={linkFailed ? copy.linkUnavailable : null}
               open={open}
               rooms={listed}
               showBlocked={

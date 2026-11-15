@@ -55,7 +55,7 @@ const watched = {
   title: "Wsiąść do pociągu",
 };
 const rooms = [organizers, watchedEvent, played, watched];
-const moderation = { moderatedRoomIds: [watchedEvent.id, watched.id], moderationUrl: CHATS_URL };
+const moderation = { moderationUrl: CHATS_URL };
 
 const ownList = (panel: Locator): Locator =>
   panel.getByRole("navigation", { name: copy.roomsLabel });
@@ -193,7 +193,6 @@ test.describe("The sphere's chat moderation page", () => {
 
     await routeBootstrap(page, [
       {
-        moderatedRoomIds: [roomId],
         moderationUrl: CHATS_URL,
         rooms: [
           {

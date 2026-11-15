@@ -308,12 +308,28 @@ def test_points_a_moderator_to_this_sphere_s_page_of_rooms_they_are_not_in(
 ):
     sphere.managers.add(active_user)
     watched = SessionFactory(event=event, category=None)
+    elsewhere = SphereFactory()
+    elsewhere.managers.add(active_user)
+    SessionFactory(
+        event=EventFactory(
+            sphere=elsewhere, start_time=event.start_time, end_time=event.end_time
+        ),
+        category=None,
+    )
 
     response = authenticated_client.get(reverse("parley_bootstrap"))
 
     assert_response(response, HTTPStatus.OK)
     payload = response.json()
-    assert payload["moderatedRoomIds"] == [f"session:{sphere.pk}:{watched.pk}"]
+    assert sorted((room["id"], room["moderating"]) for room in payload["rooms"]) == (
+        sorted(
+            [
+                (f"organizers:{sphere.pk}", False),
+                (f"organizers:{elsewhere.pk}", False),
+                (f"session:{sphere.pk}:{watched.pk}", True),
+            ]
+        )
+    )
     assert payload["moderationUrl"] == reverse("multiverse:panel:chats")
 
 
@@ -330,4 +346,4 @@ def test_leaves_the_moderation_page_out_for_someone_who_moderates_nothing_here(
 
     assert_response(response, HTTPStatus.OK)
     payload = response.json()
-    assert (payload["moderatedRoomIds"], payload["moderationUrl"]) == ([], None)
+    assert payload["moderationUrl"] is None

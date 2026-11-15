@@ -1,0 +1,7 @@
+{% comment %}
+Rendered by {% split_view %} (split_view_tags): the list, and beside it on a
+wide screen the item it opened; without one, the list alone.
+{% endcomment %}
+<div class="grid gap-6 items-start {% if opened %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
+    {{ content }}
+</div>

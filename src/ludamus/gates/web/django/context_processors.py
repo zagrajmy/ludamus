@@ -8,13 +8,13 @@ from django.utils.functional import SimpleLazyObject
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.parley.configuration import chat_configured
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.notifications import NavbarNotificationsDTO
-    from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.sphere import SiteDTO, SphereDTO
     from ludamus.pacts.user import UserDTO
 
@@ -66,23 +66,25 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
-def parley_open(*, user_id: int | None, services: ServicesProtocol) -> bool:
-    # Only where the chat can sign passes and reach a Worker; elsewhere its
-    # button could never connect.
-    agent_host: str = settings.PARLEY_AGENT_HOST
-    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+def _parley_open(request: RootRequest) -> bool:
+    user_id = request.context.current_user_id
     return bool(
-        agent_host
-        and private_key
+        chat_configured()
         and user_id is not None
-        and services.parley.is_open_to(user_id=user_id, now=datetime.now(tz=UTC))
+        and request.services.parley.is_open_to(
+            user_id=user_id, now=datetime.now(tz=UTC)
+        )
     )
 
 
 def _parley_moderates(request: RootRequest) -> bool:
     user_id = request.context.current_user_id
-    return user_id is not None and request.services.parley.moderates(
-        user_id=user_id, sphere_id=request.context.current_sphere_id
+    return bool(
+        chat_configured()
+        and user_id is not None
+        and request.services.parley.moderates(
+            user_id=user_id, sphere_id=request.context.current_sphere_id
+        )
     )
 
 
@@ -91,11 +93,7 @@ def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
     # signed-in person, and the panel's sidebar), by which time the
     # middleware has set up the request.
     return {
-        "PARLEY_OPEN": SimpleLazyObject(
-            lambda: parley_open(
-                user_id=request.context.current_user_id, services=request.services
-            )
-        ),
+        "PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request)),
         "PARLEY_MODERATES": SimpleLazyObject(lambda: _parley_moderates(request)),
     }
 

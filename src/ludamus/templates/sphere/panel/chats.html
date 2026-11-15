@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load empty_state_tags %}
+{% load split_view_tags %}
 {% block title %}
     {% if page.opened %}
         {{ page.opened.room.title }} · {% translate "Chat moderation" %}
@@ -19,85 +20,86 @@
     {% if page.opened %}{{ page.opened.room.id }}{% endif %}
 {% endblock parley_room %}
 {% block content %}
-    <div class="panel-bleed grid gap-6 items-start {% if page.opened %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
-        <nav aria-label="{% translate "Chats to moderate" %}"
-             class="flex flex-col gap-4 {% if page.opened %}hidden lg:flex{% endif %}">
-            {% if page.events %}
-                <p class="text-sm text-foreground-secondary max-sm:px-3">
-                    {% translate "Chats of your sphere's events that you are not part of. Open one to read it, delete messages and mute people." %}
-                </p>
-                {% for event in page.events %}
-                    <section aria-labelledby="chats-event-{{ forloop.counter }}"
-                             class="flex flex-col gap-1">
-                        <h2 id="chats-event-{{ forloop.counter }}"
-                            class="px-3 text-xs font-semibold text-foreground-muted">{{ event.title }}</h2>
-                        <ul class="flex flex-col gap-1">
-                            {% for room in event.rooms %}
-                                <li>
-                                    <a href="{% url 'multiverse:panel:chat' kind=room.kind pk=room.pk %}#parley:{{ room.id }}"
-                                       {% if page.opened.room.id == room.id %}aria-current="page"{% endif %}
-                                       class="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-bg-tertiary aria-[current=page]:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus">
-                                        {% if room.kind == "event" %}
-                                            {% icon "megaphone" class="size-4 text-foreground-muted" %}
-                                            <span class="min-w-0 flex-1 truncate font-semibold text-foreground">{% translate "Event chat" %}</span>
-                                        {% else %}
-                                            {% icon "chat-bubble-left-right" class="size-4 text-foreground-muted" %}
-                                            <span class="min-w-0 flex-1 truncate font-semibold text-foreground">{{ room.title }}</span>
-                                        {% endif %}
-                                        {% if not room.can_write %}
-                                            <span class="shrink-0 text-xs text-foreground-muted">{% translate "Read only" %}</span>
-                                        {% endif %}
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </section>
-                {% endfor %}
-            {% else %}
-                {% translate "No chats to moderate" as t_empty %}
-                {% translate "Chats of your sphere's events that you are not part of show up here while the chat keeps them." as t_empty_text %}
-            {% empty_state icon="shield-check" title=t_empty text=t_empty_text %}
-            {% end_empty_state %}
-{% endif %}
-</nav>
-{% if page.opened %}
-    <article aria-labelledby="chat-heading" class="card p-6 flex flex-col gap-4">
-        <a href="{% url 'multiverse:panel:chats' %}"
-           class="lg:hidden inline-flex items-center gap-1 text-sm text-foreground-secondary">
-            {% icon "arrow-left" class="w-4 h-4" %}
-            {% translate "All chats to moderate" %}
-        </a>
-        <header class="flex flex-col gap-1">
-            <p class="text-sm text-foreground-muted">
-                {% if page.opened.room.kind == "event" %}
-                    {% translate "Event chat" %}
-                {% else %}
-                    {% translate "Programme point" %}
-                {% endif %}
-                · {{ page.opened.event.title }}
-                {% if not page.opened.room.can_write %}
-                    · {% translate "Read only" %}
-                {% endif %}
-            </p>
-            <h2 id="chat-heading"
-                class="text-2xl font-bold text-foreground text-pretty">{{ page.opened.room.title }}</h2>
-        </header>
-        <p class="text-sm text-foreground-secondary">
-            {% translate "The chat opens on this room and keeps it on top of its list, under “On this page”. Delete a message or mute its author from the message's menu." %}
-        </p>
-        <p class="text-sm text-foreground-secondary">
-            {% translate "You read it as a moderator, so nothing goes out by accident. To post, for example about a changed room, press “Write as organizer” first." %}
-        </p>
-        <div>
-            {% if page.opened.room.kind == "event" %}
-                <a href="{% url 'web:chronology:event' slug=page.opened.event.slug %}"
-                   class="btn btn-secondary text-sm">{% translate "Open the event page" %}</a>
-            {% else %}
-                <a href="{% url 'web:chronology:event' slug=page.opened.event.slug %}?session={{ page.opened.room.pk }}"
-                   class="btn btn-secondary text-sm">{% translate "Open the programme point" %}</a>
+    <div class="panel-bleed">
+        {% split_view opened=page.opened %}
+            {% split_view_list opened=page.opened %}
+                <nav aria-label="{% translate "Chats to moderate" %}"
+                     class="flex flex-col gap-4">
+                    {% if page.events %}
+                        <p class="text-sm text-foreground-secondary max-sm:px-3">
+                            {% translate "Chats of your sphere's events that you are not part of. Open one to read it, delete messages and mute people." %}
+                        </p>
+                        {% for event in page.events %}
+                            <section aria-labelledby="chats-event-{{ forloop.counter }}"
+                                     class="flex flex-col gap-1">
+                                <h2 id="chats-event-{{ forloop.counter }}"
+                                    class="px-3 text-xs font-semibold text-foreground-muted">{{ event.title }}</h2>
+                                <ul class="flex flex-col gap-1">
+                                    {% for room in event.rooms %}
+                                        <li>
+                                            {% url 'multiverse:panel:chat' kind=room.kind pk=room.pk as chat_url %}
+                                            {% split_view_row href=chat_url|add:"#parley:"|add:room.id item=room.id opened=opened_room_id extra_class="flex items-center gap-3" %}
+                                                {% if room.kind == "event" %}
+                                                    {% icon "megaphone" class="size-4 text-foreground-muted" %}
+                                                    <span class="min-w-0 flex-1 truncate font-semibold text-foreground">{% translate "Event chat" %}</span>
+                                                {% else %}
+                                                    {% icon "chat-bubble-left-right" class="size-4 text-foreground-muted" %}
+                                                    <span class="min-w-0 flex-1 truncate font-semibold text-foreground">{{ room.title }}</span>
+                                                {% endif %}
+                                                {% if not room.can_write %}
+                                                    <span class="shrink-0 text-xs text-foreground-muted">{% translate "Read only" %}</span>
+                                                {% endif %}
+                                            {% end_split_view_row %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </section>
+                        {% endfor %}
+                    {% else %}
+                        {% translate "No chats to moderate" as t_empty %}
+                        {% translate "Chats of your sphere's events that you are not part of show up here while the chat keeps them." as t_empty_text %}
+                    {% empty_state icon="shield-check" title=t_empty text=t_empty_text %}
+                    {% end_empty_state %}
             {% endif %}
-        </div>
-    </article>
-{% endif %}
+            </nav>
+        {% end_split_view_list %}
+        {% if page.opened %}
+            <article aria-labelledby="chat-heading" class="card p-6 flex flex-col gap-4">
+                {% url 'multiverse:panel:chats' as chats_url %}
+                {% translate "All chats to moderate" as t_all_chats %}
+                {% split_view_back href=chats_url label=t_all_chats %}
+                <header class="flex flex-col gap-1">
+                    <p class="text-sm text-foreground-muted">
+                        {% if page.opened.room.kind == "event" %}
+                            {% translate "Event chat" %}
+                        {% else %}
+                            {% translate "Programme point" %}
+                        {% endif %}
+                        · {{ page.opened.event_title }}
+                        {% if not page.opened.room.can_write %}
+                            · {% translate "Read only" %}
+                        {% endif %}
+                    </p>
+                    <h2 id="chat-heading"
+                        class="text-2xl font-bold text-foreground text-pretty">{{ page.opened.room.title }}</h2>
+                </header>
+                <p class="text-sm text-foreground-secondary">
+                    {% translate "The chat opens on this room and keeps it on top of its list, under “On this page”. Delete a message or mute its author from the message's menu." %}
+                </p>
+                <p class="text-sm text-foreground-secondary">
+                    {% translate "You read it as a moderator, so nothing goes out by accident. To post, for example about a changed room, press “Write as organizer” first." %}
+                </p>
+                <div>
+                    {% if page.opened.room.kind == "event" %}
+                        <a href="{% url 'web:chronology:event' slug=page.opened.event_slug %}"
+                           class="btn btn-secondary text-sm">{% translate "Open the event page" %}</a>
+                    {% else %}
+                        <a href="{% url 'web:chronology:event' slug=page.opened.event_slug %}?session={{ page.opened.room.pk }}"
+                           class="btn btn-secondary text-sm">{% translate "Open the programme point" %}</a>
+                    {% endif %}
+                </div>
+            </article>
+        {% endif %}
+{% end_split_view %}
 </div>
 {% endblock content %}

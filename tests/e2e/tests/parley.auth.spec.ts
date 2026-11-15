@@ -234,12 +234,20 @@ test("On a programme point's page the chat opens on its room, kept on top of the
 }) => {
   await routeBootstrap(page, [{ ageGate: "unconfirmed" }]);
   await FakeWorker.install(page);
-  // NOTE: stands in for an enrolment page, whose template sets this.
-  await page.addInitScript(() => {
-    addEventListener("DOMContentLoaded", () => {
-      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageRoom = "session:1:42";
-    });
-  });
+  // NOTE: stands in for an enrolment page, whose template names its room in
+  // the HTML; the chat reads it as it mounts, which can be before the page
+  // has finished loading.
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'data-page-room=""',
+        'data-page-room="session:1:42"',
+      );
+      await route.fulfill({ body, response });
+    },
+  );
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);

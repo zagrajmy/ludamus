@@ -55,6 +55,7 @@ def _context(event, *, page):
         "is_proposal_active": event_dto.is_proposal_active,
         "active_nav": "chats",
         "page": page,
+        "opened_room_id": None if page.opened is None else page.opened.room.id,
     }
 
 
@@ -142,7 +143,9 @@ class TestChatModerationPageView:
                 page=ParleyModerationPageDTO(
                     events=[group],
                     opened=ParleyOpenedRoomDTO(
-                        room=_watched_room(watched), event=group
+                        room=_watched_room(watched),
+                        event_title=event.name,
+                        event_slug=event.slug,
                     ),
                 ),
             ),
@@ -190,7 +193,10 @@ class TestChatModerationPageView:
             context_data=_context(
                 event,
                 page=ParleyModerationPageDTO(
-                    events=[group], opened=ParleyOpenedRoomDTO(room=room, event=group)
+                    events=[group],
+                    opened=ParleyOpenedRoomDTO(
+                        room=room, event_title=event.name, event_slug=event.slug
+                    ),
                 ),
             ),
         )

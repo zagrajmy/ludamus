@@ -138,6 +138,7 @@ export function RoomList({
   current,
   here,
   moderation,
+  notice,
   open,
   rooms,
   showBlocked,
@@ -153,6 +154,8 @@ export function RoomList({
   // The rooms this person only moderates here, read on the page the row
   // links to.
   moderation: { rooms: Room[]; url: string } | null;
+  // Why the chat did not open where a link pointed.
+  notice: string | null;
   open: (room: Room) => void;
   rooms: Room[];
   showBlocked: (() => void) | null;
@@ -197,6 +200,14 @@ export function RoomList({
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[5px] pt-[5px] pb-[max(5px,env(safe-area-inset-bottom))]"
         onKeyDown={moveAmongRows}
       >
+        {notice !== null && (
+          <p
+            className="mx-0.5 mb-1 rounded-[14px] bg-warning-bg px-3 py-2.5 text-sm text-warning-text"
+            role="status"
+          >
+            {notice}
+          </p>
+        )}
         {pinned.length > 0 && (
           <>
             <h3 className={SECTION}>{copy.onThisPage}</h3>

@@ -96,7 +96,7 @@ class Access:
     def list_team_seats(self, _user_id):
         return self.seats
 
-    def read_access(self, *, user_id, window, moderated):
+    def read_access(self, *, user_id, window, moderated, watched):
         self.asked.append((window.now, moderated))
         if self.rooms is None:
             return None
@@ -404,24 +404,6 @@ def _moderating(room):
     return room.model_copy(update={"moderating": True})
 
 
-def test_bootstrap_names_the_rooms_of_this_sphere_its_moderator_is_not_in() -> None:
-    access = Access(
-        [
-            _moderating(_event(1, can_moderate=True)),
-            _moderating(_session(11, event=1, can_moderate=True)),
-            _session(12, event=1, can_moderate=True),
-            _moderating(_session(21, event=2, sphere=8, can_moderate=True)),
-        ],
-        seats=[(45, SphereRole.MANAGER), (8, SphereRole.MANAGER)],
-    )
-    service, _ = _bootstrapping(access)
-
-    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
-
-    assert result is not None
-    assert result.moderated_room_ids == ["event:45:1", "session:45:11"]
-
-
 class ModeratedAccess(Access):
     """A sphere's programme, as its moderation page reads it."""
 
@@ -457,25 +439,19 @@ def _page(room, *, seats=((45, SphereRole.MANAGER),)):
     )
 
 
-@pytest.mark.parametrize(
-    ("room", "expected"),
-    (
-        (None, None),
-        (
-            ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=21),
-            ("session:45:21", "Bachanalia"),
-        ),
-    ),
-    ids=["just-the-list", "one-room"],
-)
-def test_the_moderation_page_opens_the_room_asked_for_with_its_event(
-    room, expected
-) -> None:
-    _, read = _page(room)
+def test_the_moderation_page_opens_no_room_unless_asked() -> None:
+    _, read = _page(None)
+
+    assert read().opened is None
+
+
+def test_the_moderation_page_opens_the_room_asked_for_with_its_event() -> None:
+    _, read = _page(ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=21))
 
     opened = read().opened
 
-    assert (opened and (opened.room.id, opened.event.title)) == expected
+    assert opened is not None
+    assert (opened.room.id, opened.event_title) == ("session:45:21", "Bachanalia")
 
 
 @pytest.mark.parametrize(
@@ -494,11 +470,10 @@ def test_the_moderation_page_finds_no_room_off_its_list(room) -> None:
 
 
 def test_the_moderation_page_reads_nothing_for_someone_who_does_not_moderate():
-    access, read = _page(None, seats=((45, SphereRole.COMMS), (8, SphereRole.MANAGER)))
+    _, read = _page(None, seats=((45, SphereRole.COMMS), (8, SphereRole.MANAGER)))
 
     with pytest.raises(NotFoundError):
         read()
-    assert not access.asked
 
 
 REPORTER, AUTHOR = 123, 7

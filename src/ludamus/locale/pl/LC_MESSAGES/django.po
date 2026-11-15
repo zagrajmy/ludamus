@@ -3985,6 +3985,14 @@ msgid "Moderation"
 msgstr "Moderacja"
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"That chat can't be opened here. It may have closed, or your access to it has "
+"changed."
+msgstr ""
+"Tego czatu nie da się tu otworzyć. Mógł zostać zamknięty albo zmienił się "
+"twój dostęp do niego."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Moderator view"
 msgstr "Widok moderatora"
 

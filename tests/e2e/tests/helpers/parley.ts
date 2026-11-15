@@ -99,6 +99,8 @@ export const bootstrap = {
     leaveGroup: "Leave group",
     leaveGroupConfirm: "Leave this group? Its messages will stop reaching you.",
     linkCopied: "Link copied.",
+    linkUnavailable:
+      "That chat can't be opened here. It may have closed, or your access to it has changed.",
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
     loadingEmoji: "Loading emoji…",
@@ -198,7 +200,6 @@ export const bootstrap = {
   },
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
-  moderatedRoomIds: [] as string[],
   moderationUrl: null as string | null,
   rooms: [
     {

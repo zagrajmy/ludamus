@@ -188,6 +188,10 @@ def _conversation_copy() -> dict[str, str]:
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
         "moderation": _("Moderation"),
+        "linkUnavailable": _(
+            "That chat can't be opened here. It may have closed, or your access to"
+            " it has changed."
+        ),
         "moderatorView": _("Moderator view"),
         "moderatorReading": _("You are reading this chat as a moderator."),
         "writeAsOrganizer": _("Write as organizer"),
@@ -274,7 +278,9 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
     response_data["moderationUrl"] = (
-        reverse("multiverse:panel:chats") if payload.moderated_room_ids else None
+        reverse("multiverse:panel:chats")
+        if any(room.moderating for room in payload.rooms)
+        else None
     )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)

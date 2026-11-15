@@ -10,7 +10,7 @@ from django.http import Http404
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.context_processors import parley_open
+from ludamus.gates.web.django.parley.configuration import chat_configured
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.errors import NotFoundError
@@ -37,11 +37,11 @@ class ChatModerationPageView(SphereAccessMixin, View):
     request: PanelRequest
 
     def get(
-        self, _request: PanelRequest, kind: str | None = None, pk: int | None = None
+        self, _request: PanelRequest, *, kind: str | None = None, pk: int | None = None
     ) -> HttpResponse:
-        user_id = self.request.context.current_user_id
-        if not parley_open(user_id=user_id, services=self.request.services):
+        if not chat_configured():
             raise Http404
+        user_id = self.request.context.current_user_id
         try:
             page = self.request.services.parley.moderation_page(
                 user_id=user_id,
@@ -51,14 +51,17 @@ class ChatModerationPageView(SphereAccessMixin, View):
             )
         except NotFoundError as error:
             raise Http404 from error
-        if page.opened is not None:
+        opened_room_id = None if page.opened is None else page.opened.room.id
+        if opened_room_id is not None:
             logger.info(
-                "chat moderation room opened: user=%s room=%s",
-                user_id,
-                page.opened.room.id,
+                "chat moderation room opened: user=%s room=%s", user_id, opened_room_id
             )
         return TemplateResponse(
             self.request,
             "sphere/panel/chats.html",
-            {**sphere_sidebar_context(self.request, active_nav="chats"), "page": page},
+            {
+                **sphere_sidebar_context(self.request, active_nav="chats"),
+                "page": page,
+                "opened_room_id": opened_room_id,
+            },
         )

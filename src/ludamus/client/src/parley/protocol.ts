@@ -55,6 +55,7 @@ export type Copy = Record<
   | "leaveGroup"
   | "leaveGroupConfirm"
   | "linkCopied"
+  | "linkUnavailable"
   | "loadEarlier"
   | "loading"
   | "loadingEmoji"
@@ -202,9 +203,8 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
-  // This sphere's rooms this person only moderates, and the page they are
-  // read on; null when there are none.
-  moderatedRoomIds: string[];
+  // Where this sphere's rooms this person only moderates are read; null
+  // when there are none.
   moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };

@@ -183,8 +183,13 @@ class ParleyService:
         self, *, user_id: int, sphere_id: int, now: datetime
     ) -> ParleyBootstrapDTO | None:
         moderated = self._moderated(user_id)
+        # The rooms someone only moderates are read on their sphere's own
+        # page, so the chat carries only the sphere it is open on.
         access = self._repository.read_access(
-            user_id=user_id, window=self._window(now), moderated=moderated
+            user_id=user_id,
+            window=self._window(now),
+            moderated=moderated,
+            watched=moderated & {sphere_id},
         )
         if access is None:
             return None
@@ -253,11 +258,6 @@ class ParleyService:
             blocked=self._conversations.list_blocked(user_id),
             capability_token=capability_token,
             agent_host=self._agent_host,
-            moderated_room_ids=[
-                room.id
-                for room in rooms
-                if room.moderating and room.sphere_id == sphere_id
-            ],
         )
 
     def moderates(self, *, user_id: int, sphere_id: int) -> bool:
@@ -284,7 +284,9 @@ class ParleyService:
             return ParleyModerationPageDTO(events=events)
         opened = next(
             (
-                ParleyOpenedRoomDTO(room=each, event=event)
+                ParleyOpenedRoomDTO(
+                    room=each, event_title=event.title, event_slug=event.slug
+                )
                 for event in events
                 for each in event.rooms
                 if each.kind == room.kind and each.pk == room.pk
@@ -400,10 +402,12 @@ class ParleyService:
     def _room_seen_by(
         self, data: ParleyReportData, now: datetime
     ) -> ParleyRoomDTO | None:
+        moderated = self._moderated(data.user_id)
         access = self._repository.read_access(
             user_id=data.user_id,
             window=self._window(now),
-            moderated=self._moderated(data.user_id),
+            moderated=moderated,
+            watched=moderated,
         )
         rooms = [] if access is None else access.rooms
         return next((room for room in rooms if room.id == data.room_id), None)
