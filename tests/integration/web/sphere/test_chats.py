@@ -31,7 +31,7 @@ def _chat_url(kind, pk):
     return reverse("multiverse:panel:chat", kwargs={"kind": kind, "pk": pk})
 
 
-def _watched_room(session):
+def _watched_room(session, *, can_write=True):
     event = session.event
     return ParleyRoomDTO(
         kind=ParleyRoomKind.SESSION,
@@ -39,7 +39,7 @@ def _watched_room(session):
         pk=session.pk,
         event_pk=event.pk,
         title=session.title,
-        can_write=True,
+        can_write=can_write,
         can_moderate=True,
         moderating=True,
         starts_at=int(event.start_time.timestamp()),
@@ -161,6 +161,33 @@ class TestChatModerationPageView:
             ),
         )
 
+    def test_opens_a_chat_nobody_can_write_in(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        pending = SessionFactory(
+            event=event, category=None, title="Proposed", status=SessionStatus.PENDING
+        )
+        room = _watched_room(pending, can_write=False)
+        group = ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=[room])
+
+        response = authenticated_client.get(_chat_url("session", pending.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="sphere/panel/chats.html",
+            context_data=_context(
+                event,
+                page=ParleyModerationPageDTO(
+                    events=[group],
+                    opened=ParleyOpenedRoomDTO(
+                        room=room, event_title=event.name, event_slug=event.slug
+                    ),
+                ),
+            ),
+        )
+
     def test_says_there_is_nothing_to_moderate_in_a_quiet_sphere(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -211,7 +238,7 @@ class TestChatModerationPageView:
             ),
         )
 
-    @pytest.mark.parametrize("which", ("own", "foreign", "wrong-kind"))
+    @pytest.mark.parametrize("which", ("own", "foreign", "wrong-kind", "no-such-kind"))
     def test_a_chat_off_that_list_is_not_found(
         self, authenticated_client, active_user, sphere, programme, which
     ):
@@ -226,6 +253,7 @@ class TestChatModerationPageView:
             "own": ("session", played.pk),
             "foreign": ("session", foreign.pk),
             "wrong-kind": ("event", watched.pk),
+            "no-such-kind": ("party", watched.pk),
         }[which]
 
         response = authenticated_client.get(_chat_url(kind, pk))

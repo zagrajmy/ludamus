@@ -97,6 +97,19 @@ test.describe("The chat of a sphere's organizer", () => {
     });
   });
 
+  test("finds the chats they moderate even with none of their own", async ({ page }) => {
+    await routeBootstrap(page, [{ ...moderation, rooms: [watchedEvent, watched] }]);
+    await FakeWorker.install(page);
+    await page.goto("/");
+    await launcherOf(page).click();
+    const panel = panelOf(page);
+
+    await expect(ownList(panel).getByRole("button")).toHaveCount(0);
+    const entry = ownList(panel).getByRole("link", { name: new RegExp(copy.moderation, "u") });
+    await expect(entry).toBeFocused();
+    await expect(entry).toContainText("2 chats you moderate");
+  });
+
   test("writes where they only moderate only after a deliberate step", async ({ page }) => {
     await routeBootstrap(page, [{ ...moderation, rooms }]);
     const worker = (await FakeWorker.install(page))
