@@ -239,10 +239,11 @@ floating UI for the same corner.{% endcomment %}
                 {% include "components/flash-region.html" %}
             {% endif %}
             {% comment %}A tab shell put straight in here is flush with the
-            panel chrome, so its own border would double the chrome's edge.
+            panel chrome, so its own border would double the chrome's edge and
+            its rounded corners would show where it meets the footer.
             Pages that inset their shell — inside a `.panel-bleed` wrapper,
             say — keep it.{% endcomment %}
-            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0">
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:rounded-none [&>.tab-shell]:border-0">
                 {% block content %}
                 {% endblock content %}
             </div>
