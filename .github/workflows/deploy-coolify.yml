@@ -81,7 +81,6 @@ jobs:
           DB_NAME: ${{ vars.DB_NAME }}
           DB_USER: ${{ vars.DB_USER }}
           WORKOS_CLIENT_ID: ${{ vars.WORKOS_CLIENT_ID }}
-          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
           MEDIA_URL: ${{ vars.MEDIA_URL }}

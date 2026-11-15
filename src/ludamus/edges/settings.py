@@ -91,7 +91,6 @@ env = environ.Env(
     # can tell the two apart (currently: the favicon variant).
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
-    SUPPORT_EMAIL=(str, "support@example.com"),
     MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
@@ -423,7 +422,8 @@ WORKOS_CLIENT_ID = env("WORKOS_CLIENT_ID")
 # Empty means the real API; dev and e2e point it at scripts/workos_simulator.py.
 WORKOS_BASE_URL = env("WORKOS_BASE_URL")
 
-SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Shown on the error page and behind every Contact link.
+SUPPORT_EMAIL = "support@zagrajmy.net"
 # The DSA point of contact (Art. 11, 12): named in the terms and on the notice
 # form, the reply-to of every moderation mail, and where staff alerts go.
 STAFF_EMAIL = "staff@zagrajmy.net"

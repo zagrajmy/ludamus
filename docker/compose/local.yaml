@@ -57,7 +57,6 @@ services:
       SECRET_KEY:
       ALLOWED_HOSTS:
       ROOT_DOMAIN:
-      SUPPORT_EMAIL:
       SESSION_COOKIE_DOMAIN:
       STATIC_ROOT: /app/staticfiles
       MEDIA_ROOT: /app/media
