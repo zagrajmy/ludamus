@@ -135,6 +135,51 @@ class TestChatModerationPageView:
             ),
         )
 
+    def test_says_there_is_nothing_to_moderate_in_a_quiet_sphere(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(CHATS_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="sphere/panel/chats.html",
+            context_data=_context(event, page=ParleyModerationPageDTO(events=[])),
+        )
+
+    def test_opens_an_event_s_own_chat(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.parley_enabled = True
+        event.save()
+        room = ParleyRoomDTO(
+            kind=ParleyRoomKind.EVENT,
+            sphere_id=sphere.pk,
+            pk=event.pk,
+            title=event.name,
+            can_write=True,
+            can_moderate=True,
+            moderating=True,
+            starts_at=int(event.start_time.timestamp()),
+            ends_at=int(event.end_time.timestamp()),
+        )
+        group = ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=[room])
+
+        response = authenticated_client.get(_chat_url("event", event.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="sphere/panel/chats.html",
+            context_data=_context(
+                event,
+                page=ParleyModerationPageDTO(events=[group], room=room, event=group),
+            ),
+        )
+
     @pytest.mark.parametrize("which", ("own", "foreign", "wrong-kind"))
     def test_a_chat_off_that_list_is_not_found(
         self, authenticated_client, active_user, sphere, programme, which
