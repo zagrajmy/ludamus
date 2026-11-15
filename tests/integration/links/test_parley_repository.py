@@ -297,7 +297,10 @@ def test_a_sphere_that_closes_its_organizers_room_keeps_its_other_rooms(
     assert access.rooms[1].id == f"session:{sphere.pk}:{session.pk}"
     assert (
         repository.has_rooms(
-            user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+            user_id=active_user.pk,
+            window=window,
+            moderated=frozenset({sphere.pk}),
+            watched=frozenset({sphere.pk}),
         )
         is True
     )
@@ -325,7 +328,10 @@ def test_a_sphere_with_chat_off_offers_no_room_at_all(sphere, active_user, now, 
     assert access.rooms == []
     assert (
         repository.has_rooms(
-            user_id=active_user.pk, window=window, moderated=frozenset()
+            user_id=active_user.pk,
+            window=window,
+            moderated=frozenset(),
+            watched=frozenset(),
         )
         is False
     )
@@ -348,6 +354,7 @@ def test_says_whether_someone_has_any_room(
         user_id=active_user.pk,
         window=window,
         moderated=frozenset({sphere.pk} if taking_part == "manager" else ()),
+        watched=frozenset({sphere.pk} if taking_part == "manager" else ()),
     )
 
     assert has_rooms is (taking_part != "nobody")
@@ -413,7 +420,10 @@ def test_denies_disabled_or_inactive_accounts(sphere, active_user, window, attri
     )
     assert (
         repository.has_rooms(
-            user_id=active_user.pk, window=window, moderated=frozenset({sphere.pk})
+            user_id=active_user.pk,
+            window=window,
+            moderated=frozenset({sphere.pk}),
+            watched=frozenset({sphere.pk}),
         )
         is False
     )

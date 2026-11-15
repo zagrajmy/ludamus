@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, TypedDict
 
 from django.db.models import BooleanField, ExpressionWrapper, Q
@@ -192,39 +193,45 @@ class ParleyRepository(ParleyRepositoryProtocol):
         *, user_id: int, sphere_id: int, window: ParleyTimeWindow
     ) -> list[ParleyModeratedEventDTO]:
         watched = frozenset({sphere_id})
-        events: dict[int, tuple[Event, list[ParleyRoomDTO]]] = {}
+        events: dict[int, Event] = {}
+        rooms: defaultdict[int, list[ParleyRoomDTO]] = defaultdict(list)
+        # Each event's own chat goes before its programme points'.
         for event in _events(user_id=user_id, watched=watched, window=window).filter(
             own=False
         ):
-            events.setdefault(event.pk, (event, []))[1].append(
-                _event_room(event, window=window, moderated=watched)
-            )
+            events[event.pk] = event
+            rooms[event.pk].append(_event_room(event, window=window, moderated=watched))
         for session in (
             _sessions(user_id=user_id, watched=watched, window=window)
             .filter(own=False)
             .select_related("event")
             .order_by("title", "pk")
         ):
-            events.setdefault(session.event_id, (session.event, []))[1].append(
+            events[session.event_id] = session.event
+            rooms[session.event_id].append(
                 _session_room(session, window=window, moderated=watched)
             )
         return [
-            ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=rooms)
-            for event, rooms in sorted(
-                events.values(), key=lambda entry: (entry[0].start_time, entry[0].pk)
+            ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=rooms[pk])
+            for pk, event in sorted(
+                events.items(), key=lambda item: (item[1].start_time, item[0])
             )
         ]
 
     @staticmethod
     def has_rooms(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> bool:
         if _chat_user(user_id) is None:
             return False
         return (
             _organizers_rooms(moderated).exists()
-            or _events(user_id=user_id, watched=moderated, window=window).exists()
-            or _sessions(user_id=user_id, watched=moderated, window=window).exists()
+            or _events(user_id=user_id, watched=watched, window=window).exists()
+            or _sessions(user_id=user_id, watched=watched, window=window).exists()
         )
 
     @staticmethod

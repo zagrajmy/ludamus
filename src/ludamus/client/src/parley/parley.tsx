@@ -455,7 +455,7 @@ function Connected({
               <div className={shown.kind === "details" ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
                 <Conversation
                   answers={answersFor(room)}
-                  back={single === undefined ? { label: copy.backLabel, run: toList } : null}
+                  back={single === undefined ? toList : null}
                   blocked={blockedIds}
                   bootstrap={bootstrap}
                   close={close}

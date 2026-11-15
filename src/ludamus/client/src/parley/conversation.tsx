@@ -203,7 +203,7 @@ export function Conversation({
   room,
 }: {
   answers: RequestAnswers;
-  back: { label: string; run: () => void } | null;
+  back: (() => void) | null;
   // Ids of the people this person blocked: their messages stay hidden.
   blocked: Set<string>;
   bootstrap: Bootstrap;
@@ -575,7 +575,7 @@ export function Conversation({
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
       <TitleBar>
         {back !== null && (
-          <button aria-label={back.label} className={ICON_BUTTON} onClick={back.run} type="button">
+          <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
           </button>
         )}

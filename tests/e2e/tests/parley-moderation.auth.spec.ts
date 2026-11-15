@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
 import path from "node:path";
 
@@ -10,6 +10,7 @@ import {
   FakeWorker,
   launcherOf,
   message,
+  onPageOf,
   panelOf,
   routeBootstrap,
 } from "./helpers/parley";
@@ -59,21 +60,6 @@ const moderation = { moderationUrl: CHATS_URL };
 
 const ownList = (panel: Locator): Locator =>
   panel.getByRole("navigation", { name: copy.roomsLabel });
-
-// Stands in for a page whose template names its room.
-async function onPageOf(page: Page, roomId: string): Promise<void> {
-  await page.route(
-    (url) => url.pathname === "/",
-    async (route) => {
-      const response = await route.fetch();
-      const body = (await response.text()).replace(
-        'data-page-room=""',
-        `data-page-room="${roomId}"`,
-      );
-      await route.fulfill({ body, response });
-    },
-  );
-}
 
 test.describe("The chat of a sphere's organizer", () => {
   test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });

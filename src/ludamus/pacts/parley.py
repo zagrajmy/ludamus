@@ -48,6 +48,9 @@ class ParleyRoomDTO(BaseModel):
 
     @model_validator(mode="after")
     def _named(self) -> Self:
+        if self.moderating and not self.can_moderate:
+            msg = "a room listed only to moderate it must be moderated"
+            raise ValueError(msg)
         self.id = f"{self.kind}:{self.name}"
         return self
 
@@ -354,7 +357,11 @@ class ParleyRepositoryProtocol(Protocol):
 
     @staticmethod
     def has_rooms(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> bool: ...
 
     # The sphere's events, in the order they start, with the rooms in each
@@ -428,7 +435,7 @@ class ParleyServiceProtocol(Protocol):
 
     def moderates(self, *, user_id: int, sphere_id: int) -> bool: ...
 
-    def is_open_to(self, *, user_id: int, now: datetime) -> bool: ...
+    def is_open_to(self, *, user_id: int, sphere_id: int, now: datetime) -> bool: ...
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
 

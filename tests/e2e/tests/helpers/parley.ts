@@ -386,6 +386,22 @@ export function message(fields: Partial<Message> & Pick<Message, "id">): Message
   };
 }
 
+// Stands in for a page whose template names its room in the HTML, where the
+// chat reads it as it mounts.
+export async function onPageOf(page: Page, roomId: string): Promise<void> {
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'data-page-room=""',
+        `data-page-room="${roomId}"`,
+      );
+      await route.fulfill({ body, response });
+    },
+  );
+}
+
 export const launcherOf = (page: Page): Locator => page.getByRole("button", { name: "Open chat" });
 export const panelOf = (page: Page): Locator => page.getByRole("dialog", { name: "Chat" });
 

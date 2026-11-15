@@ -97,7 +97,7 @@ class Access:
         return self.seats
 
     def read_access(self, *, user_id, window, moderated, watched):
-        self.asked.append((window.now, moderated))
+        self.asked.append((window.now, moderated, watched))
         if self.rooms is None:
             return None
         return ParleyAccessDTO(
@@ -107,8 +107,8 @@ class Access:
             rooms=self.rooms,
         )
 
-    def has_rooms(self, *, user_id, window, moderated):
-        self.asked.append((window.now, moderated))
+    def has_rooms(self, *, user_id, window, moderated, watched):
+        self.asked.append((window.now, moderated, watched))
         return self._has_rooms
 
     def save_report(self, report):
@@ -210,7 +210,7 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "moderating": False,
     }
     assert (result.can_message, result.age_gate) == (False, "unconfirmed")
-    assert access.asked == [(NOW, frozenset())]
+    assert access.asked == [(NOW, frozenset(), frozenset())]
     claims = signer.signed[-1]
     assert isinstance(claims, ParleyCapabilityClaims)
     assert claims.model_dump(exclude={"jti"}) == {
@@ -270,7 +270,7 @@ def test_a_moderator_s_pass_names_their_spheres_and_events_but_not_the_programme
 
     service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
-    assert access.asked == [(NOW, frozenset({45, 8}))]
+    assert access.asked == [(NOW, frozenset({45, 8}), frozenset({45}))]
     claims = signer.signed[-1]
     assert claims.model_dump()["managed"] == {
         "45": {"organizers": True},
@@ -377,7 +377,7 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
     service, signer = _bootstrapping(access)
 
     assert service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW) is None
-    assert access.asked == [(NOW, frozenset())]
+    assert access.asked == [(NOW, frozenset(), frozenset())]
     assert not signer.signed
 
 
@@ -397,11 +397,11 @@ def test_the_chat_is_open_to_anyone_with_somewhere_to_chat(
 ) -> None:
     service, _ = _bootstrapping(Access(has_rooms=has_rooms), conversations)
 
-    assert service.is_open_to(user_id=USER_ID, now=NOW) is expected
+    assert service.is_open_to(user_id=USER_ID, sphere_id=45, now=NOW) is expected
 
 
 def _moderating(room):
-    return room.model_copy(update={"moderating": True})
+    return room.model_copy(update={"moderating": True, "can_moderate": True})
 
 
 class ModeratedAccess(Access):
@@ -432,21 +432,22 @@ def _programme():
 
 
 def _page(room, *, seats=((45, SphereRole.MANAGER),)):
-    access = ModeratedAccess(seats=list(seats), moderated=_programme())
-    service, _ = _bootstrapping(access)
-    return access, lambda: service.moderation_page(
+    service, _ = _bootstrapping(
+        ModeratedAccess(seats=list(seats), moderated=_programme())
+    )
+    return lambda: service.moderation_page(
         user_id=USER_ID, sphere_id=45, room=room, now=NOW
     )
 
 
 def test_the_moderation_page_opens_no_room_unless_asked() -> None:
-    _, read = _page(None)
+    read = _page(None)
 
     assert read().opened is None
 
 
 def test_the_moderation_page_opens_the_room_asked_for_with_its_event() -> None:
-    _, read = _page(ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=21))
+    read = _page(ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=21))
 
     opened = read().opened
 
@@ -463,14 +464,14 @@ def test_the_moderation_page_opens_the_room_asked_for_with_its_event() -> None:
     ids=["off-the-list", "the-wrong-kind"],
 )
 def test_the_moderation_page_finds_no_room_off_its_list(room) -> None:
-    _, read = _page(room)
+    read = _page(room)
 
     with pytest.raises(NotFoundError):
         read()
 
 
 def test_the_moderation_page_reads_nothing_for_someone_who_does_not_moderate():
-    _, read = _page(None, seats=((45, SphereRole.COMMS), (8, SphereRole.MANAGER)))
+    read = _page(None, seats=((45, SphereRole.COMMS), (8, SphereRole.MANAGER)))
 
     with pytest.raises(NotFoundError):
         read()

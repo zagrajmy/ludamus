@@ -72,7 +72,9 @@ def _parley_open(request: RootRequest) -> bool:
         chat_configured()
         and user_id is not None
         and request.services.parley.is_open_to(
-            user_id=user_id, now=datetime.now(tz=UTC)
+            user_id=user_id,
+            sphere_id=request.context.current_sphere_id,
+            now=datetime.now(tz=UTC),
         )
     )
 

@@ -167,14 +167,16 @@ class ParleyService:
         self._messages = messages
         self._agent_host = agent_host
 
-    def is_open_to(self, *, user_id: int, now: datetime) -> bool:
-        """Whether this person has anywhere to chat at all."""
+    def is_open_to(self, *, user_id: int, sphere_id: int, now: datetime) -> bool:
+        """Whether this person has anywhere to chat on this sphere's site."""
+        moderated, watched = self._scope(user_id=user_id, sphere_id=sphere_id)
         return (
             self._conversations.is_eligible(user_id)
             or self._repository.has_rooms(
                 user_id=user_id,
                 window=self._window(now),
-                moderated=self._moderated(user_id),
+                moderated=moderated,
+                watched=watched,
             )
             or self._conversations.has_conversation(user_id=user_id, kinds=_OPEN_KINDS)
         )
@@ -182,14 +184,12 @@ class ParleyService:
     def bootstrap(
         self, *, user_id: int, sphere_id: int, now: datetime
     ) -> ParleyBootstrapDTO | None:
-        moderated = self._moderated(user_id)
-        # The rooms someone only moderates are read on their sphere's own
-        # page, so the chat carries only the sphere it is open on.
+        moderated, watched = self._scope(user_id=user_id, sphere_id=sphere_id)
         access = self._repository.read_access(
             user_id=user_id,
             window=self._window(now),
             moderated=moderated,
-            watched=moderated & {sphere_id},
+            watched=watched,
         )
         if access is None:
             return None
@@ -380,6 +380,18 @@ class ParleyService:
             deleted += 1
         return ParleyModerationResult(deleted=deleted, failed=failed)
 
+    def _scope(
+        self, *, user_id: int, sphere_id: int
+    ) -> tuple[frozenset[int], frozenset[int]]:
+        """Split the spheres someone moderates from those listed here.
+
+        Returns:
+            Every sphere they moderate, then the one of them the chat is open
+            on: rooms they only moderate are read on that sphere's own page.
+        """
+        moderated = self._moderated(user_id)
+        return moderated, moderated & {sphere_id}
+
     def _moderated(self, user_id: int) -> frozenset[int]:
         return frozenset(
             seat.sphere_id
@@ -403,6 +415,8 @@ class ParleyService:
         self, data: ParleyReportData, now: datetime
     ) -> ParleyRoomDTO | None:
         moderated = self._moderated(data.user_id)
+        # NOTE: a report names its room, so every room of every sphere the
+        # reporter moderates counts, whichever site the chat is open on.
         access = self._repository.read_access(
             user_id=data.user_id,
             window=self._window(now),
