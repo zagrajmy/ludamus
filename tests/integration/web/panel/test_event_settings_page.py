@@ -235,7 +235,13 @@ class TestEventSettingsPageViewPost:
             "slug": event.slug,
             "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
             "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
-            "visibility": event.visibility,
+            # NOTE: re-posts the stored publication as it stands.
+            "publication": "scheduled",
+            "publication_time": (
+                localtime(event.publication_time).strftime("%Y-%m-%dT%H:%M")
+                if event.publication_time
+                else ""
+            ),
         }
         data.update(overrides)
         return data
@@ -299,7 +305,7 @@ class TestEventSettingsPageViewPost:
 
     def test_makes_the_event_unlisted(self, panel_client, event):
         response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="unlisted")
+            self.get_url(event), data=self._post_data(event, publication="link_only")
         )
 
         assert_response(
@@ -327,7 +333,7 @@ class TestEventSettingsPageViewPost:
         before = timezone.now()
 
         response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="public")
+            self.get_url(event), data=self._post_data(event, publication="public_now")
         )
 
         event = self._saved(response, event)
@@ -340,7 +346,7 @@ class TestEventSettingsPageViewPost:
         event.save()
 
         response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="public")
+            self.get_url(event), data=self._post_data(event, publication="public_now")
         )
 
         assert self._saved(response, event).publication_time == published
@@ -355,7 +361,33 @@ class TestEventSettingsPageViewPost:
         event.save()
 
         response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="public")
+            self.get_url(event), data=self._post_data(event, publication="public_now")
+        )
+
+        event = self._saved(response, event)
+        assert event.publication_time == event.start_time
+
+    @pytest.mark.parametrize("publication", ("link_only", "public_now"))
+    def test_moving_the_start_before_a_kept_publication_time_still_saves(
+        self, panel_client, event, publication
+    ):
+        # The time field is hidden for these two choices, so an error on it
+        # would leave the organizer with a form that will not save and no reason.
+        published = timezone.now() - timedelta(days=1)
+        event.publication_time = published
+        event.save()
+        earlier_start = published - timedelta(days=2)
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event,
+                publication=publication,
+                start_time=localtime(earlier_start).strftime("%Y-%m-%dT%H:%M"),
+                end_time=localtime(earlier_start + timedelta(hours=8)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+            ),
         )
 
         event = self._saved(response, event)
@@ -370,7 +402,7 @@ class TestEventSettingsPageViewPost:
             self.get_url(event),
             data=self._post_data(
                 event,
-                visibility="scheduled",
+                publication="scheduled",
                 publication_time=when.strftime("%Y-%m-%dT%H:%M"),
             ),
         )
@@ -383,7 +415,7 @@ class TestEventSettingsPageViewPost:
     ):
         response = panel_client.post(
             self.get_url(event),
-            data=self._post_data(event, visibility="scheduled", publication_time=""),
+            data=self._post_data(event, publication="scheduled", publication_time=""),
         )
 
         event = self._saved(response, event)
@@ -394,7 +426,7 @@ class TestEventSettingsPageViewPost:
 
         response = panel_client.post(
             self.get_url(event),
-            data=self._post_data(event, visibility="unlisted", publication_time=""),
+            data=self._post_data(event, publication="link_only", publication_time=""),
         )
 
         event = self._saved(response, event)
@@ -753,7 +785,7 @@ class TestEventSettingsPageViewPost:
             self.get_url(event),
             data=self._post_data(
                 event,
-                visibility="scheduled",
+                publication="scheduled",
                 publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M"),
             ),
         )

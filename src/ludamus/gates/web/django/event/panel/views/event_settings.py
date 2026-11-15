@@ -17,12 +17,7 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
-from ludamus.gates.web.django.settings_forms import (
-    VISIBILITY_PUBLIC_NOW,
-    VISIBILITY_SCHEDULED,
-    VISIBILITY_UNLISTED,
-    EventSettingsForm,
-)
+from ludamus.gates.web.django.settings_forms import EventSettingsForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
@@ -30,12 +25,12 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventUpdateData,
     EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from django.http import HttpResponse
 
     from ludamus.pacts.event import EventDTO
@@ -56,45 +51,16 @@ def _choice_to_override(value: str) -> bool | None:
     return None
 
 
-def _visibility_choice(event: EventDTO) -> str:
+def _publication_choice(event: EventDTO) -> PublicationChoice:
     if event.visibility == EventVisibility.UNLISTED:
-        return VISIBILITY_UNLISTED
+        return PublicationChoice.LINK_ONLY
     published = event.publication_time
     if published is not None and published <= now():
-        return VISIBILITY_PUBLIC_NOW
-    return VISIBILITY_SCHEDULED
+        return PublicationChoice.PUBLIC_NOW
+    return PublicationChoice.SCHEDULED
 
 
-def _visibility_and_publication(
-    *,
-    choice: str,
-    chosen_time: datetime | None,
-    stored_time: datetime | None,
-    start_time: datetime,
-) -> tuple[EventVisibility, datetime | None]:
-    if choice == VISIBILITY_UNLISTED:
-        return EventVisibility.UNLISTED, stored_time
-    if choice == VISIBILITY_PUBLIC_NOW:
-        # NOTE: followers are announced to at the publication time, so an event
-        # already out keeps its time rather than being announced again; one
-        # that has started is published from its start, the latest time the
-        # publication rule allows.
-        current = now()
-        if stored_time is not None and stored_time <= current:
-            return EventVisibility.PUBLIC, stored_time
-        return EventVisibility.PUBLIC, min(current, start_time)
-    return EventVisibility.PUBLIC, chosen_time
-
-
-def _event_update_data(
-    *, cd: dict[str, Any], slug: str, stored_publication: datetime | None
-) -> EventUpdateData:
-    visibility, publication_time = _visibility_and_publication(
-        choice=cd["visibility"],
-        chosen_time=cd.get("publication_time"),
-        stored_time=stored_publication,
-        start_time=cd["start_time"],
-    )
+def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
     data: EventUpdateData = {
         "name": cd["name"],
         "slug": slug,
@@ -102,8 +68,6 @@ def _event_update_data(
         "address": cd.get("address") or "",
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
-        "publication_time": publication_time,
-        "visibility": visibility,
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
@@ -206,7 +170,7 @@ class EventSettingsPageView(EventPanelMixin, View):
                     if self.current_event.publication_time
                     else None
                 ),
-                "visibility": _visibility_choice(self.current_event),
+                "publication": _publication_choice(self.current_event).value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
                 "require_session_space": _override_to_choice(
                     value=self.current_event.require_session_space
@@ -243,10 +207,10 @@ class EventSettingsPageView(EventPanelMixin, View):
             self.request.services.event_settings.update_general(
                 sphere_id=self.request.context.current_sphere_id,
                 slug=slug,
-                data=_event_update_data(
-                    cd=cd,
-                    slug=new_slug,
-                    stored_publication=self.current_event.publication_time,
+                data=_event_update_data(cd, new_slug),
+                publication=PublicationIntent(
+                    choice=PublicationChoice(cd["publication"]),
+                    chosen_time=cd.get("publication_time"),
                 ),
             )
         except EventSlugConflictError:

@@ -50,6 +50,24 @@ class EventVisibility(StrEnum):
     UNLISTED = "unlisted"
 
 
+class PublicationChoice(StrEnum):
+    """What an organizer picks for who sees the event and from when."""
+
+    LINK_ONLY = "link_only"
+    PUBLIC_NOW = "public_now"
+    SCHEDULED = "scheduled"
+
+
+class PublicationIntent(BaseModel):
+    """A visibility choice, with the time picked for SCHEDULED.
+
+    The time is read only for SCHEDULED; left empty it keeps the event hidden.
+    """
+
+    choice: PublicationChoice
+    chosen_time: datetime | None = None
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -4368,7 +4368,7 @@ msgstr "Publiczne od teraz: widoczne na listach i ogłaszane obserwującym"
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Publish at a set time: listed and announced from then"
 msgstr ""
-"Publikacja w wybranym terminie: od tej chwili widoczne na listach i "
+"Publikacja w wybranym terminie: od tego terminu widoczne na listach i "
 "ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/settings_forms.py

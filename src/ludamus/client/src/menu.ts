@@ -5,20 +5,6 @@
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
-const PINNED_PROPS = [
-  "position",
-  "inset",
-  "top",
-  "left",
-  "width",
-  "margin",
-  "border",
-  "padding",
-  "background",
-  "color",
-  "overflow",
-  "translate",
-] as const;
 const wired = new WeakSet<HTMLElement>();
 
 // NOTE: a panel sits `absolute` under its trigger, so a rounded card that hides
@@ -51,7 +37,7 @@ const pin = (panel: HTMLElement, button: HTMLElement): void => {
   const trigger = button.getBoundingClientRect();
   const top = box.bottom > window.innerHeight ? Math.max(0, trigger.top - box.height) : box.top;
   const { padding } = getComputedStyle(panel);
-  Object.assign(panel.style, {
+  const pinned: Record<string, string> = {
     background: "transparent",
     border: "0",
     color: "inherit",
@@ -64,22 +50,27 @@ const pin = (panel: HTMLElement, button: HTMLElement): void => {
     top: `${top}px`,
     translate: "none",
     width: `${box.width}px`,
-  });
+  };
+  Object.assign(panel.style, pinned);
+  panel.dataset.menuPinned = Object.keys(pinned).join(" ");
   if ("showPopover" in panel) {
     panel.popover = "manual";
     panel.showPopover();
   }
 };
 
+const isPinned = (panel: HTMLElement): boolean => panel.dataset.menuPinned !== undefined;
+
 const unpin = (panel: HTMLElement): void => {
   if (panel.hasAttribute("popover")) {
     if (panel.matches(":popover-open")) panel.hidePopover();
     panel.removeAttribute("popover");
   }
-  for (const prop of PINNED_PROPS) panel.style.removeProperty(prop);
+  for (const prop of panel.dataset.menuPinned?.split(" ") ?? []) {
+    panel.style.removeProperty(prop);
+  }
+  delete panel.dataset.menuPinned;
 };
-
-const isPinned = (panel: HTMLElement): boolean => panel.style.position === "fixed";
 
 const init = (root: HTMLElement): void => {
   if (wired.has(root)) return;

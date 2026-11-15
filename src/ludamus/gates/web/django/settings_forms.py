@@ -16,11 +16,7 @@ from ludamus.gates.web.django.forms import (
     datetime_local_widget,
     logo_field,
 )
-from ludamus.pacts.event import EventVisibility
-
-VISIBILITY_UNLISTED = EventVisibility.UNLISTED.value
-VISIBILITY_PUBLIC_NOW = EventVisibility.PUBLIC.value
-VISIBILITY_SCHEDULED = "scheduled"
+from ludamus.pacts.event import PublicationChoice
 
 
 class EventSettingsForm(forms.Form):
@@ -76,22 +72,25 @@ class EventSettingsForm(forms.Form):
         input_formats=DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
     )
-    visibility = forms.ChoiceField(
+    publication = forms.ChoiceField(
         choices=[
             (
-                VISIBILITY_UNLISTED,
+                PublicationChoice.LINK_ONLY.value,
                 _(
                     "Link only: anyone with the link can open it; never listed "
                     "or announced"
                 ),
             ),
-            (VISIBILITY_PUBLIC_NOW, _("Public now: listed and announced to followers")),
             (
-                VISIBILITY_SCHEDULED,
+                PublicationChoice.PUBLIC_NOW.value,
+                _("Public now: listed and announced to followers"),
+            ),
+            (
+                PublicationChoice.SCHEDULED.value,
                 _("Publish at a set time: listed and announced from then"),
             ),
         ],
-        initial=VISIBILITY_SCHEDULED,
+        initial=PublicationChoice.SCHEDULED.value,
         widget=forms.RadioSelect,
         label=_("Who can see the event"),
     )

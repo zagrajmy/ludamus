@@ -23,7 +23,7 @@ test.describe("Tracks on a phone", () => {
     const track = main.getByText(name, { exact: true });
     await expect(track).toBeInViewport();
 
-    const layout = await page.evaluate((trackName) => {
+    const layout = await page.evaluate(() => {
       const viewport = document.documentElement.clientWidth;
       const tableScrollers = [...document.querySelectorAll("main table")].map(
         (t) => t.parentElement!,
@@ -34,12 +34,11 @@ test.describe("Tracks on a phone", () => {
       const outside = [...document.querySelectorAll("main :is(a, button, li)")]
         .filter((el) => el.getBoundingClientRect().right > viewport)
         .map((el) => el.textContent?.trim());
-      const cell = [...document.querySelectorAll("main td")].find(
-        (td) => td.textContent?.trim() === trackName,
-      )!;
-      return { sideways, outside, nameIsWide: cell.getBoundingClientRect().width > viewport / 2 };
-    }, name);
-    expect(layout).toEqual({ sideways: [], outside: [], nameIsWide: true });
+      return { sideways, outside };
+    });
+    expect(layout).toEqual({ sideways: [], outside: [] });
+    const cell = await main.getByRole("cell", { name, exact: true }).boundingBox();
+    expect(cell!.width).toBeGreaterThan(375 / 2);
     await attachArtifacts(testInfo, { name: "tracks-phone", region: main, facts: { track: name } });
 
     const row = main.getByRole("row").filter({ hasText: name });

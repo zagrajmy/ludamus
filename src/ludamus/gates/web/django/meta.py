@@ -47,13 +47,12 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
 
 def event_when_and_where(*, start: datetime, end: datetime, address: str) -> str:
     start, end = localtime(start), localtime(end)
-    if start.date() == end.date():
-        when = (
-            f"{date_format(start, 'l, j E')} · "
-            f"{time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
-        )
-    else:
-        when = f"{date_format(start, 'l, j E')} – {date_format(end, 'l, j E')}"
+    day = date_format(start, "l, j E")
+    when = (
+        f"{day} · {time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
+        if start.date() == end.date()
+        else f"{day} – {date_format(end, 'l, j E')}"
+    )
     return f"{when} — {address}" if address else when
 
 
