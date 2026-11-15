@@ -449,7 +449,9 @@ document.addEventListener("dragstart", (e) => {
   requestAnimationFrame(() => {
     if (dragging?.source === el) el.classList.add("is-drag-source");
   });
-  markColumnsActive(placement);
+  // The drag card already says where the drop lands and why it may not fit,
+  // so the tint click-to-place uses to mark the grid stays off while dragging.
+  markColumnsActive(null);
   renderPreferredSlotOverlays();
 });
 
