@@ -155,11 +155,15 @@ class TestBootstrapModerationLink:
 
         response = authenticated_client.get(reverse("parley_bootstrap"))
 
-        assert response.json()["moderation"] == {"sphere": sphere.pk, "url": CHATS_URL}
+        assert_response(response, HTTPStatus.OK)
+        payload = response.json()
+        assert payload["moderation"] == {"sphere": sphere.pk, "url": CHATS_URL}
 
     def test_leaves_it_out_for_someone_who_moderates_nothing_here(
         self, authenticated_client
     ):
         response = authenticated_client.get(reverse("parley_bootstrap"))
 
-        assert response.json()["moderation"] is None
+        assert_response(response, HTTPStatus.OK)
+        payload = response.json()
+        assert payload["moderation"] is None
