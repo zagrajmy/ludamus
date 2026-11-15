@@ -52,7 +52,8 @@
                              class="absolute right-0 top-full mt-2 z-50">
                             <span aria-hidden="true"
                                   class="absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"></span>
-                            <div {% include "components/menu_surface.html" with extra_class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border" %}
+                            {# Grows out of the avatar: the panel's w-48 less half the button's 2.25rem, at the button's bottom edge. #}
+                            <div {% include "components/menu_surface.html" with extra_class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border" origin="origin-[10.875rem_-0.5rem]" %}
                                  style="box-shadow: var(--shadow-elevated)">
                                 <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border">
                                     <p class="text-sm font-medium truncate text-foreground-primary"

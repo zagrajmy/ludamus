@@ -208,7 +208,9 @@ test("Deleting one's own message asks first and says when it fails", async ({ co
   await expect(menu.getByRole("menuitem")).toHaveText(["+", copy.copyLink, copy.deleteLabel]);
   await menu.getByRole("menuitem", { name: copy.copyLink }).click();
   await expect(panel.getByRole("status").filter({ hasText: copy.linkCopied })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/#parley:sphere:1:2$/u);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+    /#parley:event:1:5:2$/u,
+  );
 
   // A clipboard the browser refuses is its call, not a lost connection.
   await page.evaluate(() => {
@@ -276,6 +278,7 @@ test("A moderator reports, deletes and mutes someone else's message", async ({ p
     "+",
     copy.copyLink,
     copy.reportMessage,
+    "Block Kuba Nowak",
     copy.moderatorDelete,
     copy.muteOneHour,
     copy.muteOneDay,
@@ -285,9 +288,15 @@ test("A moderator reports, deletes and mutes someone else's message", async ({ p
   ]);
   await page.keyboard.press("Escape");
 
+  // Nothing is sent until the reporter vouches for the report.
+  const vouch = panel.getByRole("alertdialog", { name: copy.reportMessage });
   await choose(copy.reportMessage);
+  await expect(vouch).toContainText(copy.reportConfirm);
+  expect(reports).toHaveLength(0);
+  await vouch.getByRole("button", { name: copy.reportMessage }).click();
   await expect(panel.getByRole("status").filter({ hasText: copy.reported })).toBeVisible();
   await choose(copy.reportMessage);
+  await vouch.getByRole("button", { name: copy.reportMessage }).click();
   await expect(panel.getByRole("alert")).toHaveText(copy.errorUnknown);
 
   await choose(copy.muteOneHour);
@@ -337,11 +346,16 @@ test("A moderator reports, deletes and mutes someone else's message", async ({ p
   await expect(panel.getByRole("button", { name: copy.closeLabel })).toBeFocused();
 });
 
-test("Someone without moderation rights can only copy and report", async ({ page }) => {
+test("Someone without moderation rights can only copy, report and block", async ({ page }) => {
   await routeBootstrap(page, [
     { rooms: bootstrap.rooms.map((room) => ({ ...room, canModerate: false })) },
   ]);
   const { panel } = await chat(page);
   const menu = await open(page, panel, "Please moderate me");
-  await expect(menu.getByRole("menuitem")).toHaveText(["+", copy.copyLink, copy.reportMessage]);
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "+",
+    copy.copyLink,
+    copy.reportMessage,
+    "Block Kuba Nowak",
+  ]);
 });

@@ -212,6 +212,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
         if (previous := self._users.set_age_band(user_slug, age_band)) != age_band:
             self._users.update(user_slug, UserData(privacy_revision=uuid4()))
+            self._chat.age_changed(user_id=self._users.read(user_slug).pk)
         # A subscription made under one age range is no consent under another:
         # only an account that was and stays 16+ keeps its subscriptions.
         if previous.allows_optional_features and age_band.allows_optional_features:

@@ -76,17 +76,24 @@ export function asRoom(conversation: ConversationInfo, fallbackTitle: string): R
     conversation,
     id: conversation.id,
     kind: "conversation",
-    sessionId: null,
     title: conversation.title === "" ? fallbackTitle : conversation.title,
   };
 }
 
 // What a room is, as its list entry and header say under its title.
 export function roomKind(copy: Bootstrap["copy"], room: Room): string {
-  if (room.conversation === undefined)
-    return room.kind === "sphere" ? copy.sphereRoom : copy.sessionRoom;
-  if (room.conversation.kind === "direct") return copy.directMessage;
-  return counted(copy, "members", room.conversation.members.length);
+  const { conversation } = room;
+  if (conversation === undefined) {
+    const kinds: Record<Exclude<Room["kind"], "conversation">, string> = {
+      event: copy.eventRoom,
+      organizers: copy.organizersRoom,
+      session: copy.sessionRoom,
+    };
+    return kinds[room.kind as keyof typeof kinds];
+  }
+  if (conversation.kind === "direct") return copy.directMessage;
+  const members = counted(copy, "members", conversation.members.length);
+  return conversation.kind === "party" ? `${copy.partyRoom} · ${members}` : members;
 }
 
 export function refusal(code: string, copy: Bootstrap["copy"]): string {

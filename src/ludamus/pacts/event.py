@@ -55,6 +55,7 @@ class EventDTO(BaseModel):
 
     address: str = ""
     allow_facilitator_session_edit: bool | None = None
+    require_session_space: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
     end_time: datetime
@@ -68,6 +69,8 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    # None follows the sphere's parley_events_enabled.
+    parley_enabled: bool | None = None
     visibility: EventVisibility = EventVisibility.PUBLIC
     cover_image_url: str = ""
     cover_image_original_name: str = ""
@@ -159,9 +162,11 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    require_session_space: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
     use_participants_label: bool
+    parley_enabled: bool | None
 
 
 class EventStatsData(BaseModel):

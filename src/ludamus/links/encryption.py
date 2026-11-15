@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         ParleyMessageLookupClaims,
         ParleyRevocationClaims,
     )
+    from ludamus.pacts.staff_cases import StaffThreadPostClaims
 
 
 class FernetEncryptor:
@@ -59,6 +60,7 @@ class JwtSigner:
             | ParleyMembershipClaims
             | ParleyMessageLookupClaims
             | ParleyRevocationClaims
+            | StaffThreadPostClaims
         ),
     ) -> str:
         loaded = serialization.load_pem_private_key(

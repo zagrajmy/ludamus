@@ -2,6 +2,7 @@ import hashlib
 
 from django.core.cache import cache
 
+from ludamus.pacts.cache import CounterProtocol
 from ludamus.pacts.mcp import AuthorizationCodeStoreProtocol, McpIssuedCode
 
 
@@ -14,6 +15,26 @@ class DjangoCache:
     @staticmethod
     def set(key: str, value: object, timeout: int | None = None) -> None:
         cache.set(key, value, timeout)
+
+
+class DjangoCacheCounter(CounterProtocol):
+    """A fixed window per key: the first hit starts it, the rest add to it.
+
+    `add` never resets a running window. `incr` is atomic where the backend
+    has a native one (Redis, locmem); the database cache production uses
+    reads then writes, so a burst of parallel hits can undercount by a few.
+    """
+
+    @staticmethod
+    def hit(key: str, *, window_seconds: int) -> int:
+        cache.add(key, 0, window_seconds)
+        try:
+            return int(cache.incr(key))
+        except ValueError:
+            # NOTE: the window closed between add and incr; this hit opens
+            # the next one.
+            cache.add(key, 1, window_seconds)
+            return 1
 
 
 class CacheAuthorizationCodeStore(AuthorizationCodeStoreProtocol):

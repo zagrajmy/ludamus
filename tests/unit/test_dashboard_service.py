@@ -4,6 +4,7 @@ import pytest
 
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.pacts.dashboard import (
+    DASHBOARD_AGENDA_GLANCE,
     DASHBOARD_OPEN_ENCOUNTERS,
     DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
@@ -81,12 +82,17 @@ def _card(n, *, role):
 class FakeDashboardRepo:
     # Every capped section returns exactly the limit it was handed, so the read
     # shows which limit goes where; the agenda takes none.
-    def __init__(self):
+    def __init__(self, agenda=None):
         self.asked: list[tuple[str, int, datetime]] = []
+        self.agenda = (
+            [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
+            if agenda is None
+            else agenda
+        )
 
     def list_agenda(self, user_id, *, now):
         self.asked.append(("agenda", user_id, now))
-        return [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
+        return self.agenda
 
     def list_open_encounters(self, user_id, *, now, limit):
         self.asked.append(("open_encounters", user_id, now))
@@ -241,7 +247,7 @@ class TestSphereSubscriptionService:
 
 
 class TestDashboardService:
-    def test_read_caps_every_section_but_the_agenda(self):
+    def test_read_caps_every_section_and_folds_the_agenda(self):
         repo = FakeDashboardRepo()
 
         dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
@@ -256,9 +262,35 @@ class TestDashboardService:
                 "past_events",
             )
         ]
-        assert len(dashboard.agenda) == AGENDA_ROWS
+        assert dashboard.agenda + dashboard.agenda_more == repo.agenda
+        assert len(dashboard.agenda) == DASHBOARD_AGENDA_GLANCE
         assert len(dashboard.open_encounters) == DASHBOARD_OPEN_ENCOUNTERS
         assert len(dashboard.sphere_feed) == DASHBOARD_SPHERE_FEED
         assert len(dashboard.discover) == DASHBOARD_SPHERES_TO_DISCOVER
         assert len(dashboard.past_events) == DASHBOARD_PAST_EVENTS
         assert {c.role for c in dashboard.open_encounters} == {DashboardRole.OPEN}
+
+    def test_a_held_seat_past_the_glance_stays_in_view(self):
+        rows = [_card(n, role=DashboardRole.SIGNED_UP) for n in range(AGENDA_ROWS)]
+        late = DASHBOARD_AGENDA_GLANCE + 3
+        rows[late] = _card(late, role=DashboardRole.OFFERED)
+        repo = FakeDashboardRepo(agenda=rows)
+
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert dashboard.agenda == [*rows[:DASHBOARD_AGENDA_GLANCE], rows[late]]
+        assert dashboard.agenda_more == [
+            row for row in rows[DASHBOARD_AGENDA_GLANCE:] if row is not rows[late]
+        ]
+
+    def test_a_short_agenda_folds_nothing(self):
+        rows = [
+            _card(n, role=DashboardRole.SIGNED_UP)
+            for n in range(DASHBOARD_AGENDA_GLANCE)
+        ]
+        repo = FakeDashboardRepo(agenda=rows)
+
+        dashboard = DashboardService(repo).read(user_id=USER_ID, now=NOW)
+
+        assert dashboard.agenda == rows
+        assert dashboard.agenda_more == []
