@@ -881,28 +881,30 @@ test.describe("Timetable", () => {
   }, testInfo) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
-    const block = page.locator("#timetable-grid").getByRole("button", { name: /RPG Introduction/ });
+    const schedule = page.getByRole("region", { name: "Schedule" });
+    const block = schedule.getByRole("button", { name: /RPG Introduction/ });
     await expect(block).toBeVisible({ timeout: 10000 });
-    const leftPane = page.locator("#left-pane");
-    const startOf = async (): Promise<number> => {
-      const text = await leftPane
-        .getByText(/\d{2}:\d{2} – \d{2}:\d{2}/)
-        .first()
-        .innerText();
-      const [hours, minutes] = text.slice(0, 5).split(":").map(Number);
+    const unassign = page.getByRole("button", { name: "Unassign" });
+    const assignedTimes = page.getByText(/^\s*\d{2}:\d{2} – \d{2}:\d{2}\s*$/);
+    const minutesOf = (hm: string): number => {
+      const [hours, minutes] = hm.split(":").map(Number);
       return hours * 60 + minutes;
+    };
+    const assignment = async (): Promise<{ start: number; end: number }> => {
+      const [start, end] = (await assignedTimes.innerText()).split(" – ").map(minutesOf);
+      return { start, end };
     };
 
     await block.click();
-    await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
-    const before = await startOf();
+    await expect(unassign).toBeVisible();
+    const before = await assignment();
 
-    const travelMinutes = 60;
-    const minutePx = await page
-      .locator(".timetable-calendar")
-      .first()
-      .evaluate((cal) => Number.parseFloat(getComputedStyle(cal).getPropertyValue("--minute-px")));
+    // The block is drawn as tall as the session is long, so its height over its
+    // length is the grid's scale.
+    await page.mouse.move(0, 0);
     const box = (await block.boundingBox())!;
+    const minutePx = box.height / (before.end - before.start);
+    const travelMinutes = 60;
     const grab = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 
     const moved = page.waitForResponse(
@@ -914,16 +916,13 @@ test.describe("Timetable", () => {
     await page.mouse.up();
     expect((await moved).status()).toBe(204);
 
-    const placed = page
-      .locator("#timetable-grid")
-      .getByRole("button", { name: /RPG Introduction/ });
-    await placed.click();
-    await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
-    await expect.poll(startOf).toBe(before + travelMinutes);
+    await schedule.getByRole("button", { name: /RPG Introduction/ }).click();
+    await expect(unassign).toBeVisible();
+    await expect.poll(async () => (await assignment()).start).toBe(before.start + travelMinutes);
     await attachArtifacts(testInfo, {
       name: "timetable-drag-lands-under-pointer",
-      region: leftPane,
-      facts: { before, after: before + travelMinutes, travelMinutes },
+      region: schedule,
+      facts: { before: before.start, after: before.start + travelMinutes, travelMinutes },
     });
   });
 
