@@ -1,20 +1,27 @@
-"""When a facilitator can run something, in words rather than clock times.
+"""When a facilitator can run something.
 
-A proposer knows they are free on Friday evening. They do not know, and should
-not have to guess, that the organizer will open the room at 18:30. So
-availability is answered in named parts of a day, and the hours behind each
-part are fixed here rather than typed in by whoever is filling the form.
+Where the organizer lists time slots, the proposer picks from those: that is
+their one job. Otherwise the answer is in words rather than clock times. A
+proposer knows they are free on Friday evening; they do not know, and should
+not have to guess, that the organizer will open the room at 18:30. So the
+fallback is named parts of a day, and the hours behind each part are fixed here
+rather than typed in by whoever is filling the form.
 """
 
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, tzinfo
 from enum import StrEnum
-from typing import NamedTuple
+from functools import partial
+from typing import TYPE_CHECKING, NamedTuple, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.sessions import PROGRAMME_DAY_STARTS_AT_HOUR
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 # The small hours belong to the evening they grew out of. Hours are counted
 # from the programme day's own midnight, which is why night runs 24-30 rather
@@ -52,11 +59,35 @@ DAY_PARTS: tuple[DayPart, ...] = (
 )
 
 
+_SLOT_VALUE_PREFIX = "slot:"
+_ONE_TIME = "an offered time is either a part of a day or a time slot"
+
+
 class AvailabilityDTO(BaseModel):
-    """One part of one programme day the facilitator offered."""
+    """One time the facilitator offered: a part of a day, or a time slot.
+
+    `day` is the programme day either way, so offers group by day whatever
+    their kind.
+    """
 
     day: date
-    part: DayPart
+    part: DayPart | None = None
+    time_slot: TimeSlotDTO | None = None
+
+    @model_validator(mode="after")
+    def _names_one_time(self) -> Self:
+        if (self.part is None) == (self.time_slot is None):
+            raise ValueError(_ONE_TIME)
+        return self
+
+    @property
+    def offer(self) -> DayPart | TimeSlotDTO:
+        """What was offered, for callers that branch on its kind."""
+        if self.time_slot is not None:
+            return self.time_slot
+        if self.part is not None:
+            return self.part
+        raise ValueError(_ONE_TIME)
 
 
 def programme_date(moment: datetime, tz: tzinfo) -> date:
@@ -128,26 +159,100 @@ def offered_parts_by_day(
     return offered
 
 
-def availability_value(day: date, part: DayPart) -> str:
-    """Encode one offered pair as a single form value.
+def slot_availability(slot: TimeSlotDTO, tz: tzinfo) -> AvailabilityDTO:
+    """Offer one of the event's time slots.
 
     Returns:
-        The day and part joined, e.g. `2026-10-09:evening`.
+        The slot as an offered time, filed under the programme day it opens on.
     """
-    return f"{day.isoformat()}:{part.value}"
+    return AvailabilityDTO(day=programme_date(slot.start_time, tz), time_slot=slot)
 
 
-def availability_from_value(raw: str) -> AvailabilityDTO | None:
-    """Read back a pair a form sent.
+def offered_times(
+    *, start: datetime, end: datetime, slots: Sequence[TimeSlotDTO], tz: tzinfo
+) -> list[AvailabilityDTO]:
+    """Everything a proposer can pick when they say when they could host.
+
+    The event's time slots where it lists any, otherwise the parts of each
+    programme day its hours reach.
 
     Returns:
-        The pair, or None when the text does not spell one.
+        The offered times in the order a day reads in.
     """
-    day, _, part = raw.partition(":")
-    try:
-        return AvailabilityDTO(day=date.fromisoformat(day), part=DayPart(part))
-    except ValueError:
-        return None
+    if slots:
+        return [slot_availability(slot, tz) for slot in sorted(slots, key=_opens)]
+    return [
+        AvailabilityDTO(day=day, part=part)
+        for day, parts in offered_parts_by_day(start=start, end=end, tz=tz)
+        for part in parts
+    ]
+
+
+def offered_window(entry: AvailabilityDTO, tz: tzinfo) -> tuple[datetime, datetime]:
+    """Resolve an offered time to real instants.
+
+    Returns:
+        Its start and end, as aware datetimes.
+    """
+    if isinstance(offer := entry.offer, TimeSlotDTO):
+        return offer.start_time, offer.end_time
+    return part_window(entry.day, offer, tz)
+
+
+def in_reading_order(
+    entries: Iterable[AvailabilityDTO], tz: tzinfo
+) -> list[AvailabilityDTO]:
+    """Order offered times the way a day reads, whatever their kind.
+
+    Returns:
+        The times sorted by when each opens.
+    """
+    return sorted(entries, key=partial(offered_window, tz=tz))
+
+
+def availability_value(entry: AvailabilityDTO) -> str:
+    """Encode one offered time as a single form value.
+
+    Returns:
+        `slot:<pk>` for a time slot; otherwise the day and part joined, e.g.
+        `2026-10-09:evening`.
+    """
+    if entry.time_slot is not None:
+        return f"{_SLOT_VALUE_PREFIX}{entry.time_slot.pk}"
+    return f"{entry.day.isoformat()}:{entry.part}"
+
+
+def pick_offered(
+    raws: Iterable[str], offered: Sequence[AvailabilityDTO]
+) -> list[AvailabilityDTO]:
+    """Read back the times a form sent, keeping only the ones on offer.
+
+    A value naming another event's slot, or a part the event's hours do not
+    reach, is not on offer, so it is dropped rather than trusted.
+
+    Returns:
+        The picked offered times, in the order they were offered.
+    """
+    picked = set(raws)
+    return [entry for entry in offered if availability_value(entry) in picked]
+
+
+def group_by_day(
+    entries: Iterable[AvailabilityDTO],
+) -> list[tuple[date, list[AvailabilityDTO]]]:
+    """Gather offered times under their programme day.
+
+    Returns:
+        Each day that has any, in order, with its times in the order given.
+    """
+    grouped: dict[date, list[AvailabilityDTO]] = {}
+    for entry in entries:
+        grouped.setdefault(entry.day, []).append(entry)
+    return sorted(grouped.items())
+
+
+def _opens(slot: TimeSlotDTO) -> tuple[datetime, datetime]:
+    return slot.start_time, slot.end_time
 
 
 def _overlaps(

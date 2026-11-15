@@ -989,11 +989,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
         for item in scheduled:
             if not (offered := offered_by_session.get(item.session_id, [])):
                 continue
-            # The facilitator answered about the programme day and the part of
-            # it, so a block opening at 01:00 is judged against the evening it
-            # grew out of, not against the next morning.
-            placed = (programme_date(item.start_time, tz), part_of(item.start_time, tz))
-            if placed in {(entry.day, entry.part) for entry in offered}:
+            if _honours_offer(item, offered, tz):
                 continue
             violating.append((item, offered))
         if not violating:
@@ -1018,6 +1014,40 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
             )
 
         return violations
+
+
+def _honours_offer(
+    item: AgendaItemDTO, offered: list[AvailabilityDTO], tz: tzinfo
+) -> bool:
+    # A part of a day is an answer about when to start: the facilitator spoke
+    # of the programme day and the part of it, so a block opening at 01:00 is
+    # judged against the evening it grew out of, not the next morning. A time
+    # slot is a window the organizer drew, so the whole session must fit in
+    # the slots offered, back-to-back ones counting as one.
+    placed = (programme_date(item.start_time, tz), part_of(item.start_time, tz))
+    if placed in {(entry.day, entry.part) for entry in offered if entry.part}:
+        return True
+    windows = [
+        (entry.time_slot.start_time, entry.time_slot.end_time)
+        for entry in offered
+        if entry.time_slot is not None
+    ]
+    return any(
+        start <= item.start_time and item.end_time <= end
+        for start, end in _merged(windows)
+    )
+
+
+def _merged(
+    windows: list[tuple[datetime, datetime]],
+) -> list[tuple[datetime, datetime]]:
+    merged: list[tuple[datetime, datetime]] = []
+    for start, end in sorted(windows):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def _duration_hours(start: datetime, end: datetime) -> float:

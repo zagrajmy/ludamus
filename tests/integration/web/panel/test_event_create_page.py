@@ -21,6 +21,7 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldRequirement,
     Space,
+    TimeSlot,
     Track,
 )
 from ludamus.pacts.discounts import DiscountMethod
@@ -61,6 +62,11 @@ def source_fixture(sphere, active_user):
     track = Track.objects.create(event=source, name="RPG", slug="rpg")
     track.spaces.add(room)
     track.managers.add(active_user)
+    TimeSlot.objects.create(
+        event=source,
+        start_time=SOURCE_START,
+        end_time=SOURCE_START + timedelta(hours=4),
+    )
     system = SessionField.objects.create(
         event=source,
         name="System",
@@ -155,6 +161,8 @@ class TestEventCreatePageView:
         track = Track.objects.get(event=event)
         assert list(track.spaces.all()) == [room]
         assert list(track.managers.all()) == [active_user]
+        slot = TimeSlot.objects.get(event=event)
+        assert slot.start_time == NEW_START
         system = SessionField.objects.get(event=event)
         assert system.show_on_cards is False
         assert list(system.options.values_list("value", flat=True)) == ["trophy"]

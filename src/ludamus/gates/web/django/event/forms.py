@@ -9,13 +9,14 @@ from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.templatetags.date_tags import DAY_PART_NAMES
-from ludamus.pacts.availability import AvailabilityDTO, part_window
+from ludamus.gates.web.django.templatetags.date_tags import offered_time_name
+from ludamus.pacts.availability import offered_window
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import date, datetime
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.session_cards import ProposalAcceptContextDTO
 
 # What this module hands ChoiceField: a pk (or "" for the placeholder) under a
@@ -29,7 +30,7 @@ def day_label(day: date) -> str:
 
 
 def availability_label(entry: AvailabilityDTO) -> str:
-    return f"{day_label(entry.day)} {DAY_PART_NAMES[entry.part]}"
+    return f"{day_label(entry.day)} {offered_time_name(entry)}"
 
 
 def offered_times_hint(offered: Sequence[AvailabilityDTO]) -> str:
@@ -54,13 +55,13 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
 
 def _initial_start(context: ProposalAcceptContextDTO) -> datetime:
     # Open on the first time the facilitator offered, so the common case is a
-    # confirm rather than a fill-in. Its part gives the hour, never later than
+    # confirm rather than a fill-in. Its window gives the hour, never later than
     # the event's own opening on that day.
     opening = localtime(context.event.start_time)
     if not context.availability:
         return opening
     first = context.availability[0]
-    start, _end = part_window(first.day, first.part, get_current_timezone())
+    start, _end = offered_window(first, get_current_timezone())
     return max(start, opening) if start.date() == opening.date() else start
 
 

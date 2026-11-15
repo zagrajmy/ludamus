@@ -71,7 +71,7 @@
                                         </div>
                                         <div class="text-xs text-foreground-muted mt-1">{% translate "Offered times:" %}</div>
                                         <ul class="text-xs text-foreground-muted ml-3 list-disc">
-                                            {% for entry in violation.availability %}<li>{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</li>{% endfor %}
+                                            {% for entry in violation.availability %}<li>{{ entry.day|date:"l, M j" }} {{ entry|offered_part }}</li>{% endfor %}
                                         </ul>
                                         {% if violation.track_name %}
                                             <div class="text-xs text-foreground-muted mt-1">

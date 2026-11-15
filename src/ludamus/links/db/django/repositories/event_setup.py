@@ -18,6 +18,7 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldRequirement,
     Space,
+    TimeSlot,
     Track,
 )
 from ludamus.pacts.event import EventSetupRepositoryProtocol
@@ -40,6 +41,7 @@ COPIED_RELATIONS: Final = frozenset(
         ProposalCategory,
         SessionField,
         Space,
+        TimeSlot,
         Track,
     }
 )
@@ -105,6 +107,14 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
         )
         spaces = _copy_spaces(source_id=source_id, target_id=target_id)
         _copy_tracks(source_id=source_id, target_id=target_id, spaces=spaces)
+        _clone_each(
+            TimeSlot.objects.filter(event_id=source_id),
+            lambda slot: {
+                "event_id": target_id,
+                "start_time": move(slot.start_time),
+                "end_time": move(slot.end_time),
+            },
+        )
         session_fields = _copy_fields(
             SessionField, SessionFieldOption, source_id=source_id, target_id=target_id
         )

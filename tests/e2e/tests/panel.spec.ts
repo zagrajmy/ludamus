@@ -20,6 +20,29 @@ const openSpaceMenu = async (page: Page, name: string): Promise<Locator> => {
   return page.locator("[data-menu]", { has: toggle }).locator("[data-menu-panel]");
 };
 
+/** Build an HH:MM string by adding minutes to a base hour:minute. */
+function timeHHMM(hour: number, minute: number, addMinutes: number = 0): string {
+  const d = new Date(2000, 0, 1, hour, minute + addMinutes);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Compute both YYYY-MM-DD and HH:MM after adding minutes to a base datetime.
+ * Handles midnight rollover by advancing the date.
+ */
+function dateTimeAfter(
+  baseDateStr: string,
+  hour: number,
+  minute: number,
+  addMinutes: number = 0,
+): { date: string; time: string } {
+  const [y, m, day] = baseDateStr.split("-").map(Number);
+  const d = new Date(y, m - 1, day, hour, minute + addMinutes);
+  const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const ts = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return { date: ds, time: ts };
+}
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -697,6 +720,95 @@ test.describe("Backoffice Panel", () => {
     await acceptConfirmModal(page);
     await expect(page.getByText("Session field deleted successfully.")).toBeVisible();
   });
+
+  // --- Step 8: Time Slots ---
+
+  test("shows time slots page", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+
+    await expect(page.getByRole("heading", { name: "Time Slots", exact: true })).toBeVisible();
+  });
+
+  test("creates, edits, and deletes a time slot", async ({ page }) => {
+    // Navigate to time slots page and extract event start info
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+
+    const addLink = page
+      .getByRole("link", {
+        name: "Add",
+        exact: true,
+      })
+      .first();
+
+    // Extract event start hour from "Event starts at HH:MM" text
+    const startsText = await page.getByText(/Event starts at/).textContent();
+    const hourMatch = startsText?.match(/starts at (\d{2}):(\d{2})/);
+    const baseHour = parseInt(hourMatch?.[1] ?? "9", 10);
+    const rawMin = parseInt(hourMatch?.[2] ?? "0", 10);
+    // Add 1 minute to avoid seconds-precision issue
+    const safeMin = rawMin + 1;
+
+    const bodyText = await page.locator("body").textContent();
+    const ranges = [...(bodyText ?? "").matchAll(/(\d{2}):(\d{2})\s+–\s+(\d{2}):(\d{2})/g)].map(
+      (match) => ({
+        start: Number(match[1]) * 60 + Number(match[2]),
+        end: Number(match[3]) * 60 + Number(match[4]),
+      }),
+    );
+    const eventStart = baseHour * 60 + safeMin;
+    const eventEnd = eventStart + 239;
+    const duration = 5;
+    const extendedDuration = 10;
+    let startMinute = eventEnd - extendedDuration;
+    while (
+      startMinute > eventStart &&
+      ranges.some(
+        (range) => startMinute < range.end && startMinute + extendedDuration > range.start,
+      )
+    ) {
+      startMinute -= 1;
+    }
+    const startTime = timeHHMM(0, startMinute);
+    const endTime = timeHHMM(0, startMinute + duration);
+    const updatedEndTime = timeHHMM(0, startMinute + extendedDuration);
+
+    // Click the per-day "Add" link (pre-fills the date)
+    await addLink.click();
+
+    // Fill project-specific times so cross-browser runs do not collide.
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByLabel("Start time").fill(startTime);
+    await createDialog.getByLabel("End time").fill(endTime);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
+
+    await expect(page.getByText("Time slot created successfully.")).toBeVisible();
+    const createdSlot = page.getByText(`${startTime} – ${endTime}`);
+    await expect(createdSlot).toBeVisible();
+
+    // Edit
+    await page
+      .getByRole("link", { name: "Edit" })
+      .filter({ hasNot: page.locator('[href$="/1/edit/"]') })
+      .last()
+      .click();
+
+    // Extend by 30 min
+    await page.locator("#id_end_time").fill(updatedEndTime);
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Time slot updated successfully.")).toBeVisible();
+    await expect(page.getByText(`${startTime} – ${updatedEndTime}`)).toBeVisible();
+
+    // Delete
+    await page
+      .getByRole("button", { name: /Delete/i })
+      .last()
+      .click();
+    await acceptConfirmModal(page);
+
+    await expect(page.getByText("Time slot deleted successfully.")).toBeVisible();
+  });
+
   // --- Step 9: Proposals & Access Control ---
 
   test("shows proposals page", async ({ page }) => {
@@ -1209,6 +1321,75 @@ test.describe("Backoffice Panel", () => {
     await acceptConfirmModal(page);
     await expect(page.getByText("Space deleted successfully.")).toBeVisible();
   });
+
+  // --- Time Slot Overlap Validation ---
+
+  test("rejects overlapping time slots", async ({ page }) => {
+    // Navigate to time slots page
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+
+    // Extract event date from the first "Add" link
+    const addLink = page
+      .getByRole("link", {
+        name: "Add",
+        exact: true,
+      })
+      .first();
+    const addHref = await addLink.getAttribute("href");
+    const dateMatch = addHref?.match(/date=(\d{4}-\d{2}-\d{2})/);
+    const dateStr = dateMatch?.[1] ?? "";
+
+    // Get event start hour
+    const startsText = await page.getByText(/Event starts at/).textContent();
+    const hourMatch = startsText?.match(/starts at (\d{2}):(\d{2})/);
+    const baseHour = parseInt(hourMatch?.[1] ?? "9", 10);
+    const rawMin = parseInt(hourMatch?.[2] ?? "0", 10);
+    const safeMin = rawMin + 1;
+
+    // Use baseHour+3.5h offset to avoid collisions with CFP flow slots
+    // (which occupy 12:01–13:31). 15-min slot, then overlap test.
+    const offsetMin = 3 * 60 + 30;
+    const slotStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin);
+    const slotEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 15);
+
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByRole("textbox", { name: /^Date/ }).fill(slotStart.date);
+    await createDialog.getByRole("textbox", { name: /^End date/ }).fill(slotEnd.date);
+    await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(slotStart.time);
+    await createDialog.getByRole("textbox", { name: /^End time/ }).fill(slotEnd.time);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
+    await expect(page.getByText("Time slot created successfully.")).toBeVisible();
+
+    // Try creating overlapping slot: offset+5 to offset+20
+    // This overlaps with the first slot
+    const overlapStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 5);
+    const overlapEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 20);
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
+    const overlapDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await overlapDialog.getByRole("textbox", { name: /^Date/ }).fill(overlapStart.date);
+    await overlapDialog.getByRole("textbox", { name: /^End date/ }).fill(overlapEnd.date);
+    await overlapDialog.getByRole("textbox", { name: /^Start time/ }).fill(overlapStart.time);
+    await overlapDialog.getByRole("textbox", { name: /^End time/ }).fill(overlapEnd.time);
+    await overlapDialog.getByRole("button", { name: "Add Time Slot" }).click();
+
+    // Verify error message about overlap
+    await expect(page.getByText("overlaps with an existing slot")).toBeVisible();
+
+    // Verify still on create form
+    await expect(page).toHaveURL(/\/create\//);
+
+    // Clean up: delete the first slot
+    await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+    // Find the slot row with the time we created
+    await page
+      .getByRole("button", { name: /Delete/i })
+      .last()
+      .click();
+    await acceptConfirmModal(page);
+    await expect(page.getByText("Time slot deleted successfully.")).toBeVisible();
+  });
+
   // --- Facilitators: merge ---
 
   test("facilitators list exposes the merge tab and the bulk selection bar", async ({ page }) => {

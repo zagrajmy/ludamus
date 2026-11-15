@@ -84,7 +84,7 @@
                         </h4>
                         <div class="flex flex-wrap gap-1.5">
                             {% for entry in availability %}
-                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</span>
+                                <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ entry.day|date:"l, M j" }} {{ entry|offered_part }}</span>
                             {% endfor %}
                         </div>
                     </div>

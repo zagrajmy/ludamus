@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import cached_property
-from itertools import starmap
 from typing import TYPE_CHECKING, Any
 
 from django.conf import settings as django_settings
@@ -36,19 +35,19 @@ from ludamus.gates.web.django.propose_cover import (
 )
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
+from ludamus.gates.web.django.templatetags.date_tags import offered_time_name
 from ludamus.pacts.availability import (
     AvailabilityDTO,
     DayPart,
-    availability_from_value,
     availability_value,
-    offered_parts_by_day,
+    group_by_day,
+    pick_offered,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
-    from datetime import date
 
     from django.core.files.uploadedfile import UploadedFile
     from django.forms import Form
@@ -153,23 +152,34 @@ DAY_PART_LABELS: dict[DayPart, _StrPromise] = {
 }
 
 
-def _availability_descriptors(
-    offered: Sequence[tuple[date, list[DayPart]]], selected: Sequence[AvailabilityDTO]
+def offered_time_chip(entry: AvailabilityDTO) -> str:
+    """Label a pickable time under its day's heading.
+
+    Returns:
+        The part in Title Case, or a time slot's hours.
+    """
+    if isinstance(offer := entry.offer, DayPart):
+        return str(DAY_PART_LABELS[offer])
+    return offered_time_name(entry)
+
+
+def availability_descriptors(
+    offered: Sequence[AvailabilityDTO], selected: Sequence[AvailabilityDTO]
 ) -> list[dict[str, object]]:
-    chosen = {(entry.day, entry.part) for entry in selected}
+    chosen = {availability_value(entry) for entry in selected}
     return [
         {
             "day": day,
             "parts": [
                 {
-                    "value": availability_value(day, part),
-                    "label": DAY_PART_LABELS[part],
-                    "is_selected": (day, part) in chosen,
+                    "value": availability_value(entry),
+                    "label": offered_time_chip(entry),
+                    "is_selected": availability_value(entry) in chosen,
                 }
-                for part in parts
+                for entry in entries
             ],
         }
-        for day, parts in offered
+        for day, entries in group_by_day(offered)
     ]
 
 
@@ -283,22 +293,12 @@ class _Wizard:
         return self.service.get_proposal_settings(self.event.pk)
 
     @cached_property
-    def offered_availability(self) -> list[tuple[date, list[DayPart]]]:
-        # Both axes come from the event itself, so the question can be asked
-        # the moment an event exists and needs no separate setup step. A day
-        # only offers the parts its hours actually reach, so an event closing
-        # at 18:00 never asks about an evening it does not have.
-        return offered_parts_by_day(
-            start=self.event.start_time,
-            end=self.event.end_time,
-            tz=get_current_timezone(),
-        )
-
-    @cached_property
-    def offered_pairs(self) -> list[tuple[date, DayPart]]:
-        return [
-            (day, part) for day, parts in self.offered_availability for part in parts
-        ]
+    def offered_times(self) -> list[AvailabilityDTO]:
+        # The event's time slots where the organizer drew any; otherwise the
+        # parts of each day its hours reach, so the question can be asked the
+        # moment an event exists and an event closing at 18:00 never asks
+        # about an evening it does not have.
+        return self.service.offered_times(event=self.event, tz=get_current_timezone())
 
     @cached_property
     def asks_days(self) -> bool:
@@ -346,7 +346,7 @@ class _Wizard:
         # One possible answer is no more a choice than one category. Before a
         # category is chosen the days step is assumed present: the strip must
         # not grow a step the moment the first choice is made.
-        shows_days = self.asks_days and len(self.offered_pairs) > 1
+        shows_days = self.asks_days and len(self.offered_times) > 1
         # Nothing to ask when the account already answers every question. The
         # questions are the event's, so this holds before a category is picked.
         shows_personal = not self.account_answers_everything
@@ -375,10 +375,9 @@ class _Wizard:
         if (
             self.category is not None
             and self.asks_days
-            and len(self.offered_pairs) == 1
+            and len(self.offered_times) == 1
         ):
-            day, part = self.offered_pairs[0]
-            implied["availability"] = [availability_value(day, part)]
+            implied["availability"] = [availability_value(self.offered_times[0])]
         if "personal" not in self.steps:
             implied["personal_data"] = dict(self.account.personal_data)
             implied["contact_email"] = self.account.email
@@ -454,23 +453,18 @@ def _personal_context(
 def _days_context(
     wizard: _Wizard, state: WizardState, *, error: str | None = None
 ) -> StepContext:
-    selected = [] if error else _stored_availability(state)
+    selected = [] if error else _stored_availability(wizard, state)
     return {
         **wizard.base_context("days"),
         "category": wizard.chosen,
-        "day_descriptors": _availability_descriptors(
-            wizard.offered_availability, selected
-        ),
+        "day_descriptors": availability_descriptors(wizard.offered_times, selected),
+        "offers_slots": any(entry.time_slot for entry in wizard.offered_times),
         "error": error,
     }
 
 
-def _stored_availability(state: WizardState) -> list[AvailabilityDTO]:
-    return [
-        entry
-        for raw in state.get("availability", [])
-        if (entry := availability_from_value(raw)) is not None
-    ]
+def _stored_availability(wizard: _Wizard, state: WizardState) -> list[AvailabilityDTO]:
+    return pick_offered(state.get("availability", []), wizard.offered_times)
 
 
 def _details_context(
@@ -544,14 +538,8 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         prefix="personal",
     )
 
-    chosen = _stored_availability(state)
-    availability = _availability_descriptors(
-        [
-            (day, [entry.part for entry in chosen if entry.day == day])
-            for day in sorted({entry.day for entry in chosen})
-        ],
-        chosen,
-    )
+    chosen = _stored_availability(wizard, state)
+    availability = availability_descriptors(chosen, chosen)
 
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
@@ -773,7 +761,7 @@ class ProposeSessionDaysComponentView(ProposeWizardMixin):
         if "days" not in wizard.steps:
             return _render(wizard, wizard.after("days"))
 
-        offered = set(starmap(availability_value, wizard.offered_pairs))
+        offered = {availability_value(entry) for entry in wizard.offered_times}
         selected = [
             raw for raw in request.POST.getlist("availability") if raw in offered
         ]
@@ -883,6 +871,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
             user_id=request.context.current_user_id,
             user_slug=request.context.current_user_slug,
             language=get_language(),
+            tz=get_current_timezone(),
         )
 
         del request.session[key]

@@ -238,7 +238,7 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Availability" %}</h3>
                         <p class="text-sm text-foreground-muted mb-4">
-                            {% translate "Ask proposers when they could run this: a morning, an evening, and so on. The days and parts come from the event's own dates, so there is nothing else to set up, and nobody is asked to pick an hour." %}
+                            {% translate "Ask proposers when they could run this. Where the event has time slots, they pick from those; otherwise they pick parts of a day (a morning, an evening, and so on) taken from the event's own dates, so there is nothing else to set up." %}
                         </p>
                         {% translate "Ask when they could host" as t_asks_availability %}
                         {% tessera_checkbox_toggle id="asks-availability" name="asks_availability" label=t_asks_availability checked=asks_availability %}

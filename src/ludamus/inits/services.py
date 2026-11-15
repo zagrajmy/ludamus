@@ -64,6 +64,7 @@ from ludamus.mills.event import (
     EventPanelService,
     EventsService,
     LandingService,
+    PanelTimeSlotsService,
 )
 from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
@@ -407,6 +408,14 @@ class Services:
                 session_fields=self._repos.session_fields,
             ),
             chat=self.parley_revocations,
+        )
+
+    @cached_property
+    def panel_time_slots(self) -> PanelTimeSlotsService:
+        return PanelTimeSlotsService(
+            transaction=self._transaction,
+            time_slots=self._repos.time_slots,
+            events=self._repos.events,
         )
 
     @cached_property
@@ -833,6 +842,7 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitators=self._repos.facilitators,
                 users=self._repos.active_users,
+                time_slots=self._repos.time_slots,
             ),
             cache=DjangoCache(),
         )

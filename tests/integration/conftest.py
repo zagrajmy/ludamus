@@ -36,6 +36,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     Space,
     Sphere,
+    TimeSlot,
 )
 from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.encounter import EncountersPolicy
@@ -261,6 +262,15 @@ class SpaceFactory(DjangoModelFactory):
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
     event = SubFactory(EventFactory)
+
+
+class TimeSlotFactory(DjangoModelFactory):
+    class Meta:
+        model = TimeSlot
+
+    event = SubFactory(EventFactory)
+    start_time = LazyAttribute(lambda o: o.event.start_time)
+    end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
 
 
 class SessionAvailabilityFactory(DjangoModelFactory):
@@ -518,6 +528,15 @@ def enrollment_config_fixture(event):
 @pytest.fixture(name="space")
 def space_fixture(event):
     return SpaceFactory(event=event)
+
+
+@pytest.fixture
+def time_slot(event):
+    return TimeSlotFactory(
+        event=event,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=2),
+    )
 
 
 @pytest.fixture(name="session")

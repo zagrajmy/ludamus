@@ -20,12 +20,15 @@ from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from datetime import tzinfo
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.event import (
         EventDTO,
         EventProposalSettingsDTO,
         EventProposalSettingsRepositoryProtocol,
         EventRepositoryProtocol,
+        TimeSlotRepositoryProtocol,
     )
     from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
@@ -122,6 +125,7 @@ class ProposeRepos(NamedTuple):
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     users: UserRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
 
 
 class ProposeSessionServiceProtocol(Protocol):
@@ -137,6 +141,9 @@ class ProposeSessionServiceProtocol(Protocol):
         self, category_id: int
     ) -> list[SessionFieldRequirementDTO]: ...
     def asks_availability(self, category_id: int) -> bool: ...
+    def offered_times(
+        self, *, event: EventDTO, tz: tzinfo
+    ) -> list[AvailabilityDTO]: ...
     def get_public_tracks(self, event_id: int) -> list[TrackDTO]: ...
     def get_saved_personal_data(
         self, *, event_id: int, user_id: int | None
@@ -157,6 +164,7 @@ class ProposeSessionServiceProtocol(Protocol):
         user_id: int | None = None,
         user_slug: str | None = None,
         language: str,
+        tz: tzinfo,
     ) -> ProposeSessionResult: ...
 
 

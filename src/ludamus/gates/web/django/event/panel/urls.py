@@ -29,6 +29,7 @@ from ludamus.gates.web.django.event.panel.views import (
     proposal_edit,
     proposals,
     session_fields,
+    time_slots,
     timetable,
     tracks,
     venues,
@@ -250,6 +251,26 @@ urlpatterns = [
         "event/<slug:slug>/venues/do/move-to-root",
         venues.SpaceMoveToRootActionView.as_view(),
         name="space-move-to-root",
+    ),
+    path(
+        "event/<slug:slug>/cfp/time-slots/",
+        time_slots.TimeSlotsPageView.as_view(),
+        name="time-slots",
+    ),
+    path(
+        "event/<slug:slug>/cfp/time-slots/create/",
+        time_slots.TimeSlotCreatePageView.as_view(),
+        name="time-slot-create",
+    ),
+    path(
+        "event/<slug:slug>/cfp/time-slots/<int:pk>/edit/",
+        time_slots.TimeSlotEditPageView.as_view(),
+        name="time-slot-edit",
+    ),
+    path(
+        "event/<slug:slug>/cfp/time-slots/<int:pk>/do/delete",
+        time_slots.TimeSlotDeleteActionView.as_view(),
+        name="time-slot-delete",
     ),
     path(
         "event/<slug:slug>/proposals/",

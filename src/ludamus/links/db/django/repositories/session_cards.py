@@ -14,6 +14,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.utils.timezone import get_current_timezone
 from pydantic import BaseModel, TypeAdapter
 
 from ludamus.links.db.django.models import (
@@ -39,8 +40,14 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.availability import AvailabilityDTO, DayPart
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    in_reading_order,
+    slot_availability,
+)
 from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.session_cards import (
@@ -339,6 +346,7 @@ def scheduled_session_cards(
 
 def _card_from_session(session: Session) -> SessionCardDTO:
     agenda_item = getattr(session, "agenda_item", None)
+    tz = get_current_timezone()
     return SessionCardDTO(
         session=SessionDTO.model_validate(session),
         agenda_item=(
@@ -373,10 +381,19 @@ def _card_from_session(session: Session) -> SessionCardDTO:
         offered_times=(
             []
             if agenda_item is not None
-            else [
-                AvailabilityDTO(day=row.day, part=DayPart(row.part))
-                for row in session.availability.all()
-            ]
+            else in_reading_order(
+                [
+                    *(
+                        AvailabilityDTO(day=row.day, part=DayPart(row.part))
+                        for row in session.availability.all()
+                    ),
+                    *(
+                        slot_availability(TimeSlotDTO.model_validate(slot), tz)
+                        for slot in session.time_slots.all()
+                    ),
+                ],
+                tz,
+            )
         ),
         **session_card_stats(session).model_dump(),
     )

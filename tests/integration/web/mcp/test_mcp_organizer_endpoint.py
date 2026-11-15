@@ -47,12 +47,14 @@ ORGANIZER_TOOL_NAMES = [
     "get_event",
     "get_current_event",
     "list_spaces",
+    "list_time_slots",
     "list_tracks",
     "list_proposal_categories",
     "list_personal_data_fields",
     "list_sessions",
     "list_facilitators",
     "create_space",
+    "create_time_slot",
     "create_track",
     "create_proposal_category",
     "find_or_create_facilitator",
@@ -610,6 +612,24 @@ class TestOrganizerProgrammeTools:
 
         assert [item["pk"] for item in categories] == [programme["category"]["pk"]]
 
+    def test_created_time_slot_is_listed(self, client, org_token, event):
+        slot_start = event.start_time + timedelta(hours=2)
+
+        call_org_tool(
+            client,
+            org_token,
+            "create_time_slot",
+            {
+                "start_time": slot_start.isoformat(),
+                "end_time": (slot_start + timedelta(hours=2)).isoformat(),
+            },
+        )
+
+        slots = call_org_json(
+            client, org_token, "list_time_slots", {"event_id": event.pk}
+        )
+        assert len(slots) == 1
+
     def test_list_spaces_returns_assignable_leaves(
         self, client, org_token, event, programme
     ):
@@ -1020,6 +1040,21 @@ class TestOrganizerProgrammeTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
+
+    def test_create_time_slot_rejects_reversed_range(self, client, org_token, event):
+        start = event.start_time + timedelta(hours=4)
+        end = event.start_time + timedelta(hours=2)
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_time_slot",
+            {"start_time": start.isoformat(), "end_time": end.isoformat()},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "start_not_before_end"
 
 
 class TestOrganizerSphereSettingsTool:

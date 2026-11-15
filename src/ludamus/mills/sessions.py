@@ -559,7 +559,15 @@ def _core_comparisons(
 
 
 def _availability_labels(offered: list[AvailabilityDTO]) -> list[str]:
-    return [f"{entry.day.isoformat()} {entry.part}" for entry in offered]
+    return [
+        (
+            f"{entry.day.isoformat()} {entry.part}"
+            if entry.time_slot is None
+            else f"{entry.time_slot.start_time.isoformat()}"
+            f"/{entry.time_slot.end_time.isoformat()}"
+        )
+        for entry in offered
+    ]
 
 
 def _append_m2m_change(

@@ -26,7 +26,7 @@ from ludamus.gates.web.django.event.panel.views.columns import (
 )
 from ludamus.gates.web.django.panel import PanelRequest, timetable_tab_urls
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.availability import part_window
+from ludamus.pacts.availability import offered_window
 from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.timetable import (
@@ -386,14 +386,13 @@ class TimetableSessionDetailPartView(EventPanelMixin, View):
 
         back_url = _build_back_url(slug, self.request.GET)
 
-        # Parts have hours, so the drag hint can paint the real bands rather
-        # than outlining a whole day.
+        # Parts and slots both have hours, so the drag hint can paint the real
+        # bands rather than outlining a whole day.
         tz = get_current_timezone()
         availability_json = json.dumps(
             [
-                {"start": window[0].isoformat(), "end": window[1].isoformat()}
-                for entry in availability
-                for window in (part_window(entry.day, entry.part, tz),)
+                {"start": start.isoformat(), "end": end.isoformat()}
+                for start, end in (offered_window(entry, tz) for entry in availability)
             ]
         )
 

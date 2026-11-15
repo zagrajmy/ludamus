@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -24,15 +25,25 @@ from ludamus.links.db.django.repositories.event import (
     session_card_stats,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.links.db.django.repositories.session_offers import (
+    event_slot_pks,
+    split_offers,
+)
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
 )
 from ludamus.links.db.django.users import user_dto
-from ludamus.pacts.availability import AvailabilityDTO, DayPart
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    in_reading_order,
+    slot_availability,
+)
 from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
 from ludamus.pacts.session_cards import (
@@ -184,7 +195,8 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
             Prefetch(
                 "availability",
                 queryset=SessionAvailability.objects.order_by("day", "part"),
-            )
+            ),
+            "time_slots",
         )
         .order_by("-creation_time")
     )
@@ -308,12 +320,17 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.
         if offered := list(availability):
+            parts, slot_pks = split_offers(offered)
             SessionAvailability.objects.bulk_create(
                 [
-                    SessionAvailability(session=session, day=item.day, part=item.part)
-                    for item in offered
+                    SessionAvailability(session=session, day=day, part=part)
+                    for day, part in sorted(parts)
                 ]
             )
+            if slot_pks:
+                session.time_slots.add(
+                    *event_slot_pks(event_id=session.event_id, slot_pks=slot_pks)
+                )
         if facilitator_pks := list(facilitator_ids):
             FacilitatorRepository.lock(facilitator_pks)
             session.facilitators.add(*facilitator_pks)
@@ -533,14 +550,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_availability(session_id: int) -> list[AvailabilityDTO]:
-        return [
-            AvailabilityDTO(day=day, part=DayPart(part))
-            for day, part in (
-                SessionAvailability.objects.filter(session_id=session_id)
-                .order_by("day", "part")
-                .values_list("day", "part")
-            )
-        ]
+        return SessionRepository.read_availability_by_sessions([session_id])[session_id]
 
     @staticmethod
     def read_availability_by_sessions(
@@ -548,15 +558,22 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     ) -> dict[int, list[AvailabilityDTO]]:
         if not (ids := list(session_ids)):
             return {}
-        rows = (
-            SessionAvailability.objects.filter(session_id__in=ids)
-            .order_by("day", "part")
-            .values_list("session_id", "day", "part")
-        )
+        tz = get_current_timezone()
         result: dict[int, list[AvailabilityDTO]] = {sid: [] for sid in ids}
-        for session_id, day, part in rows:
+        for session_id, day, part in SessionAvailability.objects.filter(
+            session_id__in=ids
+        ).values_list("session_id", "day", "part"):
             result[session_id].append(AvailabilityDTO(day=day, part=DayPart(part)))
-        return result
+        for link in Session.time_slots.through.objects.filter(
+            session_id__in=ids
+        ).select_related("timeslot"):
+            result[link.session_id].append(
+                slot_availability(TimeSlotDTO.model_validate(link.timeslot), tz)
+            )
+        return {
+            session_id: in_reading_order(offered, tz)
+            for session_id, offered in result.items()
+        }
 
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool:
@@ -812,11 +829,17 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.tracks.set(track_pks)
 
     @staticmethod
+    @transaction.atomic
     def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None:
-        if not Session.objects.filter(pk=session_id).exists():
+        try:
+            session = Session.objects.get(pk=session_id)
+        except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
-            raise NotFoundError(msg)
-        wanted = {(item.day, str(item.part)) for item in offered}
+            raise NotFoundError(msg) from err
+        wanted, slot_pks = split_offers(offered)
+        session.time_slots.set(
+            event_slot_pks(event_id=session.event_id, slot_pks=slot_pks)
+        )
         existing = set(
             SessionAvailability.objects.filter(session_id=session_id).values_list(
                 "day", "part"

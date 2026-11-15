@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
+from itertools import starmap
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
@@ -13,7 +14,7 @@ from ludamus.mills.timetable import (
 )
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventRepositoryProtocol
+from ludamus.pacts.event import EventRepositoryProtocol, TimeSlotDTO
 from ludamus.pacts.sessions import SessionRepositoryProtocol, SessionStatus
 from ludamus.pacts.sphere import SphereRepositoryProtocol
 from ludamus.pacts.timetable import (
@@ -822,6 +823,21 @@ def _offered(day: int, part: DayPart) -> AvailabilityDTO:
     return AvailabilityDTO(day=date(2026, 1, day), part=part)
 
 
+# 10-12 and 12-14 back to back, then a gap, then 15-16.
+_SLOTS = ((1, 12, 14), (2, 10, 12), (3, 15, 16))
+
+
+def _slot_offered(pk: int, opens: int, closes: int) -> AvailabilityDTO:
+    return AvailabilityDTO(
+        day=date(2026, 1, 1),
+        time_slot=TimeSlotDTO(
+            pk=pk,
+            start_time=datetime(2026, 1, 1, opens, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, closes, tzinfo=UTC),
+        ),
+    )
+
+
 def _event_track(*, event_pk):
     track = MagicMock()
     track.event_id = event_pk
@@ -1064,6 +1080,37 @@ class TestListOfferedTimeViolations:
         assert [violation.session_pk for violation in violations] == [
             _SUBJECT_SESSION_PK
         ]
+
+    @pytest.mark.parametrize(
+        ("start_hour", "end_hour", "violates"),
+        (
+            # Across two back-to-back slots, which read as one window.
+            (11, 13, False),
+            # In the last slot, past a gap.
+            (15, 16, False),
+            # Running from the joined window into the gap.
+            (13, 15, True),
+            # Starting inside a slot is not enough; the whole session must fit.
+            (15, 17, True),
+        ),
+    )
+    def test_a_slot_offer_holds_only_sessions_that_fit_in_it(
+        self, start_hour, end_hour, violates
+    ):
+        item = _make_item(
+            pk=1,
+            session_id=10,
+            start_time=datetime(2026, 1, 1, start_hour, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, end_hour, 0, tzinfo=UTC),
+        )
+        slots = list(starmap(_slot_offered, _SLOTS))
+        uow = self._uow(items=[item], available={10: slots})
+
+        violations = _conflict_service(uow).list_offered_time_violations(
+            event_pk=1, track_pk=None, tz=UTC
+        )
+
+        assert bool(violations) is violates
 
     def test_a_session_with_nothing_offered_is_not_a_violation(self):
         item = _make_item(pk=1, session_id=10)

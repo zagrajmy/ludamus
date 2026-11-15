@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -358,6 +359,7 @@ def cfp_tab_urls(event):
         "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
         "host": reverse("panel:personal-data-fields", kwargs={"slug": event.slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": event.slug}),
+        "time_slots": reverse("panel:time-slots", kwargs={"slug": event.slug}),
     }
 
 
@@ -369,6 +371,40 @@ def day_range(event):
 
 def empty_days(event):
     return {day.isoformat(): [] for day in day_range(event)}
+
+
+def time_slots_page_context(
+    event,
+    *,
+    days,
+    event_days,
+    time_slots=(),
+    has_next=False,
+    total_pages=1,
+    create_form=ANY,
+    undeletable_slot_reasons=None,
+    **stats: int,
+):
+    # The time-slots page context, shared by the page tests and the create-modal
+    # tests that re-render it. The first page of an event whose slots all fall
+    # inside it is what every caller so far asks for, so the empty orphan list
+    # and the page-zero markers are written here rather than passed in.
+    return {
+        **panel_context(event, active_nav="cfp", **stats),
+        "active_tab": "time_slots",
+        "tab_urls": cfp_tab_urls(event),
+        "time_slots": list(time_slots),
+        "undeletable_slot_reasons": undeletable_slot_reasons or {},
+        "days": days,
+        "orphaned_slots": [],
+        "continuation_slots": set(),
+        "event_days": event_days,
+        "page": 0,
+        "has_prev": False,
+        "has_next": has_next,
+        "total_pages": total_pages,
+        "create_form": create_form,
+    }
 
 
 def settings_tab_urls(event):

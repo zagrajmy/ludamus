@@ -6,7 +6,11 @@ from http import HTTPStatus
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session, Track
 from ludamus.pacts.event import EventDTO
 from ludamus.pacts.tracks import TrackDTO
-from tests.integration.conftest import EventFactory, SessionAvailabilityFactory
+from tests.integration.conftest import (
+    EventFactory,
+    SessionAvailabilityFactory,
+    TimeSlotFactory,
+)
 from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import facilitator_list_item_dto
 from tests.integration.web.panel.proposal_form.helpers import (
@@ -76,6 +80,30 @@ class TestBothModes:
         assert list(saved_session(event).availability.values_list("day", "part")) == [
             (day, part.value)
         ]
+
+    def test_post_assigns_only_the_events_own_time_slots(
+        self, panel_client, event, form_mode, valid_post
+    ):
+        own = TimeSlotFactory(event=event)
+        foreign = TimeSlotFactory()
+        day, part = first_offered(event)
+
+        panel_client.post(
+            form_mode.url,
+            data=valid_post | {
+                "availability_submitted": "1",
+                # Once the event lists slots, a part of a day is not on offer.
+                "availability": [
+                    f"slot:{own.pk}",
+                    f"slot:{foreign.pk}",
+                    availability_value(day, part),
+                ],
+            },
+        )
+
+        session = saved_session(event)
+        assert list(session.time_slots.all()) == [own]
+        assert not session.availability.exists()
 
 
 class TestCreate:

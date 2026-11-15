@@ -56,6 +56,7 @@ from ludamus.links.db.django.models import (
     Space,
     Sphere,
     SessionAvailability,
+    TimeSlot,
     Track,
     User,
 )
@@ -1957,6 +1958,60 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     return event
 
 
+def _create_slot_availability_event(sphere: Sphere, *, tester: User) -> Event:
+    # An organizer who draws time slots gets them offered in place of parts
+    # of a day; a proposal that picked one carries its hours to the card and
+    # the accept page.
+    event = _create_event(
+        sphere,
+        name="Slotted Weekend",
+        slug="slot-con",
+        description="A day of fixed blocks, offered to proposers as they are.",
+        start_offset=timedelta(days=16),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Blocks",
+        slug="blocks",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+        asks_availability=True,
+    )
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=4),
+    )
+    afternoon = TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=4),
+        end_time=event.start_time + timedelta(hours=8),
+    )
+    venue = _create_venue(event, name="Block Hall", slug="block-hall")
+    area = _create_area(venue, name="Block Floor", slug="block-floor")
+    _create_space(area, name="Block Room", slug="block-room", capacity=6)
+    proposal = Session.objects.create(
+        event=event,
+        presenter=tester,
+        facilitator_name="E2E Tester",
+        contact_email="e2e@test.local",
+        category=category,
+        title="Afternoon Block Proposal",
+        slug="afternoon-block-proposal",
+        description="Picked the afternoon slot.",
+        duration="PT1H",
+        participants_limit=4,
+        status=SessionStatus.PENDING,
+    )
+    proposal.time_slots.add(afternoon)
+    return event
+
+
 def _reuse_fields(event: Event) -> list[SessionField]:
     # The same questions on both editions, as an organizer running a series
     # would set them up: an answer carries over by its field's slug.
@@ -2517,6 +2572,7 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_slot_availability_event(sphere, tester=tester)
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)

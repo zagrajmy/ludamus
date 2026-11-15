@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models import F, Q
 from django.db.models.functions import Lower
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
@@ -73,7 +74,7 @@ from ludamus.pacts.user import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Collection, Iterable, Iterator
     from enum import StrEnum
 
 
@@ -1408,6 +1409,53 @@ class Space(models.Model):
             )
 
 
+class TimeSlot(models.Model):
+    """A window the organizer offers proposers to choose from.
+
+    Its one job is availability: an event that runs fixed programme blocks
+    lists them here, and a proposer says which of them they could run in. It
+    plays no part in where or when a session is placed; an event without any
+    asks in parts of a day instead (SessionAvailability).
+    """
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="time_slots"
+    )
+    end_time = models.DateTimeField()
+    start_time = models.DateTimeField()
+
+    class Meta:
+        db_table = "time_slot"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "start_time", "end_time"),
+                name="timeslot_has_unique_times_for_event",
+            ),
+            models.CheckConstraint(
+                condition=Q(start_time__lt=F("end_time")), name="timeslot_date_times"
+            ),
+        )
+
+    def __str__(self) -> str:
+        ts_format = "%Y-%m-%d %H:%M"
+        start = localtime(self.start_time).strftime(ts_format)
+        if self.start_time.date() == self.end_time.date():
+            ts_format = "%H:%M"
+        end = localtime(self.end_time).strftime(ts_format)
+        return f"{start} - {end} ({self.id})"
+
+    def validate_unique(self, exclude: Collection[str] | None = None) -> None:
+        super().validate_unique(exclude)
+        event_slots = TimeSlot.objects.filter(event=self.event)
+        conflicted = event_slots.filter(
+            Q(start_time__gt=self.start_time, start_time__lt=self.end_time)
+            | Q(end_time__gt=self.start_time, end_time__lt=self.end_time)
+            | Q(start_time__lte=self.start_time, end_time__gte=self.end_time)
+        ).last()
+        if conflicted and conflicted != self:
+            raise ValidationError(_("Time slots can't overlap!"))
+
+
 class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -1599,6 +1647,9 @@ class Session(SoftDeleteModel):
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
+    # The event's time slots the facilitator could run this in, where the event
+    # lists any; otherwise the answer is in parts of a day (availability).
+    time_slots = models.ManyToManyField(TimeSlot, blank=True)
     status = models.CharField(
         max_length=15,
         choices=[(item.value, item.name) for item in SessionStatus],
@@ -1652,10 +1703,10 @@ class SessionAvailability(models.Model):
     """A part of a programme day the facilitator could run this session in.
 
     Availability belongs to the offer, so it lives on the session rather than
-    on the event, and it is answered in named parts rather than clock times:
-    the proposer knows they are free on Friday evening, not that the room
-    opens at 18:30. Days come from the event's own dates, so there is nothing
-    to configure before the question can be asked.
+    on the event. Where the event lists no time slots it is answered in named
+    parts rather than clock times: the proposer knows they are free on Friday
+    evening, not that the room opens at 18:30, and there is nothing to
+    configure before the question can be asked.
     """
 
     session = models.ForeignKey(

@@ -109,7 +109,7 @@
             </div>
             <div class="space-y-1">
                 {% for entry in availability %}
-                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</div>
+                    <div class="text-xs text-foreground-secondary bg-bg-tertiary rounded px-2 py-1">{{ entry.day|date:"l, M j" }} {{ entry|offered_part }}</div>
                 {% endfor %}
             </div>
         </div>

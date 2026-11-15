@@ -8,14 +8,14 @@
 {# Variables: data (SessionData) #}
 {% if data.offered_times %}
     {% with first=data.offered_times.0 %}
-        <span class="truncate tabular-nums">{{ first.day|date:"D, j M" }} {{ first.part|day_part }}</span>
+        <span class="truncate tabular-nums">{{ first.day|date:"D, j M" }} {{ first|offered_part }}</span>
     {% endwith %}
     {% with extra=data.offered_times|length|add:"-1" %}
         {% if extra %}
             <span class="shrink-0 text-foreground-muted">
                 {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
                 <span class="sr-only">
-                    {% for entry in data.offered_times|slice:"1:" %}{{ entry.day|date:"l, j E" }} {{ entry.part|day_part }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% for entry in data.offered_times|slice:"1:" %}{{ entry.day|date:"l, j E" }} {{ entry|offered_part }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 </span>
             </span>
         {% endif %}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
@@ -32,7 +33,7 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_descriptors,
     personal_fields_form,
 )
-from ludamus.gates.web.django.event.propose import DAY_PART_LABELS
+from ludamus.gates.web.django.event.propose import availability_descriptors
 from ludamus.gates.web.django.forms import (
     CUSTOM_DURATION,
     SessionEditForm,
@@ -40,13 +41,7 @@ from ludamus.gates.web.django.forms import (
 )
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
-from ludamus.pacts.availability import (
-    AvailabilityDTO,
-    DayPart,
-    availability_from_value,
-    availability_value,
-    offered_parts_by_day,
-)
+from ludamus.pacts.availability import AvailabilityDTO, offered_times, pick_offered
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueData
@@ -57,7 +52,6 @@ from ludamus.pacts.sessions import SessionContentEditData, SessionData, SessionS
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from datetime import date
 
     from django import forms
     from django.http import HttpResponse, QueryDict
@@ -70,26 +64,6 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
     )
-
-
-def _availability_options(
-    offered: list[tuple[date, list[DayPart]]], chosen: list[AvailabilityDTO]
-) -> list[dict[str, object]]:
-    picked = {(entry.day, entry.part) for entry in chosen}
-    return [
-        {
-            "day": day,
-            "parts": [
-                {
-                    "value": availability_value(day, part),
-                    "label": DAY_PART_LABELS[part],
-                    "is_selected": (day, part) in picked,
-                }
-                for part in parts
-            ],
-        }
-        for day, parts in offered
-    ]
 
 
 @dataclass(frozen=True)
@@ -323,29 +297,26 @@ class ProposalFormPageView(_ProposalFormBase):
         submitted = set(parse_ids(self.request.POST.getlist(f"{singular}_ids")))
         return list(submitted & {item.pk for item in valid})
 
-    def _offered_availability(self) -> list[tuple[date, list[DayPart]]]:
-        return offered_parts_by_day(
-            start=self.current_event.start_time,
-            end=self.current_event.end_time,
+    @cached_property
+    def _offered_times(self) -> list[AvailabilityDTO]:
+        event = self.current_event
+        return offered_times(
+            start=event.start_time,
+            end=event.end_time,
+            slots=self.request.services.panel_time_slots.list_for_event(event.pk),
             tz=get_current_timezone(),
         )
 
     def _collect_availability(self) -> list[AvailabilityDTO] | None:
         # Same sentinel contract as the id pickers: absent means "the picker
-        # was not on the page", present-but-empty means "cleared". Parts the
-        # event's own hours do not reach are dropped rather than written.
+        # was not on the page", present-but-empty means "cleared". Times the
+        # event does not offer (another event's slot, a part its hours do not
+        # reach) are dropped rather than written.
         if self.request.POST.get("availability_submitted") != "1":
             return None
-        offered = {
-            (day, part) for day, parts in self._offered_availability() for part in parts
-        }
-        picked = {
-            (entry.day, entry.part)
-            for raw in self.request.POST.getlist("availability")
-            if (entry := availability_from_value(raw)) is not None
-            and (entry.day, entry.part) in offered
-        }
-        return [AvailabilityDTO(day=day, part=part) for day, part in sorted(picked)]
+        return pick_offered(
+            self.request.POST.getlist("availability"), self._offered_times
+        )
 
     def _picker_context(
         self,
@@ -442,8 +413,8 @@ class ProposalFormPageView(_ProposalFormBase):
             stored=page.assigned.track_ids,
         )
         submitted = self._collect_availability()
-        context["availability_options"] = _availability_options(
-            self._offered_availability(),
+        context["availability_options"] = availability_descriptors(
+            self._offered_times,
             submitted if submitted is not None else page.assigned.availability,
         )
         context.update(self._field_context(page.fields, form))

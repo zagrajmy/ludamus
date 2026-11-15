@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from django.utils.functional import _StrPromise
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.time_ranges import DateTimeRangeProtocol
 
 register = template.Library()
@@ -82,17 +83,28 @@ DAY_PART_NAMES: dict[DayPart, _StrPromise] = {
 }
 
 
-@register.filter
-def day_part(value: str) -> str:
-    """Name a part of the day in the reader's language.
+def offered_time_name(entry: AvailabilityDTO) -> str:
+    """Name an offered time within its day: its part, or its slot's hours.
 
     Returns:
-        The translated name, or the raw value if it names no known part.
+        "evening", or "10:00–14:00" for a time slot, in the reader's language
+        and timezone.
     """
-    try:
-        return str(DAY_PART_NAMES[DayPart(value)])
-    except ValueError:
-        return value
+    if isinstance(offer := entry.offer, DayPart):
+        return str(DAY_PART_NAMES[offer])
+    start = timezone.localtime(offer.start_time)
+    end = timezone.localtime(offer.end_time)
+    return f"{time_format(start, 'H:i')}–{time_format(end, 'H:i')}"
+
+
+@register.filter
+def offered_part(entry: AvailabilityDTO) -> str:
+    """Template form of `offered_time_name`, read after the entry's day.
+
+    Returns:
+        The part of the day, or the slot's hours.
+    """
+    return offered_time_name(entry)
 
 
 # A game night that runs 19:00–01:00 is one evening on a calendar, not two

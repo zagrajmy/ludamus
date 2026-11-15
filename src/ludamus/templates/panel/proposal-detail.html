@@ -146,7 +146,7 @@
                         <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "When the facilitator could host" %}</h3>
                         <ul class="space-y-1">
                             {% for entry in availability %}
-                                <li class="text-foreground text-sm">{{ entry.day|date:"l, M j" }} {{ entry.part|day_part }}</li>
+                                <li class="text-foreground text-sm">{{ entry.day|date:"l, M j" }} {{ entry|offered_part }}</li>
                             {% endfor %}
                         </ul>
                     </div>

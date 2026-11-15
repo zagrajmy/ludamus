@@ -4,7 +4,13 @@
     {% include "event/propose/parts/_stepper.html" %}
     {% if day_descriptors|default:"" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "When could you host?" %}</h2>
-        <p class="text-sm text-foreground-muted mb-5">{% translate "Tick every time that would work. We settle the exact hours later." %}</p>
+        <p class="text-sm text-foreground-muted mb-5">
+            {% if offers_slots %}
+                {% translate "Tick every time slot that would work. The organizers pick the start time within it." %}
+            {% else %}
+                {% translate "Tick every time that would work. We settle the exact hours later." %}
+            {% endif %}
+        </p>
         {% if error|default:"" %}<p class="text-sm text-danger mb-4" role="alert">{{ error }}</p>{% endif %}
         <form method="post"
               hx-post="{% url 'web:event:session-propose-days' event_slug=event.slug %}"
