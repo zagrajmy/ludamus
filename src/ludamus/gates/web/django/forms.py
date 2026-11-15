@@ -717,15 +717,19 @@ def create_proposal_form(
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     durations: Sequence[str] = (),
 ) -> type[SessionEditForm]:
-    attrs: dict[str, forms.Field] = {
-        "category_id": forms.ChoiceField(
-            choices=[("", _("— Select category —")), *categories],
-            error_messages={
-                "required": _("Please select a category."),
-                "invalid_choice": _("Invalid category selection."),
-            },
-        )
-    }
+    attrs: dict[str, forms.Field] = (
+        {
+            "category_id": forms.ChoiceField(
+                choices=[("", _("— Select category —")), *categories],
+                error_messages={
+                    "required": _("Please select a category."),
+                    "invalid_choice": _("Invalid category selection."),
+                },
+            )
+        }
+        if categories
+        else {}
+    )
 
     custom_required = build_dynamic_fields(
         fields=attrs, pairs=requirement_fields(requirements), prefix="session"

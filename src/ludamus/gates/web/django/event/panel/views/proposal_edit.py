@@ -462,7 +462,11 @@ class ProposalFormPageView(_ProposalFormBase):
         requirements = page.fields.requirements
         title = form.cleaned_data["title"]
         session_data = SessionData(
-            category_id=int(form.cleaned_data["category_id"]),
+            category_id=(
+                int(category_id)
+                if (category_id := form.cleaned_data.get("category_id"))
+                else None
+            ),
             event_id=event_id,
             contact_email=form.cleaned_data.get("contact_email") or "",
             description=form.cleaned_data.get("description") or "",
