@@ -32,9 +32,10 @@ const TRIGGER_LABELS = /aria-label="(Open details for [^"]+)"/g;
 const MAX_SCROLL_GESTURES = 24;
 const SCROLL_GESTURE_PX = 450;
 
-// The last link on every page, by accessible name. NOTE: the runner may append
-// the role ("…, link"), so the pattern tolerates a suffix.
-const FOOTER_LINK = /^Terms of Service(,|$)/i;
+// Links every page's footer ends with, by accessible name; on a phone they
+// stack, and the lowest one is where the page ends. NOTE: the runner may
+// append the role ("…, link"), so the pattern tolerates a suffix.
+const FOOTER_LINK = /^(Terms of Service|Report illegal content)(,|$)/i;
 
 // NOTE: the link's rect ends where its text does; the page ends the footer's
 // bottom padding below it — py-6 in base.html at the 16px root. The guard in
@@ -155,7 +156,9 @@ beforeAll(async () => {
   logGeometry(before, after, gestures);
 
   const shift = medianShift(before.nodes, after.nodes);
-  const footer = after.nodes.find((node) => node.rect && FOOTER_LINK.test(labelOf(node)));
+  const footer = after.nodes
+    .filter((node) => node.rect && FOOTER_LINK.test(labelOf(node)))
+    .sort((a, b) => bottomOf(b.rect!) - bottomOf(a.rect!))[0];
   const pageEnd = footer?.rect ? bottomOf(footer.rect) + FOOTER_BOTTOM_PADDING_PT : null;
   const barTop = toolbarTop(after.nodes, after.screen);
   const lowest = lowestNodes(after.nodes, LOWEST_IN_LOG);

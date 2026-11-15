@@ -44,6 +44,7 @@ def _seating(**overrides) -> SessionSeatingDTO:
     values = {
         "title": "Warsztat",
         "participants_limit": 10,
+        "host_ids": frozenset(),
         "enrolled_count": 0,
         "eligible_windows": [_open_window()],
     }

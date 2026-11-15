@@ -21,6 +21,16 @@ type Choice = tuple[int | str, str]
 type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
 
 
+class TakenOptionsSelect(forms.Select):
+    # `taken` is read by the tessera select renderer: those options render
+    # disabled and marked taken, and a field left with one free option stops
+    # asking, as one with a single option does. With both selects open,
+    # accept-placement.ts disables the spaces taken in the slot picked.
+    def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
+        super().__init__()
+        self.taken = taken
+
+
 def slot_label(slot: TimeSlotDTO) -> str:
     # The `date` filter this replaced localises first, so a label built here
     # has to as well or the times shift by the event's offset.
@@ -68,27 +78,39 @@ def create_proposal_acceptance_form(
         grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
             (option.pk, option.name)
         )
-    choices: ChoiceList = [("", gettext("Select a space..."))]
+    # Where a space is optional, leaving it blank is the answer "no space".
+    blank = (
+        gettext("Select a space...") if context.space_required else gettext("No space")
+    )
+    choices: ChoiceList = [("", blank)]
     choices.extend(grouped.items())
 
     allowed_space_ids = {option.pk for option in context.space_options}
     allowed_time_slot_ids = {slot.pk for slot in time_slots}
+    placements = context.placements
 
     space_field = forms.ChoiceField(
         choices=choices,
         label=_("Space"),
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.taken_space_ids)
+        ),
         help_text=_("Select the space where this session will take place"),
-        required=True,
+        required=context.space_required,
     )
     time_slot_field = forms.ChoiceField(
         choices=slot_choices(time_slots, context.preferred_time_slot_ids),
+        widget=TakenOptionsSelect(
+            taken=frozenset(str(pk) for pk in placements.full_time_slot_ids)
+        ),
         label=_("Time slot"),
         help_text=_("Pick the start time for this session."),
         required=True,
     )
 
-    def clean_space(self: forms.Form) -> int:
+    def clean_space(self: forms.Form) -> int | None:
+        if not self.cleaned_data["space"] and not context.space_required:
+            return None
         return _validated_choice_id(
             self.cleaned_data["space"],
             allowed=allowed_space_ids,
@@ -102,13 +124,19 @@ def create_proposal_acceptance_form(
             error=gettext("Invalid time slot selection."),
         )
 
+    # With no space required and none to choose from, the only answer is
+    # "no space", and a field offering one option asks nothing.
+    space_fields = (
+        {"space": space_field, "clean_space": clean_space}
+        if context.space_options or context.space_required
+        else {}
+    )
     return type(
         "ProposalAcceptanceForm",
         (forms.Form,),
         {
-            "space": space_field,
+            **space_fields,
             "time_slot": time_slot_field,
-            "clean_space": clean_space,
             "clean_time_slot": clean_time_slot,
         },
     )

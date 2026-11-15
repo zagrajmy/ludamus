@@ -1,3 +1,7 @@
 declare const htmx: {
-  ajax: (method: string, url: string, opts: { swap: string; target: string }) => void;
+  ajax: (
+    method: string,
+    url: string,
+    opts: { select?: string; swap: string; target: string },
+  ) => void;
 };

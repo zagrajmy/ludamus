@@ -57,10 +57,7 @@ test.describe("Editing your own profile", () => {
     await expect(signup).toContainText("You're signed up");
     await expect(signup).toContainText("Chart Room");
     await expect(signup).toContainText(/\d{1,2} \w+, \d{2}:\d{2}/);
-    await expect(signup).toHaveAttribute(
-      "href",
-      /\/event\/tidewater-night\/session\/\d+\/enrollment\/$/,
-    );
+    await expect(signup).toHaveAttribute("href", /\/event\/tidewater-night\/\?session=\d+$/);
     await attachArtifacts(testInfo, {
       name: "profile-dashboard-signup",
       region: comingUp,
