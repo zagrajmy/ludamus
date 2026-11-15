@@ -25,7 +25,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 from scripts.mcp_token_file import (
     MaintainerToken,
@@ -303,8 +303,24 @@ def _keep_logs(run: Run) -> None:
             shutil.copy2(source, evidence / name)
 
 
+def _owned(run: Run) -> bool:
+    # SAFETY: a crash or reboot leaves current.json naming a pid the OS may
+    # have handed to an unrelated process group; never signal or trust it.
+    if run["pid"] <= 0 or not _alive(run["pid"]):
+        return False
+    if shutil.which("ps") is None:
+        return True
+    result = subprocess.run(
+        ["ps", "-p", str(run["pid"]), "-o", "args="],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return f"runserver --insecure --noreload localhost:{run['port']}" in result.stdout
+
+
 def _teardown(run: Run) -> None:
-    if run["pid"] > 0:
+    if _owned(run):
         _stop(run["pid"])
     _browser(run, "close", required=False)
     _keep_logs(run)
@@ -313,7 +329,7 @@ def _teardown(run: Run) -> None:
 
 
 @contextmanager
-def _lifecycle_lock() -> Iterator[None]:
+def _lifecycle_lock() -> Generator[None]:
     VERIFY_DIR.mkdir(parents=True, exist_ok=True)
     with LIFECYCLE_LOCK_PATH.open("w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -330,7 +346,7 @@ def cmd_launch() -> int:
 
 def _launch() -> int:
     if (existing := _load_run()) is not None:
-        if existing["pid"] > 0 and _alive(existing["pid"]):
+        if _owned(existing):
             print(json.dumps({"mode": "already-running", **existing}, indent=2))
             return 0
         _teardown(existing)
@@ -550,8 +566,12 @@ def cmd_screenshot(path: str) -> int:
     return 0
 
 
-def cmd_find(*, locator: str, value: str, action: str, name: str | None) -> int:
+def cmd_find(
+    *, locator: str, value: str, action: str, text: str | None, name: str | None
+) -> int:
     args = ["find", locator, value, action]
+    if text is not None:
+        args.append(text)
     if name:
         args.extend(["--name", name])
     return _echo(_browser(_require_run(), *args))
@@ -661,6 +681,7 @@ def build_parser() -> argparse.ArgumentParser:
     find_cmd.add_argument("locator")
     find_cmd.add_argument("value")
     find_cmd.add_argument("action", nargs="?", default="click")
+    find_cmd.add_argument("text", nargs="?", default=None, help="Text for fill")
     find_cmd.add_argument("--name", default=None)
     press = sub.add_parser("press", help="Focus by ARIA role/name, press a key")
     press.add_argument("role")
@@ -690,7 +711,11 @@ def main(argv: list[str] | None = None) -> int:
         "press": lambda: cmd_press(role=args.role, name=args.name, key=args.key),
         "browser": lambda: cmd_browser(list(args.args)),
         "find": lambda: cmd_find(
-            locator=args.locator, value=args.value, action=args.action, name=args.name
+            locator=args.locator,
+            value=args.value,
+            action=args.action,
+            text=args.text,
+            name=args.name,
         ),
         "mcp": lambda: cmd_mcp(
             scope=args.scope, event=args.event, tool=args.tool, arguments=args.arguments

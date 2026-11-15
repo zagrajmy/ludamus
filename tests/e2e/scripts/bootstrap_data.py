@@ -432,14 +432,12 @@ def _create_mention_mail_scenario() -> None:
         email_verified=True,
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-mentioned.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-mentioned.json"
     )
     token = DjangoParleyMentionUnsubscribeCodec().dumps(
         ParleyMentionUnsubscribePayload(user_id=user.pk)
     )
-    (REPO_ROOT / "tests" / "e2e" / ".parley-mention-mail.json").write_text(
+    (STATE_DIR / ".parley-mention-mail.json").write_text(
         json.dumps({"unsubscribeToken": token}), encoding="utf-8"
     )
 
@@ -585,7 +583,7 @@ def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> Non
     _write_storage_state(
         author,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-proposal-author.json",
+        path=STATE_DIR / ".auth-state-proposal-author.json",
     )
     Session.objects.create(
         event=event,
@@ -1166,7 +1164,7 @@ def _create_email_verification_profiles() -> None:
         _write_storage_state(
             user,
             domain=_cookie_domain(),
-            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-email-{state}.json",
+            path=STATE_DIR / f".auth-state-email-{state}.json",
         )
 
 
@@ -1321,7 +1319,7 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     _write_storage_state(
         polish_proposer,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-polish-proposer.json",
+        path=STATE_DIR / ".auth-state-polish-proposer.json",
     )
     # Two proposals, so the spec that reads the page and the spec that accepts
     # one never contend for the same pending row — including on a retry, which
@@ -1636,9 +1634,7 @@ def _flow_user(slug: str, *, name: str) -> User:
 def _flow_user_state(slug: str, *, name: str) -> User:
     user = _flow_user(slug, name=name)
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / f".auth-state-{slug}.json"
     )
     return user
 
@@ -2039,9 +2035,7 @@ def _create_reuse_proposal_scenario(sphere: Sphere) -> None:
         slug="e2e-reuser",
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-reuser.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-reuser.json"
     )
     past = _create_event(
         sphere,
@@ -2166,7 +2160,7 @@ def _create_age_scenarios() -> None:
     _write_storage_state(
         unknown,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests/e2e/.auth-state-age-unknown.json",
+        path=STATE_DIR / ".auth-state-age-unknown.json",
     )
     for scenario in ("teen", "older", "child", "cross-sphere"):
         session = SessionStore()
@@ -2193,7 +2187,7 @@ def _create_age_scenarios() -> None:
             ],
             "origins": [],
         }
-        (REPO_ROOT / f"tests/e2e/.auth-state-age-{scenario}.json").write_text(
+        (STATE_DIR / f".auth-state-age-{scenario}.json").write_text(
             json.dumps(state), encoding="utf-8"
         )
 
@@ -2215,7 +2209,7 @@ def _create_privacy_scenarios() -> None:
         _write_storage_state(
             user,
             domain=".ludamus.localhost",
-            path=REPO_ROOT / f"tests/e2e/.auth-state-privacy-{scenario}.json",
+            path=STATE_DIR / f".auth-state-privacy-{scenario}.json",
         )
 
 
@@ -2288,9 +2282,7 @@ def main() -> None:
     )
     sphere.managers.add(manager)
     _write_storage_state(
-        manager,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
+        manager, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-manager.json"
     )
 
     local_manager = User.objects.create_user(

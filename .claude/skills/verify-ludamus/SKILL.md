@@ -79,8 +79,9 @@ mise run control-ludamus -- find role button click --name Enroll
 mise run control-ludamus -- browser get url
 ```
 
-- `find <locator> <value> [click|fill|check|hover|text] --name <name>` acts
-  by ARIA role and accessible name. Use it before anything else.
+- `find <locator> <value> [click|fill|check|hover|text] [text] --name <name>`
+  acts by ARIA role and accessible name. Use it before anything else. `fill`
+  takes the text to type: `find role textbox fill "Night Owls" --name Title`.
 - `press <role> <name> <key>` focuses by role and name, then presses a key.
   Use it where a click lands on a covering element, such as the stretched
   session-card links (the e2e specs press `Enter` on them too).
