@@ -13,8 +13,8 @@
             {% translate "Board" as board_label %}
             {% url 'web:board:index' as board_url %}
             {% tessera_button board_label href=board_url variant="secondary" icon="megaphone" %}
-            {% if can_create_encounter %}
-                {% include "components/create_encounter_button.html" %}
+            {% if create_options %}
+                {% include "components/create_button.html" with options=create_options %}
             {% endif %}
         </div>
     </div>

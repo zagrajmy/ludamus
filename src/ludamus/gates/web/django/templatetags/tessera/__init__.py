@@ -34,6 +34,7 @@ from .action_dropdown import (
 from .checkbox import tessera_checkbox_toggle
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
+from .dialog_close_button import tessera_dialog_close_button
 from .dynamic_field import dynamic_field
 from .form import (
     tessera_button,
@@ -84,6 +85,7 @@ __all__ = [
     "tessera_copy",
     "tessera_copy_chip",
     "tessera_copy_popover",
+    "tessera_dialog_close_button",
     "tessera_errors",
     "tessera_field",
     "tessera_form",

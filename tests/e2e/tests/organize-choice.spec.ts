@@ -30,7 +30,7 @@ test("a sphere manager picks an event or an encounter from the organize dialog",
     facts: { sphere: CREW_SPHERE, options: ["Event", "Encounter"] },
   });
 
-  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Close" }).click();
   await expect(dialog).toBeHidden();
 
   await page.getByRole("link", { name: "Organize" }).click();

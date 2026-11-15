@@ -27,8 +27,8 @@
         {% if upcoming or past %}
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
-                {% if can_create_encounter %}
-                    {% include "components/create_encounter_button.html" %}
+                {% if create_options %}
+                    {% include "components/create_button.html" with options=create_options %}
                 {% endif %}
             </div>
             {% if upcoming %}
@@ -47,8 +47,8 @@
                     <p class="text-xl font-medium mb-2">{% translate "Nothing scheduled yet" %}</p>
                     <p class="text-sm">{% translate "There are no upcoming events or public encounters. Please check back later!" %}</p>
                 </div>
-                {% if can_create_encounter %}
-                    <div class="mt-6">{% include "components/create_encounter_button.html" %}</div>
+                {% if create_options %}
+                    <div class="mt-6">{% include "components/create_button.html" with options=create_options %}</div>
                 {% endif %}
             </div>
         {% endif %}

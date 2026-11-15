@@ -11,6 +11,7 @@ from django.test import override_settings
 from django.urls import reverse
 from freezegun import freeze_time
 
+from ludamus.gates.web.django.create_options import CreateOption
 from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
@@ -110,7 +111,7 @@ class TestIndexRedirectView:
                     discover=[],
                     past_events=[],
                 ),
-                "can_create_encounter": True,
+                "create_options": (CreateOption.ENCOUNTER,),
             },
             template_name="dashboard/index.html",
         )
@@ -183,8 +184,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -203,8 +203,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -226,8 +225,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -263,8 +261,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -288,8 +285,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [FeedEvent(entry=expected)],
                 "view": ANY,
@@ -311,8 +307,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -334,8 +329,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -357,8 +351,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -386,8 +379,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [
                     _expected_feed_event(soon, cover_index=0),
@@ -420,8 +412,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [
                     _expected_feed_event(recent, cover_index=0),
                     _expected_feed_event(older, cover_index=1),
@@ -472,8 +463,7 @@ class TestEventsPageView:
                     _expected_feed_event(older, cover_index=1),
                 ],
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -488,8 +478,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
-                "can_organize_event": True,
+                "create_options": (CreateOption.EVENT, CreateOption.ENCOUNTER),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -506,8 +495,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
-                "can_organize_event": False,
+                "create_options": (CreateOption.ENCOUNTER,),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -530,8 +518,29 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
-                "can_organize_event": False,
+                "create_options": (CreateOption.ENCOUNTER,),
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_manager_offered_only_an_event_while_encounters_are_off(
+        self, authenticated_client, non_root_sphere
+    ):
+        non_root_sphere.encounters_policy = "none"
+        non_root_sphere.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "create_options": (CreateOption.EVENT,),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -551,8 +560,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [AnnouncementDTO.model_validate(announcement)],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -573,8 +581,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -593,8 +600,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -612,8 +618,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -637,8 +642,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -658,8 +662,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
-                "can_organize_event": False,
+                "create_options": (CreateOption.ENCOUNTER,),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -680,8 +683,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
-                "can_organize_event": True,
+                "create_options": (CreateOption.EVENT, CreateOption.ENCOUNTER),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -690,13 +692,10 @@ class TestEventsPageView:
         )
 
 
-def _feed_context(
-    *, upcoming=(), past=(), can_create_encounter=False, can_organize_event=False
-):
+def _feed_context(*, upcoming=(), past=(), create_options=()):
     return {
         "announcements": [],
-        "can_create_encounter": can_create_encounter,
-        "can_organize_event": can_organize_event,
+        "create_options": create_options,
         "past": list(past),
         "upcoming": list(upcoming),
         "view": ANY,
@@ -765,8 +764,7 @@ class TestEventsPageFeed:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
-                "can_organize_event": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [
                     _expected_feed_encounter(encounter, organizer_name="Pub Organizer"),
@@ -841,7 +839,7 @@ class TestEventsPageFeed:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_feed_context(can_create_encounter=True),
+            context_data=_feed_context(create_options=(CreateOption.ENCOUNTER,)),
             template_name=["index.html"],
         )
 
@@ -862,7 +860,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                can_create_encounter=True,
+                create_options=(CreateOption.ENCOUNTER,),
                 upcoming=[
                     _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
                 ],
@@ -888,7 +886,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                can_create_encounter=True,
+                create_options=(CreateOption.ENCOUNTER,),
                 upcoming=[
                     _expected_feed_encounter(
                         encounter, organizer_name="Host", rsvp_count=1

@@ -1,11 +1,8 @@
 {% load i18n %}
 {% load tessera %}
-{% comment %}
-    A member can make only an encounter, so the button goes straight to its
-    form. Someone who manages the sphere can also organize an event, so the
-    button opens a dialog that asks which one. Reads 'can_organize_event'.
-{% endcomment %}
-{% if can_organize_event %}
+{# The feed's create control. Variables: options, the non-empty CreateOption tuple from create_options(). #}
+{# One option links straight to its form; two open a dialog that asks which. #}
+{% if options|length > 1 %}
     {% translate "Organize" as organize_label %}
     {% tessera_button organize_label href="?organize=1" icon="plus" aria_controls="organize-modal" aria_haspopup="dialog" %}
     <dialog id="organize-modal"
@@ -14,10 +11,7 @@
         <div class="flex items-center justify-between gap-3 px-6 pt-5">
             <h3 id="organize-modal-title"
                 class="text-lg font-semibold text-foreground">{% translate "What do you want to organize?" %}</h3>
-            <button type="button" class="icon-btn" data-modal-close="organize-modal">
-                <span class="sr-only">{% translate "Close" %}</span>
-                {% icon "x-mark" class="w-5 h-5" %}
-            </button>
+            {% tessera_dialog_close_button "organize-modal" %}
         </div>
         <div class="grid gap-3 px-6 pt-4 pb-6 sm:grid-cols-2">
             {% url 'panel:event-create' as event_create_url %}
@@ -30,6 +24,10 @@
             {% include "components/organize_option.html" with option_id="organize-encounter" href=encounter_create_url icon_name="user-group" title=encounter_title description=encounter_description %}
         </div>
     </dialog>
+{% elif "event" in options %}
+    {% translate "Create event" as create_event_label %}
+    {% url 'panel:event-create' as event_create_url %}
+    {% tessera_button create_event_label href=event_create_url icon="plus" %}
 {% else %}
     {% translate "Create Encounter" as create_encounter_label %}
     {% url 'web:notice-board:create' as create_encounter_url %}
