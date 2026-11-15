@@ -4387,32 +4387,33 @@ msgid "An address can have at most two lines."
 msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Public: listed and announced to followers from its publication time"
+msgid "Link only: anyone with the link can open it; never listed or announced"
 msgstr ""
-"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+"Tylko przez link: każdy z linkiem może je otworzyć; nie pojawia się na "
+"listach ani w powiadomieniach"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Link only: anyone with the link can open it now; never listed or announced"
+msgid "Public now: listed and announced to followers"
+msgstr "Publiczne od teraz: widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Publish at a set time: listed and announced from then"
 msgstr ""
-"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-"się na listach ani w powiadomieniach"
+"Publikacja w wybranym terminie: od tego terminu widoczne na listach i "
+"ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Who can see the event"
 msgstr "Kto widzi wydarzenie"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Publication time"
-msgstr "Czas publikacji"
+msgid "Publish at"
+msgstr "Termin publikacji"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"For a public event: when it appears in event lists and followers are "
-"notified. Leave empty to keep it hidden."
+msgid "Leave empty to keep the event hidden until you pick a time."
 msgstr ""
-"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+"Zostaw puste, a wydarzenie pozostanie ukryte, dopóki nie wybierzesz terminu."
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Use sphere default"
@@ -15302,6 +15303,16 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
 
 #~ msgid "Nothing to moderate right now."
 #~ msgstr "Na razie nie ma czego moderować."
