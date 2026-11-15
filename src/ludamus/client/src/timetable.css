@@ -196,32 +196,6 @@
     display: none;
   }
 
-  .timetable-drop-guide {
-    position: absolute;
-    left: 2px;
-    right: 2px;
-    z-index: 8;
-    --guide-tone: var(--color-success);
-    border: 2px dashed var(--guide-tone);
-    border-radius: 6px;
-    background: color-mix(in oklch, var(--guide-tone) 15%, transparent);
-    color: var(--guide-tone);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .timetable-drop-guide[data-verdict="closed"] {
-    --guide-tone: var(--color-foreground-muted);
-  }
-
-  .timetable-drop-guide[data-verdict="occupied"],
-  .timetable-drop-guide[data-verdict="tooSmall"] {
-    --guide-tone: var(--color-danger);
-  }
-
   .timetable-offered {
     position: absolute;
     left: 0;
@@ -255,11 +229,6 @@
     overflow-wrap: anywhere;
   }
 
-  .timetable-session:hover .timetable-session-meta.hidden,
-  .timetable-session:focus-within .timetable-session-meta.hidden {
-    display: block;
-  }
-
   #session-list.htmx-request,
   #timetable-grid.htmx-request,
   #conflict-panel.htmx-request,
@@ -268,5 +237,61 @@
     opacity: 0.6;
     transition: opacity 120ms;
     pointer-events: none;
+  }
+}
+
+/* NOTE: `@layer utilities`, not `components`: these override utilities the
+   grid block and the list card carry in their markup, which a components rule
+   cannot. */
+@layer utilities {
+  /* A short block hides its meta lines with `hidden`; hover shows them. */
+  .timetable-session:hover .timetable-session-meta.hidden,
+  .timetable-session:focus-within .timetable-session-meta.hidden {
+    display: block;
+  }
+
+  /* The dragged card, picked up: tilted, lifted, snapped to where it lands.
+     An id, so it outranks the copied card's own position and size. */
+  #timetable-drag-card {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    width: auto;
+    margin: 0;
+    z-index: 9;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: none;
+    transform: rotate(2deg);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  /* A list card is padded for reading, not for a block one hour tall. */
+  #timetable-drag-card:not(.timetable-session) {
+    padding: 0.25rem 0.5rem;
+  }
+
+  #timetable-drag-card[data-verdict="closed"] {
+    outline: 2px dashed var(--color-foreground-muted);
+  }
+
+  #timetable-drag-card[data-verdict="occupied"],
+  #timetable-drag-card[data-verdict="tooSmall"] {
+    outline: 2px solid var(--color-danger);
+  }
+
+  /* Where the dragged card came from: an empty gray box until it lands. */
+  [draggable].is-drag-source,
+  [draggable].is-drag-source:hover {
+    opacity: 1;
+    border: 2px dashed var(--color-foreground-muted);
+    background: color-mix(in oklch, var(--color-foreground-muted) 15%, var(--color-bg-secondary));
+    box-shadow: none;
+    /* Under the drag card, though the pointer still hovers it as a drag starts. */
+    z-index: 7;
+  }
+
+  [draggable].is-drag-source > * {
+    visibility: hidden;
   }
 }

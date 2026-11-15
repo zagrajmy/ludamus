@@ -879,6 +879,56 @@ test.describe("Timetable", () => {
     await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
   });
 
+  test("a dragged block lands where the pointer holds it, not below it", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const schedule = page.getByRole("region", { name: "Schedule" });
+    const block = schedule.getByRole("button", { name: /RPG Introduction/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+    const unassign = page.getByRole("button", { name: "Unassign" });
+    const assignedTimes = page.getByText(/^\s*\d{2}:\d{2} – \d{2}:\d{2}\s*$/);
+    const minutesOf = (hm: string): number => {
+      const [hours, minutes] = hm.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+    const assignment = async (): Promise<{ start: number; end: number }> => {
+      const [start, end] = (await assignedTimes.innerText()).split(" – ").map(minutesOf);
+      return { start, end };
+    };
+
+    await block.click();
+    await expect(unassign).toBeVisible();
+    const before = await assignment();
+
+    // The block is drawn as tall as the session is long, so its height over its
+    // length is the grid's scale.
+    await page.mouse.move(0, 0);
+    const box = (await block.boundingBox())!;
+    const minutePx = box.height / (before.end - before.start);
+    const travelMinutes = 60;
+    const grab = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+    const moved = page.waitForResponse(
+      (r) => r.url().includes("/do/assign/") && r.request().method() === "POST",
+    );
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x, grab.y + travelMinutes * minutePx, { steps: 10 });
+    await page.mouse.up();
+    expect((await moved).status()).toBe(204);
+
+    await schedule.getByRole("button", { name: /RPG Introduction/ }).click();
+    await expect(unassign).toBeVisible();
+    await expect.poll(async () => (await assignment()).start).toBe(before.start + travelMinutes);
+    await attachArtifacts(testInfo, {
+      name: "timetable-drag-lands-under-pointer",
+      region: schedule,
+      facts: { before: before.start, after: before.start + travelMinutes, travelMinutes },
+    });
+  });
+
   test("unassigns a session", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
