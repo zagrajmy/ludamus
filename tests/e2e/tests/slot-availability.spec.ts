@@ -15,27 +15,26 @@ test.describe("Time slots as availability", () => {
   test("a proposer picks one of the event's slots, not a part of a day", async ({ page }) => {
     await page.goto(`${EVENT_URL}session/propose/`);
 
-    const wizard = page.locator('[id="wizard-content"]');
-    await expect(wizard.getByRole("heading", { name: "Your Information" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your Information" })).toBeVisible();
     await page.getByLabel(/contact email/i).fill("slots@example.com");
     await page.getByRole("button", { name: /Continue/ }).click();
 
-    await expect(wizard.getByRole("heading", { name: "When could you host?" })).toBeVisible();
-    await expect(wizard.getByRole("checkbox", { name: "10:00–14:00" })).toBeVisible();
-    await expect(wizard.getByRole("checkbox", { name: "Evening" })).toHaveCount(0);
-    await wizard.getByRole("checkbox", { name: "14:00–18:00" }).check();
+    await expect(page.getByRole("heading", { name: "When could you host?" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "10:00–14:00" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Evening" })).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "14:00–18:00" }).check();
     await page.getByRole("button", { name: /Continue/ }).click();
 
-    await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Session Details" })).toBeVisible();
     await page.getByLabel(/title/i).fill("Picked Block");
     await page.getByLabel(/about this session/i).fill("Runs in the afternoon block.");
     await page.getByLabel(/seats/i).fill("4");
     await page.getByLabel(/presenter name/i).fill("Block Host");
     await page.getByRole("button", { name: /Continue/ }).click();
 
-    await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
-    await expect(wizard.getByText("14:00–18:00")).toBeVisible();
-    await expect(wizard.getByText("10:00–14:00")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
+    await expect(page.getByText("14:00–18:00")).toBeVisible();
+    await expect(page.getByText("10:00–14:00")).toHaveCount(0);
     await page.getByRole("button", { name: "Submit Proposal" }).click();
 
     await expect(page.getByText("Picked Block")).toBeVisible();
@@ -57,15 +56,15 @@ test.describe("Time slots as availability", () => {
     test("the accept page opens where the picked slot opens", async ({ page }) => {
       await page.goto(EVENT_URL);
       await page.getByRole("link", { name: `Review proposal ${SEEDED}` }).click();
-      const decision = page.getByRole("heading", { name: "Schedule it" }).locator("..");
+      await expect(page.getByRole("heading", { name: "Schedule it" })).toBeVisible();
 
-      const startsAt = decision.getByLabel("Starts at");
+      const startsAt = page.getByLabel("Starts at");
       await expect(startsAt).toHaveValue(/T14:00$/);
-      await expect(decision).toContainText(/The facilitator offered: .+ 14:00–18:00/);
+      await expect(page.getByText(/The facilitator offered: .+ 14:00–18:00/)).toBeVisible();
 
       await attachArtifacts(test.info(), {
         name: "slot-availability-accept",
-        region: decision,
+        region: page.getByRole("main"),
         facts: { proposal: SEEDED, startsAt: await startsAt.inputValue() },
       });
     });
