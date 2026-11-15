@@ -12,6 +12,7 @@ from ludamus.links.db.django.enrollment import (
     MemberEnrollmentRepository,
     ParticipationPromotionRepository,
 )
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
@@ -124,6 +125,10 @@ class Repositories:
     @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
+
+    @cached_property
+    def event_deletion(self) -> EventDeletionRepository:
+        return EventDeletionRepository()
 
     @cached_property
     def landing_stats(self) -> repositories.LandingStatsRepository:

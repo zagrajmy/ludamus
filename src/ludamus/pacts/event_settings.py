@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event import (
         EventProposalSettingsDTO,
         EventProposalSettingsRepositoryProtocol,
-        EventRepositoryProtocol,
+        EventsRepositoryProtocol,
         EventUpdateData,
     )
     from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldRepositoryProtocol
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class EventSettingsRepos:
-    events: EventRepositoryProtocol
+    events: EventsRepositoryProtocol
     event_proposal_settings: EventProposalSettingsRepositoryProtocol
     proposal_categories: ProposalCategoryRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol

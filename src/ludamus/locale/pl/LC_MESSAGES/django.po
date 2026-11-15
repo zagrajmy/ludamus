@@ -835,6 +835,7 @@ msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/event/panel/views/integrations.py
 #: src/ludamus/gates/web/django/event/panel/views/venues.py
@@ -1834,6 +1835,40 @@ msgstr "Wybierz wydarzenie z tej sfery."
 #, python-format
 msgid "Created %(name)s. It stays hidden until you publish it."
 msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+msgid "Only sphere managers can delete an event."
+msgstr "Tylko menedżerowie sfery mogą usunąć wydarzenie."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+#, python-format
+msgid "%(event)s is deleted."
+msgstr "Usunięto wydarzenie %(event)s."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+#, python-format
+msgid ""
+"Your approval is in. The event is deleted once %(count)d more manager "
+"approves."
+msgid_plural ""
+"Your approval is in. The event is deleted once %(count)d more managers "
+"approve."
+msgstr[0] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżer."
+msgstr[1] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzą się "
+"jeszcze %(count)d menedżerowie."
+msgstr[2] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżerów."
+msgstr[3] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżerów."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+msgid "Your approval is withdrawn."
+msgstr "Wycofano Twoją zgodę."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 #, python-brace-format
@@ -6198,6 +6233,32 @@ msgid ""
 msgstr ""
 "%(event)s zaczyna się za dwa dni. Wydrukuj harmonogram i tabliczki na drzwi "
 "dla swojego wydarzenia, korzystając z poniższego linku, zanim się rozpocznie."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(name)s wants to delete %(event)s"
+msgstr "%(name)s chce usunąć wydarzenie %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"The event is deleted once %(count)d more manager approves. Open its settings "
+"to approve or to leave it be."
+msgid_plural ""
+"The event is deleted once %(count)d more managers approve. Open its settings "
+"to approve or to leave it be."
+msgstr[0] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżer. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[1] ""
+"Wydarzenie zostanie usunięte, gdy zgodzą się jeszcze %(count)d menedżerowie. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[2] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżerów. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[3] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżerów. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -12308,6 +12369,92 @@ msgstr "Przenieś w górę"
 msgid "Move down"
 msgstr "Przenieś w dół"
 
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Delete event"
+msgstr "Usuń wydarzenie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid ""
+"The event, its programme and its enrollments disappear for everyone. Site "
+"staff can bring it back on request."
+msgstr ""
+"Wydarzenie, jego program i zapisy znikną dla wszystkich. Obsługa serwisu "
+"może je przywrócić na prośbę."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "It takes %(needed)s of the sphere's %(managers)s managers to approve."
+msgid_plural ""
+"It takes %(needed)s of the sphere's %(managers)s managers to approve."
+msgstr[0] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[1] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[2] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[3] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "Approved %(approved)s of %(needed)s"
+msgstr "Zgody: %(approved)s z %(needed)s"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Only sphere managers can approve deleting an event."
+msgstr "Tylko menedżerowie sfery mogą zgodzić się na usunięcie wydarzenia."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Withdraw my approval"
+msgstr "Wycofaj moją zgodę"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "Delete %(event)s?"
+msgstr "Usunąć %(event)s?"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "It disappears for everyone at once."
+msgstr "Zniknie od razu dla wszystkich."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Approve deletion"
+msgstr "Zgódź się na usunięcie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "It is deleted once %(missing)s more manager approves."
+msgid_plural "It is deleted once %(missing)s more managers approve."
+msgstr[0] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżer."
+msgstr[1] "Zostanie usunięte, gdy zgodzą się jeszcze %(missing)s menedżerowie."
+msgstr[2] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżerów."
+msgstr[3] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżerów."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Request deletion"
+msgstr "Poproś o usunięcie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid ""
+"The other managers get a notification. It is deleted once %(missing)s more "
+"manager approves."
+msgid_plural ""
+"The other managers get a notification. It is deleted once %(missing)s more "
+"managers approve."
+msgstr[0] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżer."
+msgstr[1] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzą "
+"się jeszcze %(missing)s menedżerowie."
+msgstr[2] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżerów."
+msgstr[3] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżerów."
+
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 #, python-format
 msgid "Attach %(name)s to a guild"
@@ -16394,9 +16541,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Flagged"
 #~ msgstr "Oznaczony"
 
-#~ msgid "Remove deletion flag"
-#~ msgstr "Usuń oznaczenie do usunięcia"
-
 #, python-format
 #~ msgid "Remove deletion flag from %(name)s"
 #~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
@@ -16695,9 +16839,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
 #~ "powiązane konta."
-
-#~ msgid "Session deleted."
-#~ msgstr "Punkt programu został usunięty."
 
 #, python-format
 #~ msgid "%(count)d facilitator runs sessions and was kept."

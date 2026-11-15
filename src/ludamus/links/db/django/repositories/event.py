@@ -452,7 +452,9 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def slug_exists(sphere_id: int, slug: str) -> bool:
-        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
+        # A deleted event keeps its slug: the unique index still counts it, and
+        # restoring it must not find its address taken.
+        return Event.all_objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

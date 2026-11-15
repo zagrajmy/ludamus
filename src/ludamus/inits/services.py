@@ -66,6 +66,7 @@ from ludamus.mills.event import (
     LandingService,
     PanelTimeSlotsService,
 )
+from ludamus.mills.event_deletion import EventDeletionService
 from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -408,6 +409,14 @@ class Services:
                 session_fields=self._repos.session_fields,
             ),
             chat=self.parley_revocations,
+        )
+
+    @cached_property
+    def event_deletion(self) -> EventDeletionService:
+        return EventDeletionService(
+            transaction=self._transaction,
+            repository=self._repos.event_deletion,
+            notifier=DjangoUserNotifier(),
         )
 
     @cached_property

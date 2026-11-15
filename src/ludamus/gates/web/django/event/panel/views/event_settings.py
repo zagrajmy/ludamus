@@ -26,12 +26,14 @@ from ludamus.pacts.event import (
     EventUpdateData,
     EventVisibility,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.pacts.event import EventDTO
+    from ludamus.pacts.event_deletion import EventDeletionBallotDTO
     from ludamus.pacts.event_settings import ProposalSettingsUpdateData
 
 
@@ -140,6 +142,13 @@ class EventSettingsPageView(EventPanelMixin, View):
             off=_("Optional"),
         )
 
+    def _deletion_ballot(self) -> EventDeletionBallotDTO:
+        return self.request.services.event_deletion.read_ballot(
+            sphere_id=self.request.context.current_sphere_id,
+            event_id=EventId(self.current_event.pk),
+            viewer_id=self.request.context.current_user_id,
+        )
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context = self.panel_context()
 
@@ -178,6 +187,7 @@ class EventSettingsPageView(EventPanelMixin, View):
         )
         self._apply_facilitator_choices(form)
         context["form"] = form
+        context["deletion"] = self._deletion_ballot()
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -226,6 +236,7 @@ class EventSettingsPageView(EventPanelMixin, View):
         context["tab_urls"] = settings_tab_urls(slug)
         self._apply_facilitator_choices(form)
         context["form"] = form
+        context["deletion"] = self._deletion_ballot()
         return TemplateResponse(self.request, "panel/settings.html", context)
 
 

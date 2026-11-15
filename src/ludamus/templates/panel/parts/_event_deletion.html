@@ -1,0 +1,83 @@
+{% load i18n %}
+{% load tessera %}
+<section id="event-deletion"
+         class="card max-w-2xl mt-6"
+         aria-labelledby="event-deletion-title">
+    <div class="card-body space-y-4">
+        <h3 id="event-deletion-title"
+            class="text-lg font-semibold text-foreground">{% translate "Delete event" %}</h3>
+        <p class="text-sm text-foreground-secondary">
+            {% translate "The event, its programme and its enrollments disappear for everyone. Site staff can bring it back on request." %}
+        </p>
+        {% if ballot.approvals_needed > 1 %}
+            <p class="text-sm text-foreground-secondary">
+                {% blocktranslate trimmed count needed=ballot.approvals_needed with managers=ballot.manager_count %}
+                    It takes {{ needed }} of the sphere's {{ managers }} managers to approve.
+                {% plural %}
+                    It takes {{ needed }} of the sphere's {{ managers }} managers to approve.
+                {% endblocktranslate %}
+            </p>
+        {% endif %}
+        {% if ballot.approvals %}
+            <div>
+                <h4 class="text-sm font-medium text-foreground">
+                    {% blocktranslate trimmed with approved=ballot.approvals|length needed=ballot.approvals_needed %}
+                        Approved {{ approved }} of {{ needed }}
+                    {% endblocktranslate %}
+                </h4>
+                <ul class="mt-2 space-y-1 text-sm text-foreground-secondary">
+                    {% for approval in ballot.approvals %}
+                        <li>
+                            <span class="text-foreground" data-ph-mask>{{ approval.user_name }}</span>
+                            · <time datetime="{{ approval.approved_at|date:'c' }}">{{ approval.approved_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        {% if not ballot.viewer_is_manager %}
+            <p class="text-sm text-foreground-secondary">{% translate "Only sphere managers can approve deleting an event." %}</p>
+        {% elif ballot.viewer_has_approved %}
+            <form method="post"
+                  action="{% url 'panel:event-withdraw-deletion' slug=current_event.slug %}">
+                {% csrf_token %}
+                {% translate "Withdraw my approval" as t_withdraw %}
+                {% tessera_button t_withdraw variant="secondary" %}
+            </form>
+        {% elif ballot.viewer_approval_deletes %}
+            {% translate "Delete event" as t_delete %}
+            <form method="post"
+                  action="{% url 'panel:event-approve-deletion' slug=current_event.slug %}"
+                  data-confirm-title="{% blocktranslate trimmed with event=current_event.name %}Delete {{ event }}?{% endblocktranslate %}"
+                  data-confirm="{% translate "It disappears for everyone at once." %}"
+                  data-confirm-action="{{ t_delete }}">
+                {% csrf_token %}
+                {% tessera_button t_delete variant="danger" icon="trash" %}
+            </form>
+        {% else %}
+            {% if ballot.approvals %}
+                {% translate "Approve deletion" as t_approve %}
+                {% blocktranslate trimmed count missing=ballot.missing_after_viewer asvar t_approve_message %}
+                    It is deleted once {{ missing }} more manager approves.
+                {% plural %}
+                    It is deleted once {{ missing }} more managers approve.
+                {% endblocktranslate %}
+            {% else %}
+                {% translate "Request deletion" as t_approve %}
+                {% blocktranslate trimmed count missing=ballot.missing_after_viewer asvar t_approve_message %}
+                    The other managers get a notification. It is deleted once {{ missing }} more manager approves.
+                {% plural %}
+                    The other managers get a notification. It is deleted once {{ missing }} more managers approve.
+                {% endblocktranslate %}
+            {% endif %}
+            <form method="post"
+                  action="{% url 'panel:event-approve-deletion' slug=current_event.slug %}"
+                  data-confirm-title="{% blocktranslate trimmed with event=current_event.name %}Delete {{ event }}?{% endblocktranslate %}"
+                  data-confirm="{{ t_approve_message }}"
+                  data-confirm-action="{{ t_approve }}">
+                {% csrf_token %}
+                {% tessera_button t_approve variant="danger" icon="trash" %}
+            </form>
+        {% endif %}
+    </div>
+</section>
