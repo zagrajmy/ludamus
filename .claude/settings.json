@@ -27,6 +27,12 @@
       "mcp__github__add_reply_to_pull_request_comment"
     ]
   },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Running git add, git commit and git push to the session's own claude/* development branch, and opening a pull request from it, is allowed. Maintainers want work committed and pushed without asking each time."
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
