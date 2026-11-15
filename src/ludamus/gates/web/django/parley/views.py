@@ -207,6 +207,8 @@ def _conversation_copy() -> dict[str, str]:
         "detailsLabel": _("Conversation details"),
         "backToConversation": _("Back to the conversation"),
         "membersLabel": _("People"),
+        "mentionedYou": _("Mentioned you"),
+        "mentionPeople": _("People in this conversation"),
         "you": _("(you)"),
         "addPeople": _("Add people"),
         "memberAdded": _("%(name)s added."),

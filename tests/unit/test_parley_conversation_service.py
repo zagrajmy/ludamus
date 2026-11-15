@@ -35,10 +35,14 @@ DIRECT, GROUP, PARTY = (
 ME, ADA, BOB, KID, OUT = 1, 2, 3, 4, 5
 # A member list older than ten minutes is not to be trusted.
 MEMBERSHIP_TTL = 600
+ONE_YEAR_SECONDS = 365 * 86_400
+THREE_YEARS_SECONDS = 3 * ONE_YEAR_SECONDS
 
 
 class World:
     """People, blocks and conversations as plain data, for the service to change."""
+
+    staff: frozenset[int] = frozenset()
 
     def __init__(self, *, eligible=(ME, ADA, BOB, *range(100, 200))):
         self.eligible = set(eligible)
@@ -151,6 +155,7 @@ class World:
                 writable=state == ACTIVE,
                 age_band=self.read_age_band(user),
                 signs_in=user != OUT,
+                is_staff=user in self.staff,
             )
             for user, state in self.states(conversation_id).items()
             if state != LEFT
@@ -725,6 +730,7 @@ def test_the_member_list_is_signed_as_its_own_kind_of_token(world):
     ]
     assert claims.exp - claims.iat == MEMBERSHIP_TTL
     assert claims.needs_direct is True
+    assert claims.retain_for == ONE_YEAR_SECONDS
 
 
 @pytest.mark.parametrize(
@@ -760,13 +766,19 @@ def test_a_party_chat_s_member_list_keeps_its_pair_rule_whoever_sends_it(
 
 
 @pytest.mark.parametrize(
-    ("kind", "listed"),
-    ((GROUP, [ME, ADA]), (PARTY, [ME, ADA, KID])),
-    ids=["group", "party"],
+    ("kind", "listed", "kept"),
+    (
+        (GROUP, [ME, ADA], ONE_YEAR_SECONDS),
+        (PARTY, [ME, ADA, KID], ONE_YEAR_SECONDS),
+        (ParleyConversationKind.STAFF, [ME, KID], THREE_YEARS_SECONDS),
+    ),
+    ids=["group", "party", "staff case thread"],
 )
 def test_a_member_list_leaves_out_who_cannot_sign_in_or_is_too_young_for_the_kind(
-    world, kind, listed
+    world, kind, listed, kept
 ):
+    # A staff case's thread takes only staff, kept as long as the case's records.
+    world.staff = frozenset({ME, KID, OUT})
     world.conversations[1] = {"kind": kind, "pair_key": None, "party": 7, "title": ""}
     for member in (ME, ADA, KID, OUT):
         world.members[1, member] = (ACTIVE, False)
@@ -786,3 +798,4 @@ def test_a_member_list_leaves_out_who_cannot_sign_in_or_is_too_young_for_the_kin
     )
 
     assert [int(member["user"]) for member in signed[0].members] == listed
+    assert signed[0].retain_for == kept

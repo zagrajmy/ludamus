@@ -46,6 +46,7 @@ from ludamus.pacts.moderation import (
     NOTICE_EXPLANATION_MAX_LENGTH,
     NOTICE_NAME_MAX_LENGTH,
     NOTICE_URL_MAX_LENGTH,
+    CaseStatus,
     ModerationDecision,
     ModerationGround,
     ModerationStatus,
@@ -272,6 +273,7 @@ class ParleyConversation(models.Model):
         DIRECT = "direct"
         GROUP = "group"
         PARTY = "party"
+        STAFF = "staff"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
     # NOTE: a party's chat, and the reports made in it, outlive the party, so
@@ -355,6 +357,25 @@ class ParleyBlock(models.Model):
         return f"{self.blocker_id} blocks {self.blocked_id}"
 
 
+class ParleyMentionMail(models.Model):
+    """Whether chat mentions reach someone by email, and when the last one did.
+
+    No row is the default: on, never sent.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="+"
+    )
+    enabled = models.BooleanField(default=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "parley_mention_mail"
+
+    def __str__(self) -> str:
+        return f"mention mail for {self.user_id}: {'on' if self.enabled else 'off'}"
+
+
 class EventBan(models.Model):
     event = models.ForeignKey("Event", on_delete=models.CASCADE, related_name="bans")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bans")
@@ -387,10 +408,30 @@ MODERATION_GROUND_CHOICES = _choices(ModerationGround)
 class ModerationCase(models.Model):
     """One matter staff handle. Mail about it carries its reference."""
 
+    status = models.CharField(
+        max_length=10, choices=_choices(CaseStatus), default=CaseStatus.OPEN
+    )
+    assignee = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    decided_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    # Staff talk about the case here; opened the first time someone needs it.
+    thread = models.OneToOneField(
+        ParleyConversation,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="moderation_case",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "moderation_case"
+        indexes = (
+            models.Index(fields=("status", "-created_at"), name="case_status_idx"),
+        )
 
     def __str__(self) -> str:
         return case_reference(self.pk)
@@ -810,6 +851,9 @@ class Sphere(models.Model):
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    # Whether a scheduled session needs a space: conventions place every one
+    # in a room, a meetup may only need the time. Events may override it.
+    require_session_space = models.BooleanField(default=True)
     parley_enabled = models.BooleanField(default=True)
     # Whether the sphere's managers have a room of their own, and whether its
     # events have a chat unless an event says otherwise.
@@ -1032,6 +1076,7 @@ class Event(models.Model):
     allow_facilitator_session_edit = models.BooleanField(
         null=True, blank=True, default=None
     )
+    require_session_space = models.BooleanField(null=True, blank=True, default=None)
     use_session_cover_placeholders = models.BooleanField(default=False)
     # Label for the enrolled-people count on the public event page: off →
     # "Players" (gaming events), on → "Participants" (general events).
@@ -1644,8 +1689,13 @@ class Session(SoftDeleteModel):
 
 
 class AgendaItem(models.Model):
+    # None where the event does not require a space (require_session_space).
     space = models.ForeignKey(
-        Space, on_delete=models.CASCADE, related_name="agenda_items"
+        Space,
+        on_delete=models.CASCADE,
+        related_name="agenda_items",
+        null=True,
+        blank=True,
     )
     session = models.OneToOneField(
         Session, on_delete=models.CASCADE, related_name="agenda_item"
@@ -2556,3 +2606,34 @@ class ImportLogEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.integration_id}/{self.row_index} {self.status}"
+
+
+class CaseEmail(models.Model):
+    """A mail to or from the staff address, filed under its case."""
+
+    class Direction(models.TextChoices):
+        IN = "in"
+        OUT = "out"
+
+    case = models.ForeignKey(
+        ModerationCase, on_delete=models.CASCADE, related_name="emails"
+    )
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    # An inbound mail's Message-ID, or the token an outbound one was sent under.
+    message_id = models.CharField(max_length=255, unique=True)
+    address = models.EmailField()
+    name = models.CharField(max_length=255, blank=True, default="")
+    subject = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    attachments = models.JSONField(default=list, blank=True)
+    sent_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "case_email"
+        ordering = ("created_at", "pk")
+
+    def __str__(self) -> str:
+        return f"{case_reference(self.case_id)} {self.direction} {self.message_id}"

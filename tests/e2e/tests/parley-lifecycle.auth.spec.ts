@@ -234,18 +234,23 @@ test("The room list puts recent rooms first and counts the unread ones", async (
   ];
   await routeBootstrap(page, [{ rooms }]);
   const worker = await FakeWorker.install(page, {
-    "session:1:10": { at: now - 5 * 60_000, unread: true },
-    "session:1:11": { at: now - 3 * 3_600_000, unread: true },
-    "session:1:12": { at: now - 2 * 86_400_000, unread: true },
-    "session:1:13": { at: now - 10 * 86_400_000, unread: true },
-    "session:1:14": { at: now - 10 * 86_400_000, unread: true },
+    "session:1:10": { at: now - 5 * 60_000, mentionedBy: [], unread: true },
+    "session:1:11": { at: now - 3 * 3_600_000, mentionedBy: [], unread: true },
+    "session:1:12": { at: now - 2 * 86_400_000, mentionedBy: [], unread: true },
+    "session:1:13": { at: now - 10 * 86_400_000, mentionedBy: [], unread: true },
+    "session:1:14": { at: now - 10 * 86_400_000, mentionedBy: [], unread: true },
   });
   await page.goto("/");
   // An empty page language falls back to Polish plural rules.
   await page.evaluate(() => document.documentElement.setAttribute("lang", ""));
   // The snapshot first, so the live event lands on top of it.
   await expect.poll(() => worker.called("getActivity").length).toBe(1);
-  worker.push("room.activity", { at: now - 60_000, latestMessageId: 3, roomId: "event:1:5" });
+  worker.push("room.activity", {
+    at: now - 60_000,
+    latestMessageId: 3,
+    mentionedBy: [],
+    roomId: "event:1:5",
+  });
   const launcher = launcherOf(page);
   await expect(launcher).toHaveAccessibleDescription("6 unread conversations");
 

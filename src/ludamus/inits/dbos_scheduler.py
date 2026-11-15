@@ -46,12 +46,16 @@ from ludamus.inits.config import SchedulerMode, scheduler_mode
 from ludamus.inits.parley import (
     DisabledParleyMembershipOutbox,
     DisabledParleyRevocationOutbox,
+    DisabledStaffThread,
     InlineParleyMembershipOutbox,
     InlineParleyRevocationOutbox,
+    InlineStaffThread,
     deliver_membership,
     deliver_revocations,
+    deliver_thread_post,
 )
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
+from ludamus.pacts.staff_cases import StaffThreadEntry
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -62,6 +66,7 @@ if TYPE_CHECKING:
         ParleyMembershipOutboxProtocol,
         ParleyRevocationOutboxProtocol,
     )
+    from ludamus.pacts.staff_cases import StaffThreadProtocol
     from ludamus.pacts.sweeps import Sweep
 
 logger = logging.getLogger(__name__)
@@ -180,6 +185,22 @@ def _deliver_parley_membership_step(conversation_id: int) -> None:
 def _parley_membership_workflow(conversation_ids: list[int]) -> None:
     for conversation_id in conversation_ids:
         _deliver_parley_membership_step(conversation_id)
+
+
+@DBOS.step(
+    retries_allowed=True,
+    max_attempts=12,
+    interval_seconds=2,
+    backoff_rate=2,
+    should_retry=_worth_retrying,
+)
+def _deliver_staff_thread_step(entry_json: str) -> None:
+    deliver_thread_post(StaffThreadEntry.model_validate_json(entry_json))
+
+
+@DBOS.workflow()
+def _staff_thread_workflow(entry_json: str) -> None:
+    _deliver_staff_thread_step(entry_json)
 
 
 def _apply_schedules() -> None:
@@ -305,3 +326,25 @@ def parley_membership_outbox() -> ParleyMembershipOutboxProtocol:
     if scheduler_mode() is SchedulerMode.DBOS:
         return DBOSParleyMembershipOutbox()
     return InlineParleyMembershipOutbox()
+
+
+class DBOSStaffThread:
+    """Posts into a case's thread after commit, retrying while the chat is away."""
+
+    @staticmethod
+    def post(entry: StaffThreadEntry) -> None:
+        _ensure_launched()
+        payload = entry.model_dump_json()
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_staff_thread_workflow, payload)
+        )
+
+
+def staff_thread() -> StaffThreadProtocol:
+    agent_host: str = settings.PARLEY_AGENT_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    if not (agent_host and private_key):
+        return DisabledStaffThread()
+    if scheduler_mode() is SchedulerMode.DBOS:
+        return DBOSStaffThread()
+    return InlineStaffThread()

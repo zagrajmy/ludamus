@@ -1,12 +1,30 @@
 import { importSPKI, jwtVerify } from "jose";
 
-import type { Capability, Lookup, Member, Membership, Revocation } from "./protocol";
+import type {
+  Capability,
+  ConversationKind,
+  Lookup,
+  Member,
+  Membership,
+  Revocation,
+  ThreadPost,
+} from "./protocol";
+
+import { MESSAGE_LIFETIME_MS } from "./limits";
 
 const COOKIE_NAME = "parley_capability";
 // Its own audience, so neither kind of token can be passed off as the other.
 export const REVOCATION_AUDIENCE = "parley-revocation";
 export const MEMBERSHIP_AUDIENCE = "parley-membership";
 export const LOOKUP_AUDIENCE = "parley-message";
+export const POST_AUDIENCE = "parley-post";
+export const POSTED_MESSAGE_MAX = 4_000;
+const CONVERSATION_KINDS: readonly unknown[] = [
+  "direct",
+  "group",
+  "party",
+  "staff",
+] satisfies ConversationKind[];
 // A lookup's claims, as staff's order to delete the message they name.
 export const MODERATION_AUDIENCE = "parley-moderation";
 
@@ -17,7 +35,7 @@ type AuthEnv = {
   ROOT_DOMAIN: string;
 };
 
-function isLocal(hostname: string): boolean {
+export function isLocal(hostname: string): boolean {
   return (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
@@ -212,19 +230,21 @@ export async function verifyMembership(token: string, env: AuthEnv): Promise<Mem
   if (
     typeof payload.conversation !== "string" ||
     !/^\d+$/u.test(payload.conversation) ||
-    (payload.kind !== "direct" && payload.kind !== "group" && payload.kind !== "party") ||
+    !CONVERSATION_KINDS.includes(payload.kind) ||
     !Array.isArray(payload.members) ||
     !payload.members.every(isMember) ||
-    (payload.needsDirect !== undefined && typeof payload.needsDirect !== "boolean")
+    (payload.needsDirect !== undefined && typeof payload.needsDirect !== "boolean") ||
+    (payload.retainFor !== undefined && !isSeconds(payload.retainFor))
   ) {
     throw new Error("Invalid membership");
   }
   return {
     conversation: payload.conversation,
     iat: payload.iat!,
-    kind: payload.kind,
+    kind: payload.kind as ConversationKind,
     members: payload.members,
     needsDirect: payload.needsDirect ?? true,
+    retainFor: payload.retainFor ?? MESSAGE_LIFETIME_MS / 1_000,
   };
 }
 
@@ -244,6 +264,29 @@ export async function verifyLookup(
     throw new Error("Invalid lookup");
   }
   return { messageId: payload.message, room: payload.room };
+}
+
+export async function verifyThreadPost(token: string, env: AuthEnv): Promise<ThreadPost> {
+  const payload = await verified(token, env, POST_AUDIENCE, ["exp", "iat"]);
+  if (
+    typeof payload.conversation !== "string" ||
+    !/^\d+$/u.test(payload.conversation) ||
+    typeof payload.name !== "string" ||
+    typeof payload.body !== "string" ||
+    payload.body.trim().length === 0 ||
+    [...payload.body].length > POSTED_MESSAGE_MAX ||
+    typeof payload.nonce !== "string" ||
+    payload.nonce.length === 0 ||
+    payload.nonce.length > 100
+  ) {
+    throw new Error("Invalid thread post");
+  }
+  return {
+    authorName: payload.name,
+    body: payload.body,
+    conversation: payload.conversation,
+    nonce: payload.nonce,
+  };
 }
 
 async function tokenFromBody(request: Request): Promise<string | null> {
@@ -302,6 +345,19 @@ export async function lookupFromRequest(
     return await verifyLookup(token, env, audience);
   } catch {
     return new Response("Invalid lookup", { status: 401 });
+  }
+}
+
+export async function threadPostFromRequest(
+  request: Request,
+  env: AuthEnv,
+): Promise<ThreadPost | Response> {
+  const token = await tokenFromBody(request);
+  if (token === null) return new Response("Invalid request", { status: 400 });
+  try {
+    return await verifyThreadPost(token, env);
+  } catch {
+    return new Response("Invalid thread post", { status: 401 });
   }
 }
 

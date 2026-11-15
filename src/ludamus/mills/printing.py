@@ -86,9 +86,13 @@ def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
 
 def _session_list_order(
     item: AgendaItemDTO, space_order: dict[int, tuple[int, str, int]]
-) -> tuple[datetime, tuple[int, str, int]]:
+) -> tuple[datetime, bool, tuple[int, str, int]]:
+    # At one time, sessions placed without a space follow those in rooms; a
+    # room this run does not know sorts after the ones it does.
+    if item.space_id is None:
+        return (item.start_time, True, (0, "", 0))
     fallback = (len(space_order), item.space_name, item.space_id)
-    return (item.start_time, space_order.get(item.space_id, fallback))
+    return (item.start_time, False, space_order.get(item.space_id, fallback))
 
 
 def _chunks[T](values: list[T], size: int) -> list[list[T]]:
@@ -101,14 +105,36 @@ def _even_chunks[T](values: list[T], cap: int) -> list[list[T]]:
     return _chunks(values, ceil(len(values) / ceil(len(values) / cap)))
 
 
-def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
-    if len(spaces) <= 1:
+def _space_range_name(names: list[str | None]) -> str | None:
+    named = [name for name in names if name is not None]
+    if len(names) <= 1 or not named:
         return None
-    return f"{spaces[0].name} - {spaces[-1].name}"
+    first, last = named[0], named[-1]
+    return first if first == last else f"{first} - {last}"
+
+
+def _span(item: AgendaItemDTO) -> tuple[float, float]:
+    return (item.start_time.timestamp(), item.end_time.timestamp())
+
+
+def _spaceless_lanes(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
+    # Nothing keeps sessions without a space apart in time, and tiles sharing
+    # a column paint over each other, so each lane takes the next session
+    # that starts once its last one has ended. Compared as instants, as the
+    # rows are: on the night the clocks go back the wall clock overlaps.
+    lanes: list[list[AgendaItemDTO]] = []
+    for item in sorted(items, key=_span):
+        start, _ = _span(item)
+        free = next((lane for lane in lanes if _span(lane[-1])[1] <= start), None)
+        if free is None:
+            lanes.append([item])
+        else:
+            free.append(item)
+    return lanes
 
 
 def _timetable_pages(
-    *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
+    *, day: date, columns: list[tuple[str | None, list[AgendaItemDTO]]]
 ) -> list[PrintTimetablePageDTO]:
     # The day's sessions in these rooms, MAX_TIMETABLE_ROWS_PER_PAGE rows a
     # sheet; none when there are no sessions. Rows are the stretches between
@@ -119,8 +145,13 @@ def _timetable_pages(
     # mills/timeslots.py), so they play no part here. Instants are keyed as
     # timestamps: on the night the clocks go back two datetimes an hour apart
     # compare equal.
-    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
-    if not (items := [item for item in items if item.space_id in col]):
+    # A column is a room or a lane of sessions without one (named None).
+    col = {
+        item.pk: index
+        for index, (_, column_items) in enumerate(columns, start=1)
+        for item in column_items
+    }
+    if not (items := [item for _, column_items in columns for item in column_items]):
         return []
     instants = {
         instant.timestamp(): instant
@@ -140,14 +171,14 @@ def _timetable_pages(
                 session=_to_session(item),
                 start_time=item.start_time,
                 end_time=item.end_time,
-                col=col[item.space_id],
+                col=col[item.pk],
                 row=row,
                 span=line[min(item.end_time.timestamp(), last)] - row,
             )
 
         return PrintTimetablePageDTO(
             day=day,
-            space_names=[space.name for space in spaces],
+            space_names=[name for name, _ in columns],
             rows=[
                 PrintTimetableRowDTO(start_time=instants[start], end_time=instants[end])
                 for start, end in rows
@@ -162,12 +193,23 @@ def _timetable_pages(
                 # Down the rows, then across the columns: the visual order.
                 key=_tile_position,
             ),
-            space_range_name=_space_range_name(spaces),
+            space_range_name=_space_range_name([name for name, _ in columns]),
             sheet_index=index,
             sheet_count=len(sheets),
         )
 
     return [sheet(rows, index) for index, rows in enumerate(sheets, start=1)]
+
+
+def _timetable_columns(
+    spaces: list[SpaceDTO], items: list[AgendaItemDTO]
+) -> list[tuple[str | None, list[AgendaItemDTO]]]:
+    by_space: dict[int | None, list[AgendaItemDTO]] = defaultdict(list)
+    for item in items:
+        by_space[item.space_id].append(item)
+    rooms = [(space.name, by_space.get(space.pk, [])) for space in spaces]
+    lanes = _spaceless_lanes(by_space.get(None, []))
+    return [*rooms, *((None, lane) for lane in lanes)]
 
 
 class PrintMaterialsService:
@@ -253,17 +295,22 @@ class PrintMaterialsService:
             all_items = [
                 item for item in all_items if _in_range(item, query.time_range)
             ]
-        # One sheet per day and space chunk that holds anything.
+        # One sheet per day and column chunk that holds anything. A sheet
+        # scoped to rooms leaves sessions without a space off.
         space_pks = {space.pk for space in spaces}
         by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
         for item in all_items:
-            if item.space_id in space_pks:
+            if item.space_id in space_pks or (
+                item.space_id is None and query.scope_space_pks is None
+            ):
                 by_day[item.start_time.astimezone(query.tz).date()].append(item)
         pages = [
             page
             for day in sorted(by_day)
-            for chunk in _chunks(spaces, MAX_TIMETABLE_SPACES_PER_PAGE)
-            for page in _timetable_pages(day=day, spaces=chunk, items=by_day[day])
+            for chunk in _chunks(
+                _timetable_columns(spaces, by_day[day]), MAX_TIMETABLE_SPACES_PER_PAGE
+            )
+            for page in _timetable_pages(day=day, columns=chunk)
         ]
 
         return PrintTimetableDocumentDTO(
@@ -392,8 +439,10 @@ class PrintMaterialsService:
         return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
-    def _group_by_space(items: list[AgendaItemDTO]) -> dict[int, list[AgendaItemDTO]]:
-        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+    def _group_by_space(
+        items: list[AgendaItemDTO],
+    ) -> dict[int | None, list[AgendaItemDTO]]:
+        items_by_space: dict[int | None, list[AgendaItemDTO]] = defaultdict(list)
         for item in items:
             items_by_space[item.space_id].append(item)
         for grouped in items_by_space.values():

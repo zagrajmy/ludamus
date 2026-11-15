@@ -29,6 +29,8 @@ from ludamus.gates.web.django.landing import (
     landing_page,
     legacy_feed_redirect,
 )
+from ludamus.gates.web.django.staff.mail import StaffMailHookView
+from ludamus.gates.web.django.staff.urls import urlpatterns as staff_urls
 from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
 
 app_name = "web"  # pylint: disable=invalid-name
@@ -166,6 +168,8 @@ urlpatterns = [
         EncounterCalendarReplyView.as_view(),
         name="calendar-replies",
     ),
+    path("hooks/staff-mail", StaffMailHookView.as_view(), name="staff-mail"),
+    path("staff/", include((staff_urls, "staff"), namespace="staff")),
     path(
         "",
         include(

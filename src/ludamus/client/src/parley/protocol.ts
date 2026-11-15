@@ -63,6 +63,8 @@ export type Copy = Record<
   | "membersLabel"
   | "membersMany"
   | "membersOne"
+  | "mentionedYou"
+  | "mentionPeople"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
@@ -158,7 +160,7 @@ export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party";
+  kind: "direct" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -202,6 +204,8 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  // Whom the body's "<@id>" tokens mention; older messages have none.
+  mentions?: string[];
   nonce: string;
   // Each reaction's people, in the order they reacted, and the names they
   // reacted under; a Worker older than reactions sends neither.
@@ -214,7 +218,9 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-export type RoomActivity = { at: number; unread: boolean };
+// mentionedBy: whose mentions of this person they have yet to read; a
+// sphere's rooms keep no member list to mention from, so theirs is empty.
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

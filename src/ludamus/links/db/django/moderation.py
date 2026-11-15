@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.moderation import (
     ActiveRecipientsRepositoryProtocol,
+    CaseStatus,
     ChatReportDTO,
     ChatReportRepositoryProtocol,
     ContentNoticeDTO,
@@ -36,8 +37,8 @@ if TYPE_CHECKING:
 
 class ModerationCaseRepository(ModerationCaseRepositoryProtocol):
     @staticmethod
-    def open() -> int:
-        return ModerationCase.objects.create().pk
+    def open(*, status: CaseStatus) -> int:
+        return ModerationCase.objects.create(status=status).pk
 
 
 class ContentNoticeRepository(ContentNoticeRepositoryProtocol):
