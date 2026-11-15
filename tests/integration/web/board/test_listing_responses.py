@@ -94,12 +94,12 @@ def _party(leader, *members, name="Drużyna"):
     return party
 
 
-def _joined_response(listing, user, **fields):
+def _joined_response(listing, user, *, contact=ListingContact.EMAIL, **fields):
     party = _party(listing.author, user)
     return ListingResponse.objects.create(
         listing=listing,
         user=user,
-        contact=ListingContact.EMAIL,
+        contact=contact,
         status=ListingResponseStatus.INVITED,
         party=party,
         **fields,
@@ -672,6 +672,62 @@ class TestJoinedResponders:
                 "response_form": None,
                 "waiting_count": None,
                 "author_contact": "gm@example.com",
+                "party_members": [],
+                "joined_responses": [],
+            },
+            template_name="board/detail.html",
+        )
+
+    def test_author_sees_the_discord_name_of_whoever_joined_with_discord(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        joined = _joined_response(
+            listing,
+            UserFactory(email="ola@example.com", discord_username="ola#7"),
+            contact=ListingContact.DISCORD,
+        )
+
+        response = authenticated_client.get(_responses(listing) + "?tab=joined")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing, party_formed=True),
+                "responses": [
+                    _response_dto(joined, joined=True, contact_address="ola#7")
+                ],
+                "counts": _counts(joined=1),
+                "active_tab": "joined",
+                "decline_form": ANY,
+                "invite_form": ANY,
+            },
+            template_name="board/responses.html",
+        )
+
+    def test_member_sees_the_authors_discord_name_on_a_discord_listing(
+        self, authenticated_client, active_user, sphere
+    ):
+        author = UserFactory(email="gm@example.com", discord_username="gm#1")
+        listing = ListingFactory(
+            sphere=sphere, author=author, contact=ListingContact.DISCORD
+        )
+        own = _joined_response(listing, active_user)
+
+        response = authenticated_client.get(_detail(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing, party_formed=True),
+                "is_author": False,
+                "open_for_days": 30,
+                "own_response": _response_dto(own, joined=True),
+                "response_form": None,
+                "waiting_count": None,
+                "author_contact": "gm#1",
                 "party_members": [],
                 "joined_responses": [],
             },
