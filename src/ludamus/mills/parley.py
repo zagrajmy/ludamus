@@ -5,6 +5,7 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.mills.parley_conversations import visible_conversations
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.parley import (
     CONVERSATION_POLICIES,
     REVOKE_EVERYONE,
@@ -18,6 +19,7 @@ from ludamus.pacts.parley import (
     ParleyMemberState,
     ParleyMessageLookupClaims,
     ParleyMessageReaderProtocol,
+    ParleyModerationPageDTO,
     ParleyModerationResult,
     ParleyReportData,
     ParleyReportRecord,
@@ -91,21 +93,6 @@ def _event_grants(rooms: list[ParleyRoomDTO]) -> dict[str, ParleyEventGrant]:
         else:
             grant.sessions[str(room.pk)] = room.can_write
     return grants
-
-
-def _by_event(room: ParleyRoomDTO) -> tuple[int, str, bool, str, int]:
-    """Order rooms by when their event starts, its own chat before its points'.
-
-    Returns:
-        The sort key.
-    """
-    return (
-        room.starts_at or 0,
-        room.event_title or "",
-        room.kind != ParleyRoomKind.EVENT,
-        room.title,
-        room.pk or 0,
-    )
 
 
 def _managed(
@@ -187,7 +174,9 @@ class ParleyService:
             or self._conversations.has_conversation(user_id=user_id, kinds=_OPEN_KINDS)
         )
 
-    def bootstrap(self, *, user_id: int, now: datetime) -> ParleyBootstrapDTO | None:
+    def bootstrap(
+        self, *, user_id: int, sphere_id: int, now: datetime
+    ) -> ParleyBootstrapDTO | None:
         moderated = self._moderated(user_id)
         access = self._repository.read_access(
             user_id=user_id, window=self._window(now), moderated=moderated
@@ -259,24 +248,48 @@ class ParleyService:
             blocked=self._conversations.list_blocked(user_id),
             capability_token=capability_token,
             agent_host=self._agent_host,
+            moderated=[
+                room.id
+                for room in rooms
+                if room.moderating and room.sphere_id == sphere_id
+            ],
         )
 
-    def moderated_rooms(
-        self, *, user_id: int, sphere_id: int, now: datetime
-    ) -> list[ParleyRoomDTO]:
-        """List the sphere's rooms this person moderates without being in them.
+    def moderates(self, *, user_id: int, sphere_id: int) -> bool:
+        return sphere_id in self._moderated(user_id)
+
+    def moderation_page(
+        self,
+        *,
+        user_id: int,
+        sphere_id: int,
+        room: tuple[str, int] | None,
+        now: datetime,
+    ) -> ParleyModerationPageDTO:
+        """Read the sphere's rooms this person moderates without being in them.
 
         Returns:
-            Each event's chat, then its programme points', events in the order
-            they start; nothing for someone who does not moderate the sphere.
+            Those rooms under their events, and the one asked for.
+
+        Raises:
+            NotFoundError: They do not moderate the sphere, or the room asked
+                for is not one of those rooms.
         """
-        if sphere_id not in self._moderated(user_id):
-            return []
-        access = self._repository.read_access(
-            user_id=user_id, window=self._window(now), moderated=frozenset({sphere_id})
+        if not self.moderates(user_id=user_id, sphere_id=sphere_id):
+            raise NotFoundError
+        events = self._repository.list_moderated(
+            user_id=user_id, sphere_id=sphere_id, window=self._window(now)
         )
-        rooms = [] if access is None else access.rooms
-        return sorted((room for room in rooms if room.moderating), key=_by_event)
+        if room is None:
+            return ParleyModerationPageDTO(events=events)
+        kind, pk = room
+        for event in events:
+            for each in event.rooms:
+                if each.kind == kind and each.pk == pk:
+                    return ParleyModerationPageDTO(
+                        events=events, room=each, event=event
+                    )
+        raise NotFoundError
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool:
         """Keep a report of a message the reporter can see and did not write.

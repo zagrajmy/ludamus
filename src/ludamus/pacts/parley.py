@@ -34,9 +34,6 @@ class ParleyRoomDTO(BaseModel):
     # Listed only because this person moderates its sphere: they neither run
     # nor take part in it.
     moderating: bool = False
-    # The event the room belongs to; the organizers' room has none.
-    event_title: str | None = Field(default=None, serialization_alias="eventTitle")
-    event_slug: str = Field(default="", exclude=True)
     # When the event the room belongs to ends and starts; the organizers'
     # room has neither.
     ends_at: int | None = Field(default=None, exclude=True)
@@ -53,6 +50,21 @@ class ParleyRoomDTO(BaseModel):
     def _named(self) -> Self:
         self.id = f"{self.kind}:{self.name}"
         return self
+
+
+class ParleyModeratedEventDTO(BaseModel):
+    """An event's rooms a moderator is not in: its own chat, then its points'."""
+
+    title: str
+    slug: str
+    rooms: list[ParleyRoomDTO]
+
+
+class ParleyModerationPageDTO(BaseModel):
+    events: list[ParleyModeratedEventDTO]
+    # The room asked for, and the event it belongs to.
+    room: ParleyRoomDTO | None = None
+    event: ParleyModeratedEventDTO | None = None
 
 
 class ParleyAccessDTO(BaseModel):
@@ -179,6 +191,9 @@ class ParleyBootstrapDTO(BaseModel):
     blocked: list[ParleyPersonDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")
+    # The rooms of the sphere the chat opens on that this person only
+    # moderates; they are read on that sphere's moderation page.
+    moderated: list[str] = Field(default_factory=list)
 
 
 class ParleyManagedSphere(BaseModel):
@@ -331,6 +346,13 @@ class ParleyRepositoryProtocol(Protocol):
         *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
     ) -> bool: ...
 
+    # The sphere's events, in the order they start, with the rooms in each
+    # this person may moderate but is not in.
+    @staticmethod
+    def list_moderated(
+        *, user_id: int, sphere_id: int, window: ParleyTimeWindow
+    ) -> list[ParleyModeratedEventDTO]: ...
+
     # The spheres with chat on whose team this person is on.
     @staticmethod
     def list_team_seats(user_id: int) -> list[ParleyTeamSeat]: ...
@@ -390,16 +412,23 @@ class ParleyRevocationServiceProtocol(Protocol):
 
 class ParleyServiceProtocol(Protocol):
     def bootstrap(
-        self, *, user_id: int, now: datetime
+        self, *, user_id: int, sphere_id: int, now: datetime
     ) -> ParleyBootstrapDTO | None: ...
+
+    def moderates(self, *, user_id: int, sphere_id: int) -> bool: ...
 
     def is_open_to(self, *, user_id: int, now: datetime) -> bool: ...
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
 
-    def moderated_rooms(
-        self, *, user_id: int, sphere_id: int, now: datetime
-    ) -> list[ParleyRoomDTO]: ...
+    def moderation_page(
+        self,
+        *,
+        user_id: int,
+        sphere_id: int,
+        room: tuple[str, int] | None,
+        now: datetime,
+    ) -> ParleyModerationPageDTO: ...
 
     def delete_reported(
         self, *, report_ids: list[int], now: datetime

@@ -81,10 +81,20 @@ def _parley_open(request: RootRequest) -> bool:
     )
 
 
+def _parley_moderates(request: RootRequest) -> bool:
+    user_id = request.context.current_user_id
+    return user_id is not None and request.services.parley.moderates(
+        user_id=user_id, sphere_id=request.context.current_sphere_id
+    )
+
+
 def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
     # NOTE: asked only when a page shows the chat, for a signed-in person,
     # by which time the middleware has set up the request.
-    return {"PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request))}
+    return {
+        "PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request)),
+        "PARLEY_MODERATES": SimpleLazyObject(lambda: _parley_moderates(request)),
+    }
 
 
 def static_version(_request: HttpRequest) -> dict[str, str]:

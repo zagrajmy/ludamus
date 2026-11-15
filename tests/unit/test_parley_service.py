@@ -9,6 +9,7 @@ from ludamus.mills.parley import (
     ParleyService,
     sign_revocations,
 )
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.parley import (
     REVOKE_EVERYONE,
     ParleyAccessDTO,
@@ -17,6 +18,7 @@ from ludamus.pacts.parley import (
     ParleyConversationKind,
     ParleyMembership,
     ParleyMemberState,
+    ParleyModeratedEventDTO,
     ParleyModerationResult,
     ParleyReportData,
     ParleyReportedMessage,
@@ -189,7 +191,7 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
     )
     service, signer = _bootstrapping(access)
 
-    result = service.bootstrap(user_id=USER_ID, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
     assert [room["id"] for room in result.model_dump(mode="json")["rooms"]] == [
@@ -205,7 +207,6 @@ def test_bootstrap_grants_a_member_their_own_rooms_in_every_sphere() -> None:
         "canWrite": True,
         "canModerate": False,
         "moderating": False,
-        "eventTitle": None,
     }
     assert (result.can_message, result.age_gate) == (False, "unconfirmed")
     assert access.asked == [(NOW, frozenset())]
@@ -266,7 +267,7 @@ def test_a_moderator_s_pass_names_their_spheres_and_events_but_not_the_programme
     )
     service, signer = _bootstrapping(access)
 
-    service.bootstrap(user_id=USER_ID, now=NOW)
+    service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert access.asked == [(NOW, frozenset({45, 8}))]
     claims = signer.signed[-1]
@@ -285,7 +286,7 @@ def test_a_pass_too_long_for_a_cookie_drops_the_events_ending_first() -> None:
     access = Access([*rooms, moderated_room], seats=[(8, SphereRole.MANAGER)])
     service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
 
-    result = service.bootstrap(user_id=USER_ID, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
     assert len(result.capability_token) <= PARLEY_PASS_MAX_LENGTH
@@ -309,7 +310,7 @@ def test_a_pass_too_long_for_a_cookie_keeps_the_event_on_now_over_those_far_ahea
     access = Access([*ahead, over, running], seats=[(45, SphereRole.MANAGER)])
     service, signer = _bootstrapping(access, signer=LengthSigner(per_event=100))
 
-    result = service.bootstrap(user_id=USER_ID, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
     assert sorted(signer.signed[-1].events) == sorted(
@@ -324,7 +325,7 @@ def test_a_long_event_on_now_outlasts_a_short_one_starting_soon() -> None:
     access = Access([long_running, soon])
     service, signer = _bootstrapping(access, signer=LengthSigner(per_event=1000))
 
-    result = service.bootstrap(user_id=USER_ID, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
     assert [room.id for room in result.rooms] == ["event:45:1"]
@@ -339,7 +340,7 @@ def test_a_pass_kept_over_its_size_by_events_on_now_says_so(caplog) -> None:
     service, _ = _bootstrapping(Access(on_now), signer=LengthSigner(per_event=1000))
     caplog.set_level(logging.WARNING, logger="ludamus.mills.parley")
 
-    result = service.bootstrap(user_id=USER_ID, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
     assert len(result.rooms) == len(on_now)
@@ -354,8 +355,8 @@ def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None
     closed, _ = _bootstrapping(Access([]), NoConversations([party, group]))
     opened, _ = _bootstrapping(Access([]), OpenConversations([party, group]))
 
-    shut = closed.bootstrap(user_id=USER_ID, now=NOW)
-    open_ = opened.bootstrap(user_id=USER_ID, now=NOW)
+    shut = closed.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
+    open_ = opened.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert shut is not None
     assert open_ is not None
@@ -366,7 +367,7 @@ def test_bootstrap_lists_party_chats_for_anyone_and_the_rest_once_open() -> None
 def test_bootstrap_stops_when_there_is_nowhere_to_chat() -> None:
     service, signer = _bootstrapping(Access([]))
 
-    assert service.bootstrap(user_id=USER_ID, now=NOW) is None
+    assert service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW) is None
     assert not signer.signed
 
 
@@ -374,7 +375,7 @@ def test_bootstrap_stops_when_repository_denies_access() -> None:
     access = Access(None)
     service, signer = _bootstrapping(access)
 
-    assert service.bootstrap(user_id=USER_ID, now=NOW) is None
+    assert service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW) is None
     assert access.asked == [(NOW, frozenset())]
     assert not signer.signed
 
@@ -398,57 +399,90 @@ def test_the_chat_is_open_to_anyone_with_somewhere_to_chat(
     assert service.is_open_to(user_id=USER_ID, now=NOW) is expected
 
 
-def _watched(room, event_title):
-    return room.model_copy(update={"moderating": True, "event_title": event_title})
+def _moderating(room):
+    return room.model_copy(update={"moderating": True})
 
 
-def test_moderated_rooms_are_the_sphere_s_ones_the_moderator_is_not_in() -> None:
-    later, sooner = 2_000_000_000, 1_900_000_000
+def test_bootstrap_names_the_rooms_of_this_sphere_its_moderator_is_not_in() -> None:
     access = Access(
         [
-            ParleyRoomDTO(
-                kind=ParleyRoomKind.ORGANIZERS,
-                sphere_id=45,
-                title="Bachanalia",
-                can_write=True,
-                can_moderate=True,
-            ),
-            _watched(_event(1, ends_at=later, can_moderate=True), "Polcon"),
-            _watched(_session(12, event=1, ends_at=later), "Polcon"),
-            _watched(_session(11, event=1, ends_at=later), "Polcon"),
-            _session(10, event=1, ends_at=later),
-            _watched(_session(20, event=2, ends_at=sooner), "Bachanalia"),
+            _moderating(_event(1, can_moderate=True)),
+            _moderating(_session(11, event=1, can_moderate=True)),
+            _session(12, event=1, can_moderate=True),
+            _moderating(_session(21, event=2, sphere=8, can_moderate=True)),
         ],
         seats=[(45, SphereRole.MANAGER), (8, SphereRole.MANAGER)],
     )
     service, _ = _bootstrapping(access)
 
-    rooms = service.moderated_rooms(user_id=USER_ID, sphere_id=45, now=NOW)
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
-    assert [room.id for room in rooms] == [
-        "session:45:20",
-        "event:45:1",
-        "session:45:11",
-        "session:45:12",
+    assert result is not None
+    assert result.moderated == ["event:45:1", "session:45:11"]
+
+
+class ModeratedAccess(Access):
+    """A sphere's programme, as its moderation page reads it."""
+
+    def __init__(self, *, seats, moderated):
+        super().__init__(seats=seats)
+        self.moderated = moderated
+
+    def list_moderated(self, *, user_id, sphere_id, window):
+        self.asked.append((window.now, sphere_id))
+        return self.moderated
+
+
+def _programme():
+    return [
+        ParleyModeratedEventDTO(
+            title="Polcon",
+            slug="polcon",
+            rooms=[_moderating(_event(1)), _moderating(_session(11, event=1))],
+        ),
+        ParleyModeratedEventDTO(
+            title="Bachanalia",
+            slug="bachanalia",
+            rooms=[_moderating(_session(21, event=2))],
+        ),
     ]
-    assert access.asked == [(NOW, frozenset({45}))]
 
 
 @pytest.mark.parametrize(
-    ("seats", "rooms", "asked"),
-    (
-        (((45, SphereRole.COMMS), (8, SphereRole.MANAGER)), [], []),
-        (((45, SphereRole.MANAGER),), None, [(NOW, frozenset({45}))]),
-    ),
-    ids=["not-a-moderator-here", "no-chat-access"],
+    ("room", "expected"),
+    ((None, (None, None)), (("session", 21), ("session:45:21", "Bachanalia"))),
+    ids=["list", "one-room"],
 )
-def test_moderated_rooms_are_none_without_the_right_or_the_chat(
-    seats, rooms, asked
+def test_the_moderation_page_lists_the_sphere_s_rooms_and_the_one_asked_for(
+    room, expected
 ) -> None:
-    access = Access(rooms, seats=seats)
+    access = ModeratedAccess(seats=[(45, SphereRole.MANAGER)], moderated=_programme())
     service, _ = _bootstrapping(access)
 
-    assert service.moderated_rooms(user_id=USER_ID, sphere_id=45, now=NOW) == []
+    page = service.moderation_page(user_id=USER_ID, sphere_id=45, room=room, now=NOW)
+
+    assert page.events == _programme()
+    assert (page.room and page.room.id, page.event and page.event.title) == expected
+    assert access.asked == [(NOW, 45)]
+
+
+@pytest.mark.parametrize(
+    ("seats", "room", "asked"),
+    (
+        ([(45, SphereRole.COMMS), (8, SphereRole.MANAGER)], None, []),
+        ([(45, SphereRole.MANAGER)], ("session", 12), [(NOW, 45)]),
+        ([(45, SphereRole.MANAGER)], ("event", 11), [(NOW, 45)]),
+    ),
+    ids=["not-a-moderator-here", "a-room-off-the-list", "the-wrong-kind"],
+)
+def test_the_moderation_page_is_not_found_without_the_right_or_the_room(
+    seats, room, asked
+) -> None:
+    access = ModeratedAccess(seats=seats, moderated=_programme())
+    service, _ = _bootstrapping(access)
+
+    with pytest.raises(NotFoundError):
+        service.moderation_page(user_id=USER_ID, sphere_id=45, room=room, now=NOW)
     assert access.asked == asked
 
 

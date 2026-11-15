@@ -106,7 +106,6 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "canWrite": True,
             "canModerate": True,
             "moderating": False,
-            "eventTitle": None,
         },
         {
             "id": f"event:{sphere.pk}:{event.pk}",
@@ -116,7 +115,6 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "canWrite": True,
             "canModerate": False,
             "moderating": False,
-            "eventTitle": event.name,
         },
         {
             "id": f"session:{sphere.pk}:{confirmed.pk}",
@@ -126,7 +124,6 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "canWrite": True,
             "canModerate": False,
             "moderating": False,
-            "eventTitle": event.name,
         },
         {
             "id": f"session:{sphere.pk}:{facilitated.pk}",
@@ -136,7 +133,6 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "canWrite": False,
             "canModerate": False,
             "moderating": False,
-            "eventTitle": event.name,
         },
     ]
     assert payload["agentHost"] == "parley.example.com"
@@ -304,3 +300,34 @@ def test_says_whether_age_keeps_direct_messages_shut(
     payload = response.json()
     assert payload["canMessage"] is can_message
     assert payload["ageGate"] == age_gate
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_points_a_moderator_to_this_sphere_s_page_of_rooms_they_are_not_in(
+    authenticated_client, active_user, event, sphere
+):
+    sphere.managers.add(active_user)
+    watched = SessionFactory(event=event, category=None)
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    payload = response.json()
+    assert payload["moderated"] == [f"session:{sphere.pk}:{watched.pk}"]
+    assert payload["moderationUrl"] == reverse("multiverse:panel:chats")
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_leaves_the_moderation_page_out_for_someone_who_moderates_nothing_here(
+    authenticated_client, active_user, event
+):
+    session = SessionFactory(event=event, category=None)
+    SessionParticipationFactory(
+        session=session, user=active_user, status=SessionParticipationStatus.CONFIRMED
+    )
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    payload = response.json()
+    assert (payload["moderated"], payload["moderationUrl"]) == ([], None)

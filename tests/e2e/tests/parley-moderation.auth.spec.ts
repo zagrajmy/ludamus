@@ -29,7 +29,6 @@ const organizers = {
 const played = {
   canModerate: true,
   canWrite: true,
-  eventTitle: "Bachanalia",
   id: "session:1:40",
   kind: "session",
   moderating: false,
@@ -39,7 +38,6 @@ const played = {
 const watchedEvent = {
   canModerate: true,
   canWrite: true,
-  eventTitle: "Bachanalia",
   id: "event:1:5",
   kind: "event",
   moderating: true,
@@ -49,7 +47,6 @@ const watchedEvent = {
 const watched = {
   canModerate: true,
   canWrite: true,
-  eventTitle: "Bachanalia",
   id: "session:1:41",
   kind: "session",
   moderating: true,
@@ -57,7 +54,7 @@ const watched = {
   title: "Wsiąść do pociągu",
 };
 const rooms = [organizers, watchedEvent, played, watched];
-const moderation = { sphere: 1, url: CHATS_URL };
+const moderation = { moderated: [watchedEvent.id, watched.id], moderationUrl: CHATS_URL };
 
 const ownList = (panel: Locator): Locator =>
   panel.getByRole("navigation", { name: copy.roomsLabel });
@@ -81,7 +78,7 @@ test.describe("The chat of a sphere's organizer", () => {
   test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json") });
 
   test("keeps their own chats apart from the ones they only moderate", async ({ page }) => {
-    await routeBootstrap(page, [{ moderation, rooms }]);
+    await routeBootstrap(page, [{ ...moderation, rooms }]);
     const worker = await FakeWorker.install(page);
     await page.goto("/");
     await expect
@@ -111,7 +108,7 @@ test.describe("The chat of a sphere's organizer", () => {
   });
 
   test("writes where they only moderate only after a deliberate step", async ({ page }) => {
-    await routeBootstrap(page, [{ moderation, rooms }]);
+    await routeBootstrap(page, [{ ...moderation, rooms }]);
     const worker = (await FakeWorker.install(page))
       .on("loadBefore", (_input, url) => ({
         ok: true,
@@ -160,7 +157,7 @@ test.describe("The chat of a sphere's organizer", () => {
   });
 
   test("waits on top of the list on the page of a chat they only moderate", async ({ page }) => {
-    await routeBootstrap(page, [{ moderation, rooms }]);
+    await routeBootstrap(page, [{ ...moderation, rooms }]);
     await FakeWorker.install(page);
     await onPageOf(page, watched.id);
     await page.goto("/");
@@ -193,10 +190,10 @@ test.describe("The sphere's chat moderation page", () => {
     await analyzePageAccessibility(page);
     await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-list.png" });
 
-    const title = (await first.locator("span").first().innerText()).trim();
     await routeBootstrap(page, [
       {
-        moderation: { sphere: Number(roomId.split(":")[1]), url: CHATS_URL },
+        moderated: [roomId],
+        moderationUrl: CHATS_URL,
         rooms: [
           {
             canModerate: true,
@@ -205,7 +202,7 @@ test.describe("The sphere's chat moderation page", () => {
             kind: "session",
             moderating: true,
             sphere: Number(roomId.split(":")[1]),
-            title,
+            title: "Programme point",
           },
         ],
       },
@@ -215,7 +212,9 @@ test.describe("The sphere's chat moderation page", () => {
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/chats\/session\/\d+\/#parley:/u);
     await expect(first).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { exact: true, level: 2, name: title })).toBeVisible();
+    const heading = (await page.locator("#chat-heading").innerText()).trim();
+    expect(heading).not.toBe("");
+    expect(await first.innerText()).toContain(heading);
     const panel = panelOf(page);
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
     await analyzePageAccessibility(page);

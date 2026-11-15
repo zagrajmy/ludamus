@@ -10,10 +10,10 @@ from django.http import Http404
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import panel_access
+from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
-from ludamus.pacts.sphere import Capability
+from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -29,30 +29,30 @@ class ChatModerationPageView(SphereAccessMixin, View):
     def get(
         self, _request: PanelRequest, kind: str | None = None, pk: int | None = None
     ) -> HttpResponse:
-        if not panel_access(self.request).allows(Capability.CHAT_MODERATE):
-            raise Http404
+        parley = self.request.services.parley
         user_id = self.request.context.current_user_id
-        rooms = self.request.services.parley.moderated_rooms(
-            user_id=user_id,
-            sphere_id=self.request.context.current_sphere_id,
-            now=datetime.now(tz=UTC),
-        )
-        room = None
-        if kind is not None:
-            room = next(
-                (each for each in rooms if each.kind == kind and each.pk == pk), None
+        sphere_id = self.request.context.current_sphere_id
+        if not parley.moderates(user_id=user_id, sphere_id=sphere_id):
+            return refuse_panel_access(
+                request=self.request,
+                reads_panel=True,
+                message=str(self.no_permission_message),
             )
-            if room is None:
-                raise Http404
+        try:
+            page = parley.moderation_page(
+                user_id=user_id,
+                sphere_id=sphere_id,
+                room=None if kind is None or pk is None else (kind, pk),
+                now=datetime.now(tz=UTC),
+            )
+        except NotFoundError as error:
+            raise Http404 from error
+        if page.room is not None:
             logger.info(
-                "chat moderation room opened: user=%s room=%s", user_id, room.id
+                "chat moderation room opened: user=%s room=%s", user_id, page.room.id
             )
         return TemplateResponse(
             self.request,
             "sphere/panel/chats.html",
-            {
-                **sphere_sidebar_context(self.request, active_nav="chats"),
-                "rooms": rooms,
-                "room": room,
-            },
+            {**sphere_sidebar_context(self.request, active_nav="chats"), "page": page},
         )

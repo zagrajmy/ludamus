@@ -250,7 +250,8 @@ export function Conversation({
   const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
   // A room this person only moderates takes one deliberate step before
   // anything goes out in it, so nobody writes there by mistake.
-  const [speaking, setSpeaking] = useState(room.moderating !== true);
+  const moderated = room.moderating;
+  const [speaking, setSpeaking] = useState(!moderated);
   const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -327,13 +328,6 @@ export function Conversation({
     const fine = globalThis.matchMedia("(pointer: fine)").matches;
     ((fine ? composer.current : null) ?? closeButton.current)?.focus();
   }, []);
-
-  // The step to write lands in the composer it opened.
-  const wasSpeaking = useRef(speaking);
-  useEffect(() => {
-    if (speaking && !wasSpeaking.current) composer.current?.focus();
-    wasSpeaking.current = speaking;
-  }, [speaking]);
 
   useLayoutEffect(() => {
     const field = composer.current;
@@ -538,11 +532,11 @@ export function Conversation({
             {...picker.textareaProps}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
+            // The step to write in a moderated room lands in the composer it opened.
+            autoFocus={moderated}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            placeholder={
-              room.moderating === true ? copy.organizerPlaceholder : copy.writePlaceholder
-            }
+            placeholder={moderated ? copy.organizerPlaceholder : copy.writePlaceholder}
             ref={composer}
             rows={1}
             value={body}
@@ -572,11 +566,8 @@ export function Conversation({
     organizers: copy.emptyOrganizers,
     session: copy.emptySession,
   }[room.kind];
-  const empty = room.canWrite && room.moderating !== true ? writableEmpty : copy.emptyReadOnly;
-  const kind =
-    room.moderating === true
-      ? `${roomKind(copy, room)} · ${copy.moderatorView}`
-      : roomKind(copy, room);
+  const empty = room.canWrite && !moderated ? writableEmpty : copy.emptyReadOnly;
+  const kind = moderated ? `${roomKind(copy, room)} · ${copy.moderatorView}` : roomKind(copy, room);
   const face =
     conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 

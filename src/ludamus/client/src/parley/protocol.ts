@@ -181,12 +181,10 @@ export type Room = {
   canModerate: boolean;
   canWrite: boolean;
   conversation?: ConversationInfo;
-  // A programme point's event, by name.
-  eventTitle?: string | null;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
   // Here only because this person moderates its sphere: they are not in it.
-  moderating?: boolean;
+  moderating: boolean;
   // The sphere a sphere's room belongs to; a conversation has none.
   sphere?: number;
   title: string;
@@ -204,9 +202,10 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
-  // Where this sphere's organizer reads the rooms they only moderate; null
-  // when they moderate none here.
-  moderation: { sphere: number; url: string } | null;
+  // This sphere's rooms this person only moderates, and the page they are
+  // read on; null when there are none.
+  moderated: string[];
+  moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };
 };

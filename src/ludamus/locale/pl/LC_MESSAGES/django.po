@@ -13858,11 +13858,11 @@ msgstr "Czaty do moderacji"
 
 #: src/ludamus/templates/sphere/panel/chats.html
 msgid ""
-"Chats from your events that you are not part of. Open one to read it, delete "
-"messages and mute people."
+"Chats of your sphere's events that you are not part of. Open one to read it, "
+"delete messages and mute people."
 msgstr ""
-"Czaty z twoich wydarzeń, w których nie bierzesz udziału. Otwórz czat, żeby "
-"go przeczytać, usuwać wiadomości i wyciszać osoby."
+"Czaty wydarzeń twojej sfery, w których nie bierzesz udziału. Otwórz czat, "
+"żeby go przeczytać, usuwać wiadomości i wyciszać osoby."
 
 #: src/ludamus/templates/sphere/panel/chats.html
 msgid "Read only"

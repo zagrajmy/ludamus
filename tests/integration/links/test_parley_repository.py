@@ -154,19 +154,52 @@ def test_a_manager_s_own_rooms_stand_apart_from_the_ones_they_only_moderate(
     )
 
     assert access is not None
-    assert sorted(
-        (room.id, room.moderating, room.event_title) for room in access.rooms
-    ) == sorted(
+    assert sorted((room.id, room.moderating) for room in access.rooms) == sorted(
         [
-            (f"organizers:{sphere.pk}", False, None),
-            (f"event:{sphere.pk}:{event.pk}", False, "Bachanalia"),
-            (f"event:{sphere.pk}:{unvisited.pk}", True, "Polcon"),
-            (f"event:{elsewhere.sphere_id}:{elsewhere.pk}", False, "Elsewhere"),
-            (f"session:{sphere.pk}:{played.pk}", False, "Bachanalia"),
-            (f"session:{sphere.pk}:{watched.pk}", True, "Bachanalia"),
-            (f"session:{elsewhere.sphere_id}:{joined.pk}", False, "Elsewhere"),
+            (f"organizers:{sphere.pk}", False),
+            (f"event:{sphere.pk}:{event.pk}", False),
+            (f"event:{sphere.pk}:{unvisited.pk}", True),
+            (f"event:{elsewhere.sphere_id}:{elsewhere.pk}", False),
+            (f"session:{sphere.pk}:{played.pk}", False),
+            (f"session:{sphere.pk}:{watched.pk}", True),
+            (f"session:{elsewhere.sphere_id}:{joined.pk}", False),
         ]
     )
+
+
+def test_lists_a_sphere_s_rooms_someone_is_not_in_under_their_events(
+    sphere, active_user, now, window
+):
+    later = _event(sphere, now, name="Polcon", ended_days_ago=-2)
+    sooner = _event(sphere, now, name="Bachanalia", parley_enabled=None)
+    played = SessionFactory(event=sooner, category=None, title="Played")
+    SessionParticipationFactory(
+        session=played, user=active_user, status=SessionParticipationStatus.CONFIRMED
+    )
+    zebra = SessionFactory(event=later, category=None, title="Zebra")
+    aardvark = SessionFactory(event=later, category=None, title="Aardvark")
+    quiet = SessionFactory(event=sooner, category=None, title="Quiet")
+    SessionFactory(event=_event(SphereFactory(), now), category=None)
+
+    events = ParleyRepository().list_moderated(
+        user_id=active_user.pk, sphere_id=sphere.pk, window=window
+    )
+
+    assert [
+        (event.title, event.slug, [room.id for room in event.rooms]) for event in events
+    ] == [
+        ("Bachanalia", sooner.slug, [f"session:{sphere.pk}:{quiet.pk}"]),
+        (
+            "Polcon",
+            later.slug,
+            [
+                f"event:{sphere.pk}:{later.pk}",
+                f"session:{sphere.pk}:{aardvark.pk}",
+                f"session:{sphere.pk}:{zebra.pk}",
+            ],
+        ),
+    ]
+    assert all(room.moderating for event in events for room in event.rooms)
 
 
 @pytest.mark.parametrize(

@@ -266,20 +266,15 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "authentication_required"}, status=401)
 
     payload = request.services.parley.bootstrap(
-        user_id=request.context.current_user_id, now=datetime.now(tz=UTC)
+        user_id=request.context.current_user_id,
+        sphere_id=request.context.current_sphere_id,
+        now=datetime.now(tz=UTC),
     )
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
-    # The rooms someone only moderates live on their sphere's own page; the
-    # chat links there from the sphere it is open on.
-    sphere_id = request.context.current_sphere_id
-    response_data["moderation"] = (
-        {"sphere": sphere_id, "url": reverse("multiverse:panel:chats")}
-        if any(
-            room.moderating and room.sphere_id == sphere_id for room in payload.rooms
-        )
-        else None
+    response_data["moderationUrl"] = (
+        reverse("multiverse:panel:chats") if payload.moderated else None
     )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
