@@ -188,8 +188,10 @@ class ParleyRepository(ParleyRepositoryProtocol):
     ) -> list[ParleyModeratedEventDTO]:
         moderated = frozenset({sphere_id})
         events: dict[int, ParleyModeratedEventDTO] = {}
+        starts: dict[int, tuple[datetime, int]] = {}
 
         def group(event: Event) -> ParleyModeratedEventDTO:
+            starts[event.pk] = (event.start_time, event.pk)
             return events.setdefault(
                 event.pk,
                 ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=[]),
@@ -212,7 +214,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
             group(session.event).rooms.append(
                 _session_room(session, window=window, moderated=moderated)
             )
-        return sorted(events.values(), key=lambda event: event.rooms[0].starts_at or 0)
+        return [events[pk] for pk in sorted(events, key=starts.__getitem__)]
 
     @staticmethod
     def has_rooms(

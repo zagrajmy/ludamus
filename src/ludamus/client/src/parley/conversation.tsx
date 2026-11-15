@@ -250,8 +250,7 @@ export function Conversation({
   const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
   // A room this person only moderates takes one deliberate step before
   // anything goes out in it, so nobody writes there by mistake.
-  const moderated = room.moderating;
-  const [speaking, setSpeaking] = useState(!moderated);
+  const [speaking, setSpeaking] = useState(!room.moderating);
   const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -533,10 +532,10 @@ export function Conversation({
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
             // The step to write in a moderated room lands in the composer it opened.
-            autoFocus={moderated}
+            autoFocus={room.moderating}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            placeholder={moderated ? copy.organizerPlaceholder : copy.writePlaceholder}
+            placeholder={room.moderating ? copy.organizerPlaceholder : copy.writePlaceholder}
             ref={composer}
             rows={1}
             value={body}
@@ -566,8 +565,9 @@ export function Conversation({
     organizers: copy.emptyOrganizers,
     session: copy.emptySession,
   }[room.kind];
-  const empty = room.canWrite && !moderated ? writableEmpty : copy.emptyReadOnly;
-  const kind = moderated ? `${roomKind(copy, room)} · ${copy.moderatorView}` : roomKind(copy, room);
+  const empty = room.canWrite && speaking ? writableEmpty : copy.emptyReadOnly;
+  const named = roomKind(copy, room);
+  const kind = room.moderating ? `${named} · ${copy.moderatorView}` : named;
   const face =
     conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 

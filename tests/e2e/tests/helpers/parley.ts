@@ -19,7 +19,7 @@ export type BootstrapRoom = {
   canWrite: boolean;
   id: string;
   kind: string;
-  moderating?: boolean;
+  moderating: boolean;
   sphere: number;
   title: string;
 };
@@ -198,7 +198,7 @@ export const bootstrap = {
   },
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
-  moderated: [] as string[],
+  moderatedRoomIds: [] as string[],
   moderationUrl: null as string | null,
   rooms: [
     {
@@ -206,6 +206,7 @@ export const bootstrap = {
       canWrite: true,
       id: "event:1:5",
       kind: "event",
+      moderating: false,
       sphere: 1,
       title: "Zagrajmy",
     },
@@ -214,6 +215,7 @@ export const bootstrap = {
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      moderating: false,
       sphere: 1,
       title: "Mothership",
     },

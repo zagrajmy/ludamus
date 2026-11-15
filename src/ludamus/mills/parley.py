@@ -21,6 +21,7 @@ from ludamus.pacts.parley import (
     ParleyMessageReaderProtocol,
     ParleyModerationPageDTO,
     ParleyModerationResult,
+    ParleyOpenedRoomDTO,
     ParleyReportData,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
@@ -47,7 +48,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
 
-    from ludamus.pacts.parley import ParleyPartyChatProtocol, ParleyRoomDTO
+    from ludamus.pacts.parley import (
+        ParleyPartyChatProtocol,
+        ParleyRoomDTO,
+        ParleyRoomRef,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +253,7 @@ class ParleyService:
             blocked=self._conversations.list_blocked(user_id),
             capability_token=capability_token,
             agent_host=self._agent_host,
-            moderated=[
+            moderated_room_ids=[
                 room.id
                 for room in rooms
                 if room.moderating and room.sphere_id == sphere_id
@@ -259,12 +264,7 @@ class ParleyService:
         return sphere_id in self._moderated(user_id)
 
     def moderation_page(
-        self,
-        *,
-        user_id: int,
-        sphere_id: int,
-        room: tuple[str, int] | None,
-        now: datetime,
+        self, *, user_id: int, sphere_id: int, room: ParleyRoomRef | None, now: datetime
     ) -> ParleyModerationPageDTO:
         """Read the sphere's rooms this person moderates without being in them.
 
@@ -282,14 +282,18 @@ class ParleyService:
         )
         if room is None:
             return ParleyModerationPageDTO(events=events)
-        kind, pk = room
-        for event in events:
-            for each in event.rooms:
-                if each.kind == kind and each.pk == pk:
-                    return ParleyModerationPageDTO(
-                        events=events, room=each, event=event
-                    )
-        raise NotFoundError
+        opened = next(
+            (
+                ParleyOpenedRoomDTO(room=each, event=event)
+                for event in events
+                for each in event.rooms
+                if each.kind == room.kind and each.pk == room.pk
+            ),
+            None,
+        )
+        if opened is None:
+            raise NotFoundError
+        return ParleyModerationPageDTO(events=events, opened=opened)
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool:
         """Keep a report of a message the reporter can see and did not write.

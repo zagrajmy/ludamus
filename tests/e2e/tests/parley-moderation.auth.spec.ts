@@ -22,6 +22,7 @@ const organizers = {
   canWrite: true,
   id: "organizers:1",
   kind: "organizers",
+  moderating: false,
   sphere: 1,
   title: "Zagrajmy",
 };
@@ -54,7 +55,7 @@ const watched = {
   title: "Wsiąść do pociągu",
 };
 const rooms = [organizers, watchedEvent, played, watched];
-const moderation = { moderated: [watchedEvent.id, watched.id], moderationUrl: CHATS_URL };
+const moderation = { moderatedRoomIds: [watchedEvent.id, watched.id], moderationUrl: CHATS_URL };
 
 const ownList = (panel: Locator): Locator =>
   panel.getByRole("navigation", { name: copy.roomsLabel });
@@ -192,7 +193,7 @@ test.describe("The sphere's chat moderation page", () => {
 
     await routeBootstrap(page, [
       {
-        moderated: [roomId],
+        moderatedRoomIds: [roomId],
         moderationUrl: CHATS_URL,
         rooms: [
           {

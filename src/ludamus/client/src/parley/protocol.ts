@@ -204,7 +204,7 @@ export type Bootstrap = {
   csrfToken: string;
   // This sphere's rooms this person only moderates, and the page they are
   // read on; null when there are none.
-  moderated: string[];
+  moderatedRoomIds: string[];
   moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };

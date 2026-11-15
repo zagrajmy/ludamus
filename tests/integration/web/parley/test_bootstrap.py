@@ -313,7 +313,7 @@ def test_points_a_moderator_to_this_sphere_s_page_of_rooms_they_are_not_in(
 
     assert_response(response, HTTPStatus.OK)
     payload = response.json()
-    assert payload["moderated"] == [f"session:{sphere.pk}:{watched.pk}"]
+    assert payload["moderatedRoomIds"] == [f"session:{sphere.pk}:{watched.pk}"]
     assert payload["moderationUrl"] == reverse("multiverse:panel:chats")
 
 
@@ -330,4 +330,4 @@ def test_leaves_the_moderation_page_out_for_someone_who_moderates_nothing_here(
 
     assert_response(response, HTTPStatus.OK)
     payload = response.json()
-    assert (payload["moderated"], payload["moderationUrl"]) == ([], None)
+    assert (payload["moderatedRoomIds"], payload["moderationUrl"]) == ([], None)

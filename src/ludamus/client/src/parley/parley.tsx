@@ -229,7 +229,7 @@ function Connected({
   // as this page's, and opens only from a link.
   const own = rooms.filter(({ moderating }) => !moderating);
   const listed = here?.moderating ? [here, ...own] : own;
-  const moderated = new Set(bootstrap.moderated);
+  const moderatedRoomIds = new Set(bootstrap.moderatedRoomIds);
   const { moderationUrl } = bootstrap;
   const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
   const single =
@@ -391,7 +391,10 @@ function Connected({
               moderation={
                 moderationUrl === null
                   ? null
-                  : { rooms: rooms.filter(({ id }) => moderated.has(id)), url: moderationUrl }
+                  : {
+                      rooms: rooms.filter(({ id }) => moderatedRoomIds.has(id)),
+                      url: moderationUrl,
+                    }
               }
               open={open}
               rooms={listed}

@@ -25,6 +25,7 @@ from ludamus.pacts.parley import (
     ParleyReportedRef,
     ParleyRoomDTO,
     ParleyRoomKind,
+    ParleyRoomRef,
     ParleyTeamSeat,
     ParleyWorkerUnavailableError,
 )
@@ -418,7 +419,7 @@ def test_bootstrap_names_the_rooms_of_this_sphere_its_moderator_is_not_in() -> N
     result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
 
     assert result is not None
-    assert result.moderated == ["event:45:1", "session:45:11"]
+    assert result.moderated_room_ids == ["event:45:1", "session:45:11"]
 
 
 class ModeratedAccess(Access):
@@ -448,42 +449,56 @@ def _programme():
     ]
 
 
+def _page(room, *, seats=((45, SphereRole.MANAGER),)):
+    access = ModeratedAccess(seats=list(seats), moderated=_programme())
+    service, _ = _bootstrapping(access)
+    return access, lambda: service.moderation_page(
+        user_id=USER_ID, sphere_id=45, room=room, now=NOW
+    )
+
+
 @pytest.mark.parametrize(
     ("room", "expected"),
-    ((None, (None, None)), (("session", 21), ("session:45:21", "Bachanalia"))),
-    ids=["list", "one-room"],
+    (
+        (None, None),
+        (
+            ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=21),
+            ("session:45:21", "Bachanalia"),
+        ),
+    ),
+    ids=["just-the-list", "one-room"],
 )
-def test_the_moderation_page_lists_the_sphere_s_rooms_and_the_one_asked_for(
+def test_the_moderation_page_opens_the_room_asked_for_with_its_event(
     room, expected
 ) -> None:
-    access = ModeratedAccess(seats=[(45, SphereRole.MANAGER)], moderated=_programme())
-    service, _ = _bootstrapping(access)
+    _, read = _page(room)
 
-    page = service.moderation_page(user_id=USER_ID, sphere_id=45, room=room, now=NOW)
+    opened = read().opened
 
-    assert page.events == _programme()
-    assert (page.room and page.room.id, page.event and page.event.title) == expected
-    assert access.asked == [(NOW, 45)]
+    assert (opened and (opened.room.id, opened.event.title)) == expected
 
 
 @pytest.mark.parametrize(
-    ("seats", "room", "asked"),
+    "room",
     (
-        ([(45, SphereRole.COMMS), (8, SphereRole.MANAGER)], None, []),
-        ([(45, SphereRole.MANAGER)], ("session", 12), [(NOW, 45)]),
-        ([(45, SphereRole.MANAGER)], ("event", 11), [(NOW, 45)]),
+        ParleyRoomRef(kind=ParleyRoomKind.SESSION, pk=12),
+        ParleyRoomRef(kind=ParleyRoomKind.EVENT, pk=11),
     ),
-    ids=["not-a-moderator-here", "a-room-off-the-list", "the-wrong-kind"],
+    ids=["off-the-list", "the-wrong-kind"],
 )
-def test_the_moderation_page_is_not_found_without_the_right_or_the_room(
-    seats, room, asked
-) -> None:
-    access = ModeratedAccess(seats=seats, moderated=_programme())
-    service, _ = _bootstrapping(access)
+def test_the_moderation_page_finds_no_room_off_its_list(room) -> None:
+    _, read = _page(room)
 
     with pytest.raises(NotFoundError):
-        service.moderation_page(user_id=USER_ID, sphere_id=45, room=room, now=NOW)
-    assert access.asked == asked
+        read()
+
+
+def test_the_moderation_page_reads_nothing_for_someone_who_does_not_moderate():
+    access, read = _page(None, seats=((45, SphereRole.COMMS), (8, SphereRole.MANAGER)))
+
+    with pytest.raises(NotFoundError):
+        read()
+    assert not access.asked
 
 
 REPORTER, AUTHOR = 123, 7

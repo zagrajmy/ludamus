@@ -1,7 +1,6 @@
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import SphereMembership
@@ -10,6 +9,7 @@ from ludamus.pacts.event import EventDTO
 from ludamus.pacts.parley import (
     ParleyModeratedEventDTO,
     ParleyModerationPageDTO,
+    ParleyOpenedRoomDTO,
     ParleyRoomDTO,
     ParleyRoomKind,
 )
@@ -23,7 +23,6 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.parley.helpers import configure_parley
-from tests.integration.web.sphere.helpers import READ_ONLY_ROLE_ERROR
 
 CHATS_URL = reverse("multiverse:panel:chats")
 
@@ -62,6 +61,17 @@ def _context(event, *, page):
 @pytest.fixture(name="parley_settings")
 def parley_settings_fixture(settings):
     return configure_parley(settings)
+
+
+@pytest.fixture(name="not_a_moderator", params=("comms", "superuser-without-a-seat"))
+def not_a_moderator_fixture(request, active_user, sphere):
+    if request.param == "comms":
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+    else:
+        active_user.is_superuser = True
+        active_user.save()
 
 
 @pytest.fixture(name="programme")
@@ -130,7 +140,10 @@ class TestChatModerationPageView:
             context_data=_context(
                 event,
                 page=ParleyModerationPageDTO(
-                    events=[group], room=_watched_room(watched), event=group
+                    events=[group],
+                    opened=ParleyOpenedRoomDTO(
+                        room=_watched_room(watched), event=group
+                    ),
                 ),
             ),
         )
@@ -176,7 +189,9 @@ class TestChatModerationPageView:
             template_name="sphere/panel/chats.html",
             context_data=_context(
                 event,
-                page=ParleyModerationPageDTO(events=[group], room=room, event=group),
+                page=ParleyModerationPageDTO(
+                    events=[group], opened=ParleyOpenedRoomDTO(room=room, event=group)
+                ),
             ),
         )
 
@@ -201,24 +216,22 @@ class TestChatModerationPageView:
 
         assert_response_404(response)
 
-    @pytest.mark.parametrize("who", ("comms", "superuser-without-a-seat"))
-    def test_refuses_someone_who_does_not_moderate_the_sphere_s_chats(
-        self, authenticated_client, active_user, sphere, programme, who
+    @pytest.mark.usefixtures("not_a_moderator")
+    def test_is_not_found_for_someone_who_does_not_moderate_the_sphere_s_chats(
+        self, authenticated_client, programme
     ):
-        if who == "comms":
-            SphereMembership.objects.create(
-                sphere=sphere, user=active_user, role=SphereRole.COMMS
-            )
-        else:
-            active_user.is_superuser = True
-            active_user.save()
         _played, watched = programme
 
         response = authenticated_client.get(_chat_url("session", watched.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="/",
-            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
-        )
+        assert_response_404(response)
+
+    def test_is_not_found_while_the_chat_is_off(
+        self, authenticated_client, active_user, sphere, settings
+    ):
+        sphere.managers.add(active_user)
+        settings.PARLEY_AGENT_HOST = ""
+
+        response = authenticated_client.get(CHATS_URL)
+
+        assert_response_404(response)

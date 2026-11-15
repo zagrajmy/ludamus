@@ -60,11 +60,19 @@ class ParleyModeratedEventDTO(BaseModel):
     rooms: list[ParleyRoomDTO]
 
 
+class ParleyRoomRef(BaseModel):
+    kind: ParleyRoomKind
+    pk: int
+
+
+class ParleyOpenedRoomDTO(BaseModel):
+    room: ParleyRoomDTO
+    event: ParleyModeratedEventDTO
+
+
 class ParleyModerationPageDTO(BaseModel):
     events: list[ParleyModeratedEventDTO]
-    # The room asked for, and the event it belongs to.
-    room: ParleyRoomDTO | None = None
-    event: ParleyModeratedEventDTO | None = None
+    opened: ParleyOpenedRoomDTO | None = None
 
 
 class ParleyAccessDTO(BaseModel):
@@ -193,7 +201,9 @@ class ParleyBootstrapDTO(BaseModel):
     agent_host: str = Field(serialization_alias="agentHost")
     # The rooms of the sphere the chat opens on that this person only
     # moderates; they are read on that sphere's moderation page.
-    moderated: list[str] = Field(default_factory=list)
+    moderated_room_ids: list[str] = Field(
+        default_factory=list, serialization_alias="moderatedRoomIds"
+    )
 
 
 class ParleyManagedSphere(BaseModel):
@@ -422,12 +432,7 @@ class ParleyServiceProtocol(Protocol):
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
 
     def moderation_page(
-        self,
-        *,
-        user_id: int,
-        sphere_id: int,
-        room: tuple[str, int] | None,
-        now: datetime,
+        self, *, user_id: int, sphere_id: int, room: ParleyRoomRef | None, now: datetime
     ) -> ParleyModerationPageDTO: ...
 
     def delete_reported(

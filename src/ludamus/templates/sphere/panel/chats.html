@@ -3,8 +3,8 @@
 {% load tessera %}
 {% load empty_state_tags %}
 {% block title %}
-    {% if page.room %}
-        {{ page.room.title }} · {% translate "Chat moderation" %}
+    {% if page.opened %}
+        {{ page.opened.room.title }} · {% translate "Chat moderation" %}
     {% else %}
         {% translate "Chat moderation" %}
     {% endif %}
@@ -16,12 +16,12 @@
     {{ current_sphere.name }}
 {% endblock page_subtitle %}
 {% block parley_room %}
-    {% if page.room %}{{ page.room.id }}{% endif %}
+    {% if page.opened %}{{ page.opened.room.id }}{% endif %}
 {% endblock parley_room %}
 {% block content %}
-    <div class="panel-bleed grid gap-6 items-start {% if page.room %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
+    <div class="panel-bleed grid gap-6 items-start {% if page.opened %}lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]{% else %}max-w-2xl{% endif %}">
         <nav aria-label="{% translate "Chats to moderate" %}"
-             class="flex flex-col gap-4 {% if page.room %}hidden lg:flex{% endif %}">
+             class="flex flex-col gap-4 {% if page.opened %}hidden lg:flex{% endif %}">
             {% if page.events %}
                 <p class="text-sm text-foreground-secondary max-sm:px-3">
                     {% translate "Chats of your sphere's events that you are not part of. Open one to read it, delete messages and mute people." %}
@@ -35,7 +35,7 @@
                             {% for room in event.rooms %}
                                 <li>
                                     <a href="{% url 'multiverse:panel:chat' kind=room.kind pk=room.pk %}#parley:{{ room.id }}"
-                                       {% if page.room.id == room.id %}aria-current="page"{% endif %}
+                                       {% if page.opened.room.id == room.id %}aria-current="page"{% endif %}
                                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-bg-tertiary aria-[current=page]:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus">
                                         {% if room.kind == "event" %}
                                             {% icon "megaphone" class="size-4 text-foreground-muted" %}
@@ -60,7 +60,7 @@
             {% end_empty_state %}
 {% endif %}
 </nav>
-{% if page.room %}
+{% if page.opened %}
     <article aria-labelledby="chat-heading" class="card p-6 flex flex-col gap-4">
         <a href="{% url 'multiverse:panel:chats' %}"
            class="lg:hidden inline-flex items-center gap-1 text-sm text-foreground-secondary">
@@ -69,18 +69,18 @@
         </a>
         <header class="flex flex-col gap-1">
             <p class="text-sm text-foreground-muted">
-                {% if page.room.kind == "event" %}
+                {% if page.opened.room.kind == "event" %}
                     {% translate "Event chat" %}
                 {% else %}
                     {% translate "Programme point" %}
                 {% endif %}
-                · {{ page.event.title }}
-                {% if not page.room.can_write %}
+                · {{ page.opened.event.title }}
+                {% if not page.opened.room.can_write %}
                     · {% translate "Read only" %}
                 {% endif %}
             </p>
             <h2 id="chat-heading"
-                class="text-2xl font-bold text-foreground text-pretty">{{ page.room.title }}</h2>
+                class="text-2xl font-bold text-foreground text-pretty">{{ page.opened.room.title }}</h2>
         </header>
         <p class="text-sm text-foreground-secondary">
             {% translate "The chat opens on this room and keeps it on top of its list, under “On this page”. Delete a message or mute its author from the message's menu." %}
@@ -89,11 +89,11 @@
             {% translate "You read it as a moderator, so nothing goes out by accident. To post, for example about a changed room, press “Write as organizer” first." %}
         </p>
         <div>
-            {% if page.room.kind == "event" %}
-                <a href="{% url 'web:chronology:event' slug=page.event.slug %}"
+            {% if page.opened.room.kind == "event" %}
+                <a href="{% url 'web:chronology:event' slug=page.opened.event.slug %}"
                    class="btn btn-secondary text-sm">{% translate "Open the event page" %}</a>
             {% else %}
-                <a href="{% url 'web:chronology:event' slug=page.event.slug %}?session={{ page.room.pk }}"
+                <a href="{% url 'web:chronology:event' slug=page.opened.event.slug %}?session={{ page.opened.room.pk }}"
                    class="btn btn-secondary text-sm">{% translate "Open the programme point" %}</a>
             {% endif %}
         </div>
