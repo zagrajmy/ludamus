@@ -58,7 +58,7 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await deleteDialog.getByRole("button", { name: "Delete event" }).click();
 
   await bert.waitForURL((url) => !url.pathname.includes("council-retreat"));
-  const gone = await bert.request.get(`${COUNCIL}/chronology/event/council-retreat/`);
+  const gone = await bert.request.get(`${COUNCIL}/event/council-retreat/`);
   expect(gone.status()).toBe(404);
   await bert.context().close();
 });
