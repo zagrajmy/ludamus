@@ -19,6 +19,14 @@ review), add it here — that's how the next agent inherits it.
 - **Tables go through `{% tessera_table %}`.** It supplies the card chrome and
   responsive scroll wrapper, so the table is consistent and works on narrow
   screens without per-page CSS.
+- **A table whose cells are a name, a badge and pill clouds stacks on a
+  phone.** Scrolling such a table sideways squeezes the name to a word per line
+  and pushes the row actions off screen. `templates/panel/tracks.html` keeps one
+  `<table>` and, below `sm`, turns each `<tr>` into a grid: name beside its
+  badge, the pills under it (their icons stand in for the hidden headers),
+  then the actions. Explicit `role="table"`/`row`/`cell` keep the semantics a
+  changed `display` strips. A table of numbers to compare across rows still
+  scrolls.
 - **Theming via utilities, not inline vars.** Templates use `text-foreground`,
   `bg-bg-secondary`, `border-border` rather than inline `style="…var(--color-…)"`.
 - **Screenshots in the PR.** `docs/assets/pr-330-cover-screenshots/` shows the
