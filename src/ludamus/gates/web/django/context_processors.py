@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from django.conf import settings
+from django.middleware.csrf import get_token
 from django.utils.functional import SimpleLazyObject
 
 from ludamus.gates.web.django.access import has_panel_access
@@ -77,11 +78,17 @@ def _chat_user_id(request: RootRequest) -> int | None:
 
 def _parley_open(request: RootRequest) -> bool:
     user_id = _chat_user_id(request)
-    return user_id is not None and request.services.parley.is_open_to(
+    is_open = user_id is not None and request.services.parley.is_open_to(
         user_id=user_id,
         sphere_id=request.context.current_sphere_id,
         now=datetime.now(tz=UTC),
     )
+    if is_open:
+        # SAFETY: the chat's bootstrap hands out a CSRF token. On a page that
+        # set no CSRF cookie it mints one, racing the next page's form, whose
+        # token its late cookie then voids. The page sets the cookie first.
+        get_token(request)
+    return is_open
 
 
 def _parley_moderates(request: RootRequest) -> bool:

@@ -81,3 +81,20 @@ def test_the_chat_stays_shut_to_someone_signed_out(client):
     response = client.get(reverse("web:index"))
 
     assert _open(response) is False
+
+
+@pytest.mark.usefixtures("parley_settings")
+@pytest.mark.parametrize("page_name", ("web:index", "multiverse:panel:guilds"))
+def test_a_page_with_the_chat_sets_the_csrf_cookie_its_bootstrap_then_keeps(
+    authenticated_client, active_user, sphere, settings, page_name
+):
+    sphere.managers.add(active_user)
+
+    page = authenticated_client.get(reverse(page_name))
+    authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert _open(page) is True
+    assert (
+        authenticated_client.cookies[settings.CSRF_COOKIE_NAME].value
+        == page.cookies[settings.CSRF_COOKIE_NAME].value
+    )

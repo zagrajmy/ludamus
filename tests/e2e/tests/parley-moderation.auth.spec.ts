@@ -91,10 +91,6 @@ test.describe("The chat of a sphere's organizer", () => {
     await expect(entry).toContainText("2 chats you moderate");
     await expect(entry).toContainText(copy.unread);
     await analyzePageAccessibility(page);
-    await page.screenshot({
-      animations: "disabled",
-      path: "screenshots/parley-moderation-entry.png",
-    });
   });
 
   test("finds the chats they moderate even with none of their own", async ({ page }) => {
@@ -129,19 +125,11 @@ test.describe("The chat of a sphere's organizer", () => {
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
     await expect(panel.getByRole("textbox", { name: copy.messageLabel })).toHaveCount(0);
     await analyzePageAccessibility(page);
-    await page.screenshot({
-      animations: "disabled",
-      path: "screenshots/parley-moderation-room.png",
-    });
 
     await panel.getByRole("button", { name: copy.writeAsOrganizer }).click();
     const composer = panel.getByRole("textbox", { name: copy.messageLabel });
     await expect(composer).toBeFocused();
     await expect(composer).toHaveAttribute("placeholder", copy.organizerPlaceholder);
-    await page.screenshot({
-      animations: "disabled",
-      path: "screenshots/parley-moderation-writing.png",
-    });
     await composer.fill("The table moved to room 2.");
     await composer.press("Enter");
     await expect.poll(() => worker.called("sendMessage").length).toBe(1);
@@ -214,12 +202,16 @@ test.describe("The sphere's chat moderation page", () => {
       CHATS_URL,
     );
     const list = page.getByRole("navigation", { name: "Chats to moderate" });
-    const first = list.getByRole("link").filter({ hasNotText: "Event chat" }).first();
+    const first = list
+      .getByRole("link")
+      .filter({ hasNotText: "Event chat" })
+      .filter({ hasNotText: "Read only" })
+      .first();
+    const title = (await first.innerText()).trim();
     const href = (await first.getAttribute("href")) ?? "";
     const roomId = href.split("#parley:")[1] ?? "";
     expect(roomId).toMatch(/^session:\d+:\d+$/u);
     await analyzePageAccessibility(page);
-    await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-list.png" });
 
     await routeBootstrap(page, [
       {
@@ -242,14 +234,10 @@ test.describe("The sphere's chat moderation page", () => {
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/chats\/session\/\d+\/#parley:/u);
     await expect(first).toHaveAttribute("aria-current", "page");
-    const heading = (
-      await page.getByRole("article").getByRole("heading", { level: 2 }).innerText()
-    ).trim();
-    expect(heading).not.toBe("");
-    expect(await first.innerText()).toContain(heading);
+    const opened = page.getByRole("article", { name: title });
+    await expect(opened.getByRole("heading", { level: 2, name: title })).toBeVisible();
     const panel = panelOf(page);
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
     await analyzePageAccessibility(page);
-    await page.screenshot({ fullPage: true, path: "screenshots/chat-moderation-room.png" });
   });
 });
