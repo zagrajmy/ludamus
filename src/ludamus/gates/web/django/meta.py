@@ -12,6 +12,8 @@ from django.utils.timezone import localtime
 from ludamus.gates.web.django.markdown import render_markdown
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from ludamus.gates.web.django.event.event_presentation import SessionData
     from ludamus.pacts.encounter import EncounterDTO
 
@@ -41,6 +43,18 @@ def encounter_description(encounter: EncounterDTO, description_html: str) -> str
     if description_html:
         parts.append(f"| {_summary(description_html)}")
     return " ".join(parts)
+
+
+def event_when_and_where(*, start: datetime, end: datetime, address: str) -> str:
+    start, end = localtime(start), localtime(end)
+    if start.date() == end.date():
+        when = (
+            f"{date_format(start, 'l, j E')} · "
+            f"{time_format(start, 'G:i')}–{time_format(end, 'G:i')}"
+        )
+    else:
+        when = f"{date_format(start, 'l, j E')} – {date_format(end, 'l, j E')}"
+    return f"{when} — {address}" if address else when
 
 
 # NOTE: link-preview crawlers run no JS, so the ?session= modal never opens for
