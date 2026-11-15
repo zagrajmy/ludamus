@@ -33,9 +33,8 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await expect(askDialog).toContainText("The other managers get a notification.");
   await askDialog.getByRole("button", { name: "Request deletion" }).click();
 
-  await expect(
-    ada.getByText("Your approval is in. The event is deleted once 1 more manager approves."),
-  ).toBeVisible();
+  // The card, not the toast saying so: flashes clear themselves after five
+  // seconds, which a slow load outlasts.
   await expect(adaCard.getByRole("heading", { name: "Approved 1 of 2" })).toBeVisible();
   await expect(adaCard.getByRole("listitem").filter({ hasText: "Ada Council" })).toBeVisible();
   await expect(adaCard.getByRole("button", { name: "Withdraw my approval" })).toBeVisible();
@@ -58,7 +57,7 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await expect(deleteDialog).toContainText("It disappears for everyone at once.");
   await deleteDialog.getByRole("button", { name: "Delete event" }).click();
 
-  await expect(bert.getByText("Council Retreat is deleted.")).toBeVisible();
+  await bert.waitForURL((url) => !url.pathname.includes("council-retreat"));
   const gone = await bert.request.get(`${COUNCIL}/chronology/event/council-retreat/`);
   expect(gone.status()).toBe(404);
   await bert.context().close();

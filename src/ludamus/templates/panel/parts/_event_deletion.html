@@ -35,27 +35,20 @@
                 </ul>
             </div>
         {% endif %}
-        {% if not ballot.viewer_is_manager %}
+        {% if ballot.next_step == "watch" %}
             <p class="text-sm text-foreground-secondary">{% translate "Only sphere managers can approve deleting an event." %}</p>
-        {% elif ballot.viewer_has_approved %}
+        {% elif ballot.next_step == "withdraw" %}
             <form method="post"
                   action="{% url 'panel:event-withdraw-deletion' slug=current_event.slug %}">
                 {% csrf_token %}
                 {% translate "Withdraw my approval" as t_withdraw %}
                 {% tessera_button t_withdraw variant="secondary" %}
             </form>
-        {% elif ballot.viewer_approval_deletes %}
-            {% translate "Delete event" as t_delete %}
-            <form method="post"
-                  action="{% url 'panel:event-approve-deletion' slug=current_event.slug %}"
-                  data-confirm-title="{% blocktranslate trimmed with event=current_event.name %}Delete {{ event }}?{% endblocktranslate %}"
-                  data-confirm="{% translate "It disappears for everyone at once." %}"
-                  data-confirm-action="{{ t_delete }}">
-                {% csrf_token %}
-                {% tessera_button t_delete variant="danger" icon="trash" %}
-            </form>
         {% else %}
-            {% if ballot.approvals %}
+            {% if ballot.next_step == "delete" %}
+                {% translate "Delete event" as t_approve %}
+                {% translate "It disappears for everyone at once." as t_approve_message %}
+            {% elif ballot.next_step == "approve" %}
                 {% translate "Approve deletion" as t_approve %}
                 {% blocktranslate trimmed count missing=ballot.missing_after_viewer asvar t_approve_message %}
                     It is deleted once {{ missing }} more manager approves.

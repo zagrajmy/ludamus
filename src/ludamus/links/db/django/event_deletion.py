@@ -7,7 +7,6 @@ from ludamus.links.db.django.models import (
     EventDeletionApproval,
     Session,
     SphereMembership,
-    User,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event_deletion import (
@@ -21,26 +20,39 @@ from ludamus.pacts.sphere import SphereRole
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.db.models import QuerySet
+
     from ludamus.pacts.ids import EventId, SphereId
+
+
+def _target(
+    events: QuerySet[Event], *, sphere_id: SphereId, event_id: EventId
+) -> EventDeletionTargetDTO:
+    try:
+        event = events.select_related("sphere__site").get(
+            pk=event_id, sphere_id=sphere_id
+        )
+    except Event.DoesNotExist as exception:
+        raise NotFoundError from exception
+    return EventDeletionTargetDTO(
+        pk=event.pk,
+        name=event.name,
+        slug=event.slug,
+        sphere_domain=event.sphere.site.domain,
+    )
 
 
 class EventDeletionRepository(EventDeletionRepositoryProtocol):
     @staticmethod
-    def read_event(
-        *, sphere_id: SphereId, event_id: EventId, for_update: bool
-    ) -> EventDeletionTargetDTO:
-        events = Event.objects.select_related("sphere__site")
-        if for_update:
-            events = events.select_for_update(of=("self",))
-        try:
-            event = events.get(pk=event_id, sphere_id=sphere_id)
-        except Event.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return EventDeletionTargetDTO(
-            pk=event.pk,
-            name=event.name,
-            slug=event.slug,
-            sphere_domain=event.sphere.site.domain,
+    def read_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
+        return _target(Event.objects.all(), sphere_id=sphere_id, event_id=event_id)
+
+    @staticmethod
+    def lock_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
+        return _target(
+            Event.objects.select_for_update(of=("self",)),
+            sphere_id=sphere_id,
+            event_id=event_id,
         )
 
     @staticmethod
@@ -51,13 +63,6 @@ class EventDeletionRepository(EventDeletionRepositoryProtocol):
                 sphere_id=sphere_id, role=SphereRole.MANAGER
             ).values_list("user_id", flat=True)
         )
-
-    @staticmethod
-    def user_name(user_id: UserId) -> str:
-        try:
-            return User.objects.get(pk=user_id).full_name
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception
 
     @staticmethod
     def list_approvals(event_id: EventId) -> list[EventDeletionApprovalDTO]:

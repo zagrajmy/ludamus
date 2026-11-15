@@ -6,7 +6,7 @@ from ludamus.mills.event_deletion import EventDeletionService
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event_deletion import (
     EventDeletionApprovalDTO,
-    EventDeletionOutcome,
+    EventDeletionStep,
     EventDeletionTargetDTO,
     NotSphereManagerError,
 )
@@ -24,19 +24,18 @@ class FakeDeletionRepository:
         self.approvals: list[int] = []
         self.deleted_at: datetime | None = None
 
-    def read_event(self, *, sphere_id, event_id, for_update):
+    def read_event(self, *, sphere_id, event_id):
         if sphere_id != SPHERE_ID or event_id != EVENT_ID or self.deleted_at:
             raise NotFoundError
         return EventDeletionTargetDTO(
             pk=EVENT_ID, name="Retreat", slug="retreat", sphere_domain="s.test"
         )
 
+    def lock_event(self, *, sphere_id, event_id):
+        return self.read_event(sphere_id=sphere_id, event_id=event_id)
+
     def manager_ids(self, sphere_id):
         return self.managers if sphere_id == SPHERE_ID else frozenset()
-
-    @staticmethod
-    def user_name(user_id):
-        return f"User {user_id}"
 
     def list_approvals(self, event_id):
         assert event_id == EVENT_ID
@@ -85,39 +84,39 @@ class TestApprove:
     def test_a_solo_manager_deletes_at_once(self):
         repository = FakeDeletionRepository(managers={1})
 
-        outcome = _approve(_service(repository), 1)
+        missing = _approve(_service(repository), 1)
 
-        assert outcome is EventDeletionOutcome.DELETED
+        assert missing == 0
         assert repository.deleted_at is not None
 
     def test_the_last_missing_approval_deletes_and_not_one_before(self):
         repository = FakeDeletionRepository(managers={1, 2, 3, 4, 5})
         service = _service(repository)
 
-        outcomes = [_approve(service, user_id) for user_id in (1, 2, 3)]
+        missing = [_approve(service, user_id) for user_id in (1, 2)]
+        deleted_before_the_last = repository.deleted_at is not None
+        missing.append(_approve(service, 3))
 
-        assert outcomes == [
-            EventDeletionOutcome.PENDING,
-            EventDeletionOutcome.PENDING,
-            EventDeletionOutcome.DELETED,
-        ]
+        assert missing == [2, 1, 0]
+        assert not deleted_before_the_last
+        assert repository.deleted_at is not None
 
     def test_approving_twice_counts_once(self):
         repository = FakeDeletionRepository(managers={1, 2})
         service = _service(repository)
 
-        outcomes = [_approve(service, 1), _approve(service, 1)]
+        missing = [_approve(service, 1), _approve(service, 1)]
 
-        assert outcomes == [EventDeletionOutcome.PENDING] * 2
+        assert missing == [1, 1]
         assert repository.deleted_at is None
 
     def test_a_former_managers_approval_is_not_counted(self):
         repository = FakeDeletionRepository(managers={2, 3})
         repository.approvals = [1]
 
-        outcome = _approve(_service(repository), 2)
+        missing = _approve(_service(repository), 2)
 
-        assert outcome is EventDeletionOutcome.PENDING
+        assert missing == 1
         assert repository.deleted_at is None
 
     def test_someone_off_the_team_is_refused_without_a_trace(self):
@@ -174,44 +173,43 @@ class TestWithdraw:
 
 class TestReadBallot:
     @staticmethod
-    def _ballot(repository, viewer_id):
-        return _service(repository).read_ballot(
+    def _next_step(repository, viewer_id):
+        ballot = _service(repository).read_ballot(
             sphere_id=SPHERE_ID, event_id=EVENT_ID, viewer_id=viewer_id
         )
+        return ballot.next_step, ballot.missing_after_viewer
 
-    def test_the_viewer_whose_approval_completes_the_count_is_told_so(self):
-        repository = FakeDeletionRepository(managers={1, 2, 3})
-        repository.approvals = [1]
+    def test_the_first_manager_requests_and_the_others_are_asked(self):
+        repository = FakeDeletionRepository(managers={1, 2, 3, 4, 5})
 
-        ballot = self._ballot(repository, 2)
+        assert self._next_step(repository, 1) == (EventDeletionStep.REQUEST, 2)
 
-        assert (
-            ballot.approvals_needed,
-            ballot.approvals_missing,
-            ballot.viewer_approval_deletes,
-            ballot.missing_after_viewer,
-        ) == (2, 1, True, 0)
-
-    def test_a_viewer_who_approved_waits_for_the_others(self):
+    def test_a_later_manager_approves_while_more_are_needed(self):
         repository = FakeDeletionRepository(managers={1, 2, 3, 4, 5})
         repository.approvals = [1]
 
-        ballot = self._ballot(repository, 1)
+        assert self._next_step(repository, 2) == (EventDeletionStep.APPROVE, 1)
 
-        assert (
-            ballot.viewer_has_approved,
-            ballot.viewer_approval_deletes,
-            ballot.approvals_missing,
-        ) == (True, False, 2)
+    def test_the_manager_whose_approval_completes_the_count_deletes(self):
+        repository = FakeDeletionRepository(managers={1, 2, 3})
+        repository.approvals = [1]
 
-    def test_a_viewer_off_the_team_sees_the_count_but_cannot_act(self):
+        assert self._next_step(repository, 2) == (EventDeletionStep.DELETE, 0)
+
+    def test_a_manager_who_approved_waits_and_may_withdraw(self):
+        repository = FakeDeletionRepository(managers={1, 2, 3, 4, 5})
+        repository.approvals = [1]
+
+        assert self._next_step(repository, 1) == (EventDeletionStep.WITHDRAW, 1)
+
+    def test_a_count_met_after_managers_left_lets_an_approver_finish_it(self):
+        repository = FakeDeletionRepository(managers={1, 2})
+        repository.approvals = [1, 2]
+
+        assert self._next_step(repository, 1) == (EventDeletionStep.DELETE, 0)
+
+    def test_someone_off_the_team_only_watches(self):
         repository = FakeDeletionRepository(managers={1, 2})
         repository.approvals = [1]
 
-        ballot = self._ballot(repository, 9)
-
-        assert (
-            ballot.viewer_is_manager,
-            ballot.viewer_approval_deletes,
-            [a.user_id for a in ballot.approvals],
-        ) == (False, False, [1])
+        assert self._next_step(repository, 9) == (EventDeletionStep.WATCH, 0)

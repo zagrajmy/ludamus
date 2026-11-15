@@ -12409,11 +12409,6 @@ msgid "Withdraw my approval"
 msgstr "Wycofaj moją zgodę"
 
 #: src/ludamus/templates/panel/parts/_event_deletion.html
-#, python-format
-msgid "Delete %(event)s?"
-msgstr "Usunąć %(event)s?"
-
-#: src/ludamus/templates/panel/parts/_event_deletion.html
 msgid "It disappears for everyone at once."
 msgstr "Zniknie od razu dla wszystkich."
 
@@ -12454,6 +12449,11 @@ msgstr[2] ""
 msgstr[3] ""
 "Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
 "się jeszcze %(missing)s menedżerów."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "Delete %(event)s?"
+msgstr "Usunąć %(event)s?"
 
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 #, python-format

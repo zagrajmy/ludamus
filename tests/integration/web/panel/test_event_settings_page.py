@@ -12,7 +12,7 @@ from PIL import Image
 from ludamus.links.db.django.models import Event
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO
-from ludamus.pacts.event_deletion import EventDeletionBallotDTO
+from ludamus.pacts.event_deletion import EventDeletionBallotDTO, EventDeletionStep
 from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import (
@@ -31,10 +31,7 @@ SOLO_MANAGER_BALLOT = EventDeletionBallotDTO(
     manager_count=1,
     approvals_needed=1,
     approvals=[],
-    approvals_missing=1,
-    viewer_is_manager=True,
-    viewer_has_approved=False,
-    viewer_approval_deletes=True,
+    next_step=EventDeletionStep.DELETE,
     missing_after_viewer=0,
 )
 

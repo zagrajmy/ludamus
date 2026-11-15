@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.event_deletion import (
     EventDeletionBallotDTO,
-    EventDeletionOutcome,
     EventDeletionRequestedNotification,
     EventDeletionServiceProtocol,
+    EventDeletionStep,
     NotSphereManagerError,
 )
 from ludamus.specs.event_deletion import approvals_needed
@@ -24,6 +24,20 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 logger = logging.getLogger(__name__)
+
+
+def _next_step(
+    *, is_manager: bool, has_approved: bool, anyone_approved: bool, missing: int
+) -> EventDeletionStep:
+    if not is_manager:
+        return EventDeletionStep.WATCH
+    # Zero missing happens when managers leave after approving: the count is
+    # met, and any manager's approval, even a repeated one, completes it.
+    if missing == 0 or (missing == 1 and not has_approved):
+        return EventDeletionStep.DELETE
+    if has_approved:
+        return EventDeletionStep.WITHDRAW
+    return EventDeletionStep.APPROVE if anyone_approved else EventDeletionStep.REQUEST
 
 
 class EventDeletionService(EventDeletionServiceProtocol):
@@ -47,42 +61,47 @@ class EventDeletionService(EventDeletionServiceProtocol):
     def read_ballot(
         self, *, sphere_id: SphereId, event_id: EventId, viewer_id: UserId
     ) -> EventDeletionBallotDTO:
-        self._repository.read_event(
-            sphere_id=sphere_id, event_id=event_id, for_update=False
-        )
+        self._repository.read_event(sphere_id=sphere_id, event_id=event_id)
         managers = self._repository.manager_ids(sphere_id)
         approvals = self._counted_approvals(event_id=event_id, managers=managers)
         needed = approvals_needed(len(managers))
         missing = max(needed - len(approvals), 0)
-        is_manager = viewer_id in managers
-        has_approved = any(a.user_id == viewer_id for a in approvals)
         return EventDeletionBallotDTO(
             manager_count=len(managers),
             approvals_needed=needed,
             approvals=approvals,
-            approvals_missing=missing,
-            viewer_is_manager=is_manager,
-            viewer_has_approved=has_approved,
-            viewer_approval_deletes=is_manager and not has_approved and missing == 1,
+            next_step=_next_step(
+                is_manager=viewer_id in managers,
+                has_approved=any(a.user_id == viewer_id for a in approvals),
+                anyone_approved=bool(approvals),
+                missing=missing,
+            ),
             missing_after_viewer=max(missing - 1, 0),
         )
 
     def approve(
         self, *, sphere_id: SphereId, event_id: EventId, user_id: UserId
-    ) -> EventDeletionOutcome:
+    ) -> int:
         with self._transaction.atomic():
             # The row lock makes approvals queue up, so two managers approving
             # at once cannot both miss that together they reached the count.
-            event = self._repository.read_event(
-                sphere_id=sphere_id, event_id=event_id, for_update=True
-            )
+            event = self._repository.lock_event(sphere_id=sphere_id, event_id=event_id)
             managers = self._repository.manager_ids(sphere_id)
             if user_id not in managers:
                 raise NotSphereManagerError
             self._repository.add_approval(event_id=event_id, user_id=user_id)
             approvals = self._counted_approvals(event_id=event_id, managers=managers)
             needed = approvals_needed(len(managers))
-            if len(approvals) >= needed:
+            missing = max(needed - len(approvals), 0)
+            logger.info(
+                "Event deletion approved: event=%s sphere=%s user=%s approvals=%d/%d",
+                event_id,
+                sphere_id,
+                user_id,
+                len(approvals),
+                needed,
+            )
+            if missing == 0:
                 self._repository.soft_delete_event(
                     event_id=event_id, at=datetime.now(tz=UTC)
                 )
@@ -92,31 +111,20 @@ class EventDeletionService(EventDeletionServiceProtocol):
                     sphere_id,
                     sorted(a.user_id for a in approvals),
                 )
-                return EventDeletionOutcome.DELETED
-            logger.info(
-                "Event deletion approved: event=%s sphere=%s user=%s approvals=%d/%d",
-                event_id,
-                sphere_id,
-                user_id,
-                len(approvals),
-                needed,
-            )
-            if len(approvals) == 1:
+            elif len(approvals) == 1:
                 self._ask_the_others(
                     event=event,
-                    requester_id=user_id,
+                    requester=approvals[0],
                     managers=managers,
-                    approvals_missing=needed - 1,
+                    approvals_missing=missing,
                 )
-            return EventDeletionOutcome.PENDING
+            return missing
 
     def withdraw(
         self, *, sphere_id: SphereId, event_id: EventId, user_id: UserId
     ) -> None:
         with self._transaction.atomic():
-            self._repository.read_event(
-                sphere_id=sphere_id, event_id=event_id, for_update=True
-            )
+            self._repository.lock_event(sphere_id=sphere_id, event_id=event_id)
             if user_id not in self._repository.manager_ids(sphere_id):
                 raise NotSphereManagerError
             self._repository.remove_approval(event_id=event_id, user_id=user_id)
@@ -140,16 +148,15 @@ class EventDeletionService(EventDeletionServiceProtocol):
         self,
         *,
         event: EventDeletionTargetDTO,
-        requester_id: UserId,
+        requester: EventDeletionApprovalDTO,
         managers: frozenset[UserId],
         approvals_missing: int,
     ) -> None:
-        requester_name = self._repository.user_name(requester_id)
-        for manager_id in sorted(managers - {requester_id}):
+        for manager_id in sorted(managers - {requester.user_id}):
             self._notifier.notify_event_deletion_requested(
                 EventDeletionRequestedNotification(
                     recipient_user_id=manager_id,
-                    requester_name=requester_name,
+                    requester_name=requester.user_name,
                     event_name=event.name,
                     event_slug=event.slug,
                     sphere_domain=event.sphere_domain,

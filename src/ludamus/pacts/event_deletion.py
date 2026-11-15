@@ -14,6 +14,21 @@ class NotSphereManagerError(Exception):
     """Only a sphere manager may approve or withdraw an event's deletion."""
 
 
+class EventDeletionStep(StrEnum):
+    """What the viewer of an event's deletion vote can do next."""
+
+    # Not a sphere manager: they see the count and nothing to press.
+    WATCH = auto()
+    # No one has approved yet: approving asks the other managers.
+    REQUEST = auto()
+    # Others approved, and more are needed after the viewer.
+    APPROVE = auto()
+    # The viewer's approval is the last one missing.
+    DELETE = auto()
+    # The viewer approved and waits for the others.
+    WITHDRAW = auto()
+
+
 class EventDeletionApprovalDTO(BaseModel):
     user_id: int
     user_name: str
@@ -26,18 +41,9 @@ class EventDeletionBallotDTO(BaseModel):
     manager_count: int
     approvals_needed: int
     approvals: list[EventDeletionApprovalDTO]
-    approvals_missing: int
-    viewer_is_manager: bool
-    viewer_has_approved: bool
-    # The viewer's approval is the last one missing: it deletes the event.
-    viewer_approval_deletes: bool
+    next_step: EventDeletionStep
     # How many approvals would still be missing after the viewer's own.
     missing_after_viewer: int
-
-
-class EventDeletionOutcome(StrEnum):
-    DELETED = auto()
-    PENDING = auto()
 
 
 class EventDeletionTargetDTO(BaseModel):
@@ -58,10 +64,16 @@ class EventDeletionRequestedNotification(BaseModel):
 
 class EventDeletionRepositoryProtocol(Protocol):
     @staticmethod
-    def read_event(
-        *, sphere_id: SphereId, event_id: EventId, for_update: bool
-    ) -> EventDeletionTargetDTO:
-        """Read the sphere's live event; `for_update` holds its row until commit.
+    def read_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
+        """Read the sphere's live event.
+
+        Raises:
+            NotFoundError: the sphere has no live event with this id.
+        """
+
+    @staticmethod
+    def lock_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
+        """Read the sphere's live event and hold its row until commit.
 
         Raises:
             NotFoundError: the sphere has no live event with this id.
@@ -69,8 +81,6 @@ class EventDeletionRepositoryProtocol(Protocol):
 
     @staticmethod
     def manager_ids(sphere_id: SphereId) -> frozenset[UserId]: ...
-    @staticmethod
-    def user_name(user_id: UserId) -> str: ...
     @staticmethod
     def list_approvals(event_id: EventId) -> list[EventDeletionApprovalDTO]: ...
     @staticmethod
@@ -98,7 +108,13 @@ class EventDeletionServiceProtocol(Protocol):
     ) -> EventDeletionBallotDTO: ...
     def approve(
         self, *, sphere_id: SphereId, event_id: EventId, user_id: UserId
-    ) -> EventDeletionOutcome: ...
+    ) -> int:
+        """Record the manager's approval; delete the event if it was the last.
+
+        Returns:
+            How many approvals are still missing; 0 means the event is deleted.
+        """
+
     def withdraw(
         self, *, sphere_id: SphereId, event_id: EventId, user_id: UserId
     ) -> None: ...
