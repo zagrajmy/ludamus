@@ -1,0 +1,14 @@
+{% load tessera %}
+{# One choice in the organize dialog. Variables: option_id, href, icon_name, title, description, tone ("primary"|"secondary"). #}
+<a href="{{ href }}"
+   aria-labelledby="{{ option_id }}-title"
+   aria-describedby="{{ option_id }}-description"
+   class="flex flex-col items-start gap-3 rounded-xl border border-border bg-bg-secondary p-5 text-left transition-colors duration-150 hover:border-primary hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+    <span class="inline-flex size-11 items-center justify-center rounded-lg {% if tone == "primary" %}bg-primary-light text-primary{% else %}bg-secondary-light text-secondary{% endif %}">
+        {% icon icon_name class="w-6 h-6" %}
+    </span>
+    <span id="{{ option_id }}-title"
+          class="text-lg font-semibold text-foreground">{{ title }}</span>
+    <span id="{{ option_id }}-description"
+          class="text-sm text-foreground-secondary text-pretty">{{ description }}</span>
+</a>

@@ -3503,6 +3503,7 @@ msgid "This connection request expired. Start again from your client."
 msgstr "To żądanie połączenia wygasło. Zacznij od nowa w swoim kliencie."
 
 #: src/ludamus/gates/web/django/mcp/oauth.py
+#: src/ludamus/templates/components/create_encounter_button.html
 #: src/ludamus/templates/panel/base.html
 msgid "Event"
 msgstr "Wydarzenie"
@@ -7519,6 +7520,43 @@ msgstr ""
 "niczego Cię nie zobowiązuje."
 
 #: src/ludamus/templates/components/create_encounter_button.html
+msgid "Organize"
+msgstr "Zorganizuj"
+
+#: src/ludamus/templates/components/create_encounter_button.html
+msgid "What do you want to organize?"
+msgstr "Co chcesz zorganizować?"
+
+#: src/ludamus/templates/components/create_encounter_button.html
+#: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/notifications/parts/modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Close"
+msgstr "Zamknij"
+
+#: src/ludamus/templates/components/create_encounter_button.html
+msgid ""
+"For a convention or a bigger meetup. Collect program proposals and build a "
+"timetable."
+msgstr ""
+"Na konwent lub większy zlot. Zbierz zgłoszenia do programu i ułóż "
+"harmonogram."
+
+#: src/ludamus/templates/components/create_encounter_button.html
+msgid "Encounter"
+msgstr "Spotkanie"
+
+#: src/ludamus/templates/components/create_encounter_button.html
+msgid ""
+"Just a description, a time and a place. Best for online RPG sessions, game "
+"jams and freeform meetups."
+msgstr ""
+"Wystarczy opis, termin i miejsce. Najlepsze na sesje RPG online, game jamy i "
+"luźne spotkania."
+
+#: src/ludamus/templates/components/create_encounter_button.html
 #: src/ludamus/templates/encounter/create.html
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
@@ -8819,14 +8857,6 @@ msgstr "Wprowadź Inny Kod"
 #: src/ludamus/templates/event/event.html
 msgid "Finish"
 msgstr "Zakończ"
-
-#: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
 
 #: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"

@@ -20,6 +20,7 @@ ENFORCE_HEADER = "Content-Security-Policy"
 EMPTY_FEED = {
     "announcements": [],
     "can_create_encounter": False,
+    "can_organize_event": False,
     "past": [],
     "upcoming": [],
     "view": ANY,

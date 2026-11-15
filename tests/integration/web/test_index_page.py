@@ -14,7 +14,7 @@ from freezegun import freeze_time
 from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.links.db.django.models import Announcement, Track
+from ludamus.links.db.django.models import Announcement, SphereMembership, Track
 from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
@@ -28,7 +28,7 @@ from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,
 )
-from ludamus.pacts.sphere import AnnouncementDTO
+from ludamus.pacts.sphere import AnnouncementDTO, SphereRole
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
@@ -184,6 +184,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -203,6 +204,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -225,6 +227,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -261,6 +264,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -285,6 +289,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [FeedEvent(entry=expected)],
                 "view": ANY,
@@ -307,6 +312,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -329,6 +335,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -351,6 +358,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -379,6 +387,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [
                     _expected_feed_event(soon, cover_index=0),
@@ -412,6 +421,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [
                     _expected_feed_event(recent, cover_index=0),
                     _expected_feed_event(older, cover_index=1),
@@ -463,6 +473,7 @@ class TestEventsPageView:
                 ],
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "view": ANY,
             },
             template_name=["index.html"],
@@ -478,6 +489,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": True,
+                "can_organize_event": True,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -495,12 +507,36 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": True,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
             not_contains='href="/panel/"',
+        )
+
+    def test_comms_member_reads_the_panel_but_cannot_organize_an_event(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        SphereMembership.objects.create(
+            sphere=non_root_sphere, user=active_user, role=SphereRole.COMMS
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "can_create_encounter": True,
+                "can_organize_event": False,
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
         )
 
     def test_published_announcement_shown(self, client, non_root_sphere):
@@ -516,6 +552,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [AnnouncementDTO.model_validate(announcement)],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -537,6 +574,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -556,6 +594,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -574,6 +613,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -598,6 +638,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -618,6 +659,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": True,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -639,6 +681,7 @@ class TestEventsPageView:
             context_data={
                 "announcements": [],
                 "can_create_encounter": True,
+                "can_organize_event": True,
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -647,10 +690,13 @@ class TestEventsPageView:
         )
 
 
-def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
+def _feed_context(
+    *, upcoming=(), past=(), can_create_encounter=False, can_organize_event=False
+):
     return {
         "announcements": [],
         "can_create_encounter": can_create_encounter,
+        "can_organize_event": can_organize_event,
         "past": list(past),
         "upcoming": list(upcoming),
         "view": ANY,
@@ -720,6 +766,7 @@ class TestEventsPageFeed:
             context_data={
                 "announcements": [],
                 "can_create_encounter": False,
+                "can_organize_event": False,
                 "past": [],
                 "upcoming": [
                     _expected_feed_encounter(encounter, organizer_name="Pub Organizer"),

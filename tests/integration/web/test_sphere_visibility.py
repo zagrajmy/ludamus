@@ -10,10 +10,11 @@ from tests.integration.utils import assert_response, assert_response_404
 URL = reverse("web:index")
 
 
-def _empty_feed(*, can_create_encounter=False):
+def _empty_feed(*, can_create_encounter=False, can_organize_event=False):
     return {
         "announcements": [],
         "can_create_encounter": can_create_encounter,
+        "can_organize_event": can_organize_event,
         "past": [],
         "upcoming": [],
         "view": ANY,
@@ -50,7 +51,9 @@ class TestPrivateSphere:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_empty_feed(can_create_encounter=True),
+            context_data=_empty_feed(
+                can_create_encounter=True, can_organize_event=True
+            ),
             template_name=["index.html"],
         )
 

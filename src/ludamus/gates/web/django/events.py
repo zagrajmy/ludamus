@@ -12,9 +12,10 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
-from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.event.event_presentation import EventInfo, split_events
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
+from ludamus.pacts.sphere import Capability
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -90,5 +91,8 @@ class EventsPageView(TemplateView):
             and self.request.services.encounters.can_create(
                 sphere_id=sphere_id, user_id=user_id
             )
+        )
+        context["can_organize_event"] = panel_access(self.request).allows(
+            Capability.PANEL_WRITE
         )
         return context

@@ -1,5 +1,37 @@
 {% load i18n %}
 {% load tessera %}
-{% translate "Create Encounter" as create_encounter_label %}
-{% url 'web:notice-board:create' as create_encounter_url %}
-{% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
+{% comment %}
+    A member can make only an encounter, so the button goes straight to its
+    form. Someone who manages the sphere can also organize an event, so the
+    button opens a dialog that asks which one. Reads 'can_organize_event'.
+{% endcomment %}
+{% if can_organize_event %}
+    {% translate "Organize" as organize_label %}
+    {% tessera_button organize_label href="?organize=1" icon="plus" aria_controls="organize-modal" aria_haspopup="dialog" %}
+    <dialog id="organize-modal"
+            class="modal w-[calc(100%-2rem)] max-w-2xl p-0"
+            aria-labelledby="organize-modal-title">
+        <div class="flex items-center justify-between gap-3 px-6 pt-5">
+            <h3 id="organize-modal-title"
+                class="text-lg font-semibold text-foreground">{% translate "What do you want to organize?" %}</h3>
+            <button type="button" class="icon-btn" data-modal-close="organize-modal">
+                <span class="sr-only">{% translate "Close" %}</span>
+                {% icon "x-mark" class="w-5 h-5" %}
+            </button>
+        </div>
+        <div class="grid gap-3 px-6 pt-4 pb-6 sm:grid-cols-2">
+            {% url 'panel:event-create' as event_create_url %}
+            {% translate "Event" as event_title %}
+            {% translate "For a convention or a bigger meetup. Collect program proposals and build a timetable." as event_description %}
+            {% include "components/organize_option.html" with option_id="organize-event" href=event_create_url icon_name="calendar-days" title=event_title description=event_description tone="primary" %}
+            {% url 'web:notice-board:create' as encounter_create_url %}
+            {% translate "Encounter" as encounter_title %}
+            {% translate "Just a description, a time and a place. Best for online RPG sessions, game jams and freeform meetups." as encounter_description %}
+            {% include "components/organize_option.html" with option_id="organize-encounter" href=encounter_create_url icon_name="user-group" title=encounter_title description=encounter_description tone="secondary" %}
+        </div>
+    </dialog>
+{% else %}
+    {% translate "Create Encounter" as create_encounter_label %}
+    {% url 'web:notice-board:create' as create_encounter_url %}
+    {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
+{% endif %}
