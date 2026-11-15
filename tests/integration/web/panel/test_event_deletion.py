@@ -215,6 +215,20 @@ class TestWithdrawDeletion:
 
 @pytest.mark.django_db
 class TestDeletedEvent:
+    def test_its_public_page_is_unavailable(self, client, event):
+        Event.objects.filter(pk=event.pk).update(deleted_at=timezone.now())
+
+        response = client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:index"),
+            messages=[(messages.INFO, "That event isn't available.")],
+        )
+
     def test_staff_restore_it_with_the_sessions_it_hid(self, client, event, sphere):
         deleted_earlier = SessionFactory(event=event, category=None)
         Session.objects.filter(pk=deleted_earlier.pk).update(

@@ -58,7 +58,11 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await deleteDialog.getByRole("button", { name: "Delete event" }).click();
 
   await bert.waitForURL((url) => !url.pathname.includes("council-retreat"));
-  const gone = await bert.request.get(`${COUNCIL}/event/council-retreat/`);
-  expect(gone.status()).toBe(404);
+  // Like any event a visitor may not see, it sends them back to the start.
+  const gone = await bert.request.get(`${COUNCIL}/event/council-retreat/`, {
+    maxRedirects: 0,
+  });
+  expect(gone.status()).toBe(302);
+  expect(gone.headers()["location"]).toBe("/");
   await bert.context().close();
 });
