@@ -10,12 +10,14 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
+from django.utils.translation import pgettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
-from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
+from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
+from ludamus.gates.web.django.settings_forms import EventSettingsForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
@@ -60,11 +62,15 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
+        "require_session_space": _choice_to_override(
+            cd.get("require_session_space") or ""
+        ),
         "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
         "use_session_cover_placeholders": bool(
             cd.get("use_session_cover_placeholders")
         ),
         "use_participants_label": bool(cd.get("use_participants_label")),
+        "parley_enabled": _choice_to_override(cd.get("parley_enabled") or ""),
     }
     if (cover := resolve_uploaded_file_field(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
@@ -82,6 +88,19 @@ def _stored_images(event: EventDTO) -> dict[str, StoredFile | None]:
     }
 
 
+def _follow_sphere_choices(
+    form: EventSettingsForm, name: str, *, inherited: str, on: str, off: str
+) -> None:
+    # Null follows the sphere, which the first choice says the value of.
+    field = form.fields[name]
+    if isinstance(field, forms.ChoiceField):
+        field.choices = [
+            ("", _("Use sphere default (currently: {})").format(inherited)),
+            ("true", on),
+            ("false", off),
+        ]
+
+
 class EventSettingsPageView(EventPanelMixin, View):
     """Event settings page view."""
 
@@ -91,16 +110,35 @@ class EventSettingsPageView(EventPanelMixin, View):
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )
-        resolved = (
-            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        _follow_sphere_choices(
+            form,
+            "allow_facilitator_session_edit",
+            inherited=(
+                _("allowed")
+                if sphere.allow_facilitator_session_edit
+                else _("disallowed")
+            ),
+            on=_("Allow"),
+            off=_("Disallow"),
         )
-        edit_field = form.fields["allow_facilitator_session_edit"]
-        if isinstance(edit_field, forms.ChoiceField):
-            edit_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(resolved)),
-                ("true", _("Allow")),
-                ("false", _("Disallow")),
-            ]
+        _follow_sphere_choices(
+            form,
+            "parley_enabled",
+            inherited=(
+                pgettext("event chat", "on")
+                if sphere.parley_events_enabled
+                else pgettext("event chat", "off")
+            ),
+            on=pgettext("event chat", "On"),
+            off=pgettext("event chat", "Off"),
+        )
+        _follow_sphere_choices(
+            form,
+            "require_session_space",
+            inherited=_("required") if sphere.require_session_space else _("optional"),
+            on=_("Required"),
+            off=_("Optional"),
+        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context = self.panel_context()
@@ -125,11 +163,17 @@ class EventSettingsPageView(EventPanelMixin, View):
                 ),
                 "visibility": self.current_event.visibility.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "require_session_space": _override_to_choice(
+                    value=self.current_event.require_session_space
+                ),
                 "auto_confirm_sessions": self.current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
                     self.current_event.use_session_cover_placeholders
                 ),
                 "use_participants_label": self.current_event.use_participants_label,
+                "parley_enabled": _override_to_choice(
+                    value=self.current_event.parley_enabled
+                ),
             }
         )
         self._apply_facilitator_choices(form)

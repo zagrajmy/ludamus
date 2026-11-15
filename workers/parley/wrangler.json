@@ -15,6 +15,14 @@
         "class_name": "ParleySessionAgent"
       },
       {
+        "name": "ParleyEventAgent",
+        "class_name": "ParleyEventAgent"
+      },
+      {
+        "name": "ParleyOrganizersAgent",
+        "class_name": "ParleyOrganizersAgent"
+      },
+      {
         "name": "ParleyConversationAgent",
         "class_name": "ParleyConversationAgent"
       },
@@ -30,6 +38,14 @@
       "storage": "sqlite"
     },
     "ParleySessionAgent": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "ParleyEventAgent": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "ParleyOrganizersAgent": {
       "type": "durable-object",
       "storage": "sqlite"
     },

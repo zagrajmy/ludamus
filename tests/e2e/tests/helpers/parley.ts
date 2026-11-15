@@ -7,7 +7,7 @@ export type Conversation = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "party";
   members: Person[];
   name: string;
   state: "active" | "request";
@@ -15,9 +15,11 @@ export type Conversation = {
 };
 
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
-// sphere 1 with its common room and one read-only programme point.
+// sphere 1 with its event's chat and one read-only programme point.
 export const bootstrap = {
+  ageGate: null as "unconfirmed" | "under_16" | null,
   agentHost: "localhost:8787",
+  ageUrl: "/crowd/profile/privacy/",
   blocked: [] as Person[],
   canMessage: false,
   capabilityToken: "mock-token",
@@ -25,11 +27,19 @@ export const bootstrap = {
     accept: "Accept",
     addPeople: "Add people",
     addReaction: "Add a reaction",
+    allChats: "All chats",
     backLabel: "Back to conversations",
     backToConversation: "Back to the conversation",
     backToNewMessage: "Back to new message",
     block: "Block",
     blockConfirm: "Block %(name)s? Neither of you will be able to write to the other.",
+    confirmAge: "Confirm your age",
+    messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
+    messagingUnder16: "Direct messages open once you turn 16.",
+    onThisPage: "On this page",
+    organizersRoom: "Organizers",
+    partyHint: "Everyone in your party is here. To leave this chat, leave the party.",
+    partyRoom: "Party",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",
     blockedMessage: "A message from someone you blocked.",
@@ -52,8 +62,10 @@ export const bootstrap = {
     emptyDirect: "Say hello. Until they accept, they will see only your first message.",
     emptyGroup: "A brand new group. Say hello to everyone.",
     emptyReadOnly: "Nobody has written here yet.",
+    emptyEvent: "Quiet in here. Say hello before someone starts a rules debate.",
+    emptyOrganizers: "Just the organizers in here. Plan away, nobody else can read it.",
+    emptyParty: "Your party's own chat. Say hello to everyone.",
     emptySession: "You found the table first. Leave a note for the others.",
-    emptySphere: "Quiet in here. Say hello before someone starts a rules debate.",
     errorArchived: "This conversation is archived.",
     errorForbidden: "You do not have permission to do that.",
     errorInvalid: "That message could not be sent.",
@@ -66,6 +78,7 @@ export const bootstrap = {
     errorReactionRateLimited: "Too many reactions. Wait a moment and try again.",
     errorTooMany: "A group can have up to 50 people.",
     errorUnknown: "Something went wrong. Try again.",
+    eventRoom: "Event chat",
     groupName: "Name (optional)",
     groupNeedsPeople: "Add at least one person.",
     groupPeople: "People in the group",
@@ -83,6 +96,8 @@ export const bootstrap = {
     membersLabel: "People",
     membersMany: "%(count)s members",
     membersOne: "%(count)s member",
+    mentionedYou: "Mentioned you",
+    mentionPeople: "People in this conversation",
     messageActions: "Message actions",
     messageLabel: "Message",
     messageListLabel: "Messages",
@@ -127,7 +142,9 @@ export const bootstrap = {
     removeLabel: "Remove",
     removeMember: "Remove %(name)s from the group",
     removeSelected: "Remove %(name)s",
-    reported: "Message reported.",
+    reportConfirm:
+      "Report this message to Zagrajmy staff? You confirm you are reporting it in good faith and that the report is accurate.",
+    reported: "Message reported. Zagrajmy staff will write to you.",
     reportMessage: "Report message",
     requestFrom: "Wants to message you",
     requestQuestion: "%(name)s wants to message you.",
@@ -145,7 +162,6 @@ export const bootstrap = {
     sending: "Sending…",
     sendLabel: "Send message",
     sessionRoom: "Programme point",
-    sphereRoom: "Common room",
     title: "Chat",
     typingMany: "Several people are typing…",
     typingOne: "%(name)s is typing…",
@@ -165,23 +181,30 @@ export const bootstrap = {
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
   rooms: [
-    { canModerate: true, canWrite: true, id: "sphere:1", kind: "sphere", title: "Zagrajmy" },
+    {
+      canModerate: true,
+      canWrite: true,
+      id: "event:1:5",
+      kind: "event",
+      sphere: 1,
+      title: "Zagrajmy",
+    },
     {
       canModerate: true,
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      sphere: 1,
       title: "Mothership",
     },
   ],
-  sphere: { id: "1", name: "Zagrajmy" },
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },
 };
 
 export type Bootstrap = typeof bootstrap;
 type Room = Bootstrap["rooms"][number];
 
-export const sphereRoom: Room = bootstrap.rooms[0];
+export const eventRoom: Room = bootstrap.rooms[0];
 export const sessionRoom: Room = bootstrap.rooms[1];
 
 // A pass the client can read its expiry from; the signature is never checked
@@ -230,6 +253,7 @@ export type Reply =
   | "reject"
   | "silent";
 type Handler = (input: Record<string, unknown>, url: string) => Reply;
+type Activity = { at: number; mentionedBy: string[]; unread: boolean };
 
 // Stands in for the chat Worker's Durable Object sockets. Every call
 // succeeds unless a handler says otherwise: getActivity returns the given
@@ -240,12 +264,9 @@ export class FakeWorker {
   readonly sockets: WebSocketRoute[] = [];
   private readonly handlers = new Map<string, Handler>();
 
-  constructor(private readonly activity: Record<string, { at: number; unread: boolean }> = {}) {}
+  constructor(private readonly activity: Record<string, Activity> = {}) {}
 
-  static async install(
-    page: Page,
-    activity: Record<string, { at: number; unread: boolean }> = {},
-  ): Promise<FakeWorker> {
+  static async install(page: Page, activity: Record<string, Activity> = {}): Promise<FakeWorker> {
     const worker = new FakeWorker(activity);
     await page.routeWebSocket(/^wss?:\/\/[^/]+\/agents\//u, (socket) => worker.accept(socket));
     return worker;
@@ -323,6 +344,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions?: string[];
   nonce: string;
   reactions?: Record<string, string[]>;
   reactors?: Record<string, string>;

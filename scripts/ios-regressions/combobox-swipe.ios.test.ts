@@ -121,7 +121,14 @@ type ListState = {
 };
 
 const listFrom = (snapshot: CaptureSnapshotResult, names: ReadonlySet<string>): ListState => {
-  const options = optionNodes(snapshot.nodes, names);
+  // The session cards behind the sheet carry the same host names; a row a
+  // finger can reach is on screen, and the cards it could be mistaken for
+  // sit below it until the list's own rows are in the tree.
+  const screen = viewportOf(snapshot);
+  const options = optionNodes(
+    snapshot.nodes.filter((node) => inset(node, screen)),
+    names,
+  );
   const rows = placed(options);
   const box = listBox(snapshot.nodes, rows);
   return {

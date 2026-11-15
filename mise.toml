@@ -451,6 +451,10 @@ run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
 description = "Unit-test the pure iOS regression helpers (no simulator)"
 run = "bun test scripts/ios-regressions/helpers.spec.ts"
 
+[tasks."test:staging-script"]
+description = "Unit-test the staging deploy resolver that the GitHub workflows load"
+run = "node --test scripts/github-staging.test.mts"
+
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"
 run = "aube exec -C src/ludamus/client fallow"

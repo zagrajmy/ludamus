@@ -288,7 +288,7 @@ test("A request waits on top until it is accepted, declined or blocked", async (
     worker.on("getActivity", (_input, url) => ({
       ok: true,
       value: /parley-inbox-agent/u.test(url)
-        ? { "conversation:12": { at: Date.now(), unread: true } }
+        ? { "conversation:12": { at: Date.now(), mentionedBy: [], unread: true } }
         : {},
     })),
   );
@@ -414,7 +414,7 @@ test("News from a conversation the list never had brings it in; one that shuts t
     .toBe(true);
   worker.push(
     "room.activity",
-    { at: Date.now(), latestMessageId: 1, roomId: surprise.id },
+    { at: Date.now(), latestMessageId: 1, mentionedBy: [], roomId: surprise.id },
     /parley-inbox-agent/u,
   );
   await expect(roomButton(panel, "Surprise party")).toBeVisible();
@@ -441,6 +441,11 @@ test("News from a conversation the list never had brings it in; one that shuts t
   await panel.getByRole("button", { name: copy.backLabel }).click();
   await roomButton(panel, "Surprise party").click();
   await expect(panel.getByRole("heading", { name: "Surprise party" })).toBeVisible();
+  await expect
+    .poll(() =>
+      worker.sockets.some((socket) => /parley-conversation-agent\/30\b/u.test(socket.url())),
+    )
+    .toBe(true);
   gone.add(surprise.id);
   delayMs = 1000;
   const asked = calls.length;

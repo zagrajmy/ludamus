@@ -2,7 +2,6 @@ import { MessageScroller, useMessageScrollerVisibility } from "@shadcn/react/mes
 import {
   type FormEvent,
   Fragment,
-  type KeyboardEvent,
   lazy,
   type Ref,
   Suspense,
@@ -19,8 +18,9 @@ import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
 import { counterpart, roomKind } from "./conversations";
 import { counted, moment, number, when } from "./format";
-import { ICON_BUTTON } from "./header";
+import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
+import { useMentionPicker } from "./mentions";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
 import { type Muted, useRoom, withReactions } from "./use-room";
 
@@ -62,7 +62,7 @@ function TypingDots() {
 function MutedNotice({ copy, muted }: { copy: Bootstrap["copy"]; muted: NonNullable<Muted> }) {
   return (
     <p
-      className="mx-3 mt-2 mb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2.5 rounded-[1.25rem] bg-bg-tertiary px-4 py-2.5 text-sm text-foreground-secondary"
+      className="m-[7px] mb-[max(7px,env(safe-area-inset-bottom))] flex items-center gap-2.5 rounded-xl bg-bg-tertiary px-4 py-2.5 text-sm text-foreground-secondary"
       role="status"
     >
       <Icon className="size-4 shrink-0 text-foreground-muted" name="Mute" />
@@ -147,13 +147,6 @@ function RequestSheet({
   );
 }
 
-function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): void {
-  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
-  }
-}
-
 // A socket that never answers would otherwise leave the composer saying
 // "Sending…" for good.
 function withTimeout<T>(call: Promise<Result<T>>): Promise<Result<T>> {
@@ -206,6 +199,7 @@ export function Conversation({
   onPassClosed,
   onRead,
   onRefused,
+  onStranger,
   room,
 }: {
   answers: RequestAnswers;
@@ -221,6 +215,8 @@ export function Conversation({
   onPassClosed: () => void;
   onRead: (id: number) => void;
   onRefused: () => Promise<boolean>;
+  // Someone wrote here whom the member list does not know yet.
+  onStranger: () => void;
   room: Room;
 }) {
   const { copy } = bootstrap;
@@ -257,8 +253,6 @@ export function Conversation({
   const closeButton = useRef<HTMLButtonElement>(null);
   const typingSince = useRef(0);
   const wasMuted = useRef(false);
-  const { length } = [...body.trim()];
-  const tooLong = length > LIMIT;
 
   useEffect(() => {
     if (wasMuted.current && muted === null) setNotice(copy.writingRestored);
@@ -282,6 +276,23 @@ export function Conversation({
       if (!result.ok && result.code === "muted") setMuted((current) => current ?? { until: null });
     }, lostPing);
   };
+  const picker = useMentionPicker({
+    authors: messages.map(({ authorId }) => authorId),
+    body,
+    field: composer,
+    label: copy.mentionPeople,
+    limit: LIMIT,
+    members: room.conversation?.members,
+    onNewcomer: onStranger,
+    setBody: (draft) => {
+      setBody(draft);
+      // A refused send speaks of the draft it was; editing makes it stale.
+      setError(null);
+      announceTyping(draft);
+    },
+    userId: bootstrap.user.id,
+  });
+  const { length, tooLong } = picker;
   useEffect(() => {
     leave.current = () => {
       if (typingSince.current !== 0) void agent.call("stopTyping").catch(lostPing);
@@ -333,8 +344,9 @@ export function Conversation({
     if (tooLong || body.trim() === "" || sending) return;
     setSending(true);
     setNotice(null);
+    const { draft, picks } = picker;
     const result = await withTimeout(
-      agent.call<Result<Message>>("sendMessage", [{ body, nonce: crypto.randomUUID() }]),
+      agent.call<Result<Message>>("sendMessage", [{ ...draft, nonce: crypto.randomUUID() }]),
     );
     setSending(false);
     if (result.ok) {
@@ -342,6 +354,7 @@ export function Conversation({
         current.some(({ id }) => id === result.value.id) ? current : [...current, result.value],
       );
       setBody("");
+      picker.sent(picks);
       setError(null);
       typingSince.current = 0;
     } else if (result.code === "muted") setMuted((current) => current ?? { until: null });
@@ -438,17 +451,24 @@ export function Conversation({
         }),
     });
   };
+  // The reporter vouches for the report before it goes (DSA Art. 16(2)(d)).
   const report = (messageId: number) =>
-    act(async () => {
-      const form = new FormData();
-      form.set("message_id", String(messageId));
-      form.set("room_id", room.id);
-      const response = await fetch("/parley/reports/", {
-        body: form,
-        headers: { "X-CSRFToken": bootstrap.csrfToken },
-        method: "POST",
-      });
-      return response.ok ? { notice: copy.reported } : { error: copy.errorUnknown };
+    confirm({
+      accept: copy.reportMessage,
+      question: copy.reportConfirm,
+      run: () =>
+        void act(async () => {
+          const form = new FormData();
+          form.set("message_id", String(messageId));
+          form.set("room_id", room.id);
+          form.set("good_faith", "1");
+          const response = await fetch("/parley/reports/", {
+            body: form,
+            headers: { "X-CSRFToken": bootstrap.csrfToken },
+            method: "POST",
+          });
+          return response.ok ? { notice: copy.reported } : { error: copy.errorUnknown };
+        }),
     });
 
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
@@ -480,7 +500,7 @@ export function Conversation({
     if (muted !== null) return <MutedNotice copy={copy} muted={muted} />;
     return (
       <form
-        className="px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="p-[7px] pb-[max(7px,env(safe-area-inset-bottom))]"
         onSubmit={(event) => void submit(event)}
       >
         <label className="sr-only" htmlFor="parley-message">
@@ -488,18 +508,13 @@ export function Conversation({
         </label>
         {/* The send button sits inside the field's border; pe-12 keeps text clear of it. */}
         <div className="relative">
+          {picker.list}
           <textarea
+            {...picker.textareaProps}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
-            className={`parley-composer block min-h-10 w-full resize-none rounded-[1.25rem] bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
+            className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            onChange={(event) => {
-              setBody(event.target.value);
-              // A refused send speaks of the draft it was; editing makes it stale.
-              setError(null);
-              announceTyping(event.target.value);
-            }}
-            onKeyDown={submitOnEnter}
             placeholder={copy.writePlaceholder}
             ref={composer}
             rows={1}
@@ -508,7 +523,7 @@ export function Conversation({
           <button
             aria-busy={sending}
             aria-label={sending ? copy.sending : copy.sendLabel}
-            className="absolute end-1 bottom-1 grid size-8 place-items-center rounded-full text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus disabled:text-foreground-muted disabled:hover:bg-transparent"
+            className="absolute end-1 bottom-1 grid size-8 place-items-center rounded-lg text-primary transition-colors hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus disabled:text-foreground-muted disabled:hover:bg-transparent"
             disabled={sending || body.trim() === "" || tooLong}
             type="submit"
           >
@@ -520,9 +535,15 @@ export function Conversation({
   };
   const { conversation } = room;
   const writableEmpty = {
-    conversation: conversation?.kind === "group" ? copy.emptyGroup : copy.emptyDirect,
+    conversation: {
+      direct: copy.emptyDirect,
+      group: copy.emptyGroup,
+      party: copy.emptyParty,
+      staff: copy.emptyReadOnly,
+    }[conversation?.kind ?? "direct"],
+    event: copy.emptyEvent,
+    organizers: copy.emptyOrganizers,
     session: copy.emptySession,
-    sphere: copy.emptySphere,
   }[room.kind];
   const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
   const kind = roomKind(copy, room);
@@ -531,27 +552,36 @@ export function Conversation({
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-1 border-b border-border p-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-2">
+      <TitleBar>
         {back !== null && (
-          <button
-            aria-label={copy.backLabel}
-            className="grid size-10 shrink-0 place-items-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-border-focus"
-            onClick={back}
-            type="button"
-          >
+          <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
           </button>
         )}
-        <div className={`flex min-w-0 flex-1 items-center gap-2.5 ${back === null ? "pl-2" : ""}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="relative shrink-0">
-            <Avatar className="size-9 text-xs" name={room.title} src={face} />
+            {/* In the window's corner the avatar shares its curve; beside the
+                back button it matches the two lines of text instead. */}
+            <Avatar
+              className={
+                back === null ? "size-10 rounded-xl text-xs" : "size-[34px] rounded-[10px] text-xs"
+              }
+              name={room.title}
+              square
+              src={face}
+            />
             {presence > 1 && !offline && (
-              <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-bg-secondary" />
+              <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-(--parley-surface)" />
             )}
           </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-[0.9375rem] leading-tight font-semibold">{room.title}</h2>
-            <p aria-live="polite" className="truncate text-xs text-foreground-muted">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h2 className="overflow-x-clip text-[0.9375rem] font-semibold text-ellipsis whitespace-nowrap text-box-trim-both">
+              {room.title}
+            </h2>
+            <p
+              aria-live="polite"
+              className="overflow-x-clip text-xs text-ellipsis whitespace-nowrap text-foreground-muted text-box-trim-both"
+            >
               {kind}
               {presence > 0 && !offline && ` · ${counted(copy, "presence", presence)}`}
             </p>
@@ -577,7 +607,7 @@ export function Conversation({
         >
           <Icon className="size-5" name="Close" />
         </button>
-      </header>
+      </TitleBar>
       {offline && (
         <p
           className="flex items-center gap-2 bg-warning-bg px-4 py-2 text-xs font-medium text-warning-text"
@@ -647,6 +677,7 @@ export function Conversation({
                       message={message}
                       moderate={(id) => void moderate(id)}
                       mute={(id, action) => void mute(id, action)}
+                      nameOf={(id) => picker.nameOf(id) ?? copy.typingSomeone}
                       pick={(messageId, anchor) => setPicking({ anchor, messageId })}
                       react={
                         room.canWrite && muted === null
@@ -654,7 +685,7 @@ export function Conversation({
                           : null
                       }
                       remove={(id) => void remove(id)}
-                      report={(id) => void report(id)}
+                      report={report}
                       room={room}
                     />
                   </Fragment>

@@ -122,7 +122,8 @@ class TestSphereSettingsPageView:
         sphere.managers.add(active_user)
 
         response = authenticated_client.post(
-            self.url, data=PAGE_DATA | {"parley_enabled": "on"}
+            self.url,
+            data=PAGE_DATA | {"parley_enabled": "on", "parley_events_enabled": "on"},
         )
 
         assert_response(
@@ -132,7 +133,11 @@ class TestSphereSettingsPageView:
             url=self.url,
         )
         sphere.refresh_from_db()
-        assert sphere.parley_enabled is True
+        assert (
+            sphere.parley_enabled,
+            sphere.parley_events_enabled,
+            sphere.parley_organizers_enabled,
+        ) == (True, True, False)
 
     def test_post_places_event_cover_buttons_at_bottom(
         self, authenticated_client, active_user, sphere

@@ -8,7 +8,7 @@ import ludamus.pacts.listing
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0192_remove_encounterrsvp_ip_address")]
+    dependencies = [("db_main", "0197_require_session_space")]
 
     operations = [
         migrations.AddField(
