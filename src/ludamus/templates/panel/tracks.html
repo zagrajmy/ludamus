@@ -24,25 +24,30 @@
     {% if tracks %}
         {# On a phone a row stacks: name beside its visibility, then its spaces and organizers, whose pills carry their own icons, then the actions. #}
         {% tessera_table flush=True class="max-sm:block" role="table" %}
-            <thead class="bg-bg-tertiary max-sm:hidden">
-                <tr>
+            <thead class="bg-bg-tertiary max-sm:sr-only" role="rowgroup">
+                <tr role="row">
                     <th scope="col"
+                        role="columnheader"
                         class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Name" context "place" %}
                     </th>
                     <th scope="col"
+                        role="columnheader"
                         class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Visibility" %}
                     </th>
                     <th scope="col"
+                        role="columnheader"
                         class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Spaces" %}
                     </th>
                     <th scope="col"
+                        role="columnheader"
                         class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Organizers" %}
                     </th>
                     <th scope="col"
+                        role="columnheader"
                         class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
                         {% translate "Actions" %}
                     </th>

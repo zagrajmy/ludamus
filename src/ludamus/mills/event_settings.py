@@ -77,7 +77,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
         if publication is not None:
             visibility, publication_time = resolve_publication(
                 intent=publication,
-                stored=current_event.publication_time,
+                event=current_event,
                 start_time=data.get("start_time", current_event.start_time),
                 now=datetime.now(tz=UTC),
             )

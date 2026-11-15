@@ -8,7 +8,7 @@ from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.timezone import localtime, now
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.utils.translation import pgettext
 from django.views.generic.base import View
@@ -24,7 +24,6 @@ from ludamus.pacts.event import (
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
-    EventVisibility,
     PublicationChoice,
     PublicationIntent,
 )
@@ -49,15 +48,6 @@ def _choice_to_override(value: str) -> bool | None:
     if value == "false":
         return False
     return None
-
-
-def _publication_choice(event: EventDTO) -> PublicationChoice:
-    if event.visibility == EventVisibility.UNLISTED:
-        return PublicationChoice.LINK_ONLY
-    published = event.publication_time
-    if published is not None and published <= now():
-        return PublicationChoice.PUBLIC_NOW
-    return PublicationChoice.SCHEDULED
 
 
 def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
@@ -170,7 +160,7 @@ class EventSettingsPageView(EventPanelMixin, View):
                     if self.current_event.publication_time
                     else None
                 ),
-                "publication": _publication_choice(self.current_event).value,
+                "publication": self.current_event.publication_choice.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
                 "require_session_space": _override_to_choice(
                     value=self.current_event.require_session_space

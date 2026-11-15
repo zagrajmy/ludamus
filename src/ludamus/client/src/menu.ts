@@ -7,6 +7,16 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
 const wired = new WeakSet<HTMLElement>();
 
+// NOTE: a pinned panel no longer follows the page, so any scroll or resize closes
+// it. One pair of listeners serves every menu and holds only the open pinned
+// ones, so a menu that htmx swaps out leaves nothing behind.
+const openPinned = new Set<() => void>();
+const closePinned = (): void => {
+  for (const closeMenu of openPinned) closeMenu();
+};
+document.addEventListener("scroll", closePinned, { capture: true, passive: true });
+window.addEventListener("resize", closePinned, { passive: true });
+
 // NOTE: a panel sits `absolute` under its trigger, so a rounded card that hides
 // its overflow cuts off whatever reaches past its edge: on a phone, a list's
 // last "⋯" menu loses its bottom items. Such a panel moves to the top layer as a
@@ -81,12 +91,28 @@ const init = (root: HTMLElement): void => {
   if (!button || !panel || !surface) return;
   const isOpen = (): boolean => button.getAttribute("aria-expanded") === "true";
 
+  const closeIfPinned = (): void => {
+    if (!isOpen() || !isPinned(panel)) return;
+    // NOTE: a manual popover hands focus back to nobody when it hides, so an
+    // item that had it would leave keyboard users at the top of the page.
+    if (panel.contains(document.activeElement)) button.focus({ preventScroll: true });
+    close();
+  };
+
+  const release = (): void => {
+    unpin(panel);
+    openPinned.delete(closeIfPinned);
+  };
+
   const setOpen = (open: boolean, animate = false): void => {
     button.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) {
       panel.hidden = false;
-      unpin(panel);
-      if (clippedBy(panel)) pin(panel, button);
+      release();
+      if (clippedBy(panel)) {
+        pin(panel, button);
+        openPinned.add(closeIfPinned);
+      }
     }
 
     if (animate) {
@@ -100,7 +126,7 @@ const init = (root: HTMLElement): void => {
 
     if (!animate) {
       panel.hidden = !open;
-      if (!open) unpin(panel);
+      if (!open) release();
       requestAnimationFrame(() => surface.style.removeProperty("transition-duration"));
     } else if (!open) {
       surface.addEventListener(
@@ -108,7 +134,7 @@ const init = (root: HTMLElement): void => {
         () => {
           if (!isOpen()) {
             panel.hidden = true;
-            unpin(panel);
+            release();
             if (panel.contains(document.activeElement)) button.focus();
           }
         },
@@ -130,12 +156,6 @@ const init = (root: HTMLElement): void => {
       panel.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: isPinned(panel) });
     }
   });
-
-  const closeIfPinned = (): void => {
-    if (isOpen() && isPinned(panel)) close();
-  };
-  document.addEventListener("scroll", closeIfPinned, { capture: true, passive: true });
-  window.addEventListener("resize", closeIfPinned, { passive: true });
 
   if (Object.hasOwn(root.dataset, "menuHover")) {
     button.addEventListener("pointerenter", () => {

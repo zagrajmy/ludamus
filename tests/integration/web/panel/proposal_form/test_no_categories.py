@@ -8,7 +8,10 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import assert_proposal_not_found
+from tests.integration.web.panel.helpers import (
+    assert_proposal_not_found,
+    facilitator_list_item_dto,
+)
 from tests.integration.web.panel.proposal_form.helpers import (
     SAVED_TITLE,
     form_page,
@@ -88,10 +91,15 @@ class TestWithCategories:
     def test_create_still_asks_for_a_category(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = panel_client.post(
-            form_url(event),
-            data={"title": SAVED_TITLE, "facilitator_name": "Test Host"},
-        )
+        data = _create_data(event)
+        facilitator = Facilitator.objects.get(event=event, slug="alice")
 
-        assert_response(response, HTTPStatus.OK, **form_page(event))
+        response = panel_client.post(form_url(event), data=data)
+
+        page = form_page(event)
+        page["context_data"] |= {
+            "all_facilitators": [facilitator_list_item_dto(facilitator)],
+            "assigned_facilitator_pks": {facilitator.pk},
+        }
+        assert_response(response, HTTPStatus.OK, **page)
         assert not Session.objects.filter(title=SAVED_TITLE).exists()

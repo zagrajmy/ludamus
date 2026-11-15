@@ -118,6 +118,15 @@ class EventDTO(BaseModel):
         )
 
     @property
+    def publication_choice(self) -> PublicationChoice:
+        """The visibility choice that describes the event as it stands."""
+        if self.visibility is EventVisibility.UNLISTED:
+            return PublicationChoice.LINK_ONLY
+        if self.is_published:
+            return PublicationChoice.PUBLIC_NOW
+        return PublicationChoice.SCHEDULED
+
+    @property
     def is_open(self) -> bool:
         """Whether anyone with the link may open the event's pages."""
         return self.is_published or self.visibility is EventVisibility.UNLISTED

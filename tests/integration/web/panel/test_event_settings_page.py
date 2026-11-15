@@ -371,8 +371,6 @@ class TestEventSettingsPageViewPost:
     def test_moving_the_start_before_a_kept_publication_time_still_saves(
         self, panel_client, event, publication
     ):
-        # The time field is hidden for these two choices, so an error on it
-        # would leave the organizer with a form that will not save and no reason.
         published = timezone.now() - timedelta(days=1)
         event.publication_time = published
         event.save()
