@@ -876,6 +876,57 @@ test.describe("Timetable", () => {
     await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
   });
 
+  test("a dragged block lands where the pointer holds it, not below it", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const block = page.locator("#timetable-grid").getByRole("button", { name: /RPG Introduction/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+    const leftPane = page.locator("#left-pane");
+    const startOf = async (): Promise<number> => {
+      const text = await leftPane
+        .getByText(/\d{2}:\d{2} – \d{2}:\d{2}/)
+        .first()
+        .innerText();
+      const [hours, minutes] = text.slice(0, 5).split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    await block.click();
+    await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
+    const before = await startOf();
+
+    const travelMinutes = 60;
+    const minutePx = await page
+      .locator(".timetable-calendar")
+      .first()
+      .evaluate((cal) => Number.parseFloat(getComputedStyle(cal).getPropertyValue("--minute-px")));
+    const box = (await block.boundingBox())!;
+    const grab = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+    const moved = page.waitForResponse(
+      (r) => r.url().includes("/do/assign/") && r.request().method() === "POST",
+    );
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x, grab.y + travelMinutes * minutePx, { steps: 10 });
+    await page.mouse.up();
+    expect((await moved).status()).toBe(204);
+
+    const placed = page
+      .locator("#timetable-grid")
+      .getByRole("button", { name: /RPG Introduction/ });
+    await placed.click();
+    await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
+    await expect.poll(startOf).toBe(before + travelMinutes);
+    await attachArtifacts(testInfo, {
+      name: "timetable-drag-lands-under-pointer",
+      region: leftPane,
+      facts: { before, after: before + travelMinutes, travelMinutes },
+    });
+  });
+
   test("unassigns a session", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
