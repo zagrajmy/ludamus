@@ -17,7 +17,10 @@ from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
-from ludamus.gates.web.django.settings_forms import EventSettingsForm
+from ludamus.gates.web.django.settings_forms import (
+    EventDeletionConfirmForm,
+    EventSettingsForm,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
@@ -188,6 +191,9 @@ class EventSettingsPageView(EventPanelMixin, View):
         self._apply_facilitator_choices(form)
         context["form"] = form
         context["deletion"] = self._deletion_ballot()
+        context["deletion_form"] = EventDeletionConfirmForm(
+            event_name=self.current_event.name
+        )
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -237,6 +243,9 @@ class EventSettingsPageView(EventPanelMixin, View):
         self._apply_facilitator_choices(form)
         context["form"] = form
         context["deletion"] = self._deletion_ballot()
+        context["deletion_form"] = EventDeletionConfirmForm(
+            event_name=self.current_event.name
+        )
         return TemplateResponse(self.request, "panel/settings.html", context)
 
 

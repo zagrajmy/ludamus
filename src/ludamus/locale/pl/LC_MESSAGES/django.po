@@ -4481,6 +4481,19 @@ msgstr ""
 "Po włączeniu wszyscy z miejscem lub na liście rezerwowej, twórcy programu i "
 "organizatorzy mają wspólny czat. Wyłączenie zamyka go od razu."
 
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Type the event's name to confirm."
+msgstr "Wpisz nazwę wydarzenia, aby potwierdzić."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+#, python-format
+msgid "Type the event's name to confirm: %(name)s"
+msgstr "Wpisz nazwę wydarzenia, aby potwierdzić: %(name)s"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "The name you typed does not match."
+msgstr "Wpisana nazwa się nie zgadza."
+
 #: src/ludamus/gates/web/django/sphere/access.py
 msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
@@ -12450,11 +12463,6 @@ msgstr[3] ""
 "Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
 "się jeszcze %(missing)s menedżerów."
 
-#: src/ludamus/templates/panel/parts/_event_deletion.html
-#, python-format
-msgid "Delete %(event)s?"
-msgstr "Usunąć %(event)s?"
-
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 #, python-format
 msgid "Attach %(name)s to a guild"
@@ -15414,6 +15422,10 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#, python-format
+#~ msgid "Delete %(event)s?"
+#~ msgstr "Usunąć %(event)s?"
 
 #~ msgid "Nothing to moderate right now."
 #~ msgstr "Na razie nie ma czego moderować."

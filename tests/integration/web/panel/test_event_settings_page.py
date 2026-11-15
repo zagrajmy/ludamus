@@ -74,6 +74,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -94,6 +95,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -113,6 +115,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": settings_tab_urls(event),
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -138,6 +141,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -165,6 +169,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -192,6 +197,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -233,6 +239,7 @@ class TestEventSettingsPageViewGet:
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
                 "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -273,6 +280,7 @@ class TestEventSettingsPageViewPost:
             "active_tab": "general",
             "tab_urls": response.context["tab_urls"],
             "deletion": SOLO_MANAGER_BALLOT,
+            "deletion_form": ANY,
             "form": ANY,
         }
 

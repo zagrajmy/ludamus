@@ -12,6 +12,7 @@ import { expect, test } from "./helpers/fixtures";
 
 const COUNCIL = "http://council.localhost:8000";
 const SETTINGS = `${COUNCIL}/panel/event/council-retreat/settings/`;
+const CONFIRM_LABEL = "Type the event's name to confirm: Council Retreat";
 
 const managerPage = async (browser: Browser, slug: string): Promise<Page> => {
   const context = await browser.newContext({
@@ -28,10 +29,9 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
     adaCard.getByText("It takes 2 of the sphere's 2 managers to approve."),
   ).toBeVisible();
 
+  await expect(adaCard.getByText(/The other managers get a notification\./)).toBeVisible();
+  await adaCard.getByLabel(CONFIRM_LABEL).fill("Council Retreat");
   await adaCard.getByRole("button", { name: "Request deletion" }).click();
-  const askDialog = ada.getByRole("alertdialog", { name: "Delete Council Retreat?" });
-  await expect(askDialog).toContainText("The other managers get a notification.");
-  await askDialog.getByRole("button", { name: "Request deletion" }).click();
 
   // The card, not the toast saying so: flashes clear themselves after five
   // seconds, which a slow load outlasts.
@@ -49,17 +49,17 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await bert.goto(`${COUNCIL}/`);
   await bert.getByRole("button", { name: /Notifications/ }).click();
   await bert.getByRole("link", { name: /Ada Council wants to delete Council Retreat/ }).click();
-  // The confirmation is wired up by a deferred script; a click before it
-  // runs would submit the form unasked.
   await bert.waitForURL("**/panel/event/council-retreat/settings/**");
-  await bert.waitForLoadState("load");
 
   const bertCard = bert.getByRole("region", { name: "Delete event" });
   await expect(bertCard.getByRole("listitem").filter({ hasText: "Ada Council" })).toBeVisible();
+  await expect(bertCard.getByText("It disappears for everyone at once.")).toBeVisible();
+  // A near miss counts for nothing: the event stays, and so does the card.
+  await bertCard.getByLabel(CONFIRM_LABEL).fill("Council");
   await bertCard.getByRole("button", { name: "Delete event" }).click();
-  const deleteDialog = bert.getByRole("alertdialog", { name: "Delete Council Retreat?" });
-  await expect(deleteDialog).toContainText("It disappears for everyone at once.");
-  await deleteDialog.getByRole("button", { name: "Delete event" }).click();
+  await expect(bertCard.getByRole("listitem").filter({ hasText: "Ada Council" })).toBeVisible();
+  await bertCard.getByLabel(CONFIRM_LABEL).fill("Council Retreat");
+  await bertCard.getByRole("button", { name: "Delete event" }).click();
 
   await bert.waitForURL((url) => !url.pathname.includes("council-retreat"));
   // Like any event a visitor may not see, it sends them back to the start.

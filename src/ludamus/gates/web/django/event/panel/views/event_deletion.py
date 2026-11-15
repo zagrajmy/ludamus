@@ -10,6 +10,7 @@ from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.settings_forms import EventDeletionConfirmForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event_deletion import NotSphereManagerError
 from ludamus.pacts.ids import EventId
@@ -29,6 +30,13 @@ class EventSettingsApproveDeletionActionView(EventPanelMixin, View):
     request: PanelRequest
 
     def post(self, request: PanelRequest, slug: str) -> HttpResponse:
+        form = EventDeletionConfirmForm(
+            request.POST, event_name=self.current_event.name
+        )
+        if not form.is_valid():
+            for error in form.errors["event_name"]:
+                messages.error(request, error)
+            return _back_to_ballot(slug)
         try:
             missing = request.services.event_deletion.approve(
                 sphere_id=request.context.current_sphere_id,

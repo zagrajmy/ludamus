@@ -29,6 +29,8 @@ from tests.integration.web.panel.helpers import (
 )
 
 ONLY_MANAGERS_ERROR = "Only sphere managers can delete an event."
+NAME_MISMATCH_ERROR = "The name you typed does not match."
+REQUIRED = "Type the event's name to confirm."
 ONE_MORE_NEEDED = (
     "Your approval is in. The event is deleted once 1 more manager approves."
 )
@@ -65,7 +67,7 @@ class TestApproveDeletion:
     ):
         session = SessionFactory(event=event, category=None)
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -81,7 +83,7 @@ class TestApproveDeletion:
     ):
         (other,) = _add_managers(sphere, 1)
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -109,7 +111,7 @@ class TestApproveDeletion:
         (other,) = _add_managers(sphere, 1)
         EventDeletionApproval.objects.create(event=event, user=other)
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -124,7 +126,7 @@ class TestApproveDeletion:
         for approver in (first, second):
             EventDeletionApproval.objects.create(event=event, user=approver)
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -144,7 +146,7 @@ class TestApproveDeletion:
         SphereMembership.objects.filter(sphere=sphere, user=former).delete()
         (_still_here,) = _add_managers(sphere, 1)
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -157,7 +159,7 @@ class TestApproveDeletion:
     def test_a_superuser_off_the_team_cannot_approve(self, client, event):
         client.force_login(UserFactory(is_superuser=True, is_staff=True))
 
-        response = client.post(_approve_url(event))
+        response = client.post(_approve_url(event), {"event_name": event.name})
 
         assert_response(
             response,
@@ -168,10 +170,39 @@ class TestApproveDeletion:
         assert not _is_deleted(event)
         assert not EventDeletionApproval.objects.exists()
 
+    @pytest.mark.parametrize("typed", ("", "Some other event"))
+    def test_a_name_that_does_not_match_records_nothing(
+        self, panel_client, event, typed
+    ):
+        response = panel_client.post(_approve_url(event), {"event_name": typed})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, NAME_MISMATCH_ERROR if typed else REQUIRED)],
+            url=_ballot_url(event),
+        )
+        assert not _is_deleted(event)
+        assert not EventDeletionApproval.objects.exists()
+
+    def test_spaces_around_the_typed_name_are_forgiven(self, panel_client, event):
+        response = panel_client.post(
+            _approve_url(event), {"event_name": f"  {event.name} "}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"{event.name} is deleted.")],
+            url="/panel/",
+        )
+
     def test_an_event_of_another_sphere_is_not_found(self, panel_client):
         foreign = EventFactory(sphere=SphereFactory())
 
-        response = panel_client.post(_approve_url(foreign))
+        response = panel_client.post(
+            _approve_url(foreign), {"event_name": foreign.name}
+        )
 
         assert_event_not_found(response)
         assert not _is_deleted(foreign)
@@ -180,7 +211,7 @@ class TestApproveDeletion:
     def test_a_deleted_event_is_not_found(self, panel_client, event):
         Event.objects.filter(pk=event.pk).update(deleted_at=timezone.now())
 
-        response = panel_client.post(_approve_url(event))
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
 
         assert_event_not_found(response)
 
@@ -267,7 +298,9 @@ def test_comms_member_cannot_approve(authenticated_client, active_user, event, s
         sphere=sphere, user=active_user, role=SphereRole.COMMS
     )
 
-    response = authenticated_client.post(_approve_url(event))
+    response = authenticated_client.post(
+        _approve_url(event), {"event_name": event.name}
+    )
 
     assert_response(
         response,

@@ -65,10 +65,10 @@
             {% endif %}
             <form method="post"
                   action="{% url 'panel:event-approve-deletion' slug=current_event.slug %}"
-                  data-confirm-title="{% blocktranslate trimmed with event=current_event.name %}Delete {{ event }}?{% endblocktranslate %}"
-                  data-confirm="{{ t_approve_message }}"
-                  data-confirm-action="{{ t_approve }}">
+                  class="space-y-4">
                 {% csrf_token %}
+                <p class="text-sm text-foreground-secondary">{{ t_approve_message }}</p>
+                {% tessera_field form.event_name %}
                 {% tessera_button t_approve variant="danger" icon="trash" %}
             </form>
         {% endif %}
