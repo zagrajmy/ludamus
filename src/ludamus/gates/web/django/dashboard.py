@@ -58,7 +58,7 @@ def dashboard_page(request: RootRequest, *, user_id: int) -> HttpResponse:
             "dashboard": request.services.dashboard.read(
                 user_id=user_id, now=datetime.now(UTC)
             ),
-            "create_options": create_options(request),
+            "create_options": create_options(request, user_id=user_id),
         },
     )
 

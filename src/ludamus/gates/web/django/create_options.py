@@ -59,14 +59,17 @@ def encounter_option() -> CreateOption:
     )
 
 
-def create_options(request: RootRequest) -> tuple[CreateOption, ...]:
-    """List what the visitor may create in the current sphere, event first.
+def create_options(
+    request: RootRequest, *, user_id: int | None
+) -> tuple[CreateOption, ...]:
+    """List what ``user_id`` may create in the current sphere, event first.
 
     An event needs the panel's write capability, the same check the panel's
     event form makes before it saves, and a sphere other than the root one,
     which runs no programme of its own. That last rule shapes this control
-    only; the panel itself does not refuse the root sphere. An encounter
-    follows the sphere's encounters policy.
+    only; the panel itself does not refuse the root sphere. Panel access is
+    always the request's signed-in user's, as the panel's own is. An
+    encounter follows the sphere's encounters policy for ``user_id``.
 
     Returns:
         The options in the order the dialog shows them.
@@ -77,8 +80,8 @@ def create_options(request: RootRequest) -> tuple[CreateOption, ...]:
         request
     ).allows(Capability.PANEL_WRITE):
         options.append(event_option())
-    if context.current_user_id is not None and request.services.encounters.can_create(
-        sphere_id=context.current_sphere_id, user_id=context.current_user_id
+    if user_id is not None and request.services.encounters.can_create(
+        sphere_id=context.current_sphere_id, user_id=user_id
     ):
         options.append(encounter_option())
     return tuple(options)

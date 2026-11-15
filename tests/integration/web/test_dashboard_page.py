@@ -118,8 +118,6 @@ class TestDashboardPageView:
     def test_a_root_sphere_manager_is_offered_encounters_only(
         self, authenticated_client, active_user, sphere
     ):
-        # The root sphere runs no programme, so panel access there never
-        # turns into an event option.
         sphere.managers.add(active_user)
 
         response = authenticated_client.get(DASHBOARD_URL)

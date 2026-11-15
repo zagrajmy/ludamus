@@ -471,7 +471,9 @@ class TestEventsPageView:
         )
 
     @pytest.mark.usefixtures("panel_access_user")
-    def test_panel_link_shown_for_manager_and_superuser(self, authenticated_client):
+    def test_manager_and_superuser_are_offered_an_event_and_an_encounter(
+        self, authenticated_client
+    ):
         response = authenticated_client.get(self.URL)
 
         assert_response(
@@ -487,7 +489,7 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_panel_link_hidden_for_non_manager(self, authenticated_client):
+    def test_member_is_offered_an_encounter_only(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
         assert_response(

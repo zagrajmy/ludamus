@@ -86,5 +86,5 @@ class EventsPageView(TemplateView):
         context["past"] = _merge(
             events=events.past, encounters=encounters.past, newest_first=True
         )[:PAST_FEED_LIMIT]
-        context["create_options"] = create_options(self.request)
+        context["create_options"] = create_options(self.request, user_id=user_id)
         return context
