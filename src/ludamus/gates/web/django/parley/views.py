@@ -39,6 +39,12 @@ def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
 def _copy() -> dict[str, str]:
     return {
         **_plural_forms(
+            "moderatedRooms",
+            lambda count: ngettext(
+                "%(count)s chat you moderate", "%(count)s chats you moderate", count
+            ),
+        ),
+        **_plural_forms(
             "presence",
             lambda count: ngettext(
                 "%(count)s person here", "%(count)s people here", count
@@ -181,6 +187,15 @@ def _conversation_copy() -> dict[str, str]:
         "requests": _("Requests"),
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
+        "moderation": _("Moderation"),
+        "linkUnavailable": _(
+            "That chat can't be opened here. It may have closed, or your access to"
+            " it has changed."
+        ),
+        "moderatorView": _("Moderator view"),
+        "moderatorReading": _("You are reading this chat as a moderator."),
+        "writeAsOrganizer": _("Write as organizer"),
+        "organizerPlaceholder": _("Write to everyone in this chat…"),
         "messagingNeedsAge": _(
             "To message people directly, confirm you're 16 or older."
         ),
@@ -255,11 +270,16 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "authentication_required"}, status=401)
 
     payload = request.services.parley.bootstrap(
-        user_id=request.context.current_user_id, now=datetime.now(tz=UTC)
+        user_id=request.context.current_user_id,
+        sphere_id=request.context.current_sphere_id,
+        now=datetime.now(tz=UTC),
     )
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
+    response_data["moderationUrl"] = (
+        reverse("multiverse:panel:chats") if payload.has_moderated_rooms else None
+    )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
     response_data["ageUrl"] = reverse("user:profile-privacy")

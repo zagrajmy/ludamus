@@ -4,10 +4,12 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from django.conf import settings
+from django.middleware.csrf import get_token
 from django.utils.functional import SimpleLazyObject
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.parley.configuration import chat_configured
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -65,26 +67,45 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
+def _chat_user_id(request: RootRequest) -> int | None:
+    """Who is signed in where the chat runs at all.
+
+    Returns:
+        Their id, or None when nobody is signed in or no chat is set up.
+    """
+    return request.context.current_user_id if chat_configured() else None
+
+
 def _parley_open(request: RootRequest) -> bool:
-    # Only where the chat can sign passes and reach a Worker; elsewhere its
-    # button could never connect.
-    agent_host: str = settings.PARLEY_AGENT_HOST
-    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-    user_id = request.context.current_user_id
-    return bool(
-        agent_host
-        and private_key
-        and user_id is not None
-        and request.services.parley.is_open_to(
-            user_id=user_id, now=datetime.now(tz=UTC)
-        )
+    user_id = _chat_user_id(request)
+    is_open = user_id is not None and request.services.parley.is_open_to(
+        user_id=user_id,
+        sphere_id=request.context.current_sphere_id,
+        now=datetime.now(tz=UTC),
+    )
+    if is_open:
+        # SAFETY: the chat's bootstrap hands out a CSRF token. On a page that
+        # set no CSRF cookie it mints one, racing the next page's form, whose
+        # token its late cookie then voids. The page sets the cookie first.
+        get_token(request)
+    return is_open
+
+
+def _parley_moderates(request: RootRequest) -> bool:
+    user_id = _chat_user_id(request)
+    return user_id is not None and request.services.parley.moderates(
+        user_id=user_id, sphere_id=request.context.current_sphere_id
     )
 
 
 def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
-    # NOTE: asked only when a page shows the chat, for a signed-in person,
-    # by which time the middleware has set up the request.
-    return {"PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request))}
+    # NOTE: asked only when a template reads them (the chat's root, for a
+    # signed-in person, and the panel's sidebar), by which time the
+    # middleware has set up the request.
+    return {
+        "PARLEY_OPEN": SimpleLazyObject(lambda: _parley_open(request)),
+        "PARLEY_MODERATES": SimpleLazyObject(lambda: _parley_moderates(request)),
+    }
 
 
 def static_version(_request: HttpRequest) -> dict[str, str]:

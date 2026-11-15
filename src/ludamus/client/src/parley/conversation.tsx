@@ -248,6 +248,9 @@ export function Conversation({
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<(Pending & { returnTo: Element | null }) | null>(null);
   const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
+  // A room this person only moderates takes one deliberate step before
+  // anything goes out in it, so nobody writes there by mistake.
+  const [speaking, setSpeaking] = useState(!room.moderating);
   const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -474,7 +477,8 @@ export function Conversation({
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
   const shownTypists = typists.filter((id) => !blocked.has(id));
   const typing = shownTypists.length > 0 && !offline;
-  const composing = room.canWrite && muted === null && pending === null;
+  const writing = room.canWrite && speaking && muted === null;
+  const composing = writing && pending === null;
   const problem = error ?? (composing && tooLong ? copy.messageTooLong : null);
   const counter = composing && length >= COUNT_FROM;
   // Under the thread: a pending confirmation, else the composer or the
@@ -498,6 +502,20 @@ export function Conversation({
         </p>
       );
     if (muted !== null) return <MutedNotice copy={copy} muted={muted} />;
+    if (!speaking)
+      return (
+        <div className="m-[7px] mb-[max(7px,env(safe-area-inset-bottom))] flex items-center gap-3 rounded-xl bg-bg-tertiary py-2 ps-4 pe-2 text-sm text-foreground-secondary">
+          <Icon className="size-4 shrink-0 text-foreground-muted" name="Shield" />
+          <p className="min-w-0 flex-1">{copy.moderatorReading}</p>
+          <button
+            className="btn btn-secondary shrink-0 text-sm"
+            onClick={() => setSpeaking(true)}
+            type="button"
+          >
+            {copy.writeAsOrganizer}
+          </button>
+        </div>
+      );
     return (
       <form
         className="p-[7px] pb-[max(7px,env(safe-area-inset-bottom))]"
@@ -513,9 +531,11 @@ export function Conversation({
             {...picker.textareaProps}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
+            // The step to write in a moderated room lands in the composer it opened.
+            autoFocus={room.moderating}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            placeholder={copy.writePlaceholder}
+            placeholder={room.moderating ? copy.organizerPlaceholder : copy.writePlaceholder}
             ref={composer}
             rows={1}
             value={body}
@@ -545,8 +565,9 @@ export function Conversation({
     organizers: copy.emptyOrganizers,
     session: copy.emptySession,
   }[room.kind];
-  const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
-  const kind = roomKind(copy, room);
+  const empty = room.canWrite && speaking ? writableEmpty : copy.emptyReadOnly;
+  const named = roomKind(copy, room);
+  const kind = room.moderating ? `${named} · ${copy.moderatorView}` : named;
   const face =
     conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 
@@ -679,11 +700,7 @@ export function Conversation({
                       mute={(id, action) => void mute(id, action)}
                       nameOf={(id) => picker.nameOf(id) ?? copy.typingSomeone}
                       pick={(messageId, anchor) => setPicking({ anchor, messageId })}
-                      react={
-                        room.canWrite && muted === null
-                          ? (id, emoji) => void react(id, emoji)
-                          : null
-                      }
+                      react={writing ? (id, emoji) => void react(id, emoji) : null}
                       remove={(id) => void remove(id)}
                       report={report}
                       room={room}

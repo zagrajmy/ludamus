@@ -29,6 +29,7 @@ const organizers = {
   canWrite: true,
   id: "organizers:1",
   kind: "organizers",
+  moderating: false,
   sphere: 1,
   title: "Zagrajmy",
 };
@@ -37,6 +38,7 @@ const elsewhere = {
   canWrite: true,
   id: "session:2:7",
   kind: "session",
+  moderating: false,
   sphere: 2,
   title: "Wsiąść do pociągu",
 };
