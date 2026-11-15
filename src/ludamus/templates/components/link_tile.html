@@ -1,16 +1,15 @@
 {% load tessera %}
-{# Rendered by {% tessera_choice_tile %}. Variables: tile_id, href, title, description, icon. #}
 <a href="{{ href }}"
-   aria-labelledby="{{ tile_id }}-title"
-   aria-describedby="{{ tile_id }}-description"
+   aria-labelledby="{{ id_prefix }}-title"
+   aria-describedby="{{ id_prefix }}-description"
    class="group flex flex-col gap-2 rounded-xl border border-border bg-bg-secondary p-5 text-left transition-colors duration-150 hover:border-primary hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
     <span class="flex items-center justify-between gap-3">
-        <span id="{{ tile_id }}-title"
+        <span id="{{ id_prefix }}-title"
               class="text-lg font-semibold text-foreground text-box-trim-both">{{ title }}</span>
         <span class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-proposal-surface text-foreground-secondary ring-1 ring-inset ring-border transition-colors duration-150 group-hover:bg-primary-light group-hover:text-primary group-hover:ring-primary/30 group-focus-visible:bg-primary-light group-focus-visible:text-primary group-focus-visible:ring-primary/30">
             {% icon icon class="size-5" aria_hidden="true" %}
         </span>
     </span>
-    <span id="{{ tile_id }}-description"
+    <span id="{{ id_prefix }}-description"
           class="text-sm text-foreground-secondary text-pretty">{{ description }}</span>
 </a>
