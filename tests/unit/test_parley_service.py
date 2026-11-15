@@ -398,6 +398,60 @@ def test_the_chat_is_open_to_anyone_with_somewhere_to_chat(
     assert service.is_open_to(user_id=USER_ID, now=NOW) is expected
 
 
+def _watched(room, event_title):
+    return room.model_copy(update={"moderating": True, "event_title": event_title})
+
+
+def test_moderated_rooms_are_the_sphere_s_ones_the_moderator_is_not_in() -> None:
+    later, sooner = 2_000_000_000, 1_900_000_000
+    access = Access(
+        [
+            ParleyRoomDTO(
+                kind=ParleyRoomKind.ORGANIZERS,
+                sphere_id=45,
+                title="Bachanalia",
+                can_write=True,
+                can_moderate=True,
+            ),
+            _watched(_event(1, ends_at=later, can_moderate=True), "Polcon"),
+            _watched(_session(12, event=1, ends_at=later), "Polcon"),
+            _watched(_session(11, event=1, ends_at=later), "Polcon"),
+            _session(10, event=1, ends_at=later),
+            _watched(_session(20, event=2, ends_at=sooner), "Bachanalia"),
+        ],
+        seats=[(45, SphereRole.MANAGER), (8, SphereRole.MANAGER)],
+    )
+    service, _ = _bootstrapping(access)
+
+    rooms = service.moderated_rooms(user_id=USER_ID, sphere_id=45, now=NOW)
+
+    assert [room.id for room in rooms] == [
+        "session:45:20",
+        "event:45:1",
+        "session:45:11",
+        "session:45:12",
+    ]
+    assert access.asked == [(NOW, frozenset({45}))]
+
+
+@pytest.mark.parametrize(
+    ("seats", "rooms", "asked"),
+    (
+        (((45, SphereRole.COMMS), (8, SphereRole.MANAGER)), [], []),
+        (((45, SphereRole.MANAGER),), None, [(NOW, frozenset({45}))]),
+    ),
+    ids=["not-a-moderator-here", "no-chat-access"],
+)
+def test_moderated_rooms_are_none_without_the_right_or_the_chat(
+    seats, rooms, asked
+) -> None:
+    access = Access(rooms, seats=seats)
+    service, _ = _bootstrapping(access)
+
+    assert service.moderated_rooms(user_id=USER_ID, sphere_id=45, now=NOW) == []
+    assert access.asked == asked
+
+
 REPORTER, AUTHOR = 123, 7
 # A lookup is signed for the one call that carries it.
 LOOKUP_LIFETIME_SECONDS = 60
