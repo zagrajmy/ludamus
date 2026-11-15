@@ -225,6 +225,12 @@ class TestAvailabilityDTO:
         with pytest.raises(ValidationError, match="either a part of a day or a time"):
             AvailabilityDTO(day=_FRIDAY, **names)
 
+    def test_offer_refuses_an_entry_built_past_validation(self) -> None:
+        unchecked = AvailabilityDTO.model_construct(day=_FRIDAY)
+
+        with pytest.raises(ValueError, match="either a part of a day or a time"):
+            _ = unchecked.offer
+
     def test_offer_is_the_slot_or_the_part(self) -> None:
         assert AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT).offer == _SLOT
         assert AvailabilityDTO(day=_SATURDAY, part=DayPart.NIGHT).offer == DayPart.NIGHT
