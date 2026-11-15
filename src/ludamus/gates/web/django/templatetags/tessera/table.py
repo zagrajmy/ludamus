@@ -8,7 +8,7 @@ from django import template
 from django.utils.html import format_html
 
 from ._registry import register
-from ._utils import parse_tag_attrs
+from ._utils import format_tag_attrs, parse_tag_attrs
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
@@ -44,11 +44,14 @@ class TableNode(template.Node):
         wrapper_class = (
             _FLUSH_WRAPPER_CLASS if resolved.pop("flush", False) else _WRAPPER_CLASS
         )
+        attrs = format_tag_attrs(resolved)
         return format_html(
-            '<div class="{}"><div class="{}"><table class="{}">{}</table></div></div>',
+            '<div class="{}"><div class="{}">'
+            '<table class="{}"{}>{}</table></div></div>',
             wrapper_class,
             _SCROLL_CLASS,
             table_class,
+            format_html(" {}", attrs) if attrs else "",
             self.nodelist.render(context),
         )
 
@@ -58,7 +61,8 @@ def do_tessera_table(parser: Parser, token: Token) -> TableNode:
     """Parse ``{% tessera_table %}...{% end_tessera_table %}``.
 
     ``flush=True`` drops the card chrome for a page that is one full-width
-    table, keeping only the rule under the last row.
+    table, keeping only the rule under the last row. Any other keyword, such
+    as ``role="table"``, lands on the ``<table>`` itself.
 
     Returns:
         A TableNode that wraps its body in ``<div class="card overflow-hidden">
