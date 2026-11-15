@@ -27,7 +27,11 @@ from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.integrations import SourceQuestion
 from ludamus.pacts.propose import is_empty_answer
-from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+from ludamus.pacts.session_cards import (
+    BusyWindowDTO,
+    PlacementAvailabilityDTO,
+    ProposalAcceptContextDTO,
+)
 from ludamus.pacts.sessions import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
@@ -43,13 +47,15 @@ from ludamus.pacts.sessions import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
-from ludamus.specs.sessions import resolve_facilitator_session_edit
+from ludamus.specs.sessions import resolve_event_toggle
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
     from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
@@ -70,6 +76,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.timetable import (
+        AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
     )
@@ -297,6 +304,26 @@ def _placement_minutes(session: SessionDTO) -> int:
     return duration_minutes(session.duration) or DEFAULT_DURATION_MINUTES
 
 
+def _placement_availability(
+    *, space_ids: set[int], placed: Sequence[AgendaItemDTO]
+) -> PlacementAvailabilityDTO:
+    # The windows list_overlapping_in_space tests at accept time, so a space
+    # shown free at the start time picked is one accepting will not refuse.
+    return PlacementAvailabilityDTO(
+        busy_by_space={
+            pk: [
+                BusyWindowDTO(start=start, end=end)
+                for start, end in sorted(
+                    (item.start_time, item.end_time)
+                    for item in placed
+                    if item.space_id == pk
+                )
+            ]
+            for pk in sorted(space_ids)
+        }
+    )
+
+
 class ProposalAcceptanceService:
     def __init__(
         self,
@@ -327,15 +354,32 @@ class ProposalAcceptanceService:
             )
         except NotFoundError:
             return None
+        space_options = self._sessions.read_space_options(session.pk)
+        space_required = self._requires_space(event)
         return ProposalAcceptContextDTO(
             session=session,
             event=event,
             presenter=self._sessions.read_presenter(session.pk),
-            space_options=self._sessions.read_space_options(session.pk),
+            space_options=space_options,
             availability=self._sessions.read_availability(session.pk),
             duration_minutes=_placement_minutes(session),
+            space_required=space_required,
+            placements=_placement_availability(
+                space_ids={option.pk for option in space_options},
+                placed=[
+                    item
+                    for item in self._agenda.agenda_items.list_by_event(event.pk)
+                    if item.session_id != session.pk
+                ],
+            ),
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
+        )
+
+    def _requires_space(self, event: EventDTO) -> bool:
+        return resolve_event_toggle(
+            event_override=event.require_session_space,
+            sphere_default=self._spheres.read(event.sphere_id).require_session_space,
         )
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
@@ -350,7 +394,7 @@ class ProposalAcceptanceService:
         self,
         *,
         session_id: int,
-        space_id: int,
+        space_id: int | None,
         start_time: datetime,
         user_slug: str,
         sphere_id: int,
@@ -361,7 +405,10 @@ class ProposalAcceptanceService:
         event = require_session_in_sphere(
             sessions=self._sessions, session_pk=session_id, sphere_id=sphere_id
         )
-        if space_id not in {
+        if space_id is None:
+            if self._requires_space(event):
+                raise NotFoundError
+        elif space_id not in {
             option.pk for option in self._sessions.read_space_options(session_id)
         }:
             raise NotFoundError
@@ -379,8 +426,11 @@ class ProposalAcceptanceService:
                 start=start_time,
                 end=end_time,
             )
-            if self._agenda.agenda_items.list_overlapping_in_space(
-                space_id, start_time, end_time, exclude_session_pk=session_id
+            if (
+                space_id is not None
+                and self._agenda.agenda_items.list_overlapping_in_space(
+                    space_id, start_time, end_time, exclude_session_pk=session_id
+                )
             ):
                 raise SpaceTimeConflictError
             # The session already has a unique slug from proposal creation;
@@ -878,7 +928,7 @@ class SessionSelfEditService:
         except NotFoundError:
             raise SessionEditNotAllowedError from None
         sphere = self._spheres.read(event.sphere_id)
-        if not resolve_facilitator_session_edit(
+        if not resolve_event_toggle(
             event_override=event.allow_facilitator_session_edit,
             sphere_default=sphere.allow_facilitator_session_edit,
         ):

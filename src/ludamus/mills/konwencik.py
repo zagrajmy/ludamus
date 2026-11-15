@@ -498,7 +498,11 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                 _build_row(
                     item=item,
                     span=span,
-                    room=rooms.get(item.space_id, item.space_name),
+                    room=(
+                        rooms.get(item.space_id, item.space_name)
+                        if item.space_id is not None
+                        else ""
+                    ),
                     block=block,
                     settings=settings,
                     answers=answers.get(item.session_id, {}),

@@ -72,6 +72,12 @@
                     </div>
                     <div class="card">
                         <div class="card-body">
+                            <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Spaces" %}</h3>
+                            {% tessera_field form.require_session_space %}
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Schedule confirmation" %}</h3>
                             {% tessera_field form.auto_confirm_sessions %}
                         </div>

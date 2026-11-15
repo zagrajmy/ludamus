@@ -3,6 +3,7 @@
 {% load cfp_tags %}
 {% load tessera %}
 {% load markdown_tags %}
+{% load vite_tags %}
 {% block title %}
     {% translate "Accept Proposal" %} • {{ session.title }}
 {% endblock title %}
@@ -20,6 +21,11 @@
         {# proposal should not look like two different things depending on #}
         {# whether it is being reviewed or already scheduled. #}
         <div class="card">
+            {% if session.cover_image_url %}
+                <div class="p-1">
+                    {% include "components/cover-image.html" with url=session.cover_image_url only %}
+                </div>
+            {% endif %}
             <div class="card-body">
                 <h2 class="text-xl font-semibold text-foreground mb-4">{{ session.title }}</h2>
                 {# Who proposed it, and how to reach them — one row, one kind of #}
@@ -97,10 +103,17 @@
                         {% translate "This event has no spaces yet, so nothing can go on the agenda. Add a space, then come back to accept this proposal." %}
                     </p>
                 {% else %}
-                    {% tessera_sole_choice form.space as sole_space %}
+                    {% if form.fields.space %}
+                        {% tessera_sole_choice form.space as sole_space %}
+                    {% endif %}
                     {# The submit lives in the shared actions block below, tied back #}
                     {# by form=, so the "or / Back to event" tail is written once. #}
+                    {{ busy_by_space|json_script:"accept-busy-spaces" }}
+                    {% vite_asset_once 'src/accept-placement.ts' %}
                     <form id="accept-proposal-form"
+                          data-busy-spaces="accept-busy-spaces"
+                          data-duration-minutes="{{ duration_minutes }}"
+                          data-taken-label="{% translate "taken" context "placement option" %}"
                           method="post"
                           action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                           class="space-y-5">
@@ -115,7 +128,9 @@
                                 {% include "event/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}
                             </dl>
                         {% endif %}
-                        {% tessera_field form.space %}
+                        {% if form.fields.space %}
+                            {% tessera_field form.space %}
+                        {% endif %}
                         {% tessera_field form.start_time %}
                     </form>
                 {% endif %}

@@ -102,7 +102,10 @@ def _grid_under(event, room, *, parent):
         update={
             "groups": [
                 SpaceGroupDTO(parent_pk=parent.pk, parent_name=parent.name, span=1)
-            ]
+            ],
+            "total_spaces": 1,
+            "last_space_number": 1,
+            "columns_per_day": 1,
         }
     )
 

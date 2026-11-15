@@ -43,6 +43,16 @@ def _wall_clock(event):
     return localtime(event.start_time)
 
 
+def _busy_hour(event):
+    # The hour another session holds from the event's opening, as the page
+    # hands it to accept-placement.ts: wall clock to the minute.
+    start = _wall_clock(event)
+    return (
+        start.strftime(POSTED_START),
+        (start + timedelta(hours=1)).strftime(POSTED_START),
+    )
+
+
 def _open_event_at(event, *, hour: int):
     # Pin the event's opening to a local wall-clock hour, so a part window can
     # sit either side of it. Returns the opening as local time.
@@ -92,8 +102,7 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
 
-    @pytest.mark.usefixtures("space")
-    def test_get_ok(self, event, pending_session, manager_client):
+    def test_get_ok(self, space, event, pending_session, manager_client):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -109,13 +118,14 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("space")
     def test_get_shows_the_times_the_facilitator_offered(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         # The reviewer picks a start time; the parts of days the author said
         # they could run in come along so that choice is not made blind.
@@ -139,6 +149,8 @@ class TestProposalAcceptPageView:
                 "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -207,9 +219,8 @@ class TestProposalAcceptPageView:
         content = response.content.decode()
         assert "A haunted manor one-shot." in content
 
-    @pytest.mark.usefixtures("space")
     def test_get_without_presenter_still_renders(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         pending_session.presenter = None
         pending_session.save()
@@ -229,6 +240,8 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -292,13 +305,14 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": "spaces",
+                "duration_minutes": 60,
+                "busy_by_space": {},
             },
             template_name="event/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("space")
     def test_get_ok_for_a_proposal_without_a_category(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         # Regression: the page's reads joined through Session.category, which is
         # nullable, so a category-less proposal 500'd instead of rendering.
@@ -318,13 +332,14 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("space")
     def test_get_ok_when_the_proposal_sets_length_and_minimum_age(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         # The details grid only draws the length and minimum-age tiles when the
         # proposal carries them, and the default fixture leaves both empty. How
@@ -348,6 +363,8 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 90,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -412,8 +429,7 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
 
-    @pytest.mark.usefixtures("space")
-    def test_post_invalid_form(self, event, pending_session, manager_client):
+    def test_post_invalid_form(self, space, event, pending_session, manager_client):
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -429,6 +445,8 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -645,8 +663,7 @@ class TestProposalAcceptPageView:
         assert foreign_session.status == "pending"
         assert not AgendaItem.objects.filter(session=foreign_session).exists()
 
-    @pytest.mark.usefixtures("space")
-    def test_post_invalid_space_id(self, event, pending_session, manager_client):
+    def test_post_invalid_space_id(self, space, event, pending_session, manager_client):
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
             data={
@@ -666,6 +683,8 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -707,6 +726,10 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                # The other session's hour shows on the space, so the page
+                # marks it taken at that start before anyone submits.
+                "busy_by_space": {space.id: [_busy_hour(event)]},
             },
             template_name="event/accept_proposal.html",
         )
@@ -733,6 +756,8 @@ class TestProposalAcceptPageView:
                 "availability": [],
                 "field_values": [],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -749,9 +774,8 @@ class TestProposalAcceptPageView:
         assert Session.objects.get(pk=pending_session.pk).status == "pending"
         assert not AgendaItem.objects.filter(session=pending_session).exists()
 
-    @pytest.mark.usefixtures("space")
     def test_get_ok_with_select_field_values(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         """Public select field values are shown in context."""
         session_field = SessionField.objects.create(
@@ -795,13 +819,14 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("space")
     def test_get_ok_with_text_field_in_field_values(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         """Text field values appear in field_values context."""
         session_field = SessionField.objects.create(
@@ -843,13 +868,14 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )
 
-    @pytest.mark.usefixtures("space")
     def test_get_ok_with_boolean_select_field_in_field_values(
-        self, event, pending_session, manager_client
+        self, space, event, pending_session, manager_client
     ):
         """Public select field with a boolean value appears in field_values."""
         session_field = SessionField.objects.create(
@@ -891,6 +917,8 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "schedule_blocker": None,
+                "duration_minutes": 60,
+                "busy_by_space": {space.id: []},
             },
             template_name="event/accept_proposal.html",
         )

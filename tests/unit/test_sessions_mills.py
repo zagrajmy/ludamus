@@ -1,3 +1,4 @@
+import contextlib
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
@@ -15,7 +16,10 @@ from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
-from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+from ludamus.pacts.session_cards import (
+    PlacementAvailabilityDTO,
+    ProposalAcceptContextDTO,
+)
 from ludamus.pacts.sessions import (
     AnonymousProposalAcceptedNotification,
     ContentChangeLogDTO,
@@ -859,6 +863,9 @@ class _FakeAgendaItems:
             (item for item in self.rows.values() if item.session_id == session_pk), None
         )
 
+    def list_by_event(self, _event_pk):
+        return list(self.rows.values())
+
     def update(self, pk, data):
         self.updates.setdefault(pk, {}).update(data)
 
@@ -884,8 +891,12 @@ class _FakeSessionFields:
 
 
 class _FakeSpheres:
-    def __init__(self, *, managers=()):
+    def __init__(self, *, managers=(), require_session_space=True):
         self.managers = set(managers)
+        self.require_session_space = require_session_space
+
+    def read(self, _sphere_id):
+        return SimpleNamespace(require_session_space=self.require_session_space)
 
     def manager_role(self, sphere_id, user_slug):
         return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
@@ -1486,7 +1497,109 @@ class TestProposalAcceptanceWithFakes:
             duration_minutes=_DEFAULT_DURATION_MINUTES,
             field_values=sessions.form["field_values"],
             can_accept=True,
+            space_required=True,
+            placements=PlacementAvailabilityDTO(busy_by_space={_HALL.pk: []}),
         )
+
+    @pytest.mark.parametrize(
+        ("space_pk", "taken"),
+        (
+            pytest.param(7, True, id="overlapping-another-session"),
+            pytest.param(8, False, id="ending-as-the-placement-starts"),
+            pytest.param(9, False, id="the-session-own-placement"),
+        ),
+    )
+    def test_the_context_marks_busy_exactly_what_accepting_refuses(
+        self, space_pk, taken
+    ):
+        def placed(pk, space_id, session_id, start):
+            return AgendaItemDTO(
+                pk=pk,
+                space_id=space_id,
+                session_id=session_id,
+                start_time=start,
+                end_time=start + timedelta(hours=1),
+                schedule_confirmed=True,
+            )
+
+        sessions = self._sessions()
+        sessions.form["space_options"] = [
+            _HALL,
+            SpaceOptionDTO(pk=8, name="Attic", group=""),
+            SpaceOptionDTO(pk=9, name="Cellar", group=""),
+        ]
+        service = self._service(
+            sessions,
+            _FakeAgendaItems(
+                placed(1, 7, 90, _NOW + timedelta(minutes=30)),
+                placed(2, 8, 91, _NOW - timedelta(hours=1)),
+                placed(3, 9, _SESSION_PK, _NOW),
+            ),
+        )
+
+        context = service.get_accept_context(
+            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
+        )
+        assert context is not None
+        busy_then = [
+            window
+            for window in context.placements.busy_by_space[space_pk]
+            if window.start < _END and window.end > _NOW
+        ]
+        assert bool(busy_then) is taken
+        refusal = (
+            pytest.raises(SpaceTimeConflictError) if taken else contextlib.nullcontext()
+        )
+        with refusal:
+            service.accept_session(
+                session_id=_SESSION_PK,
+                space_id=space_pk,
+                start_time=_NOW,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+    def test_accepting_without_a_space_is_refused_where_one_is_required(self):
+        agenda_items = _FakeAgendaItems()
+
+        with pytest.raises(NotFoundError):
+            self._service(self._sessions(), agenda_items).accept_session(
+                session_id=_SESSION_PK,
+                space_id=None,
+                start_time=_NOW,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+        assert not agenda_items.created
+
+    def test_accepting_without_a_space_places_it_where_none_is_required(self):
+        sessions = self._sessions()
+        agenda_items = _FakeAgendaItems()
+        service = ProposalAcceptanceService(
+            transaction=FakeTransaction(),
+            sessions=sessions,
+            agenda_items=agenda_items,
+            schedule_change_logs=MagicMock(),
+            active_users=FakeUsers(_user_dto(slug="manager")),
+            spheres=_FakeSpheres(
+                managers=[(3, "manager")], require_session_space=False
+            ),
+            events=_FakeEvents(sessions.event),
+            notifier=_RecordingNotifier(),
+        )
+
+        service.accept_session(
+            session_id=_SESSION_PK,
+            space_id=None,
+            start_time=_NOW,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        # No room to clash over, so nothing asks whether one is taken.
+        assert not agenda_items.overlap_queries
+        assert [item["space_id"] for item in agenda_items.created] == [None]
 
     def test_accept_session_places_the_session_at_the_chosen_start(self):
         sessions = self._sessions()

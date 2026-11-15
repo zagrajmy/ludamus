@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
@@ -8,6 +10,7 @@ from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -32,6 +35,7 @@ from ludamus.pacts.sessions import (
 from .forms import create_proposal_acceptance_form
 
 if TYPE_CHECKING:
+    from datetime import datetime
 
     from django import forms
     from django.http import QueryDict
@@ -39,7 +43,10 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.services import AuthenticatedRequestContext, ServicesProtocol
-    from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+    from ludamus.pacts.session_cards import (
+        PlacementAvailabilityDTO,
+        ProposalAcceptContextDTO,
+    )
     from ludamus.pacts.sessions import SessionSelfEditContext
 
 
@@ -75,11 +82,12 @@ def _collect_session_field_values(
 
 
 class SessionEditView(LoginRequiredMixin, View):
-    """Facilitator self-service editing of their own session, inline in the modal.
+    """Facilitator self-service editing of their own session.
 
-    Both GET (edit form) and POST (save) return the form fragment swapped into
-    the open session dialog via HTMX. A non-HTMX POST falls back to a full-page
-    redirect to the event so the feature degrades gracefully.
+    Over HTMX it is the form swapped into the open session dialog, and a save
+    answers with the session-saved trigger. As a plain page it is where a
+    pending proposal's author edits it (their card links here; an unscheduled
+    proposal has no dialog), and a save goes back to the event.
     """
 
     request: SessionEditRequest
@@ -119,10 +127,7 @@ class SessionEditView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         return self._render(
-            ctx=ctx,
-            form=self._initial_form(ctx),
-            fields_form=self._fields_form(ctx),
-            saved=False,
+            ctx=ctx, form=self._initial_form(ctx), fields_form=self._fields_form(ctx)
         )
 
     def post(
@@ -140,9 +145,7 @@ class SessionEditView(LoginRequiredMixin, View):
         fields_form = self._fields_form(ctx, self.request.POST if submitted else None)
         fields_valid = fields_form.is_valid() if submitted else True
         if not form.is_valid() or not fields_valid:
-            return self._render(
-                ctx=ctx, form=form, fields_form=fields_form, saved=False
-            )
+            return self._render(ctx=ctx, form=form, fields_form=fields_form)
 
         field_values = (
             _collect_session_field_values(session_id, ctx, fields_form)
@@ -159,22 +162,15 @@ class SessionEditView(LoginRequiredMixin, View):
         except SessionEditNotAllowedError as exc:
             raise Http404 from exc
 
-        if not self.request.headers.get("HX-Request"):
-            event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
-            return redirect(f"{event_url}?session={session_id}")
-        cover_before = ctx.session.cover_image_url
-        ctx = self._context(event_slug, session_id)
-        response = self._render(
-            ctx=ctx,
-            form=self._initial_form(ctx),
-            fields_form=self._fields_form(ctx),
-            saved=True,
+        if self._is_page():
+            messages.success(self.request, _("Your changes are saved."))
+            return redirect("web:chronology:event", slug=event_slug)
+        # Nothing to swap: session-edit.ts closes the dialog and refreshes the
+        # session's card from the page, which is where the edit shows.
+        return HttpResponse(
+            status=HTTPStatus.NO_CONTENT,
+            headers={"HX-Trigger": json.dumps({"session-saved": {"id": session_id}})},
         )
-        # A new or removed cover reshapes the card and the modal's header, so
-        # the page reloads; its ?session= reopens this session on top.
-        if ctx.session.cover_image_url != cover_before:
-            response["HX-Refresh"] = "true"
-        return response
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
         try:
@@ -187,22 +183,31 @@ class SessionEditView(LoginRequiredMixin, View):
             raise Http404
         return ctx
 
+    def _is_page(self) -> bool:
+        return not self.request.headers.get("HX-Request")
+
     def _render(
         self,
         *,
         ctx: SessionSelfEditContext,
         form: SessionEditForm,
         fields_form: forms.Form,
-        saved: bool,
     ) -> HttpResponse:
         post_url = reverse(
             "web:chronology:session-edit",
             kwargs={"event_slug": ctx.event.slug, "session_id": ctx.session.pk},
         )
+        page = self._is_page()
         return TemplateResponse(
             self.request,
-            "event/parts/session-edit-form.html",
+            (
+                "event/session-edit-page.html"
+                if page
+                else "event/parts/session-edit-form.html"
+            ),
             {
+                "page": page,
+                "event": ctx.event,
                 "session": ctx.session,
                 "form": form,
                 "field_descriptors": field_descriptors(
@@ -211,7 +216,6 @@ class SessionEditView(LoginRequiredMixin, View):
                     form=fields_form,
                 ),
                 "post_url": post_url,
-                "saved": saved,
             },
         )
 
@@ -237,9 +241,24 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     # What the event still lacks before any proposal can be placed, or None when
     # nothing does. The page renders either way: a reviewer who lands here with
     # the venue unfinished gets the reason and the panel link, not a bounce.
-    if not context.space_options:
+    if context.space_required and not context.space_options:
         return "spaces"
     return None
+
+
+def _wall_clock(instant: datetime) -> str:
+    return localtime(instant).strftime("%Y-%m-%dT%H:%M")
+
+
+def _busy_windows(
+    placements: PlacementAvailabilityDTO,
+) -> dict[int, list[tuple[str, str]]]:
+    # In the form the start field posts, the event's wall clock to the minute,
+    # so accept-placement.ts compares strings and never parses a timezone.
+    return {
+        space_pk: [(_wall_clock(w.start), _wall_clock(w.end)) for w in windows]
+        for space_pk, windows in placements.busy_by_space.items()
+    }
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
@@ -263,7 +282,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         try:
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
-                space_id=form.cleaned_data["space"],
+                space_id=form.cleaned_data.get("space"),
                 start_time=form.cleaned_data["start_time"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
@@ -334,5 +353,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),
+                "duration_minutes": context.duration_minutes,
+                "busy_by_space": _busy_windows(context.placements),
             },
         )

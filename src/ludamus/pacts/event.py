@@ -47,6 +47,7 @@ class EventDTO(BaseModel):
 
     address: str = ""
     allow_facilitator_session_edit: bool | None = None
+    require_session_space: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
     end_time: datetime
@@ -153,6 +154,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    require_session_space: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
     use_participants_label: bool

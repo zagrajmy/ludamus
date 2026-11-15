@@ -516,7 +516,7 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         self,
         *,
         session_id: int,
-        space_id: int,
+        space_id: int | None,
         start_time: datetime,
         user_slug: str,
         sphere_id: int,

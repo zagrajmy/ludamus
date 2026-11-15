@@ -20,6 +20,22 @@ if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
 
 
+class BusyWindowDTO(BaseModel):
+    start: datetime
+    end: datetime
+
+
+class PlacementAvailabilityDTO(BaseModel):
+    """When each space the proposal could go to is already held.
+
+    Accepting refuses a space another session holds at any moment of the new
+    placement, so a space whose windows miss the start time picked plus the
+    session's length is one accepting will not refuse.
+    """
+
+    busy_by_space: dict[int, list[BusyWindowDTO]]
+
+
 class ProposalAcceptContextDTO(BaseModel):
     session: SessionDTO
     event: EventDTO
@@ -31,6 +47,9 @@ class ProposalAcceptContextDTO(BaseModel):
     duration_minutes: int
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
+    # False where the event lets a session be placed without a space.
+    space_required: bool
+    placements: PlacementAvailabilityDTO
 
 
 class SessionSeatDTO(BaseModel):
