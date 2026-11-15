@@ -489,9 +489,11 @@ def _seed_problems_event(*, sphere, event_day) -> None:
 
 
 def _seed_room_clash_event(*, sphere, event_day) -> None:
-    # NOTE: one room double-booked at 10:00, for timetable-conflict-count.spec. The
-    # spec unassigns one of the pair and assigns it back at the top of the
-    # room's column, which is 10:00 again, so each run finds what it left.
+    # NOTE: one room whose 10:00 session is too big for it, for
+    # timetable-conflict-count.spec. The spec unassigns that session and assigns
+    # it back at the top of the room's column, which is 10:00 again, so each run
+    # finds what it left. Assigning refuses a booked room, so the room's other
+    # session sits at 11:00, clear of that click.
     local_tz = get_current_timezone()
     start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
     event, _ = Event.objects.get_or_create(
@@ -499,7 +501,7 @@ def _seed_room_clash_event(*, sphere, event_day) -> None:
         slug="lowtide-fair",
         defaults={
             "name": "Lowtide Fair",
-            "description": "A one-room fair whose only room is booked twice.",
+            "description": "A one-room fair whose only room is too small.",
             "start_time": start,
             "end_time": start + timedelta(hours=3),
             "publication_time": timezone.now() - timedelta(days=2),
@@ -520,19 +522,20 @@ def _seed_room_clash_event(*, sphere, event_day) -> None:
     category, _ = ProposalCategory.objects.get_or_create(
         event=event, slug="rpg", defaults={"name": "RPG"}
     )
-    for title, presenter in (
-        ("Salt Road", "Nell Crane"),
-        ("Tide Reckoning", "Ash Moor"),
+    for title, presenter, seats, hour in (
+        ("Salt Road", "Nell Crane", 6, 1),
+        ("Tide Reckoning", "Ash Moor", 12, 0),
     ):
+        booked = start + timedelta(hours=hour)
         session, _ = Session.objects.get_or_create(
             event=event,
             slug=title.lower().replace(" ", "-"),
             defaults={
                 "title": title,
                 "facilitator_name": presenter,
-                "description": f"{title}, booked into the Heron Room at 10:00.",
+                "description": f"{title}, booked into the Heron Room.",
                 "duration": "PT1H",
-                "participants_limit": 6,
+                "participants_limit": seats,
                 "min_age": 0,
                 "status": "accepted",
                 "category": category,
@@ -542,8 +545,8 @@ def _seed_room_clash_event(*, sphere, event_day) -> None:
             session=session,
             defaults={
                 "space": room,
-                "start_time": start,
-                "end_time": start + timedelta(hours=1),
+                "start_time": booked,
+                "end_time": booked + timedelta(hours=1),
             },
         )
 

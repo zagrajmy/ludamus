@@ -4,10 +4,11 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
-// NOTE: "Lowtide Fair" (bootstrap_timetable.py) has one room, the Heron Room, with
-// Salt Road and Tide Reckoning both booked into it at 10:00. The walkthrough
-// takes Tide Reckoning off the grid and assigns it back to the top of the
-// room's column, 10:00 again, so it leaves the event as it found it.
+// NOTE: "Lowtide Fair" (bootstrap_timetable.py) has one room, the Heron Room, which
+// seats 8. Tide Reckoning, booked into it at 10:00, needs 12; Salt Road follows
+// at 11:00 and fits. The walkthrough takes Tide Reckoning off the grid and
+// assigns it back to the top of the room's column, 10:00 again, so it leaves
+// the event as it found it.
 const TIMETABLE_URL = "/panel/event/lowtide-fair/timetable/";
 const MOVED = "Tide Reckoning";
 
