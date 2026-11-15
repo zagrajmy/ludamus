@@ -347,7 +347,7 @@ class FakeEventBans:
 
     def ban(self, *, event_id, identifier, reason):
         if identifier not in _USER_ID_BY_SLUG:
-            return False
+            return None
         self.rows[event_id, self._next] = EventBanDTO(
             pk=self._next,
             user_name=identifier.title(),
@@ -356,15 +356,28 @@ class FakeEventBans:
             created_at=_NOW,
         )
         self._next += 1
-        return True
+        return _USER_ID_BY_SLUG[identifier]
 
     def unban(self, *, event_id, ban_id):
         del self.rows[event_id, ban_id]
 
 
-def _event_ban_service():
+class FakeChat:
+    def __init__(self):
+        self.revoked = []
+
+    def revoke_event_user(self, *, event_id, user_id):
+        self.revoked.append((event_id, user_id))
+
+
+def _event_ban_service(chat=None):
     repo = FakeEventBans()
-    return EventBanService(FakeTransaction(), repo), repo
+    return (
+        EventBanService(
+            transaction=FakeTransaction(), repo=repo, chat=chat or FakeChat()
+        ),
+        repo,
+    )
 
 
 def test_event_ban_rejects_blank_identifier():
@@ -393,6 +406,16 @@ def test_event_ban_strips_input_and_scopes_reads_to_the_event():
     assert service.banned_event_ids(
         event_ids={1, 2}, user_id=_USER_ID_BY_SLUG["bob"]
     ) == {1}
+
+
+def test_event_ban_takes_back_the_banned_persons_chat_pass():
+    chat = FakeChat()
+    service, _ = _event_ban_service(chat)
+
+    service.ban(event_id=1, identifier="bob", reason="")
+    service.ban(event_id=1, identifier="nobody", reason="")
+
+    assert chat.revoked == [(1, _USER_ID_BY_SLUG["bob"])]
 
 
 def test_event_unban_removes_the_row():

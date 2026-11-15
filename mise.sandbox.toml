@@ -34,4 +34,4 @@ hadolint = "pipx:hadolint-py"
 # 2026.10, so the alias alone fails every sandbox `mise install`. A nearer
 # [tools] entry replaces the whole entry, options included, and an alias can't
 # strip one, hence the second duplicated pin. Bump it together with mise.toml's.
-hk = "2.10.0"
+hk = "2.11.1"

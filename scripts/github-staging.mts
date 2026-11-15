@@ -22,6 +22,7 @@ export interface Context {
     inputs?: {
       pr_number?: string;
       sha?: string;
+      skip_if_stale?: boolean | string;
     };
     label?: Label;
     pull_request?: PullRequestLike;
@@ -36,9 +37,17 @@ export interface Context {
   sha: string;
 }
 
+export interface Summary {
+  addHeading(text: string, level?: number): Summary;
+  addRaw(text: string, addEOL?: boolean): Summary;
+  write(): Promise<unknown>;
+}
+
 export interface Core {
   info(message: string): void;
+  setFailed(message: string): void;
   setOutput(name: string, value: string): void;
+  summary: Summary;
 }
 
 type PaginatedEndpoint = (params: Record<string, unknown>) => Promise<PullRequestLike[]>;
@@ -98,7 +107,8 @@ interface FetchPullRequestArgs extends RepoGithubArgs {
 
 interface ResolveExplicitDeployArgs extends ActionArgs {
   prNumber: number;
-  sha: string;
+  requestedSha?: string;
+  skipIfStale: boolean;
 }
 
 interface ResolveManualDeployArgs extends ActionArgs {
@@ -134,9 +144,25 @@ const isSameRepositoryPullRequest = (context: Context, pr: PullRequestLike) =>
 const hasStagingLabel = (pr: PullRequestLike) =>
   (pr.labels ?? []).some((label) => label.name === STAGING_LABEL);
 
-const setShouldDeploy = (core: Core, deploy: boolean, message: string) => {
-  core.setOutput("should_deploy", deploy ? "true" : "false");
+const deploy = (core: Core, sha: string, message: string) => {
+  core.setOutput("sha", sha);
+  core.setOutput("should_deploy", "true");
   core.info(message);
+};
+
+const halt = async (core: Core, heading: string, message: string) => {
+  core.setOutput("should_deploy", "false");
+  await core.summary.addHeading(heading, 2).addRaw(message, true).write();
+};
+
+const skip = async (core: Core, message: string) => {
+  core.info(message);
+  await halt(core, "Staging deploy skipped", message);
+};
+
+const refuse = async (core: Core, message: string) => {
+  core.setFailed(message);
+  await halt(core, "Staging deploy refused", message);
 };
 
 const workflowLogUrl = (context: Context) =>
@@ -223,7 +249,7 @@ const claimStagingTarget = async (
   if (!isSameRepositoryPullRequest(args.context, pr)) {
     return {
       ok: false,
-      message: `Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`,
+      message: `Refusing ${STAGING_LABEL} deploy for fork PR #${pr.number}`,
     };
   }
 
@@ -241,6 +267,7 @@ const dispatchDeploy = async ({ github, context, pr, core }: DispatchDeployArgs)
     inputs: {
       pr_number: String(pr.number),
       sha: pr.head.sha,
+      skip_if_stale: "true",
     },
   });
   core.info(`Dispatched ${DEPLOY_WORKFLOW_ID} for PR #${pr.number} at ${pr.head.sha}`);
@@ -353,36 +380,43 @@ const resolveExplicitDeploy = async ({
   context,
   core,
   prNumber,
-  sha,
+  requestedSha,
+  skipIfStale,
 }: ResolveExplicitDeployArgs) => {
   const pr = await fetchPullRequest({ github, context, number: prNumber });
+  if (!pr.head) throw new Error(`Expected PR #${prNumber} to have a head`);
 
   // An explicit dispatch is itself the authorization to deploy, so we do NOT
   // require the staging label here (that gate is only for the auto-flow). We
-  // still refuse closed/draft PRs and stale commits, and claimStagingTarget
-  // strips the label from any other PR so only the explicit target is on
-  // staging.
+  // still refuse closed/draft PRs and commits other than the PR head, and
+  // claimStagingTarget strips the label from any other PR so only the explicit
+  // target is on staging. A label-triggered dispatch that a newer push or a
+  // merge overtook is skipped, not failed: the newer run deploys instead.
+  const outdated = skipIfStale ? skip : refuse;
+
   if (pr.state !== "open" || pr.draft) {
-    setShouldDeploy(core, false, `PR #${prNumber} is not an open, non-draft pull request`);
+    await outdated(core, `PR #${prNumber} is not an open, non-draft pull request`);
     return;
   }
 
-  if (pr.head?.sha !== sha) {
-    setShouldDeploy(
+  const headSha = pr.head.sha;
+  if (requestedSha && requestedSha !== headSha) {
+    await outdated(
       core,
-      false,
-      `PR #${prNumber} head ${pr.head?.sha} no longer matches requested ${sha}`,
+      skipIfStale
+        ? `PR #${prNumber} moved on to ${headSha}; ${requestedSha} is superseded`
+        : `PR #${prNumber} head ${headSha} does not match requested ${requestedSha}; leave sha empty to deploy the current head`,
     );
     return;
   }
 
   const claim = await claimStagingTarget({ github, context, core }, pr);
   if (!claim.ok) {
-    setShouldDeploy(core, false, claim.message);
+    await refuse(core, claim.message);
     return;
   }
 
-  setShouldDeploy(core, true, `Deploying PR #${pr.number} at ${sha}`);
+  deploy(core, headSha, `Deploying PR #${pr.number} at ${headSha}`);
 };
 
 const resolveManualDeploy = async ({ github, context, core, sha }: ResolveManualDeployArgs) => {
@@ -396,13 +430,13 @@ const resolveManualDeploy = async ({ github, context, core, sha }: ResolveManual
   // deploy takes over staging, so we strip the label off every other PR
   // (claimStagingTarget semantics).
   if (openPrsForSha.length > 1) {
-    setShouldDeploy(core, false, `Multiple open PRs for ${sha}; pass pr_number to disambiguate`);
+    await refuse(core, `Multiple open PRs for ${sha}; pass pr_number to disambiguate`);
     return;
   }
 
   if (openPrsForSha.length === 0) {
     await exclusiveStagingFor({ github, context, core });
-    setShouldDeploy(core, true, `Deploying ${sha}`);
+    deploy(core, sha, `Deploying ${sha}`);
     return;
   }
 
@@ -415,37 +449,30 @@ const resolveManualDeploy = async ({ github, context, core, sha }: ResolveManual
     number: openPrsForSha[0].number,
   });
   if (!isSameRepositoryPullRequest(context, pr)) {
-    setShouldDeploy(core, false, `Skipping ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
+    await refuse(core, `Refusing ${STAGING_LABEL} deploy for fork PR #${pr.number}`);
     return;
   }
 
   await exclusiveStagingFor({ github, context, core }, pr.number);
-  setShouldDeploy(core, true, `Deploying PR #${pr.number} at ${sha}`);
+  deploy(core, sha, `Deploying PR #${pr.number} at ${sha}`);
 };
 
 export const resolveDeploy = async ({ github, context, core }: ActionArgs) => {
-  const inputSha = context.payload.inputs?.sha?.trim();
-  const sha = inputSha || context.sha;
-  const prNumberInput = context.payload.inputs?.pr_number?.trim();
-  const prNumber = prNumberInput ? Number.parseInt(prNumberInput, 10) : undefined;
-  const isValidPrNumber =
-    !prNumberInput ||
-    (prNumber !== undefined &&
-      Number.isSafeInteger(prNumber) &&
-      prNumber > 0 &&
-      String(prNumber) === prNumberInput);
+  const inputs = context.payload.inputs ?? {};
+  const requestedSha = inputs.sha?.trim() || undefined;
+  const skipIfStale = String(inputs.skip_if_stale) === "true";
+  const prNumberInput = inputs.pr_number?.trim();
 
-  core.setOutput("sha", sha);
-
-  if (!isValidPrNumber) {
-    setShouldDeploy(core, false, `Invalid pull request number: ${prNumberInput}`);
+  if (!prNumberInput) {
+    await resolveManualDeploy({ github, context, core, sha: requestedSha ?? context.sha });
     return;
   }
 
-  if (prNumber !== undefined) {
-    await resolveExplicitDeploy({ github, context, core, prNumber, sha });
+  const prNumber = Number.parseInt(prNumberInput, 10);
+  if (!(Number.isSafeInteger(prNumber) && prNumber > 0 && String(prNumber) === prNumberInput)) {
+    await refuse(core, `Invalid pull request number: ${prNumberInput}`);
     return;
   }
 
-  await resolveManualDeploy({ github, context, core, sha });
+  await resolveExplicitDeploy({ github, context, core, prNumber, requestedSha, skipIfStale });
 };

@@ -124,7 +124,9 @@
                 {% endif %}
             </div>
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="lg:hidden">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}</div>
+                <div class="lg:hidden">
+                    {% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}
+                </div>
             {% endif %}
             {% if description_html %}
                 <hr class="border-border">
@@ -140,7 +142,9 @@
                 {% endif %}
             </div>
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="hidden lg:block">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}</div>
+                <div class="hidden lg:block">
+                    {% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}
+                </div>
             {% endif %}
             <section class="card" aria-labelledby="encounter-attending">
                 <div class="card-body">

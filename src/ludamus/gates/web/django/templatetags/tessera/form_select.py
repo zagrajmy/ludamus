@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
 
-from ._choices import grouped_choices
+from ._choices import grouped_choices, taken_values
 from .errors import help_text_id
 
 if TYPE_CHECKING:
@@ -25,6 +25,7 @@ def render_select(field: BoundField, *, inplace_class: str = "") -> str:
             "name": field.html_name,
             "id": field.id_for_label,
             "groups": grouped_choices(field),
+            "taken": taken_values(field),
             "selected": field.value(),
             "required": field.field.required,
             "disabled": field.field.disabled,

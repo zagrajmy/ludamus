@@ -84,6 +84,10 @@ white once the page around them is dark.
                 animation: landingRevIn linear both;
                 animation-timeline: view();
                 animation-range: entry 0% entry 45%;
+                /* NOTE: Firefox anchors scrolling to the box's translated
+                   position, so a reveal that settles after a jump to the end
+                   pulls the scroller 26px back — under the reader's click. */
+                overflow-anchor: none;
             }
         }
     }

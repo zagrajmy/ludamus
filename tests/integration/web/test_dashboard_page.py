@@ -30,7 +30,12 @@ from tests.integration.utils import assert_response, assert_response_404
 
 DASHBOARD_URL = reverse("web:dashboard")
 EMPTY_DASHBOARD = DashboardDTO(
-    agenda=[], open_encounters=[], sphere_feed=[], discover=[], past_events=[]
+    agenda=[],
+    agenda_more=[],
+    open_encounters=[],
+    sphere_feed=[],
+    discover=[],
+    past_events=[],
 )
 
 
