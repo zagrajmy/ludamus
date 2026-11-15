@@ -7,9 +7,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
 const wired = new WeakSet<HTMLElement>();
 
-// NOTE: a pinned panel no longer follows the page, so any scroll or resize closes
-// it. One pair of listeners serves every menu and holds only the open pinned
-// ones, so a menu that htmx swaps out leaves nothing behind.
+// NOTE: a pinned panel no longer follows the page, so a resize or a scroll
+// outside it closes it. One pair of listeners serves every menu and holds only
+// the open pinned ones, so a menu that htmx swaps out leaves nothing behind.
 const openPinned = new Set<(event: Event) => void>();
 const closePinned = (event: Event): void => {
   for (const closeMenu of openPinned) closeMenu(event);

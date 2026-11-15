@@ -1,4 +1,4 @@
-"""The three visibility choices on the event settings form, end to end."""
+"""The three visibility choices on the event settings form."""
 
 from datetime import timedelta
 from http import HTTPStatus
@@ -155,6 +155,8 @@ class TestEventPublication:
     def test_a_hidden_unreadable_time_does_not_block_another_choice(
         self, panel_client, event, publication, visibility
     ):
+        stored = event.publication_time
+
         response = panel_client.post(
             settings_url(event),
             data=settings_post_data(
@@ -162,4 +164,5 @@ class TestEventPublication:
             ),
         )
 
-        assert _saved(response, event).visibility == visibility
+        event = _saved(response, event)
+        assert (event.visibility, event.publication_time) == (visibility, stored)
