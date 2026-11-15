@@ -49,6 +49,10 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   await bert.goto(`${COUNCIL}/`);
   await bert.getByRole("button", { name: /Notifications/ }).click();
   await bert.getByRole("link", { name: /Ada Council wants to delete Council Retreat/ }).click();
+  // The confirmation is wired up by a deferred script; a click before it
+  // runs would submit the form unasked.
+  await bert.waitForURL("**/panel/event/council-retreat/settings/**");
+  await bert.waitForLoadState("load");
 
   const bertCard = bert.getByRole("region", { name: "Delete event" });
   await expect(bertCard.getByRole("listitem").filter({ hasText: "Ada Council" })).toBeVisible();
