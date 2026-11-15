@@ -91,12 +91,11 @@
                 </p>
                 <div>
                     {% if page.opened.room.kind == "event" %}
-                        <a href="{% url 'web:chronology:event' slug=page.opened.event_slug %}"
-                           class="btn btn-secondary text-sm">{% translate "Open the event page" %}</a>
+                        {% translate "Open the event page" as t_open %}
                     {% else %}
-                        <a href="{% url 'web:chronology:event' slug=page.opened.event_slug %}?session={{ page.opened.room.pk }}"
-                           class="btn btn-secondary text-sm">{% translate "Open the programme point" %}</a>
+                        {% translate "Open the programme point" as t_open %}
                     {% endif %}
+                    {% tessera_button t_open href=opened_url variant="secondary" %}
                 </div>
             </article>
         {% endif %}

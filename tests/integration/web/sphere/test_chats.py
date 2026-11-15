@@ -47,6 +47,15 @@ def _watched_room(session):
     )
 
 
+def _opened_url(event, page):
+    if page.opened is None:
+        return None
+    event_url = reverse("web:chronology:event", kwargs={"slug": event.slug})
+    if page.opened.room.kind == ParleyRoomKind.EVENT:
+        return event_url
+    return f"{event_url}?session={page.opened.room.pk}"
+
+
 def _context(event, *, page):
     event_dto = EventDTO.model_validate(event)
     return {
@@ -56,6 +65,7 @@ def _context(event, *, page):
         "active_nav": "chats",
         "page": page,
         "opened_room_id": None if page.opened is None else page.opened.room.id,
+        "opened_url": _opened_url(event, page),
     }
 
 

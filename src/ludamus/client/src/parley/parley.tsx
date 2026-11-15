@@ -250,7 +250,8 @@ function Connected({
   const linkFailed = linked !== "" && linkedRoom === undefined;
   const single =
     own.length === 1 && moderationUrl === null && !bootstrap.canMessage ? own[0] : undefined;
-  const shown = settle(view, rooms, linkedRoom ?? opensOn ?? single);
+  // A link that cannot open leaves the list, and its warning, in sight.
+  const shown = settle(view, rooms, linkedRoom ?? (linkFailed ? undefined : (opensOn ?? single)));
   const roomId = shown.kind === "room" || shown.kind === "details" ? shown.roomId : null;
   const room = rooms.find(({ id }) => id === roomId);
   useEffect(() => {

@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING
 
 from django.http import Http404
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.parley.configuration import chat_configured
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.parley import ParleyRoomKind, ParleyRoomRef
+from ludamus.pacts.parley import ParleyOpenedRoomDTO, ParleyRoomKind, ParleyRoomRef
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -31,6 +32,13 @@ def _room(kind: str | None, pk: int | None) -> ParleyRoomRef | None:
         return ParleyRoomRef(kind=ParleyRoomKind(kind), pk=pk)
     except ValueError as error:
         raise Http404 from error
+
+
+def _public_url(opened: ParleyOpenedRoomDTO) -> str:
+    event_url = reverse("web:chronology:event", kwargs={"slug": opened.event_slug})
+    if opened.room.kind == ParleyRoomKind.EVENT:
+        return event_url
+    return f"{event_url}?session={opened.room.pk}"
 
 
 class ChatModerationPageView(SphereAccessMixin, View):
@@ -63,5 +71,6 @@ class ChatModerationPageView(SphereAccessMixin, View):
                 **sphere_sidebar_context(self.request, active_nav="chats"),
                 "page": page,
                 "opened_room_id": opened_room_id,
+                "opened_url": None if page.opened is None else _public_url(page.opened),
             },
         )

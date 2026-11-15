@@ -68,8 +68,11 @@ test.describe("The chat of a sphere's organizer", () => {
     await routeBootstrap(page, [{ ...moderation, rooms }]);
     const worker = await FakeWorker.install(page);
     await page.goto("/");
+    // The snapshot first, so the live event lands on top of it.
     await expect
-      .poll(() => worker.sockets.some((socket) => socket.url().includes("parley-sphere-agent/1")))
+      .poll(() =>
+        worker.called("getActivity").some(({ url }) => url.includes("parley-sphere-agent/1")),
+      )
       .toBe(true);
     worker.push(
       "room.activity",
@@ -198,7 +201,7 @@ test.describe("The sphere's chat moderation page", () => {
       CHATS_URL,
     );
     const list = page.getByRole("navigation", { name: "Chats to moderate" });
-    const first = list.locator('a[href*="/chats/session/"]').first();
+    const first = list.getByRole("link").filter({ hasNotText: "Event chat" }).first();
     const href = (await first.getAttribute("href")) ?? "";
     const roomId = href.split("#parley:")[1] ?? "";
     expect(roomId).toMatch(/^session:\d+:\d+$/u);
@@ -226,7 +229,9 @@ test.describe("The sphere's chat moderation page", () => {
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/chats\/session\/\d+\/#parley:/u);
     await expect(first).toHaveAttribute("aria-current", "page");
-    const heading = (await page.locator("#chat-heading").innerText()).trim();
+    const heading = (
+      await page.getByRole("article").getByRole("heading", { level: 2 }).innerText()
+    ).trim();
     expect(heading).not.toBe("");
     expect(await first.innerText()).toContain(heading);
     const panel = panelOf(page);
