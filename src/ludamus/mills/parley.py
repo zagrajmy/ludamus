@@ -150,7 +150,11 @@ def _fitted(
 
 
 class ParleyService:
-    """One pass, and one list of chats, across every sphere someone is in."""
+    """One pass, and one list of chats, for the sphere the chat opens on.
+
+    The list holds someone's own rooms in every sphere; the rooms they only
+    moderate come from the sphere the chat opens on alone.
+    """
 
     def __init__(
         self,
@@ -258,6 +262,7 @@ class ParleyService:
             blocked=self._conversations.list_blocked(user_id),
             capability_token=capability_token,
             agent_host=self._agent_host,
+            has_moderated_rooms=any(room.moderating for room in rooms),
         )
 
     def moderates(self, *, user_id: int, sphere_id: int) -> bool:

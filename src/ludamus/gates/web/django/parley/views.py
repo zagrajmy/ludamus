@@ -278,9 +278,7 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
     response_data["moderationUrl"] = (
-        reverse("multiverse:panel:chats")
-        if any(room.moderating for room in payload.rooms)
-        else None
+        reverse("multiverse:panel:chats") if payload.has_moderated_rooms else None
     )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)

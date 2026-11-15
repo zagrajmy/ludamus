@@ -66,27 +66,28 @@ def board(_request: HttpRequest) -> dict[str, bool]:
     return {"BOARD_PUBLIC": settings.BOARD_PUBLIC}
 
 
+def _chat_user_id(request: RootRequest) -> int | None:
+    """Who is signed in where the chat runs at all.
+
+    Returns:
+        Their id, or None when nobody is signed in or no chat is set up.
+    """
+    return request.context.current_user_id if chat_configured() else None
+
+
 def _parley_open(request: RootRequest) -> bool:
-    user_id = request.context.current_user_id
-    return bool(
-        chat_configured()
-        and user_id is not None
-        and request.services.parley.is_open_to(
-            user_id=user_id,
-            sphere_id=request.context.current_sphere_id,
-            now=datetime.now(tz=UTC),
-        )
+    user_id = _chat_user_id(request)
+    return user_id is not None and request.services.parley.is_open_to(
+        user_id=user_id,
+        sphere_id=request.context.current_sphere_id,
+        now=datetime.now(tz=UTC),
     )
 
 
 def _parley_moderates(request: RootRequest) -> bool:
-    user_id = request.context.current_user_id
-    return bool(
-        chat_configured()
-        and user_id is not None
-        and request.services.parley.moderates(
-            user_id=user_id, sphere_id=request.context.current_sphere_id
-        )
+    user_id = _chat_user_id(request)
+    return user_id is not None and request.services.parley.moderates(
+        user_id=user_id, sphere_id=request.context.current_sphere_id
     )
 
 

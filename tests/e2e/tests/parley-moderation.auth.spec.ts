@@ -157,6 +157,34 @@ test.describe("The chat of a sphere's organizer", () => {
       .click();
     await expect(panel.getByText(copy.moderatorReading)).toBeVisible();
   });
+
+  test("takes a page's own anchor for no chat link", async ({ page }) => {
+    await routeBootstrap(page, [{ ...moderation, rooms }]);
+    await FakeWorker.install(page);
+    await page.goto("/#main");
+    await launcherOf(page).click();
+    const panel = panelOf(page);
+
+    await expect(ownList(panel).getByRole("button", { name: /Mothership/u })).toBeVisible();
+    await expect(panel.getByText(copy.linkUnavailable)).toHaveCount(0);
+  });
+
+  test("says when a link names a chat it cannot open, until another one opens", async ({
+    page,
+  }) => {
+    await routeBootstrap(page, [{ ...moderation, rooms }]);
+    await FakeWorker.install(page);
+    await page.goto("/#parley:session:9:99");
+    const panel = panelOf(page);
+
+    await expect(panel.getByText(copy.linkUnavailable)).toBeVisible();
+    await ownList(panel)
+      .getByRole("button", { name: /Mothership/u })
+      .click();
+    await panel.getByRole("button", { name: copy.backLabel }).click();
+    await expect(ownList(panel)).toBeVisible();
+    await expect(panel.getByText(copy.linkUnavailable)).toHaveCount(0);
+  });
 });
 
 test.describe("The sphere's chat moderation page", () => {

@@ -416,6 +416,23 @@ class ModeratedAccess(Access):
         return self.moderated
 
 
+@pytest.mark.parametrize(
+    ("rooms", "expected"),
+    (([_event(1, can_moderate=True)], False), ([_moderating(_event(1))], True)),
+    ids=["own-rooms-only", "a-room-only-moderated"],
+)
+def test_bootstrap_says_whether_this_sphere_has_rooms_only_moderated(
+    rooms, expected
+) -> None:
+    access = Access(rooms, seats=[(45, SphereRole.MANAGER)])
+    service, _ = _bootstrapping(access)
+
+    result = service.bootstrap(user_id=USER_ID, sphere_id=45, now=NOW)
+
+    assert result is not None
+    assert result.has_moderated_rooms is expected
+
+
 def _programme():
     return [
         ParleyModeratedEventDTO(

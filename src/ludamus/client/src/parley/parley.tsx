@@ -199,6 +199,7 @@ function Connected({
   bootstrap,
   launcherLabel,
   linked,
+  onLinkFollowed,
   onPassClosed,
   pageRoom,
   setView,
@@ -208,6 +209,8 @@ function Connected({
   launcherLabel: string;
   // The room a link opened the page on, as "#parley:<room id>[:<message>]" names it.
   linked: string;
+  // Called once the person opens a room, which settles the link either way.
+  onLinkFollowed: () => void;
   onPassClosed: () => void;
   pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
@@ -244,7 +247,7 @@ function Connected({
   const linkedRoom = rooms.find(({ id }) => linked === id || linked.startsWith(`${id}:`));
   // A link to a chat this person cannot open here says so, until they open
   // another.
-  const [linkFailed, setLinkFailed] = useState(linked !== "" && linkedRoom === undefined);
+  const linkFailed = linked !== "" && linkedRoom === undefined;
   const single =
     own.length === 1 && moderationUrl === null && !bootstrap.canMessage ? own[0] : undefined;
   const shown = settle(view, rooms, linkedRoom ?? opensOn ?? single);
@@ -304,7 +307,7 @@ function Connected({
 
   const close = useCallback(() => setView(toggled), [setView]);
   const open = (target: Room) => {
-    setLinkFailed(false);
+    onLinkFollowed();
     setView({ kind: "room", roomId: target.id });
   };
   const opened = (conversation: ConversationInfo) => {
@@ -518,6 +521,9 @@ function Parley({
   pageRoom: string;
   shell: Shell;
 }) {
+  // NOTE: kept here, above the connection: a refreshed pass remounts it.
+  const [link, setLink] = useState(linked);
+  const followLink = useCallback(() => setLink(""), []);
   const [view, setView] = useState<View>(initialOpen ? ENTRY : { kind: "closed", left: ENTRY });
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
@@ -589,7 +595,8 @@ function Parley({
         bootstrap={bootstrap}
         key={bootstrap.capabilityToken}
         launcherLabel={launcherLabel}
-        linked={linked}
+        linked={link}
+        onLinkFollowed={followLink}
         onPassClosed={passClosed}
         pageRoom={pageRoom}
         setView={setView}
@@ -644,6 +651,11 @@ function Parley({
   );
 }
 
+// What a "#parley:<room id>[:<message>]" hash links to; any other anchor on
+// the page names no chat.
+const chatLink = (hash: string): string =>
+  hash.startsWith("#parley:") ? hash.slice("#parley:".length) : "";
+
 // NOTE: committed before this returns. Rendered in a later task, the page's
 // own launcher would stay up a moment after the chat began loading, and a
 // click on it then would be lost: its loader has already started, closed.
@@ -664,7 +676,7 @@ export function mountParley(element: HTMLElement, initialOpen: boolean): void {
         launcherLabel={
           element.querySelector("[data-parley-launcher]")?.getAttribute("aria-label") ?? "Chat"
         }
-        linked={globalThis.location.hash.replace(/^#parley:/u, "")}
+        linked={chatLink(globalThis.location.hash)}
         pageRoom={pageRoom}
         shell={{ closeLabel, connectionError, loading, retry }}
       />,

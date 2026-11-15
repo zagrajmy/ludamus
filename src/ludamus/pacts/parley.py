@@ -203,6 +203,9 @@ class ParleyBootstrapDTO(BaseModel):
     blocked: list[ParleyPersonDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")
+    # Whether the sphere the chat opens on has rooms this person only
+    # moderates, read on its moderation page.
+    has_moderated_rooms: bool = Field(default=False, exclude=True)
 
 
 class ParleyManagedSphere(BaseModel):
