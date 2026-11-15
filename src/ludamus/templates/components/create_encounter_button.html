@@ -23,11 +23,11 @@
             {% url 'panel:event-create' as event_create_url %}
             {% translate "Event" as event_title %}
             {% translate "For a convention or a bigger meetup. Collect program proposals and build a timetable." as event_description %}
-            {% include "components/organize_option.html" with option_id="organize-event" href=event_create_url icon_name="calendar-days" title=event_title description=event_description tone="primary" %}
+            {% include "components/organize_option.html" with option_id="organize-event" href=event_create_url icon_name="calendar-days" title=event_title description=event_description %}
             {% url 'web:notice-board:create' as encounter_create_url %}
             {% translate "Encounter" as encounter_title %}
             {% translate "Just a description, a time and a place. Best for online RPG sessions, game jams and freeform meetups." as encounter_description %}
-            {% include "components/organize_option.html" with option_id="organize-encounter" href=encounter_create_url icon_name="user-group" title=encounter_title description=encounter_description tone="secondary" %}
+            {% include "components/organize_option.html" with option_id="organize-encounter" href=encounter_create_url icon_name="user-group" title=encounter_title description=encounter_description %}
         </div>
     </dialog>
 {% else %}
