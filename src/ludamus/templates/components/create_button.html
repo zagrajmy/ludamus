@@ -20,7 +20,7 @@
         </div>
         <div class="grid gap-3 px-6 pt-4 pb-6 sm:grid-cols-2">
             {% for option in options %}
-                {% include "components/organize_option.html" with option=option %}
+                {% tessera_choice_tile tile_id="organize-"|add:option.key href=option.href title=option.title description=option.description icon=option.icon %}
             {% endfor %}
         </div>
     </dialog>

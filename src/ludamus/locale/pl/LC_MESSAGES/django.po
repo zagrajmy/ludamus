@@ -288,12 +288,13 @@ msgid "Create event"
 msgstr "Utwórz wydarzenie"
 
 #: src/ludamus/gates/web/django/create_options.py
-#: src/ludamus/gates/web/django/mcp/oauth.py
+#: src/ludamus/gates/web/django/mcp/oauth.py src/ludamus/templates/design.html
 #: src/ludamus/templates/panel/base.html
 msgid "Event"
 msgstr "Wydarzenie"
 
 #: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/design.html
 msgid ""
 "For a convention or a bigger meetup. Collect program proposals and build a "
 "timetable."

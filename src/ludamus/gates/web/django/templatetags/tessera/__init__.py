@@ -32,6 +32,7 @@ from .action_dropdown import (
     tessera_action_dropdown_item,
 )
 from .checkbox import tessera_checkbox_toggle
+from .choice_tile import tessera_choice_tile
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .dialog_close_button import tessera_dialog_close_button
@@ -82,6 +83,7 @@ __all__ = [
     "tessera_action_dropdown_item",
     "tessera_button",
     "tessera_checkbox_toggle",
+    "tessera_choice_tile",
     "tessera_copy",
     "tessera_copy_chip",
     "tessera_copy_popover",

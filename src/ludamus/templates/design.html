@@ -65,6 +65,14 @@
             <dialog id="design-dialog" class="modal"></dialog>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_choice_tile {% templatetag closeblock %}</code>
+            {% translate "Event" as design_choice_title %}
+            {% translate "For a convention or a bigger meetup. Collect program proposals and build a timetable." as design_choice_help %}
+            <div class="w-64">
+                {% tessera_choice_tile tile_id="design-choice" href="#" title=design_choice_title description=design_choice_help icon="calendar-days" %}
+            </div>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} switcher {% templatetag closeblock %}</code>
             {% tessera_switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
                 {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}
