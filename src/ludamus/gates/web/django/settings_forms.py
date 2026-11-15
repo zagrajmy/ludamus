@@ -18,6 +18,10 @@ from ludamus.gates.web.django.forms import (
 )
 from ludamus.pacts.event import EventVisibility
 
+VISIBILITY_UNLISTED = EventVisibility.UNLISTED.value
+VISIBILITY_PUBLIC_NOW = EventVisibility.PUBLIC.value
+VISIBILITY_SCHEDULED = "scheduled"
+
 
 class EventSettingsForm(forms.Form):
     """Form for event settings."""
@@ -75,21 +79,19 @@ class EventSettingsForm(forms.Form):
     visibility = forms.ChoiceField(
         choices=[
             (
-                EventVisibility.PUBLIC.value,
+                VISIBILITY_UNLISTED,
                 _(
-                    "Public: listed and announced to followers from its "
-                    "publication time"
+                    "Link only: anyone with the link can open it; never listed "
+                    "or announced"
                 ),
             ),
+            (VISIBILITY_PUBLIC_NOW, _("Public now: listed and announced to followers")),
             (
-                EventVisibility.UNLISTED.value,
-                _(
-                    "Link only: anyone with the link can open it now; never "
-                    "listed or announced"
-                ),
+                VISIBILITY_SCHEDULED,
+                _("Publish at a set time: listed and announced from then"),
             ),
         ],
-        initial=EventVisibility.PUBLIC.value,
+        initial=VISIBILITY_SCHEDULED,
         widget=forms.RadioSelect,
         label=_("Who can see the event"),
     )
@@ -97,11 +99,8 @@ class EventSettingsForm(forms.Form):
         required=False,
         widget=datetime_local_widget(),
         input_formats=DATETIME_LOCAL_FORMATS,
-        label=_("Publication time"),
-        help_text=_(
-            "For a public event: when it appears in event lists and followers "
-            "are notified. Leave empty to keep it hidden."
-        ),
+        label=_("Publish at"),
+        help_text=_("Leave empty to keep the event hidden until you pick a time."),
     )
     allow_facilitator_session_edit = forms.ChoiceField(
         required=False,

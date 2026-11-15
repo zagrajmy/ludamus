@@ -1,4 +1,5 @@
 import io
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY, patch
 
@@ -6,6 +7,8 @@ import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.timezone import localtime
 from PIL import Image
 
 from ludamus.pacts.errors import NotFoundError
@@ -307,6 +310,95 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.visibility == "unlisted"
+
+    def _saved(self, response, event):
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        return event
+
+    def test_public_now_publishes_a_hidden_event(self, panel_client, event):
+        event.publication_time = None
+        event.save()
+        before = timezone.now()
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, visibility="public")
+        )
+
+        event = self._saved(response, event)
+        assert event.visibility == "public"
+        assert before <= event.publication_time <= timezone.now()
+
+    def test_public_now_keeps_a_past_publication_time(self, panel_client, event):
+        published = timezone.now() - timedelta(days=3)
+        event.publication_time = published
+        event.save()
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, visibility="public")
+        )
+
+        assert self._saved(response, event).publication_time == published
+
+    def test_public_now_on_a_started_event_publishes_it_from_its_start(
+        self, panel_client, event
+    ):
+        start = (timezone.now() - timedelta(hours=2)).replace(second=0, microsecond=0)
+        event.start_time = start
+        event.end_time = start + timedelta(hours=8)
+        event.publication_time = None
+        event.save()
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, visibility="public")
+        )
+
+        event = self._saved(response, event)
+        assert event.publication_time == event.start_time
+
+    def test_publish_at_sets_the_chosen_time(self, panel_client, event):
+        when = localtime(event.start_time - timedelta(days=1)).replace(
+            second=0, microsecond=0
+        )
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event,
+                visibility="scheduled",
+                publication_time=when.strftime("%Y-%m-%dT%H:%M"),
+            ),
+        )
+
+        event = self._saved(response, event)
+        assert (event.visibility, event.publication_time) == ("public", when)
+
+    def test_publish_at_without_a_time_keeps_the_event_hidden(
+        self, panel_client, event
+    ):
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(event, visibility="scheduled", publication_time=""),
+        )
+
+        event = self._saved(response, event)
+        assert (event.visibility, event.publication_time) == ("public", None)
+
+    def test_link_only_keeps_the_stored_publication_time(self, panel_client, event):
+        stored = event.publication_time
+
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(event, visibility="unlisted", publication_time=""),
+        )
+
+        event = self._saved(response, event)
+        assert (event.visibility, event.publication_time) == ("unlisted", stored)
 
     def test_normalizes_address_lines(self, panel_client, event):
         response = panel_client.post(
@@ -660,7 +752,9 @@ class TestEventSettingsPageViewPost:
         response = panel_client.post(
             self.get_url(event),
             data=self._post_data(
-                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+                event,
+                visibility="scheduled",
+                publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M"),
             ),
         )
 
