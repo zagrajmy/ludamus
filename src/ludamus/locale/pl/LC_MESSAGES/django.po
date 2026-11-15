@@ -7034,6 +7034,7 @@ msgstr "Otwórz czat"
 
 #: src/ludamus/templates/board/_back_link.html
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+#: src/ludamus/templates/components/command-menu.html
 #: src/ludamus/templates/components/navbar.html
 #: src/ludamus/templates/dashboard/index.html
 msgid "Board"
@@ -7459,6 +7460,80 @@ msgstr "Wybierz kolor"
 msgid "Results"
 msgstr "Wyniki"
 
+#: src/ludamus/templates/components/command-menu.html
+msgid "Command menu"
+msgstr "Menu poleceń"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Type a command or search…"
+msgstr "Wpisz polecenie lub szukaj…"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "No results found."
+msgstr "Brak wyników."
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Go to"
+msgstr "Przejdź do"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/index.html
+#: src/ludamus/templates/landing/org_proof.html
+msgid "Events"
+msgstr "Wydarzenia"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Your dashboard"
+msgstr "Twój pulpit"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+msgid "Panel"
+msgstr "Panel"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/user/user/edit.html
+msgid "Edit profile"
+msgstr "Edycja profilu"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+msgid "Log out"
+msgstr "Wyloguj się"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/login_button.html
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+msgid "Log in"
+msgstr "Zaloguj się"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/language_switcher.html
+msgid "Language"
+msgstr "Język"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Theme"
+msgstr "Motyw"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "System theme"
+msgstr "Motyw systemowy"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "Light theme"
+msgstr "Jasny motyw"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "Dark theme"
+msgstr "Ciemny motyw"
+
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
@@ -7661,10 +7736,11 @@ msgstr "Brak ikony"
 msgid "Preview unavailable for this icon"
 msgstr "Podgląd tej ikony jest niedostępny"
 
-#: src/ludamus/templates/components/login_button.html
-#: src/ludamus/templates/event/propose/parts/_login_nudge.html
-msgid "Log in"
-msgstr "Zaloguj się"
+#: src/ludamus/templates/components/language_switcher.html
+msgid "Used for this site in this browser and for the messages we send you."
+msgstr ""
+"W tym języku wyświetlamy stronę w tej przeglądarce i piszemy do Ciebie "
+"wiadomości."
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
 msgid "Start typing to find someone."
@@ -7687,26 +7763,12 @@ msgid "Apply filters"
 msgstr "Zastosuj filtry"
 
 #: src/ludamus/templates/components/navbar.html
+msgid "Open command menu"
+msgstr "Otwórz menu poleceń"
+
+#: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
 msgstr "Menu konta"
-
-#: src/ludamus/templates/components/navbar.html
-msgid "Panel"
-msgstr "Panel"
-
-#: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/dashboard/index.html
-msgid "Your dashboard"
-msgstr "Twój pulpit"
-
-#: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/user/user/edit.html
-msgid "Edit profile"
-msgstr "Edycja profilu"
-
-#: src/ludamus/templates/components/navbar.html
-msgid "Log out"
-msgstr "Wyloguj się"
 
 #: src/ludamus/templates/components/notifications.html
 msgid "unread"
@@ -7756,24 +7818,12 @@ msgid "Select a display theme:"
 msgstr "Wybierz motyw:"
 
 #: src/ludamus/templates/components/theme_switcher.html
-msgid "System theme"
-msgstr "Motyw systemowy"
-
-#: src/ludamus/templates/components/theme_switcher.html
 msgid "system"
 msgstr "systemowy"
 
 #: src/ludamus/templates/components/theme_switcher.html
-msgid "Light theme"
-msgstr "Jasny motyw"
-
-#: src/ludamus/templates/components/theme_switcher.html
 msgid "light"
 msgstr "jasny"
-
-#: src/ludamus/templates/components/theme_switcher.html
-msgid "Dark theme"
-msgstr "Ciemny motyw"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "dark"
@@ -9464,11 +9514,6 @@ msgstr ""
 #: src/ludamus/templates/event/session-edit-page.html
 msgid "Edit proposal"
 msgstr "Edytuj zgłoszenie"
-
-#: src/ludamus/templates/index.html
-#: src/ludamus/templates/landing/org_proof.html
-msgid "Events"
-msgstr "Wydarzenia"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/sphere/panel/_sphere_tabs_nav.html
@@ -15267,6 +15312,9 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"
 
 #~ msgid "Nothing to moderate right now."
 #~ msgstr "Na razie nie ma czego moderować."

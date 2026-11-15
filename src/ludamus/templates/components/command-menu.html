@@ -1,0 +1,65 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    What the command menu offers, as the real links and buttons it runs:
+    command-menu/menu.tsx lists every link and button of each
+    [data-command-group] and clicks the one picked. Kept in a template so the
+    copy, the URLs and the {% icon %} glyphs have one source.
+{% endcomment %}
+{% get_current_language as current_language %}
+{% get_available_languages as available_languages %}
+{% get_language_info_list for available_languages as languages %}
+<div hidden
+     data-command-menu
+     data-title="{% translate "Command menu" %}"
+     data-placeholder="{% translate "Type a command or search…" %}"
+     data-empty="{% translate "No results found." %}">
+    <template data-command-search-icon>
+        {% icon "magnifying-glass" variant="mini" %}
+    </template>
+    <template data-command-checked-icon>
+        {% icon "check" variant="mini" %}
+    </template>
+    <div data-command-group="{% translate "Go to" %}">
+        <a href="{% url 'web:index' %}">{% icon "calendar-days" variant="mini" %}{% translate "Events" %}</a>
+        {% if request.user.is_authenticated %}
+            <a href="{{ root_origin }}{% url 'web:dashboard' %}">{% icon "home" variant="mini" %}{% translate "Your dashboard" %}</a>
+            {% if has_panel_access %}
+                <a href="{% url 'panel:index' %}">{% icon "squares-2x2" variant="mini" %}{% translate "Panel" %}</a>
+            {% endif %}
+            {% if BOARD_PUBLIC %}
+                <a href="{{ root_origin }}{% url 'web:board:index' %}">{% icon "megaphone" variant="mini" %}{% translate "Board" %}</a>
+            {% endif %}
+            <a href="{% url 'web:crowd:profile' %}">{% icon "user-circle" variant="mini" %}{% translate "Edit profile" %}</a>
+            <a href="{% url 'web:crowd:auth0:logout' %}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log out" %}</a>
+        {% else %}
+            <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri|urlencode }}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log in" %}</a>
+        {% endif %}
+    </div>
+    <form method="post"
+          action="{% url 'set_language' %}"
+          data-command-group="{% translate "Language" %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        {# Findable by "language" in every language: whoever needs the switch may not read the one on screen. #}
+        {% for language in languages %}
+            <button type="submit"
+                    name="language"
+                    value="{{ language.code }}"
+                    lang="{{ language.code }}"
+                    data-keywords="language język"
+                    aria-pressed="{% if language.code == current_language %}true{% else %}false{% endif %}">
+                {% include "components/language_flag.html" with code=language.code only %}
+                {{ language.name_local|capfirst }}
+            </button>
+        {% endfor %}
+    </form>
+    <div data-command-group="{% translate "Theme" %}">
+        <button type="button"
+                data-command-theme="system">{% icon "computer-desktop" variant="mini" %}{% translate "System theme" %}</button>
+        <button type="button"
+                data-command-theme="light">{% icon "sun" variant="mini" %}{% translate "Light theme" %}</button>
+        <button type="button"
+                data-command-theme="dark">{% icon "moon" variant="mini" %}{% translate "Dark theme" %}</button>
+    </div>
+</div>

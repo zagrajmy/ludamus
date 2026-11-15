@@ -1,0 +1,30 @@
+{% load i18n %}
+{% get_current_language as current_language %}
+{% get_available_languages as available_languages %}
+{% get_language_info_list for available_languages as languages %}
+<form method="post"
+      action="{% url 'set_language' %}"
+      class="mt-8 pt-6 border-t border-border">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <fieldset>
+        <legend class="font-semibold text-sm mb-1">{% translate "Language" %}</legend>
+        <p class="text-sm text-foreground-secondary mb-3">
+            {% translate "Used for this site in this browser and for the messages we send you." %}
+        </p>
+        <div class="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-bg-tertiary">
+            {# Each name in its own language: the one a reader of it recognises. #}
+            {% for language in languages %}
+                <button type="submit"
+                        name="language"
+                        value="{{ language.code }}"
+                        lang="{{ language.code }}"
+                        aria-pressed="{% if language.code == current_language %}true{% else %}false{% endif %}"
+                        class="flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium cursor-pointer transition-colors text-foreground-muted hover:text-foreground aria-pressed:bg-bg-secondary aria-pressed:text-foreground aria-pressed:shadow-xs">
+                    {% include "components/language_flag.html" with code=language.code only %}
+                    {{ language.name_local|capfirst }}
+                </button>
+            {% endfor %}
+        </div>
+    </fieldset>
+</form>

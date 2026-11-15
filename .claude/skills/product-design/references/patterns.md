@@ -24,6 +24,7 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Searchable select | `{% tessera_combobox id=.. name=.. %}<option>…{% end_tessera_combobox %}` | For lists too long to scroll. Ships a `<select>` the browser upgrades to an ARIA combobox (typeahead, `aria-activedescendant`, top-layer popup); the select stays the value, so forms and `change` listeners are unaffected and it still works without JS. `placeholder=`, `empty_text=`, `toggle_label=` take the copy. djlint custom block. |
 | Data table | `{% tessera_table %}<thead>…<tbody>…{% end_tessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. A hoverable row's background follows Edit / Details: mark that link `data-row-action`. |
 | Tab navigation | `{% tabs %}{% tab "key" icon=.. href=.. active=.. %}Label{% end_tab %}{% end_tabs %}` | For navigation between related views. Tabs are *navigation* — use links, not buttons. |
+| Command menu entry | A link or button inside a `[data-command-group]` in `components/command-menu.html` | The Ctrl/⌘K menu (cmdk) lists those elements and clicks the one picked, so an entry is a real `<a href>` or a `<button>` in a form. Start it with an `{% icon … variant="mini" %}`; `aria-pressed="true"` marks the current choice; `data-keywords=` adds search words. No TypeScript change needed. |
 | Avatar | `{% include "components/avatar.html" with user=.. size="size-12" %}` | Size via Tailwind `size-*`. |
 
 Other ready-made component templates live in

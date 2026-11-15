@@ -76,6 +76,7 @@
         {% vite_asset 'src/copy.ts' %}
         {% vite_asset 'src/avatar.ts' %}
         {% vite_asset 'src/stepper.ts' %}
+        {% vite_asset 'src/command-menu.ts' %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
         {% block extra_head %}
         {% endblock extra_head %}
@@ -165,6 +166,7 @@
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {% include "components/command-menu.html" %}
         {# What flash.ts clones for a flash it raises itself (flash-region.html). #}
         <template id="flash-region-template">
             {% include "components/flash-region.html" with messages="" %}
