@@ -13,7 +13,12 @@ from ludamus.gates.mcp.inputs import (
     NonBlankName,
 )
 from ludamus.gates.mcp.map_tools import map_tools
-from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
+from ludamus.gates.mcp.organizer_context import (
+    actor_sphere,
+    event_json,
+    require_event,
+    token_event,
+)
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
@@ -112,8 +117,10 @@ class OrganizerCurrentEventTool(Tool[EmptyInput]):
 
     @staticmethod
     def handle(call: ToolCall[EmptyInput]) -> str:
-        return token_event(services=call.services, actor=call.actor).model_dump_json(
-            indent=2
+        return event_json(
+            services=call.services,
+            actor=call.actor,
+            event=token_event(services=call.services, actor=call.actor),
         )
 
 
@@ -664,8 +671,12 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
 class _AssignSessionInput(AwareDatetimeRange):
     session_id: int = Field(description="Session pk (see list_sessions)")
-    space_id: int = Field(
-        description="Leaf space pk (see list_spaces); must belong to this event"
+    space_id: int | None = Field(
+        default=None,
+        description=(
+            "Leaf space pk (see list_spaces); must belong to this event. Omit "
+            "only where the event does not require a space"
+        ),
     )
 
 

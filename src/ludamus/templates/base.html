@@ -4,6 +4,8 @@
 {% load django_vite %}
 {% load heroicons %}
 {% load meta_tags %}
+{% load report_tags %}
+{% load tessera %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -143,6 +145,8 @@
                                     <a href="mailto:{{ SUPPORT_EMAIL }}">{% translate "Contact" %}</a>
                                     <a href="{% url 'privacy-policy' %}">{% translate "Privacy Policy" %}</a>
                                     <a href="{% url 'terms-of-service' %}">{% translate "Terms of Service" %}</a>
+                                    <a href="{% report_url %}"
+                                       rel="nofollow">{% translate "Report illegal content" %}</a>
                                 </div>
                             </div>
                         </div>
@@ -176,12 +180,34 @@
                 {% include "components/email-verification-banner.html" %}
             {% endif %}
         {% endblock email_verification_banner %}
+        {% if current_user and current_user.is_active and PARLEY_OPEN %}
+            <div data-parley-root
+                 data-ph-block
+                 data-bootstrap-url="{% url 'parley_bootstrap' %}"
+                 data-close-label="{% translate 'Close chat' %}"
+                 data-loading="{% translate 'Gathering conversations…' %}"
+                 data-connection-error="{% translate 'Could not connect to the chat.' %}"
+                 data-retry="{% translate 'Try again' %}"
+                 data-page-room="{% block parley_room %}{% endblock parley_room %}">
+                <button type="button"
+                        data-parley-launcher
+                        aria-controls="parley-panel"
+                        aria-expanded="false"
+                        class="parley-launcher fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] grid size-11 place-items-center rounded-full bg-primary hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                        aria-label="{% translate 'Open chat' %}">
+                    {% icon "chat-bubble-oval-left-ellipsis" variant="mini" class="size-5.5" %}
+                </button>
+            </div>
+        {% endif %}
         {% if posthog_config %}
             {{ posthog_config|json_script:"posthog-config" }}
         {% endif %}
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/actions.ts' %}
+        {% if current_user and current_user.is_active and PARLEY_OPEN %}
+            {% vite_asset 'src/parley/index.ts' %}
+        {% endif %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}

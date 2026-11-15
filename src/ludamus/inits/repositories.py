@@ -17,8 +17,18 @@ from ludamus.links.db.django.facilitator_change_log import (
 )
 from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.listing import ListingRepository, ListingResponseRepository
+from ludamus.links.db.django.moderation import (
+    ActiveRecipientsRepository,
+    ChatReportRepository,
+    ContentNoticeRepository,
+    ModerationCaseRepository,
+    StatementOfReasonsRepository,
+)
 from ludamus.links.db.django.notification_inbox import NotificationReadRepository
 from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
+from ludamus.links.db.django.parley import ParleyRepository
+from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
+from ludamus.links.db.django.parley_mentions import ParleyMentionRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.repositories.encounter import EncounterInviteeRepository
@@ -26,6 +36,7 @@ from ludamus.links.db.django.repositories.session_cards import EventScheduleRepo
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.sphere_subscriptions import SphereSubscriptionRepository
+from ludamus.links.db.django.staff_cases import StaffCaseRepository
 from ludamus.links.db.django.tags import TagRepository
 from ludamus.links.db.django.team import SphereTeamRepository
 from ludamus.links.db.django.users import (
@@ -279,5 +290,41 @@ class Repositories:
         return repositories.EncounterRSVPRepository()
 
     @cached_property
+    def parley(self) -> ParleyRepository:
+        return ParleyRepository()
+
+    @cached_property
+    def parley_conversations(self) -> ParleyConversationRepository:
+        return ParleyConversationRepository()
+
+    @cached_property
+    def parley_mentions(self) -> ParleyMentionRepository:
+        return ParleyMentionRepository()
+
+    @cached_property
     def encounter_invitees(self) -> EncounterInviteeRepository:
         return EncounterInviteeRepository()
+
+    @cached_property
+    def staff_cases(self) -> StaffCaseRepository:
+        return StaffCaseRepository()
+
+    @cached_property
+    def moderation_cases(self) -> ModerationCaseRepository:
+        return ModerationCaseRepository()
+
+    @cached_property
+    def content_notices(self) -> ContentNoticeRepository:
+        return ContentNoticeRepository()
+
+    @cached_property
+    def chat_reports(self) -> ChatReportRepository:
+        return ChatReportRepository()
+
+    @cached_property
+    def statements_of_reasons(self) -> StatementOfReasonsRepository:
+        return StatementOfReasonsRepository()
+
+    @cached_property
+    def active_recipients(self) -> ActiveRecipientsRepository:
+        return ActiveRecipientsRepository()

@@ -5,6 +5,7 @@
 @import "./combobox.css";
 @import "./consent-banner.css";
 @import "./modal.css";
+@import "./parley.css";
 @import "./filters.css";
 @import "./tabs.css";
 @import "./timetable.css";
@@ -49,13 +50,16 @@
 @plugin "@tailwindcss/typography";
 @plugin "@hasparus/tailwind/scrollview-fade";
 
-@source "../../**/*.{html,py,js}";
+@source "../../**/*.{html,py,js,ts,tsx}";
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
    on <html> before paint and panel-chrome.ts toggles it. */
 @custom-variant folded (:root[data-folded] &);
 @custom-variant panel (.panel-shell &);
+/* Room for the chat to float as a window; parley/use-floating-window.ts
+   matches the same query. */
+@custom-variant float (@media (min-width: 40rem) and (min-height: 30rem));
 
 @theme {
   --font-sans: "Outfit", system-ui, sans-serif;
@@ -234,6 +238,24 @@
     rgb(0 0 0 / 0.094) 80%,
     rgb(0 0 0 / 0.025) 90%,
     rgb(0 0 0 / 0) 100%
+  );
+}
+
+@utility scrim-title {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.018) 0.4rem,
+    rgb(0 0 0 / 0.068) 0.8rem,
+    rgb(0 0 0 / 0.14) 1.2rem,
+    rgb(0 0 0 / 0.229) 1.6rem,
+    rgb(0 0 0 / 0.325) 2rem,
+    rgb(0 0 0 / 0.421) 2.4rem,
+    rgb(0 0 0 / 0.51) 2.8rem,
+    rgb(0 0 0 / 0.582) 3.2rem,
+    rgb(0 0 0 / 0.632) 3.6rem,
+    rgb(0 0 0 / 0.65) 4rem,
+    rgb(0 0 0 / 0.75) 100%
   );
 }
 
