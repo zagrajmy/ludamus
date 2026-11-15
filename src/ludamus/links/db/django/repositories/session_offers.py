@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -18,10 +19,10 @@ def split_offers(
     parts: set[tuple[date, str]] = set()
     slot_pks: set[int] = set()
     for entry in offered:
-        if entry.time_slot is not None:
-            slot_pks.add(entry.time_slot.pk)
-        elif entry.part is not None:
-            parts.add((entry.day, str(entry.part)))
+        if isinstance(offer := entry.offer, TimeSlotDTO):
+            slot_pks.add(offer.pk)
+        else:
+            parts.add((entry.day, str(offer)))
     return parts, slot_pks
 
 
