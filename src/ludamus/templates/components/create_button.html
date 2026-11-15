@@ -1,10 +1,14 @@
 {% load i18n %}
 {% load tessera %}
-{# The feed's create control. Variables: options, the non-empty CreateOption tuple from create_options(). #}
-{# One option links straight to its form; two open a dialog that asks which. #}
-{% if options|length > 1 %}
+{# The feed's create control. Variables: options (create_options()), extra_class (page layout only). #}
+{# One option links straight to its form; two or more open a dialog that asks which. #}
+{% if options|length == 1 %}
+    {% with option=options.0 %}
+        {% tessera_button option.button_label href=option.href icon="plus" extra_class=extra_class|default:"" %}
+    {% endwith %}
+{% elif options %}
     {% translate "Organize" as organize_label %}
-    {% tessera_button organize_label href="?organize=1" icon="plus" aria_controls="organize-modal" aria_haspopup="dialog" %}
+    {% tessera_button organize_label href="?organize=1" icon="plus" aria_controls="organize-modal" aria_haspopup="dialog" extra_class=extra_class|default:"" %}
     <dialog id="organize-modal"
             class="modal w-[calc(100%-2rem)] max-w-2xl p-0"
             aria-labelledby="organize-modal-title">
@@ -14,22 +18,9 @@
             {% tessera_dialog_close_button "organize-modal" %}
         </div>
         <div class="grid gap-3 px-6 pt-4 pb-6 sm:grid-cols-2">
-            {% url 'panel:event-create' as event_create_url %}
-            {% translate "Event" as event_title %}
-            {% translate "For a convention or a bigger meetup. Collect program proposals and build a timetable." as event_description %}
-            {% include "components/organize_option.html" with option_id="organize-event" href=event_create_url icon_name="calendar-days" title=event_title description=event_description %}
-            {% url 'web:notice-board:create' as encounter_create_url %}
-            {% translate "Encounter" as encounter_title %}
-            {% translate "Just a description, a time and a place. Best for online RPG sessions, game jams and freeform meetups." as encounter_description %}
-            {% include "components/organize_option.html" with option_id="organize-encounter" href=encounter_create_url icon_name="user-group" title=encounter_title description=encounter_description %}
+            {% for option in options %}
+                {% include "components/organize_option.html" with option=option %}
+            {% endfor %}
         </div>
     </dialog>
-{% elif "event" in options %}
-    {% translate "Create event" as create_event_label %}
-    {% url 'panel:event-create' as event_create_url %}
-    {% tessera_button create_event_label href=event_create_url icon="plus" %}
-{% else %}
-    {% translate "Create Encounter" as create_encounter_label %}
-    {% url 'web:notice-board:create' as create_encounter_url %}
-    {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
 {% endif %}

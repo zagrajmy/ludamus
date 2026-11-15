@@ -11,7 +11,7 @@ from django.test import override_settings
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.gates.web.django.create_options import CreateOption
+from ludamus.gates.web.django.create_options import encounter_option, event_option
 from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
@@ -21,6 +21,7 @@ from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDTO,
     EncounterIndexItem,
+    EncountersPolicy,
     InviteeStatus,
 )
 from ludamus.pacts.event import (
@@ -111,7 +112,7 @@ class TestIndexRedirectView:
                     discover=[],
                     past_events=[],
                 ),
-                "create_options": (CreateOption.ENCOUNTER,),
+                "create_options": (encounter_option(),),
             },
             template_name="dashboard/index.html",
         )
@@ -478,7 +479,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.EVENT, CreateOption.ENCOUNTER),
+                "create_options": (event_option(), encounter_option()),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -495,7 +496,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.ENCOUNTER,),
+                "create_options": (encounter_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -518,7 +519,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.ENCOUNTER,),
+                "create_options": (encounter_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -530,7 +531,7 @@ class TestEventsPageView:
     def test_manager_offered_only_an_event_while_encounters_are_off(
         self, authenticated_client, non_root_sphere
     ):
-        non_root_sphere.encounters_policy = "none"
+        non_root_sphere.encounters_policy = EncountersPolicy.NONE
         non_root_sphere.save()
 
         response = authenticated_client.get(self.URL)
@@ -540,7 +541,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.EVENT,),
+                "create_options": (event_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -662,7 +663,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.ENCOUNTER,),
+                "create_options": (encounter_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -683,7 +684,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "create_options": (CreateOption.EVENT, CreateOption.ENCOUNTER),
+                "create_options": (event_option(), encounter_option()),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -839,7 +840,7 @@ class TestEventsPageFeed:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_feed_context(create_options=(CreateOption.ENCOUNTER,)),
+            context_data=_feed_context(create_options=(encounter_option(),)),
             template_name=["index.html"],
         )
 
@@ -860,7 +861,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                create_options=(CreateOption.ENCOUNTER,),
+                create_options=(encounter_option(),),
                 upcoming=[
                     _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
                 ],
@@ -886,7 +887,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                create_options=(CreateOption.ENCOUNTER,),
+                create_options=(encounter_option(),),
                 upcoming=[
                     _expected_feed_encounter(
                         encounter, organizer_name="Host", rsvp_count=1
@@ -962,7 +963,7 @@ class TestEventsPageFeed:
             is_public=True,
             start_time=datetime.now(UTC) + timedelta(days=2),
         )
-        non_root_sphere.encounters_policy = "none"
+        non_root_sphere.encounters_policy = EncountersPolicy.NONE
         non_root_sphere.save()
 
         response = client.get(self.URL)

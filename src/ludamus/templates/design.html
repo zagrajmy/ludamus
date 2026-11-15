@@ -57,6 +57,11 @@
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_dialog_close_button {% templatetag closeblock %}</code>
+            {% tessera_dialog_close_button "design-dialog" %}
+            <dialog id="design-dialog" class="modal"></dialog>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} switcher {% templatetag closeblock %}</code>
             {% tessera_switcher name="design-switcher" selected="b" aria_label="Example switcher" %}
                 {% tessera_segment "a" icon="list-bullet" title="List" %}List view{% end_tessera_segment %}

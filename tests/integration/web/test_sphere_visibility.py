@@ -4,7 +4,7 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.gates.web.django.create_options import CreateOption
+from ludamus.gates.web.django.create_options import encounter_option, event_option
 from ludamus.pacts.sphere import SphereVisibility
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -52,7 +52,7 @@ class TestPrivateSphere:
             response,
             HTTPStatus.OK,
             context_data=_empty_feed(
-                create_options=(CreateOption.EVENT, CreateOption.ENCOUNTER)
+                create_options=(event_option(), encounter_option())
             ),
             template_name=["index.html"],
         )

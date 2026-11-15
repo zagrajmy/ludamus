@@ -5,7 +5,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.gates.web.django.create_options import CreateOption
+from ludamus.gates.web.django.create_options import encounter_option
 from ludamus.links.db.django.models import (
     Facilitator,
     SessionBookmark,
@@ -46,7 +46,7 @@ def _assert_empty_dashboard(response):
         HTTPStatus.OK,
         context_data={
             "dashboard": EMPTY_DASHBOARD,
-            "create_options": (CreateOption.ENCOUNTER,),
+            "create_options": (encounter_option(),),
         },
         template_name="dashboard/index.html",
     )
