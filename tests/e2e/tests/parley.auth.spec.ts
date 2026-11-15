@@ -235,8 +235,11 @@ test("On a programme point's page the chat opens on its room, kept on top of the
   await routeBootstrap(page, [{ ageGate: "unconfirmed" }]);
   await FakeWorker.install(page);
   // NOTE: stands in for an enrolment page, whose template sets this.
+  // SAFETY: set it before the page's module scripts run. The chat can mount
+  // on idle while a later module still loads, so before DOMContentLoaded.
   await page.addInitScript(() => {
-    addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("readystatechange", () => {
+      if (document.readyState !== "interactive") return;
       document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageRoom = "session:1:42";
     });
   });
