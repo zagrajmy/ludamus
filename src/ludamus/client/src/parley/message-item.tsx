@@ -5,6 +5,7 @@ import type { Bootstrap, Message, Room } from "./protocol";
 import { ActionsMenu, type MenuEntry } from "./actions-menu";
 import { Avatar } from "./avatar";
 import { clock, fullTime } from "./format";
+import { segments } from "./mentions";
 import { ReactionChips, reactionPalette } from "./reactions";
 
 export type MuteAction = "restore" | number | null;
@@ -15,8 +16,8 @@ export type Confirm = (request: { accept: string; question: string; run: () => v
 
 const HOUR = 3_600_000;
 
-function MessageBody({ body }: { body: string }) {
-  const parts = body.split(/(https?:\/\/[^\s]+)/giu);
+function Linked({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/giu);
   return (
     <>
       {parts.map((part, index) =>
@@ -32,6 +33,42 @@ function MessageBody({ body }: { body: string }) {
           </a>
         ) : (
           part
+        ),
+      )}
+    </>
+  );
+}
+
+// A mention of the reader stands out most; in one's own bubble a mention
+// sits on the bubble's colour.
+function mentionStyle(id: string, { own, userId }: { own: boolean; userId: string }): string {
+  if (id === userId) return "rounded-md bg-coral-700 px-1 text-white";
+  return own ? "rounded-md bg-white/20 px-1" : "text-coral-700 dark:text-coral-300";
+}
+
+function MessageBody({
+  message,
+  nameOf,
+  own,
+  userId,
+}: {
+  message: Message;
+  nameOf: (id: string) => string;
+  own: boolean;
+  userId: string;
+}) {
+  return (
+    <>
+      {segments(message.body, message.mentions ?? []).map((segment, index) =>
+        segment.kind === "mention" ? (
+          <span
+            className={`font-semibold ${mentionStyle(segment.id, { own, userId })}`}
+            key={index}
+          >
+            @{nameOf(segment.id)}
+          </span>
+        ) : (
+          <Linked key={index} text={segment.text} />
         ),
       )}
     </>
@@ -57,6 +94,7 @@ export function MessageItem({
   message,
   moderate,
   mute,
+  nameOf,
   pick,
   react,
   remove,
@@ -77,6 +115,8 @@ export function MessageItem({
   message: Message;
   moderate: (id: number) => void;
   mute: (id: string, action: MuteAction) => void;
+  // A mentioned person's name as it is now.
+  nameOf: (id: string) => string;
   // Opens the full emoji set beside an element, for this message.
   pick: (id: number, anchor: HTMLElement) => void;
   // Toggles one of this person's reactions; null where they may not react.
@@ -216,7 +256,17 @@ export function MessageItem({
           >
             {own || hidden ? null : <span className="sr-only">{message.authorName}: </span>}
             {hidden && copy.blockedMessage}
-            {!hidden && (deleted ? copy.deletedMessage : <MessageBody body={message.body} />)}
+            {!hidden &&
+              (deleted ? (
+                copy.deletedMessage
+              ) : (
+                <MessageBody
+                  message={message}
+                  nameOf={nameOf}
+                  own={own}
+                  userId={bootstrap.user.id}
+                />
+              ))}
             <time className="sr-only" dateTime={new Date(message.createdAt).toISOString()}>
               {" "}
               {clock(message.createdAt)}

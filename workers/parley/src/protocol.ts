@@ -1,24 +1,31 @@
-export type RoomKind = "conversation" | "session" | "sphere";
+// One event's rooms on a pass: whether its own chat is open to this person,
+// and its programme points they are in, which end with it.
+export type EventGrant = {
+  chat: boolean;
+  endsAt: number;
+  // Each programme point by pk, and whether it still takes messages.
+  sessions: Record<string, boolean>;
+  // Whether the event's chat still takes messages.
+  writable: boolean;
+};
 
-export type SessionGrant = { endsAt: number; writable: boolean };
-
-// The token holds a role, not a list of rooms: a manager covers every room of
-// the sphere, a member the sphere room plus the sessions they take part in.
+// One pass for every sphere. It lists the spheres someone manages, whose
+// every room they moderate, and otherwise only their own events, each by
+// its room's name "<sphere>:<pk>".
 export type Capability = {
   aud: "parley";
   avatar: string;
   // Whether direct and group conversations are open to this person at all.
   direct?: boolean;
+  events: Record<string, EventGrant>;
   exp: number;
   iat: number;
   iss: "ludamus";
   jti: string;
+  managed: Record<string, { organizers: boolean }>;
   name: string;
   readOnlyAfter: number;
   retainFor: number;
-  role: "manager" | "member";
-  sessions: Record<string, SessionGrant>;
-  sphere: string;
   sub: string;
 };
 
@@ -26,12 +33,18 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
+export type ConversationKind = "direct" | "group" | "party" | "staff";
+
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
   conversation: string;
   iat: number;
-  kind: "direct" | "group";
+  kind: ConversationKind;
   members: Member[];
+  // Whether only a pass with direct messages open gets in.
+  needsDirect: boolean;
+  // How long each message is kept, in seconds.
+  retainFor: number;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
@@ -44,6 +57,14 @@ export type Reported = Pick<
 
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
+
+// What Django writes into a case's thread, always as the system, never a person.
+export type ThreadPost = {
+  authorName: string;
+  body: string;
+  conversation: string;
+  nonce: string;
+};
 
 export type Revocation = {
   exp: number;
@@ -88,6 +109,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions: string[];
   nonce: string;
   reactions: Reactions;
   reactors: Reactors;
@@ -106,11 +128,12 @@ export type ServerEvent =
   | {
       type: "room.activity";
       v: 1;
-      payload: { at: number; latestMessageId: number; roomId: string };
+      payload: { at: number; latestMessageId: number; mentionedBy: string[]; roomId: string };
     }
-  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } };
+  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } }
+  | { type: "mentions.changed"; v: 1; payload: { mentionedBy: string[]; roomId: string } };
 
-export type RoomActivity = { at: number; unread: boolean };
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type RpcError = {
   // pending: a request not yet accepted takes one message, no more.

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Chat mention emails" %}
+{% endblock title %}
+{% block body %}
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-body px-6 py-8 sm:px-8 text-center">
+                {% url 'web:crowd:profile-notifications' as settings_url %}
+                {% if not payload %}
+                    {% icon "exclamation-circle" class="w-10 h-10 mx-auto text-foreground-muted" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "This link doesn't work" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% translate "It may have been cut off when the email was copied. You can turn mention emails off in your notification settings." %}
+                    </p>
+                    {% translate "Go to notification settings" as settings_label %}
+                    {% tessera_button settings_label href=settings_url extra_class="w-full mt-6" %}
+                {% elif done %}
+                    {% icon "bell-slash" class="w-10 h-10 mx-auto text-primary" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "Mention emails are off" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% translate "We won't email you when someone mentions you in a chat. You can turn these emails back on in your notification settings." %}
+                    </p>
+                    {% translate "Go to notification settings" as settings_label %}
+                    {% tessera_button settings_label href=settings_url variant="secondary" extra_class="w-full mt-6" %}
+                {% else %}
+                    {% icon "envelope" class="w-10 h-10 mx-auto text-primary" %}
+                    <h1 class="text-2xl font-bold text-foreground mt-4">{% translate "Stop mention emails?" %}</h1>
+                    <p class="text-sm text-foreground-muted mt-2">
+                        {% translate "You'll no longer get an email when someone mentions you in a chat and you haven't read it yet. You'll still see mentions in the chat itself." %}
+                    </p>
+                    <form method="post"
+                          data-ph-no-capture
+                          action="{% url 'parley_mention_unsubscribe_confirm' token=token %}"
+                          class="mt-6">
+                        {% csrf_token %}
+                        <input type="hidden" name="List-Unsubscribe" value="One-Click">
+                        {% translate "Turn off mention emails" as unsubscribe_label %}
+                        {% tessera_button unsubscribe_label extra_class="w-full" %}
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock body %}

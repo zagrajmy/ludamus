@@ -90,13 +90,17 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
       .toBeCloseTo(1);
     await expect(surface).toHaveCSS("filter", "none");
 
-    const transformOrigin = await surface.evaluate((element) => {
-      if (!(element instanceof HTMLElement)) throw new Error("Profile menu surface is not HTML");
-      const [x, y] = getComputedStyle(element).transformOrigin.split(" ").map(Number.parseFloat);
-      return { x, y, width: element.offsetWidth };
+    // The menu grows out of the avatar: from its centre, at its bottom edge.
+    const origin = await surface.evaluate((element) => {
+      const [x = 0, y = 0] = getComputedStyle(element)
+        .transformOrigin.split(" ")
+        .map(Number.parseFloat);
+      return { x, y };
     });
-    expect(transformOrigin.x).toBeCloseTo(transformOrigin.width);
-    expect(transformOrigin.y).toBe(0);
+    const avatar = (await trigger.boundingBox())!;
+    const settled = (await surface.boundingBox())!;
+    expect(Math.round(settled.x + origin.x)).toBe(Math.round(avatar.x + avatar.width / 2));
+    expect(Math.round(settled.y + origin.y)).toBe(Math.round(avatar.y + avatar.height));
 
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");

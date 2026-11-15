@@ -33,7 +33,10 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "require_session_space": sphere.require_session_space,
                 "parley_enabled": sphere.parley_enabled,
+                "parley_organizers_enabled": sphere.parley_organizers_enabled,
+                "parley_events_enabled": sphere.parley_events_enabled,
                 "event_cover_buttons_at_bottom": sphere.event_cover_buttons_at_bottom,
                 "encounters_policy": sphere.encounters_policy.value,
                 "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
@@ -59,11 +62,18 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
-            parley_enabled=form.cleaned_data["parley_enabled"],
+            chat={
+                "parley_enabled": form.cleaned_data["parley_enabled"],
+                "parley_organizers_enabled": form.cleaned_data[
+                    "parley_organizers_enabled"
+                ],
+                "parley_events_enabled": form.cleaned_data["parley_events_enabled"],
+            },
             event_cover_buttons_at_bottom=form.cleaned_data[
                 "event_cover_buttons_at_bottom"
             ],
             encounters_policy=EncountersPolicy(form.cleaned_data["encounters_policy"]),
+            require_session_space=form.cleaned_data["require_session_space"],
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
             confirmed_encounters_disable=form.cleaned_data[
                 "confirmed_encounters_disable"

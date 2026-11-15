@@ -145,6 +145,14 @@ def _category(pk: int) -> ProposalCategoryDTO:
     )
 
 
+class FakeChat:
+    def __init__(self) -> None:
+        self.revoked_events: list[int] = []
+
+    def revoke_event(self, *, event_id: int) -> None:
+        self.revoked_events.append(event_id)
+
+
 class _Fakes:
     def __init__(
         self,
@@ -160,6 +168,7 @@ class _Fakes:
         self.session_fields = FakeSessionFields(fields or [])
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
+        self.chat = FakeChat()
         self.service = EventSettingsService(
             transaction=FakeTransaction(),
             repos=EventSettingsRepos(
@@ -168,6 +177,7 @@ class _Fakes:
                 proposal_categories=self.categories,
                 session_fields=self.session_fields,
             ),
+            chat=self.chat,
         )
 
 
@@ -182,6 +192,30 @@ def _proposal_data(*, apply_to_categories: bool) -> ProposalSettingsUpdateData:
 
 
 class TestUpdateGeneral:
+    @pytest.mark.parametrize(
+        ("was", "becomes", "revoked"),
+        (
+            (None, True, False),
+            (False, True, False),
+            (False, None, False),
+            (True, True, False),
+            (True, False, True),
+            (True, None, True),
+            (None, False, True),
+        ),
+    )
+    def test_passes_are_taken_back_only_when_the_event_chat_may_close(
+        self, was, becomes, revoked
+    ):
+        fakes = _Fakes(events=[_event().model_copy(update={"parley_enabled": was})])
+
+        fakes.service.update_general(
+            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": becomes}
+        )
+
+        assert fakes.events.rows[_EVENT_PK].parley_enabled is becomes
+        assert fakes.chat.revoked_events == ([_EVENT_PK] if revoked else [])
+
     def test_writes_the_patch_onto_the_event(self):
         fakes = _Fakes()
 

@@ -10,6 +10,7 @@
     "plan:staging": "PARLEY_ENV=production varlock run -- alchemy plan --stage staging",
     "deploy:staging": "PARLEY_ENV=production varlock run -- alchemy deploy --stage staging",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "@cloudflare/workers-types": "5.20260801.1",
     "@effect/platform-node": "4.1.2",
     "@types/node": "24.10.1",
+    "@vitest/coverage-istanbul": "4.1.9",
     "alchemy": "2.0.0-beta.85",
     "effect": "4.1.2",
     "rolldown": "1.2.13",
