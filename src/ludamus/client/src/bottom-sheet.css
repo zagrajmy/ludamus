@@ -48,10 +48,12 @@
       border-radius: 1rem 1rem 0 0;
       padding: 0;
       box-shadow: var(--shadow-elevated);
-      transition: height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+      /* NOTE: `translate` rests at `none`, so `position: fixed` descendants
+         keep the viewport as their containing block once the slide ends. */
+      transition: translate 0.28s cubic-bezier(0.32, 0.72, 0, 1);
 
       @starting-style {
-        height: 0;
+        translate: 0 100%;
       }
     }
 
@@ -73,7 +75,7 @@
     }
 
     .bottom-sheet[data-closing] {
-      height: 0;
+      translate: 0 100%;
     }
 
     .bottom-sheet-handle {

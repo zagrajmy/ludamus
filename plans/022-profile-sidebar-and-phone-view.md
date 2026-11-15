@@ -84,8 +84,10 @@ One branch, one PR, one commit per step. Each step is usable through the UI.
 - The handle is a real button: Enter toggles the snap, and it has an `aria-label`
   for the state. Esc closes. Drag uses pointer events.
 - Respect `prefers-reduced-motion`, safe-area insets, and `--modal-max-h`-style
-  visible-viewport sizing. Animate height, not `transform`, so `position: fixed`
-  descendants stay put.
+  visible-viewport sizing. Only the open and close slide animates, on
+  `translate`: `lint:impeccable` rejects a `height` transition, and `translate`
+  rests at `none`, so `position: fixed` descendants stay put once it ends.
+  Snap changes are immediate.
 - Focusing a text input snaps the sheet to full, and visual-viewport sizing lifts
   it over the keyboard. `scripts/ios-regressions/` still needs a device case.
 
