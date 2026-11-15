@@ -5,7 +5,81 @@
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
+const PINNED_PROPS = [
+  "position",
+  "inset",
+  "top",
+  "left",
+  "width",
+  "margin",
+  "border",
+  "padding",
+  "background",
+  "color",
+  "overflow",
+  "translate",
+] as const;
 const wired = new WeakSet<HTMLElement>();
+
+// NOTE: a panel sits `absolute` under its trigger, so a rounded card that hides
+// its overflow cuts off whatever reaches past its edge: on a phone, a list's
+// last "⋯" menu loses its bottom items. Such a panel moves to the top layer as a
+// popover, pinned at the spot it already occupies, so neither the card's
+// clipping nor a stacking context around it can cover it. It lifts above the
+// trigger when it would run past the bottom of the screen. The inline styles
+// undo the browser's default popover border, padding and background.
+const clippedBy = (panel: HTMLElement): boolean => {
+  const box = panel.getBoundingClientRect();
+  for (let node = panel.parentElement; node; node = node.parentElement) {
+    const { overflowX, overflowY } = getComputedStyle(node);
+    if (![overflowX, overflowY].some((value) => value === "hidden" || value === "clip")) continue;
+    const edge = node.getBoundingClientRect();
+    if (
+      box.bottom > edge.bottom ||
+      box.top < edge.top ||
+      box.right > edge.right ||
+      box.left < edge.left
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const pin = (panel: HTMLElement, button: HTMLElement): void => {
+  const box = panel.getBoundingClientRect();
+  const trigger = button.getBoundingClientRect();
+  const top = box.bottom > window.innerHeight ? Math.max(0, trigger.top - box.height) : box.top;
+  const { padding } = getComputedStyle(panel);
+  Object.assign(panel.style, {
+    background: "transparent",
+    border: "0",
+    color: "inherit",
+    inset: "auto",
+    left: `${box.left}px`,
+    margin: "0",
+    overflow: "visible",
+    padding,
+    position: "fixed",
+    top: `${top}px`,
+    translate: "none",
+    width: `${box.width}px`,
+  });
+  if ("showPopover" in panel) {
+    panel.popover = "manual";
+    panel.showPopover();
+  }
+};
+
+const unpin = (panel: HTMLElement): void => {
+  if (panel.hasAttribute("popover")) {
+    if (panel.matches(":popover-open")) panel.hidePopover();
+    panel.removeAttribute("popover");
+  }
+  for (const prop of PINNED_PROPS) panel.style.removeProperty(prop);
+};
+
+const isPinned = (panel: HTMLElement): boolean => panel.style.position === "fixed";
 
 const init = (root: HTMLElement): void => {
   if (wired.has(root)) return;
@@ -20,6 +94,8 @@ const init = (root: HTMLElement): void => {
     button.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) {
       panel.hidden = false;
+      unpin(panel);
+      if (clippedBy(panel)) pin(panel, button);
     }
 
     if (animate) {
@@ -33,6 +109,7 @@ const init = (root: HTMLElement): void => {
 
     if (!animate) {
       panel.hidden = !open;
+      if (!open) unpin(panel);
       requestAnimationFrame(() => surface.style.removeProperty("transition-duration"));
     } else if (!open) {
       surface.addEventListener(
@@ -40,6 +117,7 @@ const init = (root: HTMLElement): void => {
         () => {
           if (!isOpen()) {
             panel.hidden = true;
+            unpin(panel);
             if (panel.contains(document.activeElement)) button.focus();
           }
         },
@@ -56,9 +134,17 @@ const init = (root: HTMLElement): void => {
     const open = !isOpen();
     setOpen(open, event.detail > 0);
     if (open) {
-      panel.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      // NOTE: a pinned panel no longer moves with the page, so scrolling to the
+      // focused item would leave it hanging away from its trigger.
+      panel.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: isPinned(panel) });
     }
   });
+
+  const closeIfPinned = (): void => {
+    if (isOpen() && isPinned(panel)) close();
+  };
+  document.addEventListener("scroll", closeIfPinned, { capture: true, passive: true });
+  window.addEventListener("resize", closeIfPinned, { passive: true });
 
   if (Object.hasOwn(root.dataset, "menuHover")) {
     button.addEventListener("pointerenter", () => {
