@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from ludamus.mills.timeslots import event_opening_hours
+from ludamus.mills.opening_hours import event_opening_hours
 from ludamus.pacts.sessions import MIDNIGHT, PROGRAMME_DAYS, DayTurnover
 
 _TZ = ZoneInfo("Europe/Warsaw")

@@ -11,7 +11,7 @@ from ludamus.mills.event import (
     require_track_in_event,
     widen_event_dates,
 )
-from ludamus.mills.timeslots import event_opening_hours
+from ludamus.mills.opening_hours import event_opening_hours
 from ludamus.pacts.availability import AvailabilityDTO, part_of, programme_date
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventPublicationInvalidError
