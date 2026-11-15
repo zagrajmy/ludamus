@@ -4,16 +4,21 @@ import pytest
 
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
+    ParleyPartyChatService,
+    party_chat_members,
     sign_membership,
 )
 from ludamus.pacts.parley import (
     ParleyConversationDTO,
     ParleyConversationError,
     ParleyConversationKind,
+    ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
+    ParleyPartyCandidate,
     ParleyPersonDTO,
 )
+from ludamus.pacts.user import AgeBand
 from ludamus.specs.parley import PARLEY_GROUP_MAX_MEMBERS
 from tests.unit.factories import FakeTransaction
 
@@ -22,14 +27,22 @@ ACTIVE, REQUEST, LEFT = (
     ParleyMemberState.REQUEST,
     ParleyMemberState.LEFT,
 )
-DIRECT, GROUP = ParleyConversationKind.DIRECT, ParleyConversationKind.GROUP
+DIRECT, GROUP, PARTY = (
+    ParleyConversationKind.DIRECT,
+    ParleyConversationKind.GROUP,
+    ParleyConversationKind.PARTY,
+)
 ME, ADA, BOB, KID, OUT = 1, 2, 3, 4, 5
 # A member list older than ten minutes is not to be trusted.
 MEMBERSHIP_TTL = 600
+ONE_YEAR_SECONDS = 365 * 86_400
+THREE_YEARS_SECONDS = 3 * ONE_YEAR_SECONDS
 
 
 class World:
     """People, blocks and conversations as plain data, for the service to change."""
+
+    staff: frozenset[int] = frozenset()
 
     def __init__(self, *, eligible=(ME, ADA, BOB, *range(100, 200))):
         self.eligible = set(eligible)
@@ -37,6 +50,8 @@ class World:
         self.conversations: dict[int, dict] = {}
         self.members: dict[tuple[int, int], tuple[ParleyMemberState, bool]] = {}
         self.lost: set[int] = set()
+        self.parties: set[tuple[int, int]] = set()
+        self.ages: dict[int, AgeBand] = {}
 
     def states(self, conversation_id):
         return {
@@ -98,7 +113,11 @@ class World:
     def read_member(self, *, conversation_id, user_id):
         if (member := self.members.get((conversation_id, user_id))) is None:
             return None
-        return self.conversations[conversation_id]["kind"], member[0], member[1]
+        return ParleyMembership(
+            kind=self.conversations[conversation_id]["kind"],
+            state=member[0],
+            is_admin=member[1],
+        )
 
     def count_active(self, conversation_id):
         return sum(
@@ -130,7 +149,14 @@ class World:
 
     def snapshot(self, conversation_id):
         return self.conversations[conversation_id]["kind"], [
-            ParleyMemberSnapshot(user_id=user, state=state, writable=state == ACTIVE)
+            ParleyMemberSnapshot(
+                user_id=user,
+                state=state,
+                writable=state == ACTIVE,
+                age_band=self.read_age_band(user),
+                signs_in=user != OUT,
+                is_staff=user in self.staff,
+            )
             for user, state in self.states(conversation_id).items()
             if state != LEFT
         ]
@@ -147,6 +173,68 @@ class World:
 
     def unblock(self, *, blocker_id, blocked_id):
         self.blocks.discard((blocker_id, blocked_id))
+
+    def read_age_band(self, user_id):
+        if user_id in self.ages:
+            return self.ages[user_id]
+        if user_id == KID:
+            return AgeBand.THIRTEEN_TO_FIFTEEN
+        return AgeBand.SIXTEEN_PLUS if user_id in self.eligible else AgeBand.UNKNOWN
+
+    def list_party_candidates(self, party_id):
+        return [
+            ParleyPartyCandidate(user_id=user, age_band=self.read_age_band(user))
+            for party, user in sorted(self.parties)
+            if party == party_id
+        ]
+
+    def set_party_members(self, *, party_id, user_ids):
+        chat = next(
+            (
+                pk
+                for pk, row in self.conversations.items()
+                if row.get("party") == party_id
+            ),
+            None,
+        )
+        if chat is None:
+            if not user_ids:
+                return None
+            chat = len(self.conversations) + 1
+            self.conversations[chat] = {
+                "kind": PARTY,
+                "pair_key": None,
+                "party": party_id,
+                "title": "Drużyna",
+            }
+        present = {user for user, state in self.states(chat).items() if state != LEFT}
+        if present == set(user_ids):
+            return None
+        for user in present:
+            self.members[chat, user] = (LEFT, False)
+        for user in user_ids:
+            self.members[chat, user] = (ACTIVE, False)
+        return chat
+
+    def party_ids_of(self, user_id):
+        in_chat = {
+            row["party"]
+            for pk, row in self.conversations.items()
+            if "party" in row and user_id in self.states(pk)
+        }
+        return sorted(
+            {party for party, user in self.parties if user == user_id} | in_chat
+        )
+
+    def list_party_ids(self):
+        kept = {row["party"] for row in self.conversations.values() if "party" in row}
+        return sorted({party for party, _ in self.parties} | kept)
+
+    def list_party_chat_ids(self):
+        return sorted(pk for pk, row in self.conversations.items() if "party" in row)
+
+    def lock_party(self, party_id):
+        pass
 
 
 class Outbox:
@@ -441,6 +529,153 @@ class TestNames:
         )
 
 
+def _candidates(*members):
+    return [
+        ParleyPartyCandidate(user_id=user_id, age_band=age_band)
+        for user_id, age_band in enumerate(members, start=1)
+    ]
+
+
+ADULT, TEEN, UNSURE = (
+    AgeBand.SIXTEEN_PLUS,
+    AgeBand.THIRTEEN_TO_FIFTEEN,
+    AgeBand.UNKNOWN,
+)
+
+
+@pytest.mark.parametrize(
+    ("members", "talking"),
+    (
+        ((ADULT, ADULT), [1, 2]),
+        ((ADULT, TEEN), []),
+        ((ADULT, UNSURE), []),
+        ((TEEN, TEEN), []),
+        ((ADULT, ADULT, TEEN), [1, 2, 3]),
+        ((TEEN, UNSURE, TEEN), [1, 2, 3]),
+        ((ADULT,), []),
+        ((), []),
+    ),
+    ids=[
+        "two-adults",
+        "adult-and-teen",
+        "adult-and-unconfirmed-age",
+        "two-teens",
+        "three-with-a-teen",
+        "three-under-16",
+        "alone",
+        "nobody",
+    ],
+)
+def test_a_party_chat_takes_in_any_age_but_not_a_pair_short_of_direct_messages(
+    members, talking
+):
+    assert party_chat_members(_candidates(*members)) == talking
+
+
+class TestPartyChats:
+    """A party's chat follows its members, closing while it would be a DM."""
+
+    @pytest.fixture(name="chats")
+    @staticmethod
+    def _chats(world, outbox):
+        return ParleyPartyChatService(
+            transaction=FakeTransaction(), repository=world, outbox=outbox
+        )
+
+    def test_opens_for_every_age_once_a_pair_grows(self, chats, world, outbox):
+        world.parties = {(7, ME), (7, KID)}
+        chats.sync_party(7)
+        assert (world.conversations, outbox.sent) == ({}, [])
+
+        world.parties.add((7, ADA))
+        chats.sync_party(7)
+        chats.sync_party(7)
+
+        assert world.states(1) == {ME: ACTIVE, KID: ACTIVE, ADA: ACTIVE}
+        assert outbox.sent == [1]
+
+    def test_closes_for_both_when_it_shrinks_to_a_pair_with_a_teen_and_comes_back(
+        self, chats, world, outbox
+    ):
+        world.parties = {(7, ME), (7, KID), (7, ADA)}
+        chats.sync_party(7)
+        world.parties.discard((7, ADA))
+
+        chats.sync_party(7)
+        assert world.states(1) == {ME: LEFT, KID: LEFT, ADA: LEFT}
+        assert world.list_for(KID) == []
+
+        world.parties.add((7, BOB))
+        chats.sync_party(7)
+        assert world.states(1) == {ME: ACTIVE, KID: ACTIVE, ADA: LEFT, BOB: ACTIVE}
+        assert outbox.sent == [1, 1, 1]
+
+    def test_lets_go_of_everyone_once_the_party_is_gone(self, chats, world, outbox):
+        world.parties = {(7, ME), (7, ADA)}
+        chats.sync_party(7)
+        world.parties.clear()
+
+        chats.sync_party(7)
+
+        assert world.states(1) == {ME: LEFT, ADA: LEFT}
+        assert outbox.sent == [1, 1]
+
+    def test_follows_someone_into_and_out_of_their_parties_chats(
+        self, chats, world, outbox
+    ):
+        world.parties = {(7, ME), (7, ADA), (8, KID), (8, ADA)}
+
+        chats.sync_parties_of(KID)
+        chats.sync_parties_of(ME)
+        chats.sync_parties_of(ME)
+
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
+        assert outbox.sent == [1]
+        world.ages = {KID: ADULT}
+        chats.sync_parties_of(KID)
+        assert world.states(2) == {KID: ACTIVE, ADA: ACTIVE}
+        world.ages = {KID: TEEN}
+        chats.sync_parties_of(KID)
+        assert world.states(2) == {KID: LEFT, ADA: LEFT}
+
+    def test_opens_the_chats_of_every_party_made_before_them(
+        self, chats, world, outbox
+    ):
+        world.parties = {(7, ME), (7, ADA), (8, KID)}
+
+        assert [chats.open_existing_chats(), chats.open_existing_chats()] == [2, 2]
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
+        # Each run sends every list again, in case the last delivery failed.
+        assert outbox.sent == [1, 1]
+
+    def test_lets_everyone_go_once_the_party_is_gone(self, chats, world, outbox):
+        world.parties = {(7, ME), (7, ADA), (7, BOB)}
+        chats.sync_party(7)
+        world.parties = set()
+
+        assert chats.open_existing_chats() == 1
+        assert world.states(1) == {ME: LEFT, ADA: LEFT, BOB: LEFT}
+        assert outbox.sent == [1, 1]
+
+    def test_is_listed_for_someone_direct_messages_are_shut_to(self, chats, world):
+        world.parties = {(7, ME), (7, ADA)}
+        chats.sync_party(7)
+        service = ParleyConversationService(
+            transaction=FakeTransaction(), repository=world, outbox=Outbox()
+        )
+        world.eligible.discard(ME)
+
+        assert [conversation.kind for conversation in service.list_for(ME)] == [PARTY]
+
+    def test_is_left_and_renamed_only_through_the_party(self, chats, world, service):
+        world.parties = {(7, ME), (7, ADA)}
+        chats.sync_party(7)
+
+        _refused("forbidden", service.leave, user_id=ME, conversation_id=1)
+        _refused("forbidden", service.rename, user_id=ME, conversation_id=1, name="X")
+        assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
+
+
 class TestBlocks:
     def test_a_block_updates_every_shared_conversation(self, service, world, outbox):
         service.start_direct(user_id=ME, recipient_id=ADA)
@@ -494,3 +729,73 @@ def test_the_member_list_is_signed_as_its_own_kind_of_token(world):
         {"user": "2", "state": REQUEST, "writable": False},
     ]
     assert claims.exp - claims.iat == MEMBERSHIP_TTL
+    assert claims.needs_direct is True
+    assert claims.retain_for == ONE_YEAR_SECONDS
+
+
+@pytest.mark.parametrize(
+    ("members", "listed"),
+    (((ME, ADA), [ME, ADA]), ((ME, KID), []), ((ME, KID, ADA), [ME, KID, ADA])),
+    ids=["two-adults", "adult-and-teen", "three-with-a-teen"],
+)
+def test_a_party_chat_s_member_list_keeps_its_pair_rule_whoever_sends_it(
+    world, members, listed
+):
+    # The Worker hears the rule from every list, not only from a party sync:
+    # a block or an account closing resends the list too.
+    world.conversations[1] = {"kind": PARTY, "pair_key": None, "party": 7, "title": ""}
+    for member in members:
+        world.members[1, member] = (ACTIVE, False)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return "token"
+
+    sign_membership(
+        signer=Signer(),
+        repository=world,
+        conversation_id=1,
+        now=datetime(2026, 11, 10, 12, tzinfo=UTC),
+    )
+
+    assert [int(member["user"]) for member in signed[0].members] == listed
+    assert signed[0].needs_direct is False
+
+
+@pytest.mark.parametrize(
+    ("kind", "listed", "kept"),
+    (
+        (GROUP, [ME, ADA], ONE_YEAR_SECONDS),
+        (PARTY, [ME, ADA, KID], ONE_YEAR_SECONDS),
+        (ParleyConversationKind.STAFF, [ME, KID], THREE_YEARS_SECONDS),
+    ),
+    ids=["group", "party", "staff case thread"],
+)
+def test_a_member_list_leaves_out_who_cannot_sign_in_or_is_too_young_for_the_kind(
+    world, kind, listed, kept
+):
+    # A staff case's thread takes only staff, kept as long as the case's records.
+    world.staff = frozenset({ME, KID, OUT})
+    world.conversations[1] = {"kind": kind, "pair_key": None, "party": 7, "title": ""}
+    for member in (ME, ADA, KID, OUT):
+        world.members[1, member] = (ACTIVE, False)
+    signed = []
+
+    class Signer:
+        @staticmethod
+        def sign(claims):
+            signed.append(claims)
+            return "token"
+
+    sign_membership(
+        signer=Signer(),
+        repository=world,
+        conversation_id=1,
+        now=datetime(2026, 11, 10, 12, tzinfo=UTC),
+    )
+
+    assert [int(member["user"]) for member in signed[0].members] == listed
+    assert signed[0].retain_for == kept

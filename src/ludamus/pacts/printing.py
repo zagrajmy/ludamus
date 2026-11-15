@@ -97,7 +97,7 @@ class PrintTimetableTileDTO(BaseModel):
 
 class PrintTimetablePageDTO(BaseModel):
     day: date
-    space_names: list[str]
+    space_names: list[str | None]
     rows: list[PrintTimetableRowDTO]
     tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None

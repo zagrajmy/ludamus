@@ -27,10 +27,12 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEvent"
   | "emptyGroup"
+  | "emptyOrganizers"
+  | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
-  | "emptySphere"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -43,6 +45,7 @@ export type Copy = Record<
   | "errorReactionRateLimited"
   | "errorTooMany"
   | "errorUnknown"
+  | "eventRoom"
   | "groupName"
   | "groupNeedsPeople"
   | "groupPeople"
@@ -60,6 +63,8 @@ export type Copy = Record<
   | "membersLabel"
   | "membersMany"
   | "membersOne"
+  | "mentionedYou"
+  | "mentionPeople"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
@@ -85,6 +90,9 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizersRoom"
+  | "partyHint"
+  | "partyRoom"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
@@ -107,6 +115,7 @@ export type Copy = Record<
   | "removeLabel"
   | "removeMember"
   | "removeSelected"
+  | "reportConfirm"
   | "reported"
   | "reportMessage"
   | "requestFrom"
@@ -125,7 +134,6 @@ export type Copy = Record<
   | "sending"
   | "sendLabel"
   | "sessionRoom"
-  | "sphereRoom"
   | "title"
   | "typingMany"
   | "typingOne"
@@ -146,13 +154,13 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct or group conversation as its member sees it; members lists the
+// A direct, group or party conversation as its member sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -166,9 +174,9 @@ export type Room = {
   canWrite: boolean;
   conversation?: ConversationInfo;
   id: string;
-  kind: "conversation" | "session" | "sphere";
-  // The programme point a session room is about.
-  sessionId: number | null;
+  kind: "conversation" | "event" | "organizers" | "session";
+  // The sphere a sphere's room belongs to; a conversation has none.
+  sphere?: number;
   title: string;
 };
 export type Bootstrap = {
@@ -185,7 +193,6 @@ export type Bootstrap = {
   copy: Copy;
   csrfToken: string;
   rooms: Room[];
-  sphere: { id: string; name: string };
   user: { avatarUrl: string; id: string; name: string };
 };
 
@@ -197,6 +204,8 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  // Whom the body's "<@id>" tokens mention; older messages have none.
+  mentions?: string[];
   nonce: string;
   // Each reaction's people, in the order they reacted, and the names they
   // reacted under; a Worker older than reactions sends neither.
@@ -209,7 +218,9 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-export type RoomActivity = { at: number; unread: boolean };
+// mentionedBy: whose mentions of this person they have yet to read; a
+// sphere's rooms keep no member list to mention from, so theirs is empty.
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

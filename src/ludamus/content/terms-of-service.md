@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 21.10.2026**
+**Data ostatniej aktualizacji: 12.11.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -104,6 +104,18 @@ Użytkownik nie może:
    - usunąć Konto trwale
 2. Administrator informuje Użytkownika o podjętych działaniach na adres email przypisany do Konta.
 
+### 4.3 Zgłaszanie treści i moderacja
+
+1. Niedozwolone są treści niezgodne z prawem oraz treści i działania naruszające zakazy z § 4.1.
+2. Każdy, także bez Konta, może zgłosić treść, którą uważa za nielegalną, przez formularz „Zgłoś nielegalną treść”, dostępny w stopce każdej strony Serwisu oraz na stronach Wydarzeń i punktów programu. Zgłoszenie zawiera adres treści, kategorię, wyjaśnienie, dlaczego treść jest nielegalna, imię lub nazwę i adres email zgłaszającego oraz oświadczenie, że zgłoszenie jest dokonywane w dobrej wierze, a zawarte w nim informacje są prawidłowe i kompletne. Zgłoszenie dotyczące seksualnego wykorzystywania dziecka albo uwodzenia dziecka (groomingu) może być anonimowe. Wiadomość na czacie można też zgłosić poleceniem „Zgłoś wiadomość”.
+3. Na zgłoszenie z adresem email Serwis odpowiada potwierdzeniem otrzymania, z numerem sprawy (np. Z-123). Numer warto podawać w dalszej korespondencji.
+4. O treściach i Kontach decyduje zespół Administratora. Organizatorzy mogą usuwać wiadomości i wyciszać uczestników w pokojach czatu swoich Wydarzeń; od ich decyzji można się odwołać do zespołu Administratora.
+5. Narzędzia moderacji to: przyjmowanie zgłoszeń, usuwanie treści, wyciszanie na czacie (czasowe lub bezterminowe odebranie możliwości pisania) oraz środki z § 4.2: ostrzeżenie, anulowanie zapisów, zawieszenie lub usunięcie Konta. Serwis nie używa zautomatyzowanych narzędzi do wykrywania treści ani do podejmowania decyzji; każdą decyzję podejmuje człowiek.
+6. Zgłoszenia rozpatrujemy starannie, obiektywnie i bez zbędnej zwłoki, z poszanowaniem praw wszystkich stron, w tym wolności wypowiedzi. Zgłoszenia dotyczące bezpieczeństwa dzieci rozpatrujemy w pierwszej kolejności. Gdy treść wskazuje na przestępstwo zagrażające życiu lub bezpieczeństwu osób, zawiadamiamy policję, a materiały przedstawiające seksualne wykorzystywanie dzieci przekazujemy także zespołowi Dyżurnet.pl.
+7. Zgłaszający otrzymuje emailem decyzję w sprawie zgłoszenia wraz z informacją, jak można ją zaskarżyć.
+8. Użytkownik, którego treści lub Konta dotyczy decyzja zespołu Administratora, otrzymuje emailem uzasadnienie na adres przypisany do Konta: co postanowiono (a przy zawieszeniu Konta — do kiedy), na podstawie jakich faktów i okoliczności, czy decyzja wynikała ze zgłoszenia, czy użyto środków zautomatyzowanych, podstawę decyzji (przepis prawa albo punkt Regulaminu) oraz informację o sposobach odwołania.
+9. Od decyzji można się odwołać, odpowiadając na wiadomość z decyzją albo pisząc na adres punktu kontaktowego z § 11, z numerem sprawy. Odwołanie jest bezpłatne i rozpatruje je człowiek. Niezależnie od tego można dochodzić swoich praw przed sądem powszechnym oraz złożyć skargę do Prezesa Urzędu Komunikacji Elektronicznej (UKE), koordynatora do spraw usług cyfrowych w Polsce.
+
 ## § 5. ODPOWIEDZIALNOŚĆ
 
 ### 5.1 Odpowiedzialność Administratora
@@ -176,6 +188,12 @@ Użytkownik nie może:
 
 ## § 11. KONTAKT
 
+### 11.1 Punkt kontaktowy
+
+Pojedynczym punktem kontaktowym, o którym mowa w art. 11 i 12 rozporządzenia (UE) 2022/2065 (akt o usługach cyfrowych), zarówno dla organów państw członkowskich, Komisji Europejskiej i Europejskiej Rady ds. Usług Cyfrowych, jak i dla Użytkowników, jest adres: **$staff_email**. Można pisać po polsku lub po angielsku. Pod tym adresem przyjmujemy też odwołania od decyzji moderacyjnych.
+
+### 11.2 Sprawy Regulaminu
+
 W sprawach dotyczących Regulaminu można się kontaktować:
 
 **Email:** radek@zagrajmy.net
@@ -184,4 +202,4 @@ W sprawach dotyczących Regulaminu można się kontaktować:
 
 ---
 
-*Niniejszy Regulamin został przygotowany zgodnie z polskim prawem, w szczególności z ustawą o świadczeniu usług drogą elektroniczną.*
+*Niniejszy Regulamin został przygotowany zgodnie z polskim prawem, w szczególności z ustawą o świadczeniu usług drogą elektroniczną, oraz z rozporządzeniem (UE) 2022/2065 (akt o usługach cyfrowych).*

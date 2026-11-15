@@ -2,7 +2,12 @@ import { exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 describe("agent routes", () => {
-  it.each(["parley-sphere-agent", "parley-session-agent"])(
+  it.each([
+    "parley-sphere-agent",
+    "parley-session-agent",
+    "parley-event-agent",
+    "parley-organizers-agent",
+  ])(
     "accepts a socket on /agents/%s/",
     async (namespace) => {
       const response = await exports.default.fetch(`http://localhost:8787/agents/${namespace}/1`, {

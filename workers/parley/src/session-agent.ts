@@ -6,8 +6,53 @@ import { lifecycleOf } from "./access";
 import { RoomAgent, type Env } from "./room-agent";
 import { ParleySphereAgent } from "./sphere-agent";
 
-export class ParleySessionAgent extends RoomAgent {
-  protected readonly roomPrefix = "session";
+abstract class SphereRoomAgent extends RoomAgent {
+  protected abstract readonly roomPrefix: "event" | "organizers" | "session";
+
+  protected async admits(capability: Capability): Promise<boolean> {
+    return (await this.sphere()).admit({
+      exp: capability.exp,
+      iat: capability.iat,
+      roomId: this.roomId,
+      sub: capability.sub,
+    });
+  }
+
+  private sphere() {
+    return getAgentByName<Env, ParleySphereAgent>(
+      this.workerEnv.ParleySphereAgent,
+      this.name.split(":")[0],
+    );
+  }
+
+  protected afterMessage(message: Message): void {
+    this.agentContext.waitUntil(this.publishActivity(message.id));
+  }
+
+  async reconcileActivity(input: { latestMessageId: number }): Promise<void> {
+    await this.publishActivity(input.latestMessageId);
+  }
+
+  private async publishActivity(latestMessageId: number): Promise<void> {
+    const sphere = await this.sphere();
+    try {
+      await sphere.recordActivity({ latestMessageId, roomId: this.roomId });
+    } catch (error) {
+      // The retry keeps users whole but would otherwise hide a sphere agent
+      // that rejects every call, rescheduling itself every 5s forever.
+      // console.error is what raises a caught failure as a Workers Issue.
+      console.error("parley: recordActivity failed, scheduling retry", error);
+      await this.schedule(5, "reconcileActivity", { latestMessageId }, { idempotent: true });
+    }
+  }
+}
+
+export class ParleyOrganizersAgent extends SphereRoomAgent {
+  protected readonly roomPrefix = "organizers";
+}
+
+abstract class ScheduledRoomAgent extends SphereRoomAgent {
+  protected abstract readonly roomPrefix: "event" | "session";
 
   async onStart(): Promise<void> {
     await super.onStart();
@@ -27,19 +72,6 @@ export class ParleySessionAgent extends RoomAgent {
     if (connection.state?.admitted) this.syncLifecycle(connection.state.capability);
   }
 
-  protected async admits(capability: Capability): Promise<boolean> {
-    return (await this.sphere(capability.sphere)).admitToSession({
-      exp: capability.exp,
-      iat: capability.iat,
-      roomId: this.roomId,
-      sub: capability.sub,
-    });
-  }
-
-  private sphere(name: string) {
-    return getAgentByName<Env, ParleySphereAgent>(this.workerEnv.ParleySphereAgent, name);
-  }
-
   protected writeError(
     capability: Parameters<RoomAgent["writeError"]>[0],
   ): ReturnType<RoomAgent["writeError"]> {
@@ -47,11 +79,6 @@ export class ParleySessionAgent extends RoomAgent {
     if (error !== null) return error;
     const lifecycle = this.storeLifecycle(capability);
     return lifecycle.read_only_at * 1_000 <= Date.now() ? { ok: false, code: "archived" } : null;
-  }
-
-  protected afterMessage(message: Message): void {
-    const capability = this.currentCapability();
-    this.agentContext.waitUntil(this.publishActivity({ message, sphere: capability.sphere }));
   }
 
   async archiveRoom(): Promise<void> {
@@ -68,34 +95,6 @@ export class ParleySessionAgent extends RoomAgent {
       delete_at: number;
     }>`SELECT delete_at FROM lifecycle WHERE singleton = 1`[0];
     if (lifecycle !== undefined && lifecycle.delete_at * 1_000 <= Date.now()) await this.destroy();
-  }
-
-  async reconcileActivity(input: { latestMessageId: number; sphere: string }): Promise<void> {
-    await this.publishActivity({ messageId: input.latestMessageId, sphere: input.sphere });
-  }
-
-  private async publishActivity(input: {
-    message?: Message;
-    messageId?: number;
-    sphere: string;
-  }): Promise<void> {
-    const latestMessageId = input.message?.id ?? input.messageId;
-    if (latestMessageId === undefined) return;
-    const sphere = await this.sphere(input.sphere);
-    try {
-      await sphere.recordActivity({ latestMessageId, roomId: this.roomId });
-    } catch (error) {
-      // The retry keeps users whole but would otherwise hide a sphere agent
-      // that rejects every call, rescheduling itself every 5s forever.
-      // console.error is what raises a caught failure as a Workers Issue.
-      console.error("parley: recordActivity failed, scheduling retry", error);
-      await this.schedule(
-        5,
-        "reconcileActivity",
-        { latestMessageId, sphere: input.sphere },
-        { idempotent: true },
-      );
-    }
   }
 
   private syncLifecycle(capability: Capability): void {
@@ -132,4 +131,12 @@ export class ParleySessionAgent extends RoomAgent {
       read_only_at: number;
     }>`SELECT delete_at, read_only_at FROM lifecycle WHERE singleton = 1`[0];
   }
+}
+
+export class ParleySessionAgent extends ScheduledRoomAgent {
+  protected readonly roomPrefix = "session";
+}
+
+export class ParleyEventAgent extends ScheduledRoomAgent {
+  protected readonly roomPrefix = "event";
 }

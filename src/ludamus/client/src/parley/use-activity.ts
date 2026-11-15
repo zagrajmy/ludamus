@@ -1,5 +1,5 @@
 import { useAgent } from "agents/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   agentUrl,
@@ -15,19 +15,21 @@ export type Activity = {
   markRead: (roomId: string, messageId: number) => void;
 };
 
-// Which rooms have news: the sphere's rooms from the sphere's own agent,
-// one's conversations from one's inbox.
+// Where news of rooms comes from: each sphere's rooms from that sphere's
+// feed, one's conversations from one's inbox.
+export type Source = { inbox: true } | { sphere: string };
+
 export function useActivity(
   bootstrap: Bootstrap,
-  source: "inbox" | "sphere",
+  source: Source,
   onPassClosed: () => void,
 ): Activity {
   const url = agentUrl(bootstrap.agentHost);
   const [activity, setActivity] = useState<Record<string, RoomActivity>>({});
   const agent = useAgent({
-    agent: source === "inbox" ? "ParleyInboxAgent" : "ParleySphereAgent",
+    agent: "inbox" in source ? "ParleyInboxAgent" : "ParleySphereAgent",
     host: url.host,
-    name: source === "inbox" ? bootstrap.user.id : bootstrap.sphere.id,
+    name: "inbox" in source ? bootstrap.user.id : source.sphere,
     protocol: url.protocol === "https:" ? "wss" : "ws",
     ...passCloseHandlers(onPassClosed),
   });
@@ -38,14 +40,25 @@ export function useActivity(
     const listener = (raw: MessageEvent<string>) => {
       const event = JSON.parse(raw.data) as Event;
       if (event.type === "room.activity") {
-        const { at, roomId } = event.payload as { at: number; roomId: string };
-        setActivity((current) => ({ ...current, [roomId]: { at, unread: true } }));
+        const { at, mentionedBy, roomId } = event.payload as {
+          at: number;
+          mentionedBy: string[];
+          roomId: string;
+        };
+        setActivity((current) => ({ ...current, [roomId]: { at, mentionedBy, unread: true } }));
+      }
+      if (event.type === "mentions.changed") {
+        const { mentionedBy, roomId } = event.payload as { mentionedBy: string[]; roomId: string };
+        setActivity((current) => {
+          const seen = current[roomId];
+          return seen === undefined ? current : { ...current, [roomId]: { ...seen, mentionedBy } };
+        });
       }
       if (event.type === "unread.changed") {
         const { roomId, unread } = event.payload as { roomId: string; unread: boolean };
         setActivity((current) => ({
           ...current,
-          [roomId]: { at: current[roomId]?.at ?? 0, unread },
+          [roomId]: { at: current[roomId]?.at ?? 0, mentionedBy: [], unread },
         }));
       }
     };
@@ -58,10 +71,10 @@ export function useActivity(
       void agent.call("markRead", [{ messageId, roomId }]);
       setActivity((current) => ({
         ...current,
-        [roomId]: { at: current[roomId]?.at ?? 0, unread: false },
+        [roomId]: { at: current[roomId]?.at ?? 0, mentionedBy: [], unread: false },
       }));
     },
     [agent],
   );
-  return { activity, markRead };
+  return useMemo(() => ({ activity, markRead }), [activity, markRead]);
 }

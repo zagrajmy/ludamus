@@ -98,6 +98,23 @@ def compose_mail(
     )
 
 
+def compose_as_written(
+    *, to: str, subject: str, body: str, from_email: str, message_id: str
+) -> EmailMessage:
+    """Compose a mail of a staff member's own words, in the language they wrote.
+
+    The one mail that takes no `Voice` or `Recipient`: staff answer a case
+    in their own words, to someone who wrote to them in theirs.
+    """
+    return EmailMessage(
+        subject=_subject_line(subject),
+        body=body,
+        from_email=from_email,
+        to=[to],
+        headers={"Message-ID": message_id},
+    )
+
+
 def compose_calendar_mail(
     speaker: Voice | Recipient, *, subject: str, body: str, ics: str, method: str
 ) -> EmailMultiAlternatives:

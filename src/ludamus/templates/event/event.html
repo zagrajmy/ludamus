@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load report_tags %}
 {% load tessera %}
 {% load cfp_tags %}
 {% load date_tags %}
@@ -10,6 +11,7 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
+{% block parley_room %}event:{{ current_sphere.pk }}:{{ event.pk }}{% endblock parley_room %}
 {% block og_title %}{{ link_preview.title|default:document_title }}{% endblock og_title %}
 {% block twitter_title %}{{ link_preview.title|default:document_title }}{% endblock twitter_title %}
 {% block meta_description %}{{ link_preview.description|default:default_description }}{% endblock meta_description %}
@@ -559,6 +561,12 @@
             </a>
         </div>
     {% endif %}
+    {% url 'web:chronology:event' slug=event.slug as event_url %}
+    <p class="mt-6 text-xs text-foreground-muted print:hidden">
+        <a href="{% report_url event_url %}"
+           rel="nofollow"
+           class="underline decoration-foreground-muted/50 hover:text-primary">{% translate "Report this event" %}</a>
+    </p>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts). File→Print and the toolbar cannot be intercepted, so #}
     {# the page itself prints: chrome and controls carry print:hidden, and #}
