@@ -49,7 +49,7 @@ def encounter_option() -> CreateOption:
     return CreateOption(
         key="encounter",
         href=reverse("web:notice-board:create"),
-        button_label=_("Create Encounter"),
+        button_label=_("Create encounter"),
         title=_("Encounter"),
         description=_(
             "Just a description, a time and a place. Best for online RPG"
@@ -64,8 +64,9 @@ def create_options(request: RootRequest) -> tuple[CreateOption, ...]:
 
     An event needs the panel's write capability, the same check the panel's
     event form makes before it saves, and a sphere other than the root one,
-    which runs no programme of its own. An encounter follows the sphere's
-    encounters policy.
+    which runs no programme of its own. That last rule shapes this control
+    only; the panel itself does not refuse the root sphere. An encounter
+    follows the sphere's encounters policy.
 
     Returns:
         The options in the order the dialog shows them.

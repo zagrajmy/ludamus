@@ -18,7 +18,7 @@ test.describe("with events and encounters on offer", () => {
     page,
   }, testInfo) => {
     await page.goto(`${CREW_SPHERE}/`);
-    await expect(page.getByRole("link", { name: "Create Encounter" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Create encounter" })).toHaveCount(0);
 
     await page.getByRole("link", { name: "Organize" }).click();
     const dialog = page.getByRole("dialog", { name: "What do you want to organize?" });

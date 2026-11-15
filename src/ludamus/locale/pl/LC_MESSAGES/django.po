@@ -302,8 +302,7 @@ msgstr ""
 "harmonogram."
 
 #: src/ludamus/gates/web/django/create_options.py
-#: src/ludamus/templates/encounter/create.html
-msgid "Create Encounter"
+msgid "Create encounter"
 msgstr "Utwórz spotkanie"
 
 #: src/ludamus/gates/web/django/create_options.py
@@ -8307,6 +8306,10 @@ msgstr "lub"
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
+
+#: src/ludamus/templates/encounter/create.html
+msgid "Create Encounter"
+msgstr "Utwórz spotkanie"
 
 #: src/ludamus/templates/encounter/detail.html
 msgid "Your encounter"

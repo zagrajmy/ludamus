@@ -2,6 +2,7 @@
 {% load tessera %}
 {# The feed's create control. Variables: options (create_options()), extra_class (page layout only). #}
 {# One option links straight to its form; two or more open a dialog that asks which. #}
+{# Include it at most once per page: the dialog's id is fixed. #}
 {% if options|length == 1 %}
     {% with option=options.0 %}
         {% tessera_button option.button_label href=option.href icon="plus" extra_class=extra_class|default:"" %}
@@ -13,8 +14,8 @@
             class="modal w-[calc(100%-2rem)] max-w-2xl p-0"
             aria-labelledby="organize-modal-title">
         <div class="flex items-center justify-between gap-3 px-6 pt-5">
-            <h3 id="organize-modal-title"
-                class="text-lg font-semibold text-foreground">{% translate "What do you want to organize?" %}</h3>
+            <h2 id="organize-modal-title"
+                class="text-lg font-semibold text-foreground">{% translate "What do you want to organize?" %}</h2>
             {% tessera_dialog_close_button "organize-modal" %}
         </div>
         <div class="grid gap-3 px-6 pt-4 pb-6 sm:grid-cols-2">

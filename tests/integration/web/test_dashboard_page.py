@@ -115,6 +115,17 @@ class TestDashboardPageView:
 
         assert_response_404(response)
 
+    def test_a_root_sphere_manager_is_offered_encounters_only(
+        self, authenticated_client, active_user, sphere
+    ):
+        # The root sphere runs no programme, so panel access there never
+        # turns into an event option.
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
     def test_an_empty_account_still_gets_a_page(self, authenticated_client):
         response = authenticated_client.get(DASHBOARD_URL)
 
