@@ -32,6 +32,16 @@ def _log(event, session, user, action, **kwargs):
     )
 
 
+def _pending(sessions: int) -> dict[str, int]:
+    # NOTE: each SessionFactory session is a pending proposal with its own presenter.
+    return {
+        "pending_proposals": sessions,
+        "total_proposals": sessions,
+        "total_sessions": sessions,
+        "hosts_count": sessions,
+    }
+
+
 @pytest.fixture(name="session")
 def session_fixture(event):
     return SessionFactory(event=event)
@@ -101,7 +111,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(unpublished, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    unpublished, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [],
                 "pending_count": 0,
                 "page_obj": PageMatcher(number=1, num_pages=1),
@@ -128,7 +140,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[log.pk],
@@ -179,7 +193,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(2)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[important.pk],
@@ -237,7 +253,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[log.pk],
@@ -289,7 +307,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=2),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=2, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[out.pk, into.pk],
@@ -411,7 +431,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[added[0].pk],

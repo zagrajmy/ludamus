@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 12.11.2026**
+**Data ostatniej aktualizacji: 15.11.2026**
 
 ## 1. ADMINISTRATORZY DANYCH
 
@@ -8,7 +8,7 @@ Za Państwa dane odpowiadają dwaj niezależni od siebie administratorzy. Każdy
 
 ### 1.1 Administrator serwisu
 
-**Radosław Ganczarek**, email: radek@zagrajmy.net
+**Radosław Ganczarek**, email: support@zagrajmy.net
 
 Administruje danymi potrzebnymi do działania serwisu: kontem (punkt 2.1), danymi technicznymi (punkt 2.2), historią aktywności (punkt 2.3), powiadomieniami, analityką i zgłoszeniami błędów (punkty 3.1–3.5) czatem (punkty 2.5, 3.7 i 3.8) oraz zgłoszeniami nielegalnych treści (punkty 2.6 i 3.9). Tej polityki dotyczy przede wszystkim ten zakres. Mówiąc w niej „my", mamy na myśli administratora serwisu.
 
@@ -243,7 +243,7 @@ Można otrzymać swoje dane w ustrukturyzowanym formacie.
 
 Można wnieść sprzeciw wobec przetwarzania danych w określonych przypadkach.
 
-**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: radek@zagrajmy.net**
+**Aby skorzystać z powyższych praw, należy skontaktować się z nami pod adresem: support@zagrajmy.net**
 
 Prawa dotyczące danych, którymi administruje organizator wydarzenia (punkt 1.2), można wykonać bezpośrednio u niego albo za naszym pośrednictwem.
 
@@ -251,7 +251,7 @@ Prawa dotyczące danych, którymi administruje organizator wydarzenia (punkt 1.2
 
 Aby usunąć konto i wszystkie powiązane dane osobowe, należy:
 
-1. Wysłać żądanie na adres: radek@zagrajmy.net
+1. Wysłać żądanie na adres: support@zagrajmy.net
 2. W temacie wiadomości napisać: "Usunięcie konta"
 3. Podać pseudonim lub adres email powiązany z kontem
 
@@ -326,7 +326,7 @@ Email: kancelaria@uodo.gov.pl
 
 W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować:
 
-**Email:** radek@zagrajmy.net
+**Email:** support@zagrajmy.net
 
 **Temat:** "RODO - [opis sprawy]"
 

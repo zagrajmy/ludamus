@@ -930,3 +930,31 @@ class TestActionDropdown:
                 '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
                 "{% action_dropdown_menu %}{% end_tessera_action_dropdown %}"
             ).render(Context())
+
+
+class TestTable:
+    def test_extra_attributes_land_on_the_table(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_table flush=True class="max-sm:block" role="table" '
+            'aria_label="Tracks" data_kind="tracks" %}'
+            "<tbody></tbody>{% end_tessera_table %}"
+        )
+        html = tpl.render(Context())
+        table = re.search(r"<table[^>]*>", html)
+        assert table is not None
+        assert 'role="table"' in table.group()
+        assert 'aria-label="Tracks"' in table.group()
+        assert 'data-kind="tracks"' in table.group()
+        assert "max-sm:block" in table.group()
+        assert html.count('role="table"') == 1
+        assert "flush" not in html
+
+    def test_without_extra_attributes_the_table_carries_only_its_class(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_table %}<tbody></tbody>{% end_tessera_table %}"
+        )
+        table = re.search(r"<table[^>]*>", tpl.render(Context()))
+        assert table is not None
+        assert table.group() == '<table class="min-w-full divide-y divide-border">'
