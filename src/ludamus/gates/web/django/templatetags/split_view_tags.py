@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 
 if TYPE_CHECKING:
     from django.utils.safestring import SafeString
+    from pydantic import BaseModel
 
 register = template.Library()
 
@@ -16,17 +17,18 @@ register = template.Library()
 # The whole page: with an item opened, the list and the item side by side on
 # a wide screen; without one, the list alone.
 @register.simple_block_tag(end_name="end_split_view")
-def split_view(content: SafeString, *, opened: object) -> str:
+def split_view(content: SafeString, *, opened: BaseModel | None) -> str:
     return render_to_string(
-        "components/split_view.html", {"content": content, "opened": opened}
+        "components/split_view.html", {"content": content, "opened": opened is not None}
     )
 
 
 # The list, which a narrow screen hides while an item is opened.
 @register.simple_block_tag(end_name="end_split_view_list")
-def split_view_list(content: SafeString, *, opened: object) -> str:
+def split_view_list(content: SafeString, *, opened: BaseModel | None) -> str:
     return render_to_string(
-        "components/split_view_list.html", {"content": content, "opened": opened}
+        "components/split_view_list.html",
+        {"content": content, "opened": opened is not None},
     )
 
 
@@ -37,8 +39,8 @@ def split_view_row(
     content: SafeString,
     *,
     href: str,
-    item: object,
-    opened: object,
+    item: int | str,
+    opened: int | str | None,
     extra_class: str = "",
 ) -> str:
     return render_to_string(
