@@ -149,11 +149,11 @@ test.describe("Profile on a phone", () => {
   test("a validation error reopens the sheet with the error in it", async ({ page }) => {
     await page.goto(INDEX_URL);
     await row(page, "Personal Information").click();
-    await page.locator("#personal input[type=email]").fill("not-an-email");
-    await page
-      .locator("#personal form")
-      .first()
-      .evaluate((form: HTMLFormElement) => (form.noValidate = true));
+    const email = sheet(page).getByLabel("email address", { exact: true });
+    await email.fill("not-an-email");
+    await email.evaluate((input: HTMLInputElement) => {
+      if (input.form) input.form.noValidate = true;
+    });
 
     await sheet(page).getByRole("button", { name: "Save" }).click();
 

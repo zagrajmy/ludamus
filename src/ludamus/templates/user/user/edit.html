@@ -7,9 +7,7 @@
     {% translate "Personal Information" %}
 {% endblock profile_heading %}
 {% block profile_sheet_id %}personal{% endblock profile_sheet_id %}
-{% block profile_sheet_height %}
-    {% if form.errors %}full{% else %}half{% endif %}
-{% endblock profile_sheet_height %}
+{% block profile_sheet_height %}{% if form.errors %}full{% else %}half{% endif %}{% endblock profile_sheet_height %}
 {% block profile_sheet_open %}
     {% if form.errors or request.GET %}data-open{% endif %}
 {% endblock profile_sheet_open %}
