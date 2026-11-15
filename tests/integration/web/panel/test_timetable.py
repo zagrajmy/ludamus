@@ -116,7 +116,15 @@ def _print_url(event, **params):
 
 
 def _scheduled_stats(count):
-    return {"rooms_count": 1, "scheduled_sessions": count, "total_sessions": count}
+    # NOTE: `count` pending proposals, each on the grid and hosted by its own user.
+    return {
+        "rooms_count": 1,
+        "pending_proposals": count,
+        "total_proposals": count,
+        "hosts_count": count,
+        "scheduled_sessions": count,
+        "total_sessions": count + count,
+    }
 
 
 def _page_context(event, *, stats=None, **overrides):
@@ -571,11 +579,7 @@ class TestTimetablePageView:
                         meta="Linked User: None · Sessions: 1 · Accreditation: None",
                     )
                 ],
-                stats={
-                    "rooms_count": 1,
-                    "scheduled_sessions": 1 + 1,  # hers and the other one
-                    "total_sessions": 1 + 1,
-                },
+                stats=_scheduled_stats(1 + 1),  # hers and the other one
             ),
         )
 
@@ -619,7 +623,7 @@ class TestTimetablePageView:
                     MultiselectOptionDTO(value=space.pk, label=space.name, depth=0)
                 ],
                 filter_facilitator_pks={foreign.pk},
-                stats={"rooms_count": 1, "scheduled_sessions": 1, "total_sessions": 1},
+                stats=_scheduled_stats(1),
             ),
         )
 

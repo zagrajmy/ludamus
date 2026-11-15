@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 12.11.2026**
+**Data ostatniej aktualizacji: 15.11.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -162,7 +162,7 @@ Użytkownik nie może:
 
 ## § 8. USUWANIE KONTA
 
-1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: radek@zagrajmy.net
+1. Użytkownik może w każdej chwili usunąć swoje Konto, wysyłając żądanie na adres: support@zagrajmy.net
 2. Usunięcie Konta skutkuje:
    - anulowaniem wszystkich aktywnych zapisów na Wydarzenia
    - usunięciem wszystkich danych osobowych
@@ -196,7 +196,7 @@ Pojedynczym punktem kontaktowym, o którym mowa w art. 11 i 12 rozporządzenia (
 
 W sprawach dotyczących Regulaminu można się kontaktować:
 
-**Email:** radek@zagrajmy.net
+**Email:** support@zagrajmy.net
 
 **Temat:** "Regulamin - [opis sprawy]"
 

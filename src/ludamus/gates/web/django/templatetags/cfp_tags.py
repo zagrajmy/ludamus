@@ -53,6 +53,11 @@ def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
     return ""
 
 
+_MUTED = "bg-bg-tertiary text-foreground-muted"
+_UPCOMING = "bg-info-bg text-info-text"
+_ACTIVE = "bg-success-bg text-success-text"
+
+
 @register.filter
 def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:
     """Return status info for a proposal category.
@@ -64,24 +69,24 @@ def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:
     end_time = category.end_time
 
     if not start_time and not end_time:
-        return {"label": _("Not set"), "class": "bg-gray-100 text-gray-600"}
+        return {"label": _("Not set"), "class": _MUTED}
 
     now = timezone.now()
 
     if end_time and now > end_time:
-        return {"label": _("Closed"), "class": "bg-gray-100 text-gray-600"}
+        return {"label": _("Closed"), "class": _MUTED}
 
     if start_time and now < start_time:
-        return {"label": _("Upcoming"), "class": "bg-blue-100 text-blue-700"}
+        return {"label": _("Upcoming"), "class": _UPCOMING}
 
     if start_time and end_time and start_time <= now <= end_time:
-        return {"label": _("Active"), "class": "bg-green-100 text-green-700"}
+        return {"label": _("Active"), "class": _ACTIVE}
 
     # Partial config (only start or only end)
     if start_time and now >= start_time:
-        return {"label": _("Active"), "class": "bg-green-100 text-green-700"}
+        return {"label": _("Active"), "class": _ACTIVE}
 
-    return {"label": _("Not set"), "class": "bg-gray-100 text-gray-600"}
+    return {"label": _("Not set"), "class": _MUTED}
 
 
 @register.filter

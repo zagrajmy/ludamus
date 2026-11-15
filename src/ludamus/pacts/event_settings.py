@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         EventProposalSettingsRepositoryProtocol,
         EventRepositoryProtocol,
         EventUpdateData,
+        PublicationIntent,
     )
     from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldRepositoryProtocol
     from ludamus.pacts.proposal_categories import ProposalCategoryRepositoryProtocol
@@ -51,7 +52,12 @@ class ProposalSettingsUpdateData(TypedDict):
 
 class EventSettingsServiceProtocol(Protocol):
     def update_general(
-        self, *, sphere_id: int, slug: str, data: EventUpdateData
+        self,
+        *,
+        sphere_id: int,
+        slug: str,
+        data: EventUpdateData,
+        publication: PublicationIntent | None = None,
     ) -> None: ...
     def get_display_context(
         self, *, sphere_id: int, slug: str

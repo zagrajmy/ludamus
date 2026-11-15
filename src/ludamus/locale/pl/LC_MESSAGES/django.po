@@ -4394,32 +4394,33 @@ msgid "An address can have at most two lines."
 msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Public: listed and announced to followers from its publication time"
+msgid "Link only: anyone with the link can open it; never listed or announced"
 msgstr ""
-"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+"Tylko przez link: każdy z linkiem może je otworzyć; nie pojawia się na "
+"listach ani w powiadomieniach"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Link only: anyone with the link can open it now; never listed or announced"
+msgid "Public now: listed and announced to followers"
+msgstr "Publiczne od teraz: widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Publish at a set time: listed and announced from then"
 msgstr ""
-"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-"się na listach ani w powiadomieniach"
+"Publikacja w wybranym terminie: od tego terminu widoczne na listach i "
+"ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Who can see the event"
 msgstr "Kto widzi wydarzenie"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Publication time"
-msgstr "Czas publikacji"
+msgid "Publish at"
+msgstr "Termin publikacji"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"For a public event: when it appears in event lists and followers are "
-"notified. Leave empty to keep it hidden."
+msgid "Leave empty to keep the event hidden until you pick a time."
 msgstr ""
-"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+"Zostaw puste, a wydarzenie pozostanie ukryte, dopóki nie wybierzesz terminu."
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Use sphere default"
@@ -15341,6 +15342,27 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
 #~ msgid ""
 #~ "Every space is taken at every time this session can go. Add a space, or "
 #~ "move a session in the timetable, then come back to accept this proposal."
@@ -15348,6 +15370,140 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Każda przestrzeń jest zajęta w każdym terminie, w którym ten punkt "
 #~ "programu może się odbyć. Dodaj przestrzeń albo przesuń jakiś punkt "
 #~ "programu w harmonogramie, a potem wróć tu zaakceptować to zgłoszenie."
+
+#~ msgid "Choose a time…"
+#~ msgstr "Wybierz godzinę…"
+
+#~ msgid "Preferred by the facilitator"
+#~ msgstr "Preferowane przez twórcę programu"
+
+#~ msgid "Other times"
+#~ msgstr "Pozostałe godziny"
+
+#~ msgid "Time slot"
+#~ msgstr "Przedział czasowy"
+
+#~ msgid "Pick the start time for this session."
+#~ msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
+
+#~ msgid "Invalid time slot selection."
+#~ msgstr "Nieprawidłowy wybór przedziału czasowego."
+
+#~ msgid ""
+#~ "Copies its venues, tracks with their managers, time slots, session and "
+#~ "personal-data fields, categories, enrollment and discount rules, and "
+#~ "settings. Dates move with the new start, proposal windows included. "
+#~ "Sessions are not copied."
+#~ msgstr ""
+#~ "Kopiuje miejsca, bloki programowe z ich opiekunami, przedziały czasowe, "
+#~ "pola punktów programu i danych osobowych, kategorie, zasady zapisów i "
+#~ "zniżek oraz ustawienia. Daty przesuwają się razem z nowym początkiem, "
+#~ "także okna zgłoszeń. Punkty programu nie są kopiowane."
+
+#~ msgid "Time slots"
+#~ msgstr "Przedziały czasowe"
+
+#, python-format
+#~ msgid "%(count)d windows"
+#~ msgstr "Okien: %(count)d"
+
+#, python-format
+#~ msgid ""
+#~ "Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
+#~ "session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
+#~ "%(builtins)d missing built-in fields, linked %(links)d missing "
+#~ "facilitators / time slots / tracks, pruned %(pruned)d orphan field "
+#~ "definitions."
+#~ msgstr ""
+#~ "Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
+#~ "%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów "
+#~ "danych osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, "
+#~ "dowiązano %(links)d brakujących twórców programu / przedziałów "
+#~ "czasowych / bloków, usunięto %(pruned)d osieroconych definicji pól."
+
+#~ msgid "Please select at least one time slot."
+#~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
+
+#~ msgid "Preferred Time Slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid ""
+#~ "This event has no time slots yet, so nothing can go on the agenda. Add "
+#~ "the time slots, then come back to accept this proposal."
+#~ msgstr ""
+#~ "To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
+#~ "harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
+#~ "zgłoszenie."
+
+#~ msgid "Add time slots"
+#~ msgstr "Dodaj przedziały czasowe"
+
+#~ msgid "Pick every slot you could host."
+#~ msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
+
+#~ msgid "Time slots saved. Next step coming soon."
+#~ msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
+
+#~ msgid "No time slot selection needed. Proceeding to next step."
+#~ msgstr ""
+#~ "Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego "
+#~ "kroku."
+
+#~ msgid "Select which time slots are available for this category."
+#~ msgstr "Wybierz, które przedziały czasowe są dostępne dla tej kategorii."
+
+#~ msgid "No time slots defined for this event."
+#~ msgstr "Nie zdefiniowano przedziałów czasowych dla tego wydarzenia."
+
+#~ msgid "Configure time slots"
+#~ msgstr "Skonfiguruj przedziały czasowe"
+
+#~ msgid "End"
+#~ msgstr "Koniec"
+
+#~ msgid "Remove window"
+#~ msgstr "Usuń przedział"
+
+#~ msgid "Add window"
+#~ msgstr "Dodaj przedział"
+
+#~ msgid "Preferred time slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid ""
+#~ "Time slots the facilitator prefers for this session. These are "
+#~ "preferences, not a final schedule."
+#~ msgstr ""
+#~ "Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
+#~ "programu. To preferencje, a nie ostateczny harmonogram."
+
+#~ msgid "Preferred slots"
+#~ msgstr "Preferowane przedziały czasowe"
+
+#~ msgid ""
+#~ "Time slots define the available scheduling blocks for your event. Hosts "
+#~ "select which time slots they are available for when submitting proposals. "
+#~ "Sessions are then scheduled into these slots."
+#~ msgstr ""
+#~ "Przedziały czasowe wyznaczają dostępne okna w harmonogramie wydarzenia. "
+#~ "Twórcy wybierają, w których przedziałach są dostępni podczas składania "
+#~ "zgłoszeń. Punkty programu są następnie planowane w tych przedziałach."
+
+#~ msgid ""
+#~ "No time slots defined. Add time slots to configure the event schedule."
+#~ msgstr ""
+#~ "Nie zdefiniowano przedziałów czasowych. Dodaj przedziały czasowe, aby "
+#~ "skonfigurować harmonogram wydarzenia."
+
+#~ msgid "Sessions outside preferred slots"
+#~ msgstr "Punkty programu poza preferowanymi przedziałami"
+
+#~ msgid "Preferred slots:"
+#~ msgstr "Preferowane przedziały:"
+
+#~ msgid "All scheduled sessions are inside their preferred slots."
+#~ msgstr ""
+#~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
 
 #
 #~ msgid "Note added to the thread."
@@ -15559,140 +15715,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
-
-#~ msgid "Choose a time…"
-#~ msgstr "Wybierz godzinę…"
-
-#~ msgid "Preferred by the facilitator"
-#~ msgstr "Preferowane przez twórcę programu"
-
-#~ msgid "Other times"
-#~ msgstr "Pozostałe godziny"
-
-#~ msgid "Time slot"
-#~ msgstr "Przedział czasowy"
-
-#~ msgid "Pick the start time for this session."
-#~ msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
-
-#~ msgid "Invalid time slot selection."
-#~ msgstr "Nieprawidłowy wybór przedziału czasowego."
-
-#~ msgid ""
-#~ "Copies its venues, tracks with their managers, time slots, session and "
-#~ "personal-data fields, categories, enrollment and discount rules, and "
-#~ "settings. Dates move with the new start, proposal windows included. "
-#~ "Sessions are not copied."
-#~ msgstr ""
-#~ "Kopiuje miejsca, bloki programowe z ich opiekunami, przedziały czasowe, "
-#~ "pola punktów programu i danych osobowych, kategorie, zasady zapisów i "
-#~ "zniżek oraz ustawienia. Daty przesuwają się razem z nowym początkiem, "
-#~ "także okna zgłoszeń. Punkty programu nie są kopiowane."
-
-#~ msgid "Time slots"
-#~ msgstr "Przedziały czasowe"
-
-#, python-format
-#~ msgid "%(count)d windows"
-#~ msgstr "Okien: %(count)d"
-
-#, python-format
-#~ msgid ""
-#~ "Field layout applied to %(sessions)d proposals: +%(added)d / -%(removed)d "
-#~ "session fields, +%(p_added)d / -%(p_removed)d personal entries, filled "
-#~ "%(builtins)d missing built-in fields, linked %(links)d missing "
-#~ "facilitators / time slots / tracks, pruned %(pruned)d orphan field "
-#~ "definitions."
-#~ msgstr ""
-#~ "Układ pól zastosowany do %(sessions)d punktów programu: +%(added)d / -"
-#~ "%(removed)d pól punktu programu, +%(p_added)d / -%(p_removed)d wpisów "
-#~ "danych osobowych, uzupełniono %(builtins)d brakujących pól wbudowanych, "
-#~ "dowiązano %(links)d brakujących twórców programu / przedziałów "
-#~ "czasowych / bloków, usunięto %(pruned)d osieroconych definicji pól."
-
-#~ msgid "Please select at least one time slot."
-#~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
-
-#~ msgid "Preferred Time Slots"
-#~ msgstr "Preferowane przedziały czasowe"
-
-#~ msgid ""
-#~ "This event has no time slots yet, so nothing can go on the agenda. Add "
-#~ "the time slots, then come back to accept this proposal."
-#~ msgstr ""
-#~ "To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
-#~ "harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
-#~ "zgłoszenie."
-
-#~ msgid "Add time slots"
-#~ msgstr "Dodaj przedziały czasowe"
-
-#~ msgid "Pick every slot you could host."
-#~ msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
-
-#~ msgid "Time slots saved. Next step coming soon."
-#~ msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
-
-#~ msgid "No time slot selection needed. Proceeding to next step."
-#~ msgstr ""
-#~ "Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego "
-#~ "kroku."
-
-#~ msgid "Select which time slots are available for this category."
-#~ msgstr "Wybierz, które przedziały czasowe są dostępne dla tej kategorii."
-
-#~ msgid "No time slots defined for this event."
-#~ msgstr "Nie zdefiniowano przedziałów czasowych dla tego wydarzenia."
-
-#~ msgid "Configure time slots"
-#~ msgstr "Skonfiguruj przedziały czasowe"
-
-#~ msgid "End"
-#~ msgstr "Koniec"
-
-#~ msgid "Remove window"
-#~ msgstr "Usuń przedział"
-
-#~ msgid "Add window"
-#~ msgstr "Dodaj przedział"
-
-#~ msgid "Preferred time slots"
-#~ msgstr "Preferowane przedziały czasowe"
-
-#~ msgid ""
-#~ "Time slots the facilitator prefers for this session. These are "
-#~ "preferences, not a final schedule."
-#~ msgstr ""
-#~ "Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
-#~ "programu. To preferencje, a nie ostateczny harmonogram."
-
-#~ msgid "Preferred slots"
-#~ msgstr "Preferowane przedziały czasowe"
-
-#~ msgid ""
-#~ "Time slots define the available scheduling blocks for your event. Hosts "
-#~ "select which time slots they are available for when submitting proposals. "
-#~ "Sessions are then scheduled into these slots."
-#~ msgstr ""
-#~ "Przedziały czasowe wyznaczają dostępne okna w harmonogramie wydarzenia. "
-#~ "Twórcy wybierają, w których przedziałach są dostępni podczas składania "
-#~ "zgłoszeń. Punkty programu są następnie planowane w tych przedziałach."
-
-#~ msgid ""
-#~ "No time slots defined. Add time slots to configure the event schedule."
-#~ msgstr ""
-#~ "Nie zdefiniowano przedziałów czasowych. Dodaj przedziały czasowe, aby "
-#~ "skonfigurować harmonogram wydarzenia."
-
-#~ msgid "Sessions outside preferred slots"
-#~ msgstr "Punkty programu poza preferowanymi przedziałami"
-
-#~ msgid "Preferred slots:"
-#~ msgstr "Preferowane przedziały:"
-
-#~ msgid "All scheduled sessions are inside their preferred slots."
-#~ msgstr ""
-#~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
 
 #~ msgid "Displayed on the first page of the proposal form."
 #~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."

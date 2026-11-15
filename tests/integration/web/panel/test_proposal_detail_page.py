@@ -885,7 +885,13 @@ class TestProposalDetailPageView:
             HTTPStatus.OK,
             template_name="panel/import-log.html",
             context_data={
-                **panel_context(event, active_nav="proposals"),
+                **panel_context(
+                    event,
+                    active_nav="proposals",
+                    pending_proposals=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
                 "active_nav": "import",
                 "active_integration": EventIntegrationDTO(
                     pk=integration.pk,
