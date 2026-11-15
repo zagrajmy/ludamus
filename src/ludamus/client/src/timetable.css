@@ -220,45 +220,6 @@
     display: none;
   }
 
-  .timetable-drop-guide {
-    position: absolute;
-    left: 2px;
-    right: 2px;
-    z-index: 8;
-    --guide-tone: var(--color-success);
-    border: 2px dashed var(--guide-tone);
-    border-radius: 6px;
-    /* Opaque, so a block it covers does not print through it. */
-    background: color-mix(in oklch, var(--guide-tone) 15%, var(--color-bg-secondary));
-    color: var(--guide-tone);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    overflow: hidden;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .timetable-drop-guide-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .timetable-drop-guide-time {
-    font-weight: 400;
-  }
-
-  .timetable-drop-guide[data-verdict="closed"] {
-    --guide-tone: var(--color-foreground-muted);
-  }
-
-  .timetable-drop-guide[data-verdict="occupied"],
-  .timetable-drop-guide[data-verdict="tooSmall"] {
-    --guide-tone: var(--color-danger);
-  }
-
   /* A preference, not a problem: an outline only, so it never reads as the
      warning a filled amber band would. Drawn over the sessions, so a slot
      already booked still shows its edges. */
@@ -308,7 +269,8 @@
 }
 
 /* NOTE: `@layer utilities`, not `components`: these override utilities the
-   grid block carries in its markup, which a components rule cannot. */
+   grid block and the list card carry in their markup, which a components rule
+   cannot. */
 @layer utilities {
   /* A short block hides its meta lines with `hidden`; hover shows them. */
   .timetable-session:hover .timetable-session-meta.hidden,
@@ -316,11 +278,48 @@
     display: block;
   }
 
-  /* `opacity-85 hover:opacity-100` would win while the pointer rests on the
-     block as a drag starts. The drop guide stands in for the dragged block,
-     so its old place only shows as a faint trace. */
+  /* The dragged card, picked up: tilted, lifted, snapped to where it lands.
+     An id, so it outranks the copied card's own position and size. */
+  #timetable-drag-card {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    width: auto;
+    margin: 0;
+    z-index: 9;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: none;
+    transform: rotate(2deg);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  /* A list card is padded for reading, not for a block one hour tall. */
+  #timetable-drag-card:not(.timetable-session) {
+    padding: 0.25rem 0.5rem;
+  }
+
+  #timetable-drag-card[data-verdict="closed"] {
+    outline: 2px dashed var(--color-foreground-muted);
+  }
+
+  #timetable-drag-card[data-verdict="occupied"],
+  #timetable-drag-card[data-verdict="tooSmall"] {
+    outline: 2px solid var(--color-danger);
+  }
+
+  /* Where the dragged card came from: an empty gray box until it lands. */
   [draggable].is-drag-source,
   [draggable].is-drag-source:hover {
-    opacity: 0.35;
+    opacity: 1;
+    border: 2px dashed var(--color-foreground-muted);
+    background: color-mix(in oklch, var(--color-foreground-muted) 15%, var(--color-bg-secondary));
+    box-shadow: none;
+    /* Under the drag card, though the pointer still hovers it as a drag starts. */
+    z-index: 7;
+  }
+
+  [draggable].is-drag-source > * {
+    visibility: hidden;
   }
 }
