@@ -10,6 +10,9 @@ from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
+from ludamus.gates.web.django.event.panel.views.event_settings import (
+    EventSettingsPageView,
+)
 from ludamus.gates.web.django.settings_forms import EventDeletionConfirmForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event_deletion import NotSphereManagerError
@@ -26,17 +29,17 @@ def _back_to_ballot(slug: str) -> HttpResponse:
     return redirect(f"{settings_url}#event-deletion")
 
 
-class EventSettingsApproveDeletionActionView(EventPanelMixin, View):
-    request: PanelRequest
+class EventSettingsApproveDeletionActionView(EventSettingsPageView):
+    # A name that does not match comes back as the settings page with the
+    # error at the field, so the action renders that page instead of its own.
+    http_method_names = ("post",)
 
     def post(self, request: PanelRequest, slug: str) -> HttpResponse:
         form = EventDeletionConfirmForm(
             request.POST, event_name=self.current_event.name
         )
         if not form.is_valid():
-            for error in form.errors["event_name"]:
-                messages.error(request, error)
-            return _back_to_ballot(slug)
+            return self.render_page(deletion_form=form)
         try:
             missing = request.services.event_deletion.approve(
                 sphere_id=request.context.current_sphere_id,

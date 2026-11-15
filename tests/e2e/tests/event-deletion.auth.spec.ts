@@ -57,6 +57,7 @@ test("two managers agree to delete an event", async ({ browser }, testInfo) => {
   // A near miss counts for nothing: the event stays, and so does the card.
   await bertCard.getByLabel(CONFIRM_LABEL).fill("Council");
   await bertCard.getByRole("button", { name: "Delete event" }).click();
+  await expect(bertCard.getByText("The name you typed does not match.")).toBeVisible();
   await expect(bertCard.getByRole("listitem").filter({ hasText: "Ada Council" })).toBeVisible();
   await bertCard.getByLabel(CONFIRM_LABEL).fill("Council Retreat");
   await bertCard.getByRole("button", { name: "Delete event" }).click();

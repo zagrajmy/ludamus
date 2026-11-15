@@ -152,14 +152,9 @@ class EventSettingsPageView(EventPanelMixin, View):
             viewer_id=self.request.context.current_user_id,
         )
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context = self.panel_context()
-
-        context["active_nav"] = "settings"
-        context["active_tab"] = "general"
-        context["tab_urls"] = settings_tab_urls(slug)
+    def _saved_settings_form(self) -> EventSettingsForm:
         override = self.current_event.allow_facilitator_session_edit
-        form = EventSettingsForm(
+        return EventSettingsForm(
             initial={
                 "name": self.current_event.name,
                 "slug": self.current_event.slug,
@@ -188,24 +183,38 @@ class EventSettingsPageView(EventPanelMixin, View):
                 ),
             }
         )
+
+    def render_page(
+        self,
+        *,
+        form: EventSettingsForm | None = None,
+        deletion_form: EventDeletionConfirmForm | None = None,
+    ) -> HttpResponse:
+        """Render the General tab, either form bound when it failed to validate."""
+        form = form or self._saved_settings_form()
         self._apply_facilitator_choices(form)
+        context = self.panel_context()
+        context["active_nav"] = "settings"
+        context["active_tab"] = "general"
+        context["tab_urls"] = settings_tab_urls(self.current_event.slug)
         context["form"] = form
         context["deletion"] = self._deletion_ballot()
-        context["deletion_form"] = EventDeletionConfirmForm(
+        context["deletion_form"] = deletion_form or EventDeletionConfirmForm(
             event_name=self.current_event.name
         )
         return TemplateResponse(self.request, "panel/settings.html", context)
 
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context = self.panel_context()
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        return self.render_page()
 
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         form = EventSettingsForm(
             self.request.POST,
             self.request.FILES,
             initial=_stored_images(self.current_event),
         )
         if not form.is_valid():
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
 
         cd = form.cleaned_data
         new_slug = cd["slug"]
@@ -218,35 +227,21 @@ class EventSettingsPageView(EventPanelMixin, View):
             )
         except EventSlugConflictError:
             form.add_error("slug", _("An event with this slug already exists."))
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except EventDatesInvalidError:
             form.add_error("end_time", _("End time must be after start time."))
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except EventPublicationInvalidError:
             form.add_error(
                 "publication_time", _("Publication time must not be after start time.")
             )
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
-
-    def _render_with_form(
-        self, *, context: dict[str, object], slug: str, form: EventSettingsForm
-    ) -> HttpResponse:
-        context["active_nav"] = "settings"
-        context["active_tab"] = "general"
-        context["tab_urls"] = settings_tab_urls(slug)
-        self._apply_facilitator_choices(form)
-        context["form"] = form
-        context["deletion"] = self._deletion_ballot()
-        context["deletion_form"] = EventDeletionConfirmForm(
-            event_name=self.current_event.name
-        )
-        return TemplateResponse(self.request, "panel/settings.html", context)
 
 
 class EventDisplaySettingsPageView(EventPanelMixin, View):

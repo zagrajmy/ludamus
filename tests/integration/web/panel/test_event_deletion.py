@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -22,10 +23,12 @@ from tests.integration.conftest import (
     SphereFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import FormErrorsMatcher, assert_response
 from tests.integration.web.panel.helpers import (
     READ_ONLY_ROLE_ERROR,
     assert_event_not_found,
+    panel_context,
+    settings_tab_urls,
 )
 
 ONLY_MANAGERS_ERROR = "Only sphere managers can delete an event."
@@ -178,9 +181,19 @@ class TestApproveDeletion:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, NAME_MISMATCH_ERROR if typed else REQUIRED)],
-            url=_ballot_url(event),
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "is_proposal_active": response.context["is_proposal_active"],
+                "active_tab": "general",
+                "tab_urls": settings_tab_urls(event),
+                "form": ANY,
+                "deletion": response.context["deletion"],
+                "deletion_form": FormErrorsMatcher(
+                    event_name=[NAME_MISMATCH_ERROR if typed else REQUIRED]
+                ),
+            },
         )
         assert not _is_deleted(event)
         assert not EventDeletionApproval.objects.exists()
