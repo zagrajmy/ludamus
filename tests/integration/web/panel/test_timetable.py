@@ -85,7 +85,7 @@ def _print_url(event, **params):
 
 
 def _scheduled_stats(count):
-    # `count` pending proposals, each on the grid and hosted by its own user.
+    # NOTE: `count` pending proposals, each on the grid and hosted by its own user.
     return {
         "rooms_count": 1,
         "pending_proposals": count,

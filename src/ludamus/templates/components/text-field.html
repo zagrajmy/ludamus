@@ -3,7 +3,7 @@
 {# `class` appends to the component look — for layout (width, grow), not for restyling the field. #}
 {# inplace_class replaces the look with the in-place one (tessera `inplace_look`): a field dressed as the text it writes. #}
 {# text-base keeps inputs at 16px on mobile so iOS Safari doesn't auto-zoom on focus; sm:text-sm restores the compact desktop size. #}
-{# iOS Safari sizes its native date and time controls to their formatted text and ignores w-full, so they spill past a phone-width form; appearance-none and max-w-full hold them to the form's width. #}
+{# NOTE: iOS Safari sizes its native date and time controls to their formatted text and ignores w-full, so they spill past a phone-width form; appearance-none and max-w-full hold them to the form's width. #}
 <input type="{{ input_type|default:"text" }}"
        {% if autocomplete|default:"" %}autocomplete="{{ autocomplete }}"{% endif %}
        {% if datalist_id|default:"" %}list="{{ datalist_id }}"{% endif %}

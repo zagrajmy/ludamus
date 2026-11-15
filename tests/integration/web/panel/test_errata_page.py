@@ -33,7 +33,7 @@ def _log(event, session, user, action, **kwargs):
 
 
 def _pending(sessions: int) -> dict[str, int]:
-    # Each SessionFactory session is a pending proposal with its own presenter.
+    # NOTE: each SessionFactory session is a pending proposal with its own presenter.
     return {
         "pending_proposals": sessions,
         "total_proposals": sessions,

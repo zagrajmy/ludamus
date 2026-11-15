@@ -90,7 +90,6 @@ class EventSettingsForm(forms.Form):
                 _("Publish at a set time: listed and announced from then"),
             ),
         ],
-        initial=PublicationChoice.SCHEDULED.value,
         widget=forms.RadioSelect,
         label=_("Who can see the event"),
     )

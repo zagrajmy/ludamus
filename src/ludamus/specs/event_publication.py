@@ -26,12 +26,15 @@ def resolve_publication(
     Returns:
         The visibility and publication time to store.
     """
-    if intent.choice is PublicationChoice.SCHEDULED:
-        return EventVisibility.PUBLIC, intent.chosen_time
     stored = event.publication_time
-    if intent.choice is PublicationChoice.LINK_ONLY:
-        kept = None if stored is None else min(stored, start_time)
-        return EventVisibility.UNLISTED, kept
-    if event.is_published and stored is not None:
-        return EventVisibility.PUBLIC, min(stored, start_time)
-    return EventVisibility.PUBLIC, min(now, start_time)
+    kept = None if stored is None else min(stored, start_time)
+    match intent.choice:
+        case PublicationChoice.SCHEDULED:
+            return EventVisibility.PUBLIC, intent.chosen_time
+        case PublicationChoice.LINK_ONLY:
+            return EventVisibility.UNLISTED, kept
+        case PublicationChoice.PUBLIC_NOW:
+            return (
+                EventVisibility.PUBLIC,
+                kept if event.is_published else min(now, start_time),
+            )

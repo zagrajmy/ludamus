@@ -22,7 +22,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if tracks %}
-        {# On a phone a row stacks: name beside its visibility, then its spaces and organizers, whose pills carry their own icons, then the actions. #}
+        {# NOTE: on a phone a row stacks: name beside its visibility, then its spaces and organizers, whose pills carry their own icons, then the actions. #}
         {% tessera_table flush=True class="max-sm:block" role="table" %}
             <thead class="bg-bg-tertiary max-sm:sr-only" role="rowgroup">
                 <tr role="row">
