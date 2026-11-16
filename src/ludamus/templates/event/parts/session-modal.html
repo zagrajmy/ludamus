@@ -34,7 +34,7 @@
         {% else %}
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground"
+                    class="min-w-0 wrap-break-word text-lg font-semibold text-foreground"
                     data-morph="title">{{ data.session.title }}</h3>
                 {% with pk=data.session.pk|stringformat:"d" %}
                     {% with dialog_id="session-"|add:pk %}
