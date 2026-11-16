@@ -128,6 +128,12 @@ class FakeEncounters:
     def delete(self, pk):
         del self.rows[pk]
 
+    def list_by_creator(self, sphere_id, creator_id, *, limit):
+        rows = [
+            row for row in self._in_sphere(sphere_id) if row.creator_id == creator_id
+        ]
+        return sorted(rows, key=lambda row: row.start_time, reverse=True)[:limit]
+
     @staticmethod
     def _visible(rows, sphere_id, user_id):
         return [
