@@ -24,7 +24,8 @@ def tessera_dialog_close_button(dialog_id: str) -> str:
         {% tessera_dialog_close_button "organize-modal" %}
     """
     return format_html(
-        '<button type="button" class="icon-btn icon-btn-clear size-11 justify-center"'
+        '<button type="button"'
+        ' class="icon-btn icon-btn-clear size-11 shrink-0 justify-center"'
         ' data-modal-close="{}" aria-label="{}">{}</button>',
         dialog_id,
         _("Close"),
