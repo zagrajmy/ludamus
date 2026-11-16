@@ -28,6 +28,8 @@ from ludamus.specs.parley import (
     PARLEY_DIRECT_AGE_BANDS,
     PARLEY_GROUP_MAX_MEMBERS,
     PARLEY_GROUP_TITLE_MAX_LENGTH,
+    PARLEY_KEPT_LONGER,
+    PARLEY_MESSAGE_LIFETIME,
     PARLEY_PAIR,
     PARLEY_PEOPLE_SEARCH_LIMIT,
     PARLEY_PEOPLE_SEARCH_MIN_LENGTH,
@@ -474,6 +476,7 @@ def sign_membership(
         for member in present
         if member.signs_in
         and (not policy.needs_direct or member.age_band in PARLEY_DIRECT_AGE_BANDS)
+        and (not policy.staff_only or member.is_staff)
     ]
     if policy.pair_needs_direct and _pair_short_of_direct(
         [member.age_band for member in members]
@@ -487,6 +490,9 @@ def sign_membership(
             conversation=str(conversation_id),
             kind=kind,
             needs_direct=policy.needs_direct,
+            retain_for=int(
+                PARLEY_KEPT_LONGER.get(kind, PARLEY_MESSAGE_LIFETIME).total_seconds()
+            ),
             members=[
                 {
                     "user": str(member.user_id),

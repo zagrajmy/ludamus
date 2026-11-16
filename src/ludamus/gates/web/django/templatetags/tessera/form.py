@@ -90,7 +90,9 @@ def _inplace_shape(widget: Widget, *, fit: bool) -> InplaceShape:
         return "textarea"
     if isinstance(widget, Select):
         return "select"
-    if isinstance(widget, NumberInput):
+    # A numeric text input takes what a number input rejects (a range, say)
+    # and still reads as a number.
+    if isinstance(widget, NumberInput) or widget.attrs.get("inputmode") == "numeric":
         return "number"
     return "fit" if fit else "text"
 
@@ -185,9 +187,11 @@ def tessera_inplace(field: BoundField, *, fit: bool = False, unit: str = "") -> 
     )
     control = _render_field_input(field, inplace_class=look)
     if unit:
+        # NOTE: the control's -mx-1.5 overhangs this wrapper, so right-0 is
+        # already inside the control's right padding, in the 1ch kept free.
         control = format_html(
             '<span class="relative inline-flex">{}<span aria-hidden="true"'
-            ' class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2">'
+            ' class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2">'
             "{}</span></span>",
             control,
             unit,

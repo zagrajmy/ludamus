@@ -29,6 +29,7 @@ const organizers = {
   canWrite: true,
   id: "organizers:1",
   kind: "organizers",
+  moderating: false,
   sphere: 1,
   title: "Zagrajmy",
 };
@@ -37,6 +38,7 @@ const elsewhere = {
   canWrite: true,
   id: "session:2:7",
   kind: "session",
+  moderating: false,
   sphere: 2,
   title: "Wsiąść do pociągu",
 };
@@ -76,7 +78,7 @@ test("Chats from every sphere and party sit in one list, each saying what it is"
     ]);
   worker.push(
     "room.activity",
-    { at: Date.now(), latestMessageId: 4, roomId: elsewhere.id },
+    { at: Date.now(), latestMessageId: 4, mentionedBy: [], roomId: elsewhere.id },
     /parley-sphere-agent\/2/u,
   );
   await expect(launcherOf(page)).toHaveAccessibleDescription(/1 unread conversation/u);

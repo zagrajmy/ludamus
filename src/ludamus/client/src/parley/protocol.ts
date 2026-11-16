@@ -55,6 +55,7 @@ export type Copy = Record<
   | "leaveGroup"
   | "leaveGroupConfirm"
   | "linkCopied"
+  | "linkUnavailable"
   | "loadEarlier"
   | "loading"
   | "loadingEmoji"
@@ -63,13 +64,21 @@ export type Copy = Record<
   | "membersLabel"
   | "membersMany"
   | "membersOne"
+  | "mentionedYou"
+  | "mentionPeople"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
   | "messageTooLong"
   | "messagingNeedsAge"
   | "messagingUnder16"
+  | "moderatedRoomsFew"
+  | "moderatedRoomsMany"
+  | "moderatedRoomsOne"
+  | "moderation"
   | "moderatorDelete"
+  | "moderatorReading"
+  | "moderatorView"
   | "muteConfirm"
   | "muted"
   | "mutedUntil"
@@ -88,6 +97,7 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizerPlaceholder"
   | "organizersRoom"
   | "partyHint"
   | "partyRoom"
@@ -144,6 +154,7 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
+  | "writeAsOrganizer"
   | "writePlaceholder"
   | "writingRestored"
   | "you",
@@ -158,7 +169,7 @@ export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party";
+  kind: "direct" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -173,6 +184,8 @@ export type Room = {
   conversation?: ConversationInfo;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
+  // Here only because this person moderates its sphere: they are not in it.
+  moderating: boolean;
   // The sphere a sphere's room belongs to; a conversation has none.
   sphere?: number;
   title: string;
@@ -190,6 +203,9 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
+  // Where this sphere's rooms this person only moderates are read; null
+  // when there are none.
+  moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };
 };
@@ -202,6 +218,8 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  // Whom the body's "<@id>" tokens mention; older messages have none.
+  mentions?: string[];
   nonce: string;
   // Each reaction's people, in the order they reacted, and the names they
   // reacted under; a Worker older than reactions sends neither.
@@ -214,7 +232,9 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-export type RoomActivity = { at: number; unread: boolean };
+// mentionedBy: whose mentions of this person they have yet to read; a
+// sphere's rooms keep no member list to mention from, so theirs is empty.
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
 export type Event = { payload: unknown; type: string; v: 1 };

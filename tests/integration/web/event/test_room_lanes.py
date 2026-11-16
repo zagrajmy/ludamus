@@ -13,6 +13,7 @@ from ludamus.gates.web.django.event.schedule import (
     build_schedule_days,
 )
 from ludamus.pacts.timetable import AgendaItemDTO
+from ludamus.pacts.venues import NO_LOCATION
 from tests.integration.web.event.helpers import (
     loc_dict,
     make_session_data,
@@ -23,6 +24,7 @@ from tests.integration.web.event.helpers import (
 if TYPE_CHECKING:
     from ludamus.gates.web.django.event.event_presentation import SessionData
     from ludamus.gates.web.django.event.schedule import RoomLanes
+    from ludamus.pacts.venues import LocationData
 
 _HOUR_SECONDS = 3600
 _REPEATED_HOUR = 2
@@ -643,3 +645,40 @@ class TestRoomLaneOrdering:
             ("Parter", "Sala | A", True),
             ("Parter", "Sala B", True),
         ]
+
+
+class TestSessionsWithoutASpace:
+    def test_they_share_one_no_space_lane_after_the_rooms(self):
+        tz = timezone.get_current_timezone()
+
+        def session(pk: int, loc: LocationData) -> SessionData:
+            return make_session_data(
+                agenda_item=AgendaItemDTO(
+                    start_time=datetime(2026, 7, 10, 9 + pk, tzinfo=tz),
+                    end_time=datetime(2026, 7, 10, 10 + pk, tzinfo=tz),
+                    pk=pk,
+                    schedule_confirmed=True,
+                ),
+                loc=loc,
+            )
+
+        room = loc_dict(
+            space_id=5,
+            space_name="Sala A",
+            parent_name="",
+            programme_order=9,
+            sort_path=((0, "Sala A", 5),),
+        )
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: session(1, NO_LOCATION),
+                    2: session(2, room),
+                    3: session(3, NO_LOCATION),
+                }
+            )
+        )
+
+        # A room ordered late in the programme still comes before the lane of
+        # sessions placed without one, which is named rather than left blank.
+        assert [lane.name for lane in lanes.rooms] == ["Sala A", "No space"]

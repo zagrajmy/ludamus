@@ -14,16 +14,18 @@ from django.utils.translation import pgettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
-from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
+from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
+from ludamus.gates.web.django.settings_forms import EventSettingsForm
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
-    EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
@@ -56,10 +58,11 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "address": cd.get("address") or "",
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
-        "publication_time": cd.get("publication_time"),
-        "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
+        ),
+        "require_session_space": _choice_to_override(
+            cd.get("require_session_space") or ""
         ),
         "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
         "use_session_cover_placeholders": bool(
@@ -128,6 +131,13 @@ class EventSettingsPageView(EventPanelMixin, View):
             on=pgettext("event chat", "On"),
             off=pgettext("event chat", "Off"),
         )
+        _follow_sphere_choices(
+            form,
+            "require_session_space",
+            inherited=_("required") if sphere.require_session_space else _("optional"),
+            on=_("Required"),
+            off=_("Optional"),
+        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context = self.panel_context()
@@ -150,8 +160,11 @@ class EventSettingsPageView(EventPanelMixin, View):
                     if self.current_event.publication_time
                     else None
                 ),
-                "visibility": self.current_event.visibility.value,
+                "publication": self.current_event.publication_choice.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "require_session_space": _override_to_choice(
+                    value=self.current_event.require_session_space
+                ),
                 "auto_confirm_sessions": self.current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
                     self.current_event.use_session_cover_placeholders
@@ -185,6 +198,10 @@ class EventSettingsPageView(EventPanelMixin, View):
                 sphere_id=self.request.context.current_sphere_id,
                 slug=slug,
                 data=_event_update_data(cd, new_slug),
+                publication=PublicationIntent(
+                    choice=PublicationChoice(cd["publication"]),
+                    chosen_time=cd.get("publication_time"),
+                ),
             )
         except EventSlugConflictError:
             form.add_error("slug", _("An event with this slug already exists."))

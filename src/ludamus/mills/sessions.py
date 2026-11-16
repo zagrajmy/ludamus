@@ -18,7 +18,10 @@ from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.integrations import SourceQuestion
 from ludamus.pacts.propose import is_empty_answer
-from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+from ludamus.pacts.session_cards import (
+    PlacementAvailabilityDTO,
+    ProposalAcceptContextDTO,
+)
 from ludamus.pacts.sessions import (
     AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
@@ -34,13 +37,15 @@ from ludamus.pacts.sessions import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
-from ludamus.specs.sessions import resolve_facilitator_session_edit
+from ludamus.specs.sessions import resolve_event_toggle
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
     from ludamus.pacts.event import EventDTO, TimeSlotDTO
     from ludamus.pacts.fields import (
@@ -60,6 +65,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.timetable import (
+        AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
     )
@@ -275,6 +281,42 @@ class ProposalStatusService:
                 )
 
 
+def _placement_availability(
+    *,
+    space_ids: set[int],
+    space_required: bool,
+    time_slots: Sequence[TimeSlotDTO],
+    placed: Sequence[AgendaItemDTO],
+) -> PlacementAvailabilityDTO:
+    # The overlap test list_overlapping_in_space runs at accept time, so a
+    # placement offered as free is one accepting will not refuse. Without a
+    # space a session takes no room, so where none is required no slot fills.
+    taken_by_slot = {
+        slot.pk: {
+            item.space_id
+            for item in placed
+            if item.space_id is not None
+            and item.start_time < slot.end_time
+            and item.end_time > slot.start_time
+        }
+        for slot in time_slots
+    }
+    full = (
+        [pk for pk, taken in taken_by_slot.items() if space_ids <= taken]
+        if space_required
+        else []
+    )
+    taken_everywhere = (
+        space_ids.intersection(*taken_by_slot.values()) if taken_by_slot else set()
+    )
+    return PlacementAvailabilityDTO(
+        taken_space_ids_by_slot={pk: sorted(t) for pk, t in taken_by_slot.items()},
+        taken_space_ids=sorted(taken_everywhere),
+        full_time_slot_ids=full,
+        has_free_placement=len(full) < len(time_slots),
+    )
+
+
 class ProposalAcceptanceService:
     def __init__(
         self,
@@ -305,17 +347,37 @@ class ProposalAcceptanceService:
             )
         except NotFoundError:
             return None
+        space_options = self._sessions.read_space_options(session.pk)
+        time_slots = self._sessions.read_time_slots(session.pk)
+        space_required = self._requires_space(event)
         return ProposalAcceptContextDTO(
             session=session,
             event=event,
             presenter=self._sessions.read_presenter(session.pk),
-            space_options=self._sessions.read_space_options(session.pk),
-            time_slots=self._sessions.read_time_slots(session.pk),
+            space_options=space_options,
+            time_slots=time_slots,
+            space_required=space_required,
+            placements=_placement_availability(
+                space_ids={option.pk for option in space_options},
+                space_required=space_required,
+                time_slots=time_slots,
+                placed=[
+                    item
+                    for item in self._agenda_items.list_by_event(event.pk)
+                    if item.session_id != session.pk
+                ],
+            ),
             preferred_time_slot_ids=self._sessions.read_preferred_time_slot_ids(
                 session.pk
             ),
             field_values=self._sessions.read_field_values(session.pk),
             can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
+        )
+
+    def _requires_space(self, event: EventDTO) -> bool:
+        return resolve_event_toggle(
+            event_override=event.require_session_space,
+            sphere_default=self._spheres.read(event.sphere_id).require_session_space,
         )
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
@@ -330,7 +392,7 @@ class ProposalAcceptanceService:
         self,
         *,
         session_id: int,
-        space_id: int,
+        space_id: int | None,
         time_slot_id: int,
         user_slug: str,
         sphere_id: int,
@@ -341,7 +403,10 @@ class ProposalAcceptanceService:
         event = require_session_in_sphere(
             sessions=self._sessions, session_pk=session_id, sphere_id=sphere_id
         )
-        if space_id not in {
+        if space_id is None:
+            if self._requires_space(event):
+                raise NotFoundError
+        elif space_id not in {
             option.pk for option in self._sessions.read_space_options(session_id)
         }:
             raise NotFoundError
@@ -351,7 +416,7 @@ class ProposalAcceptanceService:
         # so the move exemption that path carries does not apply here.
         confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
-            if self._agenda_items.list_overlapping_in_space(
+            if space_id is not None and self._agenda_items.list_overlapping_in_space(
                 space_id,
                 time_slot.start_time,
                 time_slot.end_time,
@@ -853,7 +918,7 @@ class SessionSelfEditService:
         except NotFoundError:
             raise SessionEditNotAllowedError from None
         sphere = self._spheres.read(event.sphere_id)
-        if not resolve_facilitator_session_edit(
+        if not resolve_event_toggle(
             event_override=event.allow_facilitator_session_edit,
             sphere_default=sphere.allow_facilitator_session_edit,
         ):

@@ -632,6 +632,24 @@ class TestJoinSpherePageView:
         assert invitation.accepted_by == active_user
         assert invitation.accepted_at is not None
 
+    @pytest.mark.postgres
+    def test_accepting_locks_the_link_on_postgres(
+        self, authenticated_client, active_user, sphere
+    ):
+        invitation = _invitation(sphere, created_by=UserFactory(name="Ola"))
+
+        response = authenticated_client.post(_join_url("tok"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=TEAM_URL,
+            messages=[(messages.SUCCESS, "You joined the sphere's team.")],
+        )
+        assert SphereMembership.objects.filter(sphere=sphere, user=active_user).exists()
+        invitation.refresh_from_db()
+        assert invitation.accepted_by == active_user
+
     @pytest.mark.parametrize(
         "fields",
         (

@@ -33,7 +33,7 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
-export type ConversationKind = "direct" | "group" | "party";
+export type ConversationKind = "direct" | "group" | "party" | "staff";
 
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {
@@ -43,6 +43,8 @@ export type Membership = {
   members: Member[];
   // Whether only a pass with direct messages open gets in.
   needsDirect: boolean;
+  // How long each message is kept, in seconds.
+  retainFor: number;
 };
 
 // "Every pass this sphere issued to sub before revokedBefore is void"; sub
@@ -55,6 +57,14 @@ export type Reported = Pick<
 
 // Django asking after one message, to keep a copy with a report of it.
 export type Lookup = { messageId: number; room: string };
+
+// What Django writes into a case's thread, always as the system, never a person.
+export type ThreadPost = {
+  authorName: string;
+  body: string;
+  conversation: string;
+  nonce: string;
+};
 
 export type Revocation = {
   exp: number;
@@ -99,6 +109,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions: string[];
   nonce: string;
   reactions: Reactions;
   reactors: Reactors;
@@ -117,11 +128,12 @@ export type ServerEvent =
   | {
       type: "room.activity";
       v: 1;
-      payload: { at: number; latestMessageId: number; roomId: string };
+      payload: { at: number; latestMessageId: number; mentionedBy: string[]; roomId: string };
     }
-  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } };
+  | { type: "unread.changed"; v: 1; payload: { roomId: string; unread: boolean } }
+  | { type: "mentions.changed"; v: 1; payload: { mentionedBy: string[]; roomId: string } };
 
-export type RoomActivity = { at: number; unread: boolean };
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type RpcError = {
   // pending: a request not yet accepted takes one message, no more.

@@ -8,6 +8,7 @@ from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.moderation import (
+    CaseStatus,
     ContentNoticeSubmission,
     InvalidVerdictError,
     IssuedStatement,
@@ -86,7 +87,7 @@ class NoticeService:
             return ContentNoticeSubmission(outcome=NoticeOutcome.THROTTLED)
         urgent = data.category in URGENT_NOTICE_CATEGORIES
         with self._transaction.atomic():
-            case_id = self._cases.open()
+            case_id = self._cases.open(status=CaseStatus.OPEN)
             notice = self._notices.create(
                 {
                     "case_id": case_id,
@@ -194,7 +195,11 @@ class ChatReportIntakeService:
             shared = self._reports.case_of_message(
                 room_id=room_id, message_id=message_id
             )
-            case_id = shared if shared is not None else self._cases.open()
+            case_id = (
+                shared
+                if shared is not None
+                else self._cases.open(status=CaseStatus.OPEN)
+            )
             if not self._reports.attach_case(pk=report.pk, case_id=case_id):
                 return
             if shared is not None:
@@ -264,7 +269,7 @@ class StatementOfReasonsService:
             case_id = (
                 statement.case_id
                 if statement.case_id is not None
-                else self._cases.open()
+                else self._cases.open(status=CaseStatus.CLOSED)
             )
             self._statements.create(
                 {
@@ -469,7 +474,9 @@ class ModerationDecisionService:
         return ModerationDecisionsDTO(decided=decided, statements=statements)
 
     def _case_of(self, case_id: int | None) -> int:
-        return case_id if case_id is not None else self._cases.open()
+        return (
+            case_id if case_id is not None else self._cases.open(status=CaseStatus.OPEN)
+        )
 
     def _explain(
         self,

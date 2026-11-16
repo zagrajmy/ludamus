@@ -29,7 +29,8 @@ export function IconButton({
   );
 }
 
-// The top of every view, which drags the window where it floats.
+// The top of every view, which drags the window where it floats. One height
+// for all of them keeps close in one spot as the views change.
 export function TitleBar({
   children,
   className = "",
@@ -39,7 +40,7 @@ export function TitleBar({
 }) {
   return (
     <header
-      className={`flex items-center gap-1 p-[7px] pt-[max(7px,env(safe-area-inset-top))] float:cursor-grab float:touch-none float:pt-[7px] float:select-none ${className}`}
+      className={`box-content flex h-10 items-center gap-1 border-b border-border p-[7px] pt-[max(7px,env(safe-area-inset-top))] float:cursor-grab float:touch-none float:pt-[7px] float:select-none ${className}`}
       data-parley-drag
     >
       {children}

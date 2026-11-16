@@ -1,0 +1,11 @@
+{% load i18n %}
+<div id="statement-preview"
+     aria-live="polite"
+     class="rounded-xl bg-bg-tertiary px-3 py-2 text-sm leading-relaxed text-foreground">
+    <p class="font-semibold">{% translate "Statement of reasons the person affected gets:" %}</p>
+    {% if statement %}
+        <p class="whitespace-pre-line" data-ph-no-capture>{{ statement }}</p>
+    {% else %}
+        <p>{% translate "None: with no action taken, only the reporters hear the outcome." %}</p>
+    {% endif %}
+</div>

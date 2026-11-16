@@ -14,6 +14,16 @@ export type Conversation = {
   title: string;
 };
 
+export type BootstrapRoom = {
+  canModerate: boolean;
+  canWrite: boolean;
+  id: string;
+  kind: string;
+  moderating: boolean;
+  sphere: number;
+  title: string;
+};
+
 // What /parley/bootstrap/ returns for the superuser e2e state: a manager of
 // sphere 1 with its event's chat and one read-only programme point.
 export const bootstrap = {
@@ -37,6 +47,7 @@ export const bootstrap = {
     messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
     messagingUnder16: "Direct messages open once you turn 16.",
     onThisPage: "On this page",
+    organizerPlaceholder: "Write to everyone in this chat…",
     organizersRoom: "Organizers",
     partyHint: "Everyone in your party is here. To leave this chat, leave the party.",
     partyRoom: "Party",
@@ -88,6 +99,8 @@ export const bootstrap = {
     leaveGroup: "Leave group",
     leaveGroupConfirm: "Leave this group? Its messages will stop reaching you.",
     linkCopied: "Link copied.",
+    linkUnavailable:
+      "That chat can't be opened here. It may have closed, or your access to it has changed.",
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
     loadingEmoji: "Loading emoji…",
@@ -96,11 +109,19 @@ export const bootstrap = {
     membersLabel: "People",
     membersMany: "%(count)s members",
     membersOne: "%(count)s member",
+    mentionedYou: "Mentioned you",
+    mentionPeople: "People in this conversation",
     messageActions: "Message actions",
     messageLabel: "Message",
     messageListLabel: "Messages",
     messageTooLong: "Messages can be up to 1,000 characters.",
+    moderatedRoomsFew: "%(count)s chats you moderate",
+    moderatedRoomsMany: "%(count)s chats you moderate",
+    moderatedRoomsOne: "%(count)s chat you moderate",
+    moderation: "Moderation",
     moderatorDelete: "Delete as moderator",
+    moderatorReading: "You are reading this chat as a moderator.",
+    moderatorView: "Moderator view",
     muteConfirm: "Mute this person indefinitely? They can still read.",
     muted: "Writing access limited.",
     mutedUntil: "Your writing access is muted until %(time)s.",
@@ -172,18 +193,21 @@ export const bootstrap = {
     unreadCountFew: "%(count)s unread conversations",
     unreadCountMany: "%(count)s unread conversations",
     unreadCountOne: "%(count)s unread conversation",
+    writeAsOrganizer: "Write as organizer",
     writePlaceholder: "Write a message…",
     writingRestored: "Writing access restored.",
     you: "(you)",
   },
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
+  moderationUrl: null as string | null,
   rooms: [
     {
       canModerate: true,
       canWrite: true,
       id: "event:1:5",
       kind: "event",
+      moderating: false,
       sphere: 1,
       title: "Zagrajmy",
     },
@@ -192,10 +216,11 @@ export const bootstrap = {
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      moderating: false,
       sphere: 1,
       title: "Mothership",
     },
-  ],
+  ] as BootstrapRoom[],
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },
 };
 
@@ -251,6 +276,7 @@ export type Reply =
   | "reject"
   | "silent";
 type Handler = (input: Record<string, unknown>, url: string) => Reply;
+type Activity = { at: number; mentionedBy: string[]; unread: boolean };
 
 // Stands in for the chat Worker's Durable Object sockets. Every call
 // succeeds unless a handler says otherwise: getActivity returns the given
@@ -261,12 +287,9 @@ export class FakeWorker {
   readonly sockets: WebSocketRoute[] = [];
   private readonly handlers = new Map<string, Handler>();
 
-  constructor(private readonly activity: Record<string, { at: number; unread: boolean }> = {}) {}
+  constructor(private readonly activity: Record<string, Activity> = {}) {}
 
-  static async install(
-    page: Page,
-    activity: Record<string, { at: number; unread: boolean }> = {},
-  ): Promise<FakeWorker> {
+  static async install(page: Page, activity: Record<string, Activity> = {}): Promise<FakeWorker> {
     const worker = new FakeWorker(activity);
     await page.routeWebSocket(/^wss?:\/\/[^/]+\/agents\//u, (socket) => worker.accept(socket));
     return worker;
@@ -344,6 +367,7 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  mentions?: string[];
   nonce: string;
   reactions?: Record<string, string[]>;
   reactors?: Record<string, string>;
@@ -360,6 +384,22 @@ export function message(fields: Partial<Message> & Pick<Message, "id">): Message
     nonce: `n${fields.id}`,
     ...fields,
   };
+}
+
+// Stands in for a page whose template names its room in the HTML, where the
+// chat reads it as it mounts.
+export async function onPageOf(page: Page, roomId: string): Promise<void> {
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'data-page-room=""',
+        `data-page-room="${roomId}"`,
+      );
+      await route.fulfill({ body, response });
+    },
+  );
 }
 
 export const launcherOf = (page: Page): Locator => page.getByRole("button", { name: "Open chat" });

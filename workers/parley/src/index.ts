@@ -13,6 +13,7 @@ import {
   MODERATION_AUDIENCE,
   originIsAllowed,
   revocationFromRequest,
+  threadPostFromRequest,
 } from "./auth";
 import { roomAgent } from "./room-agent";
 
@@ -59,6 +60,18 @@ export default {
       );
       await room.sync(membership);
       return new Response(null, { status: 204 });
+    }
+    if (url.pathname === "/conversations/messages" && request.method === "POST") {
+      const post = await threadPostFromRequest(request, env);
+      if (post instanceof Response) return post;
+      const room = await getAgentByName<Env, ParleyConversationAgent>(
+        env.ParleyConversationAgent,
+        post.conversation,
+      );
+      // A thread whose member list is still on its way is asked again.
+      return (await room.post(post))
+        ? new Response(null, { status: 204 })
+        : new Response("Not a case thread yet", { status: 503 });
     }
     if (url.pathname === "/messages" && request.method === "POST") {
       const lookup = await lookupFromRequest(request, env);

@@ -7,7 +7,8 @@ uploading to that page the wrong thing while every page still renders.
 
 from ludamus.gates.web.django.encounter.forms import EncounterForm
 from ludamus.gates.web.django.event.propose_forms import SessionCoverImageForm
-from ludamus.gates.web.django.forms import EventSettingsForm, SessionEditForm
+from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.settings_forms import EventSettingsForm
 
 
 class TestCoverImageCrops:

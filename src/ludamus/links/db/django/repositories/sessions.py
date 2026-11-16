@@ -97,6 +97,17 @@ def sessions_run_by(user_id: int) -> QuerySet[Session]:
     )
 
 
+def session_host_ids(session: Session) -> frozenset[int]:
+    # NOTE: the inverse of sessions_run_by, and it must stay so. An imported or
+    # organizer-entered GM is a facilitator linked to an account, not the
+    # presenter.
+    linked = Facilitator.objects.filter(
+        sessions=session, user_id__isnull=False
+    ).values_list("user_id", flat=True)
+    presenter = () if session.presenter_id is None else (session.presenter_id,)
+    return frozenset((*linked, *presenter))
+
+
 def annotate_session_participation_counts(
     queryset: QuerySet[Session],
 ) -> QuerySet[Session]:
@@ -244,6 +255,9 @@ def _session_modal_dto(
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
         ),
+        viewer_is_host=(
+            editor_user_id is not None and editor_user_id in session_host_ids(session)
+        ),
         can_edit=(
             edit_allowed
             and session.presenter_id is not None
@@ -308,12 +322,11 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_by_event(pk: int, event_id: int) -> SessionDTO:
-        # Scoped read: a session belonging to another event — or to no event,
-        # because its category was cleared — is NotFound, not somebody else's
-        # proposal to read or edit.
+        # Scoped read: a session belonging to another event is NotFound, not
+        # somebody else's proposal to read or edit.
         try:
             session = Session.objects.select_related("category").get(
-                id=pk, category__event_id=event_id
+                id=pk, event_id=event_id
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -401,7 +414,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # (caller runs inside a transaction); the second sees it already alive.
         try:
             session = Session.all_objects.select_for_update().get(
-                id=pk, category__event_id=event_pk, deleted_at__isnull=False
+                id=pk, event_id=event_pk, deleted_at__isnull=False
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -418,9 +431,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:
         qs = (
-            Session.all_objects.filter(
-                category__event_id=event_pk, deleted_at__isnull=False
-            )
+            Session.all_objects.filter(event_id=event_pk, deleted_at__isnull=False)
             .select_related("presenter", "category")
             .annotate(
                 is_scheduled=Exists(
@@ -650,7 +661,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         status = filters.get("status")
         scheduled = filters.get("scheduled")
         qs = (
-            Session.objects.filter(category__event_id=event_id)
+            Session.objects.filter(event_id=event_id)
             .select_related("presenter", "category")
             .annotate(
                 is_scheduled=Exists(
@@ -858,7 +869,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
         rows = (
-            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            Session.objects.filter(event_id=event_id, tracks__isnull=False)
             .values("tracks__pk")
             .annotate(
                 pending=Count(
@@ -915,7 +926,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]:
         qs = (
-            Session.objects.filter(category__event_id=event_pk)
+            Session.objects.filter(event_id=event_pk)
             .filter(status=SessionStatus.ACCEPTED)
             .filter(agenda_item__isnull=True)
             .select_related("category")

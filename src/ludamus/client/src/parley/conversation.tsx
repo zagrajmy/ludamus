@@ -2,7 +2,6 @@ import { MessageScroller, useMessageScrollerVisibility } from "@shadcn/react/mes
 import {
   type FormEvent,
   Fragment,
-  type KeyboardEvent,
   lazy,
   type Ref,
   Suspense,
@@ -21,6 +20,7 @@ import { counterpart, roomKind } from "./conversations";
 import { counted, moment, number, when } from "./format";
 import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
+import { useMentionPicker } from "./mentions";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
 import { type Muted, useRoom, withReactions } from "./use-room";
 
@@ -147,13 +147,6 @@ function RequestSheet({
   );
 }
 
-function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): void {
-  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
-  }
-}
-
 // A socket that never answers would otherwise leave the composer saying
 // "Sending…" for good.
 function withTimeout<T>(call: Promise<Result<T>>): Promise<Result<T>> {
@@ -206,6 +199,7 @@ export function Conversation({
   onPassClosed,
   onRead,
   onRefused,
+  onStranger,
   room,
 }: {
   answers: RequestAnswers;
@@ -221,6 +215,8 @@ export function Conversation({
   onPassClosed: () => void;
   onRead: (id: number) => void;
   onRefused: () => Promise<boolean>;
+  // Someone wrote here whom the member list does not know yet.
+  onStranger: () => void;
   room: Room;
 }) {
   const { copy } = bootstrap;
@@ -252,13 +248,14 @@ export function Conversation({
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<(Pending & { returnTo: Element | null }) | null>(null);
   const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
+  // A room this person only moderates takes one deliberate step before
+  // anything goes out in it, so nobody writes there by mistake.
+  const [speaking, setSpeaking] = useState(!room.moderating);
   const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const typingSince = useRef(0);
   const wasMuted = useRef(false);
-  const { length } = [...body.trim()];
-  const tooLong = length > LIMIT;
 
   useEffect(() => {
     if (wasMuted.current && muted === null) setNotice(copy.writingRestored);
@@ -282,6 +279,23 @@ export function Conversation({
       if (!result.ok && result.code === "muted") setMuted((current) => current ?? { until: null });
     }, lostPing);
   };
+  const picker = useMentionPicker({
+    authors: messages.map(({ authorId }) => authorId),
+    body,
+    field: composer,
+    label: copy.mentionPeople,
+    limit: LIMIT,
+    members: room.conversation?.members,
+    onNewcomer: onStranger,
+    setBody: (draft) => {
+      setBody(draft);
+      // A refused send speaks of the draft it was; editing makes it stale.
+      setError(null);
+      announceTyping(draft);
+    },
+    userId: bootstrap.user.id,
+  });
+  const { length, tooLong } = picker;
   useEffect(() => {
     leave.current = () => {
       if (typingSince.current !== 0) void agent.call("stopTyping").catch(lostPing);
@@ -333,8 +347,9 @@ export function Conversation({
     if (tooLong || body.trim() === "" || sending) return;
     setSending(true);
     setNotice(null);
+    const { draft, picks } = picker;
     const result = await withTimeout(
-      agent.call<Result<Message>>("sendMessage", [{ body, nonce: crypto.randomUUID() }]),
+      agent.call<Result<Message>>("sendMessage", [{ ...draft, nonce: crypto.randomUUID() }]),
     );
     setSending(false);
     if (result.ok) {
@@ -342,6 +357,7 @@ export function Conversation({
         current.some(({ id }) => id === result.value.id) ? current : [...current, result.value],
       );
       setBody("");
+      picker.sent(picks);
       setError(null);
       typingSince.current = 0;
     } else if (result.code === "muted") setMuted((current) => current ?? { until: null });
@@ -461,7 +477,8 @@ export function Conversation({
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
   const shownTypists = typists.filter((id) => !blocked.has(id));
   const typing = shownTypists.length > 0 && !offline;
-  const composing = room.canWrite && muted === null && pending === null;
+  const writing = room.canWrite && speaking && muted === null;
+  const composing = writing && pending === null;
   const problem = error ?? (composing && tooLong ? copy.messageTooLong : null);
   const counter = composing && length >= COUNT_FROM;
   // Under the thread: a pending confirmation, else the composer or the
@@ -485,6 +502,20 @@ export function Conversation({
         </p>
       );
     if (muted !== null) return <MutedNotice copy={copy} muted={muted} />;
+    if (!speaking)
+      return (
+        <div className="m-[7px] mb-[max(7px,env(safe-area-inset-bottom))] flex items-center gap-3 rounded-xl bg-bg-tertiary py-2 ps-4 pe-2 text-sm text-foreground-secondary">
+          <Icon className="size-4 shrink-0 text-foreground-muted" name="Shield" />
+          <p className="min-w-0 flex-1">{copy.moderatorReading}</p>
+          <button
+            className="btn btn-secondary shrink-0 text-sm"
+            onClick={() => setSpeaking(true)}
+            type="button"
+          >
+            {copy.writeAsOrganizer}
+          </button>
+        </div>
+      );
     return (
       <form
         className="p-[7px] pb-[max(7px,env(safe-area-inset-bottom))]"
@@ -495,19 +526,16 @@ export function Conversation({
         </label>
         {/* The send button sits inside the field's border; pe-12 keeps text clear of it. */}
         <div className="relative">
+          {picker.list}
           <textarea
+            {...picker.textareaProps}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
+            // The step to write in a moderated room lands in the composer it opened.
+            autoFocus={room.moderating}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            onChange={(event) => {
-              setBody(event.target.value);
-              // A refused send speaks of the draft it was; editing makes it stale.
-              setError(null);
-              announceTyping(event.target.value);
-            }}
-            onKeyDown={submitOnEnter}
-            placeholder={copy.writePlaceholder}
+            placeholder={room.moderating ? copy.organizerPlaceholder : copy.writePlaceholder}
             ref={composer}
             rows={1}
             value={body}
@@ -531,19 +559,21 @@ export function Conversation({
       direct: copy.emptyDirect,
       group: copy.emptyGroup,
       party: copy.emptyParty,
+      staff: copy.emptyReadOnly,
     }[conversation?.kind ?? "direct"],
     event: copy.emptyEvent,
     organizers: copy.emptyOrganizers,
     session: copy.emptySession,
   }[room.kind];
-  const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
-  const kind = roomKind(copy, room);
+  const empty = room.canWrite && speaking ? writableEmpty : copy.emptyReadOnly;
+  const named = roomKind(copy, room);
+  const kind = room.moderating ? `${named} · ${copy.moderatorView}` : named;
   const face =
     conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 
   return (
     <section aria-label={room.title} className="flex min-h-0 flex-1 flex-col">
-      <TitleBar className="border-b border-border">
+      <TitleBar>
         {back !== null && (
           <button aria-label={copy.backLabel} className={ICON_BUTTON} onClick={back} type="button">
             <Icon className="size-5" name="Back" />
@@ -565,9 +595,14 @@ export function Conversation({
               <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-(--parley-surface)" />
             )}
           </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-[0.9375rem] leading-tight font-semibold">{room.title}</h2>
-            <p aria-live="polite" className="truncate text-xs text-foreground-muted">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h2 className="overflow-x-clip text-[0.9375rem] font-semibold text-ellipsis whitespace-nowrap text-box-trim-both">
+              {room.title}
+            </h2>
+            <p
+              aria-live="polite"
+              className="overflow-x-clip text-xs text-ellipsis whitespace-nowrap text-foreground-muted text-box-trim-both"
+            >
               {kind}
               {presence > 0 && !offline && ` · ${counted(copy, "presence", presence)}`}
             </p>
@@ -663,12 +698,9 @@ export function Conversation({
                       message={message}
                       moderate={(id) => void moderate(id)}
                       mute={(id, action) => void mute(id, action)}
+                      nameOf={(id) => picker.nameOf(id) ?? copy.typingSomeone}
                       pick={(messageId, anchor) => setPicking({ anchor, messageId })}
-                      react={
-                        room.canWrite && muted === null
-                          ? (id, emoji) => void react(id, emoji)
-                          : null
-                      }
+                      react={writing ? (id, emoji) => void react(id, emoji) : null}
                       remove={(id) => void remove(id)}
                       report={report}
                       room={room}

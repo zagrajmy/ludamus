@@ -36,12 +36,11 @@
                 <h3 id="session-{{ data.session.pk }}-title"
                     class="text-lg font-semibold text-foreground"
                     data-morph="title">{{ data.session.title }}</h3>
-                <button type="button"
-                        data-modal-close="session-{{ data.session.pk }}"
-                        aria-label="{% translate "Close" %}"
-                        class="size-11 flex items-center justify-center rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
+                {% with pk=data.session.pk|stringformat:"d" %}
+                    {% with dialog_id="session-"|add:pk %}
+                        {% tessera_dialog_close_button dialog_id %}
+                    {% endwith %}
+                {% endwith %}
             </div>
         {% endif %}
         <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
@@ -111,7 +110,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if enroll_actions or data.can_edit or enroll_opens_at %}
+    {% if hosting or enroll_actions or data.can_edit or enroll_opens_at %}
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
         {# with the container snapshot, so the enroll controls stay crisp and #}
@@ -135,7 +134,15 @@
                 {% endif %}
             </div>
             <div class="flex items-center gap-2">
-                {% if data.pretend_full and not event_banned %}
+                {% if hosting %}
+                    <span class="inline-flex items-center gap-1 text-sm font-medium text-foreground-secondary">
+                        {% icon "star" class="w-4 h-4" variant="mini" %} {% translate "You're running this" %}
+                    </span>
+                    {% if host_enroll_url %}
+                        {% translate "Enroll others…" as t_enroll_others %}
+                        {% tessera_button t_enroll_others href=host_enroll_url variant="secondary" icon="user-group" %}
+                    {% endif %}
+                {% elif data.pretend_full and not event_banned %}
                     <button type="button" class="btn btn-secondary text-sm" disabled>
                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
                     </button>

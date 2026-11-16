@@ -15,6 +15,11 @@ const ROOM = "The Only Room";
 // NOTE: "Solo Encore" is presented by a user who browses in Polish (bootstrap_data.py).
 const proposerState = path.join(__dirname, "..", ".auth-state-polish-proposer.json");
 
+async function expectCoverShown(cover: import("@playwright/test").Locator) {
+  await expect(cover).toBeVisible();
+  await expect(cover).not.toHaveJSProperty("naturalWidth", 0);
+}
+
 async function reviewProposal(page: import("@playwright/test").Page, title: string) {
   await page.goto(`/event/${EVENT}/`);
   await page.getByRole("link", { name: `Review proposal ${title}` }).click();
@@ -64,6 +69,8 @@ test.describe("Accepting a proposal", () => {
     await proposerPage.goto(`/event/${EVENT}/`);
 
     const decision = await reviewProposal(page, "Solo Encore");
+    // The organizer judges the proposal with the cover it will be shown with.
+    await expectCoverShown(page.locator("[data-session-cover]"));
     const [namedRoom, namedSlot] = await decision.locator("dd").allInnerTexts();
 
     await decision.getByRole("button", { name: "Accept and add to agenda" }).click();
@@ -74,6 +81,9 @@ test.describe("Accepting a proposal", () => {
     await page.getByRole("link", { name: "Open details for Solo Encore" }).click();
     const details = page.getByRole("dialog");
     await expect(details).toContainText(namedRoom.trim());
+    // The modal leads with the cover as its title's backdrop, whose shape
+    // session-modal-cover.spec.ts owns; here it only has to have loaded.
+    await expectCoverShown(details.locator("[data-cover-image]"));
     const [start, end] = namedSlot.trim().split("–");
     await expect(details).toContainText(`${start.slice(-5)}–${end}`);
 
@@ -95,5 +105,98 @@ test.describe("Accepting a proposal", () => {
     await expect(proposerPage).toHaveURL(new RegExp(`/event/${EVENT}/\\?session=\\d+$`));
     await expect(proposerPage.getByRole("dialog")).toContainText("Solo Encore");
     await proposer.close();
+  });
+
+  test("with its one placement taken, the page says so instead of offering it", async ({
+    page,
+  }) => {
+    // Runs after Solo Encore took the only room in the only slot.
+    const decision = await reviewProposal(page, "Solo Showcase");
+    await expect(decision.getByText(/Every space is taken at every time/)).toBeVisible();
+    await expect(decision.getByRole("button", { name: "Accept and add to agenda" })).toHaveCount(0);
+    await expect(decision.getByRole("link", { name: "Add a space" })).toBeVisible();
+  });
+});
+
+test.describe("Accepting into a partly booked slot", () => {
+  test.use({ storageState: managerState });
+
+  test("a room already held then is shown taken, not offered", async ({ page }) => {
+    await page.goto("/event/accept-crowded-1/");
+    await page.getByRole("link", { name: "Review proposal Crowded Pitch" }).click();
+    const space = page.getByRole("combobox", { name: "Space" });
+
+    await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
+    await expect(space.getByRole("option", { name: "North Room" })).toBeEnabled();
+    await expect(space.getByRole("option", { name: "South Room" })).toBeEnabled();
+    // The rejection this used to end in has nothing left to reject.
+    await expect(page.getByText("There is already a session scheduled")).toHaveCount(0);
+    await attachArtifacts(test.info(), {
+      name: "accept-taken-room",
+      region: page.getByRole("heading", { name: "Schedule it" }).locator(".."),
+      facts: { taken: ["Booked Room"], free: ["North Room", "South Room"] },
+    });
+  });
+
+  test("with the time open too, the room follows the time picked", async ({ page }) => {
+    await page.goto("/event/accept-crowded-2/");
+    await page.getByRole("link", { name: "Review proposal Crowded Pitch" }).click();
+    const slot = page.getByRole("combobox", { name: "Time slot" });
+    const space = page.getByRole("combobox", { name: "Space" });
+    const [first, second] = await slot
+      .getByRole("option")
+      .filter({ hasNotText: "Choose a time" })
+      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+
+    await space.selectOption({ label: "Booked Room" });
+    await slot.selectOption(first);
+    await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
+    // A pick the new time rules out is dropped, not submitted.
+    await expect(space).toHaveValue("");
+
+    await slot.selectOption(second);
+    await expect(space.getByRole("option", { name: "Booked Room", exact: true })).toBeEnabled();
+    await attachArtifacts(test.info(), {
+      name: "accept-room-follows-time",
+      region: page.getByRole("heading", { name: "Schedule it" }).locator(".."),
+      facts: { takenInFirstSlot: ["Booked Room"], freeInSecondSlot: ["Booked Room"] },
+    });
+  });
+});
+
+test.describe("Accepting into a meetup that needs no room", () => {
+  test.use({ storageState: managerState });
+
+  test("it asks only for the time and puts the session on the programme", async ({ page }) => {
+    await page.goto("/event/roomless-meetup/");
+    await page.getByRole("link", { name: "Review proposal Roomless Talk" }).click();
+    const decision = page.getByRole("heading", { name: "Schedule it" }).locator("..");
+
+    // No space to choose, and none required: the card names only the time.
+    await expect(decision.getByRole("combobox")).toHaveCount(0);
+    await expect(decision.getByText("Time slot", { exact: true })).toBeVisible();
+    await decision.getByRole("button", { name: "Accept and add to agenda" }).click();
+    await expect(page).toHaveURL(/\/event\/roomless-meetup\/$/);
+
+    const card = page.locator("[data-session-card]").filter({ hasText: "Roomless Talk" });
+    await expect(card).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "roomless-meetup-card",
+      region: card,
+      facts: { session: "Roomless Talk", space: null },
+    });
+    await page.getByRole("link", { name: "Open details for Roomless Talk" }).click();
+    await expect(page.getByRole("dialog", { name: "Roomless Talk" })).toBeVisible();
+
+    // With no room to give it a column, the timetable still prints it.
+    await page.goto("/event/roomless-meetup/print/?material=timetable");
+    const sheet = page.getByRole("region", { name: "Print preview" }).getByRole("group");
+    await expect(sheet.getByText("No space", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("article", { name: "Roomless Talk" })).toBeVisible();
+    await attachArtifacts(test.info(), {
+      name: "roomless-meetup-timetable",
+      region: sheet,
+      facts: { session: "Roomless Talk", column: "No space" },
+    });
   });
 });
