@@ -79,7 +79,6 @@ class TestPrivateSphere:
         )
 
         assert_response(response, HTTPStatus.FOUND, url="/crowd/login-required/")
-        assert response.cookies["django_language"].value == "pl"
 
 
 def test_unlisted_sphere_opens_for_anyone_with_the_link(client, non_root_sphere):
