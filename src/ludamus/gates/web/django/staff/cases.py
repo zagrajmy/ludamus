@@ -133,7 +133,11 @@ def _page(
         ),
     }
     if detail is None:
-        return TemplateResponse(request, "staff/cases.html", {**inbox, "detail": None})
+        return TemplateResponse(
+            request,
+            "staff/cases.html",
+            {**inbox, "detail": None, "opened_case_pk": None},
+        )
     if decision_form is None:
         decision_form = DecisionForm(request.GET if "decision" in request.GET else None)
     shown = _DEFAULT_DECISION
@@ -147,6 +151,7 @@ def _page(
         {
             **inbox,
             "detail": detail,
+            "opened_case_pk": detail.case.pk,
             "reply_form": reply_form or ReplyForm(),
             "assign_form": AssignForm(
                 staff=detail.staff, assignee_id=detail.case.assignee_id

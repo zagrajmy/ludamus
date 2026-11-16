@@ -5,7 +5,7 @@
 # `multiverse` namespace itself, which gates/web/django/urls.py mounts.
 from django.urls import URLPattern, URLResolver, include, path
 
-from ludamus.gates.web.django.sphere import guilds, team
+from ludamus.gates.web.django.sphere import chats, guilds, team
 from ludamus.gates.web.django.sphere.team import JoinSpherePageView
 
 urlpatterns = [
@@ -20,6 +20,12 @@ urlpatterns = [
         "team/invitations/<int:pk>/do/revoke",
         team.TeamInviteRevokeActionView.as_view(),
         name="team-invite-revoke",
+    ),
+    path("chats/", chats.ChatModerationPageView.as_view(), name="chats"),
+    path(
+        "chats/<slug:kind>/<int:pk>/",
+        chats.ChatModerationPageView.as_view(),
+        name="chat",
     ),
     path("guilds/", guilds.GuildsPageView.as_view(), name="guilds"),
     path("guilds/create/", guilds.GuildCreatePageView.as_view(), name="guild-create"),

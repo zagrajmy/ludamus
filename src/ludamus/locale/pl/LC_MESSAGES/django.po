@@ -282,6 +282,43 @@ msgstr "Zgłoszenie wycofane."
 msgid "Listing reopened."
 msgstr "Ogłoszenie wznowione."
 
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/panel/event-create.html
+msgid "Create event"
+msgstr "Utwórz wydarzenie"
+
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/gates/web/django/mcp/oauth.py src/ludamus/templates/design.html
+#: src/ludamus/templates/panel/base.html
+msgid "Event"
+msgstr "Wydarzenie"
+
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/design.html
+msgid ""
+"For a convention or a bigger meetup. Collect program proposals and build a "
+"timetable."
+msgstr ""
+"Na konwent lub większy zlot. Zbierz zgłoszenia do programu i ułóż "
+"harmonogram."
+
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/encounter/create.html
+msgid "Create encounter"
+msgstr "Utwórz spotkanie"
+
+#: src/ludamus/gates/web/django/create_options.py
+msgid "Encounter"
+msgstr "Spotkanie"
+
+#: src/ludamus/gates/web/django/create_options.py
+msgid ""
+"Just a description, a time and a place. Best for online RPG sessions, game "
+"jams and freeform meetups."
+msgstr ""
+"Wystarczy opis, termin i miejsce. Najlepsze na sesje RPG online, game jamy i "
+"luźne spotkania."
+
 #: src/ludamus/gates/web/django/dashboard.py
 msgid ""
 "Promotional emails are available only after confirming you are 16 or older."
@@ -3502,11 +3539,6 @@ msgstr "Klient chce wrócić pod adres, którego nie ma w jego metadanych."
 msgid "This connection request expired. Start again from your client."
 msgstr "To żądanie połączenia wygasło. Zacznij od nowa w swoim kliencie."
 
-#: src/ludamus/gates/web/django/mcp/oauth.py
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
-
 #: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
 msgid "Privacy Policy"
 msgstr "Polityka prywatności"
@@ -3546,6 +3578,15 @@ msgstr "Rezerwa"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#, python-format
+msgid "%(count)s chat you moderate"
+msgid_plural "%(count)s chats you moderate"
+msgstr[0] "%(count)s czat do moderacji"
+msgstr[1] "%(count)s czaty do moderacji"
+msgstr[2] "%(count)s czatów do moderacji"
+msgstr[3] "%(count)s czatu do moderacji"
 
 #: src/ludamus/gates/web/django/parley/views.py
 #, python-format
@@ -3723,11 +3764,13 @@ msgid "Link copied."
 msgstr "Skopiowano link."
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/sphere/panel/chats.html
 msgid "Programme point"
 msgstr "Punkt programu"
 
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/gates/web/django/settings_forms.py
+#: src/ludamus/templates/sphere/panel/chats.html
 msgid "Event chat"
 msgstr "Czat wydarzenia"
 
@@ -3968,6 +4011,34 @@ msgstr "Na tej stronie"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "All chats"
 msgstr "Wszystkie rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Moderation"
+msgstr "Moderacja"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"That chat can't be opened here. It may have closed, or your access to it has "
+"changed."
+msgstr ""
+"Tego czatu nie da się tu otworzyć. Mógł zostać zamknięty albo zmienił się "
+"twój dostęp do niego."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Moderator view"
+msgstr "Widok moderatora"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You are reading this chat as a moderator."
+msgstr "Czytasz ten czat jako moderator."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write as organizer"
+msgstr "Napisz jako organizator"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write to everyone in this chat…"
+msgstr "Napisz do wszystkich na tym czacie…"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "To message people directly, confirm you're 16 or older."
@@ -4317,32 +4388,33 @@ msgid "An address can have at most two lines."
 msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Public: listed and announced to followers from its publication time"
+msgid "Link only: anyone with the link can open it; never listed or announced"
 msgstr ""
-"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+"Tylko przez link: każdy z linkiem może je otworzyć; nie pojawia się na "
+"listach ani w powiadomieniach"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Link only: anyone with the link can open it now; never listed or announced"
+msgid "Public now: listed and announced to followers"
+msgstr "Publiczne od teraz: widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Publish at a set time: listed and announced from then"
 msgstr ""
-"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-"się na listach ani w powiadomieniach"
+"Publikacja w wybranym terminie: od tego terminu widoczne na listach i "
+"ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Who can see the event"
 msgstr "Kto widzi wydarzenie"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Publication time"
-msgstr "Czas publikacji"
+msgid "Publish at"
+msgstr "Termin publikacji"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"For a public event: when it appears in event lists and followers are "
-"notified. Leave empty to keep it hidden."
+msgid "Leave empty to keep the event hidden until you pick a time."
 msgstr ""
-"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+"Zostaw puste, a wydarzenie pozostanie ukryte, dopóki nie wybierzesz terminu."
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Use sphere default"
@@ -5162,6 +5234,13 @@ msgstr "Skopiowano!"
 #: src/ludamus/gates/web/django/templatetags/tessera/copy.py
 msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Close"
+msgstr "Zamknij"
 
 #: src/ludamus/gates/web/django/user/age_range.py
 msgid "Age range saved. Your bookings are unchanged."
@@ -7031,6 +7110,7 @@ msgid "Publish listing"
 msgstr "Opublikuj ogłoszenie"
 
 #: src/ludamus/templates/board/_edit_actions.html
+#: src/ludamus/templates/encounter/edit.html
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/user/user/parties.html
 msgid "Save changes"
@@ -7479,10 +7559,13 @@ msgstr ""
 "Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
 "niczego Cię nie zobowiązuje."
 
-#: src/ludamus/templates/components/create_encounter_button.html
-#: src/ludamus/templates/encounter/create.html
-msgid "Create Encounter"
-msgstr "Utwórz spotkanie"
+#: src/ludamus/templates/components/create_button.html
+msgid "Organize"
+msgstr "Zorganizuj"
+
+#: src/ludamus/templates/components/create_button.html
+msgid "What do you want to organize?"
+msgstr "Co chcesz zorganizować?"
 
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "This value is too long to add here."
@@ -8780,14 +8863,6 @@ msgstr "Wprowadź Inny Kod"
 #: src/ludamus/templates/event/event.html
 msgid "Finish"
 msgstr "Zakończ"
-
-#: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
 
 #: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"
@@ -10899,6 +10974,11 @@ msgid "Guilds"
 msgstr "Gildie"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Chat moderation"
+msgstr "Moderacja czatów"
+
+#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/sphere/panel/sphere-settings.html
 msgid "Sphere settings"
 msgstr "Ustawienia sfery"
@@ -11513,10 +11593,6 @@ msgstr "Otwórz ustawienia wydarzenia"
 msgid "This sphere has no events yet. Create the first one to open the panel."
 msgstr ""
 "Ta sfera nie ma jeszcze wydarzeń. Utwórz pierwsze, żeby otworzyć panel."
-
-#: src/ludamus/templates/panel/event-create.html
-msgid "Create event"
-msgstr "Utwórz wydarzenie"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid ""
@@ -13816,6 +13892,64 @@ msgstr "Akcje wiersza"
 msgid "No announcements yet."
 msgstr "Brak ogłoszeń."
 
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Chats to moderate"
+msgstr "Czaty do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"Chats of your sphere's events that you are not part of. Open one to read it, "
+"delete messages and mute people."
+msgstr ""
+"Czaty wydarzeń twojej sfery, w których nie bierzesz udziału. Otwórz czat, "
+"żeby go przeczytać, usuwać wiadomości i wyciszać osoby."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Read only"
+msgstr "Tylko do odczytu"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "No chats to moderate"
+msgstr "Brak czatów do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"Chats of your sphere's events that you are not part of show up here while "
+"the chat keeps them."
+msgstr ""
+"Tu pojawiają się czaty wydarzeń twojej sfery, w których nie bierzesz "
+"udziału, dopóki czat je przechowuje."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "All chats to moderate"
+msgstr "Wszystkie czaty do moderacji"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"The chat opens on this room and keeps it on top of its list, under “On this "
+"page”. Delete a message or mute its author from the message's menu."
+msgstr ""
+"Czat otwiera się na tej rozmowie i trzyma ją na górze listy, w sekcji „Na "
+"tej stronie”. Wiadomość usuniesz, a jej autora wyciszysz z menu wiadomości."
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid ""
+"You read it as a moderator, so nothing goes out by accident. To post, for "
+"example about a changed room, press “Write as organizer” first."
+msgstr ""
+"Czytasz jako moderator, więc nic nie wyślesz przez przypadek. Żeby coś "
+"napisać, na przykład o zmianie sali, najpierw naciśnij „Napisz jako "
+"organizator”."
+
+#
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Open the event page"
+msgstr "Otwórz stronę wydarzenia"
+
+#: src/ludamus/templates/sphere/panel/chats.html
+msgid "Open the programme point"
+msgstr "Otwórz punkt programu"
+
 #: src/ludamus/templates/sphere/panel/connections/create.html
 #: src/ludamus/templates/sphere/panel/connections/list.html
 msgid "New connection"
@@ -15166,11 +15300,122 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
+
+#
+#~ msgid "Note added to the thread."
+#~ msgstr "Notatka dodana do wątku."
+
+#, python-format
+#~ msgid "%(count)s attachment, kept in the staff mailbox"
+#~ msgid_plural "%(count)s attachments, kept in the staff mailbox"
+#~ msgstr[0] "%(count)s załącznik, w skrzynce staff@"
+#~ msgstr[1] "%(count)s załączniki, w skrzynce staff@"
+#~ msgstr[2] "%(count)s załączników, w skrzynce staff@"
+#~ msgstr[3] "%(count)s załącznika, w skrzynce staff@"
+
+#~ msgid ""
+#~ "Nobody outside the team wrote in this case, so the reply stays in the "
+#~ "thread."
+#~ msgstr ""
+#~ "W tej sprawie nie pisał nikt spoza zespołu, więc odpowiedź zostaje w "
+#~ "wątku."
+
+#
+#~ msgid "Add internal note"
+#~ msgstr "Notatka wewnętrzna"
+
+#~ msgid "This case has no address to answer. Add a note instead."
+#~ msgstr "Ta sprawa nie ma adresu do odpowiedzi. Dodaj notatkę."
+
+#~ msgid "You made the decision under appeal. Someone else decides it."
+#~ msgstr ""
+#~ "To Twoja decyzja jest przedmiotem odwołania. Rozpatrzy je ktoś inny."
+
+#~ msgid "Appeal"
+#~ msgstr "Odwołanie"
+
+#
+#~ msgid "Hide content"
+#~ msgstr "Ukryj treść"
+
+#~ msgid "no reason given"
+#~ msgstr "bez podanego powodu"
+
+#, python-format
+#~ msgid "Reported in %(room)s. Reason: %(reason)s"
+#~ msgstr "Zgłoszono w %(room)s. Powód: %(reason)s"
+
+#, python-format
+#~ msgid "Decision: %(action)s. Ground: %(ground)s."
+#~ msgstr "Decyzja: %(action)s. Podstawa: %(ground)s."
+
+#~ msgid "Statement preview for the author:"
+#~ msgstr "Podgląd uzasadnienia dla autora:"
+
+#
+#~ msgid "We hid your message."
+#~ msgstr "Ukryliśmy Twoją wiadomość."
+
+#~ msgid "We removed your message."
+#~ msgstr "Usunęliśmy Twoją wiadomość."
+
+#~ msgid "We muted you in the chat for 24 hours."
+#~ msgstr "Wyciszyliśmy Cię w czacie na 24 godziny."
+
+#
+#~ msgid "We suspended your account."
+#~ msgstr "Zawiesiliśmy Twoje konto."
+
+#, python-format
+#~ msgid "Reason: %(ground)s."
+#~ msgstr "Powód: %(ground)s."
+
+#~ msgid "A person on the Zagrajmy team decided this, without automation."
+#~ msgstr "Decyzję podjęła osoba z zespołu Zagrajmy, bez automatyzacji."
+
+#~ msgid "You can appeal by replying to this message."
+#~ msgstr "Możesz się odwołać, odpowiadając na tę wiadomość."
+
+#, python-format
+#~ msgid "%(action)s, on the ground of %(ground)s. Decided by %(name)s."
+#~ msgstr "%(action)s, podstawa: %(ground)s. Kto zdecydował: %(name)s."
+
+#
+#~ msgid "Decide the appeal"
+#~ msgstr "Rozpatrz odwołanie"
+
+#~ msgid ""
+#~ "The reporter gets the outcome and the author the statement of reasons "
+#~ "with a way to appeal. Both go into this thread."
+#~ msgstr ""
+#~ "Zgłaszający dostanie wynik, autor — uzasadnienie z możliwością odwołania. "
+#~ "Obie wiadomości trafią do tego wątku."
+
+#
+#~ msgid ""
+#~ "You decided this case. If it is appealed, someone else on staff decides "
+#~ "the appeal."
+#~ msgstr ""
+#~ "Decyzja w tej sprawie jest Twoja. Odwołanie rozpatrzy inna osoba z "
+#~ "zespołu."
+
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
-
-#~ msgid "Message reported."
-#~ msgstr "Wiadomość została zgłoszona."
 
 #~ msgid ""
 #~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
@@ -15178,6 +15423,23 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
 #~ "programu, w których biorą udział."
+
+#~ msgid "Message reported."
+#~ msgstr "Wiadomość została zgłoszona."
+
+#~ msgid ""
+#~ "We confirm the report and send the decision here. Name and email may be "
+#~ "left out only for child sexual abuse material."
+#~ msgstr ""
+#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
+#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
+#~ "seksualne wykorzystywanie dzieci."
+
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
 
 #~ msgid "yourself"
 #~ msgstr "siebie"
@@ -15282,14 +15544,11 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"
 
-#~ msgid "Markdown supported."
-#~ msgstr "Obsługuje Markdown."
-
-#~ msgid "Session details saved. Next step coming soon."
-#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
-
 #~ msgid "0 = no age restriction"
 #~ msgstr "0 = brak ograniczenia wiekowego"
+
+#~ msgid "Markdown supported."
+#~ msgstr "Obsługuje Markdown."
 
 #~ msgid ""
 #~ "Session info — public by default. A 🔒 marks what only organizers see."
@@ -15300,51 +15559,8 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Select the tracks your session belongs to."
 #~ msgstr "Wybierz bloki programowe dla tego punktu programu."
 
-#~ msgid "Player looking for a GM"
-#~ msgstr "Gracz szuka MG"
-
-#~ msgid "Player looking for a group"
-#~ msgstr "Gracz szuka grupy"
-
-#~ msgid "Group looking for players"
-#~ msgstr "Grupa szuka graczy"
-
-#~ msgctxt "listing role"
-#~ msgid "GM"
-#~ msgstr "MG"
-
-#~ msgctxt "listing role"
-#~ msgid "Player"
-#~ msgstr "Gracz"
-
-#~ msgctxt "listing role"
-#~ msgid "Group"
-#~ msgstr "Grupa"
-
-#~ msgctxt "listing seeking"
-#~ msgid "Group"
-#~ msgstr "Grupy"
-
-#~ msgid "I am"
-#~ msgstr "Jestem"
-
-#~ msgid "Pick one of the options offered for who you are."
-#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
-
-#~ msgid "Who is looking for whom"
-#~ msgstr "Kto kogo szuka"
-
-#~ msgid "Online or offline"
-#~ msgstr "Online czy na miejscu"
-
-#~ msgid "A player"
-#~ msgstr "Gracz"
-
-#~ msgid "A group"
-#~ msgstr "Grupa"
-
-#~ msgid "Pick who you are looking for again."
-#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
@@ -15436,8 +15652,34 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "LIVE"
 #~ msgstr "W TRAKCIE"
 
-#~ msgid "Publication Time"
-#~ msgstr "Czas publikacji"
+#, python-format
+#~ msgid "%(name)s invited you to manage this sphere."
+#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+
+#~ msgid "You're invited to manage this sphere."
+#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
+
+#~ msgid ""
+#~ "An unlisted event is never listed and never announced to the sphere's "
+#~ "followers."
+#~ msgstr ""
+#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
+#~ "obserwujące sferę nie dostają o nim powiadomienia."
+
+#~ msgid "Comms: reads the panel and posts schedule updates"
+#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+
+#~ msgid "Invitation revoked."
+#~ msgstr "Zaproszenie wycofane."
+
+#~ msgid "Unlisted"
+#~ msgstr "Niepubliczne"
+
+#~ msgid "Copy invitation link"
+#~ msgstr "Kopiuj link zaproszenia"
+
+#~ msgid "Revoke invitation"
+#~ msgstr "Wycofaj zaproszenie"
 
 #~ msgid ""
 #~ "When the event becomes publicly visible. Leave empty for immediate "
@@ -15446,76 +15688,41 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
 #~ "widoczne natychmiast."
 
-#, python-format
-#~ msgid "Export failed: %(hint)s"
-#~ msgstr "Eksport nie powiódł się: %(hint)s"
-
-#, python-format
-#~ msgid "Accreditation sheet exported (%(count)d creator)."
-#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
-#~ msgstr[0] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
-#~ msgstr[1] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-#~ msgstr[2] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-#~ msgstr[3] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
-
-#~ msgid "Google Sheets link"
-#~ msgstr "Link do arkusza Google"
-
-#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
-#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
-
-#~ msgid "Tab name"
-#~ msgstr "Nazwa zakładki"
-
-#~ msgid "The tab has to exist already; the export replaces its content."
-#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+#~ msgid "Copy email"
+#~ msgstr "Skopiuj e-mail"
 
 #~ msgid ""
-#~ "Facilitator and personal data written before the discount columns. Pick "
-#~ "what this sheet needs; nothing is exported by default."
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
 #~ msgstr ""
-#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
-#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
-#~ "niczego."
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
 
-#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
-#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
+
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
+
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #~ msgid ""
-#~ "Writes every accredited facilitator with their discount into the chosen "
-#~ "tab, replacing its current content."
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
 #~ msgstr ""
-#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
-#~ "zakładki, zastępując jej obecną zawartość."
-
-#, python-format
-#~ msgid ""
-#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
-#~ "editor first."
-#~ msgstr ""
-#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
-#~ "połączenia %(name)s."
-
-#~ msgid ""
-#~ "Share the spreadsheet with the connection's service account e-mail as an "
-#~ "editor first."
-#~ msgstr ""
-#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
-#~ "połączenia."
-
-#~ msgid ""
-#~ "No connections yet. Add a Google service account connection to export the "
-#~ "accreditation sheet."
-#~ msgstr ""
-#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
-#~ "arkusz akredytacji."
-
-#~ msgid "Go to connections"
-#~ msgstr "Przejdź do połączeń"
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
 
 #~ msgid "Shown columns"
 #~ msgstr "Wyświetlane kolumny"
@@ -15527,49 +15734,8 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Available columns"
 #~ msgstr "Dostępne kolumny"
 
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
-
-#, python-format
-#~ msgid ""
-#~ "Radek has been running tabletop RPGs for more than twenty years. He "
-#~ "writes his own games, like the narrative RPG <a "
-#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
-#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
-#~ "and sings RPG songs on YouTube as Radek MG."
-#~ msgstr ""
-#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
-#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
-#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
-#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
-
-#
-#~ msgid ""
-#~ "Piotrek cares about the small details of how software feels to use, which "
-#~ "is most of the reason Zagrajmy's interface looks the way it does."
-#~ msgstr ""
-#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
-#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
-
-#, python-format
-#~ msgid ""
-#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
-#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
-#~ "sacrifice."
-#~ msgstr ""
-#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
-#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
-#~ "poświęceniu."
-
-#~ msgid "Not Yet Available"
-#~ msgstr "Jeszcze Niedostępne"
-
-#~ msgid ""
-#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
-#~ "you here."
-#~ msgstr ""
-#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-#~ "Ciebie."
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
 
 #, python-format
 #~ msgid ""
@@ -15600,15 +15766,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Configure host data fields"
 #~ msgstr "Skonfiguruj pola danych twórcy"
-
-#~ msgid "Filterable Session Fields"
-#~ msgstr "Pola filtrowania punktów programu"
-
-#~ msgid ""
-#~ "Select which session fields appear as filters on the public session list."
-#~ msgstr ""
-#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
-#~ "publicznej liście punktów programu."
 
 #~ msgid "Program item confirmed"
 #~ msgstr "Punkt programu potwierdzony"
@@ -15641,20 +15798,25 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
 
-#~ msgid "Staging inbox"
-#~ msgstr "Skrzynka staging"
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
 
-#~ msgid "Received"
-#~ msgstr "Otrzymano"
+#~ msgid "Filterable Session Fields"
+#~ msgstr "Pola filtrowania punktów programu"
 
-#~ msgid "Subject"
-#~ msgstr "Temat"
+#~ msgid ""
+#~ "Select which session fields appear as filters on the public session list."
+#~ msgstr ""
+#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
+#~ "publicznej liście punktów programu."
 
-#~ msgid "No emails captured yet."
-#~ msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Bookmarks"
-#~ msgstr "Zakładki"
+#
+#~ msgid ""
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ msgstr ""
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
@@ -15722,10 +15884,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
 #~ "interfejs."
 
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
-
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."
 #~ msgstr ""
@@ -15756,9 +15914,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "See open Encounters at zagrajmy.net/encounters"
 #~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
-
-#~ msgid "Enabled pages"
-#~ msgstr "Włączone strony"
 
 #~ msgid "At least one page must stay enabled."
 #~ msgstr "Przynajmniej jedna strona musi pozostać włączona."
@@ -15958,9 +16113,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgctxt "participant filter"
 #~ msgid "All categories"
 #~ msgstr "Wszystkie rodzaje atrakcji"
-
-#~ msgid "All hosts"
-#~ msgstr "Wszyscy prowadzący"
 
 #~ msgid ""
 #~ "Cached name from the submission wizard. The canonical byline is the "
@@ -16539,6 +16691,10 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
 
 #, python-format
+#~ msgid "Remove %(name)s from your party?"
+#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
+
+#, python-format
 #~ msgid "Party of %(leader_name)s"
 #~ msgstr "Drużyna %(leader_name)s"
 
@@ -16587,9 +16743,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
-
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
 
 #, python-format
 #~ msgid "%(count)d facilitator runs sessions and was kept."
@@ -16744,58 +16897,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
 #~ "%(token_max_age_days)s dni."
 
-#~ msgid ""
-#~ "Everything the app sends from this server lands here. None of it reaches "
-#~ "a real inbox."
-#~ msgstr ""
-#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
-#~ "do prawdziwych skrzynek."
-
-#~ msgid "Live: new emails show up on their own"
-#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
-
-#~ msgid "Link in this email"
-#~ msgid_plural "Links in this email"
-#~ msgstr[0] "Link w tym e-mailu"
-#~ msgstr[1] "Linki w tym e-mailu"
-#~ msgstr[2] "Linki w tym e-mailu"
-#~ msgstr[3] "Linki w tym e-mailu"
-
-#~ msgid "Copy email"
-#~ msgstr "Skopiuj e-mail"
-
-#~ msgid "You're already on this sphere's team as a manager."
-#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
-
-#, python-format
-#~ msgid "%(name)s invited you to manage this sphere."
-#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
-
-#~ msgid "You're invited to manage this sphere."
-#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
-
-#~ msgid ""
-#~ "An unlisted event is never listed and never announced to the sphere's "
-#~ "followers."
-#~ msgstr ""
-#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
-#~ "obserwujące sferę nie dostają o nim powiadomienia."
-
-#~ msgid "Comms: reads the panel and posts schedule updates"
-#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
-
-#~ msgid "Invitation revoked."
-#~ msgstr "Zaproszenie wycofane."
-
-#~ msgid "Unlisted"
-#~ msgstr "Niepubliczne"
-
-#~ msgid "Copy invitation link"
-#~ msgstr "Kopiuj link zaproszenia"
-
-#~ msgid "Revoke invitation"
-#~ msgstr "Wycofaj zaproszenie"
-
 #~ msgid "Different address? Save your profile first."
 #~ msgstr "Inny adres? Najpierw zapisz profil."
 
@@ -16830,124 +16931,161 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
 
 #, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+
+#~ msgid ""
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
+#~ msgstr ""
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
+
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
+
+#~ msgid ""
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
+
+#, python-format
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
 
-#~ msgid "Give the group a name."
-#~ msgstr "Nadaj grupie nazwę."
+#~ msgid "Subject"
+#~ msgstr "Temat"
+
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
 
 #, python-format
-#~ msgid "Remove %(name)s from your party?"
-#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
-
-#
-#~ msgid "Note added to the thread."
-#~ msgstr "Notatka dodana do wątku."
-
-#, python-format
-#~ msgid "%(count)s attachment, kept in the staff mailbox"
-#~ msgid_plural "%(count)s attachments, kept in the staff mailbox"
-#~ msgstr[0] "%(count)s załącznik, w skrzynce staff@"
-#~ msgstr[1] "%(count)s załączniki, w skrzynce staff@"
-#~ msgstr[2] "%(count)s załączników, w skrzynce staff@"
-#~ msgstr[3] "%(count)s załącznika, w skrzynce staff@"
-
 #~ msgid ""
-#~ "Nobody outside the team wrote in this case, so the reply stays in the "
-#~ "thread."
+#~ "Radek has been running tabletop RPGs for more than twenty years. He "
+#~ "writes his own games, like the narrative RPG <a "
+#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
+#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
+#~ "and sings RPG songs on YouTube as Radek MG."
 #~ msgstr ""
-#~ "W tej sprawie nie pisał nikt spoza zespołu, więc odpowiedź zostaje w "
-#~ "wątku."
-
-#
-#~ msgid "Add internal note"
-#~ msgstr "Notatka wewnętrzna"
-
-#~ msgid "This case has no address to answer. Add a note instead."
-#~ msgstr "Ta sprawa nie ma adresu do odpowiedzi. Dodaj notatkę."
-
-#~ msgid "You made the decision under appeal. Someone else decides it."
-#~ msgstr ""
-#~ "To Twoja decyzja jest przedmiotem odwołania. Rozpatrzy je ktoś inny."
-
-#~ msgid "Appeal"
-#~ msgstr "Odwołanie"
-
-#
-#~ msgid "Hide content"
-#~ msgstr "Ukryj treść"
-
-#~ msgid "no reason given"
-#~ msgstr "bez podanego powodu"
+#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
+#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
+#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
 
 #, python-format
-#~ msgid "Reported in %(room)s. Reason: %(reason)s"
-#~ msgstr "Zgłoszono w %(room)s. Powód: %(reason)s"
-
-#, python-format
-#~ msgid "Decision: %(action)s. Ground: %(ground)s."
-#~ msgstr "Decyzja: %(action)s. Podstawa: %(ground)s."
-
-#~ msgid "Statement preview for the author:"
-#~ msgstr "Podgląd uzasadnienia dla autora:"
-
-#
-#~ msgid "We hid your message."
-#~ msgstr "Ukryliśmy Twoją wiadomość."
-
-#~ msgid "We removed your message."
-#~ msgstr "Usunęliśmy Twoją wiadomość."
-
-#~ msgid "We muted you in the chat for 24 hours."
-#~ msgstr "Wyciszyliśmy Cię w czacie na 24 godziny."
-
-#
-#~ msgid "We suspended your account."
-#~ msgstr "Zawiesiliśmy Twoje konto."
-
-#, python-format
-#~ msgid "Reason: %(ground)s."
-#~ msgstr "Powód: %(ground)s."
-
-#~ msgid "A person on the Zagrajmy team decided this, without automation."
-#~ msgstr "Decyzję podjęła osoba z zespołu Zagrajmy, bez automatyzacji."
-
-#~ msgid "You can appeal by replying to this message."
-#~ msgstr "Możesz się odwołać, odpowiadając na tę wiadomość."
-
-#, python-format
-#~ msgid "%(action)s, on the ground of %(ground)s. Decided by %(name)s."
-#~ msgstr "%(action)s, podstawa: %(ground)s. Kto zdecydował: %(name)s."
-
-#
-#~ msgid "Decide the appeal"
-#~ msgstr "Rozpatrz odwołanie"
-
 #~ msgid ""
-#~ "The reporter gets the outcome and the author the statement of reasons "
-#~ "with a way to appeal. Both go into this thread."
+#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
+#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+#~ "sacrifice."
 #~ msgstr ""
-#~ "Zgłaszający dostanie wynik, autor — uzasadnienie z możliwością odwołania. "
-#~ "Obie wiadomości trafią do tego wątku."
+#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
+#~ "poświęceniu."
 
-#
-#~ msgid ""
-#~ "You decided this case. If it is appealed, someone else on staff decides "
-#~ "the appeal."
-#~ msgstr ""
-#~ "Decyzja w tej sprawie jest Twoja. Odwołanie rozpatrzy inna osoba z "
-#~ "zespołu."
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
 
-#~ msgid ""
-#~ "We confirm the report and send the decision here. Name and email may be "
-#~ "left out only for child sexual abuse material."
-#~ msgstr ""
-#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
-#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
-#~ "seksualne wykorzystywanie dzieci."
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
+#~ msgid "Online or offline"
+#~ msgstr "Online czy na miejscu"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
+
+#~ msgid "Enabled pages"
+#~ msgstr "Włączone strony"
 
 #~ msgid ""
 #~ "Each programme point gets a room for its players and hosts, the sphere's "
@@ -16964,3 +17102,15 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
 #~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "All hosts"
+#~ msgstr "Wszyscy prowadzący"
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#~ msgid "You're already on this sphere's team as a manager."
+#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."

@@ -4,16 +4,17 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
+from ludamus.gates.web.django.create_options import encounter_option, event_option
 from ludamus.pacts.sphere import SphereVisibility
 from tests.integration.utils import assert_response, assert_response_404
 
 URL = reverse("web:index")
 
 
-def _empty_feed(*, can_create_encounter=False):
+def _empty_feed(*, create_options=()):
     return {
         "announcements": [],
-        "can_create_encounter": can_create_encounter,
+        "create_options": create_options,
         "past": [],
         "upcoming": [],
         "view": ANY,
@@ -50,7 +51,9 @@ class TestPrivateSphere:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_empty_feed(can_create_encounter=True),
+            context_data=_empty_feed(
+                create_options=(event_option(), encounter_option())
+            ),
             template_name=["index.html"],
         )
 
