@@ -47,7 +47,9 @@ def _leader():
 def test_a_party_chat_follows_its_members_and_outlives_the_party(services, leader):
     friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
     kid = UserFactory(age_band=AgeBand.THIRTEEN_TO_FIFTEEN)
-    party_pk = services.parties.create(leader_pk=leader.pk, name="Ekipa")
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="Ekipa", enrolls_together=True
+    )
     assert not ParleyConversation.objects.filter(party_id=party_pk).exists()
     token = services.parties.read_invite_token(leader_pk=leader.pk, party_pk=party_pk)
 
@@ -77,7 +79,9 @@ def test_a_party_chat_follows_its_members_and_outlives_the_party(services, leade
 @pytest.mark.postgres
 @pytest.mark.django_db(transaction=True)
 def test_invites_accepted_at_once_all_land_in_the_one_chat(leader):
-    party_pk = Services().parties.create(leader_pk=leader.pk, name="Ekipa")
+    party_pk = Services().parties.create(
+        leader_pk=leader.pk, name="Ekipa", enrolls_together=True
+    )
     joiners = [UserFactory(age_band=AgeBand.SIXTEEN_PLUS) for _ in range(4)]
     invites = {
         user.pk: (
@@ -114,7 +118,9 @@ def test_invites_accepted_at_once_all_land_in_the_one_chat(leader):
 
 def test_an_accepted_invite_brings_the_member_into_the_chat(services, leader):
     friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
-    party_pk = services.parties.create(leader_pk=leader.pk, name="")
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="", enrolls_together=True
+    )
     membership = PartyMembership.objects.create(
         party_id=party_pk, member=friend, status=PartyMembershipStatus.INVITED
     )
@@ -129,7 +135,9 @@ def test_an_accepted_invite_brings_the_member_into_the_chat(services, leader):
 
 def test_a_member_the_leader_removes_leaves_the_chat(services, leader):
     friends = [UserFactory(age_band=AgeBand.SIXTEEN_PLUS) for _ in range(2)]
-    party_pk = services.parties.create(leader_pk=leader.pk, name="")
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="", enrolls_together=True
+    )
     token = services.parties.read_invite_token(leader_pk=leader.pk, party_pk=party_pk)
     for friend in friends:
         services.parties.join_via_link(token=token, user_pk=friend.pk)
@@ -145,7 +153,9 @@ def test_a_member_the_leader_removes_leaves_the_chat(services, leader):
 
 def test_nobody_leaves_or_renames_a_party_chat_but_through_the_party(services, leader):
     friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
-    party_pk = services.parties.create(leader_pk=leader.pk, name="Ekipa")
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="Ekipa", enrolls_together=True
+    )
     token = services.parties.read_invite_token(leader_pk=leader.pk, party_pk=party_pk)
     services.parties.join_via_link(token=token, user_pk=friend.pk)
     chat_pk = ParleyConversation.objects.get(party_id=party_pk).pk
@@ -172,7 +182,9 @@ def _staff_client(client):
 
 
 def _party_of(services, leader, *members):
-    party_pk = services.parties.create(leader_pk=leader.pk, name="Ekipa")
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="Ekipa", enrolls_together=True
+    )
     token = services.parties.read_invite_token(leader_pk=leader.pk, party_pk=party_pk)
     for member in members:
         services.parties.join_via_link(token=token, user_pk=member.pk)
