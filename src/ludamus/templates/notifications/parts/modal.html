@@ -4,7 +4,7 @@
         aria-labelledby="notification-modal-{{ notification.pk }}-title">
     <div class="px-6 py-4 border-b border-border flex items-start justify-between gap-3 shrink-0">
         <h3 id="notification-modal-{{ notification.pk }}-title"
-            class="text-lg font-semibold text-foreground">{{ notification.title }}</h3>
+            class="min-w-0 wrap-break-word text-lg font-semibold text-foreground">{{ notification.title }}</h3>
         {% with pk=notification.pk|stringformat:"s" %}
             {% with dialog_id="notification-modal-"|add:pk %}
                 {% tessera_dialog_close_button dialog_id %}
