@@ -135,6 +135,26 @@ test.describe("Command menu", () => {
     await expect(page.getByRole("option", { name: "Theme" })).toHaveText(/Dark theme/);
   });
 
+  test("a failed download of the menu is tried again on the next press", async ({ page }) => {
+    let failures = 0;
+    await page.route(/\/assets\/menu-[^/]+\.js$/, (route) => {
+      if (failures > 0) return route.fallback();
+      failures += 1;
+      return route.abort();
+    });
+    const menu = page.getByRole("dialog", { name: "Command menu" });
+
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect.poll(() => failures).toBe(1);
+    await expect(menu).toBeHidden();
+
+    // The retry is a new press, so give each attempt its own.
+    await expect(async () => {
+      await page.keyboard.press("ControlOrMeta+k");
+      await expect(menu.getByRole("combobox")).toBeFocused({ timeout: 2000 });
+    }).toPass();
+  });
+
   test("says so when nothing matches", async ({ page }) => {
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("combobox").fill("qqqq");
