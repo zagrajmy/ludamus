@@ -97,7 +97,7 @@ function CommandMenu({
       loop
       onOpenChange={onOpenChange}
       open={open}
-      overlayClassName="fixed inset-0 z-60 bg-black/40 transition-opacity duration-150 ease-out motion-reduce:transition-none starting:opacity-0"
+      overlayClassName="fixed inset-0 z-60 bg-neutral-950/40 transition-opacity duration-150 ease-out motion-reduce:transition-none starting:opacity-0"
     >
       {/* NOTE: no focus ring. Focus never leaves this field while the menu is
           open, so the caret says where typing goes; the row highlight below
