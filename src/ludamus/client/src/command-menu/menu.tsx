@@ -4,8 +4,8 @@
 // It holds no commands of its own. components/command-menu.html renders them
 // as real links and buttons, and picking one here clicks it there.
 
-import { Command, defaultFilter } from "cmdk";
-import { useSyncExternalStore } from "react";
+import { Command } from "cmdk";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 
 import { normalizeText } from "../text";
@@ -13,17 +13,28 @@ import { normalizeText } from "../text";
 // NOTE: defined by components/theme_script.html, which every page loads.
 declare const setTheme: (theme: string) => void;
 
-interface Item {
-  checked: boolean;
+interface Entry {
+  hint: string;
   icon: Element | null;
   keywords: string[];
   label: string;
+}
+
+interface Item extends Entry {
+  checked: boolean;
   source: HTMLElement;
+}
+
+/** One row that opens a list of its own. */
+interface Submenu extends Entry {
+  items: Item[];
 }
 
 interface Group {
   heading: string;
-  items: Item[];
+  rows: (Item | Submenu)[];
+  /** Too long to list unasked: shown once something is typed. */
+  searchOnly: boolean;
 }
 
 const storedTheme = (): string => {
@@ -34,22 +45,47 @@ const storedTheme = (): string => {
   }
 };
 
+const ownText = (element: Element): string =>
+  [...element.childNodes]
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join("")
+    .trim();
+
+const keywordsOf = (element: HTMLElement): string[] => element.dataset.keywords?.split(" ") ?? [];
+
+const readItem = (element: HTMLElement): Item => ({
+  checked:
+    element.getAttribute("aria-pressed") === "true" ||
+    element.dataset.commandTheme === storedTheme(),
+  hint: element.querySelector("[data-command-hint]")?.textContent.trim() ?? "",
+  icon: element.querySelector("svg, [data-command-icon]"),
+  keywords: keywordsOf(element),
+  label: ownText(element),
+  source: element,
+});
+
+const readSubmenu = (element: HTMLElement): Submenu => {
+  const label = element.querySelector<HTMLElement>("[data-command-submenu-label]");
+  const items = [...element.querySelectorAll<HTMLElement>("a[href], button")].map(readItem);
+  return {
+    hint: items.find((item) => item.checked)?.label ?? "",
+    icon: label?.querySelector("svg") ?? null,
+    items,
+    keywords: keywordsOf(element),
+    label: label ? ownText(label) : "",
+  };
+};
+
+const ROWS = ":scope > a[href], :scope > button, :scope > [data-command-submenu]";
+
 const readGroups = (source: HTMLElement): Group[] =>
   [...source.querySelectorAll<HTMLElement>("[data-command-group]")].map((group) => ({
     heading: group.dataset.commandGroup ?? "",
-    items: [...group.querySelectorAll<HTMLElement>("a[href], button")].map((element) => ({
-      checked:
-        element.getAttribute("aria-pressed") === "true" ||
-        element.dataset.commandTheme === storedTheme(),
-      icon: element.querySelector("svg, [data-command-icon]"),
-      keywords: element.dataset.keywords?.split(" ") ?? [],
-      label: [...element.childNodes]
-        .filter((node) => node.nodeType === Node.TEXT_NODE)
-        .map((node) => node.textContent)
-        .join("")
-        .trim(),
-      source: element,
-    })),
+    rows: [...group.querySelectorAll<HTMLElement>(ROWS)].map((element) =>
+      element.matches("[data-command-submenu]") ? readSubmenu(element) : readItem(element),
+    ),
+    searchOnly: Object.hasOwn(group.dataset, "commandSearchOnly"),
   }));
 
 const run = ({ source }: Item): void => {
@@ -61,9 +97,22 @@ const run = ({ source }: Item): void => {
   else setTheme(theme);
 };
 
-// Folded like the page's other searches, so "jezyk" finds "Język".
-const foldedFilter = (value: string, search: string, keywords?: string[]): number =>
-  defaultFilter(normalizeText(value), normalizeText(search), keywords?.map(normalizeText));
+// Every typed word has to appear, folded like the page's other searches so
+// "jezyk" finds "Język". cmdk's own matcher takes any letters in order, which
+// answers "fest" with "Facilitator Edit Demo" once a sphere's events are in.
+const FILTER_SCORE = { inside: 0.6, keywordOnly: 0.4, start: 1, wordStart: 0.8 };
+
+const foldedFilter = (value: string, search: string, keywords: string[] = []): number => {
+  const label = normalizeText(value);
+  const haystack = [label, ...keywords.map(normalizeText)].join(" ");
+  const words = normalizeText(search).split(/\s+/).filter(Boolean);
+  if (!words.every((word) => haystack.includes(word))) return 0;
+  if (label.startsWith(words.join(" "))) return FILTER_SCORE.start;
+  if (words.every((word) => ` ${label}`.includes(` ${word}`))) return FILTER_SCORE.wordStart;
+  return words.every((word) => label.includes(word))
+    ? FILTER_SCORE.inside
+    : FILTER_SCORE.keywordOnly;
+};
 
 function Glyph({ className, svg }: { className: string; svg: Element | null }) {
   return (
@@ -75,84 +124,178 @@ function Glyph({ className, svg }: { className: string; svg: Element | null }) {
   );
 }
 
-function CommandMenu({
-  onOpenChange,
-  open,
+const ROW =
+  "flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm select-none data-[selected=true]:bg-bg-tertiary";
+const ROW_ICON =
+  "grid size-4 shrink-0 place-items-center leading-none opacity-60 *:size-4 has-data-command-icon:opacity-100";
+const ROW_HINT = "ml-auto shrink-0 pl-2 text-xs text-foreground-muted";
+const GROUP =
+  "p-1 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-foreground-muted";
+
+function Palette({
+  close,
+  entriesFailed,
   source,
 }: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
+  close: () => void;
+  entriesFailed: boolean;
   source: HTMLElement;
 }) {
-  const { empty = "", placeholder = "", title = "" } = source.dataset;
+  const { back = "", empty = "", entriesError = "", placeholder = "" } = source.dataset;
+  const groups = useMemo(() => readGroups(source), [source]);
+  const [page, setPage] = useState<Submenu | null>(null);
+  const [search, setSearch] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  // A click on a row or on Back takes focus with it; typing belongs here.
+  useEffect(() => input.current?.focus(), [page]);
   const templateIcon = (name: string): Element | null =>
     source.querySelector<HTMLTemplateElement>(`template[data-command-${name}-icon]`)?.content
       .firstElementChild ?? null;
 
+  const leave = (): void => {
+    setPage(null);
+    setSearch("");
+  };
+
+  // NOTE: cmdk's dialog closes on Escape from a capture listener on the
+  // document, and offers no hook to refuse. One on the window runs first.
+  useEffect(() => {
+    if (!page) return;
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      leave();
+    };
+    globalThis.addEventListener("keydown", onEscape, true);
+    return () => globalThis.removeEventListener("keydown", onEscape, true);
+  }, [page]);
+
+  // cmdk tells rows apart by value, and two events may share a name.
+  const taken = new Set<string>();
+  const valueOf = (entry: Entry): string => {
+    const base = entry.hint ? `${entry.label} ${entry.hint}` : entry.label;
+    let value = base;
+    for (let copy = 2; taken.has(value); copy++) value = `${base} ${copy}`;
+    taken.add(value);
+    return value;
+  };
+
+  const itemRow = (item: Item, keywords: string[]) => {
+    const value = valueOf(item);
+    return (
+      <Command.Item
+        aria-current={item.checked || undefined}
+        className={ROW}
+        key={value}
+        keywords={[...keywords, ...item.keywords]}
+        lang={item.source.lang || undefined}
+        onSelect={() => {
+          close();
+          run(item);
+        }}
+        value={value}
+      >
+        <Glyph className={ROW_ICON} svg={item.icon} />
+        <span className="truncate">{item.label}</span>
+        {item.hint && <span className={ROW_HINT}>{item.hint}</span>}
+        {item.checked && (
+          <Glyph className="ml-auto size-4 shrink-0 *:size-4" svg={templateIcon("checked")} />
+        )}
+      </Command.Item>
+    );
+  };
+
+  const submenuRow = (submenu: Submenu, heading: string) => {
+    const value = valueOf(submenu);
+    return (
+      <Command.Item
+        aria-haspopup="listbox"
+        className={ROW}
+        key={value}
+        keywords={[heading, ...submenu.keywords]}
+        onSelect={() => {
+          setPage(submenu);
+          setSearch("");
+        }}
+        value={value}
+      >
+        <Glyph className={ROW_ICON} svg={submenu.icon} />
+        <span className="truncate">{submenu.label}</span>
+        <span className={ROW_HINT}>{submenu.hint}</span>
+        <Glyph className="size-4 shrink-0 opacity-60 *:size-4" svg={templateIcon("submenu")} />
+      </Command.Item>
+    );
+  };
+
   return (
-    <Command.Dialog
-      contentClassName="fixed top-[20dvh] left-1/2 z-60 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-bg-secondary p-1 text-foreground shadow-(--shadow-elevated) transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0"
-      filter={foldedFilter}
-      label={title}
-      loop
-      onOpenChange={onOpenChange}
-      open={open}
-      overlayClassName="fixed inset-0 z-60 bg-neutral-950/40 transition-opacity duration-150 ease-out motion-reduce:transition-none starting:opacity-0"
-    >
+    <>
       {/* NOTE: no focus ring. Focus never leaves this field while the menu is
           open, so the caret says where typing goes; the row highlight below
           says what Enter runs. */}
       <div className="m-1 mb-0 flex h-9 items-center gap-2 rounded-lg border border-border/60 bg-bg-tertiary px-2.5">
-        <Glyph className="size-4 shrink-0 opacity-50 *:size-4" svg={templateIcon("search")} />
+        {page ? (
+          <button
+            aria-label={back}
+            className="-ml-1 grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-foreground-secondary hover:bg-bg-secondary"
+            onClick={leave}
+            type="button"
+          >
+            <Glyph className="size-4 *:size-4" svg={templateIcon("back")} />
+          </button>
+        ) : (
+          <Glyph className="size-4 shrink-0 opacity-50 *:size-4" svg={templateIcon("search")} />
+        )}
         <Command.Input
           className="w-full bg-transparent text-sm caret-primary outline-none placeholder:text-foreground-muted focus-visible:shadow-none!"
-          placeholder={placeholder}
+          onKeyDown={(event) => {
+            if (event.key === "Backspace" && search === "" && page) leave();
+          }}
+          onValueChange={setSearch}
+          placeholder={page ? page.label : placeholder}
+          ref={input}
+          value={search}
         />
       </div>
       <Command.List
         className="max-h-[min(26rem,60dvh)] scroll-py-1 overflow-x-hidden overflow-y-auto [scrollbar-width:thin]"
-        label={title}
+        label={page ? page.label : source.dataset.title}
       >
-        <Command.Empty className="py-6 text-center text-sm text-foreground-muted">
-          {empty}
+        <Command.Empty className="px-4 py-6 text-center text-sm text-foreground-muted">
+          {entriesFailed && !page ? entriesError : empty}
         </Command.Empty>
-        {readGroups(source).map((group) => (
-          <Command.Group
-            className="p-1 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-foreground-muted"
-            heading={group.heading}
-            key={group.heading}
-          >
-            {group.items.map((item) => (
-              <Command.Item
-                aria-current={item.checked || undefined}
-                className="flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm select-none data-[selected=true]:bg-bg-tertiary"
-                key={item.label}
-                keywords={[group.heading, ...item.keywords]}
-                lang={item.source.lang || undefined}
-                onSelect={() => {
-                  onOpenChange(false);
-                  run(item);
-                }}
-                value={item.label}
-              >
-                <Glyph
-                  className="grid size-4 shrink-0 place-items-center leading-none opacity-60 *:size-4 has-data-command-icon:opacity-100"
-                  svg={item.icon}
-                />
-                {item.label}
-                {item.checked && (
-                  <Glyph className="ml-auto size-4 *:size-4" svg={templateIcon("checked")} />
-                )}
-              </Command.Item>
-            ))}
+        {page ? (
+          // No heading: the field above already names this list.
+          <Command.Group className={GROUP}>
+            {page.items.map((item) => itemRow(item, []))}
           </Command.Group>
-        ))}
+        ) : (
+          groups
+            .filter((group) => search !== "" || !group.searchOnly)
+            .map((group) => (
+              <Command.Group className={GROUP} heading={group.heading} key={group.heading}>
+                {group.rows.flatMap((row) =>
+                  "items" in row
+                    ? [
+                        submenuRow(row, group.heading),
+                        // Typing reaches into a submenu without opening it.
+                        ...(search === ""
+                          ? []
+                          : row.items.map((item) => itemRow(item, [row.label, ...row.keywords]))),
+                      ]
+                    : [itemRow(row, [group.heading])],
+                )}
+              </Command.Group>
+            ))
+        )}
       </Command.List>
-    </Command.Dialog>
+    </>
   );
 }
 
-export function mountCommandMenu(source: HTMLElement): { toggle: () => void } {
+export function mountCommandMenu(
+  source: HTMLElement,
+  { entriesFailed }: { entriesFailed: boolean },
+): { toggle: () => void } {
   let open = false;
   const listeners = new Set<() => void>();
   // NOTE: cmdk's dialog hands focus back to a Radix trigger only, and it has
@@ -177,11 +320,18 @@ export function mountCommandMenu(source: HTMLElement): { toggle: () => void } {
 
   function Mounted() {
     return (
-      <CommandMenu
+      <Command.Dialog
+        contentClassName="fixed top-[20dvh] left-1/2 z-60 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-bg-secondary p-1 text-foreground shadow-(--shadow-elevated) transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0"
+        filter={foldedFilter}
+        label={source.dataset.title}
+        loop
         onOpenChange={setOpen}
         open={useSyncExternalStore(subscribe, () => open)}
-        source={source}
-      />
+        overlayClassName="fixed inset-0 z-60 bg-neutral-950/40 transition-opacity duration-150 ease-out motion-reduce:transition-none starting:opacity-0"
+      >
+        {/* Unmounted with the dialog, so each opening starts at the top level. */}
+        <Palette close={() => setOpen(false)} entriesFailed={entriesFailed} source={source} />
+      </Command.Dialog>
     );
   }
 

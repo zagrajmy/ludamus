@@ -7501,6 +7501,24 @@ msgstr "Wybierz kolor"
 msgid "Results"
 msgstr "Wyniki"
 
+#: src/ludamus/templates/components/command-menu-entries.html
+#: src/ludamus/templates/event/panel/integrations/create.html
+#: src/ludamus/templates/panel/cfp-create.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/sphere/panel/announcements/create.html
+#: src/ludamus/templates/sphere/panel/connections/create.html
+msgid "Create"
+msgstr "Utwórz"
+
+#: src/ludamus/templates/components/command-menu-entries.html
+msgid "Events in the panel"
+msgstr "Wydarzenia w panelu"
+
+#: src/ludamus/templates/components/command-menu-entries.html
+msgid "Your encounters"
+msgstr "Twoje spotkania"
+
 #: src/ludamus/templates/components/command-menu.html
 msgid "Command menu"
 msgstr "Menu poleceń"
@@ -7512,6 +7530,21 @@ msgstr "Wpisz polecenie lub szukaj…"
 #: src/ludamus/templates/components/command-menu.html
 msgid "No results found."
 msgstr "Brak wyników."
+
+#: src/ludamus/templates/components/command-menu.html
+msgid ""
+"Your events and encounters did not load. Reload the page to search them."
+msgstr ""
+"Nie udało się wczytać Twoich wydarzeń i spotkań. Odśwież stronę, aby je "
+"przeszukać."
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
 
 #: src/ludamus/templates/components/command-menu.html
 msgid "Go to"
@@ -7550,6 +7583,11 @@ msgstr "Wyloguj się"
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
 msgid "Log in"
 msgstr "Zaloguj się"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/panel/base.html
+msgid "Settings"
+msgstr "Ustawienia"
 
 #: src/ludamus/templates/components/command-menu.html
 #: src/ludamus/templates/components/language_switcher.html
@@ -9175,15 +9213,6 @@ msgstr "Sprawdzanie…"
 msgid "New integration"
 msgstr "Nowa integracja"
 
-#: src/ludamus/templates/event/panel/integrations/create.html
-#: src/ludamus/templates/panel/cfp-create.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/sphere/panel/announcements/create.html
-#: src/ludamus/templates/sphere/panel/connections/create.html
-msgid "Create"
-msgstr "Utwórz"
-
 #: src/ludamus/templates/event/panel/integrations/delete.html
 msgid "Delete integration"
 msgstr "Usuń integrację"
@@ -9436,13 +9465,6 @@ msgid ""
 msgstr ""
 "Zaloguj się, aby zapisać swoje dane między zgłoszeniami, śledzić swoje "
 "propozycje i nie wpisywać danych osobowych ponownie."
-
-#: src/ludamus/templates/event/propose/parts/_nav.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
 
 #: src/ludamus/templates/event/propose/parts/_nav.html
 #: src/ludamus/templates/user/signup_age.html
@@ -10991,10 +11013,6 @@ msgstr "W trakcie"
 #: src/ludamus/templates/panel/errata.html
 msgid "Errata"
 msgstr "Errata"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Settings"
-msgstr "Ustawienia"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/discount-rules.html

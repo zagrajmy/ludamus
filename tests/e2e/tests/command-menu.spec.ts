@@ -14,15 +14,11 @@ test.describe("Command menu", () => {
       "Events",
       "Log in",
     ]);
-    await expect(menu.getByRole("group", { name: "Language" }).getByRole("option")).toHaveText([
-      /Polski/,
-      /English/,
+    // Each setting is one row that names its current value.
+    await expect(menu.getByRole("group", { name: "Settings" }).getByRole("option")).toHaveText([
+      /Language\s*English/,
+      /Theme\s*System theme/,
     ]);
-    await expect(menu.getByRole("option", { name: "English" })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await expect(menu.getByRole("option", { name: "Polski" })).not.toHaveAttribute("aria-current");
 
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
@@ -37,15 +33,48 @@ test.describe("Command menu", () => {
     await expect(opener).toBeFocused();
   });
 
+  test("a setting opens its own list, and Escape or Backspace steps back out", async ({ page }) => {
+    await page.keyboard.press("ControlOrMeta+k");
+    const menu = page.getByRole("dialog", { name: "Command menu" });
+    await menu.getByRole("option", { name: "Language" }).click();
+
+    const languages = menu.getByRole("listbox", { name: "Language" });
+    await expect(languages.getByRole("option")).toHaveText([/Polski/, /English/]);
+    await expect(languages.getByRole("option", { name: "English" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await expect(languages.getByRole("option", { name: "Polski" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    await expect(menu.getByRole("combobox")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(menu.getByRole("option", { name: "Log in" })).toBeVisible();
+
+    await menu.getByRole("option", { name: "Theme" }).click();
+    await expect(menu.getByRole("option", { name: "Dark theme" })).toBeVisible();
+    await page.keyboard.press("Backspace");
+    await expect(menu.getByRole("option", { name: "Log in" })).toBeVisible();
+
+    await menu.getByRole("option", { name: "Theme" }).click();
+    await menu.getByRole("button", { name: "Back" }).click();
+    await expect(menu.getByRole("option", { name: "Log in" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+  });
+
   test("switches the language for a visitor, past the browser session", async ({
     context,
     page,
   }) => {
-    // Found by its Polish name, typed without the diacritic, on an English page.
+    // Found by its Polish name, typed without the diacritic, on an English
+    // page, and without opening the Language list first.
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("combobox").fill("jezyk");
-    await expect(page.getByRole("option")).toHaveText([/Polski/, /English/]);
-    await page.keyboard.press("Enter");
+    await expect(page.getByRole("option")).toHaveText([/Language/, /Polski/, /English/]);
+    await page.getByRole("option", { name: "Polski" }).click();
 
     await expect(page.locator("html")).toHaveAttribute("lang", "pl");
     await expect(page).toHaveURL(/\/about\/$/);
@@ -56,11 +85,7 @@ test.describe("Command menu", () => {
     await page.getByRole("button", { name: "Otwórz menu poleceń" }).click();
     const menu = page.getByRole("dialog", { name: "Menu poleceń" });
     await menu.getByRole("combobox").fill("language");
-    await expect(menu.getByRole("option")).toHaveText([/Polski/, /English/]);
-    await expect(menu.getByRole("option", { name: "Polski" })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(menu.getByRole("option")).toHaveText([/Język\s*Polski/, /Polski/, /English/]);
   });
 
   test("goes to the page picked with the arrow keys", async ({ page }) => {
@@ -83,7 +108,7 @@ test.describe("Command menu", () => {
 
   test("switches the theme and keeps the footer switcher in step", async ({ page }) => {
     await page.keyboard.press("ControlOrMeta+k");
-    await page.getByRole("combobox").fill("dark");
+    await page.getByRole("option", { name: "Theme" }).click();
     await page.getByRole("option", { name: "Dark theme" }).click();
 
     await expect(page.getByRole("dialog")).toBeHidden();
@@ -91,10 +116,7 @@ test.describe("Command menu", () => {
     await expect(page.getByRole("radio", { name: "dark" })).toBeChecked();
 
     await page.keyboard.press("ControlOrMeta+k");
-    await expect(page.getByRole("option", { name: "Dark theme" })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(page.getByRole("option", { name: "Theme" })).toHaveText(/Dark theme/);
   });
 
   test("says so when nothing matches", async ({ page }) => {
