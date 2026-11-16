@@ -17,8 +17,28 @@ interface Placement {
 
 // Click-to-place mode (armed via clicking a session or an Assign button).
 let armed: Placement | null = null;
-// Active drag payload; independent of `armed` so a bare drag also works.
-let dragging: Placement | null = null;
+interface Drag {
+  // A copy of the source, tilted to read as picked up, that stands in for it
+  // until the drop.
+  card: HTMLElement;
+  // How far below the block's top edge the pointer holds it, so the block
+  // stays under the pointer where it was grabbed instead of jumping to it.
+  grabPx: number;
+  placement: Placement;
+  source: HTMLElement;
+}
+
+// Active drag; independent of `armed` so a bare drag also works.
+let dragging: Drag | null = null;
+
+// NOTE: timetable.css draws minute 0 this far below each column's top edge.
+const GRID_TOP_PX = 20;
+
+// The drag card is the one thing that follows the pointer, so the browser's
+// own copy of the dragged card is swapped for a transparent pixel.
+const blankDragImage = new Image();
+blankDragImage.src =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!;
 
@@ -79,35 +99,49 @@ function hideHoverPreview(): void {
   hoverPreview().classList.add("hidden");
 }
 
-const dropGuide = (): HTMLElement => {
-  let el = document.getElementById("timetable-drop-guide");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "timetable-drop-guide";
-    el.className = "timetable-drop-guide";
-  }
-  return el;
-};
-
-function hideDropGuide(): void {
-  document.getElementById("timetable-drop-guide")?.remove();
+function showHoverPreview(text: string, pointer: MouseEvent): void {
+  const preview = hoverPreview();
+  preview.textContent = text;
+  preview.style.left = `${pointer.clientX + 12}px`;
+  preview.style.top = `${pointer.clientY + 12}px`;
+  preview.classList.remove("hidden");
 }
 
-// A ghost block, snapped to the drop time and sized to the session, shown
-// inside the hovered column while dragging -- the Google-Calendar drop preview.
-function showDropGuide(col: HTMLElement, start: number, placement: Placement): void {
+// Inert, so neither the pointer nor assistive tech can reach the copy.
+function dragCardFrom(source: HTMLElement): HTMLElement {
+  const card = source.cloneNode(true) as HTMLElement;
+  for (const name of card.getAttributeNames()) {
+    if (name.startsWith("hx-") || name === "draggable") card.removeAttribute(name);
+  }
+  card.id = "timetable-drag-card";
+  card.inert = true;
+  return card;
+}
+
+function hideDragCard(drag: Drag): void {
+  drag.card.remove();
+  hideHoverPreview();
+}
+
+// The card sits where the drop will land, snapped and sized to the session;
+// the time and any warning follow the pointer in the hover preview.
+function showDragCard(col: HTMLElement, start: number, drag: Drag, pointer: MouseEvent): void {
   const cal = dayGridForColumn(col);
   if (!cal) return;
   const minutePx = pxPerMinute(cal);
-  const { text, verdict } = placementLabel(cal, col, start, placement);
+  const { text, verdict } = placementLabel(cal, col, start, drag.placement);
 
-  const guide = dropGuide();
-  guide.style.top = `calc(${start * minutePx}px + 20px)`;
-  guide.style.height = `${Math.max(20, placement.duration * minutePx)}px`;
-  guide.dataset.verdict = verdict ?? "";
-  guide.textContent = text;
-  if (guide.parentElement !== col) col.append(guide);
+  const height = `${blockHeightPx(minutePx, drag.placement)}px`;
+  drag.card.style.top = `${start * minutePx + GRID_TOP_PX}px`;
+  drag.card.style.height = height;
+  drag.card.style.minHeight = height;
+  drag.card.dataset.verdict = verdict ?? "";
+  if (drag.card.parentElement !== col) col.append(drag.card);
+  showHoverPreview(text, pointer);
 }
+
+const blockHeightPx = (minutePx: number, placement: Placement): number =>
+  Math.max(20, placement.duration * minutePx);
 
 function parsePreferredSlots(raw: string | undefined): PreferredSlot[] {
   if (!raw) return [];
@@ -132,7 +166,7 @@ function clearPreferredSlotOverlays(): void {
 
 function renderPreferredSlotOverlays(): void {
   clearPreferredSlotOverlays();
-  const slots = (armed ?? dragging)?.preferredSlots ?? [];
+  const slots = (armed ?? dragging?.placement)?.preferredSlots ?? [];
   if (slots.length === 0) return;
 
   for (const cal of dayGrids()) {
@@ -296,19 +330,20 @@ function placementFromDraggable(el: HTMLElement): Placement {
   };
 }
 
-// The snapped drop time, in minutes along the day grid's axis.
-function startMinutesAt(cal: HTMLElement, col: HTMLElement, clientY: number): number {
+// The snapped drop time, in minutes along the day grid's axis, for a block
+// whose top edge sits `grabPx` above the pointer.
+function startMinutesAt(cal: HTMLElement, col: HTMLElement, clientY: number, grabPx = 0): number {
   const slotMinutes = Number(cal.dataset.slotMinutes);
   const snapMinutes = Number(cal.dataset.snapMinutes) || slotMinutes;
   const pxPerSnap = snapMinutes * pxPerMinute(cal);
-  const rect = col.getBoundingClientRect();
-  return Math.floor((clientY - rect.top) / pxPerSnap) * snapMinutes;
+  const blockTopPx = clientY - grabPx - col.getBoundingClientRect().top - GRID_TOP_PX;
+  return Math.max(0, Math.floor(blockTopPx / pxPerSnap) * snapMinutes);
 }
 
-function placeAt(placement: Placement, col: HTMLElement, clientY: number): void {
+function placeAt(placement: Placement, col: HTMLElement, clientY: number, grabPx = 0): void {
   const cal = dayGridForColumn(col);
   if (!cal) return;
-  const startDt = dateAt(cal, startMinutesAt(cal, col, clientY));
+  const startDt = dateAt(cal, startMinutesAt(cal, col, clientY, grabPx));
   submitPlacement(placement, col.dataset.spacePk!, startDt);
 }
 
@@ -394,14 +429,29 @@ document.addEventListener("click", (e) => {
 
 // Drag & drop: session cards in the left pane and placed sessions on the grid
 // are draggable; dropping on a column places the session at the drop time. A
-// ghost guide (showDropGuide) tracks the snapped drop position while dragging.
+// copy of the card (showDragCard) tracks the snapped drop position while dragging.
 document.addEventListener("dragstart", (e) => {
   const el = (e.target as Element).closest?.<HTMLElement>('[draggable="true"][data-session-pk]');
   if (!el || !e.dataTransfer) return;
-  dragging = placementFromDraggable(el);
+  const placement = placementFromDraggable(el);
+  const cal = document.querySelector<HTMLElement>(".timetable-day-grid");
+  const maxGrabPx = cal ? blockHeightPx(pxPerMinute(cal), placement) : 0;
+  dragging = {
+    card: dragCardFrom(el),
+    grabPx: Math.min(Math.max(0, e.clientY - el.getBoundingClientRect().top), maxGrabPx),
+    placement,
+    source: el,
+  };
   e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData("text/plain", dragging.sessionPk);
-  markColumnsActive(dragging);
+  e.dataTransfer.setData("text/plain", placement.sessionPk);
+  e.dataTransfer.setDragImage(blankDragImage, 0, 0);
+  // NOTE: Chrome cancels a drag whose source changes look inside dragstart.
+  requestAnimationFrame(() => {
+    if (dragging?.source === el) el.classList.add("is-drag-source");
+  });
+  // The drag card already says where the drop lands and why it may not fit,
+  // so the tint click-to-place uses to mark the grid stays off while dragging.
+  markColumnsActive(null);
   renderPreferredSlotOverlays();
 });
 
@@ -409,34 +459,41 @@ document.addEventListener("dragover", (e) => {
   if (!dragging) return;
   const col = (e.target as Element).closest?.<HTMLElement>(".timetable-column");
   if (!col) {
-    hideDropGuide();
+    hideDragCard(dragging);
     return;
   }
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
   const cal = dayGridForColumn(col);
-  if (cal) showDropGuide(col, startMinutesAt(cal, col, e.clientY), dragging);
+  if (cal) showDragCard(col, startMinutesAt(cal, col, e.clientY, dragging.grabPx), dragging, e);
 });
 
 document.addEventListener("drop", (e) => {
+  if (!dragging) return;
   const col = (e.target as Element).closest?.<HTMLElement>(".timetable-column");
-  hideDropGuide();
-  if (!dragging || !col) return;
-  e.preventDefault();
-  placeAt(dragging, col, e.clientY);
-  dragging = null;
+  if (col) {
+    e.preventDefault();
+    placeAt(dragging.placement, col, e.clientY, dragging.grabPx);
+  }
+  endDrag();
 });
 
-document.addEventListener("dragend", () => {
-  dragging = null;
-  hideDropGuide();
+// Safe to call twice: a drop ends the drag, and dragend follows it.
+function endDrag(): void {
+  if (dragging) {
+    hideDragCard(dragging);
+    dragging.source.classList.remove("is-drag-source");
+    dragging = null;
+  }
   markColumnsActive(armed);
   if (armed) {
     renderPreferredSlotOverlays();
   } else {
     clearPreferredSlotOverlays();
   }
-});
+}
+
+document.addEventListener("dragend", endDrag);
 
 function placeClosedRanges(root: ParentNode): void {
   for (const el of root.querySelectorAll<HTMLElement>(".timetable-closed")) {
@@ -472,11 +529,7 @@ document.addEventListener("mousemove", (e) => {
   const cal = dayGridForColumn(col);
   if (!cal) return;
 
-  const preview = hoverPreview();
-  preview.textContent = placementLabel(cal, col, startMinutesAt(cal, col, e.clientY), armed).text;
-  preview.style.left = `${e.clientX + 12}px`;
-  preview.style.top = `${e.clientY + 12}px`;
-  preview.classList.remove("hidden");
+  showHoverPreview(placementLabel(cal, col, startMinutesAt(cal, col, e.clientY), armed).text, e);
 });
 
 document.addEventListener("mouseleave", hideHoverPreview);

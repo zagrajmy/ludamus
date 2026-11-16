@@ -282,6 +282,42 @@ msgstr "Zgłoszenie wycofane."
 msgid "Listing reopened."
 msgstr "Ogłoszenie wznowione."
 
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/panel/event-create.html
+msgid "Create event"
+msgstr "Utwórz wydarzenie"
+
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/gates/web/django/mcp/oauth.py src/ludamus/templates/design.html
+#: src/ludamus/templates/panel/base.html
+msgid "Event"
+msgstr "Wydarzenie"
+
+#: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/design.html
+msgid ""
+"For a convention or a bigger meetup. Collect program proposals and build a "
+"timetable."
+msgstr ""
+"Na konwent lub większy zlot. Zbierz zgłoszenia do programu i ułóż "
+"harmonogram."
+
+#: src/ludamus/gates/web/django/create_options.py
+msgid "Create encounter"
+msgstr "Utwórz spotkanie"
+
+#: src/ludamus/gates/web/django/create_options.py
+msgid "Encounter"
+msgstr "Spotkanie"
+
+#: src/ludamus/gates/web/django/create_options.py
+msgid ""
+"Just a description, a time and a place. Best for online RPG sessions, game "
+"jams and freeform meetups."
+msgstr ""
+"Wystarczy opis, termin i miejsce. Najlepsze na sesje RPG online, game jamy i "
+"luźne spotkania."
+
 #: src/ludamus/gates/web/django/dashboard.py
 msgid ""
 "Promotional emails are available only after confirming you are 16 or older."
@@ -3502,11 +3538,6 @@ msgstr "Klient chce wrócić pod adres, którego nie ma w jego metadanych."
 msgid "This connection request expired. Start again from your client."
 msgstr "To żądanie połączenia wygasło. Zacznij od nowa w swoim kliencie."
 
-#: src/ludamus/gates/web/django/mcp/oauth.py
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
-
 #: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
 msgid "Privacy Policy"
 msgstr "Polityka prywatności"
@@ -4356,32 +4387,33 @@ msgid "An address can have at most two lines."
 msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Public: listed and announced to followers from its publication time"
+msgid "Link only: anyone with the link can open it; never listed or announced"
 msgstr ""
-"Publiczne: od czasu publikacji widoczne na listach i ogłaszane obserwującym"
+"Tylko przez link: każdy z linkiem może je otworzyć; nie pojawia się na "
+"listach ani w powiadomieniach"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"Link only: anyone with the link can open it now; never listed or announced"
+msgid "Public now: listed and announced to followers"
+msgstr "Publiczne od teraz: widoczne na listach i ogłaszane obserwującym"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Publish at a set time: listed and announced from then"
 msgstr ""
-"Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-"się na listach ani w powiadomieniach"
+"Publikacja w wybranym terminie: od tego terminu widoczne na listach i "
+"ogłaszane obserwującym"
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Who can see the event"
 msgstr "Kto widzi wydarzenie"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid "Publication time"
-msgstr "Czas publikacji"
+msgid "Publish at"
+msgstr "Termin publikacji"
 
 #: src/ludamus/gates/web/django/settings_forms.py
-msgid ""
-"For a public event: when it appears in event lists and followers are "
-"notified. Leave empty to keep it hidden."
+msgid "Leave empty to keep the event hidden until you pick a time."
 msgstr ""
-"Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-"dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+"Zostaw puste, a wydarzenie pozostanie ukryte, dopóki nie wybierzesz terminu."
 
 #: src/ludamus/gates/web/django/settings_forms.py
 msgid "Use sphere default"
@@ -5201,6 +5233,15 @@ msgstr "Skopiowano!"
 #: src/ludamus/gates/web/django/templatetags/tessera/copy.py
 msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
+#: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/notifications/parts/modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Close"
+msgstr "Zamknij"
 
 #: src/ludamus/gates/web/django/user/age_range.py
 msgid "Age range saved. Your bookings are unchanged."
@@ -7593,10 +7634,13 @@ msgstr ""
 "Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
 "niczego Cię nie zobowiązuje."
 
-#: src/ludamus/templates/components/create_encounter_button.html
-#: src/ludamus/templates/encounter/create.html
-msgid "Create Encounter"
-msgstr "Utwórz spotkanie"
+#: src/ludamus/templates/components/create_button.html
+msgid "Organize"
+msgstr "Zorganizuj"
+
+#: src/ludamus/templates/components/create_button.html
+msgid "What do you want to organize?"
+msgstr "Co chcesz zorganizować?"
 
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "This value is too long to add here."
@@ -8315,6 +8359,10 @@ msgstr "lub"
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
 
+#: src/ludamus/templates/encounter/create.html
+msgid "Create Encounter"
+msgstr "Utwórz spotkanie"
+
 #: src/ludamus/templates/encounter/detail.html
 msgid "Your encounter"
 msgstr "Twoje spotkanie"
@@ -8869,14 +8917,6 @@ msgstr "Wprowadź Inny Kod"
 #: src/ludamus/templates/event/event.html
 msgid "Finish"
 msgstr "Zakończ"
-
-#: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
 
 #: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"
@@ -11602,10 +11642,6 @@ msgstr "Otwórz ustawienia wydarzenia"
 msgid "This sphere has no events yet. Create the first one to open the panel."
 msgstr ""
 "Ta sfera nie ma jeszcze wydarzeń. Utwórz pierwsze, żeby otworzyć panel."
-
-#: src/ludamus/templates/panel/event-create.html
-msgid "Create event"
-msgstr "Utwórz wydarzenie"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid ""
@@ -15312,6 +15348,27 @@ msgstr ""
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
 
 #~ msgid "Select a language:"
 #~ msgstr "Wybierz język:"

@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from django.urls import reverse
@@ -17,10 +17,6 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_rendered
 
-PRODUCT_PITCH = (
-    "A convention without spreadsheet chaos. Programme proposals, a schedule of"
-    " rooms and tracks, sign-ups with seat limits and a waitlist."
-)
 LANDING_TITLE = "Zagrajmy • conventions and events"
 LANDING_PITCH = (
     "Zagrajmy runs your event programme: proposals, review, the schedule, the"
@@ -207,10 +203,15 @@ class TestMetaDescription:
         assert description.endswith("| Kolacja i planszówki")
         assert _descriptions(response) == [description] * 3
 
-    def test_event_without_a_description_falls_back_to_the_default(
-        self, client, sphere
-    ):
-        event = EventFactory(sphere=sphere, description="")
+    def test_event_without_a_description_says_when_and_where(self, client, sphere):
+        start = datetime(2026, 11, 20, 15, 0, tzinfo=UTC)
+        event = EventFactory(
+            sphere=sphere,
+            description="",
+            address="Kawa i kot",
+            start_time=start,
+            end_time=start + timedelta(hours=5, minutes=35),
+        )
 
         response = _get_ok(
             client,
@@ -218,7 +219,28 @@ class TestMetaDescription:
             ["event/event.html"],
         )
 
-        assert _descriptions(response) == [PRODUCT_PITCH] * 3
+        expected = "Friday, 20 November · 16:00–21:35 — Kawa i kot"
+        assert _descriptions(response) == [expected] * 3
+
+    def test_a_several_day_event_without_a_description_names_both_days(
+        self, client, sphere
+    ):
+        start = datetime(2026, 5, 16, 8, 0, tzinfo=UTC)
+        event = EventFactory(
+            sphere=sphere,
+            description="",
+            address="",
+            start_time=start,
+            end_time=start + timedelta(days=1, hours=8),
+        )
+
+        response = _get_ok(
+            client,
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            ["event/event.html"],
+        )
+
+        assert _descriptions(response) == ["Saturday, 16 May – Sunday, 17 May"] * 3
 
     def test_encounter_description_keeps_ampersands_readable(self, client, sphere):
         encounter = EncounterFactory(
