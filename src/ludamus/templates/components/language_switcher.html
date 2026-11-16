@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n tessera %}
 {% get_current_language as current_language %}
 {% get_available_languages as available_languages %}
 {% get_language_info_list for available_languages as languages %}
@@ -12,19 +12,14 @@
         <p class="text-sm text-foreground-secondary mb-3">
             {% translate "Used for this site in this browser and for the messages we send you." %}
         </p>
-        <div class="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-bg-tertiary">
-            {# Each name in its own language: the one a reader of it recognises. #}
+        {# Each name in its own language: the one a reader of it recognises. #}
+        {% tessera_choice_buttons name="language" selected=current_language %}
             {% for language in languages %}
-                <button type="submit"
-                        name="language"
-                        value="{{ language.code }}"
-                        lang="{{ language.code }}"
-                        aria-pressed="{% if language.code == current_language %}true{% else %}false{% endif %}"
-                        class="flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium cursor-pointer transition-colors text-foreground-muted hover:text-foreground aria-pressed:bg-bg-secondary aria-pressed:text-foreground aria-pressed:shadow-xs">
+                {% tessera_choice_button language.code lang=language.code %}
                     {% include "components/language_flag.html" with code=language.code only %}
                     {{ language.name_local|capfirst }}
-                </button>
+                {% end_tessera_choice_button %}
             {% endfor %}
-        </div>
+        {% end_tessera_choice_buttons %}
     </fieldset>
 </form>

@@ -2,7 +2,7 @@
 // cmdk) loads on first use, so pages that never open it pay for this file
 // only.
 
-let menu: Promise<{ toggle: () => void }> | undefined;
+let menu: Promise<{ toggle: () => void } | undefined> | undefined;
 
 /**
  * What a signed-in person can search beyond the fixed commands: one fragment
@@ -28,13 +28,18 @@ const loadEntries = async (source: HTMLElement): Promise<boolean> => {
 const load = (): typeof menu => {
   const source = document.querySelector<HTMLElement>("[data-command-menu]");
   if (!source) return undefined;
-  menu ??= Promise.all([import("./command-menu/menu"), loadEntries(source)]).then(
-    ([{ mountCommandMenu }, loaded]) => mountCommandMenu(source, { entriesFailed: !loaded }),
-  );
+  menu ??= Promise.all([import("./command-menu/menu"), loadEntries(source)])
+    .then(([{ mountCommandMenu }, loaded]) => mountCommandMenu(source, { entriesFailed: !loaded }))
+    // A failed download must not be the answer for the rest of the page's
+    // life: the next shortcut or click tries again.
+    .catch((error: unknown): undefined => {
+      menu = undefined;
+      console.warn("Command menu: did not load.", error);
+    });
   return menu;
 };
 
-const toggle = (): void => void load()?.then((mounted) => mounted.toggle());
+const toggle = (): void => void load()?.then((mounted) => mounted?.toggle());
 
 document.addEventListener("keydown", (event) => {
   if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;

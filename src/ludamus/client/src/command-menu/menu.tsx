@@ -180,26 +180,56 @@ function Palette({
     return value;
   };
 
+  // NOTE: a link row is a real link, so the browser's own gestures work on
+  // it: a modified click or a middle click opens another tab, and the context
+  // menu offers the address. A plain click or Enter goes through `run`.
+  const besideThisTab = useRef(false);
+
   const itemRow = (item: Item, keywords: string[]) => {
     const value = valueOf(item);
-    return (
-      <Command.Item
-        aria-current={item.checked || undefined}
-        className={ROW}
-        key={value}
-        keywords={[...keywords, ...item.keywords]}
-        lang={item.source.lang || undefined}
-        onSelect={() => {
-          close();
-          run(item);
-        }}
-        value={value}
-      >
+    const { source } = item;
+    const body = (
+      <>
         <Glyph className={ROW_ICON} svg={item.icon} />
         <span className="truncate">{item.label}</span>
         {item.hint && <span className={ROW_HINT}>{item.hint}</span>}
         {item.checked && (
           <Glyph className="ml-auto size-4 shrink-0 *:size-4" svg={templateIcon("checked")} />
+        )}
+      </>
+    );
+    return (
+      <Command.Item
+        aria-current={item.checked || undefined}
+        asChild={source instanceof HTMLAnchorElement}
+        className={ROW}
+        key={value}
+        keywords={[...keywords, ...item.keywords]}
+        lang={source.lang || undefined}
+        onSelect={() => {
+          if (besideThisTab.current) {
+            besideThisTab.current = false;
+            return;
+          }
+          close();
+          run(item);
+        }}
+        value={value}
+      >
+        {source instanceof HTMLAnchorElement ? (
+          <a
+            draggable={false}
+            href={source.href}
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey) besideThisTab.current = true;
+              else event.preventDefault();
+            }}
+            tabIndex={-1}
+          >
+            {body}
+          </a>
+        ) : (
+          body
         )}
       </Command.Item>
     );

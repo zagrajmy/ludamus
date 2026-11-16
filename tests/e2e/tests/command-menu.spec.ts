@@ -106,6 +106,22 @@ test.describe("Command menu", () => {
     await expect(page).toHaveURL(/localhost:8000\/$/);
   });
 
+  test("a modified click opens the page in another tab and leaves this one be", async ({
+    context,
+    page,
+  }) => {
+    await page.keyboard.press("ControlOrMeta+k");
+    const menu = page.getByRole("dialog", { name: "Command menu" });
+    const [opened] = await Promise.all([
+      context.waitForEvent("page"),
+      menu.getByRole("option", { name: "Events" }).click({ modifiers: ["ControlOrMeta"] }),
+    ]);
+
+    await expect(opened).toHaveURL(/localhost:8000\/$/);
+    await expect(page).toHaveURL(/\/about\/$/);
+    await expect(menu).toBeVisible();
+  });
+
   test("switches the theme and keeps the footer switcher in step", async ({ page }) => {
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("option", { name: "Theme" }).click();

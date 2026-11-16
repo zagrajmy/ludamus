@@ -61,7 +61,7 @@ fi
 # fixed names the e2e suite serves. portless needs no entry here: its proxy
 # writes each route's hostname to /etc/hosts itself (PORTLESS_SYNC_HOSTS).
 for host in ludamus another foreign feed crew; do
-  grep -q "[[:space:]]$host\.localhost\$" /etc/hosts 2> /dev/null \
+  grep -Eq "^[^#]*[[:space:]]$host\.localhost([[:space:]]|\$)" /etc/hosts 2> /dev/null \
     || echo "127.0.0.1 $host.localhost" >> /etc/hosts \
     || echo "WARN: could not add $host.localhost to /etc/hosts; e2e on it will not resolve"
 done

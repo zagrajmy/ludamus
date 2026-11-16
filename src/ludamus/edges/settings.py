@@ -396,6 +396,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
+    "/language/",
     # An invitation is how a stranger becomes a member of a private sphere.
     "/multiverse/join/",
     "/auth-error/",
