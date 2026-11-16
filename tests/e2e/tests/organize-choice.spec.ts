@@ -38,7 +38,7 @@ test.describe("with events and encounters on offer", () => {
 
     await page.getByRole("link", { name: "Organize" }).click();
     await encounter.click();
-    await expect(page.getByRole("heading", { level: 1, name: "Create Encounter" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create encounter" })).toBeVisible();
 
     await page.goto(`${CREW_SPHERE}/`);
     await page.getByRole("link", { name: "Organize" }).click();

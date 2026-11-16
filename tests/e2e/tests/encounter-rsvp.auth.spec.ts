@@ -44,7 +44,7 @@ test("guests join, save the date, give a spot back, and the full encounter turns
   await page.getByLabel("Place").fill("The back room");
   await page.getByLabel("Start time").fill("2031-06-01T19:00");
   await page.getByLabel("Max participants").fill("2");
-  await page.getByRole("button", { name: "Create Encounter" }).click();
+  await page.getByRole("button", { name: "Create encounter" }).click();
   await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
   await expect(page).toHaveURL(/\/e\/\w+\/$/);
   const shareUrl = new URL(page.url()).pathname;

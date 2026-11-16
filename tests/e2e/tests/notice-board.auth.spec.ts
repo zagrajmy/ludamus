@@ -59,7 +59,7 @@ test.describe("Encounter invitees", () => {
     await page
       .getByLabel("Invite by email")
       .fill("ala@example.com, bob@example.com\nala@example.com");
-    await page.getByRole("button", { name: "Create Encounter" }).click();
+    await page.getByRole("button", { name: "Create encounter" }).click();
 
     await expect(page.getByRole("heading", { name: "Invite-only Catan" })).toBeVisible();
     const invited = page.getByRole("heading", { name: "Invited (2)" }).locator("..");
@@ -75,7 +75,7 @@ test.describe("Encounter invitees", () => {
     await page.getByLabel("Title").fill("Typo night");
     await page.getByLabel("Start time").fill("2031-05-01T19:00");
     await page.getByLabel("Invite by email").fill("ala@example.com, not-an-address");
-    await page.getByRole("button", { name: "Create Encounter" }).click();
+    await page.getByRole("button", { name: "Create encounter" }).click();
 
     await expect(page.getByText("These are not email addresses: not-an-address")).toBeVisible();
     await expect(page.getByLabel("Invite by email")).toHaveValue("ala@example.com, not-an-address");
