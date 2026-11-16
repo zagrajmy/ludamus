@@ -332,6 +332,7 @@ def grid_with(
         total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
         first_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + 1,
         last_space_number=(page - 1) * TIMETABLE_ROOM_PAGE_SIZE + len(space_dtos),
+        columns_per_day=len(space_dtos),
         total_columns=len(space_dtos) * len(days),
         available_dates=[day.date for day in days],
         date_selection=date_selection,
@@ -405,6 +406,28 @@ def time_slots_page_context(
         "total_pages": total_pages,
         "create_form": create_form,
     }
+
+
+def settings_url(event):
+    return reverse("panel:event-settings", kwargs={"slug": event.slug})
+
+
+def settings_post_data(event, **overrides):
+    data = {
+        "name": event.name,
+        "slug": event.slug,
+        "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
+        "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
+        # NOTE: re-posts the stored publication as it stands.
+        "publication": "scheduled",
+        "publication_time": (
+            localtime(event.publication_time).strftime("%Y-%m-%dT%H:%M")
+            if event.publication_time
+            else ""
+        ),
+    }
+    data.update(overrides)
+    return data
 
 
 def settings_tab_urls(event):

@@ -89,6 +89,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -115,6 +116,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [time_slot.pk],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -210,6 +212,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -258,6 +261,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": "spaces",
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -280,6 +284,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": "time_slots",
+                "taken_space_ids_by_slot": {},
             },
             template_name="event/accept_proposal.html",
         )
@@ -307,6 +312,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -338,6 +344,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -420,6 +427,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -646,6 +654,7 @@ class TestProposalAcceptPageView:
                 "field_values": [],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -684,7 +693,10 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
-                "schedule_blocker": None,
+                # The page shows the slot's only space as taken, so a manager
+                # who loads it now has nothing to submit.
+                "schedule_blocker": "full",
+                "taken_space_ids_by_slot": {time_slot.id: [space.id]},
             },
             template_name="event/accept_proposal.html",
         )
@@ -736,6 +748,7 @@ class TestProposalAcceptPageView:
                 ],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -785,6 +798,7 @@ class TestProposalAcceptPageView:
                 ],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )
@@ -834,6 +848,7 @@ class TestProposalAcceptPageView:
                 ],
                 "preferred_time_slot_ids": [],
                 "schedule_blocker": None,
+                "taken_space_ids_by_slot": {time_slot.id: []},
             },
             template_name="event/accept_proposal.html",
         )

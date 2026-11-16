@@ -875,6 +875,7 @@ class Services:
             self._transaction,
             self._timetable_repos,
             categories=self._repos.proposal_categories,
+            spheres=self._repos.spheres,
         )
 
     @cached_property
