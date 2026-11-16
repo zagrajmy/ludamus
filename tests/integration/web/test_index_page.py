@@ -11,15 +11,17 @@ from django.test import override_settings
 from django.urls import reverse
 from freezegun import freeze_time
 
+from ludamus.gates.web.django.create_options import encounter_option, event_option
 from ludamus.gates.web.django.event.event_presentation import EventInfo
 from ludamus.gates.web.django.events import FeedEncounter, FeedEvent
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.links.db.django.models import Announcement, Track
+from ludamus.links.db.django.models import Announcement, SphereMembership, Track
 from ludamus.pacts.dashboard import DashboardDTO
 from ludamus.pacts.encounter import (
     PAST_FEED_LIMIT,
     EncounterDTO,
     EncounterIndexItem,
+    EncountersPolicy,
     InviteeStatus,
 )
 from ludamus.pacts.event import (
@@ -28,7 +30,7 @@ from ludamus.pacts.event import (
     LandingConventionDTO,
     LandingStatsDTO,
 )
-from ludamus.pacts.sphere import AnnouncementDTO
+from ludamus.pacts.sphere import AnnouncementDTO, SphereRole
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
@@ -110,7 +112,7 @@ class TestIndexRedirectView:
                     discover=[],
                     past_events=[],
                 ),
-                "can_create_encounter": True,
+                "create_options": (encounter_option(),),
             },
             template_name="dashboard/index.html",
         )
@@ -183,7 +185,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -202,7 +204,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -224,7 +226,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -260,7 +262,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event, session_count=2)],
                 "view": ANY,
@@ -284,7 +286,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [FeedEvent(entry=expected)],
                 "view": ANY,
@@ -306,7 +308,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -328,7 +330,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -350,7 +352,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -378,7 +380,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [
                     _expected_feed_event(soon, cover_index=0),
@@ -411,7 +413,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [
                     _expected_feed_event(recent, cover_index=0),
                     _expected_feed_event(older, cover_index=1),
@@ -462,14 +464,16 @@ class TestEventsPageView:
                     _expected_feed_event(older, cover_index=1),
                 ],
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "view": ANY,
             },
             template_name=["index.html"],
         )
 
     @pytest.mark.usefixtures("panel_access_user")
-    def test_panel_link_shown_for_manager_and_superuser(self, authenticated_client):
+    def test_manager_and_superuser_are_offered_an_event_and_an_encounter(
+        self, authenticated_client
+    ):
         response = authenticated_client.get(self.URL)
 
         assert_response(
@@ -477,16 +481,15 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
+                "create_options": (event_option(), encounter_option()),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
-            contains='href="/panel/"',
         )
 
-    def test_panel_link_hidden_for_non_manager(self, authenticated_client):
+    def test_member_is_offered_an_encounter_only(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
         assert_response(
@@ -494,13 +497,56 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
+                "create_options": (encounter_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
-            not_contains='href="/panel/"',
+        )
+
+    def test_comms_member_reads_the_panel_but_cannot_organize_an_event(
+        self, authenticated_client, active_user, non_root_sphere
+    ):
+        SphereMembership.objects.create(
+            sphere=non_root_sphere, user=active_user, role=SphereRole.COMMS
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "create_options": (encounter_option(),),
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_manager_offered_only_an_event_while_encounters_are_off(
+        self, authenticated_client, non_root_sphere
+    ):
+        non_root_sphere.encounters_policy = EncountersPolicy.NONE
+        non_root_sphere.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "create_options": (event_option(),),
+                "past": [],
+                "upcoming": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
         )
 
     def test_published_announcement_shown(self, client, non_root_sphere):
@@ -515,13 +561,12 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [AnnouncementDTO.model_validate(announcement)],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
-            contains=["Welcome", "Hello there"],
         )
 
     def test_draft_announcement_hidden(self, client, non_root_sphere):
@@ -536,13 +581,12 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
             },
             template_name=["index.html"],
-            not_contains="Secret",
         )
 
     def test_announcement_scoped_to_current_sphere(self, client, sphere):
@@ -555,7 +599,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -573,7 +617,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -597,7 +641,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -617,7 +661,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
+                "create_options": (encounter_option(),),
                 "past": [],
                 "upcoming": [],
                 "view": ANY,
@@ -638,7 +682,7 @@ class TestEventsPageView:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": True,
+                "create_options": (event_option(), encounter_option()),
                 "past": [],
                 "upcoming": [_expected_feed_event(event)],
                 "view": ANY,
@@ -647,10 +691,10 @@ class TestEventsPageView:
         )
 
 
-def _feed_context(*, upcoming=(), past=(), can_create_encounter=False):
+def _feed_context(*, upcoming=(), past=(), create_options=()):
     return {
         "announcements": [],
-        "can_create_encounter": can_create_encounter,
+        "create_options": create_options,
         "past": list(past),
         "upcoming": list(upcoming),
         "view": ANY,
@@ -719,7 +763,7 @@ class TestEventsPageFeed:
             HTTPStatus.OK,
             context_data={
                 "announcements": [],
-                "can_create_encounter": False,
+                "create_options": (),
                 "past": [],
                 "upcoming": [
                     _expected_feed_encounter(encounter, organizer_name="Pub Organizer"),
@@ -794,7 +838,7 @@ class TestEventsPageFeed:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_feed_context(can_create_encounter=True),
+            context_data=_feed_context(create_options=(encounter_option(),)),
             template_name=["index.html"],
         )
 
@@ -815,7 +859,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                can_create_encounter=True,
+                create_options=(encounter_option(),),
                 upcoming=[
                     _expected_feed_encounter(encounter, organizer_name="", is_mine=True)
                 ],
@@ -841,7 +885,7 @@ class TestEventsPageFeed:
             response,
             HTTPStatus.OK,
             context_data=_feed_context(
-                can_create_encounter=True,
+                create_options=(encounter_option(),),
                 upcoming=[
                     _expected_feed_encounter(
                         encounter, organizer_name="Host", rsvp_count=1
@@ -917,7 +961,7 @@ class TestEventsPageFeed:
             is_public=True,
             start_time=datetime.now(UTC) + timedelta(days=2),
         )
-        non_root_sphere.encounters_policy = "none"
+        non_root_sphere.encounters_policy = EncountersPolicy.NONE
         non_root_sphere.save()
 
         response = client.get(self.URL)

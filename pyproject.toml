@@ -44,7 +44,7 @@ opentelemetry-exporter-otlp-proto-http = "~1.45.2"
 opentelemetry-sdk = "~1.45.2"
 pillow = "~13.0.0"
 posthog = "~7.81.1"
-psycopg = "~3.3.7"
+psycopg = "~3.3.8"
 pydantic = "~2.14.0"
 requests = "~2.34.2"
 segno = "~1.6.6"
@@ -167,7 +167,7 @@ template_extensions = 'html'
 # T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
 # `{% end_name %}` closers as well as `{% endname %}`.
 ignore = "H021,H031,H037,D018,T038"
-custom_blocks = "select,session_fact,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,session_fact,split_view,split_view_list,split_view_row,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 

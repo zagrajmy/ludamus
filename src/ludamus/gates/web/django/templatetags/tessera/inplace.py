@@ -50,9 +50,11 @@ def inplace_look(*, shape: InplaceShape, unit: bool = False) -> str:
     return f"{look} {_UNIT_ROOM}" if unit else look
 
 
-# The cover's dropzone, at the height of the card strip it fills.
+# The cover's dropzone: a strip at the card's height while empty. A picked
+# image drops the fixed height so the dropzone's 16:9 frame and crop guide
+# take over, as on every other cover upload.
 INPLACE_DROPZONE_LOOK = (
     "h-40 px-4 rounded-xl border border-dashed border-warm-400"
     " dark:border-neutral-600 transition-colors duration-150 hover:duration-0"
-    " hover:bg-foreground/5 data-[state=image]:border-0"
+    " hover:bg-foreground/5 data-[state=image]:border-0 data-[state=image]:h-auto"
 )

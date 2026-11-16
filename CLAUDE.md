@@ -96,6 +96,9 @@ constructor, and own transactional boundaries.
 - Highly prefer E2E tests as the sole testing mechanism. Use them to verify
   complex features work. At the end of E2E tests, produce a verifiable and
   repeatable artifact.
+- E2E tests check behaviour through what assistive tech sees: roles, accessible
+  names, labels, focus and ARIA state, not CSS selectors or ids. They take no
+  `page.screenshot`; screenshots belong in the PR description.
 - If you must test a system in isolation, first write down all the ways it
   could fail, then write the code.
 - Tautological tests considered harmful: a test that restates the code it

@@ -91,7 +91,6 @@ env = environ.Env(
     # can tell the two apart (currently: the favicon variant).
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
-    SUPPORT_EMAIL=(str, "support@example.com"),
     MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
@@ -422,7 +421,8 @@ AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Shown on the error page and behind every Contact link.
+SUPPORT_EMAIL = "support@zagrajmy.net"
 # The DSA point of contact (Art. 11, 12): named in the terms and on the notice
 # form, the reply-to of every moderation mail, and where staff alerts go.
 STAFF_EMAIL = "staff@zagrajmy.net"
