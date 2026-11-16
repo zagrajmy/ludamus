@@ -303,6 +303,7 @@ msgstr ""
 "harmonogram."
 
 #: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/encounter/create.html
 msgid "Create encounter"
 msgstr "Utwórz spotkanie"
 
@@ -5257,9 +5258,7 @@ msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
-#: src/ludamus/templates/event/event.html
 #: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
 #: src/ludamus/templates/user/user/_email_verify_modal.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Close"
@@ -7133,6 +7132,7 @@ msgid "Publish listing"
 msgstr "Opublikuj ogłoszenie"
 
 #: src/ludamus/templates/board/_edit_actions.html
+#: src/ludamus/templates/encounter/edit.html
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/user/user/parties.html
 msgid "Save changes"
@@ -8331,10 +8331,6 @@ msgstr "lub"
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/encounter/create.html
-msgid "Create Encounter"
-msgstr "Utwórz spotkanie"
 
 #: src/ludamus/templates/encounter/detail.html
 msgid "Your encounter"
@@ -15342,26 +15338,8 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
-#~ msgid "Public: listed and announced to followers from its publication time"
-#~ msgstr ""
-#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
-#~ "obserwującym"
-
-#~ msgid ""
-#~ "Link only: anyone with the link can open it now; never listed or announced"
-#~ msgstr ""
-#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-#~ "się na listach ani w powiadomieniach"
-
-#~ msgid "Publication time"
-#~ msgstr "Czas publikacji"
-
-#~ msgid ""
-#~ "For a public event: when it appears in event lists and followers are "
-#~ "notified. Leave empty to keep it hidden."
-#~ msgstr ""
-#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
 
 #~ msgid ""
 #~ "Every space is taken at every time this session can go. Add a space, or "
@@ -15504,6 +15482,27 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "All scheduled sessions are inside their preferred slots."
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
 
 #
 #~ msgid "Note added to the thread."
