@@ -14,7 +14,8 @@ def tessera_dialog_close_button(dialog_id: str) -> str:
     """Render the clear icon button that closes the dialog named ``dialog_id``.
 
     `modal.ts` closes the dialog a ``data-modal-close`` button names, and
-    clears that dialog's query parameter from the address.
+    clears that dialog's query parameter from the address. The button is a
+    44px square, a full touch target, around a 20px icon.
 
     Returns:
         HTML string of the close button.
@@ -23,7 +24,7 @@ def tessera_dialog_close_button(dialog_id: str) -> str:
         {% tessera_dialog_close_button "organize-modal" %}
     """
     return format_html(
-        '<button type="button" class="icon-btn icon-btn-clear"'
+        '<button type="button" class="icon-btn icon-btn-clear size-11 justify-center"'
         ' data-modal-close="{}" aria-label="{}">{}</button>',
         dialog_id,
         _("Close"),

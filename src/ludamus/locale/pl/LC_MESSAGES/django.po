@@ -303,6 +303,7 @@ msgstr ""
 "harmonogram."
 
 #: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/templates/encounter/create.html
 msgid "Create encounter"
 msgstr "Utwórz spotkanie"
 
@@ -5235,9 +5236,7 @@ msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
-#: src/ludamus/templates/event/event.html
 #: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
 #: src/ludamus/templates/user/user/_email_verify_modal.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Close"
@@ -7107,6 +7106,7 @@ msgid "Publish listing"
 msgstr "Opublikuj ogłoszenie"
 
 #: src/ludamus/templates/board/_edit_actions.html
+#: src/ludamus/templates/encounter/edit.html
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/user/user/parties.html
 msgid "Save changes"
@@ -8304,10 +8304,6 @@ msgstr "lub"
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Don't want to log in? Save the date instead:"
 msgstr "Nie chcesz się logować? Zapisz datę:"
-
-#: src/ludamus/templates/encounter/create.html
-msgid "Create Encounter"
-msgstr "Utwórz spotkanie"
 
 #: src/ludamus/templates/encounter/detail.html
 msgid "Your encounter"
@@ -15300,6 +15296,12 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
+
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
+
 #~ msgid "Public: listed and announced to followers from its publication time"
 #~ msgstr ""
 #~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
@@ -15320,9 +15322,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
 #~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
-
-#~ msgid "Invalid redirect URL."
-#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
