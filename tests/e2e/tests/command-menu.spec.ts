@@ -155,6 +155,25 @@ test.describe("Command menu", () => {
     }).toPass();
   });
 
+  test("opens over a modal dialog and hands the page back to it", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
+    const session = page.getByRole("dialog", { name: "Mega Strategy Lab" });
+    await expect(session).toBeVisible();
+
+    await page.keyboard.press("ControlOrMeta+k");
+    const menu = page.getByRole("dialog", { name: "Command menu" });
+    await expect(menu.getByRole("combobox")).toBeFocused();
+    await menu.getByRole("combobox").fill("theme");
+    await expect(menu.getByRole("option", { name: "Dark theme" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(session).toBeVisible();
+    await session.getByRole("button", { name: "Close" }).click();
+    await expect(session).toBeHidden();
+  });
+
   test("says so when nothing matches", async ({ page }) => {
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("combobox").fill("qqqq");

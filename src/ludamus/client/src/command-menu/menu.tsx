@@ -4,7 +4,7 @@
 // It holds no commands of its own. components/command-menu.html renders them
 // as real links and buttons, and picking one here clicks it there.
 
-import { Command } from "cmdk";
+import { Command, defaultFilter } from "cmdk";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -97,22 +97,10 @@ const run = ({ source }: Item): void => {
   else setTheme(theme);
 };
 
-// Every typed word has to appear, folded like the page's other searches so
-// "jezyk" finds "Język". cmdk's own matcher takes any letters in order, which
-// answers "fest" with "Facilitator Edit Demo" once a sphere's events are in.
-const FILTER_SCORE = { inside: 0.6, keywordOnly: 0.4, start: 1, wordStart: 0.8 };
-
-const foldedFilter = (value: string, search: string, keywords: string[] = []): number => {
-  const label = normalizeText(value);
-  const haystack = [label, ...keywords.map(normalizeText)].join(" ");
-  const words = normalizeText(search).split(/\s+/).filter(Boolean);
-  if (!words.every((word) => haystack.includes(word))) return 0;
-  if (label.startsWith(words.join(" "))) return FILTER_SCORE.start;
-  if (words.every((word) => ` ${label}`.includes(` ${word}`))) return FILTER_SCORE.wordStart;
-  return words.every((word) => label.includes(word))
-    ? FILTER_SCORE.inside
-    : FILTER_SCORE.keywordOnly;
-};
+// cmdk's own matcher, with both sides folded like the page's other searches
+// so "jezyk" finds "Język".
+const foldedFilter = (value: string, search: string, keywords: string[] = []): number =>
+  defaultFilter(normalizeText(value), normalizeText(search), keywords.map(normalizeText));
 
 function Glyph({ className, svg }: { className: string; svg: Element | null }) {
   return (
@@ -164,6 +152,7 @@ function Palette({
     const onEscape = (event: KeyboardEvent): void => {
       if (event.key !== "Escape") return;
       event.stopPropagation();
+      event.preventDefault();
       leave();
     };
     globalThis.addEventListener("keydown", onEscape, true);
@@ -328,15 +317,21 @@ export function mountCommandMenu(
 ): { toggle: () => void } {
   let open = false;
   const listeners = new Set<() => void>();
+  // NOTE: a native modal dialog owns the top layer and makes the rest of the
+  // page inert, so the menu is a modal dialog too: the newest one is on top.
+  // It has no box of its own; cmdk's overlay and panel are fixed inside it.
+  const host = document.createElement("dialog");
+  host.className =
+    "m-0 size-0 max-h-none max-w-none overflow-visible border-0 bg-transparent p-0 backdrop:bg-transparent";
   // NOTE: cmdk's dialog hands focus back to a Radix trigger only, and it has
   // none: the menu opens from a shortcut or a button outside React.
   let opener: Element | null = null;
   const setOpen = (next: boolean): void => {
     if (next === open) return;
-    // A native modal dialog owns the top layer: the menu would open under it.
-    if (next && document.querySelector("dialog:modal")) return;
     if (next) opener = document.activeElement;
     open = next;
+    if (next) host.showModal();
+    else host.close();
     for (const listener of listeners) listener();
     if (!next && opener instanceof HTMLElement) {
       const target = opener;
@@ -351,6 +346,7 @@ export function mountCommandMenu(
   function Mounted() {
     return (
       <Command.Dialog
+        container={host}
         contentClassName="fixed top-[20dvh] left-1/2 z-60 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-bg-secondary p-1 text-foreground shadow-(--shadow-elevated) transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none starting:scale-95 starting:opacity-0"
         filter={foldedFilter}
         label={source.dataset.title}
@@ -365,7 +361,9 @@ export function mountCommandMenu(
     );
   }
 
-  const host = document.createElement("div");
+  host.addEventListener("cancel", (event) => event.preventDefault());
+  // The browser may close the dialog on a second Escape without asking.
+  host.addEventListener("close", () => setOpen(false));
   document.body.append(host);
   createRoot(host).render(<Mounted />);
   return { toggle: () => setOpen(!open) };
