@@ -12,7 +12,17 @@ import {
   useState,
 } from "react";
 
-import type { Bootstrap, Message, Person, ReactionChange, Result, Room } from "./protocol";
+import {
+  answerOf,
+  type Bootstrap,
+  type Message,
+  type Person,
+  type ReactionChange,
+  type Result,
+  type Room,
+} from "./protocol";
+
+import type { RoomCache } from "./room-cache";
 
 import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
@@ -22,11 +32,11 @@ import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
 import { useMentionPicker } from "./mentions";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
+import { ThreadStart } from "./thread-start";
 import { type Muted, useRoom, withReactions } from "./use-room";
 
 const RUN_GAP = 5 * 60_000;
 const SEPARATOR_GAP = 30 * 60_000;
-const SEND_TIMEOUT = 10_000;
 const COMPOSER_MAX_HEIGHT = 128;
 // The Worker's limit, counted the way it counts: code points of the trimmed
 // body. The counter shows once a message gets near it.
@@ -147,17 +157,6 @@ function RequestSheet({
   );
 }
 
-// A socket that never answers would otherwise leave the composer saying
-// "Sending…" for good.
-function withTimeout<T>(call: Promise<Result<T>>): Promise<Result<T>> {
-  return Promise.race([
-    call,
-    new Promise<Result<T>>((resolve) =>
-      setTimeout(() => resolve({ code: "timeout", ok: false }), SEND_TIMEOUT),
-    ),
-  ]);
-}
-
 function ReadObserver({
   latestId,
   onRead,
@@ -180,33 +179,6 @@ function ReadObserver({
   return null;
 }
 
-// Stand-ins for a thread still on its way, laid out like one: others on the
-// left behind a face, this person on the right.
-const SKELETON = [
-  { own: false, width: "w-40" },
-  { own: false, width: "w-28" },
-  { own: true, width: "w-36" },
-  { own: false, width: "w-48" },
-  { own: true, width: "w-24" },
-] as const;
-
-function ThreadSkeleton() {
-  return (
-    <div aria-hidden="true" className="parley-skeleton flex flex-col gap-3 px-3 pt-6">
-      {SKELETON.map(({ own, width }, index) => (
-        <div className={`flex items-end gap-2 ${own ? "flex-row-reverse" : ""}`} key={index}>
-          {!own && (
-            <span className="parley-breathe size-7 shrink-0 rounded-full bg-warm-200 dark:bg-neutral-800" />
-          )}
-          <span
-            className={`parley-breathe h-9 rounded-[1.125rem] bg-warm-200 dark:bg-neutral-800 ${width}`}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function sameRun(previous: Message | undefined, message: Message): boolean {
   return (
     previous !== undefined &&
@@ -220,6 +192,7 @@ export function Conversation({
   back,
   blocked,
   bootstrap,
+  cache,
   close,
   details,
   onBlock,
@@ -234,6 +207,7 @@ export function Conversation({
   // Ids of the people this person blocked: their messages stay hidden.
   blocked: Set<string>;
   bootstrap: Bootstrap;
+  cache: RoomCache;
   close: () => void;
   details: { open: () => void; trigger: Ref<HTMLButtonElement> } | null;
   // Blocks someone, answering with the problem if it did not go through;
@@ -254,20 +228,18 @@ export function Conversation({
   const {
     agent,
     earlier,
-    failed,
-    load,
-    loaded,
+    history,
+    loadEarlier,
     messages,
     muted,
     offline,
     presence,
-    remembered,
-    retry,
     setMessages,
     setMuted,
     typists,
   } = useRoom({
     agentHost: bootstrap.agentHost,
+    cache,
     onPassClosed,
     onRefused,
     room,
@@ -379,7 +351,7 @@ export function Conversation({
     setSending(true);
     setNotice(null);
     const { draft, picks } = picker;
-    const result = await withTimeout(
+    const result = await answerOf(
       agent.call<Result<Message>>("sendMessage", [{ ...draft, nonce: crypto.randomUUID() }]),
     );
     setSending(false);
@@ -411,7 +383,7 @@ export function Conversation({
     }
   };
   const call = async (method: string, input: Record<string, unknown>, notice: string | null) => {
-    const result = await withTimeout(agent.call<Result<unknown>>(method, [input]));
+    const result = await answerOf(agent.call<Result<unknown>>(method, [input]));
     return result.ok ? { notice } : { error: errorMessage(result.code, copy) };
   };
   const remove = (id: number) =>
@@ -435,7 +407,7 @@ export function Conversation({
   // A refusal for muting is the composer's news, as when sending.
   const react = (messageId: number, emoji: string) =>
     act(async () => {
-      const result = await withTimeout(
+      const result = await answerOf(
         agent.call<Result<ReactionChange>>("toggleReaction", [{ emoji, messageId }]),
       );
       if (result.ok) setMessages((current) => withReactions(current, result.value));
@@ -673,54 +645,30 @@ export function Conversation({
         <ReadObserver latestId={messages.at(-1)?.id} onRead={onRead} />
         <MessageScroller.Root className="relative min-h-0 flex-1" data-menu-bounds>
           <MessageScroller.Viewport
-            aria-busy={!loaded && !failed}
+            aria-busy={history.state === "loading"}
             aria-label={copy.messageListLabel}
             className="parley-thread absolute inset-0 overflow-y-auto overscroll-contain"
             data-menu-scroller
           >
             <MessageScroller.Content
-              className={`flex min-h-full flex-col justify-end pb-7 ${loaded && !remembered ? "parley-thread-in" : ""}`}
+              className={`flex min-h-full flex-col justify-end pb-7 ${messages.length > 0 || history.state === "ready" ? "parley-thread-in" : ""}`}
             >
-              {failed ? (
-                <p
-                  className={`${loaded ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-1 px-6 text-center text-sm text-foreground-muted`}
-                  role="alert"
-                >
-                  {copy.historyFailed}
-                  <button
-                    className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                    onClick={retry}
-                    type="button"
-                  >
-                    {copy.retry}
-                  </button>
-                </p>
-              ) : loaded ? (
-                messages.length === 0 ? (
+              <ThreadStart
+                copy={copy}
+                earlier={earlier}
+                empty={
                   <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
                     <Avatar className="size-16 text-lg" name={room.title} src={face} />
                     <p className="mt-3 font-semibold text-foreground">{room.title}</p>
                     <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
                   </div>
-                ) : earlier ? (
-                  <button
-                    className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                    onClick={() => void load()}
-                    type="button"
-                  >
-                    {copy.loadEarlier}
-                  </button>
-                ) : (
-                  // A session room goes 30 days after its event, well inside the year.
-                  room.kind !== "session" && (
-                    <p className="mx-auto mt-3 max-w-64 px-6 text-center text-xs text-foreground-muted">
-                      {copy.retentionNote}
-                    </p>
-                  )
-                )
-              ) : (
-                <ThreadSkeleton />
-              )}
+                }
+                history={history}
+                loadEarlier={() => void loadEarlier()}
+                // A session room goes 30 days after its event, well inside the year.
+                retention={room.kind !== "session"}
+                shown={messages.length > 0}
+              />
               {messages.map((message, index) => {
                 const previous = messages[index - 1];
                 const next = messages[index + 1];

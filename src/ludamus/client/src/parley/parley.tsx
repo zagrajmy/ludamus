@@ -18,6 +18,7 @@ import { type Blocks, Details } from "./details";
 import { counted } from "./format";
 import { IconButton, TitleBar } from "./header";
 import { Icon } from "./icons";
+import { roomCache } from "./room-cache";
 import { BlockedPeople, NewGroup, NewMessage } from "./people";
 import { RoomList } from "./room-list";
 import {
@@ -219,6 +220,8 @@ function Connected({
   const { copy, user } = bootstrap;
   const api = useMemo(() => conversationsApi(bootstrap), [bootstrap]);
   const [conversations, setConversations] = useState(bootstrap.conversations);
+  // Keyed by the pass, as this component is, so it holds only this person's rooms.
+  const cache = useMemo(roomCache, []);
   const [blocked, setBlocked] = useState(bootstrap.blocked);
   const blockedIds = new Set(blocked.map(({ id }) => id));
   const [current, setCurrent] = useState<string | null>(null);
@@ -285,6 +288,7 @@ function Connected({
     async (id: string) => {
       const answer = await refresh();
       if (!answer.ok || answer.value.some((conversation) => conversation.id === id)) return true;
+      cache.forget(id);
       setView((current) =>
         (current.kind === "room" || current.kind === "details") && current.roomId === id
           ? { kind: "list" }
@@ -292,7 +296,7 @@ function Connected({
       );
       return false;
     },
-    [refresh, setView],
+    [cache, refresh, setView],
   );
 
   const upsert = (conversation: ConversationInfo) =>
@@ -302,6 +306,7 @@ function Connected({
         : [conversation, ...known],
     );
   const drop = (id: string) => {
+    cache.forget(id);
     setConversations((known) => known.filter((each) => each.id !== id));
     setView({ kind: "list" });
   };
@@ -462,6 +467,7 @@ function Connected({
                   back={single === undefined ? toList : null}
                   blocked={blockedIds}
                   bootstrap={bootstrap}
+                  cache={cache}
                   close={close}
                   details={
                     room.conversation === undefined

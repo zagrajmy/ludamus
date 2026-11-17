@@ -81,10 +81,6 @@
     animation: parley-appear 0.2s var(--ease-out) 0.25s both;
   }
 
-  .parley-breathe {
-    animation: parley-breathe 1.6s ease-in-out 0.45s infinite;
-  }
-
   .parley-thread-in {
     animation: parley-appear 0.15s var(--ease-out) both;
   }
@@ -92,12 +88,6 @@
   @keyframes parley-appear {
     from {
       opacity: 0;
-    }
-  }
-
-  @keyframes parley-breathe {
-    50% {
-      opacity: 0.5;
     }
   }
 
@@ -122,7 +112,6 @@
     }
 
     .parley-pulse,
-    .parley-breathe,
     .parley-thread-in {
       animation: none;
     }

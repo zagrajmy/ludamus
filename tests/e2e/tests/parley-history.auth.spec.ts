@@ -11,6 +11,7 @@ test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json"
 
 const { copy } = bootstrap;
 const ROOM = "Zagrajmy";
+const REFUSED = { code: "rate_limited", ok: false };
 
 const reopen = async (panel: Locator) => {
   await panel.getByRole("button", { name: copy.backLabel }).click();
@@ -24,53 +25,74 @@ test("A room waits on stand-ins, offers a retry, and reopens from what it last s
   page,
 }) => {
   await routeBootstrap(page);
-  const first = [
-    message({ body: "Who brings the dice?", id: 1 }),
-    message({ authorId: bootstrap.user.id, body: "Me, two sets", id: 2 }),
+  // A full page, so there is history further back.
+  const latest = [
+    ...Array.from({ length: 48 }, (_, index) =>
+      message({ body: `Line ${index + 101}`, id: index + 101 }),
+    ),
+    message({ body: "Who brings the dice?", id: 149 }),
+    message({ authorId: bootstrap.user.id, body: "Me, two sets", id: 150 }),
   ];
   const worker = (await FakeWorker.install(page)).on("loadBefore", () => "silent");
 
   await page.goto("/");
   const panel = await openRoom(page, ROOM);
   const thread = panel.getByRole("region", { name: copy.messageListLabel });
+  const alert = panel.getByRole("alert");
 
   // Before the room answers, an empty list is no sign of an empty room.
   await expect(thread).toHaveAttribute("aria-busy", "true");
-  await expect(panel.locator(".parley-skeleton")).toBeVisible();
   await expect(panel.getByText(copy.emptyEvent)).toHaveCount(0);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-thread-loading.png" });
 
-  worker.on("loadBefore", () => ({ code: "rate_limited", ok: false }));
+  worker.on("loadBefore", () => REFUSED);
   await reopen(panel);
-  await expect(panel.getByRole("alert")).toContainText(copy.historyFailed);
-  await expect(panel.locator(".parley-skeleton")).toHaveCount(0);
+  await expect(alert).toContainText(copy.historyFailed);
+  await expect(thread).toHaveAttribute("aria-busy", "false");
   await expect(panel.getByText(copy.emptyEvent)).toHaveCount(0);
   await page.screenshot({ animations: "disabled", path: "screenshots/parley-thread-failed.png" });
 
-  worker.on("loadBefore", () => ({ ok: true, value: first }));
+  // Earlier history that will not load says so too, above the thread.
+  worker.on("loadBefore", (input) =>
+    input.beforeId === undefined ? { ok: true, value: latest } : REFUSED,
+  );
   await panel.getByRole("button", { name: copy.retry }).click();
   await expect(panel.getByText("Me, two sets")).toBeVisible();
-  await expect(thread).toHaveAttribute("aria-busy", "false");
-  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(alert).toHaveCount(0);
+  await panel.getByRole("button", { name: copy.loadEarlier }).click();
+  await expect(alert).toContainText(copy.historyFailed);
+  await expect(panel.getByText("Me, two sets")).toBeVisible();
+
+  worker.on("loadBefore", (input) =>
+    input.beforeId === undefined
+      ? { ok: true, value: latest }
+      : { ok: true, value: [message({ body: "The very first word", id: 100 })] },
+  );
+  await panel.getByRole("button", { name: copy.retry }).click();
+  await expect(panel.getByText("The very first word")).toBeVisible();
+  await expect(alert).toHaveCount(0);
+  expect(worker.called("loadBefore").at(-1)?.input).toEqual({ beforeId: 101, limit: 50 });
 
   // Reopened while the room is slow, the thread is already there.
   worker.on("loadBefore", () => "silent");
   await reopen(panel);
+  await expect(thread).toHaveAttribute("aria-busy", "true");
   await expect(panel.getByText("Who brings the dice?")).toBeVisible();
-  await expect(panel.locator(".parley-skeleton")).toHaveCount(0);
 
   // Once the room answers, its word replaces the remembered one: a message
   // deleted meanwhile does not linger.
   worker.on("loadBefore", () => ({
     ok: true,
     value: [
-      message({ body: "", deletedAt: Date.now(), id: 1 }),
-      first[1],
-      message({ body: "Bring snacks too", id: 3 }),
+      ...latest.slice(0, 48),
+      message({ body: "", deletedAt: Date.now(), id: 149 }),
+      latest[49],
+      message({ body: "Bring snacks too", id: 151 }),
     ],
   }));
   await reopen(panel);
   await expect(panel.getByText("Bring snacks too")).toBeVisible();
+  await expect(thread).toHaveAttribute("aria-busy", "false");
   await expect(panel.getByText("Who brings the dice?")).toHaveCount(0);
   await expect(panel.getByText(copy.deletedMessage)).toHaveCount(1);
   await expect(panel.getByText("Me, two sets")).toHaveCount(1);
@@ -88,5 +110,4 @@ test("An empty room says so once it has answered", async ({ page }) => {
     "aria-busy",
     "false",
   );
-  await expect(panel.locator(".parley-skeleton")).toHaveCount(0);
 });
