@@ -495,8 +495,4 @@ test("An encounter's chat reaches everyone signed up, and only the signup change
   await expect(details.getByLabel(copy.nameLabel)).toHaveCount(0);
   await expect(details.getByRole("button", { name: copy.leaveConversation })).toHaveCount(0);
   await analyzePageAccessibility(page);
-  await page.screenshot({
-    animations: "disabled",
-    path: "screenshots/parley-encounter-details.png",
-  });
 });
