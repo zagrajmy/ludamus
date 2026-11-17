@@ -131,7 +131,9 @@ class SphereTeamRepository(SphereTeamRepositoryProtocol):
     ) -> SphereInvitationDTO | None:
         invitation = (
             _open_invitations(sphere_id=sphere_id, now=now)
-            .select_for_update()
+            # NOTE: Postgres refuses FOR UPDATE on the nullable side of the
+            # outer join that `created_by` brings in, so lock this row only.
+            .select_for_update(of=("self",))
             .select_related("created_by")
             .filter(token_hash=token_hash)
             .first()

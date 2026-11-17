@@ -9,8 +9,12 @@ sign_commits = false
 review_skill = ".claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
 coverage = "mise run diff-cover"
 
-# Job names in .github/workflows/ci.yml, matched by prefix. `test` covers
-# test-postgres/-unit/-e2e and the aggregator; `tingle` is left out on
-# purpose — it is continue-on-error and never turns the board red.
-[cabinet.ci]
-gate_checks = ["checks", "frontend-analysis", "test"]
+# CI checks the rituals fix, keyed by a prefix of the check name. `test`
+# covers test-postgres/-unit/-e2e and the aggregator; `codecov/patch` is red
+# on missing patch coverage. `tingle` is left out on purpose — it is
+# continue-on-error and never turns the board red.
+[cabinet.ci.jobs]
+checks = {}
+frontend-analysis = {}
+test = {}
+"codecov/patch" = { covering = true }

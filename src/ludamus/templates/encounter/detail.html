@@ -15,6 +15,7 @@
 {% endblock twitter_image %}
 {% block header %}
 {% endblock header %}
+{% block parley_room %}{% if chat_id %}conversation:{{ chat_id }}{% endif %}{% endblock parley_room %}
 {% block body %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {# ── LEFT COLUMN: "what is this" ── #}

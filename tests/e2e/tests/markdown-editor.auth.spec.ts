@@ -30,7 +30,7 @@ test.describe("Markdown descriptions", () => {
     const painted = page.locator("pre", { hasText: "Bring **dice**." });
     await expect(painted.locator(".mdhl-strong")).toHaveText("**dice**");
 
-    await page.getByRole("button", { name: "Create Encounter" }).click();
+    await page.getByRole("button", { name: "Create encounter" }).click();
 
     await expect(page.getByRole("heading", { name: "Markdown night" })).toBeVisible();
     const body = page.locator(".prose").filter({ hasText: "Bring" });

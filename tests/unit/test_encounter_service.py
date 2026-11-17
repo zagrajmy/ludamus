@@ -19,6 +19,7 @@ from ludamus.specs.encounter import (
     CALENDAR_MAILS_PER_CREATOR_PER_DAY,
     ENCOUNTER_RSVP_THROTTLE_SECONDS,
     INVITEE_RETENTION_AFTER_END,
+    ORGANIZED_ENCOUNTERS_LIMIT,
 )
 from tests.unit.encounter_fakes import (
     CREATOR_ID,
@@ -27,6 +28,7 @@ from tests.unit.encounter_fakes import (
     START_TIME,
     EncounterWorld,
     FakeCache,
+    FakeEncounterChat,
     FakeEncounters,
     FakeInvitees,
     FakeMailer,
@@ -68,6 +70,7 @@ def _service(
             sites=sites,
             mailer=FakeMailer(),
             cache=cache or FakeCache(),
+            chat=FakeEncounterChat(),
         ),
     )
 
@@ -200,6 +203,38 @@ class TestEncounterFeed:
         assert [i.encounter.pk for i in mine.upcoming + mine.past] == [1, 2]
         assert (theirs.upcoming, theirs.past) == ([], [])
         assert [i.encounter.pk for i in soonest] == [1]
+
+
+class TestOrganizedEncounters:
+    # Ways this could fail: it hands over someone else's encounters, it
+    # answers on a sphere whose encounter pages are closed, or it has no cap.
+
+    def test_lists_only_what_the_person_created_past_ones_included(self):
+        mine = make_encounter(1)
+        mine_past = make_encounter(2).model_copy(
+            update={"start_time": START_TIME - timedelta(days=30)}
+        )
+        theirs = make_encounter(3).model_copy(update={"creator_id": OTHER_USER_ID})
+        service = _service(encounters=FakeEncounters([mine, theirs], past=[mine_past]))
+
+        organized = service.list_organized(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
+        assert organized == [mine, mine_past]
+
+    def test_is_empty_where_the_sphere_turned_encounters_off(self):
+        service = _service(
+            policy=EncountersPolicy.NONE, encounters=FakeEncounters([make_encounter(1)])
+        )
+
+        assert service.list_organized(sphere_id=SPHERE_ID, user_id=CREATOR_ID) == []
+
+    def test_is_capped(self):
+        rows = [make_encounter(pk) for pk in range(1, ORGANIZED_ENCOUNTERS_LIMIT + 3)]
+        service = _service(encounters=FakeEncounters(rows))
+
+        organized = service.list_organized(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
+        assert len(organized) == ORGANIZED_ENCOUNTERS_LIMIT
 
 
 class TestEncounterDetail:

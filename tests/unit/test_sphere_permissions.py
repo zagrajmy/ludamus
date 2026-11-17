@@ -55,6 +55,9 @@ class FakeSpheres:
     def update(self, sphere_id, data):
         self.updates.append((sphere_id, dict(data)))
 
+    def lock(self, sphere_id):
+        assert sphere_id == self.sphere.pk
+
 
 class FakeEvents:
     @staticmethod
@@ -73,9 +76,13 @@ class FakeEncounters:
 class FakeChat:
     def __init__(self):
         self.revoked = []
+        self.switched = []
 
     def revoke_sphere(self, *, sphere_id):
         self.revoked.append(sphere_id)
+
+    def sphere_chat_switched(self, *, sphere_id):
+        self.switched.append(sphere_id)
 
 
 def _service(*, spheres=None, encounters=None, users=None, chat=None):

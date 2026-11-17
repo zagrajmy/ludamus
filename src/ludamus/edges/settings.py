@@ -91,7 +91,6 @@ env = environ.Env(
     # can tell the two apart (currently: the favicon variant).
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
-    SUPPORT_EMAIL=(str, "support@example.com"),
     MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
@@ -303,6 +302,13 @@ LANGUAGE_CODE = "pl"
 
 LANGUAGES = [("pl", "Polski"), ("en", "English")]
 
+# A language picked in the footer or the command menu is a standing choice:
+# Django's default is a session cookie, which forgets it on browser restart.
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365
+LANGUAGE_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
+LANGUAGE_COOKIE_SAMESITE = "Lax"
+LANGUAGE_COOKIE_SECURE = IS_PRODUCTION
+
 TIME_ZONE = "Europe/Warsaw"
 
 USE_I18N = True
@@ -390,6 +396,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
+    "/language/",
     # An invitation is how a stranger becomes a member of a private sphere.
     "/multiverse/join/",
     "/auth-error/",
@@ -422,7 +429,8 @@ AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Shown on the error page and behind every Contact link.
+SUPPORT_EMAIL = "support@zagrajmy.net"
 # The DSA point of contact (Art. 11, 12): named in the terms and on the notice
 # form, the reply-to of every moderation mail, and where staff alerts go.
 STAFF_EMAIL = "staff@zagrajmy.net"
