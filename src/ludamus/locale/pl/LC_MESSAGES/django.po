@@ -308,6 +308,7 @@ msgid "Create encounter"
 msgstr "Utwórz spotkanie"
 
 #: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Encounter"
 msgstr "Spotkanie"
 
@@ -3792,10 +3793,6 @@ msgstr "Drużyna"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Everyone in your party is here. To leave this chat, leave the party."
 msgstr "Jest tu cała twoja drużyna. Żeby opuścić ten czat, opuść drużynę."
-
-#: src/ludamus/gates/web/django/parley/views.py
-msgid "Encounter"
-msgstr "Spotkanie"
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid ""
