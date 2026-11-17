@@ -246,7 +246,7 @@ class TestContentEditStoresAnswers:
             [SimpleNamespace(name="RPG")],
             [SimpleNamespace(name="LARP")],
         ]
-        evening = AvailabilityDTO(day=date(2026, 1, 1), part=DayPart.EVENING)
+        evening = AvailabilityDTO(day=date(2026, 1, 1), offer=DayPart.EVENING)
         repos.sessions.read_availability.side_effect = [[], [evening]]
 
         service.apply(
@@ -591,7 +591,7 @@ class TestProposalAcceptanceService:
         sessions.read_presenter.return_value = None
         sessions.read_space_options.return_value = []
         sessions.read_availability.return_value = [
-            AvailabilityDTO(day=_NOW.date(), part=DayPart.MORNING)
+            AvailabilityDTO(day=_NOW.date(), offer=DayPart.MORNING)
         ]
         sessions.read_field_values.return_value = []
         active_users.read.return_value = _user_dto()
@@ -1280,7 +1280,7 @@ class TestContentEditWithFakes:
         sessions.related_ids["facilitators"] = [1]
         sessions.related["tracks"] = {4: _track_dto(4, "RPG"), 5: _track_dto(5, "LARP")}
         sessions.related_ids["tracks"] = [5, 4]
-        evening = AvailabilityDTO(day=date(2024, 6, 1), part=DayPart.EVENING)
+        evening = AvailabilityDTO(day=date(2024, 6, 1), offer=DayPart.EVENING)
         logs = _FakeContentChangeLogs()
 
         self._service(sessions, logs).apply(
@@ -1450,7 +1450,7 @@ class _FakeEvents:
 
 
 class TestProposalAcceptanceWithFakes:
-    _EVENING = AvailabilityDTO(day=_NOW.date(), part=DayPart.EVENING)
+    _EVENING = AvailabilityDTO(day=_NOW.date(), offer=DayPart.EVENING)
 
     @staticmethod
     def _sessions():

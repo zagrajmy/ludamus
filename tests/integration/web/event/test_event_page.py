@@ -1708,7 +1708,7 @@ class TestEventPageView:
                     day=opening + timedelta(days=offset),
                     part=DayPart.EVENING,
                 ).day,
-                part=DayPart.EVENING,
+                offer=DayPart.EVENING,
             )
             for offset in reversed(_OFFERED_DAY_OFFSETS)
         ]
@@ -1730,7 +1730,7 @@ class TestEventPageView:
             pending_session,
             presenter=active_user,
             can_edit=True,
-            offered_times=sorted(offered, key=lambda entry: (entry.day, entry.part)),
+            offered_times=sorted(offered, key=lambda entry: (entry.day, entry.offer)),
         )
         assert_response(
             response,

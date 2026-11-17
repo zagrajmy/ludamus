@@ -19,7 +19,7 @@ class TestDayLabel:
 
 class TestAvailabilityLabel:
     def test_names_the_part_after_the_day(self) -> None:
-        entry = AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.EVENING)
+        entry = AvailabilityDTO(day=date(2026, 3, 1), offer=DayPart.EVENING)
 
         assert availability_label(entry) == "Sunday, Mar 1 evening"
 
@@ -28,8 +28,8 @@ class TestOfferedTimesHint:
     def test_lists_every_time_the_facilitator_offered(self) -> None:
         hint = offered_times_hint(
             [
-                AvailabilityDTO(day=date(2026, 3, 1), part=DayPart.MORNING),
-                AvailabilityDTO(day=date(2026, 3, 2), part=DayPart.NIGHT),
+                AvailabilityDTO(day=date(2026, 3, 1), offer=DayPart.MORNING),
+                AvailabilityDTO(day=date(2026, 3, 2), offer=DayPart.NIGHT),
             ]
         )
 

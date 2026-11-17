@@ -44,6 +44,7 @@ from ludamus.pacts.availability import (
     pick_offered,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
@@ -458,7 +459,9 @@ def _days_context(
         **wizard.base_context("days"),
         "category": wizard.chosen,
         "day_descriptors": availability_descriptors(wizard.offered_times, selected),
-        "offers_slots": any(entry.time_slot for entry in wizard.offered_times),
+        "offers_slots": any(
+            isinstance(entry.offer, TimeSlotDTO) for entry in wizard.offered_times
+        ),
         "error": error,
     }
 

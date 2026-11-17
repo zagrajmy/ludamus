@@ -146,7 +146,7 @@ class TestProposalAcceptPageView:
                 "presenter": user_dto(pending_session.presenter),
                 "form": ANY,
                 "session": SessionDTO.model_validate(pending_session),
-                "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
+                "availability": [AvailabilityDTO(day=day, offer=DayPart.EVENING)],
                 "field_values": [],
                 "schedule_blocker": None,
                 "duration_minutes": 60,

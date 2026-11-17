@@ -820,7 +820,7 @@ def _facilitator(pk, display_name="Alice", *, is_collective=False):
 
 
 def _offered(day: int, part: DayPart) -> AvailabilityDTO:
-    return AvailabilityDTO(day=date(2026, 1, day), part=part)
+    return AvailabilityDTO(day=date(2026, 1, day), offer=part)
 
 
 # 10-12 and 12-14 back to back, then a gap, then 15-16.
@@ -830,7 +830,7 @@ _SLOTS = ((1, 12, 14), (2, 10, 12), (3, 15, 16))
 def _slot_offered(pk: int, opens: int, closes: int) -> AvailabilityDTO:
     return AvailabilityDTO(
         day=date(2026, 1, 1),
-        time_slot=TimeSlotDTO(
+        offer=TimeSlotDTO(
             pk=pk,
             start_time=datetime(2026, 1, 1, opens, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, closes, tzinfo=UTC),

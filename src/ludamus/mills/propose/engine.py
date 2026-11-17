@@ -705,7 +705,7 @@ class ImportEngine:
                     if isinstance(entry, AvailabilitySpec):
                         offered.setdefault(
                             (entry.day, entry.part),
-                            AvailabilityDTO(day=entry.day, part=entry.part),
+                            AvailabilityDTO(day=entry.day, offer=entry.part),
                         )
         return [offered[key] for key in sorted(offered)]
 

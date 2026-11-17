@@ -384,7 +384,7 @@ def _card_from_session(session: Session) -> SessionCardDTO:
             else in_reading_order(
                 [
                     *(
-                        AvailabilityDTO(day=row.day, part=DayPart(row.part))
+                        AvailabilityDTO(day=row.day, offer=DayPart(row.part))
                         for row in session.availability.all()
                     ),
                     *(

@@ -112,8 +112,8 @@ TITLE = {"Title": {"to": "session.title"}}
 NICK = {"Nick": {"to": "facilitator.display_name"}}
 FRI = {"to": "availability", "day": "2025-09-19", "part": "evening"}
 SAT = {"to": "availability", "day": "2025-09-20", "part": "morning"}
-FRI_OFFER = AvailabilityDTO(day=date(2025, 9, 19), part=DayPart.EVENING)
-SAT_OFFER = AvailabilityDTO(day=date(2025, 9, 20), part=DayPart.MORNING)
+FRI_OFFER = AvailabilityDTO(day=date(2025, 9, 19), offer=DayPart.EVENING)
+SAT_OFFER = AvailabilityDTO(day=date(2025, 9, 20), offer=DayPart.MORNING)
 DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 

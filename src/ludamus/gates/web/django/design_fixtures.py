@@ -180,8 +180,8 @@ def mock_session_proposal() -> SessionData:
         session_participations=[],
         enrolled_count=0,
         offered_times=[
-            AvailabilityDTO(day=first_day, part=DayPart.EVENING),
-            AvailabilityDTO(day=first_day + timedelta(days=1), part=DayPart.MORNING),
+            AvailabilityDTO(day=first_day, offer=DayPart.EVENING),
+            AvailabilityDTO(day=first_day + timedelta(days=1), offer=DayPart.MORNING),
         ],
     )
 

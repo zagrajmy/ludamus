@@ -34,7 +34,7 @@ def _by_session(session_id, row):
 
 
 def _offered(part: DayPart) -> AvailabilityDTO:
-    return AvailabilityDTO(day=date(2026, 6, 1), part=part)
+    return AvailabilityDTO(day=date(2026, 6, 1), offer=part)
 
 
 class TestProposalPanelService:

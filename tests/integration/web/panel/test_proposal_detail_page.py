@@ -257,7 +257,7 @@ class TestProposalDetailPageView:
                 "field_values": [],
                 "facilitators": [],
                 "presenter": None,
-                "availability": [AvailabilityDTO(day=day, part=DayPart.EVENING)],
+                "availability": [AvailabilityDTO(day=day, offer=DayPart.EVENING)],
                 "import_log_entry": None,
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),

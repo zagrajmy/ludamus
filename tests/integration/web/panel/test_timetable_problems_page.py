@@ -194,9 +194,9 @@ class TestTimetableProblemsPageView:
         session = make_timetable_session(proposal_category)
         offered = AvailabilityDTO(
             day=programme_date(event.start_time, tz) + timedelta(days=1),
-            part=part_of(event.start_time, tz),
+            offer=part_of(event.start_time, tz),
         )
-        SessionAvailabilityFactory(session=session, day=offered.day, part=offered.part)
+        SessionAvailabilityFactory(session=session, day=offered.day, part=offered.offer)
         agenda_item = schedule_session(
             session=session, space=space, start=event.start_time
         )
@@ -235,10 +235,10 @@ class TestTimetableProblemsPageView:
         end = start + timedelta(hours=4)
         part = part_of(start, tz)
         placed_day = programme_date(start, tz)
-        first_offered = AvailabilityDTO(day=placed_day + timedelta(days=1), part=part)
-        second_offered = AvailabilityDTO(day=placed_day + timedelta(days=2), part=part)
+        first_offered = AvailabilityDTO(day=placed_day + timedelta(days=1), offer=part)
+        second_offered = AvailabilityDTO(day=placed_day + timedelta(days=2), offer=part)
         for entry in (second_offered, first_offered):
-            SessionAvailabilityFactory(session=session, day=entry.day, part=entry.part)
+            SessionAvailabilityFactory(session=session, day=entry.day, part=entry.offer)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
 
         response = panel_client.get(self.get_url(event))

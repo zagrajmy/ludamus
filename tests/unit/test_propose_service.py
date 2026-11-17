@@ -370,7 +370,7 @@ class TestSubmit:
 
         session = world.only_session()
         assert session["availability"] == [
-            AvailabilityDTO(day=second_day, part=DayPart.EVENING)
+            AvailabilityDTO(day=second_day, offer=DayPart.EVENING)
         ]
         data = session["data"]
         assert (
@@ -521,7 +521,7 @@ class TestSubmit:
         )
 
         assert world.only_session()["availability"] == [
-            AvailabilityDTO(day=day, time_slot=own)
+            AvailabilityDTO(day=day, offer=own)
         ]
 
 

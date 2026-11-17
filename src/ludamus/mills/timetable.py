@@ -12,9 +12,9 @@ from ludamus.mills.event import (
     widen_event_dates,
 )
 from ludamus.mills.opening_hours import event_opening_hours
-from ludamus.pacts.availability import AvailabilityDTO, part_of, programme_date
+from ludamus.pacts.availability import AvailabilityDTO, DayPart, part_of, programme_date
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventPublicationInvalidError
+from ludamus.pacts.event import EventPublicationInvalidError, TimeSlotDTO
 from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.timetable import (
     AgendaItemDTO,
@@ -1025,12 +1025,17 @@ def _honours_offer(
     # slot is a window the organizer drew, so the whole session must fit in
     # the slots offered, back-to-back ones counting as one.
     placed = (programme_date(item.start_time, tz), part_of(item.start_time, tz))
-    if placed in {(entry.day, entry.part) for entry in offered if entry.part}:
+    parts = {
+        (entry.day, part)
+        for entry in offered
+        if isinstance(part := entry.offer, DayPart)
+    }
+    if placed in parts:
         return True
     windows = [
-        (entry.time_slot.start_time, entry.time_slot.end_time)
+        (slot.start_time, slot.end_time)
         for entry in offered
-        if entry.time_slot is not None
+        if isinstance(slot := entry.offer, TimeSlotDTO)
     ]
     return any(
         start <= item.start_time and item.end_time <= end

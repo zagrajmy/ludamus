@@ -32,7 +32,7 @@ INTEGRATION_PK = 3
 SESSION_ID = 100
 _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 _SAT = AvailabilitySpec(day=date(2026, 5, 2), part=DayPart.MORNING)
-_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, part=_SAT.part)
+_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, offer=_SAT.part)
 _RPG = EntityRef(name="RPG", slug="rpg")
 
 _SETTINGS = ImportSettings(

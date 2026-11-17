@@ -58,6 +58,6 @@ class TestReadAvailability:
         offered = SessionRepository.read_availability(session.pk)
 
         assert offered == [
-            AvailabilityDTO(day=part.day, part=DayPart(part.part)),
+            AvailabilityDTO(day=part.day, offer=DayPart(part.part)),
             _offer(late),
         ]

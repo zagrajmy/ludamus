@@ -560,7 +560,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         for session_id, day, part in SessionAvailability.objects.filter(
             session_id__in=ids
         ).values_list("session_id", "day", "part"):
-            result[session_id].append(AvailabilityDTO(day=day, part=DayPart(part)))
+            result[session_id].append(AvailabilityDTO(day=day, offer=DayPart(part)))
         for link in Session.time_slots.through.objects.filter(
             session_id__in=ids
         ).select_related("timeslot"):

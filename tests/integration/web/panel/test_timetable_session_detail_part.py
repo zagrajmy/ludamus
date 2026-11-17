@@ -38,7 +38,7 @@ def _windows_json(availability):
         [
             {"start": start.isoformat(), "end": end.isoformat()}
             for start, end in (
-                part_window(entry.day, entry.part, tz) for entry in availability
+                part_window(entry.day, entry.offer, tz) for entry in availability
             )
         ]
     )
@@ -158,7 +158,7 @@ class TestTimetableSessionDetailPartView:
             context_data=self.expected_context(
                 event,
                 session,
-                availability=[AvailabilityDTO(day=day, part=DayPart.EVENING)],
+                availability=[AvailabilityDTO(day=day, offer=DayPart.EVENING)],
             ),
         )
 

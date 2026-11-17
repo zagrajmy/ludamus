@@ -13,9 +13,9 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, tzinfo
 from enum import StrEnum
 from functools import partial
-from typing import TYPE_CHECKING, NamedTuple, Self
+from typing import TYPE_CHECKING, NamedTuple
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.sessions import PROGRAMME_DAY_STARTS_AT_HOUR
@@ -60,7 +60,6 @@ DAY_PARTS: tuple[DayPart, ...] = (
 
 
 _SLOT_VALUE_PREFIX = "slot:"
-_ONE_TIME = "an offered time is either a part of a day or a time slot"
 
 
 class AvailabilityDTO(BaseModel):
@@ -71,23 +70,7 @@ class AvailabilityDTO(BaseModel):
     """
 
     day: date
-    part: DayPart | None = None
-    time_slot: TimeSlotDTO | None = None
-
-    @model_validator(mode="after")
-    def _names_one_time(self) -> Self:
-        if (self.part is None) == (self.time_slot is None):
-            raise ValueError(_ONE_TIME)
-        return self
-
-    @property
-    def offer(self) -> DayPart | TimeSlotDTO:
-        """What was offered, for callers that branch on its kind."""
-        if self.time_slot is not None:
-            return self.time_slot
-        if self.part is not None:
-            return self.part
-        raise ValueError(_ONE_TIME)
+    offer: DayPart | TimeSlotDTO
 
 
 def programme_date(moment: datetime, tz: tzinfo) -> date:
@@ -165,7 +148,7 @@ def slot_availability(slot: TimeSlotDTO, tz: tzinfo) -> AvailabilityDTO:
     Returns:
         The slot as an offered time, filed under the programme day it opens on.
     """
-    return AvailabilityDTO(day=programme_date(slot.start_time, tz), time_slot=slot)
+    return AvailabilityDTO(day=programme_date(slot.start_time, tz), offer=slot)
 
 
 def offered_times(
@@ -182,7 +165,7 @@ def offered_times(
     if slots:
         return [slot_availability(slot, tz) for slot in sorted(slots, key=_opens)]
     return [
-        AvailabilityDTO(day=day, part=part)
+        AvailabilityDTO(day=day, offer=part)
         for day, parts in offered_parts_by_day(start=start, end=end, tz=tz)
         for part in parts
     ]
@@ -217,9 +200,9 @@ def availability_value(entry: AvailabilityDTO) -> str:
         `slot:<pk>` for a time slot; otherwise the day and part joined, e.g.
         `2026-10-09:evening`.
     """
-    if entry.time_slot is not None:
-        return f"{_SLOT_VALUE_PREFIX}{entry.time_slot.pk}"
-    return f"{entry.day.isoformat()}:{entry.part}"
+    if isinstance(offer := entry.offer, TimeSlotDTO):
+        return f"{_SLOT_VALUE_PREFIX}{offer.pk}"
+    return f"{entry.day.isoformat()}:{offer}"
 
 
 def pick_offered(

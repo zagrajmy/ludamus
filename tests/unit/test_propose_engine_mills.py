@@ -38,8 +38,8 @@ INTEGRATION_PK = 3
 _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 _SAT = AvailabilitySpec(day=date(2026, 5, 2), part=DayPart.MORNING)
 _SUN = AvailabilitySpec(day=date(2026, 5, 3), part=DayPart.MORNING)
-_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, part=_SAT.part)
-_SUN_OFFERED = AvailabilityDTO(day=_SUN.day, part=_SUN.part)
+_SAT_OFFERED = AvailabilityDTO(day=_SAT.day, offer=_SAT.part)
+_SUN_OFFERED = AvailabilityDTO(day=_SUN.day, offer=_SUN.part)
 _RPG = EntityRef(name="RPG", slug="rpg")
 
 

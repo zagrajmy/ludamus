@@ -195,13 +195,13 @@ class TestOfferedPartsByDay:
         )
 
         answers = [
-            AvailabilityDTO(day=day, part=part)
+            AvailabilityDTO(day=day, offer=part)
             for day, parts in offered
             for part in parts
         ]
 
         assert len(answers) == _OFFERED_PAIRS_OVER_A_WEEKEND
-        assert answers[0] == AvailabilityDTO(day=_FRIDAY, part=DayPart.AFTERNOON)
+        assert answers[0] == AvailabilityDTO(day=_FRIDAY, offer=DayPart.AFTERNOON)
 
 
 _SLOT = TimeSlotDTO(
@@ -218,22 +218,17 @@ _NIGHT_SLOT = TimeSlotDTO(
 
 
 class TestAvailabilityDTO:
-    @pytest.mark.parametrize(
-        "names", ({}, {"part": DayPart.EVENING, "time_slot": _SLOT})
-    )
-    def test_names_exactly_one_time(self, names: dict[str, object]) -> None:
-        with pytest.raises(ValidationError, match="either a part of a day or a time"):
-            AvailabilityDTO(day=_FRIDAY, **names)
+    def test_reads_back_whichever_kind_was_offered(self) -> None:
+        slot = AvailabilityDTO(day=_SATURDAY, offer=_SLOT)
+        part = AvailabilityDTO(day=_SATURDAY, offer=DayPart.NIGHT)
 
-    def test_offer_refuses_an_entry_built_past_validation(self) -> None:
-        unchecked = AvailabilityDTO.model_construct(day=_FRIDAY)
+        assert AvailabilityDTO.model_validate_json(slot.model_dump_json()) == slot
+        assert AvailabilityDTO.model_validate_json(part.model_dump_json()) == part
 
-        with pytest.raises(ValueError, match="either a part of a day or a time"):
-            _ = unchecked.offer
-
-    def test_offer_is_the_slot_or_the_part(self) -> None:
-        assert AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT).offer == _SLOT
-        assert AvailabilityDTO(day=_SATURDAY, part=DayPart.NIGHT).offer == DayPart.NIGHT
+    @pytest.mark.parametrize("offer", ("teatime", None, {"pk": 7}))
+    def test_refuses_what_is_neither_a_part_nor_a_slot(self, offer: object) -> None:
+        with pytest.raises(ValidationError):
+            AvailabilityDTO(day=_FRIDAY, offer=offer)
 
 
 class TestOfferedTimes:
@@ -246,8 +241,8 @@ class TestOfferedTimes:
         )
 
         assert offered == [
-            AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT),
-            AvailabilityDTO(day=_SATURDAY, time_slot=_NIGHT_SLOT),
+            AvailabilityDTO(day=_SATURDAY, offer=_SLOT),
+            AvailabilityDTO(day=_SATURDAY, offer=_NIGHT_SLOT),
         ]
 
     def test_offers_parts_of_the_day_where_the_event_lists_no_slots(self) -> None:
@@ -259,19 +254,19 @@ class TestOfferedTimes:
         )
 
         assert offered == [
-            AvailabilityDTO(day=_FRIDAY, part=DayPart.AFTERNOON),
-            AvailabilityDTO(day=_FRIDAY, part=DayPart.EVENING),
+            AvailabilityDTO(day=_FRIDAY, offer=DayPart.AFTERNOON),
+            AvailabilityDTO(day=_FRIDAY, offer=DayPart.EVENING),
         ]
 
 
 class TestOfferedWindow:
     def test_a_slot_is_its_own_window(self) -> None:
-        entry = AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT)
+        entry = AvailabilityDTO(day=_SATURDAY, offer=_SLOT)
 
         assert offered_window(entry, _WARSAW) == (_SLOT.start_time, _SLOT.end_time)
 
     def test_a_part_is_its_hours_on_that_day(self) -> None:
-        entry = AvailabilityDTO(day=_FRIDAY, part=DayPart.EVENING)
+        entry = AvailabilityDTO(day=_FRIDAY, offer=DayPart.EVENING)
 
         assert offered_window(entry, _WARSAW) == part_window(
             _FRIDAY, DayPart.EVENING, _WARSAW
@@ -280,9 +275,9 @@ class TestOfferedWindow:
 
 class TestInReadingOrder:
     def test_sorts_by_when_each_time_opens_not_by_name(self) -> None:
-        night = AvailabilityDTO(day=_FRIDAY, part=DayPart.NIGHT)
-        morning = AvailabilityDTO(day=_SATURDAY, part=DayPart.MORNING)
-        afternoon = AvailabilityDTO(day=_FRIDAY, part=DayPart.AFTERNOON)
+        night = AvailabilityDTO(day=_FRIDAY, offer=DayPart.NIGHT)
+        morning = AvailabilityDTO(day=_SATURDAY, offer=DayPart.MORNING)
+        afternoon = AvailabilityDTO(day=_FRIDAY, offer=DayPart.AFTERNOON)
 
         assert in_reading_order([morning, night, afternoon], _WARSAW) == [
             afternoon,
@@ -295,9 +290,9 @@ class TestAvailabilityValue:
     @pytest.mark.parametrize(
         ("entry", "expected"),
         (
-            (AvailabilityDTO(day=_FRIDAY, part=DayPart.MORNING), "2026-10-09:morning"),
-            (AvailabilityDTO(day=_FRIDAY, part=DayPart.NIGHT), "2026-10-09:night"),
-            (AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT), "slot:7"),
+            (AvailabilityDTO(day=_FRIDAY, offer=DayPart.MORNING), "2026-10-09:morning"),
+            (AvailabilityDTO(day=_FRIDAY, offer=DayPart.NIGHT), "2026-10-09:night"),
+            (AvailabilityDTO(day=_SATURDAY, offer=_SLOT), "slot:7"),
         ),
     )
     def test_spells_one_offered_time(
@@ -308,8 +303,8 @@ class TestAvailabilityValue:
 
 class TestPickOffered:
     _OFFERED = (
-        AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT),
-        AvailabilityDTO(day=_SATURDAY, time_slot=_NIGHT_SLOT),
+        AvailabilityDTO(day=_SATURDAY, offer=_SLOT),
+        AvailabilityDTO(day=_SATURDAY, offer=_NIGHT_SLOT),
     )
 
     def test_round_trips_through_the_form(self) -> None:
@@ -326,9 +321,9 @@ class TestPickOffered:
 
 class TestGroupByDay:
     def test_files_each_time_under_its_day_in_day_order(self) -> None:
-        saturday = AvailabilityDTO(day=_SATURDAY, time_slot=_SLOT)
-        friday_evening = AvailabilityDTO(day=_FRIDAY, part=DayPart.EVENING)
-        friday_night = AvailabilityDTO(day=_FRIDAY, part=DayPart.NIGHT)
+        saturday = AvailabilityDTO(day=_SATURDAY, offer=_SLOT)
+        friday_evening = AvailabilityDTO(day=_FRIDAY, offer=DayPart.EVENING)
+        friday_night = AvailabilityDTO(day=_FRIDAY, offer=DayPart.NIGHT)
 
         assert group_by_day([saturday, friday_evening, friday_night]) == [
             (_FRIDAY, [friday_evening, friday_night]),
