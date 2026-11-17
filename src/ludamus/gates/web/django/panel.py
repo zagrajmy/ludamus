@@ -53,6 +53,7 @@ PanelNav = Literal[
     "bans",
     "guilds",
     "team",
+    "chats",
     "sphere-settings",
     "billing",
     "event-create",

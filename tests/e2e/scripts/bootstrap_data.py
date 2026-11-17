@@ -341,6 +341,10 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
         slug="e2e-crew-manager",
     )
     crew.managers.add(crew_manager)
+    # NOTE: managers only: organize-choice.spec needs a non-root feed whose manager
+    # may create both an event and an encounter.
+    crew.encounters_policy = EncountersPolicy.MANAGERS
+    crew.save(update_fields=["encounters_policy"])
     _write_storage_state(
         crew_manager,
         domain=CREW_HOST,
