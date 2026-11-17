@@ -89,7 +89,7 @@ class EventDeletionService(EventDeletionServiceProtocol):
             managers = self._repository.manager_ids(sphere_id)
             if user_id not in managers:
                 raise NotSphereManagerError
-            self._repository.add_approval(event_id=event_id, user_id=user_id)
+            added = self._repository.add_approval(event_id=event_id, user_id=user_id)
             approvals = self._counted_approvals(event_id=event_id, managers=managers)
             needed = approvals_needed(len(managers))
             missing = max(needed - len(approvals), 0)
@@ -111,7 +111,9 @@ class EventDeletionService(EventDeletionServiceProtocol):
                     sphere_id,
                     sorted(a.user_id for a in approvals),
                 )
-            elif len(approvals) == 1:
+            # A repeated click by the same manager still checks the count
+            # above, but the others were already asked when it was new.
+            elif added and len(approvals) == 1:
                 self._ask_the_others(
                     event=event,
                     requester=approvals[0],

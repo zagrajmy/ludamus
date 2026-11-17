@@ -86,7 +86,7 @@ class TestSettingsCard:
     """The card tells each viewer where the vote stands and what they may do."""
 
     @staticmethod
-    def _assert_ballot(response, event, ballot):
+    def _assert_ballot(response, *, event, ballot):
         assert_response(
             response,
             HTTPStatus.OK,
@@ -109,8 +109,8 @@ class TestSettingsCard:
 
         self._assert_ballot(
             response,
-            event,
-            EventDeletionBallotDTO(
+            event=event,
+            ballot=EventDeletionBallotDTO(
                 manager_count=2,
                 approvals_needed=2,
                 approvals=[],
@@ -129,8 +129,8 @@ class TestSettingsCard:
 
         self._assert_ballot(
             response,
-            event,
-            EventDeletionBallotDTO(
+            event=event,
+            ballot=EventDeletionBallotDTO(
                 manager_count=5,
                 approvals_needed=3,
                 approvals=[_approval_dto(approval)],
@@ -149,8 +149,8 @@ class TestSettingsCard:
 
         self._assert_ballot(
             response,
-            event,
-            EventDeletionBallotDTO(
+            event=event,
+            ballot=EventDeletionBallotDTO(
                 manager_count=2,
                 approvals_needed=2,
                 approvals=[_approval_dto(approval)],
@@ -169,8 +169,8 @@ class TestSettingsCard:
 
         self._assert_ballot(
             response,
-            event,
-            EventDeletionBallotDTO(
+            event=event,
+            ballot=EventDeletionBallotDTO(
                 manager_count=2,
                 approvals_needed=2,
                 approvals=[_approval_dto(approval)],
@@ -188,8 +188,8 @@ class TestSettingsCard:
 
         self._assert_ballot(
             response,
-            event,
-            EventDeletionBallotDTO(
+            event=event,
+            ballot=EventDeletionBallotDTO(
                 manager_count=2,
                 approvals_needed=2,
                 approvals=[_approval_dto(approval)],
@@ -453,6 +453,17 @@ class TestDeletedEvent:
             url=reverse("web:index"),
             messages=[(messages.INFO, "That event isn't available.")],
         )
+
+    def test_staff_cannot_edit_the_deletion_stamp_by_hand(self, client, event):
+        # Restoring moves the event's sessions and votes with it; clearing the
+        # field on the form alone would leave its sessions hidden.
+        client.force_login(UserFactory(is_staff=True, is_superuser=True))
+
+        response = client.get(
+            reverse("admin:db_main_event_change", kwargs={"object_id": event.pk})
+        )
+
+        assert "deleted_at" not in response.context["adminform"].form.fields
 
     def test_staff_restore_it_with_the_sessions_it_hid(self, client, event, sphere):
         deleted_earlier = SessionFactory(event=event, category=None)

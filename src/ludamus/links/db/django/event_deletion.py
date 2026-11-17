@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def _target(
-    events: QuerySet[Event], *, sphere_id: SphereId, event_id: EventId
+    *, events: QuerySet[Event], sphere_id: SphereId, event_id: EventId
 ) -> EventDeletionTargetDTO:
     try:
         event = events.select_related("sphere__site").get(
@@ -45,12 +45,14 @@ def _target(
 class EventDeletionRepository(EventDeletionRepositoryProtocol):
     @staticmethod
     def read_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
-        return _target(Event.objects.all(), sphere_id=sphere_id, event_id=event_id)
+        return _target(
+            events=Event.objects.all(), sphere_id=sphere_id, event_id=event_id
+        )
 
     @staticmethod
     def lock_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
         return _target(
-            Event.objects.select_for_update(of=("self",)),
+            events=Event.objects.select_for_update(of=("self",)),
             sphere_id=sphere_id,
             event_id=event_id,
         )
@@ -81,8 +83,11 @@ class EventDeletionRepository(EventDeletionRepositoryProtocol):
         ]
 
     @staticmethod
-    def add_approval(*, event_id: EventId, user_id: UserId) -> None:
-        EventDeletionApproval.objects.get_or_create(event_id=event_id, user_id=user_id)
+    def add_approval(*, event_id: EventId, user_id: UserId) -> bool:
+        _approval, created = EventDeletionApproval.objects.get_or_create(
+            event_id=event_id, user_id=user_id
+        )
+        return created
 
     @staticmethod
     def remove_approval(*, event_id: EventId, user_id: UserId) -> None:

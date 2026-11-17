@@ -534,6 +534,9 @@ class EventAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("name", "sphere", "start_time", "deleted_at")
     list_filter = (("deleted_at", admin.EmptyFieldListFilter),)
     actions = (restore_events,)
+    # Deleting and restoring move the event's sessions and votes with it; an
+    # edit to this field alone would leave them behind.
+    readonly_fields = ("deleted_at",)
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[Event]:

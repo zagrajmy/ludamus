@@ -84,7 +84,9 @@ class EventDeletionRepositoryProtocol(Protocol):
     @staticmethod
     def list_approvals(event_id: EventId) -> list[EventDeletionApprovalDTO]: ...
     @staticmethod
-    def add_approval(*, event_id: EventId, user_id: UserId) -> None: ...
+    def add_approval(*, event_id: EventId, user_id: UserId) -> bool:
+        """Record the approval; False when this manager had already approved."""
+
     @staticmethod
     def remove_approval(*, event_id: EventId, user_id: UserId) -> None: ...
     @staticmethod

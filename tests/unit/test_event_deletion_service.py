@@ -48,8 +48,10 @@ class FakeDeletionRepository:
 
     def add_approval(self, *, event_id, user_id):
         assert event_id == EVENT_ID
-        if user_id not in self.approvals:
-            self.approvals.append(user_id)
+        if user_id in self.approvals:
+            return False
+        self.approvals.append(user_id)
+        return True
 
     def remove_approval(self, *, event_id, user_id):
         assert event_id == EVENT_ID
@@ -76,7 +78,7 @@ def _service(repository, notifier=None):
     )
 
 
-def _approve(service, user_id, sphere_id=SPHERE_ID):
+def _approve(*, service, user_id, sphere_id=SPHERE_ID):
     return service.approve(sphere_id=sphere_id, event_id=EVENT_ID, user_id=user_id)
 
 
@@ -84,7 +86,7 @@ class TestApprove:
     def test_a_solo_manager_deletes_at_once(self):
         repository = FakeDeletionRepository(managers={1})
 
-        missing = _approve(_service(repository), 1)
+        missing = _approve(service=_service(repository), user_id=1)
 
         assert missing == 0
         assert repository.deleted_at is not None
@@ -93,9 +95,9 @@ class TestApprove:
         repository = FakeDeletionRepository(managers={1, 2, 3, 4, 5})
         service = _service(repository)
 
-        missing = [_approve(service, user_id) for user_id in (1, 2)]
+        missing = [_approve(service=service, user_id=user_id) for user_id in (1, 2)]
         deleted_before_the_last = repository.deleted_at is not None
-        missing.append(_approve(service, 3))
+        missing.append(_approve(service=service, user_id=3))
 
         assert missing == [2, 1, 0]
         assert not deleted_before_the_last
@@ -105,7 +107,10 @@ class TestApprove:
         repository = FakeDeletionRepository(managers={1, 2})
         service = _service(repository)
 
-        missing = [_approve(service, 1), _approve(service, 1)]
+        missing = [
+            _approve(service=service, user_id=1),
+            _approve(service=service, user_id=1),
+        ]
 
         assert missing == [1, 1]
         assert repository.deleted_at is None
@@ -114,7 +119,7 @@ class TestApprove:
         repository = FakeDeletionRepository(managers={2, 3})
         repository.approvals = [1]
 
-        missing = _approve(_service(repository), 2)
+        missing = _approve(service=_service(repository), user_id=2)
 
         assert missing == 1
         assert repository.deleted_at is None
@@ -123,7 +128,7 @@ class TestApprove:
         repository = FakeDeletionRepository(managers={1, 2})
 
         with pytest.raises(NotSphereManagerError):
-            _approve(_service(repository), 9)
+            _approve(service=_service(repository), user_id=9)
 
         assert repository.approvals == []
 
@@ -131,7 +136,7 @@ class TestApprove:
         repository = FakeDeletionRepository(managers={1})
 
         with pytest.raises(NotFoundError):
-            _approve(_service(repository), 1, sphere_id=OTHER_SPHERE_ID)
+            _approve(service=_service(repository), user_id=1, sphere_id=OTHER_SPHERE_ID)
 
         assert repository.approvals == []
         assert repository.deleted_at is None
@@ -141,13 +146,25 @@ class TestApprove:
         notifier = FakeNotifier()
         service = _service(repository, notifier)
 
-        _approve(service, 1)
-        _approve(service, 2)
+        _approve(service=service, user_id=1)
+        _approve(service=service, user_id=2)
 
         assert [
             (n.recipient_user_id, n.requester_name, n.approvals_missing)
             for n in notifier.sent
         ] == [(2, "User 1", 2), (3, "User 1", 2), (4, "User 1", 2), (5, "User 1", 2)]
+
+    def test_a_repeated_first_approval_does_not_ask_again(self):
+        # A double click or a resubmitted form approves twice; the others
+        # were already asked the first time.
+        repository = FakeDeletionRepository(managers={1, 2})
+        notifier = FakeNotifier()
+        service = _service(repository, notifier)
+
+        _approve(service=service, user_id=1)
+        _approve(service=service, user_id=1)
+
+        assert [n.recipient_user_id for n in notifier.sent] == [2]
 
 
 class TestWithdraw:
