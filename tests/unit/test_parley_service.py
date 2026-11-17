@@ -666,15 +666,19 @@ def test_a_message_the_room_lacks_or_ones_own_takes_no_report(answer):
 
 
 class FakeChatSpheres:
-    def __init__(self, *, event_spheres=None, chat_spheres=()):
+    def __init__(self, *, event_spheres=None, chat_spheres=(), encounters=None):
         self._event_spheres = event_spheres or {}
         self._chat_spheres = list(chat_spheres)
+        self._encounters = encounters or {}
 
     def read_event_sphere_id(self, event_id):
         return self._event_spheres.get(event_id)
 
     def list_chat_sphere_ids(self):
         return self._chat_spheres
+
+    def list_encounters_with_people(self, sphere_id):
+        return self._encounters.get(sphere_id, [])
 
 
 class FakeOutbox:
@@ -701,24 +705,18 @@ class FakeMemberships:
         self.synced.extend(conversation_ids)
 
 
-class FakePartyChats:
+class FakeOwnedChats:
+    """Whose party or encounter chats were brought in step, and which owners'."""
+
     def __init__(self):
         self.synced = []
+        self.owners = []
 
-    def sync_parties_of(self, user_id):
+    def sync_owners_of(self, user_id):
         self.synced.append(user_id)
 
-
-class FakeEncounterChats:
-    def __init__(self):
-        self.synced = []
-        self.spheres = []
-
-    def sync_encounters_of(self, user_id):
-        self.synced.append(user_id)
-
-    def sync_sphere(self, sphere_id):
-        self.spheres.append(sphere_id)
+    def sync(self, owner_id):
+        self.owners.append(owner_id)
 
 
 def _revocations(repository, conversations=()):
@@ -728,8 +726,8 @@ def _revocations(repository, conversations=()):
         outbox=outbox,
         conversations=FakeConversations(conversations),
         memberships=FakeMemberships(),
-        party_chats=FakePartyChats(),
-        encounter_chats=FakeEncounterChats(),
+        party_chats=FakeOwnedChats(),
+        encounter_chats=FakeOwnedChats(),
     )
     return service, outbox
 
@@ -758,8 +756,8 @@ def test_a_disabled_account_is_revoked_in_every_sphere_with_chat():
 def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parties(
     change,
 ):
-    memberships, party_chats = FakeMemberships(), FakePartyChats()
-    encounter_chats = FakeEncounterChats()
+    memberships, party_chats = FakeMemberships(), FakeOwnedChats()
+    encounter_chats = FakeOwnedChats()
     service = ParleyRevocationService(
         repository=FakeChatSpheres(),
         outbox=FakeOutbox(),
@@ -847,3 +845,19 @@ def test_a_reports_copy_goes_once_its_message_is_a_year_old():
 
     assert cleared == len(reports.cleared)
     assert reports.cleared == ["a year ago to the second", "two years ago"]
+
+
+def test_switching_a_sphere_s_chat_brings_its_encounters_with_people_in_step():
+    encounter_chats = FakeOwnedChats()
+    service = ParleyRevocationService(
+        repository=FakeChatSpheres(encounters={45: [3, 8], 46: [9]}),
+        outbox=FakeOutbox(),
+        conversations=FakeConversations([]),
+        memberships=FakeMemberships(),
+        party_chats=FakeOwnedChats(),
+        encounter_chats=encounter_chats,
+    )
+
+    service.sphere_chat_switched(sphere_id=45)
+
+    assert encounter_chats.owners == [3, 8]

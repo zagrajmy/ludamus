@@ -311,7 +311,7 @@ class EncounterService(EncounterServiceProtocol):
             # with it.
             guests = self._guests.guests(encounter)
             self._encounters.delete(pk)
-            self._guests.chat.sync_encounter(pk)
+            self._guests.chat.sync(pk)
             self._guests.send(
                 encounter, reason=EncounterInviteReason.DELETED, guests=guests
             )

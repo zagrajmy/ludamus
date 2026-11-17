@@ -49,8 +49,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.pacts.parley import (
-        ParleyEncounterChatProtocol,
-        ParleyPartyChatProtocol,
+        ParleyOwnedChatProtocol,
         ParleyRoomDTO,
         ParleyRoomRef,
     )
@@ -488,8 +487,8 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         outbox: ParleyRevocationOutboxProtocol,
         conversations: ParleyConversationRepositoryProtocol,
         memberships: ParleyMembershipOutboxProtocol,
-        party_chats: ParleyPartyChatProtocol,
-        encounter_chats: ParleyEncounterChatProtocol,
+        party_chats: ParleyOwnedChatProtocol,
+        encounter_chats: ParleyOwnedChatProtocol,
     ) -> None:
         self._repository = repository
         self._outbox = outbox
@@ -514,11 +513,12 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         self._memberships.schedule(
             conversation_ids=self._conversations.conversation_ids_of(user_id)
         )
-        self._party_chats.sync_parties_of(user_id)
-        self._encounter_chats.sync_encounters_of(user_id)
+        for chats in (self._party_chats, self._encounter_chats):
+            chats.sync_owners_of(user_id)
 
     def sphere_chat_switched(self, *, sphere_id: int) -> None:
-        self._encounter_chats.sync_sphere(sphere_id)
+        for encounter_id in self._repository.list_encounters_with_people(sphere_id):
+            self._encounter_chats.sync(encounter_id)
 
     def revoke_sphere(self, *, sphere_id: int) -> None:
         self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)

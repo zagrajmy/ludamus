@@ -151,7 +151,7 @@ class FakeEncounterChat:
     def __init__(self):
         self.synced = []
 
-    def sync_encounter(self, encounter_id):
+    def sync(self, encounter_id):
         self.synced.append(encounter_id)
 
     @staticmethod

@@ -6,10 +6,10 @@ or answers with a block. A group's creator adds people directly; anyone can
 leave. Neither side of a block can reach the other, and neither the search
 nor a refusal says that a block is why.
 
-A party's chat belongs to the party: its people are the party's active
-members, as `chat_members` decides, and nobody joins, leaves or
-renames it apart from the party itself. An encounter's chat belongs to the
-encounter the same way: its creator and everyone signed up for it.
+A party's or an encounter's chat belongs to it: its people are the party's
+active members, or the encounter's creator and everyone signed up, as
+`chat_members` decides, and nobody joins, leaves or renames it apart from
+its owner.
 """
 
 from __future__ import annotations
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         ParleyConversationDTO,
         ParleyConversationRepositoryProtocol,
         ParleyMembershipOutboxProtocol,
+        ParleyOwnedChatRepositoryProtocol,
         ParleyPersonDTO,
         ParleySignerProtocol,
     )
@@ -402,129 +403,68 @@ class ParleyConversationService:
         return conversation
 
 
-class ParleyPartyChatService:
-    """Keeps each party's chat in step with the party's active members."""
+class ParleyOwnedChatService:
+    """Keeps each owner's chat in step with who the owner names.
+
+    One for parties, whose chats take their active members, and one for
+    encounters, whose chats take their creator and everyone signed up.
+    """
 
     def __init__(
         self,
         *,
         transaction: TransactionProtocol,
-        repository: ParleyConversationRepositoryProtocol,
+        repository: ParleyOwnedChatRepositoryProtocol,
         outbox: ParleyMembershipOutboxProtocol,
     ) -> None:
         self._transaction = transaction
         self._repository = repository
         self._outbox = outbox
 
-    def sync_party(self, party_id: int) -> None:
-        if (conversation_id := self._sync(party_id)) is not None:
+    def sync(self, owner_id: int) -> None:
+        if (conversation_id := self._sync(owner_id)) is not None:
             self._outbox.schedule(conversation_ids=[conversation_id])
 
-    def sync_parties_of(self, user_id: int) -> None:
-        """Bring the chats of this person's parties in step with them."""
-        for party_id in self.parties_of(user_id):
-            self.sync_party(party_id)
+    def sync_owners_of(self, user_id: int) -> None:
+        """Bring the chats that hang on this person in step with them."""
+        for owner_id in self.owners_of(user_id):
+            self.sync(owner_id)
 
-    def parties_of(self, user_id: int) -> list[int]:
-        """List the parties whose chats hang on this person."""
-        return self._repository.party_ids_of(user_id)
+    def owners_of(self, user_id: int) -> list[int]:
+        return self._repository.owner_ids_of(user_id)
+
+    def chat_id(self, owner_id: int) -> int | None:
+        return self._repository.chat_id(owner_id)
 
     def open_existing_chats(self) -> int:
-        """Sync every party's chat and send the Worker each one's member list.
+        """Sync every owner's chat and send the Worker each one's member list.
 
-        Parties made before party chats get theirs, and a list whose delivery
-        failed before goes again, so running it twice is safe.
+        Owners made before their kind of chat get theirs, and a list whose
+        delivery failed before goes again, so running it twice is safe.
         """
-        party_ids = self._repository.list_party_ids()
-        for party_id in party_ids:
-            self._sync(party_id)
-        self._outbox.schedule(conversation_ids=self._repository.list_party_chat_ids())
-        logger.info("parley party chats opened: parties=%s", len(party_ids))
-        return len(party_ids)
+        owner_ids = self._repository.list_owner_ids()
+        for owner_id in owner_ids:
+            self._sync(owner_id)
+        self._outbox.schedule(conversation_ids=self._repository.list_chat_ids())
+        logger.info(
+            "parley %s chats opened: owners=%s", self._repository.kind, len(owner_ids)
+        )
+        return len(owner_ids)
 
-    def _sync(self, party_id: int) -> int | None:
+    def _sync(self, owner_id: int) -> int | None:
         with self._transaction.atomic():
             # SAFETY: a join and a leave synced at once would each write the
             # list they read, the older one last.
-            self._repository.lock_party(party_id)
-            members = chat_members(self._repository.list_party_candidates(party_id))
-            conversation_id = self._repository.set_party_members(
-                party_id=party_id, user_ids=members
+            self._repository.lock(owner_id)
+            members = chat_members(self._repository.list_candidates(owner_id))
+            conversation_id = self._repository.set_members(
+                owner_id=owner_id, user_ids=members
             )
         if conversation_id is not None:
             logger.info(
-                "parley party chat synced: party=%s conversation=%s members=%s",
-                party_id,
-                conversation_id,
-                len(members),
-            )
-        return conversation_id
-
-
-class ParleyEncounterChatService:
-    """Keeps each encounter's chat in step with its creator and its signups."""
-
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        repository: ParleyConversationRepositoryProtocol,
-        outbox: ParleyMembershipOutboxProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._repository = repository
-        self._outbox = outbox
-
-    def sync_encounter(self, encounter_id: int) -> None:
-        if (conversation_id := self._sync(encounter_id)) is not None:
-            self._outbox.schedule(conversation_ids=[conversation_id])
-
-    def sync_encounters_of(self, user_id: int) -> None:
-        for encounter_id in self.encounters_of(user_id):
-            self.sync_encounter(encounter_id)
-
-    def encounters_of(self, user_id: int) -> list[int]:
-        """List the encounters whose chats hang on this person."""
-        return self._repository.encounter_ids_of(user_id)
-
-    def sync_sphere(self, sphere_id: int) -> None:
-        """Bring every encounter chat of a sphere in step with its chat switch."""
-        for encounter_id in self._repository.sphere_encounter_ids(sphere_id):
-            self.sync_encounter(encounter_id)
-
-    def chat_id(self, encounter_id: int) -> int | None:
-        return self._repository.encounter_chat_id(encounter_id)
-
-    def open_existing_chats(self) -> int:
-        """Sync every encounter's chat and send the Worker each one's member list.
-
-        Encounters made before encounter chats get theirs, and a list whose
-        delivery failed before goes again, so running it twice is safe.
-        """
-        encounter_ids = self._repository.list_encounter_ids()
-        for encounter_id in encounter_ids:
-            self._sync(encounter_id)
-        self._outbox.schedule(
-            conversation_ids=self._repository.list_encounter_chat_ids()
-        )
-        logger.info("parley encounter chats opened: encounters=%s", len(encounter_ids))
-        return len(encounter_ids)
-
-    def _sync(self, encounter_id: int) -> int | None:
-        with self._transaction.atomic():
-            # SAFETY: a signup and a cancellation synced at once would each
-            # write the list they read, the older one last.
-            self._repository.lock_encounter(encounter_id)
-            members = chat_members(
-                self._repository.list_encounter_candidates(encounter_id)
-            )
-            conversation_id = self._repository.set_encounter_members(
-                encounter_id=encounter_id, user_ids=members
-            )
-        if conversation_id is not None:
-            logger.info(
-                "parley encounter chat synced: encounter=%s conversation=%s members=%s",
-                encounter_id,
+                "parley %s chat synced: owner=%s conversation=%s members=%s",
+                self._repository.kind,
+                owner_id,
                 conversation_id,
                 len(members),
             )

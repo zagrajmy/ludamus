@@ -34,7 +34,7 @@ from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.listing import ListingService
 from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.parley import ParleyReportRetentionService
-from ludamus.mills.parley_conversations import ParleyEncounterChatService
+from ludamus.mills.parley_conversations import ParleyOwnedChatService
 from ludamus.mills.printing import PrintablesReminderService
 from ludamus.mills.sphere import SitesService
 from ludamus.mills.staff_cases import CaseMailRetentionService
@@ -44,8 +44,8 @@ from ludamus.pacts.konwencik import KonwencikScheduleRepos
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
     from ludamus.pacts.parley import (
-        ParleyEncounterChatProtocol,
         ParleyMembershipOutboxProtocol,
+        ParleyOwnedChatProtocol,
     )
     from ludamus.pacts.sphere import SitesServiceProtocol
 
@@ -130,7 +130,7 @@ def build_sites() -> SitesService:
 
 
 def build_encounter_guests(
-    sites: SitesServiceProtocol, chat: ParleyEncounterChatProtocol
+    sites: SitesServiceProtocol, chat: ParleyOwnedChatProtocol
 ) -> EncounterGuests:
     repos = Repositories()
     return EncounterGuests(
@@ -146,10 +146,10 @@ def build_encounter_guests(
 
 def build_parley_encounter_chats(
     outbox: ParleyMembershipOutboxProtocol,
-) -> ParleyEncounterChatService:
-    return ParleyEncounterChatService(
+) -> ParleyOwnedChatService:
+    return ParleyOwnedChatService(
         transaction=DjangoTransaction(),
-        repository=Repositories().parley_conversations,
+        repository=Repositories().encounter_chats,
         outbox=outbox,
     )
 

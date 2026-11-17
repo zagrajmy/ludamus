@@ -92,8 +92,7 @@ from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelServ
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
-    ParleyEncounterChatService,
-    ParleyPartyChatService,
+    ParleyOwnedChatService,
 )
 from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
@@ -213,15 +212,15 @@ class Services:
         )
 
     @cached_property
-    def parley_party_chats(self) -> ParleyPartyChatService:
-        return ParleyPartyChatService(
+    def parley_party_chats(self) -> ParleyOwnedChatService:
+        return ParleyOwnedChatService(
             transaction=self._transaction,
-            repository=self._repos.parley_conversations,
+            repository=self._repos.party_chats,
             outbox=parley_membership_outbox(),
         )
 
     @cached_property
-    def parley_encounter_chats(self) -> ParleyEncounterChatService:
+    def parley_encounter_chats(self) -> ParleyOwnedChatService:
         return build_parley_encounter_chats(parley_membership_outbox())
 
     @cached_property

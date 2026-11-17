@@ -51,7 +51,7 @@ if TYPE_CHECKING:
         EncounterInviteMailerProtocol,
         EncounterRSVPRepositoryProtocol,
     )
-    from ludamus.pacts.parley import ParleyEncounterChatProtocol
+    from ludamus.pacts.parley import ParleyOwnedChatProtocol
     from ludamus.pacts.sphere import SitesServiceProtocol
     from ludamus.pacts.user import UserDTO, UserRepositoryProtocol
 
@@ -149,7 +149,7 @@ class EncounterGuests:
         sites: SitesServiceProtocol,
         mailer: EncounterInviteMailerProtocol,
         cache: CacheProtocol,
-        chat: ParleyEncounterChatProtocol,
+        chat: ParleyOwnedChatProtocol,
     ) -> None:
         self._rsvps = rsvps
         self.invitees = invitees
@@ -194,7 +194,7 @@ class EncounterGuests:
             return False
         if user is not None:
             self._rsvps.create(encounter.pk, user.pk)
-            self.chat.sync_encounter(encounter.pk)
+            self.chat.sync(encounter.pk)
         self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.ACCEPTED
         )
@@ -213,7 +213,7 @@ class EncounterGuests:
         )
         if signed_up and user is not None:
             self._rsvps.delete_by_user(encounter.pk, user.pk)
-            self.chat.sync_encounter(encounter.pk)
+            self.chat.sync(encounter.pk)
         declined = self.invitees.set_status(
             encounter_id=encounter.pk, email=email, status=InviteeStatus.DECLINED
         )

@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from django.db.models import Q
 
 from ludamus.links.db.django.models import (
     Encounter,
-    EncounterRSVP,
     ParleyBlock,
     ParleyConversation,
     ParleyConversationMember,
     Party,
-    PartyMembership,
     User,
 )
 from ludamus.pacts.parley import (
     CONVERSATION_POLICIES,
-    ParleyChatCandidate,
     ParleyConversationDTO,
     ParleyConversationKind,
     ParleyConversationPolicy,
@@ -26,23 +21,19 @@ from ludamus.pacts.parley import (
     ParleyMemberState,
     ParleyPersonDTO,
 )
-from ludamus.pacts.party import PartyMembershipStatus
 from ludamus.pacts.user import AgeBand, UserType
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
 # An unnamed group goes by this many of its people, then a count of the rest.
 _NAMES_SHOWN = 3
 
 
-def _signs_in() -> Q:
+def signs_in() -> Q:
     return Q(is_active=True, user_type=UserType.ACTIVE)
 
 
 def _eligible() -> Q:
-    return _signs_in() & Q(age_band=AgeBand.SIXTEEN_PLUS.value)
+    return signs_in() & Q(age_band=AgeBand.SIXTEEN_PLUS.value)
 
 
 def _person(user: User) -> ParleyPersonDTO:
@@ -118,36 +109,6 @@ def set_members(*, conversation_id: int, present: set[int], wanted: set[int]) ->
             user_id=user_id,
             defaults={"state": ParleyMemberState.ACTIVE, "is_admin": False},
         )
-
-
-def _set_owned_members(
-    *,
-    owner: Mapping[str, int],
-    kind: ParleyConversationKind,
-    owner_exists: bool,
-    user_ids: list[int],
-) -> int | None:
-    """Make `user_ids` the members of the chat of `owner`, a party or encounter.
-
-    Opens the chat when it has none yet, people are wanted and its owner still
-    exists.
-
-    Returns:
-        The chat's id when who is in it changed, else None.
-    """
-    if (conversation := ParleyConversation.objects.filter(**owner).first()) is None:
-        if not user_ids or not owner_exists:
-            return None
-        conversation = ParleyConversation.objects.create(kind=kind, **owner)
-    present = set(
-        conversation.members.filter(state__in=_PRESENT).values_list(
-            "user_id", flat=True
-        )
-    )
-    if present == set(user_ids):
-        return None
-    set_members(conversation_id=conversation.pk, present=present, wanted=set(user_ids))
-    return conversation.pk
 
 
 class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
@@ -296,7 +257,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         everyone = list(conversation.members.select_related("user"))
         signing_in = set(
             User.objects.filter(
-                _signs_in(), pk__in=[member.user_id for member in everyone]
+                signs_in(), pk__in=[member.user_id for member in everyone]
             ).values_list("pk", flat=True)
         )
         return ParleyConversationKind(conversation.kind), [
@@ -344,140 +305,6 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         ParleyBlock.objects.filter(
             blocker_id=blocker_id, blocked_id=blocked_id
         ).delete()
-
-    @staticmethod
-    def list_party_candidates(party_id: int) -> list[ParleyChatCandidate]:
-        return [
-            ParleyChatCandidate(user_id=user_id, age_band=AgeBand(age_band))
-            for user_id, age_band in (
-                User.objects.filter(
-                    _signs_in(),
-                    party_memberships__party_id=party_id,
-                    party_memberships__status=PartyMembershipStatus.ACTIVE,
-                )
-                .order_by("pk")
-                .values_list("pk", "age_band")
-            )
-        ]
-
-    @staticmethod
-    def set_party_members(*, party_id: int, user_ids: list[int]) -> int | None:
-        return _set_owned_members(
-            owner={"party_id": party_id},
-            kind=ParleyConversationKind.PARTY,
-            owner_exists=Party.objects.filter(pk=party_id).exists(),
-            user_ids=user_ids,
-        )
-
-    @staticmethod
-    def party_ids_of(user_id: int) -> list[int]:
-        member_of = PartyMembership.objects.filter(member_id=user_id).values_list(
-            "party_id", flat=True
-        )
-        chats = ParleyConversationMember.objects.filter(
-            user_id=user_id, conversation__party_id__isnull=False
-        ).values_list("conversation__party_id", flat=True)
-        return sorted({*member_of, *chats})
-
-    @staticmethod
-    def list_party_ids() -> list[int]:
-        orphaned = ParleyConversation.objects.filter(
-            party_id__isnull=False
-        ).values_list("party_id", flat=True)
-        return sorted({*Party.objects.values_list("pk", flat=True), *orphaned})
-
-    @staticmethod
-    def list_party_chat_ids() -> list[int]:
-        return list(
-            ParleyConversation.objects.filter(party_id__isnull=False)
-            .order_by("pk")
-            .values_list("pk", flat=True)
-        )
-
-    @staticmethod
-    def lock_party(party_id: int) -> None:
-        list(Party.objects.select_for_update().filter(pk=party_id).values_list("pk"))
-
-    @staticmethod
-    def list_encounter_candidates(encounter_id: int) -> list[ParleyChatCandidate]:
-        creator_id = (
-            Encounter.objects.filter(pk=encounter_id, sphere__parley_enabled=True)
-            .values_list("creator_id", flat=True)
-            .first()
-        )
-        if creator_id is None:
-            return []
-        signed_up = EncounterRSVP.objects.filter(encounter_id=encounter_id).values(
-            "user_id"
-        )
-        return [
-            ParleyChatCandidate(user_id=user_id, age_band=AgeBand(age_band))
-            for user_id, age_band in (
-                User.objects.filter(_signs_in())
-                .filter(Q(pk=creator_id) | Q(pk__in=signed_up))
-                .order_by("pk")
-                .values_list("pk", "age_band")
-            )
-        ]
-
-    @staticmethod
-    def set_encounter_members(*, encounter_id: int, user_ids: list[int]) -> int | None:
-        return _set_owned_members(
-            owner={"encounter_id": encounter_id},
-            kind=ParleyConversationKind.ENCOUNTER,
-            owner_exists=Encounter.objects.filter(pk=encounter_id).exists(),
-            user_ids=user_ids,
-        )
-
-    @staticmethod
-    def encounter_ids_of(user_id: int) -> list[int]:
-        made = Encounter.objects.filter(creator_id=user_id).values_list("pk", flat=True)
-        signed_up = EncounterRSVP.objects.filter(user_id=user_id).values_list(
-            "encounter_id", flat=True
-        )
-        chats = ParleyConversationMember.objects.filter(
-            user_id=user_id, conversation__encounter_id__isnull=False
-        ).values_list("conversation__encounter_id", flat=True)
-        return sorted({*made, *signed_up, *chats})
-
-    @staticmethod
-    def sphere_encounter_ids(sphere_id: int) -> list[int]:
-        return list(
-            Encounter.objects.filter(sphere_id=sphere_id)
-            .order_by("pk")
-            .values_list("pk", flat=True)
-        )
-
-    @staticmethod
-    def list_encounter_ids() -> list[int]:
-        orphaned = ParleyConversation.objects.filter(
-            encounter_id__isnull=False
-        ).values_list("encounter_id", flat=True)
-        return sorted({*Encounter.objects.values_list("pk", flat=True), *orphaned})
-
-    @staticmethod
-    def list_encounter_chat_ids() -> list[int]:
-        return list(
-            ParleyConversation.objects.filter(encounter_id__isnull=False)
-            .order_by("pk")
-            .values_list("pk", flat=True)
-        )
-
-    @staticmethod
-    def encounter_chat_id(encounter_id: int) -> int | None:
-        return (
-            ParleyConversation.objects.filter(encounter_id=encounter_id)
-            .values_list("pk", flat=True)
-            .first()
-        )
-
-    @staticmethod
-    def lock_encounter(encounter_id: int) -> None:
-        list(
-            Encounter.objects.select_for_update()
-            .filter(pk=encounter_id)
-            .values_list("pk")
-        )
 
     @staticmethod
     def has_conversation(
