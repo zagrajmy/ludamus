@@ -69,6 +69,17 @@ class TestPrivateSphere:
             template_name="user/login_required.html",
         )
 
+    def test_lets_a_visitor_pick_the_language_of_the_sign_in_page(
+        self, client, private_sphere
+    ):
+        response = client.post(
+            reverse("set_language"),
+            {"language": "pl", "next": "/crowd/login-required/"},
+            HTTP_HOST=private_sphere.site.domain,
+        )
+
+        assert_response(response, HTTPStatus.FOUND, url="/crowd/login-required/")
+
 
 def test_unlisted_sphere_opens_for_anyone_with_the_link(client, non_root_sphere):
     non_root_sphere.visibility = SphereVisibility.UNLISTED
