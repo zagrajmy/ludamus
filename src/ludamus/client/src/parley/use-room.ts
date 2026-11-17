@@ -6,6 +6,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -50,6 +51,18 @@ type RoomAgent = {
 };
 
 const PAGE = 50;
+// The latest page of the rooms opened most recently, so reopening one shows
+// it at once while the room's own answer is on its way.
+const CACHED_ROOMS = 20;
+type Cached = { earlier: boolean; messages: Message[] };
+const cache = new Map<string, Cached>();
+
+const remember = (key: string, entry: Cached) => {
+  cache.delete(key);
+  cache.set(key, entry);
+  const oldest = cache.keys().next();
+  if (cache.size > CACHED_ROOMS && oldest.done !== true) cache.delete(oldest.value);
+};
 // NOTE: the Agents SDK takes every 4xxx close as final, so a conversation
 // that shut this person out is redialled by hand, ever more slowly.
 const REDIAL_FROM = 1000;
@@ -78,11 +91,19 @@ export type Muted = { until: number | null } | null;
 type UseRoomResult = {
   agent: RoomAgent;
   earlier: boolean;
+  // The room's latest page did not come back; retry asks again.
+  failed: boolean;
   load: () => Promise<void>;
+  // The messages are the room's, from this visit or the last one; until
+  // then an empty list says nothing about the room.
+  loaded: boolean;
   messages: Message[];
   muted: Muted;
   offline: boolean;
   presence: number;
+  // The thread opened from the cache, already in place: it needs no entrance.
+  remembered: boolean;
+  retry: () => void;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setMuted: Dispatch<SetStateAction<Muted>>;
   typists: string[];
@@ -102,9 +123,13 @@ export function useRoom({
   userId: string;
 }): UseRoomResult {
   const url = agentUrl(agentHost);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const key = `${userId} ${room.id}`;
+  const cached = useMemo(() => cache.get(key), [key]);
+  const [messages, setMessages] = useState<Message[]>(cached?.messages ?? []);
   const [presence, setPresence] = useState(0);
-  const [earlier, setEarlier] = useState(false);
+  const [earlier, setEarlier] = useState(cached?.earlier ?? false);
+  const [loaded, setLoaded] = useState(cached !== undefined);
+  const [failed, setFailed] = useState(false);
   const [typing, setTyping] = useState<Record<string, number>>({});
   const [muted, setMuted] = useState<Muted>(null);
   const [offline, setOffline] = useState(false);
@@ -113,7 +138,10 @@ export function useRoom({
   const latest = useRef<RoomAgent | null>(null);
   const refused = () =>
     void onRefused().then((member) => {
-      if (!member) return;
+      if (!member) {
+        cache.delete(key);
+        return;
+      }
       const delay = Math.min(REDIAL_FROM * 2 ** redials.current, REDIAL_MAX);
       redials.current += 1;
       redial.current = setTimeout(() => latest.current?.reconnect(), delay);
@@ -129,16 +157,35 @@ export function useRoom({
   });
   latest.current = agent;
 
-  const loadBefore = useCallback(
-    async (beforeId?: number) => {
-      const result = await agent.call<Result<Message[]>>("loadBefore", [{ beforeId, limit: PAGE }]);
-      if (!result.ok) return;
-      setEarlier(result.value.length === PAGE);
-      setMessages((current) => [...result.value, ...current]);
-    },
-    [agent],
-  );
-  const load = useCallback(() => loadBefore(messages[0]?.id), [loadBefore, messages]);
+  const load = useCallback(async () => {
+    const result = await agent.call<Result<Message[]>>("loadBefore", [
+      { beforeId: messages[0]?.id, limit: PAGE },
+    ]);
+    if (!result.ok) return;
+    setEarlier(result.value.length === PAGE);
+    setMessages((current) => [...result.value, ...current]);
+  }, [agent, messages]);
+
+  // The latest page replaces whatever the cache showed: a message deleted,
+  // edited or expired while this person was away must not linger. Only what
+  // the socket brought in since the room answered stays on top of it.
+  const newestCached = cached?.messages.at(-1)?.id ?? 0;
+  const loadLatest = useCallback(async () => {
+    setFailed(false);
+    const result = await agent
+      .call<Result<Message[]>>("loadBefore", [{ limit: PAGE }])
+      .catch((error: unknown) => ({ code: String(error), ok: false as const }));
+    if (!result.ok) {
+      console.warn("parley: latest messages did not load", { code: result.code, room: room.id });
+      setFailed(true);
+      return;
+    }
+    const page = result.value;
+    const floor = Math.max(page.at(-1)?.id ?? 0, newestCached);
+    setEarlier(page.length === PAGE);
+    setMessages((current) => [...page, ...current.filter(({ id }) => id > floor)]);
+    setLoaded(true);
+  }, [agent, newestCached, room.id]);
 
   useEffect(() => {
     const listener = (raw: MessageEvent<string>) => {
@@ -225,17 +272,29 @@ export function useRoom({
   }, [mutedUntil]);
 
   useEffect(() => {
-    void loadBefore();
-  }, [loadBefore, room.id]);
+    void loadLatest();
+  }, [loadLatest]);
+
+  useEffect(() => {
+    if (loaded)
+      remember(key, {
+        earlier: earlier || messages.length > PAGE,
+        messages: messages.slice(-PAGE),
+      });
+  }, [earlier, key, loaded, messages]);
 
   return {
     agent,
     earlier,
+    failed,
     load,
+    loaded,
     messages,
     muted,
     offline,
     presence,
+    remembered: cached !== undefined,
+    retry: () => void loadLatest(),
     setMessages,
     setMuted,
     typists: Object.keys(typing),

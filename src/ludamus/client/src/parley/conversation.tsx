@@ -180,6 +180,33 @@ function ReadObserver({
   return null;
 }
 
+// Stand-ins for a thread still on its way, laid out like one: others on the
+// left behind a face, this person on the right.
+const SKELETON = [
+  { own: false, width: "w-40" },
+  { own: false, width: "w-28" },
+  { own: true, width: "w-36" },
+  { own: false, width: "w-48" },
+  { own: true, width: "w-24" },
+] as const;
+
+function ThreadSkeleton() {
+  return (
+    <div aria-hidden="true" className="parley-skeleton flex flex-col gap-3 px-3 pt-6">
+      {SKELETON.map(({ own, width }, index) => (
+        <div className={`flex items-end gap-2 ${own ? "flex-row-reverse" : ""}`} key={index}>
+          {!own && (
+            <span className="parley-breathe size-7 shrink-0 rounded-full bg-warm-200 dark:bg-neutral-800" />
+          )}
+          <span
+            className={`parley-breathe h-9 rounded-[1.125rem] bg-warm-200 dark:bg-neutral-800 ${width}`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function sameRun(previous: Message | undefined, message: Message): boolean {
   return (
     previous !== undefined &&
@@ -227,11 +254,15 @@ export function Conversation({
   const {
     agent,
     earlier,
+    failed,
     load,
+    loaded,
     messages,
     muted,
     offline,
     presence,
+    remembered,
+    retry,
     setMessages,
     setMuted,
     typists,
@@ -642,32 +673,53 @@ export function Conversation({
         <ReadObserver latestId={messages.at(-1)?.id} onRead={onRead} />
         <MessageScroller.Root className="relative min-h-0 flex-1" data-menu-bounds>
           <MessageScroller.Viewport
+            aria-busy={!loaded && !failed}
             aria-label={copy.messageListLabel}
             className="parley-thread absolute inset-0 overflow-y-auto overscroll-contain"
             data-menu-scroller
           >
-            <MessageScroller.Content className="flex min-h-full flex-col justify-end pb-7">
-              {messages.length === 0 ? (
-                <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
-                  <Avatar className="size-16 text-lg" name={room.title} src={face} />
-                  <p className="mt-3 font-semibold text-foreground">{room.title}</p>
-                  <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
-                </div>
-              ) : earlier ? (
-                <button
-                  className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                  onClick={() => void load()}
-                  type="button"
+            <MessageScroller.Content
+              className={`flex min-h-full flex-col justify-end pb-7 ${loaded && !remembered ? "parley-thread-in" : ""}`}
+            >
+              {failed ? (
+                <p
+                  className={`${loaded ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-1 px-6 text-center text-sm text-foreground-muted`}
+                  role="alert"
                 >
-                  {copy.loadEarlier}
-                </button>
-              ) : (
-                // A session room goes 30 days after its event, well inside the year.
-                room.kind !== "session" && (
-                  <p className="mx-auto mt-3 max-w-64 px-6 text-center text-xs text-foreground-muted">
-                    {copy.retentionNote}
-                  </p>
+                  {copy.historyFailed}
+                  <button
+                    className="rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
+                    onClick={retry}
+                    type="button"
+                  >
+                    {copy.retry}
+                  </button>
+                </p>
+              ) : loaded ? (
+                messages.length === 0 ? (
+                  <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
+                    <Avatar className="size-16 text-lg" name={room.title} src={face} />
+                    <p className="mt-3 font-semibold text-foreground">{room.title}</p>
+                    <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
+                  </div>
+                ) : earlier ? (
+                  <button
+                    className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
+                    onClick={() => void load()}
+                    type="button"
+                  >
+                    {copy.loadEarlier}
+                  </button>
+                ) : (
+                  // A session room goes 30 days after its event, well inside the year.
+                  room.kind !== "session" && (
+                    <p className="mx-auto mt-3 max-w-64 px-6 text-center text-xs text-foreground-muted">
+                      {copy.retentionNote}
+                    </p>
+                  )
                 )
+              ) : (
+                <ThreadSkeleton />
               )}
               {messages.map((message, index) => {
                 const previous = messages[index - 1];

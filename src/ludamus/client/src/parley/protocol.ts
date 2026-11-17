@@ -50,6 +50,7 @@ export type Copy = Record<
   | "groupNeedsPeople"
   | "groupPeople"
   | "groupTitleTooLong"
+  | "historyFailed"
   | "leaveConversation"
   | "leaveConversationConfirm"
   | "leaveGroup"
