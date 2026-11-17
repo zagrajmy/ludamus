@@ -178,10 +178,15 @@ test.describe("Backoffice Panel", () => {
   test("shows the footer without scrolling on a tall viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1400 });
     await page.goto("/panel/");
+    const appScroll = page.locator("#app-scroll");
+    // NOTE: "tall" is relative to the page. The sidebar's list sets the
+    // shortest viewport everything fits in, and it grows with every panel page.
+    const pageHeight = await appScroll.evaluate((element) => element.scrollHeight);
+    await page.setViewportSize({ width: 1600, height: pageHeight + 100 });
 
-    const overflow = await page
-      .locator("#app-scroll")
-      .evaluate((element) => element.scrollHeight - element.clientHeight);
+    const overflow = await appScroll.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    );
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
