@@ -24,7 +24,9 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     panel_context,
+    settings_post_data,
     settings_tab_urls,
+    settings_url,
 )
 
 SOLO_MANAGER_BALLOT = EventDeletionBallotDTO(
@@ -246,21 +248,8 @@ class TestEventSettingsPageViewGet:
 
 
 class TestEventSettingsPageViewPost:
-    @staticmethod
-    def get_url(event):
-        return reverse("panel:event-settings", kwargs={"slug": event.slug})
-
-    @staticmethod
-    def _post_data(event, **overrides):
-        data = {
-            "name": event.name,
-            "slug": event.slug,
-            "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
-            "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
-            "visibility": event.visibility,
-        }
-        data.update(overrides)
-        return data
+    get_url = staticmethod(settings_url)
+    _post_data = staticmethod(settings_post_data)
 
     @staticmethod
     def _render_context(response, event):
@@ -320,20 +309,6 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.name == new_name
-
-    def test_makes_the_event_unlisted(self, panel_client, event):
-        response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="unlisted")
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
-            url=f"/panel/event/{event.slug}/settings/",
-        )
-        event.refresh_from_db()
-        assert event.visibility == "unlisted"
 
     def test_normalizes_address_lines(self, panel_client, event):
         response = panel_client.post(
@@ -687,7 +662,9 @@ class TestEventSettingsPageViewPost:
         response = panel_client.post(
             self.get_url(event),
             data=self._post_data(
-                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+                event,
+                publication="scheduled",
+                publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M"),
             ),
         )
 

@@ -27,7 +27,8 @@ from ludamus.pacts.event import (
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
-    EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
@@ -62,8 +63,6 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "address": cd.get("address") or "",
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
-        "publication_time": cd.get("publication_time"),
-        "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
         ),
@@ -168,7 +167,7 @@ class EventSettingsPageView(EventPanelMixin, View):
                     if self.current_event.publication_time
                     else None
                 ),
-                "visibility": self.current_event.visibility.value,
+                "publication": self.current_event.publication_choice.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
                 "require_session_space": _override_to_choice(
                     value=self.current_event.require_session_space
@@ -224,6 +223,10 @@ class EventSettingsPageView(EventPanelMixin, View):
                 sphere_id=self.request.context.current_sphere_id,
                 slug=slug,
                 data=_event_update_data(cd, new_slug),
+                publication=PublicationIntent(
+                    choice=PublicationChoice(cd["publication"]),
+                    chosen_time=cd.get("publication_time"),
+                ),
             )
         except EventSlugConflictError:
             form.add_error("slug", _("An event with this slug already exists."))

@@ -49,9 +49,12 @@
                     <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Visibility" %}</h3>
-                            <div class="space-y-6">
-                                {% tessera_field form.visibility %}
-                                {% tessera_field form.publication_time %}
+                            {# NOTE: the time belongs to "Publish at" alone, so it shows only while that one is picked. #}
+                            <div class="group/visibility space-y-6">
+                                {% tessera_field form.publication %}
+                                <div class="hidden group-has-[input[value=scheduled]:checked]/visibility:block">
+                                    {% tessera_field form.publication_time %}
+                                </div>
                             </div>
                         </div>
                     </div>
