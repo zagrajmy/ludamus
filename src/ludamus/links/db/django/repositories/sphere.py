@@ -63,6 +63,10 @@ class SphereRepository(
         return SphereDTO.model_validate(sphere)
 
     @staticmethod
+    def lock(sphere_id: int) -> None:
+        list(Sphere.objects.select_for_update().filter(pk=sphere_id).values_list("pk"))
+
+    @staticmethod
     def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None:
         role = (
             SphereMembership.objects.filter(sphere_id=sphere_id, user__slug=user_slug)

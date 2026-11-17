@@ -50,13 +50,24 @@ from .icon_toggle import tessera_icon_toggle
 from .link_tile import tessera_link_tile
 from .radio import RadioNode, do_radio
 from .select import SelectNode, do_select
-from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
+from .switcher import (
+    ChoiceButtonNode,
+    ChoiceButtonsNode,
+    SegmentNode,
+    SwitcherNode,
+    tessera_choice_button,
+    tessera_choice_buttons,
+    tessera_segment,
+    tessera_switcher,
+)
 from .tab_shell import TabShellBodyNode, TabShellNode, tab_shell, tab_shell_body
 from .table import TableNode, do_tessera_table
 from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
     "ActionDropdownNode",
+    "ChoiceButtonNode",
+    "ChoiceButtonsNode",
     "ComboboxNode",
     "RadioNode",
     "SegmentNode",
@@ -83,6 +94,8 @@ __all__ = [
     "tessera_action_dropdown_item",
     "tessera_button",
     "tessera_checkbox_toggle",
+    "tessera_choice_button",
+    "tessera_choice_buttons",
     "tessera_copy",
     "tessera_copy_chip",
     "tessera_copy_popover",

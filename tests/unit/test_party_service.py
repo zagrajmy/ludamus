@@ -176,10 +176,10 @@ class FakeChat:
         self.parties = []
         self.members = []
 
-    def sync_party(self, party_id):
+    def sync(self, party_id):
         self.parties.append(party_id)
 
-    def sync_parties_of(self, user_id):
+    def sync_owners_of(self, user_id):
         self.members.append(user_id)
 
 

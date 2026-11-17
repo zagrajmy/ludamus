@@ -308,6 +308,7 @@ msgid "Create encounter"
 msgstr "Utwórz spotkanie"
 
 #: src/ludamus/gates/web/django/create_options.py
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "Encounter"
 msgstr "Spotkanie"
 
@@ -3655,6 +3656,12 @@ msgid "Your party's own chat. Say hello to everyone."
 msgstr "Czat tylko dla waszej drużyny. Przywitaj się ze wszystkimi."
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"A chat for everyone signed up for this encounter. Say hello to everyone."
+msgstr ""
+"Czat dla wszystkich zapisanych na to spotkanie. Przywitaj się ze wszystkimi."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "You found the table first. Leave a note for the others."
 msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
 
@@ -3793,6 +3800,14 @@ msgstr "Drużyna"
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Everyone in your party is here. To leave this chat, leave the party."
 msgstr "Jest tu cała twoja drużyna. Żeby opuścić ten czat, opuść drużynę."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"The organizer and everyone signed up are here. To leave this chat, cancel "
+"your signup."
+msgstr ""
+"Są tu organizator i wszyscy zapisani. Żeby opuścić ten czat, wypisz się ze "
+"spotkania."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Delete as moderator"
@@ -7096,6 +7111,7 @@ msgstr "Otwórz czat"
 
 #: src/ludamus/templates/board/_back_link.html
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
+#: src/ludamus/templates/components/command-menu.html
 #: src/ludamus/templates/components/navbar.html
 #: src/ludamus/templates/dashboard/index.html
 msgid "Board"
@@ -7523,6 +7539,118 @@ msgstr "Wybierz kolor"
 msgid "Results"
 msgstr "Wyniki"
 
+#: src/ludamus/templates/components/command-menu-entries.html
+#: src/ludamus/templates/event/panel/integrations/create.html
+#: src/ludamus/templates/panel/cfp-create.html
+#: src/ludamus/templates/panel/personal-data-field-create.html
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/sphere/panel/announcements/create.html
+#: src/ludamus/templates/sphere/panel/connections/create.html
+msgid "Create"
+msgstr "Utwórz"
+
+#: src/ludamus/templates/components/command-menu-entries.html
+msgid "Events in the panel"
+msgstr "Wydarzenia w panelu"
+
+#: src/ludamus/templates/components/command-menu-entries.html
+msgid "Your encounters"
+msgstr "Twoje spotkania"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Command menu"
+msgstr "Menu poleceń"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Type a command or search…"
+msgstr "Wpisz polecenie lub szukaj…"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "No results found."
+msgstr "Brak wyników."
+
+#: src/ludamus/templates/components/command-menu.html
+msgid ""
+"Your events and encounters did not load. Reload the page to search them."
+msgstr ""
+"Nie udało się wczytać Twoich wydarzeń i spotkań. Odśwież stronę, aby je "
+"przeszukać."
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/event/propose/parts/_nav.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Go to"
+msgstr "Przejdź do"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/index.html
+#: src/ludamus/templates/landing/org_proof.html
+msgid "Events"
+msgstr "Wydarzenia"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/dashboard/index.html
+msgid "Your dashboard"
+msgstr "Twój pulpit"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+msgid "Panel"
+msgstr "Panel"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/user/user/edit.html
+msgid "Edit profile"
+msgstr "Edycja profilu"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/navbar.html
+msgid "Log out"
+msgstr "Wyloguj się"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/login_button.html
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+msgid "Log in"
+msgstr "Zaloguj się"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/panel/base.html
+msgid "Settings"
+msgstr "Ustawienia"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/language_switcher.html
+msgid "Language"
+msgstr "Język"
+
+#: src/ludamus/templates/components/command-menu.html
+msgid "Theme"
+msgstr "Motyw"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "System theme"
+msgstr "Motyw systemowy"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "Light theme"
+msgstr "Jasny motyw"
+
+#: src/ludamus/templates/components/command-menu.html
+#: src/ludamus/templates/components/theme_switcher.html
+msgid "Dark theme"
+msgstr "Ciemny motyw"
+
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
@@ -7728,10 +7856,11 @@ msgstr "Brak ikony"
 msgid "Preview unavailable for this icon"
 msgstr "Podgląd tej ikony jest niedostępny"
 
-#: src/ludamus/templates/components/login_button.html
-#: src/ludamus/templates/event/propose/parts/_login_nudge.html
-msgid "Log in"
-msgstr "Zaloguj się"
+#: src/ludamus/templates/components/language_switcher.html
+msgid "Used for this site in this browser and for the messages we send you."
+msgstr ""
+"W tym języku wyświetlamy stronę w tej przeglądarce i piszemy do Ciebie "
+"wiadomości."
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
 msgid "Start typing to find someone."
@@ -7754,26 +7883,12 @@ msgid "Apply filters"
 msgstr "Zastosuj filtry"
 
 #: src/ludamus/templates/components/navbar.html
+msgid "Open command menu"
+msgstr "Otwórz menu poleceń"
+
+#: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
 msgstr "Menu konta"
-
-#: src/ludamus/templates/components/navbar.html
-msgid "Panel"
-msgstr "Panel"
-
-#: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/dashboard/index.html
-msgid "Your dashboard"
-msgstr "Twój pulpit"
-
-#: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/user/user/edit.html
-msgid "Edit profile"
-msgstr "Edycja profilu"
-
-#: src/ludamus/templates/components/navbar.html
-msgid "Log out"
-msgstr "Wyloguj się"
 
 #: src/ludamus/templates/components/notifications.html
 msgid "unread"
@@ -7823,24 +7938,12 @@ msgid "Select a display theme:"
 msgstr "Wybierz motyw:"
 
 #: src/ludamus/templates/components/theme_switcher.html
-msgid "System theme"
-msgstr "Motyw systemowy"
-
-#: src/ludamus/templates/components/theme_switcher.html
 msgid "system"
 msgstr "systemowy"
 
 #: src/ludamus/templates/components/theme_switcher.html
-msgid "Light theme"
-msgstr "Jasny motyw"
-
-#: src/ludamus/templates/components/theme_switcher.html
 msgid "light"
 msgstr "jasny"
-
-#: src/ludamus/templates/components/theme_switcher.html
-msgid "Dark theme"
-msgstr "Ciemny motyw"
 
 #: src/ludamus/templates/components/theme_switcher.html
 msgid "dark"
@@ -9123,15 +9226,6 @@ msgstr "Sprawdzanie…"
 msgid "New integration"
 msgstr "Nowa integracja"
 
-#: src/ludamus/templates/event/panel/integrations/create.html
-#: src/ludamus/templates/panel/cfp-create.html
-#: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/sphere/panel/announcements/create.html
-#: src/ludamus/templates/sphere/panel/connections/create.html
-msgid "Create"
-msgstr "Utwórz"
-
 #: src/ludamus/templates/event/panel/integrations/delete.html
 msgid "Delete integration"
 msgstr "Usuń integrację"
@@ -9385,13 +9479,6 @@ msgstr ""
 "propozycje i nie wpisywać danych osobowych ponownie."
 
 #: src/ludamus/templates/event/propose/parts/_nav.html
-#: src/ludamus/templates/event/propose/parts/review.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
-
-#: src/ludamus/templates/event/propose/parts/_nav.html
 #: src/ludamus/templates/user/signup_age.html
 #: src/ludamus/templates/user/signup_continue.html
 #: src/ludamus/templates/user/user/age_range.html
@@ -9517,11 +9604,6 @@ msgstr "Prześlij zgłoszenie"
 #: src/ludamus/templates/event/session-edit-page.html
 msgid "Edit proposal"
 msgstr "Edytuj zgłoszenie"
-
-#: src/ludamus/templates/index.html
-#: src/ludamus/templates/landing/org_proof.html
-msgid "Events"
-msgstr "Wydarzenia"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/sphere/panel/_sphere_tabs_nav.html
@@ -10958,10 +11040,6 @@ msgstr "W trakcie"
 #: src/ludamus/templates/panel/errata.html
 msgid "Errata"
 msgstr "Errata"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Settings"
-msgstr "Ustawienia"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/discount-rules.html
@@ -15338,9 +15416,6 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
-#~ msgid "Create Encounter"
-#~ msgstr "Utwórz spotkanie"
-
 #~ msgid ""
 #~ "Every space is taken at every time this session can go. Add a space, or "
 #~ "move a session in the timetable, then come back to accept this proposal."
@@ -15482,6 +15557,9 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "All scheduled sessions are inside their preferred slots."
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
 
 #~ msgid "Public: listed and announced to followers from its publication time"
 #~ msgstr ""
@@ -17354,3 +17432,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Nothing to moderate right now."
 #~ msgstr "Na razie nie ma czego moderować."
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"

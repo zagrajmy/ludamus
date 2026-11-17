@@ -6,9 +6,10 @@ or answers with a block. A group's creator adds people directly; anyone can
 leave. Neither side of a block can reach the other, and neither the search
 nor a refusal says that a block is why.
 
-A party's chat belongs to the party: its people are the party's active
-members, as `party_chat_members` decides, and nobody joins, leaves or
-renames it apart from the party itself.
+A party's or an encounter's chat belongs to it: its people are the party's
+active members, or the encounter's creator and everyone signed up, as
+`chat_members` decides, and nobody joins, leaves or renames it apart from
+its owner.
 """
 
 from __future__ import annotations
@@ -39,10 +40,11 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.pacts.parley import (
+        ParleyChatCandidate,
         ParleyConversationDTO,
         ParleyConversationRepositoryProtocol,
         ParleyMembershipOutboxProtocol,
-        ParleyPartyCandidate,
+        ParleyOwnedChatRepositoryProtocol,
         ParleyPersonDTO,
         ParleySignerProtocol,
     )
@@ -72,10 +74,10 @@ def _pair_short_of_direct(age_bands: list[AgeBand]) -> bool:
     )
 
 
-def party_chat_members(candidates: list[ParleyPartyCandidate]) -> list[int]:
-    """Who talks in a party's chat: every active member, of any age.
+def chat_members(candidates: list[ParleyChatCandidate]) -> list[int]:
+    """Who talks in a party's or encounter's chat: every candidate, of any age.
 
-    Nobody, though, in a party of fewer than two, or in a pair that could not
+    Nobody, though, when there are fewer than two, or a pair that could not
     message each other directly: their chat would be a direct message.
     """
     if len(candidates) < PARLEY_PAIR or _pair_short_of_direct(
@@ -401,61 +403,68 @@ class ParleyConversationService:
         return conversation
 
 
-class ParleyPartyChatService:
-    """Keeps each party's chat in step with the party's active members."""
+class ParleyOwnedChatService:
+    """Keeps each owner's chat in step with who the owner names.
+
+    One for parties, whose chats take their active members, and one for
+    encounters, whose chats take their creator and everyone signed up.
+    """
 
     def __init__(
         self,
         *,
         transaction: TransactionProtocol,
-        repository: ParleyConversationRepositoryProtocol,
+        repository: ParleyOwnedChatRepositoryProtocol,
         outbox: ParleyMembershipOutboxProtocol,
     ) -> None:
         self._transaction = transaction
         self._repository = repository
         self._outbox = outbox
 
-    def sync_party(self, party_id: int) -> None:
-        if (conversation_id := self._sync(party_id)) is not None:
+    def sync(self, owner_id: int) -> None:
+        if (conversation_id := self._sync(owner_id)) is not None:
             self._outbox.schedule(conversation_ids=[conversation_id])
 
-    def sync_parties_of(self, user_id: int) -> None:
-        """Bring the chats of this person's parties in step with them."""
-        for party_id in self.parties_of(user_id):
-            self.sync_party(party_id)
+    def sync_owners_of(self, user_id: int) -> None:
+        """Bring the chats that hang on this person in step with them."""
+        for owner_id in self.owners_of(user_id):
+            self.sync(owner_id)
 
-    def parties_of(self, user_id: int) -> list[int]:
-        """List the parties whose chats hang on this person."""
-        return self._repository.party_ids_of(user_id)
+    def owners_of(self, user_id: int) -> list[int]:
+        return self._repository.owner_ids_of(user_id)
+
+    def chat_id(self, owner_id: int) -> int | None:
+        return self._repository.chat_id(owner_id)
 
     def open_existing_chats(self) -> int:
-        """Sync every party's chat and send the Worker each one's member list.
+        """Sync every owner's chat and send the Worker each one's member list.
 
-        Parties made before party chats get theirs, and a list whose delivery
-        failed before goes again, so running it twice is safe.
+        Owners made before their kind of chat get theirs, and a list whose
+        delivery failed before goes again, so running it twice is safe.
         """
-        party_ids = self._repository.list_party_ids()
-        for party_id in party_ids:
-            self._sync(party_id)
-        self._outbox.schedule(conversation_ids=self._repository.list_party_chat_ids())
-        logger.info("parley party chats opened: parties=%s", len(party_ids))
-        return len(party_ids)
+        owner_ids = self._repository.list_owner_ids()
+        for owner_id in owner_ids:
+            self._sync(owner_id)
+        self._outbox.schedule(conversation_ids=self._repository.list_chat_ids())
+        logger.info(
+            "parley %s chats opened: owners=%s", self._repository.kind, len(owner_ids)
+        )
+        return len(owner_ids)
 
-    def _sync(self, party_id: int) -> int | None:
+    def _sync(self, owner_id: int) -> int | None:
         with self._transaction.atomic():
             # SAFETY: a join and a leave synced at once would each write the
             # list they read, the older one last.
-            self._repository.lock_party(party_id)
-            members = party_chat_members(
-                self._repository.list_party_candidates(party_id)
-            )
-            conversation_id = self._repository.set_party_members(
-                party_id=party_id, user_ids=members
+            self._repository.lock(owner_id)
+            members = chat_members(self._repository.list_candidates(owner_id))
+            conversation_id = self._repository.set_members(
+                owner_id=owner_id, user_ids=members
             )
         if conversation_id is not None:
             logger.info(
-                "parley party chat synced: party=%s conversation=%s members=%s",
-                party_id,
+                "parley %s chat synced: owner=%s conversation=%s members=%s",
+                self._repository.kind,
+                owner_id,
                 conversation_id,
                 len(members),
             )
