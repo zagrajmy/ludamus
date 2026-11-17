@@ -426,7 +426,7 @@ class EventRepository(EventRepositoryProtocol):
         """
         # One aggregate instead of a COUNT per stat: this runs on every panel
         # page, and a big event pays for each extra scan.
-        session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
+        session_stats = Session.objects.filter(event_id=event_id).aggregate(
             pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
             total=Count("id"),
             hosts=Count("presenter_id", distinct=True),

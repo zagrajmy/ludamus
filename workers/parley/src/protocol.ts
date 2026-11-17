@@ -33,7 +33,7 @@ export type MemberState = "active" | "request";
 
 export type Member = { state: MemberState; user: string; writable: boolean };
 
-export type ConversationKind = "direct" | "group" | "party" | "staff";
+export type ConversationKind = "direct" | "encounter" | "group" | "party" | "staff";
 
 // Who is in a conversation, as Django last saw it. A newer one replaces it whole.
 export type Membership = {

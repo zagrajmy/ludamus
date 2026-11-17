@@ -27,12 +27,15 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEncounter"
   | "emptyEvent"
   | "emptyGroup"
   | "emptyOrganizers"
   | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
+  | "encounterHint"
+  | "encounterRoom"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -55,6 +58,7 @@ export type Copy = Record<
   | "leaveGroup"
   | "leaveGroupConfirm"
   | "linkCopied"
+  | "linkUnavailable"
   | "loadEarlier"
   | "loading"
   | "loadingEmoji"
@@ -71,7 +75,13 @@ export type Copy = Record<
   | "messageTooLong"
   | "messagingNeedsAge"
   | "messagingUnder16"
+  | "moderatedRoomsFew"
+  | "moderatedRoomsMany"
+  | "moderatedRoomsOne"
+  | "moderation"
   | "moderatorDelete"
+  | "moderatorReading"
+  | "moderatorView"
   | "muteConfirm"
   | "muted"
   | "mutedUntil"
@@ -90,6 +100,7 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizerPlaceholder"
   | "organizersRoom"
   | "partyHint"
   | "partyRoom"
@@ -146,6 +157,7 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
+  | "writeAsOrganizer"
   | "writePlaceholder"
   | "writingRestored"
   | "you",
@@ -154,13 +166,14 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct, group or party conversation as its member sees it; members lists the
+// A direct, group, party, encounter or staff case conversation as its member
+// sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party" | "staff";
+  kind: "direct" | "encounter" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -175,6 +188,8 @@ export type Room = {
   conversation?: ConversationInfo;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
+  // Here only because this person moderates its sphere: they are not in it.
+  moderating: boolean;
   // The sphere a sphere's room belongs to; a conversation has none.
   sphere?: number;
   title: string;
@@ -192,6 +207,9 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
+  // Where this sphere's rooms this person only moderates are read; null
+  // when there are none.
+  moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };
 };

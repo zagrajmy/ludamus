@@ -31,6 +31,9 @@ class ParleyRoomDTO(BaseModel):
     title: str
     can_write: bool = Field(serialization_alias="canWrite")
     can_moderate: bool = Field(default=False, serialization_alias="canModerate")
+    # Listed only because this person moderates its sphere: they neither run
+    # nor take part in it.
+    moderating: bool = False
     # When the event the room belongs to ends and starts; the organizers'
     # room has neither.
     ends_at: int | None = Field(default=None, exclude=True)
@@ -45,8 +48,35 @@ class ParleyRoomDTO(BaseModel):
 
     @model_validator(mode="after")
     def _named(self) -> Self:
+        if self.moderating and not self.can_moderate:
+            msg = "a room listed only to moderate it must be moderated"
+            raise ValueError(msg)
         self.id = f"{self.kind}:{self.name}"
         return self
+
+
+class ParleyModeratedEventDTO(BaseModel):
+    """An event's rooms a moderator is not in: its own chat, then its points'."""
+
+    title: str
+    slug: str
+    rooms: list[ParleyRoomDTO]
+
+
+class ParleyRoomRef(BaseModel):
+    kind: ParleyRoomKind
+    pk: int
+
+
+class ParleyOpenedRoomDTO(BaseModel):
+    room: ParleyRoomDTO
+    event_title: str
+    event_slug: str
+
+
+class ParleyModerationPageDTO(BaseModel):
+    events: list[ParleyModeratedEventDTO]
+    opened: ParleyOpenedRoomDTO | None = None
 
 
 class ParleyAccessDTO(BaseModel):
@@ -69,6 +99,8 @@ class ParleyConversationKind(StrEnum):
     GROUP = "group"
     # A party's own, its members kept in step with the party's.
     PARTY = "party"
+    # An encounter's own: its creator and everyone signed up for it.
+    ENCOUNTER = "encounter"
     # A staff case's thread, its members kept in step with who is staff.
     STAFF = "staff"
 
@@ -110,6 +142,13 @@ CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy]
                 staff_only=False,
             ),
             ParleyConversationKind.PARTY: ParleyConversationPolicy(
+                needs_direct=False,
+                self_managed=False,
+                one_to_one=False,
+                pair_needs_direct=True,
+                staff_only=False,
+            ),
+            ParleyConversationKind.ENCOUNTER: ParleyConversationPolicy(
                 needs_direct=False,
                 self_managed=False,
                 one_to_one=False,
@@ -173,6 +212,9 @@ class ParleyBootstrapDTO(BaseModel):
     blocked: list[ParleyPersonDTO] = Field(default_factory=list)
     capability_token: str = Field(serialization_alias="capabilityToken")
     agent_host: str = Field(serialization_alias="agentHost")
+    # Whether the sphere the chat opens on has rooms this person only
+    # moderates, read on its moderation page.
+    has_moderated_rooms: bool = Field(default=False, exclude=True)
 
 
 class ParleyManagedSphere(BaseModel):
@@ -314,16 +356,32 @@ class ParleyTimeWindow(BaseModel):
 
 
 class ParleyRepositoryProtocol(Protocol):
-    # `moderated` are the spheres whose every room this person moderates.
+    # `moderated` are the spheres whose every room this person moderates;
+    # `watched`, those of them whose rooms they are not in are listed too.
     @staticmethod
     def read_access(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> ParleyAccessDTO | None: ...
 
     @staticmethod
     def has_rooms(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> bool: ...
+
+    # The sphere's events, in the order they start, with the rooms in each
+    # this person may moderate but is not in.
+    @staticmethod
+    def list_moderated(
+        *, user_id: int, sphere_id: int, window: ParleyTimeWindow
+    ) -> list[ParleyModeratedEventDTO]: ...
 
     # The spheres with chat on whose team this person is on.
     @staticmethod
@@ -350,6 +408,11 @@ class ParleyRepositoryProtocol(Protocol):
 
     @staticmethod
     def list_chat_sphere_ids() -> list[int]: ...
+
+    # The sphere's encounters with a signup or a chat: the only ones its
+    # chat switch can open or close a chat for.
+    @staticmethod
+    def list_encounters_with_people(sphere_id: int) -> list[int]: ...
 
 
 class ParleySignerProtocol(Protocol):
@@ -381,15 +444,24 @@ class ParleyRevocationServiceProtocol(Protocol):
 
     def age_changed(self, *, user_id: int) -> None: ...
 
+    # The sphere's chat was turned on or off; its encounters' chats follow.
+    def sphere_chat_switched(self, *, sphere_id: int) -> None: ...
+
 
 class ParleyServiceProtocol(Protocol):
     def bootstrap(
-        self, *, user_id: int, now: datetime
+        self, *, user_id: int, sphere_id: int, now: datetime
     ) -> ParleyBootstrapDTO | None: ...
 
-    def is_open_to(self, *, user_id: int, now: datetime) -> bool: ...
+    def moderates(self, *, user_id: int, sphere_id: int) -> bool: ...
+
+    def is_open_to(self, *, user_id: int, sphere_id: int, now: datetime) -> bool: ...
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool: ...
+
+    def moderation_page(
+        self, *, user_id: int, sphere_id: int, room: ParleyRoomRef | None, now: datetime
+    ) -> ParleyModerationPageDTO: ...
 
     def delete_reported(
         self, *, report_ids: list[int], now: datetime
@@ -440,8 +512,12 @@ class ParleyTeamSeat(BaseModel):
     role: SphereRole
 
 
-class ParleyPartyCandidate(BaseModel):
-    """An active member of a party who can sign in, and the age they confirmed."""
+class ParleyChatCandidate(BaseModel):
+    """Someone a party's or encounter's chat would take in, and their confirmed age.
+
+    An active member of the party, or the encounter's creator or one of its
+    signups, who can sign in.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -528,31 +604,6 @@ class ParleyConversationRepositoryProtocol(Protocol):
     def unblock(*, blocker_id: int, blocked_id: int) -> None: ...
 
     @staticmethod
-    def list_party_candidates(party_id: int) -> list[ParleyPartyCandidate]: ...
-
-    # Makes these people, and no one else, the party chat's members, opening
-    # the chat if it has none yet; the chat's id when who is in it changed,
-    # else None.
-    @staticmethod
-    def set_party_members(*, party_id: int, user_ids: list[int]) -> int | None: ...
-
-    # The parties this person is in, or whose chat they are in.
-    @staticmethod
-    def party_ids_of(user_id: int) -> list[int]: ...
-
-    # Every party, and every party a chat was kept for after it was gone.
-    @staticmethod
-    def list_party_ids() -> list[int]: ...
-
-    @staticmethod
-    def list_party_chat_ids() -> list[int]: ...
-
-    # Holds the party until the transaction ends, so its chat is synced by
-    # one change at a time.
-    @staticmethod
-    def lock_party(party_id: int) -> None: ...
-
-    @staticmethod
     def has_conversation(
         *, user_id: int, kinds: frozenset[ParleyConversationKind]
     ) -> bool: ...
@@ -609,13 +660,55 @@ class ParleyConversationServiceProtocol(Protocol):
     def unblock(self, *, user_id: int, blocked_id: int) -> None: ...
 
 
-class ParleyPartyChatProtocol(Protocol):
-    """Keeps a party's chat in step with who is in the party."""
+class ParleyOwnedChatRepositoryProtocol(Protocol):
+    """The chats of one kind of owner: each party's, or each encounter's.
 
-    def sync_party(self, party_id: int) -> None: ...
+    An owner has at most one chat. Its people are the candidates the owner
+    names, as `chat_members` narrows them; nobody joins, leaves or renames it
+    apart from the owner itself.
+    """
 
-    def sync_parties_of(self, user_id: int) -> None: ...
+    @property
+    def kind(self) -> ParleyConversationKind: ...
 
-    def parties_of(self, user_id: int) -> list[int]: ...
+    # Holds the owner until the transaction ends, so its chat is synced by one
+    # change at a time.
+    @staticmethod
+    def lock(owner_id: int) -> None: ...
+
+    @staticmethod
+    def list_candidates(owner_id: int) -> list[ParleyChatCandidate]: ...
+
+    # Makes these people, and no one else, the chat's members, opening it if
+    # the owner has none yet; the chat's id when who is in it changed, else
+    # None.
+    @staticmethod
+    def set_members(*, owner_id: int, user_ids: list[int]) -> int | None: ...
+
+    # The owners this person is a candidate of, or whose chat they are in.
+    @staticmethod
+    def owner_ids_of(user_id: int) -> list[int]: ...
+
+    # Every owner, and every owner a chat was kept for after it was gone.
+    @staticmethod
+    def list_owner_ids() -> list[int]: ...
+
+    @staticmethod
+    def list_chat_ids() -> list[int]: ...
+
+    @staticmethod
+    def chat_id(owner_id: int) -> int | None: ...
+
+
+class ParleyOwnedChatProtocol(Protocol):
+    """Keeps each owner's chat (a party's, an encounter's) in step with it."""
+
+    def sync(self, owner_id: int) -> None: ...
+
+    def sync_owners_of(self, user_id: int) -> None: ...
+
+    def owners_of(self, user_id: int) -> list[int]: ...
+
+    def chat_id(self, owner_id: int) -> int | None: ...
 
     def open_existing_chats(self) -> int: ...

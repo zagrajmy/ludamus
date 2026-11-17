@@ -54,6 +54,18 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
 
+# The container's resolver maps no `*.localhost` subdomain to loopback, and
+# /etc/hosts takes no wildcard. Browsers resolve them on their own; Node and
+# Python do not, so Playwright's readiness probe of the :8001 e2e server
+# (which redirects to ludamus.localhost) times out after 180 s. These are the
+# fixed names the e2e suite serves. portless needs no entry here: its proxy
+# writes each route's hostname to /etc/hosts itself (PORTLESS_SYNC_HOSTS).
+for host in ludamus another foreign feed crew; do
+  grep -Eq "^[^#]*[[:space:]]$host\.localhost([[:space:]]|\$)" /etc/hosts 2> /dev/null \
+    || echo "127.0.0.1 $host.localhost" >> /etc/hosts \
+    || echo "WARN: could not add $host.localhost to /etc/hosts; e2e on it will not resolve"
+done
+
 # Some sandbox images ship without mise. The standalone installer at mise.run
 # is reachable through the egress proxy (unlike GitHub releases), so grab it
 # from there; everything below assumes `mise` resolves.

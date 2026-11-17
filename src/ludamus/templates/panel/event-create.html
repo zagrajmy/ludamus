@@ -17,7 +17,18 @@
             {% endif %}
             <form method="post" action="" class="space-y-4" data-submit-once>
                 {% csrf_token %}
-                {% tessera_form form %}
+                {# NOTE: fields are listed one by one to pair the two dates, so a field added to event_create_form must be added here too. #}
+                {% tessera_errors form %}
+                {% tessera_field form.name %}
+                {% tessera_field form.slug %}
+                {# NOTE: paired while each column fits a Polish date and time (about 151px), stacked on narrower phones. #}
+                <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-x-3 gap-y-4 *:mb-0!">
+                    {% tessera_field form.start_time %}
+                    {% tessera_field form.end_time %}
+                </div>
+                {% if "based_on" in form.fields %}
+                    {% tessera_field form.based_on %}
+                {% endif %}
                 <div class="flex justify-end gap-2 border-t border-border pt-4">
                     {% translate "Create event" as t_create %}
                     {% tessera_button t_create %}

@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from django.db.models import Model, QuerySet
     from django.http import HttpRequest, HttpResponse
 
+    from ludamus.pacts.parley import ParleyOwnedChatProtocol
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -78,6 +79,26 @@ def _services() -> ServicesProtocol:
         msg = "No services registered for the admin."
         raise ImproperlyConfigured(msg)
     return _wiring.services()
+
+
+def _chats_held_by(
+    user_ids: Sequence[int],
+) -> list[tuple[ParleyOwnedChatProtocol, list[int]]]:
+    """List, by kind, the party and encounter chats that hang on these people.
+
+    Read before they are deleted: their memberships and signups go with them.
+    """
+    services = _services()
+    return [
+        (chats, sorted({owner for user in user_ids for owner in chats.owners_of(user)}))
+        for chats in (services.parley_party_chats, services.parley_encounter_chats)
+    ]
+
+
+def _resync(held: list[tuple[ParleyOwnedChatProtocol, list[int]]]) -> None:
+    for chats, owner_ids in held:
+        for owner_id in owner_ids:
+            chats.sync(owner_id)
 
 
 _ACTION_DECISIONS = [
@@ -596,23 +617,15 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
     @override
     def delete_model(self, request: HttpRequest, obj: User) -> None:
-        chats = _services().parley_party_chats
-        parties = chats.parties_of(obj.pk)
+        held = _chats_held_by([obj.pk])
         super().delete_model(request, obj)
-        for party_id in parties:
-            chats.sync_party(party_id)
+        _resync(held)
 
     @override
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
-        chats = _services().parley_party_chats
-        parties = {
-            party_id
-            for user_id in queryset.values_list("pk", flat=True)
-            for party_id in chats.parties_of(user_id)
-        }
+        held = _chats_held_by(list(queryset.values_list("pk", flat=True)))
         super().delete_queryset(request, queryset)
-        for party_id in sorted(parties):
-            chats.sync_party(party_id)
+        _resync(held)
 
     @admin.action(description="Send notification to selected users")
     def send_notification(

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -11,6 +11,9 @@ from ludamus.pacts.event import (
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
+    EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
 from ludamus.pacts.event_settings import EventSettingsRepos, ProposalSettingsUpdateData
 from ludamus.pacts.fields import OrganizerFieldDTO
@@ -332,6 +335,86 @@ class TestUpdateGeneral:
         )
 
         assert fakes.events.rows[_EVENT_PK] == _event(publication_time=_START)
+
+
+class TestPublicationChoice:
+    """How each visibility choice lands on the stored event.
+
+    Ways it could go wrong: Link only drops or moves the stored time; Public
+    now re-stamps an event already out; Public now stamps a time after the
+    start, which the save then refuses; Publish at ignores the chosen time; a
+    kept time ends up after a start moved earlier.
+    """
+
+    @staticmethod
+    def _save(fakes, *, choice, chosen=None, data=None):
+        fakes.service.update_general(
+            sphere_id=SPHERE_ID,
+            slug="conf",
+            data=data or {},
+            publication=PublicationIntent(choice=choice, chosen_time=chosen),
+        )
+        event = fakes.events.rows[_EVENT_PK]
+        return event.visibility, event.publication_time
+
+    def test_link_only_keeps_the_stored_time(self):
+        stored = _START - timedelta(days=3)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(fakes, choice=PublicationChoice.LINK_ONLY)
+
+        assert saved == (EventVisibility.UNLISTED, stored)
+
+    def test_a_kept_time_follows_a_start_moved_before_it(self):
+        stored = _START - timedelta(days=3)
+        earlier = stored - timedelta(days=1)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(
+            fakes,
+            choice=PublicationChoice.LINK_ONLY,
+            data={"start_time": earlier, "end_time": _END},
+        )
+
+        assert saved == (EventVisibility.UNLISTED, earlier)
+
+    def test_public_now_keeps_the_time_of_an_event_already_out(self):
+        stored = _START - timedelta(days=3)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(fakes, choice=PublicationChoice.PUBLIC_NOW)
+
+        assert saved == (EventVisibility.PUBLIC, stored)
+
+    def test_public_now_publishes_a_started_event_from_its_start(self):
+        fakes = _Fakes()
+
+        saved = self._save(fakes, choice=PublicationChoice.PUBLIC_NOW)
+
+        assert saved == (EventVisibility.PUBLIC, _START)
+
+    def test_public_now_publishes_an_upcoming_event_now(self):
+        start = datetime.now(tz=UTC) + timedelta(days=30)
+        fakes = _Fakes()
+        before = datetime.now(tz=UTC)
+
+        visibility, published = self._save(
+            fakes,
+            choice=PublicationChoice.PUBLIC_NOW,
+            data={"start_time": start, "end_time": start + timedelta(days=1)},
+        )
+
+        assert visibility is EventVisibility.PUBLIC
+        assert published is not None
+        assert before <= published <= datetime.now(tz=UTC)
+
+    def test_publish_at_stores_the_chosen_time(self):
+        chosen = _START - timedelta(days=10)
+        fakes = _Fakes()
+
+        saved = self._save(fakes, choice=PublicationChoice.SCHEDULED, chosen=chosen)
+
+        assert saved == (EventVisibility.PUBLIC, chosen)
 
 
 class TestDisplayAndProposalSettings:
