@@ -28,7 +28,7 @@ from ludamus.pacts.party import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.parley import ParleyPartyChatProtocol
+    from ludamus.pacts.parley import ParleyOwnedChatProtocol
     from ludamus.pacts.party import (
         InvitablePartyDTO,
         PartiesOverviewDTO,
@@ -47,7 +47,7 @@ class PartyService(PartyServiceProtocol):
         transaction: TransactionProtocol,
         parties: PartyRepositoryProtocol,
         notifier: PartyNotifierProtocol,
-        chat: ParleyPartyChatProtocol,
+        chat: ParleyOwnedChatProtocol,
     ) -> None:
         self._transaction = transaction
         self._parties = parties
@@ -71,7 +71,7 @@ class PartyService(PartyServiceProtocol):
         with self._transaction.atomic():
             if not self._parties.delete(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.NOT_FOUND
-            self._chat.sync_party(party_pk)
+            self._chat.sync(party_pk)
             return DeletePartyOutcome.DELETED
 
     def invite(
@@ -157,7 +157,7 @@ class PartyService(PartyServiceProtocol):
         with self._transaction.atomic():
             result = self._parties.join_via_token(token=token, user_pk=user_pk)
             if result is not None and result.joined:
-                self._chat.sync_party(result.party_pk)
+                self._chat.sync(result.party_pk)
             return result
 
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool:
@@ -166,7 +166,7 @@ class PartyService(PartyServiceProtocol):
                 membership_pk=membership_pk, user_pk=user_pk
             ):
                 return False
-            self._chat.sync_parties_of(user_pk)
+            self._chat.sync_owners_of(user_pk)
             return True
 
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool:
@@ -183,14 +183,14 @@ class PartyService(PartyServiceProtocol):
                 leader_pk=leader_pk, party_pk=party_pk, membership_pk=membership_pk
             )
             if status is PartyMembershipStatus.ACTIVE:
-                self._chat.sync_party(party_pk)
+                self._chat.sync(party_pk)
             return status
 
     def leave(self, *, user_pk: int, party_pk: int) -> bool:
         with self._transaction.atomic():
             if not self._parties.leave(user_pk=user_pk, party_pk=party_pk):
                 return False
-            self._chat.sync_party(party_pk)
+            self._chat.sync(party_pk)
             return True
 
     def set_my_consent(

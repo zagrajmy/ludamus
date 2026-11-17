@@ -17,13 +17,17 @@ from ludamus.inits.builders import (
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_encounter_chats,
     build_parley_report_retention,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
-from ludamus.inits.dbos_scheduler import offer_expiry_scheduler
+from ludamus.inits.dbos_scheduler import (
+    offer_expiry_scheduler,
+    parley_membership_outbox,
+)
 from ludamus.pacts.sweeps import Sweep
 
 if TYPE_CHECKING:
@@ -37,7 +41,8 @@ def _expire_lapsed_offers(now: datetime) -> int:
 
 def _purge_stale_invitees(now: datetime) -> int:
     sites = build_sites()
-    encounters = build_encounters(sites, build_encounter_guests(sites))
+    chat = build_parley_encounter_chats(parley_membership_outbox())
+    encounters = build_encounters(sites, build_encounter_guests(sites, chat))
     return encounters.purge_stale_invitees(now=now)
 
 

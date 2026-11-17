@@ -18,7 +18,7 @@ const SYSTEM_AUTHOR = "system";
 
 type MemberRow = { state: Member["state"]; user_id: string; writable: number };
 
-// A direct, group, party or staff case conversation. Django pushes who is in
+// A direct, group, party, encounter or staff case conversation. Django pushes who is in
 // it; the room admits, and lets write, only the people on its latest list.
 export class ParleyConversationAgent extends RoomAgent {
   protected readonly roomPrefix = "conversation";

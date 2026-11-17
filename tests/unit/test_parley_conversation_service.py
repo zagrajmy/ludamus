@@ -4,18 +4,18 @@ import pytest
 
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
-    ParleyPartyChatService,
-    party_chat_members,
+    ParleyOwnedChatService,
+    chat_members,
     sign_membership,
 )
 from ludamus.pacts.parley import (
+    ParleyChatCandidate,
     ParleyConversationDTO,
     ParleyConversationError,
     ParleyConversationKind,
     ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
-    ParleyPartyCandidate,
     ParleyPersonDTO,
 )
 from ludamus.pacts.user import AgeBand
@@ -43,6 +43,8 @@ class World:
     """People, blocks and conversations as plain data, for the service to change."""
 
     staff: frozenset[int] = frozenset()
+    # The party chats it holds, as the owned-chat service sees them.
+    kind = PARTY
 
     def __init__(self, *, eligible=(ME, ADA, BOB, *range(100, 200))):
         self.eligible = set(eligible)
@@ -181,19 +183,19 @@ class World:
             return AgeBand.THIRTEEN_TO_FIFTEEN
         return AgeBand.SIXTEEN_PLUS if user_id in self.eligible else AgeBand.UNKNOWN
 
-    def list_party_candidates(self, party_id):
+    def list_candidates(self, owner_id):
         return [
-            ParleyPartyCandidate(user_id=user, age_band=self.read_age_band(user))
+            ParleyChatCandidate(user_id=user, age_band=self.read_age_band(user))
             for party, user in sorted(self.parties)
-            if party == party_id
+            if party == owner_id
         ]
 
-    def set_party_members(self, *, party_id, user_ids):
+    def set_members(self, *, owner_id, user_ids):
         chat = next(
             (
                 pk
                 for pk, row in self.conversations.items()
-                if row.get("party") == party_id
+                if row.get("party") == owner_id
             ),
             None,
         )
@@ -204,7 +206,7 @@ class World:
             self.conversations[chat] = {
                 "kind": PARTY,
                 "pair_key": None,
-                "party": party_id,
+                "party": owner_id,
                 "title": "Drużyna",
             }
         present = {user for user, state in self.states(chat).items() if state != LEFT}
@@ -216,7 +218,7 @@ class World:
             self.members[chat, user] = (ACTIVE, False)
         return chat
 
-    def party_ids_of(self, user_id):
+    def owner_ids_of(self, user_id):
         in_chat = {
             row["party"]
             for pk, row in self.conversations.items()
@@ -226,14 +228,14 @@ class World:
             {party for party, user in self.parties if user == user_id} | in_chat
         )
 
-    def list_party_ids(self):
+    def list_owner_ids(self):
         kept = {row["party"] for row in self.conversations.values() if "party" in row}
         return sorted({party for party, _ in self.parties} | kept)
 
-    def list_party_chat_ids(self):
+    def list_chat_ids(self):
         return sorted(pk for pk, row in self.conversations.items() if "party" in row)
 
-    def lock_party(self, party_id):
+    def lock(self, owner_id):
         pass
 
 
@@ -531,7 +533,7 @@ class TestNames:
 
 def _candidates(*members):
     return [
-        ParleyPartyCandidate(user_id=user_id, age_band=age_band)
+        ParleyChatCandidate(user_id=user_id, age_band=age_band)
         for user_id, age_band in enumerate(members, start=1)
     ]
 
@@ -569,7 +571,7 @@ ADULT, TEEN, UNSURE = (
 def test_a_party_chat_takes_in_any_age_but_not_a_pair_short_of_direct_messages(
     members, talking
 ):
-    assert party_chat_members(_candidates(*members)) == talking
+    assert chat_members(_candidates(*members)) == talking
 
 
 class TestPartyChats:
@@ -578,18 +580,18 @@ class TestPartyChats:
     @pytest.fixture(name="chats")
     @staticmethod
     def _chats(world, outbox):
-        return ParleyPartyChatService(
+        return ParleyOwnedChatService(
             transaction=FakeTransaction(), repository=world, outbox=outbox
         )
 
     def test_opens_for_every_age_once_a_pair_grows(self, chats, world, outbox):
         world.parties = {(7, ME), (7, KID)}
-        chats.sync_party(7)
+        chats.sync(7)
         assert (world.conversations, outbox.sent) == ({}, [])
 
         world.parties.add((7, ADA))
-        chats.sync_party(7)
-        chats.sync_party(7)
+        chats.sync(7)
+        chats.sync(7)
 
         assert world.states(1) == {ME: ACTIVE, KID: ACTIVE, ADA: ACTIVE}
         assert outbox.sent == [1]
@@ -598,24 +600,24 @@ class TestPartyChats:
         self, chats, world, outbox
     ):
         world.parties = {(7, ME), (7, KID), (7, ADA)}
-        chats.sync_party(7)
+        chats.sync(7)
         world.parties.discard((7, ADA))
 
-        chats.sync_party(7)
+        chats.sync(7)
         assert world.states(1) == {ME: LEFT, KID: LEFT, ADA: LEFT}
         assert world.list_for(KID) == []
 
         world.parties.add((7, BOB))
-        chats.sync_party(7)
+        chats.sync(7)
         assert world.states(1) == {ME: ACTIVE, KID: ACTIVE, ADA: LEFT, BOB: ACTIVE}
         assert outbox.sent == [1, 1, 1]
 
     def test_lets_go_of_everyone_once_the_party_is_gone(self, chats, world, outbox):
         world.parties = {(7, ME), (7, ADA)}
-        chats.sync_party(7)
+        chats.sync(7)
         world.parties.clear()
 
-        chats.sync_party(7)
+        chats.sync(7)
 
         assert world.states(1) == {ME: LEFT, ADA: LEFT}
         assert outbox.sent == [1, 1]
@@ -625,17 +627,17 @@ class TestPartyChats:
     ):
         world.parties = {(7, ME), (7, ADA), (8, KID), (8, ADA)}
 
-        chats.sync_parties_of(KID)
-        chats.sync_parties_of(ME)
-        chats.sync_parties_of(ME)
+        chats.sync_owners_of(KID)
+        chats.sync_owners_of(ME)
+        chats.sync_owners_of(ME)
 
         assert world.states(1) == {ME: ACTIVE, ADA: ACTIVE}
         assert outbox.sent == [1]
         world.ages = {KID: ADULT}
-        chats.sync_parties_of(KID)
+        chats.sync_owners_of(KID)
         assert world.states(2) == {KID: ACTIVE, ADA: ACTIVE}
         world.ages = {KID: TEEN}
-        chats.sync_parties_of(KID)
+        chats.sync_owners_of(KID)
         assert world.states(2) == {KID: LEFT, ADA: LEFT}
 
     def test_opens_the_chats_of_every_party_made_before_them(
@@ -650,7 +652,7 @@ class TestPartyChats:
 
     def test_lets_everyone_go_once_the_party_is_gone(self, chats, world, outbox):
         world.parties = {(7, ME), (7, ADA), (7, BOB)}
-        chats.sync_party(7)
+        chats.sync(7)
         world.parties = set()
 
         assert chats.open_existing_chats() == 1
@@ -659,7 +661,7 @@ class TestPartyChats:
 
     def test_is_listed_for_someone_direct_messages_are_shut_to(self, chats, world):
         world.parties = {(7, ME), (7, ADA)}
-        chats.sync_party(7)
+        chats.sync(7)
         service = ParleyConversationService(
             transaction=FakeTransaction(), repository=world, outbox=Outbox()
         )
@@ -669,7 +671,7 @@ class TestPartyChats:
 
     def test_is_left_and_renamed_only_through_the_party(self, chats, world, service):
         world.parties = {(7, ME), (7, ADA)}
-        chats.sync_party(7)
+        chats.sync(7)
 
         _refused("forbidden", service.leave, user_id=ME, conversation_id=1)
         _refused("forbidden", service.rename, user_id=ME, conversation_id=1, name="X")
