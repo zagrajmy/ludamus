@@ -23,7 +23,11 @@ from ludamus.pacts.encounter import (
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.sphere import Capability
-from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
+from ludamus.specs.encounter import (
+    INVITEE_RETENTION_AFTER_END,
+    INVITEE_WINDOW,
+    ORGANIZED_ENCOUNTERS_LIMIT,
+)
 from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
@@ -113,6 +117,19 @@ class EncounterService(EncounterServiceProtocol):
                 ),
                 user_id=user_id,
             ),
+        )
+
+    def list_organized(self, *, sphere_id: int, user_id: int) -> list[EncounterDTO]:
+        """List the encounters ``user_id`` organizes in this sphere.
+
+        Returns:
+            Newest first, at most ``ORGANIZED_ENCOUNTERS_LIMIT``; empty on a
+            sphere with encounters off, where their pages do not open.
+        """
+        if not self.enabled(sphere_id):
+            return []
+        return self._encounters.list_by_creator(
+            sphere_id, user_id, limit=ORGANIZED_ENCOUNTERS_LIMIT
         )
 
     def list_upcoming(
