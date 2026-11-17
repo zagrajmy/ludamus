@@ -58,6 +58,7 @@ export type Copy = Record<
   | "leaveGroup"
   | "leaveGroupConfirm"
   | "linkCopied"
+  | "linkUnavailable"
   | "loadEarlier"
   | "loading"
   | "loadingEmoji"
@@ -74,7 +75,13 @@ export type Copy = Record<
   | "messageTooLong"
   | "messagingNeedsAge"
   | "messagingUnder16"
+  | "moderatedRoomsFew"
+  | "moderatedRoomsMany"
+  | "moderatedRoomsOne"
+  | "moderation"
   | "moderatorDelete"
+  | "moderatorReading"
+  | "moderatorView"
   | "muteConfirm"
   | "muted"
   | "mutedUntil"
@@ -93,6 +100,7 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizerPlaceholder"
   | "organizersRoom"
   | "partyHint"
   | "partyRoom"
@@ -149,6 +157,7 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
+  | "writeAsOrganizer"
   | "writePlaceholder"
   | "writingRestored"
   | "you",
@@ -179,6 +188,8 @@ export type Room = {
   conversation?: ConversationInfo;
   id: string;
   kind: "conversation" | "event" | "organizers" | "session";
+  // Here only because this person moderates its sphere: they are not in it.
+  moderating: boolean;
   // The sphere a sphere's room belongs to; a conversation has none.
   sphere?: number;
   title: string;
@@ -196,6 +207,9 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
+  // Where this sphere's rooms this person only moderates are read; null
+  // when there are none.
+  moderationUrl: string | null;
   rooms: Room[];
   user: { avatarUrl: string; id: string; name: string };
 };

@@ -13,6 +13,7 @@ from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.create_options import create_options
 from ludamus.gates.web.django.event.event_presentation import EventInfo, split_events
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
 
@@ -85,10 +86,5 @@ class EventsPageView(TemplateView):
         context["past"] = _merge(
             events=events.past, encounters=encounters.past, newest_first=True
         )[:PAST_FEED_LIMIT]
-        context["can_create_encounter"] = (
-            user_id is not None
-            and self.request.services.encounters.can_create(
-                sphere_id=sphere_id, user_id=user_id
-            )
-        )
+        context["create_options"] = create_options(self.request, user_id=user_id)
         return context

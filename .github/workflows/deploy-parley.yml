@@ -61,7 +61,7 @@ jobs:
           ref: ${{ inputs.sha }}
           persist-credentials: false
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
         if: steps.configured.outputs.ready == 'true'
 
       - if: steps.configured.outputs.ready == 'true'

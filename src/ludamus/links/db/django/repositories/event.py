@@ -69,7 +69,7 @@ from ludamus.pacts.session_cards import (
 )
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.timetable import AgendaItemDTO
-from ludamus.pacts.venues import LocationData
+from ludamus.pacts.venues import NO_LOCATION, LocationData
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Sequence
@@ -247,7 +247,11 @@ def location_from_chain(chain: Sequence[SpaceNode]) -> LocationData:
     )
 
 
-def location_data(space: Space) -> LocationData:
+def location_data(space: Space | None) -> LocationData:
+    # A session scheduled without a space (require_session_space off) has a
+    # time and no place to describe.
+    if space is None:
+        return NO_LOCATION
     return location_from_chain((*reversed(tuple(space.iter_ancestors())), space))
 
 
@@ -422,7 +426,7 @@ class EventRepository(EventRepositoryProtocol):
         """
         # One aggregate instead of a COUNT per stat: this runs on every panel
         # page, and a big event pays for each extra scan.
-        session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
+        session_stats = Session.objects.filter(event_id=event_id).aggregate(
             pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
             total=Count("id"),
             hosts=Count("presenter_id", distinct=True),

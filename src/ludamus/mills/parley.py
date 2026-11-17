@@ -5,6 +5,7 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.mills.parley_conversations import visible_conversations
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.parley import (
     CONVERSATION_POLICIES,
     REVOKE_EVERYONE,
@@ -18,7 +19,9 @@ from ludamus.pacts.parley import (
     ParleyMemberState,
     ParleyMessageLookupClaims,
     ParleyMessageReaderProtocol,
+    ParleyModerationPageDTO,
     ParleyModerationResult,
+    ParleyOpenedRoomDTO,
     ParleyReportData,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
@@ -49,6 +52,7 @@ if TYPE_CHECKING:
         ParleyEncounterChatProtocol,
         ParleyPartyChatProtocol,
         ParleyRoomDTO,
+        ParleyRoomRef,
     )
 
 logger = logging.getLogger(__name__)
@@ -147,7 +151,11 @@ def _fitted(
 
 
 class ParleyService:
-    """One pass, and one list of chats, across every sphere someone is in."""
+    """One pass, and one list of chats, for the sphere the chat opens on.
+
+    The list holds someone's own rooms in every sphere; the rooms they only
+    moderate come from the sphere the chat opens on alone.
+    """
 
     def __init__(
         self,
@@ -164,22 +172,29 @@ class ParleyService:
         self._messages = messages
         self._agent_host = agent_host
 
-    def is_open_to(self, *, user_id: int, now: datetime) -> bool:
-        """Whether this person has anywhere to chat at all."""
+    def is_open_to(self, *, user_id: int, sphere_id: int, now: datetime) -> bool:
+        """Whether this person has anywhere to chat on this sphere's site."""
+        moderated, watched = self._scope(user_id=user_id, sphere_id=sphere_id)
         return (
             self._conversations.is_eligible(user_id)
             or self._repository.has_rooms(
                 user_id=user_id,
                 window=self._window(now),
-                moderated=self._moderated(user_id),
+                moderated=moderated,
+                watched=watched,
             )
             or self._conversations.has_conversation(user_id=user_id, kinds=_OPEN_KINDS)
         )
 
-    def bootstrap(self, *, user_id: int, now: datetime) -> ParleyBootstrapDTO | None:
-        moderated = self._moderated(user_id)
+    def bootstrap(
+        self, *, user_id: int, sphere_id: int, now: datetime
+    ) -> ParleyBootstrapDTO | None:
+        moderated, watched = self._scope(user_id=user_id, sphere_id=sphere_id)
         access = self._repository.read_access(
-            user_id=user_id, window=self._window(now), moderated=moderated
+            user_id=user_id,
+            window=self._window(now),
+            moderated=moderated,
+            watched=watched,
         )
         if access is None:
             return None
@@ -248,7 +263,45 @@ class ParleyService:
             blocked=self._conversations.list_blocked(user_id),
             capability_token=capability_token,
             agent_host=self._agent_host,
+            has_moderated_rooms=any(room.moderating for room in rooms),
         )
+
+    def moderates(self, *, user_id: int, sphere_id: int) -> bool:
+        return sphere_id in self._moderated(user_id)
+
+    def moderation_page(
+        self, *, user_id: int, sphere_id: int, room: ParleyRoomRef | None, now: datetime
+    ) -> ParleyModerationPageDTO:
+        """Read the sphere's rooms this person moderates without being in them.
+
+        Returns:
+            Those rooms under their events, and the one asked for.
+
+        Raises:
+            NotFoundError: They do not moderate the sphere, or the room asked
+                for is not one of those rooms.
+        """
+        if not self.moderates(user_id=user_id, sphere_id=sphere_id):
+            raise NotFoundError
+        events = self._repository.list_moderated(
+            user_id=user_id, sphere_id=sphere_id, window=self._window(now)
+        )
+        if room is None:
+            return ParleyModerationPageDTO(events=events)
+        opened = next(
+            (
+                ParleyOpenedRoomDTO(
+                    room=each, event_title=event.title, event_slug=event.slug
+                )
+                for event in events
+                for each in event.rooms
+                if each.kind == room.kind and each.pk == room.pk
+            ),
+            None,
+        )
+        if opened is None:
+            raise NotFoundError
+        return ParleyModerationPageDTO(events=events, opened=opened)
 
     def report_message(self, *, data: ParleyReportData, now: datetime) -> bool:
         """Keep a report of a message the reporter can see and did not write.
@@ -333,6 +386,18 @@ class ParleyService:
             deleted += 1
         return ParleyModerationResult(deleted=deleted, failed=failed)
 
+    def _scope(
+        self, *, user_id: int, sphere_id: int
+    ) -> tuple[frozenset[int], frozenset[int]]:
+        """Split the spheres someone moderates from those listed here.
+
+        Returns:
+            Every sphere they moderate, then the one of them the chat is open
+            on: rooms they only moderate are read on that sphere's own page.
+        """
+        moderated = self._moderated(user_id)
+        return moderated, moderated & {sphere_id}
+
     def _moderated(self, user_id: int) -> frozenset[int]:
         return frozenset(
             seat.sphere_id
@@ -355,10 +420,14 @@ class ParleyService:
     def _room_seen_by(
         self, data: ParleyReportData, now: datetime
     ) -> ParleyRoomDTO | None:
+        moderated = self._moderated(data.user_id)
+        # NOTE: a report names its room, so every room of every sphere the
+        # reporter moderates counts, whichever site the chat is open on.
         access = self._repository.read_access(
             user_id=data.user_id,
             window=self._window(now),
-            moderated=self._moderated(data.user_id),
+            moderated=moderated,
+            watched=moderated,
         )
         rooms = [] if access is None else access.rooms
         return next((room for room in rooms if room.id == data.room_id), None)

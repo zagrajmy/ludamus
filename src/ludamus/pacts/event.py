@@ -50,11 +50,30 @@ class EventVisibility(StrEnum):
     UNLISTED = "unlisted"
 
 
+class PublicationChoice(StrEnum):
+    """What an organizer picks for who sees the event and from when."""
+
+    LINK_ONLY = "link_only"
+    PUBLIC_NOW = "public_now"
+    SCHEDULED = "scheduled"
+
+
+class PublicationIntent(BaseModel):
+    """A visibility choice, with the time picked for SCHEDULED.
+
+    The time is read only for SCHEDULED; left empty it keeps the event hidden.
+    """
+
+    choice: PublicationChoice
+    chosen_time: datetime | None = None
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     address: str = ""
     allow_facilitator_session_edit: bool | None = None
+    require_session_space: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
     end_time: datetime
@@ -97,6 +116,15 @@ class EventDTO(BaseModel):
             self.publication_time is not None
             and self.publication_time <= datetime.now(tz=UTC)
         )
+
+    @property
+    def publication_choice(self) -> PublicationChoice:
+        """The visibility choice that describes the event as it stands."""
+        if self.visibility is EventVisibility.UNLISTED:
+            return PublicationChoice.LINK_ONLY
+        if self.is_published:
+            return PublicationChoice.PUBLIC_NOW
+        return PublicationChoice.SCHEDULED
 
     @property
     def is_open(self) -> bool:
@@ -161,6 +189,7 @@ class EventUpdateData(TypedDict, total=False):
     proposal_start_time: datetime | None
     proposal_end_time: datetime | None
     allow_facilitator_session_edit: bool | None
+    require_session_space: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
     use_participants_label: bool

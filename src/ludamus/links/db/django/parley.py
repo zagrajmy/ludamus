@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections import defaultdict
+from typing import TYPE_CHECKING, TypedDict
 
-from django.db.models import Q
+from django.db.models import BooleanField, ExpressionWrapper, Q
 
 from ludamus.links.db.django.models import (
     Event,
@@ -16,6 +17,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.parley import (
     ParleyAccessDTO,
+    ParleyModeratedEventDTO,
     ParleyReportedRef,
     ParleyReportRecord,
     ParleyRepositoryProtocol,
@@ -32,6 +34,10 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from django.db.models import QuerySet
+    from django_stubs_ext import WithAnnotations
+
+    class _Own(TypedDict):
+        own: bool
 
 
 def _chat_user(user_id: int) -> User | None:
@@ -46,32 +52,50 @@ def _retained_events(user_id: int, window: ParleyTimeWindow) -> QuerySet[Event]:
     ).exclude(pk__in=EventBan.objects.filter(user_id=user_id).values("event_id"))
 
 
+def _own_sessions(user_id: int) -> Q:
+    return Q(
+        pk__in=Session.objects.filter(
+            Q(
+                session_participations__user_id=user_id,
+                session_participations__status=SessionParticipationStatus.CONFIRMED,
+            )
+            | Q(facilitators__user_id=user_id)
+        ).values("pk")
+    )
+
+
+def _own_events(user_id: int) -> Q:
+    return Q(
+        pk__in=Session.objects.filter(
+            Q(session_participations__user_id=user_id)
+            | Q(facilitators__user_id=user_id, status=SessionStatus.ACCEPTED)
+        ).values("event_id")
+    )
+
+
+# `watched` are the spheres whose every room is listed, not only one's own.
 def _sessions(
-    *, user_id: int, moderated: frozenset[int], window: ParleyTimeWindow
-) -> QuerySet[Session]:
-    own = Q(
-        session_participations__user_id=user_id,
-        session_participations__status=SessionParticipationStatus.CONFIRMED,
-    ) | Q(facilitators__user_id=user_id)
+    *, user_id: int, watched: frozenset[int], window: ParleyTimeWindow
+) -> QuerySet[WithAnnotations[Session, _Own]]:
+    own = _own_sessions(user_id)
     return Session.objects.filter(
-        Q(event__sphere_id__in=moderated) | own,
+        Q(event__sphere_id__in=watched) | own,
         event__in=_retained_events(user_id, window),
-    ).distinct()
+    ).annotate(own=ExpressionWrapper(own, output_field=BooleanField()))
 
 
 def _events(
-    *, user_id: int, moderated: frozenset[int], window: ParleyTimeWindow
-) -> QuerySet[Event]:
-    taking_part = Session.objects.filter(
-        Q(session_participations__user_id=user_id)
-        | Q(facilitators__user_id=user_id, status=SessionStatus.ACCEPTED)
-    ).values("event_id")
+    *, user_id: int, watched: frozenset[int], window: ParleyTimeWindow
+) -> QuerySet[WithAnnotations[Event, _Own]]:
+    own = _own_events(user_id)
     # NOTE: `specs.parley.event_chat_on` in SQL; keep the two the same.
     chat_on = Q(parley_enabled=True) | Q(
         parley_enabled__isnull=True, sphere__parley_events_enabled=True
     )
-    return _retained_events(user_id, window).filter(
-        chat_on, Q(sphere_id__in=moderated) | Q(pk__in=taking_part)
+    return (
+        _retained_events(user_id, window)
+        .filter(chat_on, Q(sphere_id__in=watched) | own)
+        .annotate(own=ExpressionWrapper(own, output_field=BooleanField()))
     )
 
 
@@ -79,10 +103,57 @@ def _organizers_rooms(moderated: frozenset[int]) -> QuerySet[Sphere]:
     return Sphere.objects.filter(pk__in=moderated, parley_organizers_enabled=True)
 
 
+def _event_room(
+    event: WithAnnotations[Event, _Own],
+    *,
+    window: ParleyTimeWindow,
+    moderated: frozenset[int],
+) -> ParleyRoomDTO:
+    return ParleyRoomDTO(
+        kind=ParleyRoomKind.EVENT,
+        sphere_id=event.sphere_id,
+        pk=event.pk,
+        title=event.name,
+        can_write=event.end_time > window.writable_after,
+        can_moderate=event.sphere_id in moderated,
+        moderating=not event.own,
+        starts_at=int(event.start_time.timestamp()),
+        ends_at=int(event.end_time.timestamp()),
+    )
+
+
+def _session_room(
+    session: WithAnnotations[Session, _Own],
+    *,
+    window: ParleyTimeWindow,
+    moderated: frozenset[int],
+) -> ParleyRoomDTO:
+    event = session.event
+    return ParleyRoomDTO(
+        kind=ParleyRoomKind.SESSION,
+        sphere_id=event.sphere_id,
+        pk=session.pk,
+        event_pk=session.event_id,
+        title=session.title,
+        can_write=(
+            session.status == SessionStatus.ACCEPTED
+            and event.end_time > window.writable_after
+        ),
+        can_moderate=event.sphere_id in moderated,
+        moderating=not session.own,
+        starts_at=int(event.start_time.timestamp()),
+        ends_at=int(event.end_time.timestamp()),
+    )
+
+
 class ParleyRepository(ParleyRepositoryProtocol):
     @staticmethod
     def read_access(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> ParleyAccessDTO | None:
         if (user := _chat_user(user_id)) is None:
             return None
@@ -97,37 +168,15 @@ class ParleyRepository(ParleyRepositoryProtocol):
             for sphere in _organizers_rooms(moderated).order_by("name", "pk")
         ]
         rooms.extend(
-            ParleyRoomDTO(
-                kind=ParleyRoomKind.EVENT,
-                sphere_id=event.sphere_id,
-                pk=event.pk,
-                title=event.name,
-                can_write=event.end_time > window.writable_after,
-                can_moderate=event.sphere_id in moderated,
-                starts_at=int(event.start_time.timestamp()),
-                ends_at=int(event.end_time.timestamp()),
-            )
+            _event_room(event, window=window, moderated=moderated)
             for event in _events(
-                user_id=user_id, moderated=moderated, window=window
+                user_id=user_id, watched=watched, window=window
             ).order_by("start_time", "name", "pk")
         )
         rooms.extend(
-            ParleyRoomDTO(
-                kind=ParleyRoomKind.SESSION,
-                sphere_id=session.event.sphere_id,
-                pk=session.pk,
-                event_pk=session.event_id,
-                title=session.title,
-                can_write=(
-                    session.status == SessionStatus.ACCEPTED
-                    and session.event.end_time > window.writable_after
-                ),
-                can_moderate=session.event.sphere_id in moderated,
-                starts_at=int(session.event.start_time.timestamp()),
-                ends_at=int(session.event.end_time.timestamp()),
-            )
+            _session_room(session, window=window, moderated=moderated)
             for session in (
-                _sessions(user_id=user_id, moderated=moderated, window=window)
+                _sessions(user_id=user_id, watched=watched, window=window)
                 .select_related("event")
                 .order_by("event__start_time", "title", "pk")
             )
@@ -140,15 +189,49 @@ class ParleyRepository(ParleyRepositoryProtocol):
         )
 
     @staticmethod
+    def list_moderated(
+        *, user_id: int, sphere_id: int, window: ParleyTimeWindow
+    ) -> list[ParleyModeratedEventDTO]:
+        watched = frozenset({sphere_id})
+        events: dict[int, Event] = {}
+        rooms: defaultdict[int, list[ParleyRoomDTO]] = defaultdict(list)
+        # Each event's own chat goes before its programme points'.
+        for event in _events(user_id=user_id, watched=watched, window=window).filter(
+            own=False
+        ):
+            events[event.pk] = event
+            rooms[event.pk].append(_event_room(event, window=window, moderated=watched))
+        for session in (
+            _sessions(user_id=user_id, watched=watched, window=window)
+            .filter(own=False)
+            .select_related("event")
+            .order_by("title", "pk")
+        ):
+            events[session.event_id] = session.event
+            rooms[session.event_id].append(
+                _session_room(session, window=window, moderated=watched)
+            )
+        return [
+            ParleyModeratedEventDTO(title=event.name, slug=event.slug, rooms=rooms[pk])
+            for pk, event in sorted(
+                events.items(), key=lambda item: (item[1].start_time, item[0])
+            )
+        ]
+
+    @staticmethod
     def has_rooms(
-        *, user_id: int, window: ParleyTimeWindow, moderated: frozenset[int]
+        *,
+        user_id: int,
+        window: ParleyTimeWindow,
+        moderated: frozenset[int],
+        watched: frozenset[int],
     ) -> bool:
         if _chat_user(user_id) is None:
             return False
         return (
             _organizers_rooms(moderated).exists()
-            or _events(user_id=user_id, moderated=moderated, window=window).exists()
-            or _sessions(user_id=user_id, moderated=moderated, window=window).exists()
+            or _events(user_id=user_id, watched=watched, window=window).exists()
+            or _sessions(user_id=user_id, watched=watched, window=window).exists()
         )
 
     @staticmethod

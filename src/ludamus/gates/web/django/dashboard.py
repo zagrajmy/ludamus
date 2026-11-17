@@ -24,6 +24,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.create_options import create_options
 from ludamus.gates.web.django.event.offers import flash_claim_result
 from ludamus.pacts.dashboard import SubscriptionAgeRestrictedError
 from ludamus.pacts.errors import NotFoundError
@@ -50,7 +51,6 @@ def dashboard_page(request: RootRequest, *, user_id: int) -> HttpResponse:
         the request so the root sphere's front door, which has already
         established who is asking, can render this page directly.
     """
-    sphere_id = request.context.current_sphere_id
     return TemplateResponse(
         request,
         "dashboard/index.html",
@@ -58,9 +58,7 @@ def dashboard_page(request: RootRequest, *, user_id: int) -> HttpResponse:
             "dashboard": request.services.dashboard.read(
                 user_id=user_id, now=datetime.now(UTC)
             ),
-            "can_create_encounter": request.services.encounters.can_create(
-                sphere_id=sphere_id, user_id=user_id
-            ),
+            "create_options": create_options(request, user_id=user_id),
         },
     )
 

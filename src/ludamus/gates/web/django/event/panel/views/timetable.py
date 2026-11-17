@@ -84,6 +84,8 @@ def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
 def _placement_rejection_message(error: PlacementRejectedError) -> str:
     if error.reason is PlacementRejection.SESSION_NOT_ACCEPTED:
         return _("Only accepted sessions can be placed on the schedule.")
+    if error.reason is PlacementRejection.SPACE_REQUIRED:
+        return _("This event places every session in a space. Drop it in a room.")
     if error.reason is PlacementRejection.BEFORE_PUBLICATION:
         return _(
             "This is before the event is published. "
@@ -442,8 +444,13 @@ class TimetableAssignView(EventPanelMixin, View):
 
     def post(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
         session_pk = parse_id(self.request.POST.get("session_pk"))
-        space_pk = parse_id(self.request.POST.get("space_pk"))
-        if session_pk is None or space_pk is None:
+        # Blank is the "No space" column, which the service refuses where the
+        # event requires a space.
+        raw_space_pk = self.request.POST.get("space_pk")
+        space_pk = parse_id(raw_space_pk) if raw_space_pk else None
+        if session_pk is None or raw_space_pk is None:
+            return HttpResponse(status=422)
+        if raw_space_pk and space_pk is None:
             return HttpResponse(status=422)
         try:
             placement = SessionPlacement(
