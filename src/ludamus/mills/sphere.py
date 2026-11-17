@@ -274,21 +274,12 @@ class SpherePanelService:
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
-        with self._transaction.atomic():
-            if (
-                not confirmed_encounters_disable
-                and encounters_policy is EncountersPolicy.NONE
-                and self._spheres.read(sphere_id).encounters_policy
-                is not EncountersPolicy.NONE
-                and self._encounters.exists_for_sphere(sphere_id)
-            ):
-                return SphereSettingsOutcome.NEEDS_CONFIRMATION
-            current = self._spheres.read(sphere_id)
-            if _closes_chat(current, data):
-                self._chat.revoke_sphere(sphere_id=sphere_id)
-            self._spheres.update(sphere_id, data)
-            self._follow_chat_switch(current, data)
-            return SphereSettingsOutcome.SAVED
+        return self._save(
+            sphere_id,
+            data,
+            encounters_policy=encounters_policy,
+            confirmed_encounters_disable=confirmed_encounters_disable,
+        )
 
     def patch_settings(
         self,
@@ -297,18 +288,33 @@ class SpherePanelService:
         changes: SphereSettingsPatch,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome:
-        data = _update_data(changes)
-        encounters_policy = changes.get("encounters_policy")
+        return self._save(
+            sphere_id,
+            _update_data(changes),
+            encounters_policy=changes.get("encounters_policy"),
+            confirmed_encounters_disable=confirmed_encounters_disable,
+        )
+
+    def _save(
+        self,
+        sphere_id: int,
+        data: SphereUpdateData,
+        *,
+        encounters_policy: EncountersPolicy | None,
+        confirmed_encounters_disable: bool,
+    ) -> SphereSettingsOutcome:
         with self._transaction.atomic():
+            # SAFETY: two saves at once would each act on the settings they
+            # read, the older one last: a chat switch could go unfollowed.
+            self._spheres.lock(sphere_id)
+            current = self._spheres.read(sphere_id)
             if (
                 not confirmed_encounters_disable
                 and encounters_policy is EncountersPolicy.NONE
-                and self._spheres.read(sphere_id).encounters_policy
-                is not EncountersPolicy.NONE
+                and current.encounters_policy is not EncountersPolicy.NONE
                 and self._encounters.exists_for_sphere(sphere_id)
             ):
                 return SphereSettingsOutcome.NEEDS_CONFIRMATION
-            current = self._spheres.read(sphere_id)
             if _closes_chat(current, data):
                 self._chat.revoke_sphere(sphere_id=sphere_id)
             if data:

@@ -55,6 +55,9 @@ class FakeSpheres:
     def update(self, sphere_id, data):
         self.updates.append((sphere_id, dict(data)))
 
+    def lock(self, sphere_id):
+        assert sphere_id == self.sphere.pk
+
 
 class FakeEvents:
     @staticmethod
