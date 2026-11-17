@@ -463,6 +463,16 @@ class TestDeletedEvent:
             reverse("admin:db_main_event_change", kwargs={"object_id": event.pk})
         )
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=[
+                "admin/db_main/event/change_form.html",
+                "admin/db_main/change_form.html",
+                "admin/change_form.html",
+            ],
+            context_data=ANY,
+        )
         assert "deleted_at" not in response.context["adminform"].form.fields
 
     def test_staff_restore_it_with_the_sessions_it_hid(self, client, event, sphere):
