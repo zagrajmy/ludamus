@@ -569,6 +569,7 @@ class Services:
             schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            spaces=self._repos.spaces,
             notifier=DjangoUserNotifier(),
         )
 

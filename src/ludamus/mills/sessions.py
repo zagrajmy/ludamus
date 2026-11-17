@@ -70,6 +70,7 @@ if TYPE_CHECKING:
         ScheduleChangeLogRepositoryProtocol,
     )
     from ludamus.pacts.user import UserRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
 
 
 def _announce_acceptance(
@@ -327,6 +328,7 @@ class ProposalAcceptanceService:
         schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        spaces: SpaceRepositoryProtocol,
         notifier: ProposalAcceptedNotifierProtocol,
     ) -> None:
         self._transaction = transaction
@@ -335,6 +337,7 @@ class ProposalAcceptanceService:
         self._schedule_change_logs = schedule_change_logs
         self._active_users = active_users
         self._spheres = spheres
+        self._spaces = spaces
         self._notifier = notifier
 
     def get_accept_context(
@@ -416,6 +419,9 @@ class ProposalAcceptanceService:
         # so the move exemption that path carries does not apply here.
         confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
+            self._sessions.lock(session_id)
+            if space_id is not None:
+                self._spaces.lock(space_id)
             if space_id is not None and self._agenda_items.list_overlapping_in_space(
                 space_id,
                 time_slot.start_time,

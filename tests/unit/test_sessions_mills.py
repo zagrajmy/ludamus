@@ -561,13 +561,19 @@ class TestProposalAcceptanceService:
         return MagicMock()
 
     @pytest.fixture
+    def spaces(self):
+        return MagicMock()
+
+    @pytest.fixture
     def transaction(self):
         transaction = MagicMock()
         transaction.atomic.return_value.__enter__.return_value = None
         return transaction
 
     @pytest.fixture
-    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+    def service(
+        self, transaction, sessions, agenda_items, active_users, spheres, spaces
+    ):
         return ProposalAcceptanceService(
             transaction=transaction,
             sessions=sessions,
@@ -575,6 +581,7 @@ class TestProposalAcceptanceService:
             schedule_change_logs=MagicMock(),
             active_users=active_users,
             spheres=spheres,
+            spaces=spaces,
             notifier=MagicMock(),
         )
 
@@ -633,7 +640,7 @@ class TestProposalAcceptanceService:
         spheres.manager_role.assert_called_once_with(3, "member")
 
     def test_accept_session_raises_on_space_time_conflict(
-        self, service, sessions, agenda_items, active_users, spheres
+        self, service, sessions, agenda_items, active_users, spheres, spaces
     ):
         sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
@@ -654,6 +661,8 @@ class TestProposalAcceptanceService:
                 sphere_id=3,
             )
 
+        sessions.lock.assert_called_once_with(5)
+        spaces.lock.assert_called_once_with(7)
         sessions.update.assert_not_called()
         agenda_items.create.assert_not_called()
 
@@ -1445,6 +1454,7 @@ class TestProposalAcceptanceWithFakes:
             schedule_change_logs=MagicMock(),
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
+            spaces=MagicMock(),
             notifier=notifier or _RecordingNotifier(),
         )
 
@@ -1606,6 +1616,7 @@ class TestProposalAcceptanceWithFakes:
             spheres=_FakeSpheres(
                 managers=[(3, "manager")], require_session_space=False
             ),
+            spaces=MagicMock(),
             notifier=_RecordingNotifier(),
         )
 
