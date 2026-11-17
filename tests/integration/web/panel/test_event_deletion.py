@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
@@ -8,12 +8,19 @@ from django.contrib.admin import helpers
 from django.urls import reverse
 from django.utils import timezone
 
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.models import (
     Event,
     EventDeletionApproval,
     Notification,
     Session,
     SphereMembership,
+)
+from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event_deletion import (
+    EventDeletionApprovalDTO,
+    EventDeletionBallotDTO,
+    EventDeletionStep,
 )
 from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.sphere import SphereRole
@@ -47,9 +54,12 @@ def _withdraw_url(event):
     return reverse("panel:event-withdraw-deletion", kwargs={"slug": event.slug})
 
 
+def _settings_url(event):
+    return reverse("panel:event-settings", kwargs={"slug": event.slug})
+
+
 def _ballot_url(event):
-    settings_url = reverse("panel:event-settings", kwargs={"slug": event.slug})
-    return f"{settings_url}#event-deletion"
+    return f"{_settings_url(event)}#event-deletion"
 
 
 def _add_managers(sphere, count):
@@ -61,6 +71,132 @@ def _add_managers(sphere, count):
 
 def _is_deleted(event):
     return Event.all_objects.get(pk=event.pk).deleted_at is not None
+
+
+def _approval_dto(approval):
+    return EventDeletionApprovalDTO(
+        user_id=approval.user_id,
+        user_name=approval.user.name,
+        approved_at=approval.creation_time,
+    )
+
+
+@pytest.mark.django_db
+class TestSettingsCard:
+    """The card tells each viewer where the vote stands and what they may do."""
+
+    @staticmethod
+    def _assert_ballot(response, event, ballot):
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "is_proposal_active": response.context["is_proposal_active"],
+                "active_tab": "general",
+                "tab_urls": settings_tab_urls(event),
+                "form": ANY,
+                "deletion": ballot,
+                "deletion_form": ANY,
+            },
+        )
+
+    def test_the_first_manager_of_two_may_request(self, panel_client, event, sphere):
+        _add_managers(sphere, 1)
+
+        response = panel_client.get(_settings_url(event))
+
+        self._assert_ballot(
+            response,
+            event,
+            EventDeletionBallotDTO(
+                manager_count=2,
+                approvals_needed=2,
+                approvals=[],
+                next_step=EventDeletionStep.REQUEST,
+                missing_after_viewer=1,
+            ),
+        )
+
+    def test_a_later_manager_approves_while_more_are_needed(
+        self, panel_client, event, sphere
+    ):
+        first, *_rest = _add_managers(sphere, 4)
+        approval = EventDeletionApproval.objects.create(event=event, user=first)
+
+        response = panel_client.get(_settings_url(event))
+
+        self._assert_ballot(
+            response,
+            event,
+            EventDeletionBallotDTO(
+                manager_count=5,
+                approvals_needed=3,
+                approvals=[_approval_dto(approval)],
+                next_step=EventDeletionStep.APPROVE,
+                missing_after_viewer=1,
+            ),
+        )
+
+    def test_the_manager_whose_approval_completes_it_deletes(
+        self, panel_client, event, sphere
+    ):
+        (other,) = _add_managers(sphere, 1)
+        approval = EventDeletionApproval.objects.create(event=event, user=other)
+
+        response = panel_client.get(_settings_url(event))
+
+        self._assert_ballot(
+            response,
+            event,
+            EventDeletionBallotDTO(
+                manager_count=2,
+                approvals_needed=2,
+                approvals=[_approval_dto(approval)],
+                next_step=EventDeletionStep.DELETE,
+                missing_after_viewer=0,
+            ),
+        )
+
+    def test_a_manager_who_approved_may_withdraw(
+        self, panel_client, event, sphere, active_user
+    ):
+        _add_managers(sphere, 1)
+        approval = EventDeletionApproval.objects.create(event=event, user=active_user)
+
+        response = panel_client.get(_settings_url(event))
+
+        self._assert_ballot(
+            response,
+            event,
+            EventDeletionBallotDTO(
+                manager_count=2,
+                approvals_needed=2,
+                approvals=[_approval_dto(approval)],
+                next_step=EventDeletionStep.WITHDRAW,
+                missing_after_viewer=0,
+            ),
+        )
+
+    def test_a_superuser_off_the_team_only_watches(self, client, event, sphere):
+        first, _second = _add_managers(sphere, 2)
+        approval = EventDeletionApproval.objects.create(event=event, user=first)
+        client.force_login(UserFactory(is_superuser=True, is_staff=True))
+
+        response = client.get(_settings_url(event))
+
+        self._assert_ballot(
+            response,
+            event,
+            EventDeletionBallotDTO(
+                manager_count=2,
+                approvals_needed=2,
+                approvals=[_approval_dto(approval)],
+                next_step=EventDeletionStep.WATCH,
+                missing_after_viewer=0,
+            ),
+        )
 
 
 @pytest.mark.django_db
@@ -221,6 +357,21 @@ class TestApproveDeletion:
         assert not _is_deleted(foreign)
         assert not EventDeletionApproval.objects.exists()
 
+    def test_an_event_deleted_by_a_concurrent_vote_is_not_found(
+        self, panel_client, event
+    ):
+        # The panel found the event; another manager's approval deleted it
+        # before this one could lock the row.
+        with patch.object(
+            EventDeletionRepository, "lock_event", side_effect=NotFoundError
+        ):
+            response = panel_client.post(
+                _approve_url(event), {"event_name": event.name}
+            )
+
+        assert_event_not_found(response)
+        assert not EventDeletionApproval.objects.exists()
+
     def test_a_deleted_event_is_not_found(self, panel_client, event):
         Event.objects.filter(pk=event.pk).update(deleted_at=timezone.now())
 
@@ -246,6 +397,36 @@ class TestWithdrawDeletion:
             url=_ballot_url(event),
         )
         assert not EventDeletionApproval.objects.exists()
+
+    def test_a_superuser_off_the_team_cannot_withdraw_anything(
+        self, client, event, sphere
+    ):
+        (manager,) = _add_managers(sphere, 1)
+        EventDeletionApproval.objects.create(event=event, user=manager)
+        client.force_login(UserFactory(is_superuser=True, is_staff=True))
+
+        response = client.post(_withdraw_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, ONLY_MANAGERS_ERROR)],
+            url=_ballot_url(event),
+        )
+        assert EventDeletionApproval.objects.filter(user=manager).exists()
+
+    def test_an_event_deleted_by_a_concurrent_vote_is_not_found(
+        self, panel_client, event, active_user
+    ):
+        EventDeletionApproval.objects.create(event=event, user=active_user)
+
+        with patch.object(
+            EventDeletionRepository, "lock_event", side_effect=NotFoundError
+        ):
+            response = panel_client.post(_withdraw_url(event))
+
+        assert_event_not_found(response)
+        assert EventDeletionApproval.objects.filter(user=active_user).exists()
 
     def test_an_event_of_another_sphere_is_not_found(self, panel_client, active_user):
         foreign = EventFactory(sphere=SphereFactory())
