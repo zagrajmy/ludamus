@@ -106,8 +106,11 @@ class EventDeletionRepository(EventDeletionRepositoryProtocol):
 
         Its approvals go, so deleting it again takes a fresh vote.
         """
+        # The row lock queues an overlapping restore behind this one, so it
+        # reads the stamp as it stands then, not one a later deletion replaced.
         stamp = (
-            Event.all_objects.filter(pk=event_id)
+            Event.all_objects.select_for_update(of=("self",))
+            .filter(pk=event_id)
             .values_list("deleted_at", flat=True)
             .first()
         )
