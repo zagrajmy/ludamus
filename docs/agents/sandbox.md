@@ -63,6 +63,14 @@ unavailable. Missing OS libs don't enter into it — the image ships no WebKit
 libs, but the host-requirement check is caught and printed as a warning and the
 install still exits 0. The Playwright CDN itself is reachable through the proxy.
 
+Hostnames: the container resolves no `*.localhost` subdomain, and browsers
+are the only clients that map them to loopback on their own. The hook adds
+the e2e suite's fixed names (`ludamus`, `another`, `foreign`, `feed`,
+`crew`) to `/etc/hosts`, so Playwright's Node-side readiness probe of the
+`:8001` server stops timing out. A spec that serves a new subdomain to Node or
+Python needs its name added there. portless routes need nothing: its proxy
+writes them to `/etc/hosts` itself.
+
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing
 here activates without `MISE_ENV=sandbox`. If a session ever looks

@@ -24,6 +24,7 @@
         {% translate "Save" as t_save %}
         {% tessera_button t_save %}
     </form>
+    {% include "components/language_switcher.html" %}
     {% if user.pending_email or user.email and not user.email_verified %}
         {% include "user/user/_email_verify_modal.html" %}
     {% endif %}
