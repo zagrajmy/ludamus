@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, TypedDict
 from django.db.models import BooleanField, ExpressionWrapper, Q
 
 from ludamus.links.db.django.models import (
+    Encounter,
     Event,
     EventBan,
     ParleyReport,
@@ -314,6 +315,16 @@ class ParleyRepository(ParleyRepositoryProtocol):
     def list_chat_sphere_ids() -> list[int]:
         return list(
             Sphere.objects.filter(parley_enabled=True)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+
+    @staticmethod
+    def list_encounters_with_people(sphere_id: int) -> list[int]:
+        return list(
+            Encounter.objects.filter(sphere_id=sphere_id)
+            .filter(Q(rsvps__isnull=False) | Q(parley_chat__isnull=False))
+            .distinct()
             .order_by("pk")
             .values_list("pk", flat=True)
         )
