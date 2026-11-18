@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
+from django.views.i18n import set_language
 from django.views.static import serve
 
 from ludamus.gates.web.django.landing import about_page
@@ -115,6 +116,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("parley/", include("ludamus.gates.web.django.parley.urls")),
     path("admin/", admin.site.urls),
     path("about/", about_page, name="about"),
+    path("language/", set_language, name="set_language"),
     path("report/", ReportPageView.as_view(), name="report"),
     *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
     # These were flatpages under /page/, and that URL is in sent email and on

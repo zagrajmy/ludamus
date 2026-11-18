@@ -4,7 +4,14 @@ import path from "node:path";
 
 import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
-import { bootstrap, FakeWorker, launcherOf, panelOf, routeBootstrap } from "./helpers/parley";
+import {
+  bootstrap,
+  FakeWorker,
+  launcherOf,
+  onPageOf,
+  panelOf,
+  routeBootstrap,
+} from "./helpers/parley";
 
 // The chromium-auth project's default storage state (e2e-tester) is a plain
 // user with no sphere role, so it can't reach /multiverse/panel/ to flip
@@ -234,12 +241,7 @@ test("On a programme point's page the chat opens on its room, kept on top of the
 }) => {
   await routeBootstrap(page, [{ ageGate: "unconfirmed" }]);
   await FakeWorker.install(page);
-  // NOTE: stands in for an enrolment page, whose template sets this.
-  await page.addInitScript(() => {
-    addEventListener("DOMContentLoaded", () => {
-      document.querySelector<HTMLElement>("[data-parley-root]")!.dataset.pageRoom = "session:1:42";
-    });
-  });
+  await onPageOf(page, "session:1:42");
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);

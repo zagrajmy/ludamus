@@ -656,7 +656,8 @@ class SessionEditForm(forms.Form):
 
     def update_data(self) -> SessionUpdateData:
         # The presenter's own edit and the organizer's share this form, so they
-        # share the write it makes: the panel's subclass adds `category_id`.
+        # share the write it makes: the panel's subclass adds `category_id`
+        # when the event has categories to pick from.
         cleaned = self.cleaned_data
         update: SessionUpdateData = {
             "title": cleaned.get("title") or "",
@@ -717,15 +718,15 @@ def create_proposal_form(
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     durations: Sequence[str] = (),
 ) -> type[SessionEditForm]:
-    attrs: dict[str, forms.Field] = {
-        "category_id": forms.ChoiceField(
+    attrs: dict[str, forms.Field] = {}
+    if categories:
+        attrs["category_id"] = forms.ChoiceField(
             choices=[("", _("— Select category —")), *categories],
             error_messages={
                 "required": _("Please select a category."),
                 "invalid_choice": _("Invalid category selection."),
             },
         )
-    }
 
     custom_required = build_dynamic_fields(
         fields=attrs, pairs=requirement_fields(requirements), prefix="session"

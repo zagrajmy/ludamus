@@ -34,14 +34,13 @@
         {% else %}
             <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
                 <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground"
+                    class="min-w-0 wrap-break-word text-lg font-semibold text-foreground"
                     data-morph="title">{{ data.session.title }}</h3>
-                <button type="button"
-                        data-modal-close="session-{{ data.session.pk }}"
-                        aria-label="{% translate "Close" %}"
-                        class="size-11 flex items-center justify-center rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
+                {% with pk=data.session.pk|stringformat:"d" %}
+                    {% with dialog_id="session-"|add:pk %}
+                        {% tessera_dialog_close_button dialog_id %}
+                    {% endwith %}
+                {% endwith %}
             </div>
         {% endif %}
         <!-- Tabbed body; swapped for the inline edit form by the Edit button -->

@@ -12,7 +12,17 @@ import {
   useState,
 } from "react";
 
-import type { Bootstrap, Message, Person, ReactionChange, Result, Room } from "./protocol";
+import {
+  answerOf,
+  type Bootstrap,
+  type Message,
+  type Person,
+  type ReactionChange,
+  type Result,
+  type Room,
+} from "./protocol";
+
+import type { RoomCache } from "./room-cache";
 
 import { Avatar } from "./avatar";
 import { ConfirmSheet } from "./confirm-sheet";
@@ -22,11 +32,11 @@ import { ICON_BUTTON, TitleBar } from "./header";
 import { Icon } from "./icons";
 import { useMentionPicker } from "./mentions";
 import { type Confirm, MessageItem, type MuteAction } from "./message-item";
+import { ThreadStart } from "./thread-start";
 import { type Muted, useRoom, withReactions } from "./use-room";
 
 const RUN_GAP = 5 * 60_000;
 const SEPARATOR_GAP = 30 * 60_000;
-const SEND_TIMEOUT = 10_000;
 const COMPOSER_MAX_HEIGHT = 128;
 // The Worker's limit, counted the way it counts: code points of the trimmed
 // body. The counter shows once a message gets near it.
@@ -147,17 +157,6 @@ function RequestSheet({
   );
 }
 
-// A socket that never answers would otherwise leave the composer saying
-// "Sending…" for good.
-function withTimeout<T>(call: Promise<Result<T>>): Promise<Result<T>> {
-  return Promise.race([
-    call,
-    new Promise<Result<T>>((resolve) =>
-      setTimeout(() => resolve({ code: "timeout", ok: false }), SEND_TIMEOUT),
-    ),
-  ]);
-}
-
 function ReadObserver({
   latestId,
   onRead,
@@ -193,6 +192,7 @@ export function Conversation({
   back,
   blocked,
   bootstrap,
+  cache,
   close,
   details,
   onBlock,
@@ -207,6 +207,7 @@ export function Conversation({
   // Ids of the people this person blocked: their messages stay hidden.
   blocked: Set<string>;
   bootstrap: Bootstrap;
+  cache: RoomCache;
   close: () => void;
   details: { open: () => void; trigger: Ref<HTMLButtonElement> } | null;
   // Blocks someone, answering with the problem if it did not go through;
@@ -227,7 +228,8 @@ export function Conversation({
   const {
     agent,
     earlier,
-    load,
+    history,
+    loadEarlier,
     messages,
     muted,
     offline,
@@ -237,6 +239,7 @@ export function Conversation({
     typists,
   } = useRoom({
     agentHost: bootstrap.agentHost,
+    cache,
     onPassClosed,
     onRefused,
     room,
@@ -248,6 +251,9 @@ export function Conversation({
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<(Pending & { returnTo: Element | null }) | null>(null);
   const [picking, setPicking] = useState<{ anchor: HTMLElement; messageId: number } | null>(null);
+  // A room this person only moderates takes one deliberate step before
+  // anything goes out in it, so nobody writes there by mistake.
+  const [speaking, setSpeaking] = useState(!room.moderating);
   const stopPicking = useCallback(() => setPicking(null), []);
   const composer = useRef<HTMLTextAreaElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -345,7 +351,7 @@ export function Conversation({
     setSending(true);
     setNotice(null);
     const { draft, picks } = picker;
-    const result = await withTimeout(
+    const result = await answerOf(
       agent.call<Result<Message>>("sendMessage", [{ ...draft, nonce: crypto.randomUUID() }]),
     );
     setSending(false);
@@ -377,7 +383,7 @@ export function Conversation({
     }
   };
   const call = async (method: string, input: Record<string, unknown>, notice: string | null) => {
-    const result = await withTimeout(agent.call<Result<unknown>>(method, [input]));
+    const result = await answerOf(agent.call<Result<unknown>>(method, [input]));
     return result.ok ? { notice } : { error: errorMessage(result.code, copy) };
   };
   const remove = (id: number) =>
@@ -401,7 +407,7 @@ export function Conversation({
   // A refusal for muting is the composer's news, as when sending.
   const react = (messageId: number, emoji: string) =>
     act(async () => {
-      const result = await withTimeout(
+      const result = await answerOf(
         agent.call<Result<ReactionChange>>("toggleReaction", [{ emoji, messageId }]),
       );
       if (result.ok) setMessages((current) => withReactions(current, result.value));
@@ -474,7 +480,8 @@ export function Conversation({
   const authors = new Map(messages.map((message) => [message.authorId, message.authorName]));
   const shownTypists = typists.filter((id) => !blocked.has(id));
   const typing = shownTypists.length > 0 && !offline;
-  const composing = room.canWrite && muted === null && pending === null;
+  const writing = room.canWrite && speaking && muted === null;
+  const composing = writing && pending === null;
   const problem = error ?? (composing && tooLong ? copy.messageTooLong : null);
   const counter = composing && length >= COUNT_FROM;
   // Under the thread: a pending confirmation, else the composer or the
@@ -498,6 +505,20 @@ export function Conversation({
         </p>
       );
     if (muted !== null) return <MutedNotice copy={copy} muted={muted} />;
+    if (!speaking)
+      return (
+        <div className="m-[7px] mb-[max(7px,env(safe-area-inset-bottom))] flex items-center gap-3 rounded-xl bg-bg-tertiary py-2 ps-4 pe-2 text-sm text-foreground-secondary">
+          <Icon className="size-4 shrink-0 text-foreground-muted" name="Shield" />
+          <p className="min-w-0 flex-1">{copy.moderatorReading}</p>
+          <button
+            className="btn btn-secondary shrink-0 text-sm"
+            onClick={() => setSpeaking(true)}
+            type="button"
+          >
+            {copy.writeAsOrganizer}
+          </button>
+        </div>
+      );
     return (
       <form
         className="p-[7px] pb-[max(7px,env(safe-area-inset-bottom))]"
@@ -513,9 +534,11 @@ export function Conversation({
             {...picker.textareaProps}
             aria-describedby={counter ? "parley-count" : undefined}
             aria-invalid={tooLong}
+            // The step to write in a moderated room lands in the composer it opened.
+            autoFocus={room.moderating}
             className={`parley-composer block min-h-10 w-full resize-none rounded-xl bg-bg-tertiary py-2.5 ps-4 pe-12 text-[0.9375rem] leading-snug text-foreground placeholder:text-foreground-muted focus:outline-2 ${tooLong ? "outline-2 outline-danger" : "focus:outline-border-focus"}`}
             id="parley-message"
-            placeholder={copy.writePlaceholder}
+            placeholder={room.moderating ? copy.organizerPlaceholder : copy.writePlaceholder}
             ref={composer}
             rows={1}
             value={body}
@@ -537,6 +560,7 @@ export function Conversation({
   const writableEmpty = {
     conversation: {
       direct: copy.emptyDirect,
+      encounter: copy.emptyEncounter,
       group: copy.emptyGroup,
       party: copy.emptyParty,
       staff: copy.emptyReadOnly,
@@ -545,8 +569,9 @@ export function Conversation({
     organizers: copy.emptyOrganizers,
     session: copy.emptySession,
   }[room.kind];
-  const empty = room.canWrite ? writableEmpty : copy.emptyReadOnly;
-  const kind = roomKind(copy, room);
+  const empty = room.canWrite && speaking ? writableEmpty : copy.emptyReadOnly;
+  const named = roomKind(copy, room);
+  const kind = room.moderating ? `${named} · ${copy.moderatorView}` : named;
   const face =
     conversation?.kind === "direct" ? counterpart(conversation, bootstrap.user.id)?.avatarUrl : "";
 
@@ -621,33 +646,30 @@ export function Conversation({
         <ReadObserver latestId={messages.at(-1)?.id} onRead={onRead} />
         <MessageScroller.Root className="relative min-h-0 flex-1" data-menu-bounds>
           <MessageScroller.Viewport
+            aria-busy={history.state === "loading"}
             aria-label={copy.messageListLabel}
             className="parley-thread absolute inset-0 overflow-y-auto overscroll-contain"
             data-menu-scroller
           >
-            <MessageScroller.Content className="flex min-h-full flex-col justify-end pb-7">
-              {messages.length === 0 ? (
-                <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
-                  <Avatar className="size-16 text-lg" name={room.title} src={face} />
-                  <p className="mt-3 font-semibold text-foreground">{room.title}</p>
-                  <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
-                </div>
-              ) : earlier ? (
-                <button
-                  className="mx-auto mt-3 rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus"
-                  onClick={() => void load()}
-                  type="button"
-                >
-                  {copy.loadEarlier}
-                </button>
-              ) : (
+            <MessageScroller.Content
+              className={`flex min-h-full flex-col justify-end pb-7 ${messages.length > 0 || history.state === "ready" ? "parley-thread-in" : ""}`}
+            >
+              <ThreadStart
+                copy={copy}
+                earlier={earlier}
+                empty={
+                  <div className="m-auto flex max-w-64 flex-col items-center px-6 py-10 text-center">
+                    <Avatar className="size-16 text-lg" name={room.title} src={face} />
+                    <p className="mt-3 font-semibold text-foreground">{room.title}</p>
+                    <p className="mt-1 text-sm text-foreground-muted">{empty}</p>
+                  </div>
+                }
+                history={history}
+                loadEarlier={() => void loadEarlier()}
                 // A session room goes 30 days after its event, well inside the year.
-                room.kind !== "session" && (
-                  <p className="mx-auto mt-3 max-w-64 px-6 text-center text-xs text-foreground-muted">
-                    {copy.retentionNote}
-                  </p>
-                )
-              )}
+                retention={room.kind !== "session"}
+                shown={messages.length > 0}
+              />
               {messages.map((message, index) => {
                 const previous = messages[index - 1];
                 const next = messages[index + 1];
@@ -679,11 +701,7 @@ export function Conversation({
                       mute={(id, action) => void mute(id, action)}
                       nameOf={(id) => picker.nameOf(id) ?? copy.typingSomeone}
                       pick={(messageId, anchor) => setPicking({ anchor, messageId })}
-                      react={
-                        room.canWrite && muted === null
-                          ? (id, emoji) => void react(id, emoji)
-                          : null
-                      }
+                      react={writing ? (id, emoji) => void react(id, emoji) : null}
                       remove={(id) => void remove(id)}
                       report={report}
                       room={room}

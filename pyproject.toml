@@ -34,7 +34,7 @@ django-environ = "~0.14.0"
 django-extensions = "~4.1"
 django-storages = { extras = ["google"], version = "~1.14.6" }
 django-vite = "~3.2.0"
-google-auth = "~2.61.0"
+google-auth = "~2.62.2"
 gunicorn = "~26.2.0"
 heroicons = { version = "~2.14.0", extras = ["django"] }
 lxml = "~6.1.1"
@@ -54,8 +54,8 @@ whitenoise = "~6.12.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-# NOTE: cabinet is not on PyPI and is not going there; git is its only source.
-cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v3.0.0" }
+# NOTE: cabinet is not on PyPI, so it is pinned to its GitHub release wheel.
+cabinet = { url = "https://github.com/fancysnake/cabinet/releases/download/v5.0.0/cabinet-5.0.0-py3-none-any.whl" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^11.0.0"
@@ -90,7 +90,7 @@ responses = "^0.26.0"
 ruff = "^0.17.0"
 taplo = "^0.9.3"
 tingle = "^0.9.0"
-types-authlib = "^1.7.2.20260724"
+types-authlib = "^1.8.0.20261106"
 types-requests = "^2.33.0.20261006"
 vulture = "^2.16"
 yamllint = "^1.38.0"
@@ -167,7 +167,7 @@ template_extensions = 'html'
 # T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
 # `{% end_name %}` closers as well as `{% endname %}`.
 ignore = "H021,H031,H037,D018,T038"
-custom_blocks = "select,session_fact,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,session_fact,split_view,split_view_list,split_view_row,tessera_action_dropdown,tessera_choice_button,tessera_choice_buttons,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 # UI SDK custom elements (and ours built on it) are block elements to the
 # formatter, so their children indent like any other markup.
 custom_html = "ui-[a-z-]+,space-list[a-z-]*"

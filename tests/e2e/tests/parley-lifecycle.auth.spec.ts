@@ -174,8 +174,9 @@ test("A sphere with one room opens it straight from the launcher", async ({ page
   const panel = panelOf(page);
   await expect(panel.getByRole("heading", { name: "Zagrajmy" })).toBeVisible();
   await expect(panel.getByRole("button", { name: copy.backLabel })).toHaveCount(0);
-  // A history that would not load leaves the room empty, not broken.
-  await expect(panel.getByText(copy.emptyEvent)).toBeVisible();
+  // A history that would not load says so, not that the room is empty.
+  await expect(panel.getByRole("alert")).toContainText(copy.historyFailed);
+  await expect(panel.getByText(copy.emptyEvent)).toHaveCount(0);
   expect(worker.called("getActivity").length).toBeGreaterThan(0);
 
   // Keys other than Escape leave the window open.
@@ -228,6 +229,7 @@ test("The room list puts recent rooms first and counts the unread ones", async (
       canWrite: index !== 0,
       id: `session:1:${index + 10}`,
       kind: "session",
+      moderating: false,
       sphere: 1,
       title,
     })),

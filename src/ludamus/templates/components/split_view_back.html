@@ -1,0 +1,10 @@
+{% load tessera %}
+{% comment %}
+Rendered by {% split_view_back %} (split_view_tags): back to the list, on a
+screen too narrow to show it beside the item.
+{% endcomment %}
+<a href="{{ href }}"
+   class="lg:hidden inline-flex items-center gap-1 text-sm text-foreground-secondary">
+    {% icon "arrow-left" class="w-4 h-4" %}
+    {{ label }}
+</a>

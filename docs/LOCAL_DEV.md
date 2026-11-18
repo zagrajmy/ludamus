@@ -141,4 +141,8 @@ to mistake for typos:
   every Django task goes through `aubr varlock django-admin …`.
 - **hk** — git-hook and linter runner, pinned in `mise.toml` and configured
   in `hk.pkl` (Pkl). `mise run lint:hk` runs `hk check --all`;
-  `mise run bootstrap` wires the hooks with `hk install --mise`.
+  `mise run bootstrap` wires the hooks with `hk install --mise`. Two hooks:
+  pre-commit fixes the staged files, and pre-push checks the pushed files
+  with the same linters plus mypy and `ts-check`, in under ten seconds. A
+  clone made before the pre-push hook existed gets it by running
+  `hk install --mise` once more.

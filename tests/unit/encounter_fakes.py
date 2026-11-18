@@ -128,6 +128,12 @@ class FakeEncounters:
     def delete(self, pk):
         del self.rows[pk]
 
+    def list_by_creator(self, sphere_id, creator_id, *, limit):
+        rows = [
+            row for row in self._in_sphere(sphere_id) if row.creator_id == creator_id
+        ]
+        return sorted(rows, key=lambda row: row.start_time, reverse=True)[:limit]
+
     @staticmethod
     def _visible(rows, sphere_id, user_id):
         return [
@@ -143,6 +149,20 @@ class FakeEncounters:
 
     def list_visible_past(self, sphere_id, user_id, limit):
         return self._visible(self.past, sphere_id, user_id)[:limit]
+
+
+class FakeEncounterChat:
+    """Encounter chats that record each sync and have no chat to show."""
+
+    def __init__(self):
+        self.synced = []
+
+    def sync(self, encounter_id):
+        self.synced.append(encounter_id)
+
+    @staticmethod
+    def chat_id(_encounter_id):
+        return None
 
 
 class FakeCache:
@@ -370,6 +390,7 @@ class EncounterWorld:
             sites=self.sites,
             mailer=self.mailer,
             cache=FakeCache(),
+            chat=FakeEncounterChat(),
         )
 
     def service(self):

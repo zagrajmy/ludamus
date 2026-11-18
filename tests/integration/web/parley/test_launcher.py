@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 import pytest
 from django.urls import reverse
 
 from ludamus.pacts.user import AgeBand
-from tests.integration.conftest import SphereFactory
+from tests.integration.conftest import EventFactory, SessionFactory, SphereFactory
+from tests.integration.utils import assert_response
 
 
 def _open(response) -> bool:
@@ -20,6 +23,28 @@ def test_the_chat_opens_on_any_sphere_for_someone_with_a_room_elsewhere(
     response = authenticated_client.get(reverse("web:index"))
 
     assert _open(response) is True
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_the_chat_stays_shut_here_to_someone_who_only_moderates_elsewhere(
+    authenticated_client, active_user, event
+):
+    elsewhere = SphereFactory(parley_organizers_enabled=False)
+    elsewhere.managers.add(active_user)
+    SessionFactory(
+        event=EventFactory(
+            sphere=elsewhere, start_time=event.start_time, end_time=event.end_time
+        ),
+        category=None,
+    )
+
+    page = authenticated_client.get(reverse("web:index"))
+    bootstrap = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert _open(page) is False
+    assert_response(
+        bootstrap, HTTPStatus.NOT_FOUND, content=b'{"error": "parley_unavailable"}'
+    )
 
 
 @pytest.mark.usefixtures("parley_settings")
@@ -56,3 +81,20 @@ def test_the_chat_stays_shut_to_someone_signed_out(client):
     response = client.get(reverse("web:index"))
 
     assert _open(response) is False
+
+
+@pytest.mark.usefixtures("parley_settings")
+@pytest.mark.parametrize("page_name", ("web:index", "multiverse:panel:guilds"))
+def test_a_page_with_the_chat_sets_the_csrf_cookie_its_bootstrap_then_keeps(
+    authenticated_client, active_user, sphere, settings, page_name
+):
+    sphere.managers.add(active_user)
+
+    page = authenticated_client.get(reverse(page_name))
+    authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert _open(page) is True
+    assert (
+        authenticated_client.cookies[settings.CSRF_COOKIE_NAME].value
+        == page.cookies[settings.CSRF_COOKIE_NAME].value
+    )

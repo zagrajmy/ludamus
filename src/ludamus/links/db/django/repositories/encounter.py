@@ -110,6 +110,15 @@ class EncounterRepository(EncounterRepositoryProtocol):
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
+    def list_by_creator(
+        sphere_id: int, creator_id: int, *, limit: int
+    ) -> list[EncounterDTO]:
+        encounters = Encounter.objects.filter(
+            sphere_id=sphere_id, creator_id=creator_id
+        ).order_by("-start_time")[:limit]
+        return [EncounterDTO.model_validate(e) for e in encounters]
+
+    @staticmethod
     def update(pk: int, data: EncounterData) -> None:
         encounter = Encounter.objects.get(pk=pk)
         save_replacing_files(encounter, data)

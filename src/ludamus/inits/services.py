@@ -13,6 +13,7 @@ from ludamus.inits.builders import (
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_encounter_chats,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -91,7 +92,7 @@ from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelServ
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
-    ParleyPartyChatService,
+    ParleyOwnedChatService,
 )
 from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
@@ -211,12 +212,16 @@ class Services:
         )
 
     @cached_property
-    def parley_party_chats(self) -> ParleyPartyChatService:
-        return ParleyPartyChatService(
+    def parley_party_chats(self) -> ParleyOwnedChatService:
+        return ParleyOwnedChatService(
             transaction=self._transaction,
-            repository=self._repos.parley_conversations,
+            repository=self._repos.party_chats,
             outbox=parley_membership_outbox(),
         )
+
+    @cached_property
+    def parley_encounter_chats(self) -> ParleyOwnedChatService:
+        return build_parley_encounter_chats(parley_membership_outbox())
 
     @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
@@ -226,6 +231,7 @@ class Services:
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
             party_chats=self.parley_party_chats,
+            encounter_chats=self.parley_encounter_chats,
         )
 
     @cached_property
@@ -542,7 +548,6 @@ class Services:
             panel_settings=self._repos.event_panel_settings,
             facilitators=self._repos.facilitators,
             tracks=self._repos.tracks,
-            time_slots=self._repos.time_slots,
         )
 
     @cached_property
@@ -563,6 +568,7 @@ class Services:
             schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            events=self._repos.events,
             notifier=DjangoUserNotifier(),
         )
 
@@ -611,7 +617,6 @@ class Services:
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
-                time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,
             ),
         )
@@ -740,7 +745,7 @@ class Services:
 
     @cached_property
     def _encounter_guests(self) -> EncounterGuests:
-        return build_encounter_guests(self.sites)
+        return build_encounter_guests(self.sites, self.parley_encounter_chats)
 
     @cached_property
     def encounter_replies(self) -> EncounterReplyService:
@@ -801,7 +806,6 @@ class Services:
             self._repos.session_fields,
             self._repos.personal_data_fields,
             self._repos.personal_data_field_values,
-            self._repos.time_slots,
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
@@ -844,6 +848,7 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitators=self._repos.facilitators,
                 users=self._repos.active_users,
+                time_slots=self._repos.time_slots,
             ),
             cache=DjangoCache(),
         )
@@ -864,7 +869,6 @@ class Services:
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,
-            time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
         )
