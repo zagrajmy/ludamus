@@ -135,13 +135,15 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      # Three, not four: concurrency is shared account-wide, and a fourth
-      # shard buys under a minute against the odds of one queueing for five.
+      # Six: a shard spends about two minutes on setup and seeding whatever
+      # its share of the specs, so each further shard buys less, and
+      # concurrency is shared account-wide. At three the specs were eight of
+      # a shard's ten minutes; at six they are about four of six.
       # NOTE: the run below reads the count from strategy.job-total, which is
       # the whole matrix size. A second axis here would silently halve the
       # suite; split the denominator back out if one is ever added.
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v7
       # NOTE: the browser install below is a no-op for browsers this cache
@@ -224,7 +226,7 @@ jobs:
           E2E_CHROMIUM_SANDBOX: "1"
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      # The three artifacts merge into one directory in `test`, so each
+      # The shards' artifacts merge into one directory in `test`, so each
       # shard's data file needs a name of its own. It cannot be named that way
       # from the start: mise task env overrides the inherited environment, so
       # `test:e2e` pins COVERAGE_FILE back to `.coverage.e2e` regardless.
