@@ -226,6 +226,13 @@ jobs:
       # Ubuntu 23.10+ restricts unprivileged user namespaces through AppArmor,
       # which leaves Chromium "No usable sandbox!". Lift it so the specs run
       # Chromium sandboxed, as users get it.
+      # The seeding inside Playwright's webServer command applies these too,
+      # and there a slow download spends the 180s the server has to come up:
+      # one stalled bottle took 149s of it and the shard ran no spec. Applied
+      # here first, that call finds nothing left to fetch.
+      - name: Install system packages
+        timeout-minutes: 8
+        run: mise bootstrap packages apply --yes
       - name: Allow Chromium's sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Run end-to-end tests
