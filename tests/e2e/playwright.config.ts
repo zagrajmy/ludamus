@@ -62,8 +62,9 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: isCI,
-  /* Retry on CI only */
-  retries: isCI ? 2 : 0,
+  /* No retries: a spec that needs a second attempt has a bug, in the spec or
+     in the app, and a retry reports it as a pass. */
+  retries: 0,
   /* Opt out of parallel tests on CI. */
   workers: isCI ? 2 : undefined,
   /* Reporter to use */
@@ -75,7 +76,7 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: isCI ? "retain-on-failure" : "on-first-retry",
+    video: isCI ? "retain-on-failure" : "off",
     // NOTE: Playwright passes --no-sandbox to Chromium unless told otherwise.
     // Opt-in, because most hosts cannot give Chromium its sandbox: dev
     // containers and Ubuntu 23.10+ (GitHub's runners included) deny
