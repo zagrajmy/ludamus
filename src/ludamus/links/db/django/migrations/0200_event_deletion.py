@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0198_parley_encounter_chat")]
+    dependencies = [("db_main", "0199_session_availability")]
 
     operations = [
         migrations.AddField(
