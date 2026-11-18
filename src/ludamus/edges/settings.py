@@ -210,7 +210,7 @@ _BASE_TEMPLATE_LOADERS = [
 
 _TEMPLATE_LOADERS: list[str | tuple[str, list[str]]] = (
     [("django.template.loaders.cached.Loader", _BASE_TEMPLATE_LOADERS)]
-    if IS_PRODUCTION
+    if ENV != "development"
     else list(_BASE_TEMPLATE_LOADERS)
 )
 

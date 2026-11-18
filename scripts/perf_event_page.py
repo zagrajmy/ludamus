@@ -64,14 +64,17 @@ class Result:
     size: int
 
 
-def _use_cached_templates() -> None:
+def _use_dev_templates() -> None:
     # Before the first render: django.template.engines builds the engine
     # from settings.TEMPLATES on first use, so the loaders are still plain
-    # configuration here. What settings does for ENV=production, without
-    # the rest of that environment (secure cookies, a static manifest).
+    # configuration here. What settings does for ENV=development: every
+    # other environment, this benchmark's included, caches parsed templates.
     boot_django()
     options = import_module("django.conf").settings.TEMPLATES[0]["OPTIONS"]
-    options["loaders"] = [("django.template.loaders.cached.Loader", options["loaders"])]
+    options["loaders"] = [
+        "django.template.loaders.filesystem.Loader",
+        "django.template.loaders.app_directories.Loader",
+    ]
 
 
 def _models() -> ModuleType:
@@ -177,8 +180,8 @@ def _print_table(results: list[Result], *, runs: int, cached_templates: bool) ->
 def run_benchmark(
     *, sessions: int, runs: int, reseed: bool, cached_templates: bool
 ) -> list[Result]:
-    if cached_templates:
-        _use_cached_templates()
+    if not cached_templates:
+        _use_dev_templates()
     _ensure_seeded(sessions=sessions, reseed=reseed)
     client_class = import_module("django.test").Client
     models = _models()
