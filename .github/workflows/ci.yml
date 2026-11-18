@@ -32,9 +32,22 @@ jobs:
       - run: aube install --no-optional
       # Ahead of the lint, so a lint failure cannot hide a leaked secret.
       - run: aube exec varlock scan
-      - run: mise run lint --jobs "$(nproc)"
+      # Everything but Pylint, which the pylint job below runs in shards.
+      - run: mise run lint:fast --jobs "$(nproc)"
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
+
+  pylint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [src, tests, cross]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/toolchain
+      - run: mise run lint:pylint:${{ matrix.shard }}
 
   frontend-analysis:
     runs-on: ubuntu-latest

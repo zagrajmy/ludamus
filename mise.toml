@@ -112,15 +112,19 @@ run = "frog list"
 description = "Run every hk linter on all files (incl. djlint, oxfmt, oxlint via aube)"
 run = "hk check --all"
 
-[tasks.lint]
-description = "Run all linters"
+[tasks."lint:fast"]
+description = "Run every linter except Pylint, which CI runs as its own jobs"
 depends = [
-    { task = "lint:py" },
+    { task = "lint:py:fast" },
     { task = "lint:hk" },
     { task = "lint:ast-grep" },
     { task = "lint:impeccable" },
     { task = "lint:frog" },
 ]
+
+[tasks.lint]
+description = "Run all linters"
+depends = [{ task = "lint:fast" }, { task = "lint:pylint" }]
 
 ## Tests
 
