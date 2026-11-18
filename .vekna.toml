@@ -19,14 +19,15 @@ frontend-analysis = {}
 test = {}
 "codecov/patch" = { covering = true }
 
-# NOTE: a pooled worktree is a bare checkout, so it has none of the gitignored
-# secrets varlock requires. `.worktreeinclude` names them; the main checkout
-# has them.
+# NOTE: a pooled worktree starts without the ignored local files (env files,
+# `.local/`). Those matching `.worktreeinclude` are copied once from the main
+# checkout, and an existing copy is kept.
 [circle]
 prepare = '''
 set -e
 main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
-while read -r path; do
-  [ -e "$path" ] || [ ! -e "$main/$path" ] || cp -r "$main/$path" "$path"
-done < "$main/.worktreeinclude"
+git -C "$main" ls-files --others --ignored --directory --exclude-from=.worktreeinclude |
+  while read -r path; do
+    [ -e "$path" ] || cp -r "$main/$path" "$path"
+  done
 '''
