@@ -4,6 +4,11 @@ name: CI
 on:
   pull_request:
 
+  # The merge queue tests each pull request merged with main before it lands.
+  # Without this trigger a queued pull request would wait forever for the
+  # required `test` check.
+  merge_group:
+
   push:
     branches: [ "master", "main" ]
 
