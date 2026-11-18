@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0197_require_session_space")]
+    dependencies = [("db_main", "0200_event_deletion")]
 
     operations = [
         migrations.AddField(
