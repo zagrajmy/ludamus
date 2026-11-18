@@ -27,9 +27,9 @@ jobs:
             aube-${{ runner.os }}-
       - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
-      # hk's oxlint/oxfmt use `aube exec --no-install`, so a partial
-      # (--no-optional) graph is fine — they will not cold-start mid-lint.
-      - run: aube install --no-optional
+      # Not --no-optional: fallow's platform binary, which lint:fallow runs,
+      # is an optional dependency.
+      - run: aube install
       # Ahead of the lint, so a lint failure cannot hide a leaked secret.
       - run: aube exec varlock scan
       - run: mise run lint --jobs "$(nproc)"
@@ -65,11 +65,6 @@ jobs:
         run: mise run test:ios-helpers
       - name: Unit-test the staging deploy resolver
         run: mise run test:staging-script
-      # Non-blocking: fallow surfaces dead code, duplication, and
-      # complexity hotspots as a report without failing the build.
-      - name: Analyze frontend TypeScript (fallow)
-        continue-on-error: true
-        run: mise run fallow
 
   audit-deps:
     runs-on: ubuntu-latest
