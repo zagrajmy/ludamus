@@ -1054,7 +1054,7 @@ class GuildMembership(models.Model):
         return f"{self.member_id} in guild {self.guild_id}"
 
 
-class Event(models.Model):
+class Event(SoftDeleteModel):
     sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="events")
     name = models.CharField(max_length=255)
     slug = models.SlugField()
@@ -1151,6 +1151,29 @@ class Event(models.Model):
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
+
+
+class EventDeletionApproval(models.Model):
+    """One sphere manager's yes to deleting an event; enough of them delete it."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="deletion_approvals"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="event_deletion_approvals"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_deletion_approval"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_deletion_approval_unique_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} approves deleting event {self.event_id}"
 
 
 class EventProposalSettings(models.Model):

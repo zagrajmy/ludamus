@@ -873,6 +873,7 @@ msgstr "Nasi najlepsi ludzie pracują nad tym."
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/event/panel/views/integrations.py
 #: src/ludamus/gates/web/django/event/panel/views/venues.py
@@ -1860,6 +1861,40 @@ msgstr "Wybierz wydarzenie z tej sfery."
 #, python-format
 msgid "Created %(name)s. It stays hidden until you publish it."
 msgstr "Utworzono %(name)s. Pozostanie ukryte, dopóki go nie opublikujesz."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+msgid "Only sphere managers can delete an event."
+msgstr "Tylko menedżerowie sfery mogą usunąć wydarzenie."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+#, python-format
+msgid "%(event)s is deleted."
+msgstr "Usunięto wydarzenie %(event)s."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+#, python-format
+msgid ""
+"Your approval is in. The event is deleted once %(count)d more manager "
+"approves."
+msgid_plural ""
+"Your approval is in. The event is deleted once %(count)d more managers "
+"approve."
+msgstr[0] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżer."
+msgstr[1] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzą się "
+"jeszcze %(count)d menedżerowie."
+msgstr[2] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżerów."
+msgstr[3] ""
+"Twoja zgoda została zapisana. Wydarzenie zostanie usunięte, gdy zgodzi się "
+"jeszcze %(count)d menedżerów."
+
+#: src/ludamus/gates/web/django/event/panel/views/event_deletion.py
+msgid "Your approval is withdrawn."
+msgstr "Wycofano Twoją zgodę."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
 #, python-brace-format
@@ -4505,6 +4540,19 @@ msgstr ""
 "Po włączeniu wszyscy z miejscem lub na liście rezerwowej, twórcy programu i "
 "organizatorzy mają wspólny czat. Wyłączenie zamyka go od razu."
 
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "Type the event's name to confirm."
+msgstr "Wpisz nazwę wydarzenia, aby potwierdzić."
+
+#: src/ludamus/gates/web/django/settings_forms.py
+#, python-format
+msgid "Type the event's name to confirm: %(name)s"
+msgstr "Wpisz nazwę wydarzenia, aby potwierdzić: %(name)s"
+
+#: src/ludamus/gates/web/django/settings_forms.py
+msgid "The name you typed does not match."
+msgstr "Wpisana nazwa się nie zgadza."
+
 #: src/ludamus/gates/web/django/sphere/access.py
 msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
@@ -6279,6 +6327,32 @@ msgid ""
 msgstr ""
 "%(event)s zaczyna się za dwa dni. Wydrukuj harmonogram i tabliczki na drzwi "
 "dla swojego wydarzenia, korzystając z poniższego linku, zanim się rozpocznie."
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid "%(name)s wants to delete %(event)s"
+msgstr "%(name)s chce usunąć wydarzenie %(event)s"
+
+#: src/ludamus/links/db/django/notifications.py
+#, python-format
+msgid ""
+"The event is deleted once %(count)d more manager approves. Open its settings "
+"to approve or to leave it be."
+msgid_plural ""
+"The event is deleted once %(count)d more managers approve. Open its settings "
+"to approve or to leave it be."
+msgstr[0] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżer. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[1] ""
+"Wydarzenie zostanie usunięte, gdy zgodzą się jeszcze %(count)d menedżerowie. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[2] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżerów. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
+msgstr[3] ""
+"Wydarzenie zostanie usunięte, gdy zgodzi się jeszcze %(count)d menedżerów. "
+"Otwórz jego ustawienia, aby się zgodzić albo zostawić je bez zmian."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -12446,6 +12520,87 @@ msgstr "Przenieś w górę"
 msgid "Move down"
 msgstr "Przenieś w dół"
 
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Delete event"
+msgstr "Usuń wydarzenie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid ""
+"The event, its programme and its enrollments disappear for everyone. Site "
+"staff can bring it back on request."
+msgstr ""
+"Wydarzenie, jego program i zapisy znikną dla wszystkich. Obsługa serwisu "
+"może je przywrócić na prośbę."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "It takes %(needed)s of the sphere's %(managers)s managers to approve."
+msgid_plural ""
+"It takes %(needed)s of the sphere's %(managers)s managers to approve."
+msgstr[0] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[1] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[2] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+msgstr[3] ""
+"Usunięcie wymaga zgody %(needed)s spośród %(managers)s menedżerów sfery."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "Approved %(approved)s of %(needed)s"
+msgstr "Zgody: %(approved)s z %(needed)s"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Only sphere managers can approve deleting an event."
+msgstr "Tylko menedżerowie sfery mogą zgodzić się na usunięcie wydarzenia."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Withdraw my approval"
+msgstr "Wycofaj moją zgodę"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "It disappears for everyone at once."
+msgstr "Zniknie od razu dla wszystkich."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Approve deletion"
+msgstr "Zgódź się na usunięcie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid "It is deleted once %(missing)s more manager approves."
+msgid_plural "It is deleted once %(missing)s more managers approve."
+msgstr[0] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżer."
+msgstr[1] "Zostanie usunięte, gdy zgodzą się jeszcze %(missing)s menedżerowie."
+msgstr[2] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżerów."
+msgstr[3] "Zostanie usunięte, gdy zgodzi się jeszcze %(missing)s menedżerów."
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+msgid "Request deletion"
+msgstr "Poproś o usunięcie"
+
+#: src/ludamus/templates/panel/parts/_event_deletion.html
+#, python-format
+msgid ""
+"The other managers get a notification. It is deleted once %(missing)s more "
+"manager approves."
+msgid_plural ""
+"The other managers get a notification. It is deleted once %(missing)s more "
+"managers approve."
+msgstr[0] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżer."
+msgstr[1] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzą "
+"się jeszcze %(missing)s menedżerowie."
+msgstr[2] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżerów."
+msgstr[3] ""
+"Pozostali menedżerowie dostaną powiadomienie. Zostanie usunięte, gdy zgodzi "
+"się jeszcze %(missing)s menedżerów."
+
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 #, python-format
 msgid "Attach %(name)s to a guild"
@@ -15420,14 +15575,6 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
-#~ msgid ""
-#~ "Every space is taken at every time this session can go. Add a space, or "
-#~ "move a session in the timetable, then come back to accept this proposal."
-#~ msgstr ""
-#~ "Każda przestrzeń jest zajęta w każdym terminie, w którym ten punkt "
-#~ "programu może się odbyć. Dodaj przestrzeń albo przesuń jakiś punkt "
-#~ "programu w harmonogramie, a potem wróć tu zaakceptować to zgłoszenie."
-
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
 
@@ -15491,6 +15638,14 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
 #~ "harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
 #~ "zgłoszenie."
+
+#~ msgid ""
+#~ "Every space is taken at every time this session can go. Add a space, or "
+#~ "move a session in the timetable, then come back to accept this proposal."
+#~ msgstr ""
+#~ "Każda przestrzeń jest zajęta w każdym terminie, w którym ten punkt "
+#~ "programu może się odbyć. Dodaj przestrzeń albo przesuń jakiś punkt "
+#~ "programu w harmonogramie, a potem wróć tu zaakceptować to zgłoszenie."
 
 #~ msgid "Add time slots"
 #~ msgstr "Dodaj przedziały czasowe"
@@ -15562,9 +15717,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
 
-#~ msgid "Create Encounter"
-#~ msgstr "Utwórz spotkanie"
-
 #~ msgid "Public: listed and announced to followers from its publication time"
 #~ msgstr ""
 #~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
@@ -15585,6 +15737,16 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr ""
 #~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
 #~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
+
+#, python-format
+#~ msgid "Delete %(event)s?"
+#~ msgstr "Usunąć %(event)s?"
+
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
 
 #
 #~ msgid "Note added to the thread."
@@ -15687,15 +15849,29 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
 
-#~ msgid "Message reported."
-#~ msgstr "Wiadomość została zgłoszona."
-
 #~ msgid ""
 #~ "Signed-in people can talk in a room for the whole sphere and in the rooms "
 #~ "of the programme points they take part in."
 #~ msgstr ""
 #~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
 #~ "programu, w których biorą udział."
+
+#~ msgid "Message reported."
+#~ msgstr "Wiadomość została zgłoszona."
+
+#~ msgid ""
+#~ "We confirm the report and send the decision here. Name and email may be "
+#~ "left out only for child sexual abuse material."
+#~ msgstr ""
+#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
+#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
+#~ "seksualne wykorzystywanie dzieci."
+
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
 
 #~ msgid "yourself"
 #~ msgstr "siebie"
@@ -15797,9 +15973,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
 
-#~ msgid "Displayed on the first page of the proposal form."
-#~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
-
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"
 
@@ -15821,15 +15994,36 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Session details saved. Next step coming soon."
 #~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
 
-#, python-format
-#~ msgid "Include %(name)s"
-#~ msgstr "Uwzględnij: %(name)s"
+#~ msgid ""
+#~ "No account was created. A parent or guardian can sign up and add you as a "
+#~ "companion to sign you up for sessions."
+#~ msgstr ""
+#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
+#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
+
+#~ msgid "Choose one of the two answers."
+#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
 
-#~ msgid "LIVE"
-#~ msgstr "W TRAKCIE"
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
+
+#~ msgid "How old are you?"
+#~ msgstr "Ile masz lat?"
+
+#, python-format
+#~ msgid "I'm %(min_age)s or older"
+#~ msgstr "Mam %(min_age)s lat lub więcej"
+
+#, python-format
+#~ msgid "I'm under %(min_age)s"
+#~ msgstr "Mam mniej niż %(min_age)s lat"
+
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -15887,18 +16081,8 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Jeszcze nic. Zapisz się na punkt programu lub spotkanie albo dodaj punkt "
 #~ "programu do zakładek, a poczeka tu na Ciebie."
 
-#~ msgid ""
-#~ "When the event becomes publicly visible. Leave empty for immediate "
-#~ "visibility."
-#~ msgstr ""
-#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
-#~ "widoczne natychmiast."
-
-#~ msgid "Publication Time"
-#~ msgstr "Czas publikacji"
-
-#~ msgid "You're already on this sphere's team as a manager."
-#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
+#~ msgid "LIVE"
+#~ msgstr "W TRAKCIE"
 
 #, python-format
 #~ msgid "%(name)s invited you to manage this sphere."
@@ -15928,6 +16112,13 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Revoke invitation"
 #~ msgstr "Wycofaj zaproszenie"
+
+#~ msgid ""
+#~ "When the event becomes publicly visible. Leave empty for immediate "
+#~ "visibility."
+#~ msgstr ""
+#~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
+#~ "widoczne natychmiast."
 
 #~ msgid "Copy email"
 #~ msgstr "Skopiuj e-mail"
@@ -16062,6 +16253,16 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
 
+#~ msgid "Attach venue"
+#~ msgstr "Dołącz lokalizację"
+
+#~ msgid ""
+#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
+#~ "from loose proposals to a printout on the room door. Pick an act."
+#~ msgstr ""
+#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
+#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
+
 #~ msgid "Poland"
 #~ msgstr "Polska"
 
@@ -16145,9 +16346,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "See open Encounters at zagrajmy.net/encounters"
 #~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
-
-#~ msgid "Enabled pages"
-#~ msgstr "Włączone strony"
 
 #~ msgid "At least one page must stay enabled."
 #~ msgstr "Przynajmniej jedna strona musi pozostać włączona."
@@ -16388,22 +16586,12 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Leave empty for no background."
 #~ msgstr "Zostaw puste, aby nie ustawiać tła."
 
-#~ msgid "Session list"
-#~ msgstr "Lista punktów programu"
-
 #~ msgid "Participant"
 #~ msgid_plural "Participants"
 #~ msgstr[0] "Uczestnik"
 #~ msgstr[1] "Uczestnicy"
 #~ msgstr[2] "Uczestników"
 #~ msgstr[3] "Uczestników"
-
-#~ msgid "Player"
-#~ msgid_plural "Players"
-#~ msgstr[0] "Gracz"
-#~ msgstr[1] "Graczy"
-#~ msgstr[2] "Graczy"
-#~ msgstr[3] "Graczy"
 
 #~ msgid "Include unconfirmed sessions"
 #~ msgstr "Uwzględnij niepotwierdzone punkty programu"
@@ -16682,9 +16870,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Flagged"
 #~ msgstr "Oznaczony"
-
-#~ msgid "Remove deletion flag"
-#~ msgstr "Usuń oznaczenie do usunięcia"
 
 #, python-format
 #~ msgid "Remove deletion flag from %(name)s"
@@ -16985,12 +17170,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
 #~ "powiązane konta."
 
-#~ msgid "Session deleted."
-#~ msgstr "Punkt programu został usunięty."
-
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
-
 #, python-format
 #~ msgid "%(count)d facilitator runs sessions and was kept."
 #~ msgid_plural "%(count)d facilitators run sessions and were kept."
@@ -17125,6 +17304,59 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgstr "To wydarzenie nie należy do tej sfery."
 
 #, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid "Different address? Save your profile first."
+#~ msgstr "Inny adres? Najpierw zapisz profil."
+
+#, python-format
+#~ msgid ""
+#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
+#~ "changing your email address."
+#~ msgstr ""
+#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
+#~ "zmianę adresu email."
+
+#, python-format
+#~ msgid ""
+#~ "Open the confirmation email sent to <strong class=\"break-"
+#~ "all\">%(address)s</strong> and follow its link."
+#~ msgstr ""
+#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
+#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
+
+#, python-format
+#~ msgid ""
+#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
+#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
+#~ msgstr ""
+#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
+#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
+
+#~ msgid "To verify a different address, save your changes first."
+#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
+
+#~ msgid "Resend verification email"
+#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
+
+#, python-format
 #~ msgid "Export failed: %(hint)s"
 #~ msgstr "Eksport nie powiódł się: %(hint)s"
 
@@ -17195,11 +17427,141 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Go to connections"
 #~ msgstr "Przejdź do połączeń"
 
+#, python-format
+#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
+#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
+
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
+
 #~ msgid "Subject"
 #~ msgstr "Temat"
 
 #~ msgid "No emails captured yet."
 #~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
+
+#, python-format
+#~ msgid ""
+#~ "Radek has been running tabletop RPGs for more than twenty years. He "
+#~ "writes his own games, like the narrative RPG <a "
+#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
+#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
+#~ "and sings RPG songs on YouTube as Radek MG."
+#~ msgstr ""
+#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
+#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
+#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
+
+#, python-format
+#~ msgid ""
+#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
+#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+#~ "sacrifice."
+#~ msgstr ""
+#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
+#~ "poświęceniu."
+
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
+
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
+#~ msgid "Online or offline"
+#~ msgstr "Online czy na miejscu"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
+
+#~ msgid "Enabled pages"
+#~ msgstr "Włączone strony"
+
+#~ msgid ""
+#~ "Each programme point gets a room for its players and hosts, the sphere's "
+#~ "team a room of its own, and each event whose organizers turn its chat on "
+#~ "a chat for everyone taking part."
+#~ msgstr ""
+#~ "Każdy punkt programu dostaje pokój dla graczy i twórców programu, zespół "
+#~ "sfery własny pokój, a każde wydarzenie, któremu organizatorzy włączą "
+#~ "czat, czat dla wszystkich uczestników."
+
+#~ msgid ""
+#~ "Each event gets a chat for everyone taking part, each programme point a "
+#~ "room for its players and hosts, and the sphere's team a room of its own."
+#~ msgstr ""
+#~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
+#~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "All hosts"
+#~ msgstr "Wszyscy prowadzący"
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#~ msgid "You're already on this sphere's team as a manager."
+#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#~ msgid "Session deleted."
+#~ msgstr "Punkt programu został usunięty."
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"
+
+#~ msgid "Displayed on the first page of the proposal form."
+#~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
+
+#~ msgid "Session list"
+#~ msgstr "Lista punktów programu"
+
+#~ msgid "Player"
+#~ msgid_plural "Players"
+#~ msgstr[0] "Gracz"
+#~ msgstr[1] "Graczy"
+#~ msgstr[2] "Graczy"
+#~ msgstr[3] "Graczy"
 
 #, python-format
 #~ msgid ""
@@ -17234,208 +17596,5 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ msgid "Offered days"
 #~ msgstr "Zaproponowane dni"
 
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
-
-#~ msgid ""
-#~ "No account was created. A parent or guardian can sign up and add you as a "
-#~ "companion to sign you up for sessions."
-#~ msgstr ""
-#~ "Konto nie zostało utworzone. Rodzic lub opiekun może założyć konto, dodać "
-#~ "Cię jako towarzysza i zapisywać Cię na punkty programu."
-
-#~ msgid "Choose one of the two answers."
-#~ msgstr "Wybierz jedną z dwóch odpowiedzi."
-
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
-
-#~ msgid "How old are you?"
-#~ msgstr "Ile masz lat?"
-
-#, python-format
-#~ msgid "I'm %(min_age)s or older"
-#~ msgstr "Mam %(min_age)s lat lub więcej"
-
-#, python-format
-#~ msgid "I'm under %(min_age)s"
-#~ msgstr "Mam mniej niż %(min_age)s lat"
-
-#, python-format
-#~ msgid ""
-#~ "Radek has been running tabletop RPGs for more than twenty years. He "
-#~ "writes his own games, like the narrative RPG <a "
-#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
-#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
-#~ "and sings RPG songs on YouTube as Radek MG."
-#~ msgstr ""
-#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
-#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
-#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
-#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
-
-#, python-format
-#~ msgid ""
-#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
-#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
-#~ "sacrifice."
-#~ msgstr ""
-#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
-#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
-#~ "poświęceniu."
-
-#~ msgid "Attach venue"
-#~ msgstr "Dołącz lokalizację"
-
-#~ msgid ""
-#~ "Seven programme items of Board Game Days 2026 travel before your eyes "
-#~ "from loose proposals to a printout on the room door. Pick an act."
-#~ msgstr ""
-#~ "Siedem punktów programu Planszówkowych Dni 2026 przechodzi na Twoich "
-#~ "oczach od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
-
-#, python-format
-#~ msgid ""
-#~ "The token expires after %(token_max_age_days)s days and works only while "
-#~ "you stay a manager of this sphere. Anyone holding it can act with your "
-#~ "permissions — keep it secret."
-#~ msgstr ""
-#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
-#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
-#~ "uprawnieniami — trzymaj go w tajemnicy."
-
-#, python-format
-#~ msgid ""
-#~ "Generate a personal token to connect an MCP client (such as Claude Code "
-#~ "or Executor) to this sphere's organizer API. The token is valid for "
-#~ "%(token_max_age_days)s days."
-#~ msgstr ""
-#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
-#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
-#~ "%(token_max_age_days)s dni."
-
-#~ msgid "Different address? Save your profile first."
-#~ msgstr "Inny adres? Najpierw zapisz profil."
-
-#, python-format
-#~ msgid ""
-#~ "Confirm <strong class=\"break-all\">%(address)s</strong> to finish "
-#~ "changing your email address."
-#~ msgstr ""
-#~ "Potwierdź <strong class=\"break-all\">%(address)s</strong>, aby dokończyć "
-#~ "zmianę adresu email."
-
-#, python-format
-#~ msgid ""
-#~ "Open the confirmation email sent to <strong class=\"break-"
-#~ "all\">%(address)s</strong> and follow its link."
-#~ msgstr ""
-#~ "Otwórz wiadomość z potwierdzeniem wysłaną na <strong class=\"break-"
-#~ "all\">%(address)s</strong> i kliknij zawarty w niej link."
-
-#, python-format
-#~ msgid ""
-#~ "Search your inbox or spam folder for an email from <strong class=\"break-"
-#~ "all\">%(sender)s</strong> with the subject “%(subject)s”."
-#~ msgstr ""
-#~ "Wyszukaj w skrzynce odbiorczej lub spamie wiadomość od <strong "
-#~ "class=\"break-all\">%(sender)s</strong> o temacie „%(subject)s”."
-
-#~ msgid "To verify a different address, save your changes first."
-#~ msgstr "Aby zweryfikować inny adres, najpierw zapisz zmiany."
-
-#~ msgid "Resend verification email"
-#~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
-
-#, python-format
-#~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
-#~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
-
-#~ msgid "Player looking for a GM"
-#~ msgstr "Gracz szuka MG"
-
-#~ msgid "Player looking for a group"
-#~ msgstr "Gracz szuka grupy"
-
-#~ msgid "Group looking for players"
-#~ msgstr "Grupa szuka graczy"
-
 #~ msgid "Group looking for a GM"
 #~ msgstr "Grupa szuka MG"
-
-#~ msgctxt "listing role"
-#~ msgid "GM"
-#~ msgstr "MG"
-
-#~ msgctxt "listing role"
-#~ msgid "Player"
-#~ msgstr "Gracz"
-
-#~ msgctxt "listing role"
-#~ msgid "Group"
-#~ msgstr "Grupa"
-
-#~ msgctxt "listing seeking"
-#~ msgid "Group"
-#~ msgstr "Grupy"
-
-#~ msgid "I am"
-#~ msgstr "Jestem"
-
-#~ msgid "Pick one of the options offered for who you are."
-#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
-
-#~ msgid "Who is looking for whom"
-#~ msgstr "Kto kogo szuka"
-
-#~ msgid "Online or offline"
-#~ msgstr "Online czy na miejscu"
-
-#~ msgid "A player"
-#~ msgstr "Gracz"
-
-#~ msgid "A group"
-#~ msgstr "Grupa"
-
-#~ msgid "Pick who you are looking for again."
-#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
-
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
-
-#~ msgid "Give the group a name."
-#~ msgstr "Nadaj grupie nazwę."
-
-#~ msgid ""
-#~ "We confirm the report and send the decision here. Name and email may be "
-#~ "left out only for child sexual abuse material."
-#~ msgstr ""
-#~ "Na ten adres potwierdzimy zgłoszenie i wyślemy decyzję. Imię i adres "
-#~ "można pominąć tylko przy zgłoszeniu materiałów przedstawiających "
-#~ "seksualne wykorzystywanie dzieci."
-
-#~ msgid ""
-#~ "Each programme point gets a room for its players and hosts, the sphere's "
-#~ "team a room of its own, and each event whose organizers turn its chat on "
-#~ "a chat for everyone taking part."
-#~ msgstr ""
-#~ "Każdy punkt programu dostaje pokój dla graczy i twórców programu, zespół "
-#~ "sfery własny pokój, a każde wydarzenie, któremu organizatorzy włączą "
-#~ "czat, czat dla wszystkich uczestników."
-
-#~ msgid ""
-#~ "Each event gets a chat for everyone taking part, each programme point a "
-#~ "room for its players and hosts, and the sphere's team a room of its own."
-#~ msgstr ""
-#~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
-#~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
-
-#~ msgid "All hosts"
-#~ msgstr "Wszyscy prowadzący"
-
-#~ msgid "Nothing to moderate right now."
-#~ msgstr "Na razie nie ma czego moderować."
-
-#~ msgid "Select a language:"
-#~ msgstr "Wybierz język:"

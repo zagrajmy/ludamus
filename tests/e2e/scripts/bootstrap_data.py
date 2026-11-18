@@ -321,6 +321,47 @@ def _create_party_companion_scenario() -> None:
 CREW_HOST = "crew.localhost"
 
 
+COUNCIL_HOST = "council.localhost"
+
+
+def _create_event_deletion_scenario() -> None:
+    """Seed what event-deletion.spec needs: a sphere two managers must agree on.
+
+    A sphere of its own, so deleting its one event leaves every other spec's
+    fixtures alone, and so the team stays at the two whose approvals it takes.
+    """
+    _, council = _create_site(f"{COUNCIL_HOST}:8000", name="Council")
+    for slug, name in (
+        ("e2e-council-first", "Ada Council"),
+        ("e2e-council-second", "Bert Council"),
+    ):
+        member = User.objects.create_user(
+            username=slug,
+            email=f"{slug}@test.local",
+            password=f"{slug}-123",
+            name=name,
+            slug=slug,
+        )
+        council.managers.add(member)
+        _write_storage_state(
+            member,
+            domain=COUNCIL_HOST,
+            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+        )
+    # A deletion cannot be taken back from the panel, so each attempt (CI
+    # allows two retries) votes on an event of its own number.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        _create_event(
+            council,
+            name=f"Council Retreat {attempt}",
+            slug=f"council-retreat-{attempt}",
+            description="A weekend the council no longer plans to hold.",
+            start_offset=timedelta(days=9),
+            duration_hours=8,
+            publication_offset=timedelta(days=1),
+        )
+
+
 def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
     """Seed what unlisted-events.spec and sphere-invitations.auth.spec need.
 
@@ -2308,6 +2349,7 @@ def main() -> None:
     _create_notifications_scenario()
     _create_mention_mail_scenario()
     _create_unlisted_and_team_scenario(sphere)
+    _create_event_deletion_scenario()
 
     _create_party_companion_scenario()
 
