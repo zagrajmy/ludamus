@@ -55,6 +55,32 @@ const isOver = (target: HTMLElement, event: PointerEvent): boolean => {
 // the handle, and whether the press turned into a drag, for the click.
 let press: { dragged: boolean; handle: HTMLElement } | null = null;
 
+const rowsByKey = (list: Element): Map<string, HTMLElement> => {
+  const rows = new Map<string, HTMLElement>();
+  for (const child of list.children) {
+    const key = child.getAttribute("value");
+    if (key !== null && child instanceof HTMLElement) rows.set(key, child);
+  }
+  return rows;
+};
+
+const arrangeAround = ({
+  anchor,
+  list,
+  rows,
+}: {
+  anchor: HTMLElement | undefined;
+  list: Element;
+  rows: HTMLElement[];
+}): void => {
+  let passedAnchor = anchor === undefined;
+  for (const row of rows) {
+    if (row === anchor) passedAnchor = true;
+    else if (passedAnchor) list.append(row);
+    else anchor?.before(row);
+  }
+};
+
 const spaceList = definePrimitive({
   api: (context) => {
     const change = createChange(context);
@@ -157,24 +183,16 @@ const spaceList = definePrimitive({
         part.store.subscribe(() => {
           const state = part.store.get();
           const order = part.api.reorder.order(state);
-          const rows = new Map<string, HTMLElement>();
-          for (const child of el.children) {
-            const key = child.getAttribute("value");
-            if (key !== null && child instanceof HTMLElement) rows.set(key, child);
-          }
+          const rows = rowsByKey(el);
           if ([...rows.keys()].join(",") === order.join(",")) return;
           const anchorKey =
             state.moving?.key ??
             order.find((key) => rows.get(key)?.contains(document.activeElement));
-          const anchor = anchorKey === undefined ? undefined : rows.get(anchorKey);
-          let passedAnchor = anchor === undefined;
-          for (const key of order) {
-            const row = rows.get(key);
-            if (!row) continue;
-            if (row === anchor) passedAnchor = true;
-            else if (passedAnchor) el.append(row);
-            else anchor?.before(row);
-          }
+          arrangeAround({
+            anchor: anchorKey === undefined ? undefined : rows.get(anchorKey),
+            list: el,
+            rows: order.flatMap((key) => rows.get(key) ?? []),
+          });
         }),
     }),
   }),
@@ -230,6 +248,27 @@ const toggleChildren = (disclosure: HTMLButtonElement): void => {
   disclosure.setAttribute("aria-expanded", String(!children.hidden));
 };
 
+// The handle a press began on, when the row it sits in got the click.
+const pressedDisclosure = (
+  handle: HTMLElement | undefined,
+  target: Element,
+): HTMLButtonElement | null => {
+  if (!(handle instanceof HTMLButtonElement)) return null;
+  if (handle.closest("space-list-item") !== target) return null;
+  return Object.hasOwn(handle.dataset, "spaceDisclosure") ? handle : null;
+};
+
+// A branch's guide line: its first 16px fold the branch it belongs to.
+const branchDisclosureAt = (target: Element, event: Event): HTMLButtonElement | null => {
+  const branch = target.closest<HTMLElement>("[data-space-branch-disclosure]");
+  if (!branch || !(event instanceof MouseEvent)) return null;
+  const { left } = branch.getBoundingClientRect();
+  if (event.clientX < left || event.clientX > left + 16) return null;
+  return document.querySelector<HTMLButtonElement>(
+    `[data-space-disclosure][aria-controls="${branch.id}"]`,
+  );
+};
+
 const root = rootList();
 if (root) {
   for (const list of [root, ...root.querySelectorAll<HTMLElement>("space-list")]) {
@@ -247,23 +286,9 @@ if (root) {
     if (pressed?.dragged) return;
     const disclosure =
       event.target.closest<HTMLButtonElement>("[data-space-disclosure]") ??
-      (pressed?.handle.closest("space-list-item") === event.target &&
-      pressed.handle instanceof HTMLButtonElement &&
-      Object.hasOwn(pressed.handle.dataset, "spaceDisclosure")
-        ? pressed.handle
-        : null);
-    if (disclosure) {
-      toggleChildren(disclosure);
-      return;
-    }
-    const branch = event.target.closest<HTMLElement>("[data-space-branch-disclosure]");
-    if (!branch || !(event instanceof MouseEvent)) return;
-    const branchBounds = branch.getBoundingClientRect();
-    if (event.clientX < branchBounds.left || event.clientX > branchBounds.left + 16) return;
-    const branchDisclosure = document.querySelector<HTMLButtonElement>(
-      `[data-space-disclosure][aria-controls="${branch.id}"]`,
-    );
-    if (branchDisclosure) toggleChildren(branchDisclosure);
+      pressedDisclosure(pressed?.handle, event.target) ??
+      branchDisclosureAt(event.target, event);
+    if (disclosure) toggleChildren(disclosure);
   });
 
   const focusId = sessionStorage.getItem(FOCUS_AFTER_RELOAD);

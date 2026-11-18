@@ -7,26 +7,38 @@ import "@ui-sdk/web/combobox";
 const fill = (template: string | undefined, label: string): string =>
   (template ?? "{label}").replace("{label}", label);
 
+const nameRemoveButton = (chip: Element, template: string | undefined): void => {
+  const name = fill(template, chip.getAttribute("aria-label") ?? "");
+  const button = chip.querySelector("button");
+  if (button && button.getAttribute("aria-label") !== name) {
+    button.setAttribute("aria-label", name);
+  }
+};
+
 const nameRemoveButtons = (combobox: HTMLElement): void => {
   for (const chip of combobox.querySelectorAll("ui-combobox-chip")) {
-    const name = fill(combobox.dataset.removeLabel, chip.getAttribute("aria-label") ?? "");
-    const button = chip.querySelector("button");
-    if (button && button.getAttribute("aria-label") !== name) {
-      button.setAttribute("aria-label", name);
-    }
+    nameRemoveButton(chip, combobox.dataset.removeLabel);
   }
 };
 
 // The library names the chips toolbar from its own label part; ours is a
 // plain <label for>, so point the toolbar at it.
+const labelIdOf = (input: HTMLInputElement): string | undefined => {
+  const label = input.labels?.[0];
+  if (!label) return undefined;
+  label.id ||= `${input.id}-label`;
+  return label.id;
+};
+
 const nameChips = (combobox: HTMLElement): void => {
   const input = combobox.querySelector("input");
-  const label = input?.labels?.[0];
-  const chips = combobox.querySelector("ui-combobox-chips");
-  if (!input || !label || !chips) return;
-  label.id ||= `${input.id}-label`;
-  chips.setAttribute("aria-labelledby", label.id);
+  const labelId = input ? labelIdOf(input) : undefined;
+  if (!labelId) return;
+  combobox.querySelector("ui-combobox-chips")?.setAttribute("aria-labelledby", labelId);
 };
+
+const resultsCount = (combobox: HTMLElement, count: number): string =>
+  `${combobox.dataset.resultsLabel ?? ""}: ${count}`;
 
 const wired = new WeakSet<HTMLElement>();
 
@@ -38,7 +50,7 @@ const wire = (root: ParentNode): void => {
       if (change.type === "removed") return fill(combobox.dataset.removedLabel, change.label);
       // No matches: the list's own empty message is a live region already.
       if (change.loading || change.count === 0) return null;
-      return `${combobox.dataset.resultsLabel ?? ""}: ${change.count}`;
+      return resultsCount(combobox, change.count);
     };
     // The library writes each chip, and rewrites its button's name when a
     // label changes, so keep ours on top of every such write.
