@@ -6,7 +6,6 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -104,6 +103,21 @@ type UseRoomResult = {
   typists: string[];
 };
 
+type Page = "earlier" | "latest";
+
+const historyOf = ({
+  answered,
+  failure,
+  reload,
+}: {
+  answered: boolean;
+  failure: Page | null;
+  reload: Record<Page, () => Promise<void>>;
+}): History => {
+  if (failure !== null) return { retry: () => void reload[failure](), state: "failed" };
+  return { state: answered ? "ready" : "loading" };
+};
+
 // The room's messages: what it answers with, kept current by the socket.
 // The cache stands in until the first answer and never mixes into it, so
 // nothing it remembers outlives that answer.
@@ -116,14 +130,14 @@ function useHistory({
   cache: RoomCache;
   roomId: string;
 }) {
-  const recalled = useMemo(() => cache.recall(roomId), [cache, roomId]);
+  const [standIn, setStandIn] = useState(() => cache.recall(roomId) ?? []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [answered, setAnswered] = useState(false);
-  const [failure, setFailure] = useState<"earlier" | "latest" | null>(null);
+  const [failure, setFailure] = useState<Page | null>(null);
   const [earlier, setEarlier] = useState(false);
 
   const fetchPage = useCallback(
-    async (kind: "earlier" | "latest", beforeId?: number) => {
+    async (kind: Page, beforeId?: number) => {
       setFailure(null);
       const result = await answerOf(
         agent.call<Result<Message[]>>("loadBefore", [{ beforeId, limit: PAGE }]),
@@ -143,6 +157,7 @@ function useHistory({
     const page = await fetchPage("latest");
     if (page === null) return;
     setMessages((current) => appendNewer(page, current));
+    setStandIn([]);
     setAnswered(true);
   }, [fetchPage]);
   const loadEarlier = useCallback(async () => {
@@ -158,16 +173,11 @@ function useHistory({
     if (answered) cache.remember(roomId, messages.slice(-PAGE));
   }, [answered, cache, messages, roomId]);
 
-  const retry = failure === "earlier" ? loadEarlier : loadLatest;
-  const history: History =
-    failure === null
-      ? { state: answered ? "ready" : "loading" }
-      : { retry: () => void retry(), state: "failed" };
   return {
     earlier,
-    history,
+    history: historyOf({ answered, failure, reload: { earlier: loadEarlier, latest: loadLatest } }),
     loadEarlier,
-    messages: answered ? messages : appendNewer(recalled ?? [], messages),
+    messages: appendNewer(standIn, messages),
     setMessages,
   };
 }

@@ -11,7 +11,7 @@ test.use({ storageState: path.join(__dirname, "..", ".auth-state-superuser.json"
 
 const { copy } = bootstrap;
 const ROOM = "Zagrajmy";
-const REFUSED = { code: "rate_limited", ok: false };
+const REFUSED = { code: "rate_limited", ok: false } as const;
 
 const reopen = async (panel: Locator) => {
   await panel.getByRole("button", { name: copy.backLabel }).click();
@@ -43,14 +43,12 @@ test("A room waits on stand-ins, offers a retry, and reopens from what it last s
   // Before the room answers, an empty list is no sign of an empty room.
   await expect(thread).toHaveAttribute("aria-busy", "true");
   await expect(panel.getByText(copy.emptyEvent)).toHaveCount(0);
-  await page.screenshot({ animations: "disabled", path: "screenshots/parley-thread-loading.png" });
 
   worker.on("loadBefore", () => REFUSED);
   await reopen(panel);
   await expect(alert).toContainText(copy.historyFailed);
   await expect(thread).toHaveAttribute("aria-busy", "false");
   await expect(panel.getByText(copy.emptyEvent)).toHaveCount(0);
-  await page.screenshot({ animations: "disabled", path: "screenshots/parley-thread-failed.png" });
 
   // Earlier history that will not load says so too, above the thread.
   worker.on("loadBefore", (input) =>

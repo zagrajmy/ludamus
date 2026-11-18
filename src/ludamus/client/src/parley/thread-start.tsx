@@ -30,41 +30,35 @@ function ThreadSkeleton() {
   );
 }
 
-// What sits above the first message: the way to earlier ones, where the
-// history ends, or, with nothing to show yet, why.
-export function ThreadStart({
-  copy,
-  earlier,
-  empty,
-  history,
-  loadEarlier,
-  retention,
-  shown,
-}: {
-  copy: Bootstrap["copy"];
+type Copy = Bootstrap["copy"];
+
+function HistoryFailed({ copy, retry, shown }: { copy: Copy; retry: () => void; shown: boolean }) {
+  return (
+    <p
+      className={`${shown ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-1 px-6 text-center text-sm text-foreground-muted`}
+      role="alert"
+    >
+      {copy.historyFailed}
+      <button className={TEXT_BUTTON} onClick={retry} type="button">
+        {copy.retry}
+      </button>
+    </p>
+  );
+}
+
+type Edge = {
+  copy: Copy;
   earlier: boolean;
   // What the room says once it has answered that it holds no messages.
   empty: ReactNode;
-  history: History;
   loadEarlier: () => void;
   // Whether the start of the history says messages go after a year.
   retention: boolean;
   // Whether any message is on screen.
   shown: boolean;
-}) {
-  if (history.state === "failed")
-    return (
-      <p
-        className={`${shown ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-1 px-6 text-center text-sm text-foreground-muted`}
-        role="alert"
-      >
-        {copy.historyFailed}
-        <button className={TEXT_BUTTON} onClick={history.retry} type="button">
-          {copy.retry}
-        </button>
-      </p>
-    );
-  if (history.state === "loading") return shown ? null : <ThreadSkeleton />;
+};
+
+function HistoryEdge({ copy, earlier, empty, loadEarlier, retention, shown }: Edge) {
   if (!shown) return empty;
   if (earlier)
     return (
@@ -78,4 +72,13 @@ export function ThreadStart({
       {copy.retentionNote}
     </p>
   );
+}
+
+// What sits above the first message: the way to earlier ones, where the
+// history ends, or, with nothing to show yet, why.
+export function ThreadStart({ history, ...edge }: Edge & { history: History }) {
+  if (history.state === "failed")
+    return <HistoryFailed copy={edge.copy} retry={history.retry} shown={edge.shown} />;
+  if (history.state === "ready") return <HistoryEdge {...edge} />;
+  return edge.shown ? null : <ThreadSkeleton />;
 }
