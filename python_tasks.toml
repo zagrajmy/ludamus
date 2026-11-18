@@ -48,6 +48,22 @@ env = { _.file = '.env.test' }
 description = "Run Pylint on source, scripts and tests"
 run = ["pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"]
 
+# CI runs Pylint as three parallel jobs, because one run over everything is
+# most of the lint job. The first two shards check each file on its own; the
+# third runs the two checks that compare files with each other, over all of
+# them. Together they report what `lint:pylint` reports.
+["lint:pylint:src"]
+description = "CI shard: Pylint's per-file checks on source and scripts"
+run = "pylint -j 0 --disable=duplicate-code,cyclic-import {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }}"
+
+["lint:pylint:tests"]
+description = "CI shard: Pylint's per-file checks on tests"
+run = "pylint -j 0 --disable=duplicate-code,cyclic-import {{ env.TEST_PATHS }}"
+
+["lint:pylint:cross"]
+description = "CI shard: Pylint's cross-file checks (duplicate code, import cycles) on everything"
+run = "pylint -j 0 --disable=all --enable=duplicate-code,cyclic-import {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
+
 ["lint:ruff"]
 description = "Check Python with Ruff"
 run = "ruff check --no-fix {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
@@ -64,18 +80,21 @@ run = "tingle check"
 description = "Find dead Python code"
 run = "! vulture --config=pyproject.toml {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} | grep -v unused.variable"
 
-["lint:py"]
-description = "Run all linters"
+["lint:py:fast"]
+description = "Run every Python linter except Pylint"
 depends = [
     { task = "lint:black" },
     { task = "lint:codespell" },
     { task = "lint:import-linter" },
     { task = "lint:mypy" },
-    { task = "lint:pylint" },
     { task = "lint:ruff" },
     { task = "lint:taplo" },
     { task = "lint:vulture" },
 ]
+
+["lint:py"]
+description = "Run all linters"
+depends = [{ task = "lint:py:fast" }, { task = "lint:pylint" }]
 
 ## Dependencies
 
