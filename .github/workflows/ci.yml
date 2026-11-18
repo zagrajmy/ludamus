@@ -222,6 +222,13 @@ jobs:
       - name: Run end-to-end tests
         env:
           E2E_CHROMIUM_SANDBOX: "1"
+          # SAFETY: skipping Firefox on pull requests is only honest while a
+          # merge queue runs it before main. The repository variable says the
+          # queue is on; unset, every run keeps Firefox. Queue and push runs
+          # always do.
+          E2E_SKIP_FIREFOX: >-
+            ${{ github.event_name == 'pull_request'
+            && vars.CI_MERGE_QUEUE == 'on' && '1' || '' }}
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       # The three artifacts merge into one directory in `test`, so each
