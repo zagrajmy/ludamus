@@ -3,9 +3,6 @@ import type { ReactNode } from "react";
 import type { Bootstrap } from "./protocol";
 import type { History } from "./use-room";
 
-const TEXT_BUTTON =
-  "rounded-full px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus";
-
 // Stand-ins for a thread still on its way, laid out like one: others on the
 // left behind a face, this person on the right.
 const SKELETON = [
@@ -35,11 +32,11 @@ type Copy = Bootstrap["copy"];
 function HistoryFailed({ copy, retry, shown }: { copy: Copy; retry: () => void; shown: boolean }) {
   return (
     <p
-      className={`${shown ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-1 px-6 text-center text-sm text-foreground-muted`}
+      className={`${shown ? "mx-auto mt-3" : "m-auto"} flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-6 text-center text-sm text-foreground-muted`}
       role="alert"
     >
       {copy.historyFailed}
-      <button className={TEXT_BUTTON} onClick={retry} type="button">
+      <button className="btn btn-secondary text-sm" onClick={retry} type="button">
         {copy.retry}
       </button>
     </p>
@@ -62,7 +59,11 @@ function HistoryEdge({ copy, earlier, empty, loadEarlier, retention, shown }: Ed
   if (!shown) return empty;
   if (earlier)
     return (
-      <button className={`mx-auto mt-3 ${TEXT_BUTTON}`} onClick={loadEarlier} type="button">
+      <button
+        className="btn btn-secondary mx-auto mt-3 text-sm"
+        onClick={loadEarlier}
+        type="button"
+      >
         {copy.loadEarlier}
       </button>
     );
