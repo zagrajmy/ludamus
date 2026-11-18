@@ -64,6 +64,14 @@ grow on net — paying debt in one offsets taking it on in another. Read the
 added occurrences it prints and remove what you can. A justified addition is
 fine; say so in the PR. Don't game a counter to keep a number flat.
 
+## Frontend debt (fallow)
+
+`mise run lint:fallow` (in `mise run lint`) fails on frontend dead code,
+duplication or complexity beyond `src/ludamus/client/fallow-baselines/`. Fix
+what it names rather than re-baselining; after paying findings down, run
+`mise run fallow:baseline` so they cannot come back. A new Vite input outside
+`src/*.ts` also goes in `entry` in `.fallowrc.json`.
+
 ## Friction (Frog)
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha.

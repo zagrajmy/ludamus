@@ -46,7 +46,7 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
 
 
 def taken_values(field: BoundField) -> frozenset[str]:
-    """Return the values a field shows but cannot take (TakenOptionsSelect).
+    """Return the values a field shows but cannot take (its widget's `taken`).
 
     Returns:
         The taken options' values as strings, empty for any other widget.
