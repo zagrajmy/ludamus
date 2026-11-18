@@ -141,7 +141,7 @@ def fetch_runs(*, repo: str, workflow: str, count: int, token: str) -> list[Any]
     return runs[:count]
 
 
-def _record_job(audit: Audit, job: dict[str, Any]) -> float:
+def _record_job(audit: Audit, job: dict[str, Any]) -> None:
     name = MATRIX_SUFFIX.sub("", job["name"])
     samples = audit.jobs[name]
     setup = running = 0.0
@@ -162,16 +162,28 @@ def _record_job(audit: Audit, job: dict[str, Any]) -> float:
     samples.running.append(running)
     samples.total.append(total)
     samples.failures += job["conclusion"] == "failure"
-    return math.ceil(total / SECONDS_PER_MINUTE)
 
 
-def record_run(audit: Audit, run: dict[str, Any], jobs: list[Any]) -> None:
+def _billed_minutes(job: dict[str, Any]) -> int:
+    spent = _seconds(job["started_at"], job["completed_at"])
+    return math.ceil(spent / SECONDS_PER_MINUTE)
+
+
+def record_run(*, audit: Audit, run: dict[str, Any], jobs: list[Any]) -> None:
+    """Add one run; ``jobs`` holds every attempt of every job it started."""
     audit.conclusions[run["conclusion"]] += 1
+    # Every attempt of every job took a runner, in cancelled runs too.
+    audit.runner_minutes.append(sum(_billed_minutes(job) for job in jobs))
     if run["conclusion"] not in FINISHED:
         return
     audit.runs += 1
-    finished = [job for job in jobs if job["conclusion"] in FINISHED]
-    audit.runner_minutes.append(sum(_record_job(audit, job) for job in finished))
+    finished = [
+        job
+        for job in jobs
+        if job["conclusion"] in FINISHED and job["run_attempt"] == run["run_attempt"]
+    ]
+    for job in finished:
+        _record_job(audit, job)
     if run["run_attempt"] > 1:
         audit.reruns += 1
         return
@@ -201,7 +213,8 @@ def render(audit: Audit, *, workflow: str) -> str:
     lines += [
         "",
         (
-            f"Runner minutes per run (billed, rounded up per job): p50"
+            f"Runner minutes per run (every attempt, cancelled runs included,"
+            f" rounded up per job): p50"
             f" {_percentile(audit.runner_minutes, 0.5):.0f}, p95"
             f" {_percentile(audit.runner_minutes, 0.95):.0f}, total"
             f" {sum(audit.runner_minutes):.0f}."
@@ -253,6 +266,10 @@ def as_json(audit: Audit) -> dict[str, Any]:
         "conclusions": dict(audit.conclusions),
         "result_seconds": dict(audit.result_seconds),
         "runner_minutes": audit.runner_minutes,
+        "steps": [
+            {"job": job, "step": step, "seconds": values}
+            for (job, step), values in audit.steps.items()
+        ],
         "jobs": {
             name: {
                 "wait": job.wait,
@@ -283,19 +300,23 @@ def main() -> int:
     )
 
     def jobs_of(run: dict[str, Any]) -> list[Any]:
-        if run["conclusion"] not in FINISHED:
-            return []
-        jobs: list[Any] = _get(
-            f"/repos/{args.repo}/actions/runs/{run['id']}/jobs"
-            f"?filter=latest&per_page={PAGE_SIZE}",
-            token,
-        )["jobs"]
-        return jobs
+        jobs: list[Any] = []
+        page = 1
+        while True:
+            batch = _get(
+                f"/repos/{args.repo}/actions/runs/{run['id']}/jobs"
+                f"?filter=all&per_page={PAGE_SIZE}&page={page}",
+                token,
+            )["jobs"]
+            jobs.extend(batch)
+            if len(batch) < PAGE_SIZE:
+                return jobs
+            page += 1
 
     audit = Audit()
     with ThreadPoolExecutor(max_workers=FETCH_THREADS) as pool:
         for run, jobs in zip(runs, pool.map(jobs_of, runs), strict=True):
-            record_run(audit, run, jobs)
+            record_run(audit=audit, run=run, jobs=jobs)
 
     report = render(audit, workflow=args.workflow)
     print(report)
