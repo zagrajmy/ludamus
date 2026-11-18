@@ -28,6 +28,6 @@ set -e
 main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 git -C "$main" ls-files --others --ignored --directory --exclude-from=.worktreeinclude |
   while read -r path; do
-    [ -e "$path" ] || cp -r "$main/$path" "$path"
+    [ -e "$path" ] || { mkdir -p "$(dirname "$path")" && cp -r "$main/$path" "$path"; }
   done
 '''
