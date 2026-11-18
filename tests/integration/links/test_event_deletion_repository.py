@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
-from time import sleep
+from threading import Event as Pause
+from time import monotonic
 
 import pytest
 from django.db import connection, transaction
@@ -15,9 +16,22 @@ from tests.integration.conftest import (
     UserFactory,
 )
 
-# Long enough for the restore to reach the event row while it is held. A slow
-# start only lets the restore read the settled state, which passes either way.
-_RESTORE_HEAD_START_SECONDS = 0.5
+
+def _wait_until_blocked_by_this_transaction(future):
+    deadline = monotonic() + 5
+    while monotonic() < deadline:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE NOT granted"
+                " AND pg_backend_pid() = ANY(pg_blocking_pids(pid)))"
+            )
+            if cursor.fetchone() == (True,):
+                return
+        if future.done():
+            future.result()
+            pytest.fail("The restore finished without waiting for the held event")
+        Pause().wait(0.01)
+    pytest.fail("The restore never reached the held event row")
 
 
 @pytest.mark.django_db
@@ -75,7 +89,7 @@ def test_a_restore_waits_for_a_deletion_that_holds_the_event():
             Session.all_objects.filter(pk=session.pk).update(deleted_at=second)
             Event.all_objects.filter(pk=event.pk).update(deleted_at=second)
             restoring = pool.submit(restore)
-            sleep(_RESTORE_HEAD_START_SECONDS)
+            _wait_until_blocked_by_this_transaction(restoring)
         restoring.result()
 
     assert Event.objects.filter(pk=event.pk).exists()
