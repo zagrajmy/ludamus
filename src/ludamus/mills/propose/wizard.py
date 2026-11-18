@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.availability import offered_times, pick_offered
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorData
@@ -28,7 +29,9 @@ from ludamus.specs.proposal import (
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from datetime import tzinfo
 
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.cache import CacheProtocol
     from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
     from ludamus.pacts.facilitators import FacilitatorDTO
@@ -37,7 +40,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
-        TimeSlotRequirementDTO,
     )
     from ludamus.pacts.propose import ProposeRepos, WizardData
     from ludamus.pacts.services import TransactionProtocol
@@ -85,10 +87,16 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     ) -> list[SessionFieldRequirementDTO]:
         return self._repos.categories.list_session_field_requirements(category_id)
 
-    def get_timeslot_requirements(
-        self, category_id: int
-    ) -> list[TimeSlotRequirementDTO]:
-        return self._repos.categories.list_time_slot_requirements(category_id)
+    def asks_availability(self, category_id: int) -> bool:
+        return self._repos.categories.asks_availability(category_id)
+
+    def offered_times(self, *, event: EventDTO, tz: tzinfo) -> list[AvailabilityDTO]:
+        return offered_times(
+            start=event.start_time,
+            end=event.end_time,
+            slots=self._repos.time_slots.list_by_event(event.pk),
+            tz=tz,
+        )
 
     def get_public_tracks(self, event_id: int) -> list[TrackDTO]:
         return self._repos.tracks.list_public_by_event(event_id)
@@ -186,6 +194,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         user_id: int | None = None,
         user_slug: str | None = None,
         language: str,
+        tz: tzinfo,
     ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
@@ -197,7 +206,11 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         raw_limit = session_data.get("participants_limit") or 0
         participants_limit = int(str(raw_limit))
         category_id = wizard_data.get("category_id")
-        time_slot_ids = wizard_data.get("time_slot_ids", [])
+        # Only what this event offers counts, so a slot named from another
+        # event is dropped here rather than linked.
+        offered = pick_offered(
+            wizard_data.get("availability", []), self.offered_times(event=event, tz=tz)
+        )
 
         current_user = (
             self._repos.users.read(user_slug)
@@ -242,9 +255,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 create_data["cover_image"] = cover_image
 
             session_id = self._repos.sessions.create(
-                create_data,
-                time_slot_ids=time_slot_ids,
-                facilitator_ids=[facilitator.pk],
+                create_data, availability=offered, facilitator_ids=[facilitator.pk]
             )
 
             self._save_session_field_values(

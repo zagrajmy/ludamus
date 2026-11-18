@@ -1,0 +1,12 @@
+{% comment %}
+    A flag stands for a country, not a language, so it never appears without
+    the language's name beside it. English takes the British flag by
+    convention. Decorative: the name carries the meaning.
+{% endcomment %}
+<span aria-hidden="true" data-command-icon>
+    {% if code == "pl" %}
+        🇵🇱
+    {% elif code == "en" %}
+        🇬🇧
+    {% endif %}
+</span>
