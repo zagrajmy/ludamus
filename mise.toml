@@ -48,7 +48,7 @@ actionlint = "1.7.12"
 shellcheck = "prefix:0.11.0"
 hadolint = "prefix:2.15.1"
 "github:reteps/dockerfmt" = "0.5.4"
-pipx = "1.18.12"
+pipx = "1.18.13"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -112,15 +112,20 @@ run = "frog list"
 description = "Run every hk linter on all files (incl. djlint, oxfmt, oxlint via aube)"
 run = "hk check --all"
 
-[tasks.lint]
-description = "Run all linters"
+[tasks."lint:fast"]
+description = "Run every linter except Pylint, which CI runs as its own jobs"
 depends = [
-    { task = "lint:py" },
+    { task = "lint:py:fast" },
     { task = "lint:hk" },
     { task = "lint:ast-grep" },
     { task = "lint:impeccable" },
     { task = "lint:frog" },
+    { task = "lint:fallow" },
 ]
+
+[tasks.lint]
+description = "Run all linters"
+depends = [{ task = "lint:fast" }, { task = "lint:pylint" }]
 
 ## Tests
 
@@ -298,9 +303,10 @@ description = "Combine integration + e2e coverage and export XML"
 run = """
 set -eu
 # A missing unit run would otherwise combine to a quietly partial 93%.
-test -f .coverage.unit || { echo "no .coverage.unit; the unit run did not happen" >&2; exit 1; }
-# Picks up .coverage.e2e from a local run and every .coverage.e2e.<shard> a
-# sharded CI run brought back, without naming the shard count here.
+ls .coverage.unit* >/dev/null 2>&1 || { echo "no .coverage.unit; the unit run did not happen" >&2; exit 1; }
+# Picks up .coverage.unit and .coverage.e2e from a local run and every
+# .coverage.unit.<shard> and .coverage.e2e.<shard> a sharded CI run brought
+# back, without naming the shard counts here.
 coverage combine .
 coverage xml -o coverage.xml
 coverage report --fail-under=93
@@ -458,6 +464,30 @@ run = "node --test scripts/github-staging.test.mts"
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"
 run = "aube exec -C src/ludamus/client fallow"
+
+[tasks."lint:fallow"]
+description = "Fail on frontend dead code, duplication or complexity beyond the saved fallow baselines"
+dir = "{{ config_root }}/src/ludamus/client"
+# The summary keeps a passing run short; a failing one runs again in full,
+# so the output names each new finding.
+run = """
+args="--quiet --baseline fallow-baselines/dead-code.json --health-baseline fallow-baselines/health.json --dupes-baseline fallow-baselines/dupes.json"
+aube exec fallow $args --summary || aube exec fallow $args
+"""
+
+[tasks."fallow:baseline"]
+description = "Re-save the fallow baselines, after paying down findings, so they cannot come back"
+dir = "{{ config_root }}/src/ludamus/client"
+# fallow exits 1 when dead code remains, even while saving it as the
+# baseline; only a missing file means the save failed.
+run = """
+rm -f fallow-baselines/dead-code.json
+aube exec fallow dead-code --quiet --save-baseline fallow-baselines/dead-code.json || test -s fallow-baselines/dead-code.json
+aube exec fallow health --quiet --report-only --save-baseline fallow-baselines/health.json
+aube exec fallow dupes --quiet --save-baseline fallow-baselines/dupes.json
+# fallow writes some files without the final newline end-of-file-fixer wants.
+for f in fallow-baselines/*.json; do [ -z "$(tail -c1 "$f")" ] || echo >> "$f"; done
+"""
 
 [tasks.lint-client]
 description = "Lint frontend TypeScript (oxlint, CI-blocking)"

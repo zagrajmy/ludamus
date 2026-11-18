@@ -8,7 +8,7 @@ import ludamus.pacts.listing
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0197_require_session_space")]
+    dependencies = [("db_main", "0199_session_availability")]
 
     operations = [
         migrations.AddField(

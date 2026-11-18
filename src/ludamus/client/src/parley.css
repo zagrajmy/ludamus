@@ -75,6 +75,22 @@
     }
   }
 
+  /* Stand-ins for a thread still loading show only once the wait is long
+     enough to notice, so a quick answer goes straight to the messages. */
+  .parley-skeleton {
+    animation: parley-appear 0.2s var(--ease-out) 0.25s both;
+  }
+
+  .parley-thread-in {
+    animation: parley-appear 0.15s var(--ease-out) both;
+  }
+
+  @keyframes parley-appear {
+    from {
+      opacity: 0;
+    }
+  }
+
   .parley-thread {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
@@ -95,7 +111,8 @@
       transition: none;
     }
 
-    .parley-pulse {
+    .parley-pulse,
+    .parley-thread-in {
       animation: none;
     }
   }

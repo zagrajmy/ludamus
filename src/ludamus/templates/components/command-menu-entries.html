@@ -1,0 +1,31 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    What command_menu_entries hands the command menu on its first open. The
+    same markup contract as command-menu.html. A [data-command-search-only]
+    group stays out of the menu until something is typed: it can hold every
+    event of a sphere.
+{% endcomment %}
+{% if create_options %}
+    <div data-command-group="{% translate "Create" %}">
+        {% for option in create_options %}
+            <a href="{{ option.href }}">{% icon option.icon variant="mini" %}{{ option.button_label }}</a>
+        {% endfor %}
+    </div>
+{% endif %}
+{% if events %}
+    <div data-command-group="{% translate "Events in the panel" %}"
+         data-command-search-only>
+        {% for entry in events %}
+            <a href="{{ entry.href }}">{% icon "calendar-days" variant="mini" %}{{ entry.label }}<span data-command-hint>{{ entry.when|date:"j M Y" }}</span></a>
+        {% endfor %}
+    </div>
+{% endif %}
+{% if encounters %}
+    <div data-command-group="{% translate "Your encounters" %}"
+         data-command-search-only>
+        {% for entry in encounters %}
+            <a href="{{ entry.href }}">{% icon "user-group" variant="mini" %}{{ entry.label }}<span data-command-hint>{{ entry.when|date:"j M Y" }}</span></a>
+        {% endfor %}
+    </div>
+{% endif %}

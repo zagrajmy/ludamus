@@ -7,10 +7,20 @@ export type Conversation = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group" | "party";
+  kind: "direct" | "encounter" | "group" | "party";
   members: Person[];
   name: string;
   state: "active" | "request";
+  title: string;
+};
+
+export type BootstrapRoom = {
+  canModerate: boolean;
+  canWrite: boolean;
+  id: string;
+  kind: string;
+  moderating: boolean;
+  sphere: number;
   title: string;
 };
 
@@ -37,9 +47,13 @@ export const bootstrap = {
     messagingNeedsAge: "To message people directly, confirm you're 16 or older.",
     messagingUnder16: "Direct messages open once you turn 16.",
     onThisPage: "On this page",
+    organizerPlaceholder: "Write to everyone in this chat…",
     organizersRoom: "Organizers",
     partyHint: "Everyone in your party is here. To leave this chat, leave the party.",
     partyRoom: "Party",
+    encounterHint:
+      "The organizer and everyone signed up are here. To leave this chat, cancel your signup.",
+    encounterRoom: "Encounter",
     blockedHint:
       "They cannot start a conversation with you, and their messages stay hidden from you.",
     blockedMessage: "A message from someone you blocked.",
@@ -65,6 +79,7 @@ export const bootstrap = {
     emptyEvent: "Quiet in here. Say hello before someone starts a rules debate.",
     emptyOrganizers: "Just the organizers in here. Plan away, nobody else can read it.",
     emptyParty: "Your party's own chat. Say hello to everyone.",
+    emptyEncounter: "A chat for everyone signed up for this encounter. Say hello to everyone.",
     emptySession: "You found the table first. Leave a note for the others.",
     errorArchived: "This conversation is archived.",
     errorForbidden: "You do not have permission to do that.",
@@ -83,11 +98,14 @@ export const bootstrap = {
     groupNeedsPeople: "Add at least one person.",
     groupPeople: "People in the group",
     groupTitleTooLong: "Group names can be up to 80 characters.",
+    historyFailed: "Could not load messages.",
     leaveConversation: "Leave conversation",
     leaveConversationConfirm: "Leave this conversation? It will disappear from your list.",
     leaveGroup: "Leave group",
     leaveGroupConfirm: "Leave this group? Its messages will stop reaching you.",
     linkCopied: "Link copied.",
+    linkUnavailable:
+      "That chat can't be opened here. It may have closed, or your access to it has changed.",
     loadEarlier: "Load earlier messages",
     loading: "Gathering conversations…",
     loadingEmoji: "Loading emoji…",
@@ -102,7 +120,13 @@ export const bootstrap = {
     messageLabel: "Message",
     messageListLabel: "Messages",
     messageTooLong: "Messages can be up to 1,000 characters.",
+    moderatedRoomsFew: "%(count)s chats you moderate",
+    moderatedRoomsMany: "%(count)s chats you moderate",
+    moderatedRoomsOne: "%(count)s chat you moderate",
+    moderation: "Moderation",
     moderatorDelete: "Delete as moderator",
+    moderatorReading: "You are reading this chat as a moderator.",
+    moderatorView: "Moderator view",
     muteConfirm: "Mute this person indefinitely? They can still read.",
     muted: "Writing access limited.",
     mutedUntil: "Your writing access is muted until %(time)s.",
@@ -174,18 +198,21 @@ export const bootstrap = {
     unreadCountFew: "%(count)s unread conversations",
     unreadCountMany: "%(count)s unread conversations",
     unreadCountOne: "%(count)s unread conversation",
+    writeAsOrganizer: "Write as organizer",
     writePlaceholder: "Write a message…",
     writingRestored: "Writing access restored.",
     you: "(you)",
   },
   conversations: [] as Conversation[],
   csrfToken: "mock-csrf",
+  moderationUrl: null as string | null,
   rooms: [
     {
       canModerate: true,
       canWrite: true,
       id: "event:1:5",
       kind: "event",
+      moderating: false,
       sphere: 1,
       title: "Zagrajmy",
     },
@@ -194,10 +221,11 @@ export const bootstrap = {
       canWrite: false,
       id: "session:1:42",
       kind: "session",
+      moderating: false,
       sphere: 1,
       title: "Mothership",
     },
-  ],
+  ] as BootstrapRoom[],
   user: { avatarUrl: "", id: "1", name: "E2E Manager" },
 };
 
@@ -361,6 +389,22 @@ export function message(fields: Partial<Message> & Pick<Message, "id">): Message
     nonce: `n${fields.id}`,
     ...fields,
   };
+}
+
+// Stands in for a page whose template names its room in the HTML, where the
+// chat reads it as it mounts.
+export async function onPageOf(page: Page, roomId: string): Promise<void> {
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        'data-page-room=""',
+        `data-page-room="${roomId}"`,
+      );
+      await route.fulfill({ body, response });
+    },
+  );
 }
 
 export const launcherOf = (page: Page): Locator => page.getByRole("button", { name: "Open chat" });
