@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -11,10 +12,10 @@ from ludamus.links.db.django.models import (
     Event,
     Facilitator,
     Session,
+    SessionAvailability,
     SessionFieldValue,
     SessionParticipationStatus,
     Space,
-    TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories.event import (
@@ -24,15 +25,25 @@ from ludamus.links.db.django.repositories.event import (
     session_card_stats,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.links.db.django.repositories.session_offers import (
+    event_slot_pks,
+    split_offers,
+)
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
 )
 from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    in_reading_order,
+    slot_availability,
+)
 from ludamus.pacts.durations import duration_minutes
 from ludamus.pacts.enrollment import OCCUPYING_PARTICIPATION_STATUSES
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
 from ludamus.pacts.session_cards import (
@@ -62,6 +73,7 @@ from ludamus.pacts.venues import SpaceOptionDTO
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.ids import EventId, SessionId, UserId
     from ludamus.pacts.user import UserDTO
 
@@ -95,6 +107,17 @@ def sessions_run_by(user_id: int) -> QuerySet[Session]:
         Q(presenter_id=user_id)
         | Q(pk__in=Facilitator.objects.filter(user_id=user_id).values("sessions"))
     )
+
+
+def session_host_ids(session: Session) -> frozenset[int]:
+    # NOTE: the inverse of sessions_run_by, and it must stay so. An imported or
+    # organizer-entered GM is a facilitator linked to an account, not the
+    # presenter.
+    linked = Facilitator.objects.filter(
+        sessions=session, user_id__isnull=False
+    ).values_list("user_id", flat=True)
+    presenter = () if session.presenter_id is None else (session.presenter_id,)
+    return frozenset((*linked, *presenter))
 
 
 def annotate_session_participation_counts(
@@ -169,7 +192,11 @@ def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
             )
         )
         .prefetch_related(
-            Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
+            Prefetch(
+                "availability",
+                queryset=SessionAvailability.objects.order_by("day", "part"),
+            ),
+            "time_slots",
         )
         .order_by("-creation_time")
     )
@@ -244,6 +271,9 @@ def _session_modal_dto(
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
         ),
+        viewer_is_host=(
+            editor_user_id is not None and editor_user_id in session_host_ids(session)
+        ),
         can_edit=(
             edit_allowed
             and session.presenter_id is not None
@@ -281,7 +311,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     def create(
         session_data: SessionData,
         *,
-        time_slot_ids: Iterable[int] = (),
+        availability: Iterable[AvailabilityDTO] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
@@ -289,8 +319,18 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # add(), not set(): the session is brand new, so there is nothing to
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.
-        if time_slot_ids:
-            session.time_slots.add(*time_slot_ids)
+        if offered := list(availability):
+            parts, slot_pks = split_offers(offered)
+            SessionAvailability.objects.bulk_create(
+                [
+                    SessionAvailability(session=session, day=day, part=part)
+                    for day, part in sorted(parts)
+                ]
+            )
+            if slot_pks:
+                session.time_slots.add(
+                    *event_slot_pks(event_id=session.event_id, slot_pks=slot_pks)
+                )
         if facilitator_pks := list(facilitator_ids):
             FacilitatorRepository.lock(facilitator_pks)
             session.facilitators.add(*facilitator_pks)
@@ -308,12 +348,11 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_by_event(pk: int, event_id: int) -> SessionDTO:
-        # Scoped read: a session belonging to another event — or to no event,
-        # because its category was cleared — is NotFound, not somebody else's
-        # proposal to read or edit.
+        # Scoped read: a session belonging to another event is NotFound, not
+        # somebody else's proposal to read or edit.
         try:
             session = Session.objects.select_related("category").get(
-                id=pk, category__event_id=event_id
+                id=pk, event_id=event_id
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -401,7 +440,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # (caller runs inside a transaction); the second sees it already alive.
         try:
             session = Session.all_objects.select_for_update().get(
-                id=pk, category__event_id=event_pk, deleted_at__isnull=False
+                id=pk, event_id=event_pk, deleted_at__isnull=False
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -418,9 +457,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:
         qs = (
-            Session.all_objects.filter(
-                category__event_id=event_pk, deleted_at__isnull=False
-            )
+            Session.all_objects.filter(event_id=event_pk, deleted_at__isnull=False)
             .select_related("presenter", "category")
             .annotate(
                 is_scheduled=Exists(
@@ -505,63 +542,35 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         ]
 
     @staticmethod
-    def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(
-            event__event_sessions__id=session_id
-        ).order_by("start_time")
-        return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
-
-    @staticmethod
-    def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
-        try:
-            time_slot = TimeSlot.objects.get(
-                id=time_slot_id, event__event_sessions__id=session_id
-            )
-        except TimeSlot.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return TimeSlotDTO.model_validate(time_slot)
-
-    @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
 
     @staticmethod
-    def read_preferred_time_slot_ids(session_id: int) -> list[int]:
-        return list(
-            TimeSlot.objects.filter(session__id=session_id).values_list("id", flat=True)
-        )
+    def read_availability(session_id: int) -> list[AvailabilityDTO]:
+        return SessionRepository.read_availability_by_sessions([session_id])[session_id]
 
     @staticmethod
-    def read_preferred_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(session__id=session_id)
-        return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
-
-    @staticmethod
-    def read_preferred_time_slots_by_sessions(
+    def read_availability_by_sessions(
         session_ids: Iterable[int],
-    ) -> dict[int, list[TimeSlotDTO]]:
+    ) -> dict[int, list[AvailabilityDTO]]:
         if not (ids := list(session_ids)):
             return {}
-        rows = (
-            Session.time_slots.through.objects.filter(session_id__in=ids)
-            .select_related("timeslot")
-            .values(
-                "session_id",
-                "timeslot__id",
-                "timeslot__start_time",
-                "timeslot__end_time",
+        tz = get_current_timezone()
+        result: dict[int, list[AvailabilityDTO]] = {sid: [] for sid in ids}
+        for session_id, day, part in SessionAvailability.objects.filter(
+            session_id__in=ids
+        ).values_list("session_id", "day", "part"):
+            result[session_id].append(AvailabilityDTO(day=day, offer=DayPart(part)))
+        for link in Session.time_slots.through.objects.filter(
+            session_id__in=ids
+        ).select_related("timeslot"):
+            result[link.session_id].append(
+                slot_availability(TimeSlotDTO.model_validate(link.timeslot), tz)
             )
-        )
-        result: dict[int, list[TimeSlotDTO]] = {sid: [] for sid in ids}
-        for row in rows:
-            result[row["session_id"]].append(
-                TimeSlotDTO(
-                    pk=row["timeslot__id"],
-                    start_time=row["timeslot__start_time"],
-                    end_time=row["timeslot__end_time"],
-                )
-            )
-        return result
+        return {
+            session_id: in_reading_order(offered, tz)
+            for session_id, offered in result.items()
+        }
 
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool:
@@ -650,7 +659,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         status = filters.get("status")
         scheduled = filters.get("scheduled")
         qs = (
-            Session.objects.filter(category__event_id=event_id)
+            Session.objects.filter(event_id=event_id)
             .select_related("presenter", "category")
             .annotate(
                 is_scheduled=Exists(
@@ -817,13 +826,32 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.tracks.set(track_pks)
 
     @staticmethod
-    def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None:
+    @transaction.atomic
+    def set_availability(session_id: int, offered: list[AvailabilityDTO]) -> None:
         try:
             session = Session.objects.get(pk=session_id)
         except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
-        session.time_slots.set(time_slot_ids)
+        wanted, slot_pks = split_offers(offered)
+        session.time_slots.set(
+            event_slot_pks(event_id=session.event_id, slot_pks=slot_pks)
+        )
+        existing = set(
+            SessionAvailability.objects.filter(session_id=session_id).values_list(
+                "day", "part"
+            )
+        )
+        for day, part in existing - wanted:
+            SessionAvailability.objects.filter(
+                session_id=session_id, day=day, part=part
+            ).delete()
+        SessionAvailability.objects.bulk_create(
+            [
+                SessionAvailability(session_id=session_id, day=day, part=part)
+                for day, part in sorted(wanted - existing)
+            ]
+        )
 
     @staticmethod
     def read_facilitators_by_sessions(
@@ -858,7 +886,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
         rows = (
-            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            Session.objects.filter(event_id=event_id, tracks__isnull=False)
             .values("tracks__pk")
             .annotate(
                 pending=Count(
@@ -915,7 +943,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]:
         qs = (
-            Session.objects.filter(category__event_id=event_pk)
+            Session.objects.filter(event_id=event_pk)
             .filter(status=SessionStatus.ACCEPTED)
             .filter(agenda_item__isnull=True)
             .select_related("category")
@@ -924,8 +952,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             qs = qs.filter(tracks__pk=filters.track_pk)
         if filters.available_on is not None:
             qs = qs.filter(
-                Q(time_slots__isnull=True)
-                | Q(time_slots__start_time__date=filters.available_on)
+                Q(availability__isnull=True) | Q(availability__day=filters.available_on)
             ).distinct()
         if filters.category_pk is not None:
             qs = qs.filter(category__pk=filters.category_pk)

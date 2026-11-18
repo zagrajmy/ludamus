@@ -50,7 +50,9 @@
                         </form>
                     {% else %}
                         {% translate "Log in to join" as t_login %}
-                        <div class="mt-6">{% include "components/login_button.html" with text=t_login extra_class="w-full" %}</div>
+                        <div class="mt-6">
+                            {% include "components/login_button.html" with text=t_login extra_class="w-full" %}
+                        </div>
                     {% endif %}
                 {% endif %}
             </div>

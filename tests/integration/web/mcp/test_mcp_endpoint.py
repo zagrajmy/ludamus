@@ -667,6 +667,65 @@ class TestOrganizerToolsForMaintainers:
         assert other.visibility == "public"
         assert updated["visibility"] == "unlisted"
 
+    def test_switches_a_sphere_s_chat_and_its_events_chats(self, client, token, sphere):
+        sphere.parley_enabled = False
+        sphere.save()
+        event = EventFactory(sphere=sphere)
+        sibling = EventFactory(sphere=sphere)
+
+        def call(name, arguments):
+            return json.loads(tool_text(call_tool(client, token, name, arguments)))
+
+        def chat_of(target):
+            shown = call("get_event", {"sphere_id": sphere.pk, "slug": target.slug})
+            return shown["parley_enabled"], shown["parley_enabled_effective"]
+
+        chat = {
+            key: value
+            for key, value in call("get_sphere", {"sphere_id": sphere.pk}).items()
+            if key.startswith("parley_")
+        }
+        assert chat == {
+            "parley_enabled": False,
+            "parley_organizers_enabled": True,
+            "parley_events_enabled": False,
+        }
+        assert chat_of(event) == (None, False)
+
+        call(
+            "update_sphere_settings",
+            {
+                "sphere_id": sphere.pk,
+                "parley_enabled": True,
+                "parley_events_enabled": True,
+                "parley_organizers_enabled": False,
+            },
+        )
+        assert (chat_of(event), chat_of(sibling)) == ((None, True), (None, True))
+
+        updated = call(
+            "update_event",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "parley_enabled": False},
+        )
+        assert (updated["parley_enabled"], updated["parley_enabled_effective"]) == (
+            False,
+            False,
+        )
+        assert chat_of(sibling) == (None, True)
+
+        call(
+            "update_event",
+            {"sphere_id": sphere.pk, "event_id": event.pk, "parley_enabled": None},
+        )
+        sphere.refresh_from_db()
+        event.refresh_from_db()
+        assert (sphere.parley_enabled, sphere.parley_organizers_enabled) == (
+            True,
+            False,
+        )
+        assert event.parley_enabled is None
+        assert chat_of(event) == (None, True)
+
     def test_event_write_lands_in_the_named_event(self, client, token, sphere):
         event = EventFactory(sphere=sphere)
         sibling = EventFactory(sphere=sphere)

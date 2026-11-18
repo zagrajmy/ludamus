@@ -249,3 +249,7 @@ CLAUDE.local.md
 
 # Bombadil traces and screenshots (tests/bombadil/run.sh)
 bombadil-output/
+
+# impeccable review captures and per-machine config (the skill rewrites them each run)
+.impeccable/review/
+.impeccable/config.local.json

@@ -9,11 +9,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from cryptography.hazmat.primitives import serialization
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
@@ -54,6 +56,10 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
+    # Parley
+    PARLEY_AGENT_HOST=(str, ""),
+    PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
+    PARLEY_MENTIONS_SECRET=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -69,6 +75,9 @@ env = environ.Env(
     # Bearer secret the Email Worker sends with each forwarded reply. Empty
     # closes the webhook.
     ENCOUNTER_REPLY_WEBHOOK_SECRET=(str, ""),
+    # HMAC key the posta mail Worker signs each staff@ mail it forwards with.
+    # Empty closes the webhook.
+    STAFF_MAIL_WEBHOOK_SECRET=(str, ""),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
     # DBOS-scheduled cron workflows, all in the web process) or "cron"
     # (external cron invokes the management commands instead).
@@ -82,7 +91,6 @@ env = environ.Env(
     # can tell the two apart (currently: the favicon variant).
     IS_STAGING=(bool, False),
     SECRET_KEY=str,
-    SUPPORT_EMAIL=(str, "support@example.com"),
     MAIL_POSTAL_ADDRESS=(str, ""),
     IN_TESTS=(bool, False),
     # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
@@ -221,6 +229,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
+                "ludamus.gates.web.django.context_processors.parley",
                 "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -292,6 +301,13 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "pl"
 
 LANGUAGES = [("pl", "Polski"), ("en", "English")]
+
+# A language picked in the footer or the command menu is a standing choice:
+# Django's default is a session cookie, which forgets it on browser restart.
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365
+LANGUAGE_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
+LANGUAGE_COOKIE_SAMESITE = "Lax"
+LANGUAGE_COOKIE_SECURE = IS_PRODUCTION
 
 TIME_ZONE = "Europe/Warsaw"
 
@@ -380,6 +396,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
+    "/language/",
     # An invitation is how a stranger becomes a member of a private sphere.
     "/multiverse/join/",
     "/auth-error/",
@@ -412,7 +429,11 @@ AUTH0_CLIENT_ID = env("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = env("AUTH0_CLIENT_SECRET")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
-SUPPORT_EMAIL = env("SUPPORT_EMAIL")
+# Shown on the error page and behind every Contact link.
+SUPPORT_EMAIL = "support@zagrajmy.net"
+# The DSA point of contact (Art. 11, 12): named in the terms and on the notice
+# form, the reply-to of every moderation mail, and where staff alerts go.
+STAFF_EMAIL = "staff@zagrajmy.net"
 # Sender's postal address, printed under every opt-in (non-transactional) email.
 MAIL_POSTAL_ADDRESS = env("MAIL_POSTAL_ADDRESS").strip()
 
@@ -603,6 +624,7 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 ENCOUNTER_REPLY_EMAIL = env("ENCOUNTER_REPLY_EMAIL")
 ENCOUNTER_REPLY_WEBHOOK_SECRET = env("ENCOUNTER_REPLY_WEBHOOK_SECRET")
+STAFF_MAIL_WEBHOOK_SECRET = env("STAFF_MAIL_WEBHOOK_SECRET")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
@@ -682,6 +704,66 @@ LOGGING = {
         },
     },
 }
+
+# Parley
+PARLEY_SIGNING_PRIVATE_KEY = env("PARLEY_SIGNING_PRIVATE_KEY")
+# NOTE: this pair is committed so laptops and e2e sign passes with no setup.
+# Anyone can read it, so a deployment that signs with it is refused.
+_PARLEY_DEV_KEY = BASE_DIR.parent.parent / "workers" / "parley" / "dev-signing-key.pem"
+_PARLEY_DEV_KEY_FINGERPRINT = (
+    "ea6891a6b117bb28a671edec882ab38b8a26a404ad2a8832fb247bcb7f35ab4e"
+)
+_PARLEY_DEV_ENVS = {"development", "test"}
+if (
+    not PARLEY_SIGNING_PRIVATE_KEY
+    and ENV in _PARLEY_DEV_ENVS
+    and _PARLEY_DEV_KEY.exists()
+):
+    PARLEY_SIGNING_PRIVATE_KEY = _PARLEY_DEV_KEY.read_text()
+# A deployment's Worker serves parley.<ROOT_DOMAIN>; local runs name theirs,
+# and tests have none.
+PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST") or (
+    "" if ENV in _PARLEY_DEV_ENVS else f"parley.{ROOT_DOMAIN}"
+)
+if PARLEY_SIGNING_PRIVATE_KEY and ENV not in _PARLEY_DEV_ENVS:
+    _PARLEY_KEY = serialization.load_pem_private_key(
+        PARLEY_SIGNING_PRIVATE_KEY.replace("\\n", "\n").encode(), password=None
+    )
+    _PARLEY_FINGERPRINT = hashlib.sha256(
+        _PARLEY_KEY.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    ).hexdigest()
+    if _PARLEY_FINGERPRINT == _PARLEY_DEV_KEY_FINGERPRINT:
+        raise ImproperlyConfigured(
+            "PARLEY_SIGNING_PRIVATE_KEY is the committed development key."
+        )
+# NOTE: the Worker signs unread mentions with this; workers/parley holds the
+# same development value, which a deployment refuses.
+_PARLEY_DEV_MENTIONS_KEY = "parley-dev-mentions-secret-not-for-production"
+PARLEY_MENTIONS_SECRET = env("PARLEY_MENTIONS_SECRET") or (
+    _PARLEY_DEV_MENTIONS_KEY if ENV in _PARLEY_DEV_ENVS else ""
+)
+if PARLEY_MENTIONS_SECRET == _PARLEY_DEV_MENTIONS_KEY and ENV not in _PARLEY_DEV_ENVS:
+    raise ImproperlyConfigured(
+        "PARLEY_MENTIONS_SECRET is the committed development secret."
+    )
+if PARLEY_AGENT_HOST:
+    # Same rule as links.parley_worker.is_local, which settings cannot import.
+    _PARLEY_HOSTNAME = urlsplit(f"//{PARLEY_AGENT_HOST}").hostname or ""
+    PARLEY_IS_LOCAL = _PARLEY_HOSTNAME in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    } or _PARLEY_HOSTNAME.endswith(".localhost")
+    PARLEY_HTTP_SCHEME = "http" if PARLEY_IS_LOCAL else "https"
+    PARLEY_WEBSOCKET_SCHEME = "ws" if PARLEY_IS_LOCAL else "wss"
+    CSP_POLICY["connect-src"].extend(
+        [
+            f"{PARLEY_HTTP_SCHEME}://{PARLEY_AGENT_HOST}",
+            f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
+        ]
+    )
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor

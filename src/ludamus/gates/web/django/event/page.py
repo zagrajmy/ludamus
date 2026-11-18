@@ -34,6 +34,7 @@ from ludamus.gates.web.django.event.schedule import (
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import (
     LinkPreview,
+    event_when_and_where,
     markdown_summary,
     session_link_preview,
 )
@@ -211,7 +212,13 @@ class EventPageView(TemplateView):
         raw = self.request.GET.get("session", "")
         if raw.isdecimal() and (data := sessions_data.get(int(raw))) is not None:
             return session_link_preview(data=data, event_name=self.event.name)
-        return LinkPreview(description=markdown_summary(self.event.description))
+        event = self.event
+        return LinkPreview(
+            description=markdown_summary(event.description)
+            or event_when_and_where(
+                start=event.start_time, end=event.end_time, address=event.address_inline
+            )
+        )
 
     def _get_anonymous_context(self) -> dict[str, Any]:
         if self.request.context.current_user_id and self.request.session.get(
@@ -459,7 +466,7 @@ class EventPageView(TemplateView):
                     )
                     for seat in card.participations
                 ],
-                preferred_time_slots=card.preferred_time_slots,
+                offered_times=card.offered_times,
             )
 
         current_time = datetime.now(tz=UTC)

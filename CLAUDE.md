@@ -64,6 +64,14 @@ grow on net — paying debt in one offsets taking it on in another. Read the
 added occurrences it prints and remove what you can. A justified addition is
 fine; say so in the PR. Don't game a counter to keep a number flat.
 
+## Frontend debt (fallow)
+
+`mise run lint:fallow` (in `mise run lint`) fails on frontend dead code,
+duplication or complexity beyond `src/ludamus/client/fallow-baselines/`. Fix
+what it names rather than re-baselining; after paying findings down, run
+`mise run fallow:baseline` so they cannot come back. A new Vite input outside
+`src/*.ts` also goes in `entry` in `.fallowrc.json`.
+
 ## Friction (Frog)
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha.
@@ -96,6 +104,9 @@ constructor, and own transactional boundaries.
 - Highly prefer E2E tests as the sole testing mechanism. Use them to verify
   complex features work. At the end of E2E tests, produce a verifiable and
   repeatable artifact.
+- E2E tests check behaviour through what assistive tech sees: roles, accessible
+  names, labels, focus and ARIA state, not CSS selectors or ids. They take no
+  `page.screenshot`; screenshots belong in the PR description.
 - If you must test a system in isolation, first write down all the ways it
   could fail, then write the code.
 - Tautological tests considered harmful: a test that restates the code it
@@ -154,5 +165,7 @@ constructor, and own transactional boundaries.
 - [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
   proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
+- [Moderation](docs/agents/moderation.md) — notices, chat reports, staff
+  decisions, statements of reasons, police and UKE requests
 - [Verification](docs/VERIFICATION.md) — Hypothesis/CrossHair properties, Bend
   models, the differential test and Bombadil: which layer each covers

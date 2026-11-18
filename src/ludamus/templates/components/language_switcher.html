@@ -1,0 +1,25 @@
+{% load i18n tessera %}
+{% get_current_language as current_language %}
+{% get_available_languages as available_languages %}
+{% get_language_info_list for available_languages as languages %}
+<form method="post"
+      action="{% url 'set_language' %}"
+      class="mt-8 pt-6 border-t border-border">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <fieldset>
+        <legend class="font-semibold text-sm mb-1">{% translate "Language" %}</legend>
+        <p class="text-sm text-foreground-secondary mb-3">
+            {% translate "Used for this site in this browser and for the messages we send you." %}
+        </p>
+        {# Each name in its own language: the one a reader of it recognises. #}
+        {% tessera_choice_buttons name="language" selected=current_language %}
+            {% for language in languages %}
+                {% tessera_choice_button language.code lang=language.code %}
+                    {% include "components/language_flag.html" with code=language.code only %}
+                    {{ language.name_local|capfirst }}
+                {% end_tessera_choice_button %}
+            {% endfor %}
+        {% end_tessera_choice_buttons %}
+    </fieldset>
+</form>

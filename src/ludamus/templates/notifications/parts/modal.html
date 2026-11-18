@@ -4,13 +4,12 @@
         aria-labelledby="notification-modal-{{ notification.pk }}-title">
     <div class="px-6 py-4 border-b border-border flex items-start justify-between gap-3 shrink-0">
         <h3 id="notification-modal-{{ notification.pk }}-title"
-            class="text-lg font-semibold text-foreground">{{ notification.title }}</h3>
-        <button type="button"
-                data-modal-close="notification-modal-{{ notification.pk }}"
-                aria-label="{% translate "Close" %}"
-                class="size-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-            {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-        </button>
+            class="min-w-0 wrap-break-word text-lg font-semibold text-foreground">{{ notification.title }}</h3>
+        {% with pk=notification.pk|stringformat:"s" %}
+            {% with dialog_id="notification-modal-"|add:pk %}
+                {% tessera_dialog_close_button dialog_id %}
+            {% endwith %}
+        {% endwith %}
     </div>
     {% if notification.body %}
         <div class="px-6 py-5 overflow-y-auto text-foreground-secondary whitespace-pre-line">{{ notification.body }}</div>

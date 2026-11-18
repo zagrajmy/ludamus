@@ -15,6 +15,7 @@
 {% endblock twitter_image %}
 {% block header %}
 {% endblock header %}
+{% block parley_room %}{% if chat_id %}conversation:{{ chat_id }}{% endif %}{% endblock parley_room %}
 {% block body %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {# ── LEFT COLUMN: "what is this" ── #}
@@ -124,7 +125,9 @@
                 {% endif %}
             </div>
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="lg:hidden">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}</div>
+                <div class="lg:hidden">
+                    {% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-mobile" %}
+                </div>
             {% endif %}
             {% if description_html %}
                 <hr class="border-border">
@@ -140,7 +143,9 @@
                 {% endif %}
             </div>
             {% if user.is_authenticated and not user_has_rsvpd or is_creator %}
-                <div class="hidden lg:block">{% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}</div>
+                <div class="hidden lg:block">
+                    {% include "encounter/_calendar_inline.html" with menu_id="calendar-menu-desktop" %}
+                </div>
             {% endif %}
             <section class="card" aria-labelledby="encounter-attending">
                 <div class="card-body">

@@ -43,6 +43,8 @@ class Capability(StrEnum):
     # is PANEL_WRITE.
     PANEL_WRITE = "panel_write"
     ERRATUM_ACK = "erratum_ack"
+    # Deleting messages and muting people in every chat room of the sphere.
+    CHAT_MODERATE = "chat_moderate"
 
 
 class SphereAccessDTO(BaseModel):
@@ -183,9 +185,21 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 class SphereSettingsPatch(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
+    parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: EncountersPolicy
+
+
+class SphereChatSettings(TypedDict):
+    # The sphere's chat at all; its managers' own room; and whether its
+    # events have a chat unless an event says otherwise.
+    parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
 
 
 class SpherePanelServiceProtocol(Protocol):
@@ -201,11 +215,14 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        chat: SphereChatSettings,
         event_cover_buttons_at_bottom: bool,
         encounters_policy: EncountersPolicy,
+        require_session_space: bool | None = None,
         logo: UploadedFileProtocol | str | None = None,
         confirmed_encounters_disable: bool = False,
     ) -> SphereSettingsOutcome: ...
+    def event_chat_on(self, *, sphere_id: int, event: EventDTO) -> bool: ...
     def patch_settings(
         self,
         sphere_id: int,
@@ -233,6 +250,10 @@ class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
+    require_session_space: bool = True
+    parley_enabled: bool = True
+    parley_organizers_enabled: bool = True
+    parley_events_enabled: bool = False
     event_cover_buttons_at_bottom: bool = False
     visibility: SphereVisibility = SphereVisibility.PUBLIC
     encounters_policy: EncountersPolicy = EncountersPolicy.NONE
@@ -245,6 +266,10 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    require_session_space: bool
+    parley_enabled: bool
+    parley_organizers_enabled: bool
+    parley_events_enabled: bool
     event_cover_buttons_at_bottom: bool
     visibility: SphereVisibility
     encounters_policy: str
@@ -262,3 +287,8 @@ class SphereRepositoryProtocol(Protocol):
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
+
+    # Holds the sphere until the transaction ends, so its settings change one
+    # save at a time.
+    @staticmethod
+    def lock(sphere_id: int) -> None: ...

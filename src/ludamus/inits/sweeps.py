@@ -11,17 +11,23 @@ from typing import TYPE_CHECKING
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
+    build_case_mail_retention,
     build_email_verification,
     build_encounter_guests,
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_encounter_chats,
+    build_parley_report_retention,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
     build_waitlist_promotion,
 )
-from ludamus.inits.dbos_scheduler import offer_expiry_scheduler
+from ludamus.inits.dbos_scheduler import (
+    offer_expiry_scheduler,
+    parley_membership_outbox,
+)
 from ludamus.pacts.sweeps import Sweep
 
 if TYPE_CHECKING:
@@ -35,7 +41,8 @@ def _expire_lapsed_offers(now: datetime) -> int:
 
 def _purge_stale_invitees(now: datetime) -> int:
     sites = build_sites()
-    encounters = build_encounters(sites, build_encounter_guests(sites))
+    chat = build_parley_encounter_chats(parley_membership_outbox())
+    encounters = build_encounters(sites, build_encounter_guests(sites, chat))
     return encounters.purge_stale_invitees(now=now)
 
 
@@ -100,6 +107,23 @@ SWEEPS = (
         cron="40 3 * * *",
         run=_purge_stale_invitees,
         report="Purged {handled} stale encounter invitee(s).",
+    ),
+    # Rooms delete a message a year after it was written; a report's copy of
+    # it follows within the day.
+    Sweep(
+        command="forget_parley_report_copies",
+        workflow="parley_report_copy_forget_tick",
+        cron="45 3 * * *",
+        run=lambda now: build_parley_report_retention().forget_expired_copies(now=now),
+        report="Cleared the copied words of {handled} reported chat message(s).",
+    ),
+    # A case's mail is kept three years; a day over costs nothing.
+    Sweep(
+        command="forget_case_mail",
+        workflow="case_mail_forget_tick",
+        cron="47 3 * * *",
+        run=lambda now: build_case_mail_retention().forget_expired(now=now),
+        report="Forgot {handled} case email(s) past their retention.",
     ),
     # Listings stay open for days, so a day late to close one costs nothing.
     Sweep(

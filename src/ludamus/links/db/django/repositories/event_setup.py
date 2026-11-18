@@ -19,7 +19,6 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     Space,
     TimeSlot,
-    TimeSlotRequirement,
     Track,
 )
 from ludamus.pacts.event import EventSetupRepositoryProtocol
@@ -52,8 +51,10 @@ COPIED_FIELDS: Final = frozenset(
         "allow_facilitator_session_edit",
         "auto_confirm_sessions",
         "description",
+        "parley_enabled",
         "proposal_end_time",
         "proposal_start_time",
+        "require_session_space",
         "use_participants_label",
         "use_session_cover_placeholders",
     }
@@ -106,7 +107,7 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
         )
         spaces = _copy_spaces(source_id=source_id, target_id=target_id)
         _copy_tracks(source_id=source_id, target_id=target_id, spaces=spaces)
-        slots = _clone_each(
+        _clone_each(
             TimeSlot.objects.filter(event_id=source_id),
             lambda slot: {
                 "event_id": target_id,
@@ -131,17 +132,13 @@ class EventSetupRepository(EventSetupRepositoryProtocol):
                 "end_time": move.optional(category.end_time),
             },
         )
-        for requirements, targets in (
-            (
-                SessionFieldRequirement.objects.filter(category__event_id=source_id),
-                {"category_id": categories, "field_id": session_fields},
+        _clone_each(
+            SessionFieldRequirement.objects.filter(category__event_id=source_id),
+            partial(
+                _remapped,
+                targets={"category_id": categories, "field_id": session_fields},
             ),
-            (
-                TimeSlotRequirement.objects.filter(category__event_id=source_id),
-                {"category_id": categories, "time_slot_id": slots},
-            ),
-        ):
-            _clone_each(requirements, partial(_remapped, targets=targets))
+        )
         _copy_settings(
             source_id=source_id,
             target_id=target_id,

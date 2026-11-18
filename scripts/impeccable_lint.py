@@ -71,13 +71,16 @@ def _extract_json_array(text: str) -> str | None:
 
 def run_detect(paths: list[str]) -> list[dict]:
     cmd = ["npx", "--yes", IMPECCABLE_SPEC, "detect", "--json", *paths]
-    # impeccable is SHA-pinned (that is its supply-chain anchor), but a global
-    # ~/.npmrc min-release-age gate also derives a `before` date that npm fails
-    # to apply to the github tarball source ("Invalid time value"), silently
-    # aborting the install. Point npx at an empty user-config so the gate is
-    # skipped for impeccable only; the global ~/.npmrc still gates everything
-    # else.
-    env = {**os.environ, "NPM_CONFIG_USERCONFIG": os.devnull}
+    # impeccable is SHA-pinned (that is its supply-chain anchor), but a
+    # min-release-age gate derives a `before` date that npm fails to apply to
+    # the github tarball source ("Invalid time value"), silently aborting the
+    # install. The gate lives in both ~/.npmrc and the repo's .npmrc, so it is
+    # switched off for impeccable only; every other install stays gated.
+    env = {
+        **os.environ,
+        "NPM_CONFIG_USERCONFIG": os.devnull,
+        "npm_config_min_release_age": "0",
+    }
     result = subprocess.run(cmd, check=False, capture_output=True, text=True, env=env)
     # impeccable emits JSON on stdout when empty and on stderr when findings exist.
     # Sources may prefix the payload with npm warnings (e.g. git-sourced installs).

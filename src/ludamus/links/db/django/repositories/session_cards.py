@@ -14,6 +14,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.utils.timezone import get_current_timezone
 from pydantic import BaseModel, TypeAdapter
 
 from ludamus.links.db.django.models import (
@@ -39,6 +40,12 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
 )
 from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    in_reading_order,
+    slot_availability,
+)
 from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
@@ -89,7 +96,7 @@ class _SessionRow(BaseModel):
     agenda_item__pk: int
     agenda_item__start_time: datetime
     agenda_item__end_time: datetime
-    agenda_item__space_id: int
+    agenda_item__space_id: int | None
     enrolled_count_cached: int
     waiting_count_cached: int
 
@@ -206,7 +213,9 @@ def _location_index(event_id: int) -> dict[int, LocationData]:
     return index
 
 
-def _location(space_id: int, *, index: dict[int, LocationData]) -> LocationData:
+def _location(space_id: int | None, *, index: dict[int, LocationData]) -> LocationData:
+    if space_id is None:
+        return NO_LOCATION
     if (found := index.get(space_id)) is not None:
         return found
     # A room filed under another event: the schema allows it, nothing writes
@@ -328,7 +337,7 @@ def scheduled_session_cards(
             track_names=track_names.get(row.pk, []),
             category_name=row.category__name or "",
             participations=seats.get(row.pk, []),
-            preferred_time_slots=[],
+            offered_times=[],
             **_stats(row, active_configs=active_configs).model_dump(),
         )
         for row in rows
@@ -337,6 +346,7 @@ def scheduled_session_cards(
 
 def _card_from_session(session: Session) -> SessionCardDTO:
     agenda_item = getattr(session, "agenda_item", None)
+    tz = get_current_timezone()
     return SessionCardDTO(
         session=SessionDTO.model_validate(session),
         agenda_item=(
@@ -368,10 +378,22 @@ def _card_from_session(session: Session) -> SessionCardDTO:
             )
             for participation in session.session_participations.all()
         ],
-        preferred_time_slots=(
+        offered_times=(
             []
             if agenda_item is not None
-            else [TimeSlotDTO.model_validate(slot) for slot in session.time_slots.all()]
+            else in_reading_order(
+                [
+                    *(
+                        AvailabilityDTO(day=row.day, offer=DayPart(row.part))
+                        for row in session.availability.all()
+                    ),
+                    *(
+                        slot_availability(TimeSlotDTO.model_validate(slot), tz)
+                        for slot in session.time_slots.all()
+                    ),
+                ],
+                tz,
+            )
         ),
         **session_card_stats(session).model_dump(),
     )
@@ -382,7 +404,7 @@ def proposal_cards(
 ) -> list[SessionCardDTO]:
     """Shape a review queue's proposals as cards, in the queue's order."""
     # Instances, not rows: the queue is short and comes with its relations
-    # prefetched (review_inbox_proposals), slots included.
+    # prefetched (review_inbox_proposals), availability included.
     return [_card_from_session(session) for session in proposals]
 
 

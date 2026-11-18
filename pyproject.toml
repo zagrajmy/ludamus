@@ -34,7 +34,7 @@ django-environ = "~0.14.0"
 django-extensions = "~4.1"
 django-storages = { extras = ["google"], version = "~1.14.6" }
 django-vite = "~3.2.0"
-google-auth = "~2.61.0"
+google-auth = "~2.62.2"
 gunicorn = "~26.2.0"
 heroicons = { version = "~2.14.0", extras = ["django"] }
 lxml = "~6.1.1"
@@ -43,8 +43,8 @@ nh3 = "~0.3.7"
 opentelemetry-exporter-otlp-proto-http = "~1.45.2"
 opentelemetry-sdk = "~1.45.2"
 pillow = "~13.0.0"
-posthog = "~7.80.3"
-psycopg = "~3.3.7"
+posthog = "~7.81.1"
+psycopg = "~3.3.8"
 pydantic = "~2.14.0"
 requests = "~2.34.2"
 segno = "~1.6.6"
@@ -54,8 +54,8 @@ whitenoise = "~6.12.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-# NOTE: cabinet is not on PyPI and is not going there; git is its only source.
-cabinet = { git = "https://github.com/fancysnake/cabinet.git", rev = "v3.0.0" }
+# NOTE: cabinet is not on PyPI, so it is pinned to its GitHub release wheel.
+cabinet = { url = "https://github.com/fancysnake/cabinet/releases/download/v5.0.0/cabinet-5.0.0-py3-none-any.whl" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^11.0.0"
@@ -85,12 +85,12 @@ pytest-xdist = "^3.8.0"
 # Imported directly by scripts/djlint_underscore_end.py, the copy of djlint's
 # T038 rule. djlint compiles its patterns with regex, not stdlib re, and the
 # copy has to use the same flavour.
-regex = "^2026.7.19"
+regex = "^2026.11.9"
 responses = "^0.26.0"
 ruff = "^0.17.0"
 taplo = "^0.9.3"
 tingle = "^0.9.0"
-types-authlib = "^1.7.2.20260724"
+types-authlib = "^1.8.0.20261106"
 types-requests = "^2.33.0.20261006"
 vulture = "^2.16"
 yamllint = "^1.38.0"
@@ -109,14 +109,15 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-# The two legal documents are published Polish text, skipped for the same reason
-# as the *.po catalogs above: an English dictionary flags ordinary Polish words.
+# The legal documents and the moderation FAQ are Polish text, skipped for the
+# same reason as the *.po catalogs above: an English dictionary flags ordinary
+# Polish words.
 # Named individually rather than by directory, so anything else added under
 # content/ stays checked.
 # `./.claude` only matches when codespell is handed the repo root; hk and CI
 # pass explicit paths, so the vendored skills need a glob that matches the
 # path as given too.
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,zagrajmy-landing-notes.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,zagrajmy-landing-notes.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md,src/ludamus/content/moderation-faq.md'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
@@ -166,7 +167,7 @@ template_extensions = 'html'
 # T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
 # `{% end_name %}` closers as well as `{% endname %}`.
 ignore = "H021,H031,H037,D018,T038"
-custom_blocks = "select,session_fact,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,session_fact,split_view,split_view_list,split_view_row,tessera_action_dropdown,tessera_choice_button,tessera_choice_buttons,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -561,6 +562,7 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    "is_open_to",
     # Named by dotted path in LOGGING in settings.py, which is excluded above
     "JsonFormatter",
     "posthog_handler",

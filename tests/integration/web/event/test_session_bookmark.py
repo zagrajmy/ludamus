@@ -67,8 +67,7 @@ class TestSessionBookmarkToggleView:
 
         response = authenticated_client.post(self._url(other_session.pk))
 
-        assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json() == {"error": "not-found"}
+        assert_response(response, HTTPStatus.NOT_FOUND, json={"error": "not-found"})
         assert not SessionBookmark.objects.exists()
 
     @pytest.mark.usefixtures("session")

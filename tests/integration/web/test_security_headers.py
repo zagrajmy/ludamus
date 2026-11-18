@@ -19,7 +19,7 @@ ENFORCE_HEADER = "Content-Security-Policy"
 # read off, and the whole context it sends.
 EMPTY_FEED = {
     "announcements": [],
-    "can_create_encounter": False,
+    "create_options": (),
     "past": [],
     "upcoming": [],
     "view": ANY,

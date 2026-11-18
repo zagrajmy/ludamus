@@ -11,11 +11,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.dashboard import (
+    DASHBOARD_AGENDA_GLANCE,
     DASHBOARD_OPEN_ENCOUNTERS,
     DASHBOARD_PAST_EVENTS,
     DASHBOARD_SPHERE_FEED,
     DASHBOARD_SPHERES_TO_DISCOVER,
     DashboardDTO,
+    DashboardRole,
     DashboardServiceProtocol,
     SphereEventPublishedNotification,
     SphereSubscriptionServiceProtocol,
@@ -27,6 +29,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ludamus.pacts.dashboard import (
+        DashboardCardDTO,
         DashboardRepositoryProtocol,
         SphereSubscriptionNotifierProtocol,
         SphereSubscriptionRepositoryProtocol,
@@ -40,8 +43,12 @@ class DashboardService(DashboardServiceProtocol):
         self._dashboard = dashboard
 
     def read(self, *, user_id: int, now: datetime) -> DashboardDTO:
+        agenda, agenda_more = _fold_agenda(
+            self._dashboard.list_agenda(user_id, now=now)
+        )
         return DashboardDTO(
-            agenda=self._dashboard.list_agenda(user_id, now=now),
+            agenda=agenda,
+            agenda_more=agenda_more,
             open_encounters=self._dashboard.list_open_encounters(
                 user_id, now=now, limit=DASHBOARD_OPEN_ENCOUNTERS
             ),
@@ -55,6 +62,21 @@ class DashboardService(DashboardServiceProtocol):
                 user_id, now=now, limit=DASHBOARD_PAST_EVENTS
             ),
         )
+
+
+def _fold_agenda(
+    rows: list[DashboardCardDTO],
+) -> tuple[list[DashboardCardDTO], list[DashboardCardDTO]]:
+    in_view: list[DashboardCardDTO] = []
+    folded: list[DashboardCardDTO] = []
+    for row in rows:
+        # A held seat lapses on a deadline, so it stays in view wherever the
+        # glance would have ended.
+        if len(in_view) < DASHBOARD_AGENDA_GLANCE or row.role is DashboardRole.OFFERED:
+            in_view.append(row)
+        else:
+            folded.append(row)
+    return in_view, folded
 
 
 class SphereSubscriptionService(SphereSubscriptionServiceProtocol):

@@ -23,7 +23,11 @@ from ludamus.pacts.encounter import (
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.sphere import Capability
-from ludamus.specs.encounter import INVITEE_RETENTION_AFTER_END, INVITEE_WINDOW
+from ludamus.specs.encounter import (
+    INVITEE_RETENTION_AFTER_END,
+    INVITEE_WINDOW,
+    ORGANIZED_ENCOUNTERS_LIMIT,
+)
 from ludamus.specs.permissions import sphere_access
 
 if TYPE_CHECKING:
@@ -115,6 +119,19 @@ class EncounterService(EncounterServiceProtocol):
             ),
         )
 
+    def list_organized(self, *, sphere_id: int, user_id: int) -> list[EncounterDTO]:
+        """List the encounters ``user_id`` organizes in this sphere.
+
+        Returns:
+            Newest first, at most ``ORGANIZED_ENCOUNTERS_LIMIT``; empty on a
+            sphere with encounters off, where their pages do not open.
+        """
+        if not self.enabled(sphere_id):
+            return []
+        return self._encounters.list_by_creator(
+            sphere_id, user_id, limit=ORGANIZED_ENCOUNTERS_LIMIT
+        )
+
     def list_upcoming(
         self, *, sphere_id: int, user_id: int | None, limit: int
     ) -> list[EncounterIndexItem]:
@@ -203,6 +220,11 @@ class EncounterService(EncounterServiceProtocol):
                 )
             ),
             calendar_links=encounter_calendar_links(encounter, page_url),
+            chat_id=(
+                self._guests.chat.chat_id(encounter.pk)
+                if is_creator or user_has_rsvpd
+                else None
+            ),
         )
 
     def ics(self, *, share_code: str, sphere_id: int, page_url: str) -> str:
@@ -306,6 +328,7 @@ class EncounterService(EncounterServiceProtocol):
             # with it.
             guests = self._guests.guests(encounter)
             self._encounters.delete(pk)
+            self._guests.chat.sync(pk)
             self._guests.send(
                 encounter, reason=EncounterInviteReason.DELETED, guests=guests
             )
@@ -320,14 +343,12 @@ class EncounterService(EncounterServiceProtocol):
         # a repo method in pacts/encounter.py — held by open PRs.
         with self._transaction.atomic():
             encounter = self._encounters.read_by_share_code(share_code, sphere_id)
-            if self._rsvps.recent_rsvp_exists(ip_address):
+            if self._guests.recently_rsvpd(ip_address):
                 return RSVPOutcome.THROTTLED
             if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
                 return RSVPOutcome.ALREADY_SIGNED_UP
             user = self._users.read_by_id(user_id)
-            if not self._guests.admit(
-                encounter, email=user.email, user=user, ip_address=ip_address
-            ):
+            if not self._guests.admit(encounter, email=user.email, user=user):
                 return RSVPOutcome.FULL
             self._guests.send(
                 encounter, reason=EncounterInviteReason.JOINED, guests=[guest_for(user)]

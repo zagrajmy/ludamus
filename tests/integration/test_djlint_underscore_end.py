@@ -14,7 +14,7 @@ CONFIG_FILE = REPO_ROOT / "pyproject.toml"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
 UPSTREAM_T038_SHA256 = (
-    "fe7abc48a21127d650ed1668e823ea5d2fbacd72526894ad034ed63cb508c224"
+    "eb2f79a1e1fff1c6954751cfbfc729f52e37b8ad58a534ac79ad6041150e94a5"
 )
 
 

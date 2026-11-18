@@ -21,7 +21,9 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     panel_context,
+    settings_post_data,
     settings_tab_urls,
+    settings_url,
 )
 
 # The settings page renders a cover image and a logo dropzone.
@@ -129,6 +131,35 @@ class TestEventSettingsPageViewGet:
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
 
+    @pytest.mark.parametrize(("events_on", "shown"), ((True, "on"), (False, "off")))
+    def test_event_chat_says_what_following_the_sphere_comes_to(
+        self, panel_client, sphere, event, events_on, shown
+    ):
+        sphere.parley_events_enabled = events_on
+        sphere.save()
+        event.parley_enabled = True
+        event.save()
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "is_proposal_active": response.context["is_proposal_active"],
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "form": ANY,
+            },
+        )
+        form = response.context["form"]
+        assert dict(form.fields["parley_enabled"].choices)[""] == (
+            f"Use sphere default (currently: {shown})"
+        )
+        assert form.initial["parley_enabled"] == "true"
+
     def test_form_initial_uses_false_when_event_disallows_edits(
         self, panel_client, event
     ):
@@ -192,21 +223,8 @@ class TestEventSettingsPageViewGet:
 
 
 class TestEventSettingsPageViewPost:
-    @staticmethod
-    def get_url(event):
-        return reverse("panel:event-settings", kwargs={"slug": event.slug})
-
-    @staticmethod
-    def _post_data(event, **overrides):
-        data = {
-            "name": event.name,
-            "slug": event.slug,
-            "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
-            "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
-            "visibility": event.visibility,
-        }
-        data.update(overrides)
-        return data
+    get_url = staticmethod(settings_url)
+    _post_data = staticmethod(settings_post_data)
 
     @staticmethod
     def _render_context(response, event):
@@ -264,20 +282,6 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.name == new_name
-
-    def test_makes_the_event_unlisted(self, panel_client, event):
-        response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="unlisted")
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
-            url=f"/panel/event/{event.slug}/settings/",
-        )
-        event.refresh_from_db()
-        assert event.visibility == "unlisted"
 
     def test_normalizes_address_lines(self, panel_client, event):
         response = panel_client.post(
@@ -631,7 +635,9 @@ class TestEventSettingsPageViewPost:
         response = panel_client.post(
             self.get_url(event),
             data=self._post_data(
-                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+                event,
+                publication="scheduled",
+                publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M"),
             ),
         )
 
@@ -846,3 +852,22 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.use_participants_label is False
+
+    @pytest.mark.parametrize(
+        ("choice", "stored"), (("true", True), ("false", False), ("", None))
+    )
+    def test_event_chat_overrides_or_follows_the_sphere(
+        self, panel_client, event, choice, stored
+    ):
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, parley_enabled=choice)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.parley_enabled is stored

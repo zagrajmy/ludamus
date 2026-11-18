@@ -47,28 +47,30 @@
                 <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Details" %}</h3>
                 <div class="space-y-6">
                     <div>{% tessera_field form.title %}</div>
-                    <div>
-                        <div class="flex items-center gap-1 mb-1">
-                            {% translate "Category" as t_category %}
-                            {% include "components/label.html" with for_id="id_category_id" text=t_category required=True only %}
-                            <span id="category-spinner"
-                                  class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
-                                  role="status"
-                                  aria-label="{% translate "Loading" %}"></span>
+                    {% if "category_id" in form.fields %}
+                        <div>
+                            <div class="flex items-center gap-1 mb-1">
+                                {% translate "Category" as t_category %}
+                                {% include "components/label.html" with for_id="id_category_id" text=t_category required=True only %}
+                                <span id="category-spinner"
+                                      class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
+                                      role="status"
+                                      aria-label="{% translate "Loading" %}"></span>
+                            </div>
+                            {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors aria-describedby=form.category_id.errors|yesno:"id_category_id_errors," %}
+                                {% for value, label in form.category_id.field.choices %}
+                                    <option value="{{ value }}"
+                                            {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            {% end_select %}
+                            {% if form.category_id.errors %}
+                                <p id="id_category_id_errors"
+                                   class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
+                            {% endif %}
                         </div>
-                        {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors aria-describedby=form.category_id.errors|yesno:"id_category_id_errors," %}
-                            {% for value, label in form.category_id.field.choices %}
-                                <option value="{{ value }}"
-                                        {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
-                                    {{ label }}
-                                </option>
-                            {% endfor %}
-                        {% end_select %}
-                        {% if form.category_id.errors %}
-                            <p id="id_category_id_errors"
-                               class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
-                        {% endif %}
-                    </div>
+                    {% endif %}
                     <div>{% tessera_field form.cover_image %}</div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>{% tessera_field form.facilitator_name %}</div>
@@ -130,11 +132,11 @@
                 </div>
             </div>
         {% endif %}
-        {% if all_time_slots %}
+        {% if availability_options %}
             <div class="card">
                 <div class="card-body">
-                    <input type="hidden" name="time_slots_submitted" value="1">
-                    {% include "panel/parts/time-slot-picker.html" %}
+                    <input type="hidden" name="availability_submitted" value="1">
+                    {% include "panel/parts/availability-picker.html" %}
                 </div>
             </div>
         {% endif %}
