@@ -104,22 +104,40 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
-  test-unit:
+  # The mills ratchet: tests/unit must cover ludamus.mills and itself in
+  # full, which the combined report cannot show — an e2e-only mills branch
+  # reads the same there.
+  test-mills:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/toolchain
-
-      # The mills ratchet, before the combined run: tests/unit must cover
-      # ludamus.mills and itself in full, which the combined report cannot
-      # show — an e2e-only mills branch reads the same there.
       - run: mise run test:unit:cov
+
+  test-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      # NOTE: tests/conftest.py deals each test file to one shard by hash, and
+      # the run below reads the count from strategy.job-total, the whole
+      # matrix size. A second axis here would silently skip tests.
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/toolchain
       - run: mise run test:py:cov
+        env:
+          PYTEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+      # mise task env pins COVERAGE_FILE, so the shard's name comes after.
+      - name: Name this shard's coverage
+        run: mv .coverage.unit .coverage.unit.${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
         with:
-          name: coverage-unit
-          path: .coverage.unit
+          name: coverage-unit-${{ matrix.shard }}
+          path: .coverage.unit.${{ matrix.shard }}
           include-hidden-files: true
           retention-days: 7
 
@@ -274,7 +292,7 @@ jobs:
   # Named `test` because the branch ruleset requires that check; it now
   test:
     runs-on: ubuntu-latest
-    needs: [test-unit, test-postgres, test-e2e, test-worker]
+    needs: [test-mills, test-unit, test-postgres, test-e2e, test-worker]
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.
