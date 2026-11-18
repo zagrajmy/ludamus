@@ -148,9 +148,9 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
 class OrganizerListTimeSlotsTool(Tool[EventIdInput]):
     name = "list_time_slots"
     description = (
-        "List an event's time slots: the day windows sessions can be placed in. "
-        "Returns each slot's pk and aware start/end times. Read-only; works for "
-        "any event in this token's sphere."
+        "List an event's time slots: the windows proposers pick from when they "
+        "say when they could run a session. Returns each slot's pk and aware "
+        "start/end times. Read-only; works for any event in this token's sphere."
     )
     scope = ToolScope.ORGANIZER
     input_model = EventIdInput
@@ -328,8 +328,10 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
 class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
-        "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends and not overlap an existing slot; a "
+        "Create a time slot in this token's event: a window proposers can pick "
+        "when they say when they could run a session. It does not place "
+        "sessions. The window must start before it ends and not overlap an "
+        "existing slot; a "
         "rejection names which rule failed. A window past the event dates "
         "widens them, which the result reports as event_dates_widened."
     )

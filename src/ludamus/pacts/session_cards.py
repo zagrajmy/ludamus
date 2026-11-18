@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
+from ludamus.pacts.availability import AvailabilityDTO
 from ludamus.pacts.enrollment import SessionParticipationStatus, SessionSeatsDTO
-from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
 from ludamus.pacts.ids import EventId
 from ludamus.pacts.party import PartyDTO
@@ -19,18 +20,20 @@ if TYPE_CHECKING:
     from ludamus.pacts.ids import SessionId, UserId
 
 
-class PlacementAvailabilityDTO(BaseModel):
-    """Where a proposal can still go: the placements accepting will not refuse.
+class BusyWindowDTO(BaseModel):
+    start: datetime
+    end: datetime
 
-    ``taken_space_ids_by_slot`` maps a time slot to the spaces another session
-    holds then. The rest is what neither choice can offer whatever the other
-    holds: a space taken in every slot, a slot with every space taken.
+
+class PlacementAvailabilityDTO(BaseModel):
+    """When each space the proposal could go to is already held.
+
+    Accepting refuses a space another session holds at any moment of the new
+    placement, so a space whose windows miss the start time picked plus the
+    session's length is one accepting will not refuse.
     """
 
-    taken_space_ids_by_slot: dict[int, list[int]]
-    taken_space_ids: list[int]
-    full_time_slot_ids: list[int]
-    has_free_placement: bool
+    busy_by_space: dict[int, list[BusyWindowDTO]]
 
 
 class ProposalAcceptContextDTO(BaseModel):
@@ -38,8 +41,10 @@ class ProposalAcceptContextDTO(BaseModel):
     event: EventDTO
     presenter: UserDTO | None
     space_options: list[SpaceOptionDTO]
-    time_slots: list[TimeSlotDTO]
-    preferred_time_slot_ids: list[int]
+    # When the facilitator said they could run it, so the picker can suggest
+    # a time instead of making the reviewer look it up on the proposal.
+    availability: list[AvailabilityDTO]
+    duration_minutes: int
     field_values: list[SessionFieldValueDTO]
     can_accept: bool
     # False where the event lets a session be placed without a space.
@@ -129,9 +134,9 @@ class SessionCardDTO(SessionCardStatsDTO):
     # Empty when the reader asked for no roster: the card grid draws the first
     # seat holders, the compact ledger draws none and a big event has many.
     participations: list[SessionSeatDTO]
-    # A proposal's acceptable slots, earliest first. A scheduled session states
-    # its time through agenda_item and carries none.
-    preferred_time_slots: list[TimeSlotDTO]
+    # The parts of days a proposal's host can run it, earliest first. A
+    # scheduled session states its time through agenda_item and carries none.
+    offered_times: list[AvailabilityDTO]
 
 
 class SessionModalRepositoryProtocol(Protocol):

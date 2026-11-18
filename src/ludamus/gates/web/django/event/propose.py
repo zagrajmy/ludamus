@@ -9,7 +9,8 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.translation import get_language
+from django.utils.timezone import get_current_timezone
+from django.utils.translation import get_language, gettext_lazy
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -34,16 +35,25 @@ from ludamus.gates.web.django.propose_cover import (
 )
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
+from ludamus.gates.web.django.templatetags.date_tags import offered_time_name
+from ludamus.pacts.availability import (
+    AvailabilityDTO,
+    DayPart,
+    availability_value,
+    group_by_day,
+    pick_offered,
+)
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
-    from datetime import date
 
     from django.core.files.uploadedfile import UploadedFile
     from django.forms import Form
     from django.utils.datastructures import MultiValueDict
+    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO
@@ -51,7 +61,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.proposal_categories import (
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
-        TimeSlotRequirementDTO,
     )
     from ludamus.pacts.propose import (
         AccountAnswersDTO,
@@ -69,7 +78,7 @@ type StepContext = dict[str, object]
 # decided per request by `_Wizard.steps`; nothing else may assume a fixed
 # neighbour, because a skipped step changes what "next" and "back" mean.
 # Personal details come first so they are on file whatever kind gets picked.
-_STEP_KEYS: tuple[str, ...] = ("personal", "category", "timeslots", "details", "review")
+_STEP_KEYS: tuple[str, ...] = ("personal", "category", "days", "details", "review")
 _STEP_TEMPLATES = {key: f"event/propose/parts/{key}.html" for key in _STEP_KEYS}
 
 
@@ -136,22 +145,43 @@ def _apply_wizard_cover_from_form(
         stash_wizard_cover(state, cover)
 
 
-def _timeslot_descriptors(
-    requirements: Sequence[TimeSlotRequirementDTO], selected_ids: Sequence[int]
+DAY_PART_LABELS: dict[DayPart, _StrPromise] = {
+    DayPart.MORNING: gettext_lazy("Morning"),
+    DayPart.AFTERNOON: gettext_lazy("Afternoon"),
+    DayPart.EVENING: gettext_lazy("Evening"),
+    DayPart.NIGHT: gettext_lazy("Night"),
+}
+
+
+def offered_time_chip(entry: AvailabilityDTO) -> str:
+    """Label a pickable time under its day's heading.
+
+    Returns:
+        The part in Title Case, or a time slot's hours.
+    """
+    if isinstance(offer := entry.offer, DayPart):
+        return str(DAY_PART_LABELS[offer])
+    return offered_time_name(entry)
+
+
+def availability_descriptors(
+    offered: Sequence[AvailabilityDTO], selected: Sequence[AvailabilityDTO]
 ) -> list[dict[str, object]]:
-    flat = sorted(requirements, key=lambda req: req.time_slot.start_time)
-    selected = set(selected_ids)
-    groups: dict[date, list[dict[str, object]]] = {}
-    for req in flat:
-        slot: dict[str, object] = {
-            "id": req.time_slot_id,
-            "start_time": req.time_slot.start_time,
-            "end_time": req.time_slot.end_time,
-            "is_required": req.is_required,
-            "is_selected": req.time_slot_id in selected,
+    chosen = {availability_value(entry) for entry in selected}
+    return [
+        {
+            "day": day,
+            "parts": [
+                {
+                    "value": availability_value(entry),
+                    "label": offered_time_chip(entry),
+                    "is_selected": availability_value(entry) in chosen,
+                }
+                for entry in entries
+            ],
         }
-        groups.setdefault(req.time_slot.start_time.date(), []).append(slot)
-    return [{"day": day, "slots": slots} for day, slots in sorted(groups.items())]
+        for day, entries in group_by_day(offered)
+    ]
 
 
 def _reusable_form_values(
@@ -264,10 +294,18 @@ class _Wizard:
         return self.service.get_proposal_settings(self.event.pk)
 
     @cached_property
-    def timeslot_requirements(self) -> list[TimeSlotRequirementDTO]:
+    def offered_times(self) -> list[AvailabilityDTO]:
+        # The event's time slots where the organizer drew any; otherwise the
+        # parts of each day its hours reach, so the question can be asked the
+        # moment an event exists and an event closing at 18:00 never asks
+        # about an evening it does not have.
+        return self.service.offered_times(event=self.event, tz=get_current_timezone())
+
+    @cached_property
+    def asks_days(self) -> bool:
         if self.category is None:
-            return []
-        return self.service.get_timeslot_requirements(self.category.pk)
+            return bool(self.categories)
+        return self.service.asks_availability(self.category.pk)
 
     @cached_property
     def session_requirements(self) -> list[SessionFieldRequirementDTO]:
@@ -306,12 +344,10 @@ class _Wizard:
 
     @cached_property
     def steps(self) -> tuple[str, ...]:
-        # One time slot is no more a choice than one category. Before a category
-        # is chosen the time-slot step is assumed present: the strip must not
-        # grow a step the moment the first choice is made.
-        shows_timeslots = (self.category is None and bool(self.categories)) or len(
-            self.timeslot_requirements
-        ) > 1
+        # One possible answer is no more a choice than one category. Before a
+        # category is chosen the days step is assumed present: the strip must
+        # not grow a step the moment the first choice is made.
+        shows_days = self.asks_days and len(self.offered_times) > 1
         # Nothing to ask when the account already answers every question. The
         # questions are the event's, so this holds before a category is picked.
         shows_personal = not self.account_answers_everything
@@ -319,7 +355,7 @@ class _Wizard:
             key
             for key in _STEP_KEYS
             if (key != "category" or len(self.categories) > 1)
-            and (key != "timeslots" or shows_timeslots)
+            and (key != "days" or shows_days)
             and (key != "personal" or shows_personal)
         )
 
@@ -335,8 +371,14 @@ class _Wizard:
     def implied_answers(self) -> WizardState:
         """Answer the steps the proposer never sees, as the wizard walks past."""
         implied: WizardState = {}
-        if len(self.timeslot_requirements) == 1:
-            implied["time_slot_ids"] = [self.timeslot_requirements[0].time_slot_id]
+        # An event with one possible answer never shows the days step, so that
+        # answer is recorded as the step is walked past.
+        if (
+            self.category is not None
+            and self.asks_days
+            and len(self.offered_times) == 1
+        ):
+            implied["availability"] = [availability_value(self.offered_times[0])]
         if "personal" not in self.steps:
             implied["personal_data"] = dict(self.account.personal_data)
             implied["contact_email"] = self.account.email
@@ -409,18 +451,23 @@ def _personal_context(
     }
 
 
-def _timeslots_context(
+def _days_context(
     wizard: _Wizard, state: WizardState, *, error: str | None = None
 ) -> StepContext:
-    selected_ids = [] if error else state.get("time_slot_ids", [])
+    selected = [] if error else _stored_availability(wizard, state)
     return {
-        **wizard.base_context("timeslots"),
+        **wizard.base_context("days"),
         "category": wizard.chosen,
-        "slot_descriptors": _timeslot_descriptors(
-            wizard.timeslot_requirements, selected_ids
+        "day_descriptors": availability_descriptors(wizard.offered_times, selected),
+        "offers_slots": any(
+            isinstance(entry.offer, TimeSlotDTO) for entry in wizard.offered_times
         ),
         "error": error,
     }
+
+
+def _stored_availability(wizard: _Wizard, state: WizardState) -> list[AvailabilityDTO]:
+    return pick_offered(state.get("availability", []), wizard.offered_times)
 
 
 def _details_context(
@@ -494,12 +541,8 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         prefix="personal",
     )
 
-    time_slot_ids = state.get("time_slot_ids", [])
-    selected = set(time_slot_ids)
-    time_slots = _timeslot_descriptors(
-        [req for req in wizard.timeslot_requirements if req.time_slot_id in selected],
-        time_slot_ids,
-    )
+    chosen = _stored_availability(wizard, state)
+    availability = availability_descriptors(chosen, chosen)
 
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
@@ -515,7 +558,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         "private_session_fields": [f for f in session_fields if not f["is_public"]],
         "public_personal_fields": [f for f in personal_fields if f["is_public"]],
         "private_personal_fields": [f for f in personal_fields if not f["is_public"]],
-        "time_slots": time_slots,
+        "availability": availability,
     }
 
     return {**wizard.base_context("review"), "category": category, "review": review}
@@ -524,7 +567,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
 _STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
     "category": _category_context,
     "personal": _personal_context,
-    "timeslots": _timeslots_context,
+    "days": _days_context,
     "details": _details_context,
     "review": _review_context,
 }
@@ -711,32 +754,32 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin):
         return _render(wizard, wizard.after("personal"))
 
 
-class ProposeSessionTimeslotsComponentView(ProposeWizardMixin):
+class ProposeSessionDaysComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         wizard = self._wizard(request, event_slug, with_category=True)
 
         if request.POST.get("back"):
-            return _render(wizard, wizard.at_or_before("timeslots"))
+            return _render(wizard, wizard.at_or_before("days"))
 
-        if "timeslots" not in wizard.steps:
-            return _render(wizard, wizard.after("timeslots"))
+        if "days" not in wizard.steps:
+            return _render(wizard, wizard.after("days"))
 
-        valid_ids = {str(req.time_slot_id) for req in wizard.timeslot_requirements}
-        selected_ids = [
-            sid for sid in request.POST.getlist("time_slot_ids") if sid in valid_ids
+        offered = {availability_value(entry) for entry in wizard.offered_times}
+        selected = [
+            raw for raw in request.POST.getlist("availability") if raw in offered
         ]
 
-        if not selected_ids:
+        if not selected:
             with _WizardState(request, event_slug) as state:
-                context = _timeslots_context(
-                    wizard, state, error=_("Please select at least one time slot.")
+                context = _days_context(
+                    wizard, state, error=_("Pick at least one time you could host.")
                 )
-            return TemplateResponse(request, _STEP_TEMPLATES["timeslots"], context)
+            return TemplateResponse(request, _STEP_TEMPLATES["days"], context)
 
         with _WizardState(request, event_slug) as state:
-            state["time_slot_ids"] = [int(sid) for sid in selected_ids]
+            state["availability"] = selected
 
-        return _render(wizard, wizard.after("timeslots"))
+        return _render(wizard, wizard.after("days"))
 
 
 class ProposeSessionDetailsComponentView(ProposeWizardMixin):
@@ -831,6 +874,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
             user_id=request.context.current_user_id,
             user_slug=request.context.current_user_slug,
             language=get_language(),
+            tz=get_current_timezone(),
         )
 
         del request.session[key]

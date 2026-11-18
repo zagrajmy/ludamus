@@ -35,7 +35,6 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
     SphereFactory,
-    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -818,17 +817,7 @@ class TestOrganizerProgrammeTools:
     def test_assign_session_places_it_in_a_space(
         self, client, org_token, event, programme
     ):
-        slot_start = event.start_time + timedelta(hours=2)
-        call_org_tool(
-            client,
-            org_token,
-            "create_time_slot",
-            {
-                "start_time": slot_start.isoformat(),
-                "end_time": (slot_start + timedelta(hours=2)).isoformat(),
-            },
-        )
-        assign_start = slot_start + timedelta(minutes=30)
+        assign_start = event.start_time + timedelta(hours=2, minutes=30)
         session = call_org_json(
             client,
             org_token,
@@ -873,11 +862,6 @@ class TestOrganizerProgrammeTools:
         )
         venue = SpaceFactory(event=event, parent=None, name="Batch venue")
         room = SpaceFactory(event=event, parent=venue, name="Batch room")
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=4),
-        )
         sessions = [
             {
                 "source_row_id": "batch-row-1",

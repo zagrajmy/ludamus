@@ -54,6 +54,28 @@
             </button>
         </div>
     {% endif %}
+    {% comment %}
+    The grid's hours are the event's own, widened by whatever is scheduled.
+    These reach an hour nothing occupies yet; dropping there moves the event,
+    so the next render covers it without the control.
+    {% endcomment %}
+    <div class="mb-3 flex items-center gap-2 text-sm text-foreground-muted">
+        {% if grid.can_extend_before %}
+            {% querystring earlier=grid.extend_before_hours|add:"1" as earlier_qs %}
+            <a href="{% url 'panel:timetable' slug=slug %}{{ earlier_qs }}"
+               class="underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Show an earlier hour" %}</a>
+        {% endif %}
+        {% if grid.can_extend_after %}
+            {% querystring later=grid.extend_after_hours|add:"1" as later_qs %}
+            <a href="{% url 'panel:timetable' slug=slug %}{{ later_qs }}"
+               class="underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Show a later hour" %}</a>
+        {% endif %}
+        {% if grid.extend_before_hours or grid.extend_after_hours %}
+            {% querystring earlier=None later=None as reset_qs %}
+            <a href="{% url 'panel:timetable' slug=slug %}{{ reset_qs }}"
+               class="underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Back to the event's hours" %}</a>
+        {% endif %}
+    </div>
     {% translate "Column width" as t_column_width %}
     {% translate "Drag, or use the arrow keys, to resize every column. Double-click to reset." as t_column_width_hint %}
     {% comment %}
