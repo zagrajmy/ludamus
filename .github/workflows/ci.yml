@@ -161,13 +161,22 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      # Three, not four: concurrency is shared account-wide, and a fourth
-      # shard buys under a minute against the odds of one queueing for five.
-      # NOTE: the run below reads the count from strategy.job-total, which is
-      # the whole matrix size. A second axis here would silently halve the
-      # suite; split the denominator back out if one is ever added.
+      # Seven shards in three groups (tests/e2e/playwright.config.ts): a shard
+      # spends about two minutes on setup and seeding whatever its share of
+      # the specs, so each further shard buys less, and concurrency is shared
+      # account-wide. Grouped by project, because a plain --shard=i/7 cuts the
+      # project-ordered list into unequal slices, some of them Firefox only.
+      # NOTE: each group's shards must count up to its own total. A missing
+      # "2/3" silently skips a third of that group; nothing else checks it.
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - { name: chromium-1, group: chromium, shard: 1/3 }
+          - { name: chromium-2, group: chromium, shard: 2/3 }
+          - { name: chromium-3, group: chromium, shard: 3/3 }
+          - { name: firefox-1, group: firefox, shard: 1/2 }
+          - { name: firefox-2, group: firefox, shard: 2/2 }
+          - { name: rest-1, group: rest, shard: 1/2 }
+          - { name: rest-2, group: rest, shard: 2/2 }
     steps:
       - uses: actions/checkout@v7
       # NOTE: the browser install below is a no-op for browsers this cache
@@ -243,23 +252,31 @@ jobs:
       # Ubuntu 23.10+ restricts unprivileged user namespaces through AppArmor,
       # which leaves Chromium "No usable sandbox!". Lift it so the specs run
       # Chromium sandboxed, as users get it.
+      # The seeding inside Playwright's webServer command applies these too,
+      # and there a slow download spends the 180s the server has to come up:
+      # one stalled bottle took 149s of it and the shard ran no spec. Applied
+      # here first, that call finds nothing left to fetch.
+      - name: Install system packages
+        timeout-minutes: 8
+        run: mise bootstrap packages apply --yes
       - name: Allow Chromium's sandbox
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Run end-to-end tests
         env:
           E2E_CHROMIUM_SANDBOX: "1"
-        run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+          E2E_PROJECT_GROUP: ${{ matrix.group }}
+        run: mise run test:e2e -- --shard=${{ matrix.shard }}
 
-      # The three artifacts merge into one directory in `test`, so each
+      # The shards' artifacts merge into one directory in `test`, so each
       # shard's data file needs a name of its own. It cannot be named that way
       # from the start: mise task env overrides the inherited environment, so
       # `test:e2e` pins COVERAGE_FILE back to `.coverage.e2e` regardless.
       - name: Name this shard's coverage
-        run: mv .coverage.e2e .coverage.e2e.${{ matrix.shard }}
+        run: mv .coverage.e2e .coverage.e2e.${{ matrix.name }}
       - uses: actions/upload-artifact@v7
         with:
-          name: coverage-e2e-${{ matrix.shard }}
-          path: .coverage.e2e.${{ matrix.shard }}
+          name: coverage-e2e-${{ matrix.name }}
+          path: .coverage.e2e.${{ matrix.name }}
           include-hidden-files: true
           retention-days: 7
       # Codecov merges same-flag uploads for a commit, so each shard sends its
@@ -276,7 +293,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always() && !cancelled()
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.name }}
           path: ./tests/e2e/playwright-report/
           retention-days: 30
 
