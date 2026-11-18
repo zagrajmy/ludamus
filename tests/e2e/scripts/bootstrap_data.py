@@ -348,15 +348,18 @@ def _create_event_deletion_scenario() -> None:
             domain=COUNCIL_HOST,
             path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
         )
-    _create_event(
-        council,
-        name="Council Retreat",
-        slug="council-retreat",
-        description="A weekend the council no longer plans to hold.",
-        start_offset=timedelta(days=9),
-        duration_hours=8,
-        publication_offset=timedelta(days=1),
-    )
+    # A deletion cannot be taken back from the panel, so each attempt (CI
+    # allows two retries) votes on an event of its own number.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        _create_event(
+            council,
+            name=f"Council Retreat {attempt}",
+            slug=f"council-retreat-{attempt}",
+            description="A weekend the council no longer plans to hold.",
+            start_offset=timedelta(days=9),
+            duration_hours=8,
+            publication_offset=timedelta(days=1),
+        )
 
 
 def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:

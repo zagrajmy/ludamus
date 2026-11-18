@@ -62,6 +62,20 @@ class TestEventDeletionRepository:
         assert EventDeletionApproval.objects.filter(event=event).exists()
         assert Event.objects.filter(pk=event.pk).exists()
 
+    def test_a_restore_leaves_another_events_sessions_deleted(self, sphere):
+        at = datetime(2026, 11, 1, 12, tzinfo=UTC)
+        restored, other = EventFactory(sphere=sphere), EventFactory(sphere=sphere)
+        own_session = SessionFactory(event=restored, category=None)
+        other_session = SessionFactory(event=other, category=None)
+        for deleted in (restored, other):
+            EventDeletionRepository.soft_delete_event(event_id=deleted.pk, at=at)
+
+        with transaction.atomic():
+            EventDeletionRepository.restore_event(restored.pk)
+
+        assert Session.objects.filter(pk=own_session.pk).exists()
+        assert Session.all_objects.get(pk=other_session.pk).deleted_at == at
+
 
 @pytest.mark.postgres
 @pytest.mark.usefixtures("transactional_db")
