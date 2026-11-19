@@ -34,17 +34,6 @@ claude plugin install issue-maker@cabinet
 Inside a Claude Code session the same commands work as `/plugin marketplace add`
 and `/plugin install`.
 
-## Rituals
-
-`vekna cast` runs cabinet's rituals (`.vekna.toml`). They push over HTTPS with
-the `gh` credential helper, because a cast has no terminal for ssh to ask a
-passphrase on, so they look for a remote named `https-origin`. A fresh clone
-has only `origin`; add it once, or every ritual dies at its first push:
-
-```bash
-git remote add https-origin https://github.com/zagrajmy/ludamus.git
-```
-
 ## MCP tokens (local agents)
 
 `mise run bootstrap` and `mise run mcp-token` write gitignored
