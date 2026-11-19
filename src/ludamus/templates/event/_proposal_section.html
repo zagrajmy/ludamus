@@ -11,21 +11,23 @@
 {# Variables: cards (list[SessionData]), event #}
 {# Optional: is_own (author's own proposals), wizard_mark (superuser note), #}
 {# extra_class (page layout) #}
-<div class="mt-12 time-slot-section {{ extra_class|default:'' }}"
-     data-time-slot="{% if is_own %}own-proposals{% else %}pending-proposals{% endif %}">
+<section class="mt-12 time-slot-section {{ extra_class|default:'' }}"
+         aria-labelledby="{% if is_own %}own{% else %}pending{% endif %}-proposals-heading">
     {# h2, not h3: this section is a sibling of the schedule region, whose own #}
     {# label is an h2, and every card title inside is an h3. At h3 the section #}
     {# became a peer of the cards it labels and heading navigation lost the #}
     {# boundary between them. #}
     <div class="flex items-center gap-4 mb-4">
         {% if is_own %}
-            <h2 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
+            <h2 id="own-proposals-heading"
+                class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
                 {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
                 {% translate "Your pending proposals" %}
             </h2>
         {% else %}
             {% translate "Superuser magic: you see this without being an organizer of this event." as t_wizard %}
-            <h2 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400">
+            <h2 id="pending-proposals-heading"
+                class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400">
                 {% icon "inbox" class="w-4 h-4" variant="mini" %}
                 {% translate "Proposals to review" %}
                 {# The mark is decoration on the heading, so it stays out of the #}
@@ -63,4 +65,4 @@
             {% endif %}
         {% endfor %}
     </div>
-</div>
+</section>

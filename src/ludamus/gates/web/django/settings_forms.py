@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext, pgettext_lazy
@@ -17,6 +19,9 @@ from ludamus.gates.web.django.forms import (
     logo_field,
 )
 from ludamus.pacts.event import PublicationChoice
+
+if TYPE_CHECKING:
+    from django.http import QueryDict
 
 
 class EventSettingsForm(forms.Form):
@@ -174,3 +179,30 @@ class EventSettingsForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+
+class EventDeletionConfirmForm(forms.Form):
+    """Asks for the event's name before an approval to delete it counts.
+
+    Typing it is slower than a click on purpose: it makes sure the manager
+    knows which event they are voting away.
+    """
+
+    event_name = forms.CharField(
+        strip=True, error_messages={"required": _("Type the event's name to confirm.")}
+    )
+
+    def __init__(self, data: QueryDict | None = None, *, event_name: str) -> None:
+        super().__init__(data)
+        self._event_name = event_name
+        field = self.fields["event_name"]
+        field.label = gettext("Type the event's name to confirm: %(name)s") % {
+            "name": event_name
+        }
+        field.widget.attrs.update({"autocomplete": "off", "spellcheck": "false"})
+
+    def clean_event_name(self) -> str:
+        typed = str(self.cleaned_data.get("event_name") or "")
+        if typed != self._event_name.strip():
+            raise ValidationError(gettext("The name you typed does not match."))
+        return typed

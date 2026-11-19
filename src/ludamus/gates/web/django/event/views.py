@@ -10,6 +10,7 @@ from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -21,6 +22,7 @@ from ludamus.gates.web.django.dynamic_fields import (
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
@@ -33,6 +35,7 @@ from ludamus.pacts.sessions import (
 from .forms import create_proposal_acceptance_form
 
 if TYPE_CHECKING:
+    from datetime import datetime
 
     from django import forms
     from django.http import QueryDict
@@ -40,7 +43,10 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.services import AuthenticatedRequestContext, ServicesProtocol
-    from ludamus.pacts.session_cards import ProposalAcceptContextDTO
+    from ludamus.pacts.session_cards import (
+        PlacementAvailabilityDTO,
+        ProposalAcceptContextDTO,
+    )
     from ludamus.pacts.sessions import SessionSelfEditContext
 
 
@@ -237,11 +243,22 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     # the venue unfinished gets the reason and the panel link, not a bounce.
     if context.space_required and not context.space_options:
         return "spaces"
-    if not context.time_slots:
-        return "time_slots"
-    if not context.placements.has_free_placement:
-        return "full"
     return None
+
+
+def _wall_clock(instant: datetime) -> str:
+    return localtime(instant).strftime("%Y-%m-%dT%H:%M")
+
+
+def _busy_windows(
+    placements: PlacementAvailabilityDTO,
+) -> dict[int, list[tuple[str, str]]]:
+    # In the form the start field posts, the event's wall clock to the minute,
+    # so accept-placement.ts compares strings and never parses a timezone.
+    return {
+        space_pk: [(_wall_clock(w.start), _wall_clock(w.end)) for w in windows]
+        for space_pk, windows in placements.busy_by_space.items()
+    }
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
@@ -266,13 +283,22 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
                 space_id=form.cleaned_data.get("space"),
-                time_slot_id=form.cleaned_data["time_slot"],
+                start_time=form.cleaned_data["start_time"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(
                 None, _("There is already a session scheduled at this space and time.")
+            )
+            return self._render(request, context, form)
+        except EventPublicationInvalidError:
+            form.add_error(
+                "start_time",
+                _(
+                    "This is before the event is published. "
+                    "Move the publication time in the event settings first."
+                ),
             )
             return self._render(request, context, form)
 
@@ -323,11 +349,11 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "session": context.session,
                 "event": context.event,
                 "presenter": context.presenter,
-                "time_slots": context.time_slots,
-                "preferred_time_slot_ids": context.preferred_time_slot_ids,
+                "availability": context.availability,
                 "form": form,
                 "field_values": context.field_values,
                 "schedule_blocker": _schedule_blocker(context),
-                "taken_space_ids_by_slot": context.placements.taken_space_ids_by_slot,
+                "duration_minutes": context.duration_minutes,
+                "busy_by_space": _busy_windows(context.placements),
             },
         )

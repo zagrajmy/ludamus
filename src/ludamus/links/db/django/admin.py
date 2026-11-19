@@ -8,10 +8,12 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import render
 
 from ludamus.links.db.django.delivery import Bell, ring_as_written
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.models import (
     MODERATION_GROUND_CHOICES,
     AgendaItem,
@@ -33,10 +35,10 @@ from ludamus.links.db.django.models import (
     StatementOfReasons,
     Tag,
     TagCategory,
-    TimeSlot,
     User,
     UserEnrollmentConfig,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.moderation import (
     DECISION_TEXT_MAX_LENGTH,
     LEGAL_PROVISION_MAX_LENGTH,
@@ -531,9 +533,35 @@ class AgendaItemAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ...
 
 
+@admin.action(description="Restore selected deleted events", permissions=["change"])
+def restore_events(
+    modeladmin: _ActionAdmin, request: HttpRequest, queryset: QuerySet[Event]
+) -> None:
+    deleted = list(
+        queryset.filter(deleted_at__isnull=False).values_list("pk", flat=True)
+    )
+    with transaction.atomic():
+        for event_id in deleted:
+            EventDeletionRepository.restore_event(EventId(event_id))
+    modeladmin.message_user(
+        request, f"Restored {len(deleted)} event(s).", level=messages.SUCCESS
+    )
+
+
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+    list_display = ("name", "sphere", "start_time", "deleted_at")
+    list_filter = (("deleted_at", admin.EmptyFieldListFilter),)
+    actions = (restore_events,)
+    # Deleting and restoring move the event's sessions and votes with it; an
+    # edit to this field alone would leave them behind.
+    readonly_fields = ("deleted_at",)
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Event]:
+        # Staff restore deleted events from here, so they must be listed too.
+        return Event.all_objects.all()
 
 
 @admin.register(EventProposalSettings)
@@ -572,11 +600,6 @@ class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
 class SphereAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     inlines = (SphereMembershipInline,)
     exclude = ("managers",)
-
-
-@admin.register(TimeSlot)
-class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    ...
 
 
 class SendNotificationForm(forms.Form):
