@@ -1,0 +1,12 @@
+# NOTE: a pooled worktree starts without the ignored local files (env files,
+# `.local/`). Those matching `.worktreeinclude` are copied once from the main
+# checkout, and an existing copy is kept.
+[circle]
+prepare = '''
+set -e
+main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+git -C "$main" ls-files --others --ignored --directory --exclude-from=.worktreeinclude |
+  while read -r path; do
+    [ -e "$path" ] || { mkdir -p "$(dirname "$path")" && cp -r "$main/$path" "$path"; }
+  done
+'''
