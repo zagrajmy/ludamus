@@ -8,8 +8,7 @@ Event management website
 [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/pylint-dev/pylint)
 ![Static Badge](https://img.shields.io/badge/type%20checked-mypy-039dfc)
 [![codecov](https://codecov.io/github/zagrajmy/ludamus/graph/badge.svg?token=DB3HZP1OWT)](https://codecov.io/github/zagrajmy/ludamus)
-[![rituals: vekna](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/fancysnake/vekna/main/docs/assets/badge.json)](<https://github.com/fancys>
-nake/vekna)
+[![rituals: vekna](https://img.shields.io/endpoint?url=https://vekna.fancysnake.dev/assets/badge.json)](https://github.com/fancysnake/vekna)
 
 ## Development
 
