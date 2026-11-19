@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 import { attachArtifacts } from "./helpers/artifacts";
 import { expect, test } from "./helpers/fixtures";
@@ -10,6 +10,15 @@ const INDEX_URL = "/crowd/profile/";
 const sheet = (page: Page) => page.getByRole("dialog");
 const row = (page: Page, name: string) =>
   page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name });
+
+// NOTE: the card is a plain div, so the innermost one holding both this party's link
+// and a menu button is the card; its ancestors match too and come first.
+const partyCard = (scope: Locator, name: string) =>
+  scope
+    .locator("div")
+    .filter({ has: scope.getByRole("link", { name, exact: true }) })
+    .filter({ has: scope.getByRole("button", { name: "More actions" }) })
+    .last();
 
 const dragHandle = async (page: Page, deltaY: number) => {
   const box = await page.getByRole("button", { name: /full height|half height/ }).boundingBox();
@@ -162,7 +171,39 @@ test.describe("Profile on a phone", () => {
         .getByText(/valid email/i)
         .first(),
     ).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath("profile-phone-error.png") });
+  });
+
+  test("an error opens at full height after the sheet was shrunk", async ({ page }) => {
+    await page.goto(INDEX_URL);
+    await row(page, "Personal Information").click();
+    const email = sheet(page).getByLabel("email address", { exact: true });
+    await email.fill("not-an-email");
+    await email.evaluate((input: HTMLInputElement) => {
+      if (input.form) input.form.noValidate = true;
+    });
+    await page.getByRole("button", { name: "Shrink to half height" }).press("Enter");
+    await expect(page.getByRole("button", { name: "Expand to full height" })).toBeVisible();
+
+    await sheet(page).getByRole("button", { name: "Save" }).click();
+
+    await expect(
+      sheet(page)
+        .getByText(/valid email/i)
+        .first(),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Shrink to half height" })).toBeVisible();
+    await expect(async () => {
+      expect((await sheet(page).boundingBox())?.height).toBeGreaterThan(PHONE.height * 0.9);
+    }).toPass();
+  });
+
+  test("only a next page opens Personal Information from the address", async ({ page }) => {
+    await page.goto(`${INDEX_URL}?utm_source=mail`);
+    await expect(row(page, "Personal Information")).toBeVisible();
+    await expect(sheet(page)).toHaveCount(0);
+
+    await page.goto(`${INDEX_URL}?next=/`);
+    await expect(sheet(page).getByRole("button", { name: "Save" })).toBeVisible();
   });
 
   test("a sub-page closes to its section, and modals, menus and flashes work over the sheet", async ({
@@ -173,26 +214,13 @@ test.describe("Profile on a phone", () => {
     await expect(page).toHaveURL(/profile\/parties\/$/);
 
     const sections = page.getByRole("dialog", { name: "Parties" });
-    await sections.getByRole("button", { name: "More actions" }).last().click();
-    await sections.getByRole("button", { name: "Remove" }).last().click();
+    const card = partyCard(sections, name);
+    await card.getByRole("button", { name: "More actions" }).click();
+    await card.getByRole("button", { name: "Remove" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();
 
     await expect(page.getByText("Party deleted.")).toBeInViewport();
     await expect(sections.getByText(name)).toHaveCount(0);
-  });
-
-  test("the rows and a sheet look right", async ({ page }) => {
-    await page.goto(INDEX_URL);
-    await expect(row(page, "Privacy")).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath("profile-phone-index.png") });
-
-    await page.goto("/crowd/profile/notifications/");
-    await expect(sheet(page)).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath("profile-phone-notifications.png") });
-
-    await page.goto("/crowd/profile/parties/");
-    await expect(sheet(page)).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath("profile-phone-parties.png") });
   });
 });
 

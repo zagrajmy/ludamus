@@ -22,7 +22,7 @@
     <nav class="flex flex-col gap-0.5 p-2"
          aria-label="{% translate "Profile sections" %}">
         {% translate "Personal Information" as t_personal %}
-        {% if current_user.pending_email or current_user.email and not current_user.email_verified %}
+        {% if current_user.needs_email_verification %}
             {% translate "Email not verified" as personal_hint %}
         {% else %}
             {% translate "Name, email, Discord" as personal_hint %}

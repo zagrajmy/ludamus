@@ -1,17 +1,20 @@
 {% load csp_tags django_vite %}
 {% comment %}
-For a page with a bottom sheet: goes in extra_head. Runs before first paint, so
-a form post back to the same page does not replay the slide-up and the sheet
-keeps the height the user chose.
+For a page with a {% bottom_sheet %}: goes in extra_head. Runs before first
+paint, so a form post back to the same page does not replay the slide-up and
+the sheet keeps the height the user chose. It owns the storage key for that
+height and leaves it on the root for src/bottom-sheet.ts.
 {% endcomment %}
 <script{% nonce %}>
     (function() {
         var root = document.documentElement;
+        var key = "bottom-sheet-snap:" + location.pathname;
+        root.setAttribute("data-bottom-sheet-snap-key", key);
         try {
             if (document.referrer && new URL(document.referrer).pathname === location.pathname) {
                 root.setAttribute("data-bottom-sheet-still", "");
             }
-            var snap = sessionStorage.getItem("bottom-sheet-snap:" + location.pathname);
+            var snap = sessionStorage.getItem(key);
             if (snap) root.setAttribute("data-bottom-sheet-snap", snap);
         } catch (e) {}
     })();

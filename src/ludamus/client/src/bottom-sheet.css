@@ -134,9 +134,3 @@
     }
   }
 }
-
-/* The same lock the filter sheet takes, for the same reason: .app-scroll is
-   the only thing that scrolls, and its overflow is unlayered. */
-body:has(.bottom-sheet[aria-modal="true"]) .app-scroll {
-  overflow: hidden;
-}

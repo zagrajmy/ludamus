@@ -85,6 +85,10 @@ class UserDTO(BaseModel):
         # whether to raise a notification at all from it.
         return self.email if self.email_verified else ""
 
+    @property
+    def needs_email_verification(self) -> bool:
+        return bool(self.pending_email or (self.email and not self.email_verified))
+
 
 class CompanionDTO(UserDTO):
     # The claim token is a bearer credential for taking over the profile, so
