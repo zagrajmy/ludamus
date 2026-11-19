@@ -31,12 +31,14 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ProposalCategory,
     Session,
+    SessionAvailability,
     SessionParticipation,
     SessionParticipationStatus,
     Space,
     Sphere,
     TimeSlot,
 )
+from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.listing import ListingContact, ListingSeeking, ListingStatus
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
@@ -269,6 +271,18 @@ class TimeSlotFactory(DjangoModelFactory):
     event = SubFactory(EventFactory)
     start_time = LazyAttribute(lambda o: o.event.start_time)
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
+
+
+class SessionAvailabilityFactory(DjangoModelFactory):
+    class Meta:
+        model = SessionAvailability
+
+    day = LazyAttribute(
+        lambda o: programme_date(o.session.event.start_time, get_current_timezone())
+    )
+    part = LazyAttribute(
+        lambda o: part_of(o.session.event.start_time, get_current_timezone())
+    )
 
 
 class SessionFactory(DjangoModelFactory):

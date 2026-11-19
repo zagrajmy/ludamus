@@ -7,15 +7,12 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.availability import AvailabilityDTO
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.venues import SpaceDTO
 
 if TYPE_CHECKING:
-    from ludamus.pacts.event import (
-        EventRepositoryProtocol,
-        TimeSlotDTO,
-        TimeSlotRepositoryProtocol,
-    )
+    from ludamus.pacts.event import EventRepositoryProtocol
     from ludamus.pacts.facilitators import FacilitatorDTO
     from ludamus.pacts.proposal_categories import ProposalCategoryDTO
     from ludamus.pacts.sessions import SessionRepositoryProtocol
@@ -44,7 +41,6 @@ class TimetableRepos:
     sessions: SessionRepositoryProtocol
     agenda_items: AgendaItemRepositoryProtocol
     spaces: SpaceRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
 
@@ -60,7 +56,7 @@ class TimetableSessionDetailDTO:
     session: SessionDTO
     agenda_item: AgendaItemDTO | None
     facilitators: list[FacilitatorDTO]
-    time_slots: list[TimeSlotDTO]
+    availability: list[AvailabilityDTO]
 
 
 @dataclass
@@ -118,10 +114,11 @@ class ConflictDetectionServiceProtocol(Protocol):
         track_pk: int | None,
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
-    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]: ...
-    def list_preferred_slot_violations(
-        self, event_pk: int, track_pk: int | None
-    ) -> list[PreferredSlotViolationDTO]: ...
+        tz: tzinfo,
+    ) -> tuple[list[ConflictDTO], list[OfferedTimeViolationDTO]]: ...
+    def list_offered_time_violations(
+        self, *, event_pk: int, track_pk: int | None, tz: tzinfo
+    ) -> list[OfferedTimeViolationDTO]: ...
 
 
 class TimetableOverviewServiceProtocol(Protocol):
@@ -133,7 +130,7 @@ class TimetableOverviewServiceProtocol(Protocol):
         self, event_pk: int, conflicts: list[ConflictDTO] | None = None
     ) -> dict[str, list[ConflictDTO]]: ...
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]: ...
-    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO: ...
+    def capacity_hours(self, *, event_pk: int, tz: tzinfo) -> CapacityHoursDTO: ...
 
 
 UNSCHEDULED_LIST_LIMIT = 20
@@ -393,13 +390,6 @@ class TimeLabelDTO(BaseModel):
     offset_minutes: int
 
 
-class ClosedRangeDTO(BaseModel):
-    # A stretch of the day's axis no time slot covers. A drop there is
-    # accepted and widens the day, so the grid greys it instead of refusing it.
-    start_minutes: int
-    duration_minutes: int
-
-
 class SpaceColumnDTO(BaseModel):
     # None is the column of sessions placed without a space, shown where the
     # event does not require one or still holds such sessions.
@@ -425,7 +415,6 @@ class TimetableDayGridDTO(BaseModel):
     # mostly empty, on every day of the event.
     total_minutes: int
     time_labels: list[TimeLabelDTO]
-    closed_ranges: list[ClosedRangeDTO]
 
 
 class MultiselectOptionDTO(BaseModel):
@@ -448,6 +437,12 @@ class TimetableGridFilter(BaseModel):
     date_selection: DateSelection = "all"
     space_pks: set[int] = set()
     facilitator_pks: set[int] = set()
+    # Extra hours the organizer asked the grid to show beyond the event's own
+    # opening hours, so a session can be dropped into a time nothing occupies
+    # yet. Transient: dropping there widens the event, and the next render
+    # covers the hour on its own.
+    extend_before_hours: int = 0
+    extend_after_hours: int = 0
 
 
 class ConflictType(StrEnum):
@@ -498,6 +493,12 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
+    # What the show-earlier / show-later controls currently add, echoed so the
+    # template can offer the next step and the page can keep it in the URL.
+    extend_before_hours: int = 0
+    extend_after_hours: int = 0
+    can_extend_before: bool = False
+    can_extend_after: bool = False
     # 1-based, for "Rooms 6–10 of 11".
     first_space_number: int
     last_space_number: int
@@ -511,17 +512,12 @@ class TimetableGridDTO(BaseModel):
     conflicts: list[ConflictDTO] = []
 
 
-class PreferredSlotRangeDTO(BaseModel):
-    start_time: datetime
-    end_time: datetime
-
-
-class PreferredSlotViolationDTO(BaseModel):
+class OfferedTimeViolationDTO(BaseModel):
     session_pk: int
     session_title: str
     scheduled_start: datetime
     scheduled_end: datetime
-    preferred_slots: list[PreferredSlotRangeDTO]
+    availability: list[AvailabilityDTO]
     track_name: str | None = None
     manager_names: list[str] = []
 

@@ -73,6 +73,18 @@ class PartyNameForm(forms.Form):
     name = forms.CharField(label=_("Party name"), max_length=255)
 
 
+class PartyEnrollsTogetherForm(forms.Form):
+    enrolls_together = forms.TypedChoiceField(
+        choices=[("True", "True"), ("False", "False")],
+        coerce=lambda value: value == "True",
+        widget=forms.HiddenInput(),
+    )
+
+
+class PartyCreateForm(PartyEnrollsTogetherForm, PartyNameForm):
+    pass
+
+
 class PartyInviteForm(forms.Form):
     identifier = forms.CharField(
         label=_("Email or Discord username"),

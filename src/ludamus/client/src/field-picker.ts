@@ -1,4 +1,4 @@
-// The category page's two pickers (session fields, time slots): the server
+// The category page's session-field picker: the server
 // renders every option as a row holding a hidden <select>, and this splits
 // them into "Chosen" (ordered, with move/remove and the required toggle) and
 // "Available" (add only). The selects and the order input are what posts;

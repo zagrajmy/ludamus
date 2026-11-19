@@ -1,0 +1,76 @@
+{% load i18n %}
+{% load tessera %}
+<section id="event-deletion"
+         class="card max-w-2xl mt-6"
+         aria-labelledby="event-deletion-title">
+    <div class="card-body space-y-4">
+        <h3 id="event-deletion-title"
+            class="text-lg font-semibold text-foreground">{% translate "Delete event" %}</h3>
+        <p class="text-sm text-foreground-secondary">
+            {% translate "The event, its programme and its enrollments disappear for everyone. Site staff can bring it back on request." %}
+        </p>
+        {% if ballot.approvals_needed > 1 %}
+            <p class="text-sm text-foreground-secondary">
+                {% blocktranslate trimmed count needed=ballot.approvals_needed with managers=ballot.manager_count %}
+                    It takes {{ needed }} of the sphere's {{ managers }} managers to approve.
+                {% plural %}
+                    It takes {{ needed }} of the sphere's {{ managers }} managers to approve.
+                {% endblocktranslate %}
+            </p>
+        {% endif %}
+        {% if ballot.approvals %}
+            <div>
+                <h4 class="text-sm font-medium text-foreground">
+                    {% blocktranslate trimmed with approved=ballot.approvals|length needed=ballot.approvals_needed %}
+                        Approved {{ approved }} of {{ needed }}
+                    {% endblocktranslate %}
+                </h4>
+                <ul class="mt-2 space-y-1 text-sm text-foreground-secondary">
+                    {% for approval in ballot.approvals %}
+                        <li>
+                            <span class="text-foreground" data-ph-mask>{{ approval.user_name }}</span>
+                            · <time datetime="{{ approval.approved_at|date:'c' }}">{{ approval.approved_at|date:"SHORT_DATETIME_FORMAT" }}</time>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        {% if ballot.next_step == "watch" %}
+            <p class="text-sm text-foreground-secondary">{% translate "Only sphere managers can approve deleting an event." %}</p>
+        {% elif ballot.next_step == "withdraw" %}
+            <form method="post"
+                  action="{% url 'panel:event-withdraw-deletion' slug=current_event.slug %}">
+                {% csrf_token %}
+                {% translate "Withdraw my approval" as t_withdraw %}
+                {% tessera_button t_withdraw variant="secondary" %}
+            </form>
+        {% else %}
+            {% if ballot.next_step == "delete" %}
+                {% translate "Delete event" as t_approve %}
+                {% translate "It disappears for everyone at once." as t_approve_message %}
+            {% elif ballot.next_step == "approve" %}
+                {% translate "Approve deletion" as t_approve %}
+                {% blocktranslate trimmed count missing=ballot.missing_after_viewer asvar t_approve_message %}
+                    It is deleted once {{ missing }} more manager approves.
+                {% plural %}
+                    It is deleted once {{ missing }} more managers approve.
+                {% endblocktranslate %}
+            {% else %}
+                {% translate "Request deletion" as t_approve %}
+                {% blocktranslate trimmed count missing=ballot.missing_after_viewer asvar t_approve_message %}
+                    The other managers get a notification. It is deleted once {{ missing }} more manager approves.
+                {% plural %}
+                    The other managers get a notification. It is deleted once {{ missing }} more managers approve.
+                {% endblocktranslate %}
+            {% endif %}
+            <form method="post"
+                  action="{% url 'panel:event-approve-deletion' slug=current_event.slug %}"
+                  class="space-y-4">
+                {% csrf_token %}
+                <p class="text-sm text-foreground-secondary">{{ t_approve_message }}</p>
+                {% tessera_field form.event_name %}
+                {% tessera_button t_approve variant="danger" icon="trash" %}
+            </form>
+        {% endif %}
+    </div>
+</section>

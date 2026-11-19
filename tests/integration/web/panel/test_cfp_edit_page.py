@@ -9,11 +9,8 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     SessionField,
     SessionFieldRequirement,
-    TimeSlot,
-    TimeSlotRequirement,
 )
 from ludamus.pacts.enrollment import PromotionMode
-from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from tests.integration.conftest import EventFactory, SessionFactory
@@ -78,9 +75,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -219,9 +214,7 @@ class TestProposalCategorySettingsPageView:
                 "session_field_order": [],
                 "session_field_requirements": {},
                 "available_session_fields": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
             },
         )
@@ -304,9 +297,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -333,9 +324,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -390,9 +379,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -473,9 +460,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": ["PT1H", "PT2H", "PT3H"],
                 "proposal_count": 0,
             },
@@ -501,9 +486,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -662,9 +645,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -727,9 +708,7 @@ class TestProposalCategorySettingsPageView:
                     difficulty_field.pk: False,
                 },
                 "session_field_order": [genre_field.pk, difficulty_field.pk],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -768,9 +747,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -970,9 +947,7 @@ class TestProposalCategorySettingsPageView:
                     difficulty_field.pk: False,
                 },
                 "session_field_order": [difficulty_field.pk, genre_field.pk],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1034,9 +1009,7 @@ class TestProposalCategorySettingsPageView:
                 ],
                 "session_field_requirements": {genre_field.pk: True},
                 "session_field_order": [genre_field.pk],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1062,9 +1035,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1131,9 +1102,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 0,
             },
@@ -1169,9 +1138,7 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 1 + 1 + 1,  # 3 sessions created for this category
             },
@@ -1210,107 +1177,22 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": False,
                 "durations": [],
                 "proposal_count": 1 + 1,  # Only 2 in this category
             },
         )
 
-    # Time slot requirement tests
+    # Availability tests
 
-    def test_get_includes_available_time_slots_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot1 = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        slot2 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=3),
-            end_time=day1 + timedelta(hours=5),
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [
-                    TimeSlotDTO.model_validate(slot1),
-                    TimeSlotDTO.model_validate(slot2),
-                ],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_includes_time_slot_requirements_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot1 = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        slot2 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=3),
-            end_time=day1 + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=slot1, is_required=True
-        )
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=slot2, is_required=True
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [
-                    TimeSlotDTO.model_validate(slot1),
-                    TimeSlotDTO.model_validate(slot2),
-                ],
-                "time_slot_requirements": {slot1.pk: True, slot2.pk: True},
-                "time_slot_order": [slot1.pk, slot2.pk],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
-
-    def test_get_returns_empty_time_slot_requirements_when_none_configured(
+    def test_get_reports_a_category_that_asks_for_available_days(
         self, panel_client, event
     ):
         category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            asks_availability=True,
         )
 
         response = panel_client.get(self.get_url(event, category))
@@ -1326,26 +1208,20 @@ class TestProposalCategorySettingsPageView:
                 "available_session_fields": [],
                 "session_field_requirements": {},
                 "session_field_order": [],
-                "available_time_slots": [TimeSlotDTO.model_validate(slot)],
-                "time_slot_requirements": {},
-                "time_slot_order": [],
+                "asks_availability": True,
                 "durations": [],
                 "proposal_count": 0,
             },
         )
 
-    def test_post_saves_time_slot_requirement_as_required(self, panel_client, event):
+    def test_post_saves_asks_availability(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
         )
 
         response = panel_client.post(
             self.get_url(event, category),
-            data={"name": "RPG Sessions", f"time_slot_{slot.pk}": "required"},
+            data={"name": "RPG Sessions", "asks_availability": "on"},
         )
 
         assert_response(
@@ -1354,26 +1230,19 @@ class TestProposalCategorySettingsPageView:
             messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
-        requirement = TimeSlotRequirement.objects.get(category=category, time_slot=slot)
-        assert requirement.is_required is True
+        category.refresh_from_db()
+        assert category.asks_availability is True
 
-    def test_post_removes_time_slot_requirement_when_set_to_none(
-        self, panel_client, event
-    ):
+    def test_post_clears_asks_availability_when_unchecked(self, panel_client, event):
         category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=slot, is_required=True
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            asks_availability=True,
         )
 
         response = panel_client.post(
-            self.get_url(event, category),
-            data={"name": "RPG Sessions", f"time_slot_{slot.pk}": "none"},
+            self.get_url(event, category), data={"name": "RPG Sessions"}
         )
 
         assert_response(
@@ -1382,137 +1251,8 @@ class TestProposalCategorySettingsPageView:
             messages=[(messages.SUCCESS, "Category updated successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
-        assert not TimeSlotRequirement.objects.filter(
-            category=category, time_slot=slot
-        ).exists()
-
-    def test_post_saves_multiple_time_slot_requirements(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot1 = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        slot2 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=3),
-            end_time=day1 + timedelta(hours=5),
-        )
-        slot3 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=6),
-            end_time=day1 + timedelta(hours=8),
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"time_slot_{slot1.pk}": "required",
-                f"time_slot_{slot2.pk}": "required",
-                f"time_slot_{slot3.pk}": "none",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        assert (
-            TimeSlotRequirement.objects.filter(category=category).count()
-            == 1 + 1  # slot1 + slot2 (slot3 is "none")
-        )
-        slot1_req = TimeSlotRequirement.objects.get(category=category, time_slot=slot1)
-        slot2_req = TimeSlotRequirement.objects.get(category=category, time_slot=slot2)
-        assert slot1_req.is_required is True
-        assert slot2_req.is_required is True
-        assert not TimeSlotRequirement.objects.filter(
-            category=category, time_slot=slot3
-        ).exists()
-
-    def test_post_saves_time_slot_order(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot1 = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        slot2 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=3),
-            end_time=day1 + timedelta(hours=5),
-        )
-
-        response = panel_client.post(
-            self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                f"time_slot_{slot1.pk}": "required",
-                f"time_slot_{slot2.pk}": "required",
-                "time_slot_order": f"{slot2.pk},{slot1.pk}",
-            },
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Category updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/",
-        )
-        slot1_req = TimeSlotRequirement.objects.get(category=category, time_slot=slot1)
-        slot2_req = TimeSlotRequirement.objects.get(category=category, time_slot=slot2)
-        assert slot2_req.order == 0
-        assert slot1_req.order == 1
-
-    def test_get_includes_time_slot_order_in_context(self, panel_client, event):
-        category = ProposalCategory.objects.create(
-            event=event, name="RPG Sessions", slug="rpg-sessions"
-        )
-        day1 = datetime(2025, 6, 14, 10, 0, tzinfo=UTC)
-        slot1 = TimeSlot.objects.create(
-            event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
-        )
-        slot2 = TimeSlot.objects.create(
-            event=event,
-            start_time=day1 + timedelta(hours=3),
-            end_time=day1 + timedelta(hours=5),
-        )
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=slot1, is_required=True, order=1
-        )
-        TimeSlotRequirement.objects.create(
-            category=category, time_slot=slot2, is_required=True, order=0
-        )
-
-        response = panel_client.get(self.get_url(event, category))
-
-        # Order should be [slot2, slot1] based on order field
-        # (slot2 has order=0, slot1 has order=1)
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/cfp-edit.html",
-            context_data={
-                **panel_context(event, active_nav="cfp"),
-                "category": ProposalCategoryDTO.model_validate(category),
-                "form": ANY,
-                "available_session_fields": [],
-                "session_field_requirements": {},
-                "session_field_order": [],
-                "available_time_slots": [
-                    TimeSlotDTO.model_validate(slot2),
-                    TimeSlotDTO.model_validate(slot1),
-                ],
-                "time_slot_requirements": {slot1.pk: True, slot2.pk: True},
-                "time_slot_order": [slot2.pk, slot1.pk],
-                "durations": [],
-                "proposal_count": 0,
-            },
-        )
+        category.refresh_from_db()
+        assert category.asks_availability is False
 
     # Participant limits tests
 

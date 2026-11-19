@@ -134,7 +134,11 @@ def _event_card(event: Event, *, role: DashboardRole) -> DashboardCardDTO:
 def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]:
     return list(
         SessionParticipation.objects.filter(
-            user_id=user_id, session__agenda_item__start_time__gte=now
+            user_id=user_id,
+            session__agenda_item__start_time__gte=now,
+            # A deleted event keeps its sessions' timetable for a restore; the
+            # seat must go from the agenda with it.
+            session__deleted_at__isnull=True,
         )
         # A lapsed offer waits for the expiry sweep; a claim button on it
         # could only fail.

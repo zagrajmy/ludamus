@@ -200,7 +200,7 @@ class ProposalDetailPageView(EventPanelMixin, View):
         context["field_values"] = detail.field_values
         context["facilitators"] = detail.facilitators
         context["presenter"] = detail.presenter
-        context["preferred_time_slots"] = detail.schedule.preferred_time_slots
+        context["availability"] = detail.schedule.availability
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
         # Carries the list's filters back: the breadcrumb and the action forms

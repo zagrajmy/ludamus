@@ -13,6 +13,7 @@ from ludamus.gates.web.django.event.panel.views import (
     enrollment_settings,
     errata,
     event_create,
+    event_deletion,
     event_settings,
     export,
     facilitator_actions,
@@ -128,6 +129,16 @@ urlpatterns = [
         "event/<slug:slug>/settings/",
         event_settings.EventSettingsPageView.as_view(),
         name="event-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/do/approve-deletion",
+        event_deletion.EventSettingsApproveDeletionActionView.as_view(),
+        name="event-approve-deletion",
+    ),
+    path(
+        "event/<slug:slug>/settings/do/withdraw-deletion",
+        event_deletion.EventSettingsWithdrawDeletionActionView.as_view(),
+        name="event-withdraw-deletion",
     ),
     path(
         "event/<slug:slug>/settings/proposals/",

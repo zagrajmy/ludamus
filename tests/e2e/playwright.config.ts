@@ -38,6 +38,26 @@ const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 const isCI = !!process.env.CI;
 const skipWebkit = !!process.env.E2E_SKIP_WEBKIT;
 
+// CI runs the projects as three groups, each sharded on its own, so a shard's
+// share is one kind of work and the split stays even. "rest" is every project
+// the other two groups do not name: a project added below lands there rather
+// than in no group.
+const projectGroup = process.env.E2E_PROJECT_GROUP;
+const inProjectGroup = ({ name }: { name?: string }) => {
+  switch (projectGroup) {
+    case undefined:
+    case "":
+      return true;
+    case "chromium":
+    case "firefox":
+      return name === projectGroup;
+    case "rest":
+      return name !== "chromium" && name !== "firefox";
+    default:
+      throw new Error(`Unknown E2E_PROJECT_GROUP "${projectGroup}"`);
+  }
+};
+
 // Set before webServerEnv is built, so the runner and the server it starts
 // agree on whether this run measures coverage.
 process.env.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
@@ -186,7 +206,7 @@ export default defineConfig({
         storageState: path.join(__dirname, ".auth-state.json"),
       },
     },
-  ],
+  ].filter(inProjectGroup),
   webServer: [
     {
       command: WEB_COMMAND,
