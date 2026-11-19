@@ -1,5 +1,7 @@
 """Organizer panel DTOs and protocols for the proposals and facilitators lists."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
@@ -7,12 +9,8 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from ludamus.pacts.event import (
-        EventRepositoryProtocol,
-        FacilitatorListItemDTO,
-        TimeSlotDTO,
-        TimeSlotRepositoryProtocol,
-    )
+    from ludamus.pacts.availability import AvailabilityDTO
+    from ludamus.pacts.event import EventRepositoryProtocol, FacilitatorListItemDTO
     from ludamus.pacts.facilitators import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
@@ -174,7 +172,7 @@ class ProposalDraft:
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
     track_ids: list[int] = field(default_factory=list)
-    time_slot_ids: list[int] = field(default_factory=list)
+    availability: list[AvailabilityDTO] = field(default_factory=list)
 
 
 @dataclass
@@ -229,7 +227,6 @@ class ProposalPanelRepos:
     panel_settings: EventPanelSettingsRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     tracks: TrackRepositoryProtocol
-    time_slots: TimeSlotRepositoryProtocol
 
 
 @dataclass
@@ -248,7 +245,7 @@ class ProposalScheduleDTO:
 
     agenda_item: AgendaItemDTO | None
     logs: list[ScheduleChangeLogDTO]
-    preferred_time_slots: list[TimeSlotDTO]
+    availability: list[AvailabilityDTO]
 
 
 @dataclass
@@ -288,14 +285,15 @@ class ProposalAssignmentsDTO:
 
     facilitators: list[FacilitatorDTO] = field(default_factory=list)
     track_ids: list[int] = field(default_factory=list)
-    time_slot_ids: list[int] = field(default_factory=list)
+    availability: list[AvailabilityDTO] = field(default_factory=list)
 
 
 @dataclass
 class ProposalFormDTO:
     """Read aggregate for the proposal create/edit page.
 
-    The three pickers offer the event's facilitators, tracks and time slots.
+    The pickers offer the event's facilitators and tracks; the parts of days
+    on offer come from the event's own hours.
     Personal data belongs to an existing proposal's facilitators, so a create
     page reads none.
     """
@@ -303,7 +301,6 @@ class ProposalFormDTO:
     fields: ProposalFormFieldsDTO
     facilitators: list[FacilitatorListItemDTO]
     tracks: list[TrackDTO]
-    time_slots: list[TimeSlotDTO]
     assigned: ProposalAssignmentsDTO
     personal_data_fields: list[OrganizerFieldDTO]
     personal_data_values: dict[int, dict[str, str | list[str] | bool]]

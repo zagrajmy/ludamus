@@ -46,6 +46,31 @@ def _join(party, user, *, status=PartyMembershipStatus.ACTIVE):
     )
 
 
+class TestPartyThatDoesNotEnroll:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_through_it_is_refused(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        Party.objects.filter(pk=party.pk).update(enrolls_together=False)
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[
+                (messages.ERROR, "Choose one of your parties or enroll by yourself.")
+            ],
+        )
+        assert not SessionParticipation.objects.exists()
+
+
 class TestHostingMember:
     @pytest.mark.usefixtures("enrollment_config")
     def test_leader_cannot_release_a_hosting_members_own_row(

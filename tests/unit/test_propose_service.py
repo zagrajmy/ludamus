@@ -4,8 +4,9 @@ from types import SimpleNamespace
 import pytest
 
 from ludamus.mills.propose.wizard import ProposeSessionService
+from ludamus.pacts.availability import AvailabilityDTO, DayPart, programme_date
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventProposalSettingsDTO
+from ludamus.pacts.event import EventProposalSettingsDTO, TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.propose import (
@@ -76,11 +77,11 @@ class FakeSessions:
             for row in self.rows.values()
         )
 
-    def create(self, data, *, time_slot_ids, facilitator_ids):
+    def create(self, data, *, availability, facilitator_ids):
         pk = len(self.rows) + 100
         self.rows[pk] = {
             "data": dict(data),
-            "time_slot_ids": list(time_slot_ids),
+            "availability": list(availability),
             "facilitator_ids": list(facilitator_ids),
             "track_ids": [],
             "field_values": {},
@@ -178,6 +179,14 @@ class FakeTracks:
         return [track for track in self.public if track.event_id == event_id]
 
 
+class FakeTimeSlots:
+    def __init__(self, *slots: tuple[int, TimeSlotDTO]) -> None:
+        self.slots = list(slots)
+
+    def list_by_event(self, event_id):
+        return [slot for owner, slot in self.slots if owner == event_id]
+
+
 class FakeEventCatalogue:
     """The event, its proposal settings and its categories, keyed by event."""
 
@@ -190,7 +199,7 @@ class FakeEventCatalogue:
         }
         self.categories = {EVENT_PK: [category(pk=CATEGORY_PK)]}
         self.session_requirements = {CATEGORY_PK: ["session requirement"]}
-        self.time_slot_requirements = {CATEGORY_PK: ["time slot requirement"]}
+        self.asked_availability = {CATEGORY_PK: True}
 
     def read_by_slug(self, slug, sphere_id):
         return self.events[slug, sphere_id]
@@ -215,8 +224,8 @@ class FakeEventCatalogue:
     def list_session_field_requirements(self, category_id):
         return self.session_requirements[category_id]
 
-    def list_time_slot_requirements(self, category_id):
-        return self.time_slot_requirements[category_id]
+    def asks_availability(self, category_id):
+        return self.asked_availability[category_id]
 
 
 class FakeReusableSessions:
@@ -231,9 +240,12 @@ class FakeReusableSessions:
 class World(SimpleNamespace):
     """Every repo the wizard writes through, holding what it was given."""
 
-    def __init__(self, *, user=None, facilitators=(), session_fields=(), personal=()):
+    def __init__(
+        self, *, user=None, facilitators=(), session_fields=(), personal=(), slots=()
+    ):
         super().__init__(
             catalogue=FakeEventCatalogue(),
+            time_slots=FakeTimeSlots(*slots),
             sessions=FakeSessions(),
             facilitators=FakeFacilitators(*facilitators),
             session_fields=FakeFields(*session_fields),
@@ -261,6 +273,7 @@ class World(SimpleNamespace):
                 personal_data_field_values=self.personal_values,
                 facilitators=self.facilitators,
                 users=self.users,
+                time_slots=self.time_slots,
             ),
             cache=self.cache,
         )
@@ -268,7 +281,9 @@ class World(SimpleNamespace):
     def submit(self, wizard_data, *, as_user=False, **kwargs):
         if as_user:
             kwargs |= {"user_id": USER_PK, "user_slug": USER_SLUG}
-        return self.service().submit(_event(), wizard_data, language="pl", **kwargs)
+        return self.service().submit(
+            _event(), wizard_data, language="pl", tz=UTC, **kwargs
+        )
 
     def only_session(self):
         assert len(self.sessions.rows) == 1, self.sessions.rows
@@ -335,12 +350,13 @@ class TestSubmit:
     def test_passes_every_wizard_answer_into_the_session(self):
         world = World()
         cover_image = object()
+        second_day = programme_date(_event().start_time, UTC) + timedelta(days=1)
 
         world.submit(
             {
                 "category_id": 3,
                 "contact_email": "host@example.com",
-                "time_slot_ids": [4, 5],
+                "availability": [f"{second_day}:evening", "not-a-day:evening"],
                 "session_data": {
                     "title": "Test Session",
                     "description": "Long one",
@@ -353,7 +369,9 @@ class TestSubmit:
         )
 
         session = world.only_session()
-        assert session["time_slot_ids"] == [4, 5]
+        assert session["availability"] == [
+            AvailabilityDTO(day=second_day, offer=DayPart.EVENING)
+        ]
         data = session["data"]
         assert (
             data["description"],
@@ -489,6 +507,23 @@ class TestSubmit:
 
         assert world.only_session()["track_ids"] == attached
 
+    def test_where_the_event_lists_slots_only_its_own_slots_are_kept(self):
+        opens = _event().start_time
+        own = TimeSlotDTO(pk=11, start_time=opens, end_time=opens + timedelta(hours=4))
+        foreign = TimeSlotDTO(
+            pk=12, start_time=opens, end_time=opens + timedelta(hours=4)
+        )
+        world = World(slots=[(EVENT_PK, own), (OTHER_EVENT_PK, foreign)])
+        day = programme_date(opens, UTC)
+
+        world.submit(
+            _wizard(availability=["slot:11", "slot:12", f"{day}:evening", "slot:x"])
+        )
+
+        assert world.only_session()["availability"] == [
+            AvailabilityDTO(day=day, offer=own)
+        ]
+
 
 class TestSavedPersonalData:
     def test_is_empty_for_anonymous_or_users_without_a_facilitator(self):
@@ -542,9 +577,7 @@ class TestReads:
         assert [c.pk for c in service.get_categories(EVENT_PK)] == [CATEGORY_PK]
         assert service.get_category(CATEGORY_PK, EVENT_PK).pk == CATEGORY_PK
         assert service.get_session_requirements(CATEGORY_PK) == ["session requirement"]
-        assert service.get_timeslot_requirements(CATEGORY_PK) == [
-            "time slot requirement"
-        ]
+        assert service.asks_availability(CATEGORY_PK) is True
         assert [t.pk for t in service.get_public_tracks(EVENT_PK)] == [OWN_TRACK_PK]
 
     def test_personal_fields_are_the_events_own(self):

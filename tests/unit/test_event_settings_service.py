@@ -73,6 +73,12 @@ class FakeEvents:
                 return event
         raise NotFoundError
 
+    def slug_exists(self, sphere_id: int, slug: str) -> bool:
+        return any(
+            (event.slug, event.sphere_id) == (slug, sphere_id)
+            for event in self.rows.values()
+        )
+
     def update(self, pk: int, data: EventUpdateData) -> EventDTO:
         if self._update_error is not None:
             raise self._update_error

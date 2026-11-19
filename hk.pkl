@@ -132,6 +132,23 @@ hooks {
       }
     }
   }
+  // The fast part of CI's checks job, on the files being pushed. A hook
+  // rather than a line in AGENTS.md, because a step that can be skipped is.
+  // The two type checks read whole projects, so they take no file list; hk
+  // runs each once, and only when the push touches a file of its kind.
+  ["pre-push"] {
+    steps {
+      ...linters
+      ["mypy"] {
+        glob = List("src/**/*.py")
+        check = "mise run lint:mypy"
+      }
+      ["ts-check"] {
+        glob = List("**/*.ts", "**/*.tsx", "**/*.mts")
+        check = "mise run ts-check"
+      }
+    }
+  }
   ["fix"] {
     fix = true
     steps = linters

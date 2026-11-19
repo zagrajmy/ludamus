@@ -75,8 +75,8 @@ test.describe("Profile — Parties (parties.html)", () => {
     await companionDialog.getByLabel("Display name").fill(companionName);
     await companionDialog.getByRole("button", { name: "Add companion", exact: true }).click();
 
-    await page.getByRole("link", { name: "Create party", exact: true }).click();
-    const partyDialog = page.getByRole("dialog", { name: "Create party" });
+    await page.getByRole("link", { name: "Create enrollment party", exact: true }).click();
+    const partyDialog = page.getByRole("dialog", { name: "Create enrollment party" });
     const partyName = `E2E Party ${Date.now()}`;
     await partyDialog.getByLabel("Party name").fill(partyName);
     await partyDialog.getByRole("button", { name: "Create party", exact: true }).click();

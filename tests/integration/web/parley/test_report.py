@@ -62,7 +62,9 @@ def test_a_party_chat_report_reaches_staff_and_no_sphere(
     active_user.save()
     friend = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
     services = Services()
-    party_pk = services.parties.create(leader_pk=friend.pk, name="Ekipa")
+    party_pk = services.parties.create(
+        leader_pk=friend.pk, name="Ekipa", enrolls_together=True
+    )
     services.parties.join_via_link(
         token=services.parties.read_invite_token(
             leader_pk=friend.pk, party_pk=party_pk

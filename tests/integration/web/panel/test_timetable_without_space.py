@@ -5,7 +5,6 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import AgendaItem
-from tests.integration.conftest import TimeSlotFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import make_timetable_session
 
@@ -27,9 +26,6 @@ class TestPlacingASessionWithoutASpace:
     def test_an_event_that_requires_a_space_refuses_it(
         self, panel_client, event, proposal_category
     ):
-        TimeSlotFactory(
-            event=event, start_time=event.start_time, end_time=event.end_time
-        )
         session = make_timetable_session(proposal_category, status="accepted")
 
         response = _assign(panel_client, event, session)
@@ -46,9 +42,6 @@ class TestPlacingASessionWithoutASpace:
     ):
         event.require_session_space = False
         event.save()
-        TimeSlotFactory(
-            event=event, start_time=event.start_time, end_time=event.end_time
-        )
         session = make_timetable_session(proposal_category, status="accepted")
 
         response = _assign(panel_client, event, session)
@@ -65,9 +58,6 @@ class TestPlacingASessionWithoutASpace:
     ):
         event.require_session_space = False
         event.save()
-        TimeSlotFactory(
-            event=event, start_time=event.start_time, end_time=event.end_time
-        )
         first = make_timetable_session(proposal_category, status="accepted")
         second = make_timetable_session(proposal_category, status="accepted")
         _assign(panel_client, event, first)

@@ -50,8 +50,6 @@ def _repos():
     facilitators.list_by_event.side_effect = _by_event(_ids(_ANN, _BOB))
     tracks = MagicMock()
     tracks.list_by_event.side_effect = _by_event(_ids(_RPG, _LARP))
-    time_slots = MagicMock()
-    time_slots.list_by_event.side_effect = _by_event(_ids(1, 2))
     session_fields = MagicMock()
     session_fields.list_by_event.side_effect = _by_event(["field"])
     return ProposalPanelRepos(
@@ -61,7 +59,6 @@ def _repos():
         panel_settings=MagicMock(),
         facilitators=facilitators,
         tracks=tracks,
-        time_slots=time_slots,
     )
 
 
@@ -202,21 +199,14 @@ class TestUpdate:
             user_id=_USER_ID,
             edit=ProposalEdit(
                 content=SessionContentEditData(
-                    update={"title": "T"},
-                    facilitator_ids=[_BOB, 99],
-                    track_ids=None,
-                    time_slot_ids=[2, 98],
+                    update={"title": "T"}, facilitator_ids=[_BOB, 99], track_ids=None
                 ),
                 personal_data={_ANN: entries},
             ),
         )
 
         data = content_edit.apply.call_args.kwargs["data"]
-        assert (data.facilitator_ids, data.track_ids, data.time_slot_ids) == (
-            [_BOB],
-            None,
-            [2],
-        )
+        assert (data.facilitator_ids, data.track_ids) == ([_BOB], None)
         personal_data.update_personal_data.assert_called_once_with(
             event_id=_EVENT_ID, facilitator_id=_ANN, entries=entries, user_id=_USER_ID
         )

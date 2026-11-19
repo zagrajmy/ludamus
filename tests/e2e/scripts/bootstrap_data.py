@@ -32,6 +32,7 @@ from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 from PIL import Image
 
+from ludamus.pacts.availability import DayPart, programme_date
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
@@ -54,6 +55,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
+    SessionAvailability,
     TimeSlot,
     Track,
     User,
@@ -317,6 +319,47 @@ def _create_party_companion_scenario() -> None:
 
 
 CREW_HOST = "crew.localhost"
+
+
+COUNCIL_HOST = "council.localhost"
+
+
+def _create_event_deletion_scenario() -> None:
+    """Seed what event-deletion.spec needs: a sphere two managers must agree on.
+
+    A sphere of its own, so deleting its one event leaves every other spec's
+    fixtures alone, and so the team stays at the two whose approvals it takes.
+    """
+    _, council = _create_site(f"{COUNCIL_HOST}:8000", name="Council")
+    for slug, name in (
+        ("e2e-council-first", "Ada Council"),
+        ("e2e-council-second", "Bert Council"),
+    ):
+        member = User.objects.create_user(
+            username=slug,
+            email=f"{slug}@test.local",
+            password=f"{slug}-123",
+            name=name,
+            slug=slug,
+        )
+        council.managers.add(member)
+        _write_storage_state(
+            member,
+            domain=COUNCIL_HOST,
+            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+        )
+    # A deletion cannot be taken back from the panel, so each attempt (CI
+    # allows two retries) votes on an event of its own number.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        _create_event(
+            council,
+            name=f"Council Retreat {attempt}",
+            slug=f"council-retreat-{attempt}",
+            description="A weekend the council no longer plans to hold.",
+            start_offset=timedelta(days=9),
+            duration_hours=8,
+            publication_offset=timedelta(days=1),
+        )
 
 
 def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
@@ -1309,11 +1352,6 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     )
     venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
     _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time + timedelta(hours=1),
-        end_time=event.start_time + timedelta(hours=3),
-    )
     category = ProposalCategory.objects.create(
         event=event,
         name="Showcase",
@@ -1378,11 +1416,6 @@ def _create_meetup_without_rooms_event(sphere: Sphere) -> None:
     )
     event.require_session_space = False
     event.save(update_fields=["require_session_space"])
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time + timedelta(hours=1),
-        end_time=event.start_time + timedelta(hours=3),
-    )
     presenter = User.objects.get(username="e2e-tester")
     Session.objects.create(
         event=event,
@@ -1402,16 +1435,16 @@ def _create_meetup_without_rooms_event(sphere: Sphere) -> None:
     )
 
 
-def _create_accept_crowded_event(sphere: Sphere, *, slots: int) -> None:
-    # Three rooms, one of them holding a session through the first slot: the
-    # accept page shows it taken then, never as a conflict to discover on
-    # submit. With one slot the server marks it; with two, the room frees up
-    # in the second and accept-placement.ts follows the slot picked.
+def _create_accept_crowded_event(sphere: Sphere) -> None:
+    # Three rooms, one of them held from an hour after opening for two hours.
+    # The two-hour pitch opens at the event's opening, so the accept page shows
+    # that room taken then, and accept-placement.ts frees it once the start
+    # moves past the booking, never leaving it a conflict found on submit.
     event = _create_event(
         sphere,
-        name=f"Crowded Room Convention ({slots})",
-        slug=f"accept-crowded-{slots}",
-        description="Three rooms, one of them booked in the first slot.",
+        name="Crowded Room Convention",
+        slug="accept-crowded",
+        description="Three rooms, one of them booked for part of the day.",
         start_offset=timedelta(days=20),
         duration_hours=8,
         publication_offset=timedelta(days=2),
@@ -1421,19 +1454,13 @@ def _create_accept_crowded_event(sphere: Sphere, *, slots: int) -> None:
     booked = _create_space(venue, name="Booked Room", slug="booked-room", capacity=8)
     _create_space(venue, name="North Room", slug="north-room", capacity=8)
     _create_space(venue, name="South Room", slug="south-room", capacity=8)
-    for slot in range(slots):
-        TimeSlot.objects.create(
-            event=event,
-            start_time=event.start_time + timedelta(hours=1 + 3 * slot),
-            end_time=event.start_time + timedelta(hours=3 + 3 * slot),
-        )
     _create_session(
         event,
         booked,
         title="Already Here",
-        slug=f"already-here-{slots}",
+        slug="already-here",
         presenter="Host",
-        description="Holds the booked room through the only slot.",
+        description="Holds the booked room for two hours of the day.",
         start_offset=timedelta(hours=1),
         duration_hours=2,
     )
@@ -1447,7 +1474,7 @@ def _create_accept_crowded_event(sphere: Sphere, *, slots: int) -> None:
             event=event, name="Talk", slug="talk", durations=["PT2H"]
         ),
         title="Crowded Pitch",
-        slug=f"crowded-pitch-{slots}",
+        slug="crowded-pitch",
         description="A proposal for a room that is mostly free.",
         duration="PT2H",
         participants_limit=4,
@@ -1880,12 +1907,6 @@ def _create_placement_lab_event(sphere: Sphere) -> None:
     )
     venue = _create_venue(event, name="Bazaar Hall", slug="bazaar-hall")
     _create_space(venue, name="Brass Room", slug="brass-room", capacity=8)
-    # The timetable draws its grid over the event's time slots.
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time,
-        end_time=event.start_time + timedelta(hours=4),
-    )
     Session.objects.create(
         event=event,
         category=category,
@@ -1979,6 +2000,60 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     SessionFieldRequirement.objects.create(
         category=category, field=triggers, is_required=False
     )
+    return event
+
+
+def _create_slot_availability_event(sphere: Sphere, *, tester: User) -> Event:
+    # An organizer who draws time slots gets them offered in place of parts
+    # of a day; a proposal that picked one carries its hours to the card and
+    # the accept page.
+    event = _create_event(
+        sphere,
+        name="Slotted Weekend",
+        slug="slot-con",
+        description="A day of fixed blocks, offered to proposers as they are.",
+        start_offset=timedelta(days=16),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Blocks",
+        slug="blocks",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+        asks_availability=True,
+    )
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=4),
+    )
+    afternoon = TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=4),
+        end_time=event.start_time + timedelta(hours=8),
+    )
+    venue = _create_venue(event, name="Block Hall", slug="block-hall")
+    area = _create_area(venue, name="Block Floor", slug="block-floor")
+    _create_space(area, name="Block Room", slug="block-room", capacity=6)
+    proposal = Session.objects.create(
+        event=event,
+        presenter=tester,
+        facilitator_name="E2E Tester",
+        contact_email="e2e@test.local",
+        category=category,
+        title="Afternoon Block Proposal",
+        slug="afternoon-block-proposal",
+        description="Picked the afternoon slot.",
+        duration="PT1H",
+        participants_limit=4,
+        status=SessionStatus.PENDING,
+    )
+    proposal.time_slots.add(afternoon)
     return event
 
 
@@ -2274,6 +2349,7 @@ def main() -> None:
     _create_notifications_scenario()
     _create_mention_mail_scenario()
     _create_unlisted_and_team_scenario(sphere)
+    _create_event_deletion_scenario()
 
     _create_party_companion_scenario()
 
@@ -2467,11 +2543,6 @@ def main() -> None:
         max_participants_limit=6,
         durations=["PT1H"],
     )
-    proposal_slot = TimeSlot.objects.create(
-        event=upcoming_event,
-        start_time=upcoming_event.start_time + timedelta(hours=1),
-        end_time=upcoming_event.start_time + timedelta(hours=2),
-    )
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -2486,11 +2557,15 @@ def main() -> None:
         min_age=12,
         status=SessionStatus.PENDING,
     )
-    pending_session.time_slots.add(proposal_slot)
+    SessionAvailability.objects.create(
+        session=pending_session,
+        day=programme_date(upcoming_event.start_time, get_current_timezone()),
+        part=DayPart.EVENING,
+    )
 
     # A second proposal covering the card's other two arms: no participants
     # limit at all (which must render nothing, not "0 seats"), and more
-    # preferred slots than the meta row can name.
+    # offered times than the meta row can name.
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -2505,13 +2580,16 @@ def main() -> None:
         min_age=0,
         status=SessionStatus.PENDING,
     )
-    open_session.time_slots.set(
-        TimeSlot.objects.create(
-            event=upcoming_event,
-            start_time=upcoming_event.start_time + timedelta(hours=offset),
-            end_time=upcoming_event.start_time + timedelta(hours=offset + 1),
+    first_day = programme_date(upcoming_event.start_time, get_current_timezone())
+    SessionAvailability.objects.bulk_create(
+        SessionAvailability(
+            session=open_session, day=first_day + timedelta(days=offset), part=part
         )
-        for offset in (3, 5, 7)
+        for offset, part in (
+            (0, DayPart.MORNING),
+            (1, DayPart.EVENING),
+            (2, DayPart.AFTERNOON),
+        )
     )
 
     # Dedicated events for the mutating panel / cover-image specs, so they
@@ -2540,12 +2618,12 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_slot_availability_event(sphere, tester=tester)
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
     _create_meetup_without_rooms_event(sphere)
-    _create_accept_crowded_event(sphere, slots=1)
-    _create_accept_crowded_event(sphere, slots=2)
+    _create_accept_crowded_event(sphere)
     _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
     _create_session_covers_event(sphere)
