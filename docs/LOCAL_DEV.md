@@ -34,6 +34,60 @@ claude plugin install issue-maker@cabinet
 Inside a Claude Code session the same commands work as `/plugin marketplace add`
 and `/plugin install`.
 
+## Rituals
+
+`vekna cast` runs cabinet's rituals against this repo. Install vekna once per
+user, not per project: every project then talks to the same vekna daemon
+version. The rituals come from cabinet, so cabinet goes into vekna's
+environment. In `~/.config/mise/config.toml`:
+
+```toml
+[tools."pipx:vekna"]
+version = "latest"
+uvx = false
+pipx_args = "--preinstall <URL of the cabinet wheel>"
+```
+
+The wheel is an asset of a
+[cabinet release](https://github.com/fancysnake/cabinet/releases). Run
+`mise install` after the edit.
+
+The project's settings go in `~/.config/vekna/config.toml`. Change `path` to
+your checkout:
+
+```toml
+[projects.ludamus]
+path = "~/ludamus"
+
+[projects.ludamus.rituals]
+modules = ["cabinet.rituals"]
+
+# Only what differs from cabinet's defaults.
+[projects.ludamus.cabinet]
+remote = "https-origin"
+sign_commits = false
+review_skill = ".claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
+coverage = "mise run diff-cover"
+
+# CI checks the rituals fix, keyed by a prefix of the check name. `test`
+# covers test-postgres/-unit/-e2e and the aggregator; `codecov/patch` is red
+# on missing patch coverage. `tingle` is left out on purpose: it is
+# continue-on-error and never turns the board red.
+[projects.ludamus.cabinet.ci.jobs]
+checks = {}
+frontend-analysis = {}
+test = {}
+"codecov/patch" = { covering = true }
+```
+
+A cast has no terminal for ssh to ask a passphrase on, so the rituals push
+over HTTPS with the `gh` credential helper. They use the remote named in
+`remote`. A fresh clone has only `origin`, so add it once:
+
+```bash
+git remote add https-origin https://github.com/zagrajmy/ludamus.git
+```
+
 ## MCP tokens (local agents)
 
 `mise run bootstrap` and `mise run mcp-token` write gitignored
