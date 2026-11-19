@@ -43,14 +43,13 @@ environment. In `~/.config/mise/config.toml`:
 
 ```toml
 [tools."pipx:vekna"]
-version = "latest"
+version = "1.3.0"
 uvx = false
-pipx_args = "--preinstall <URL of the cabinet wheel>"
+pipx_args = "--preinstall https://github.com/fancysnake/cabinet/releases/download/v6.0.0/cabinet-6.0.0-py3-none-any.whl"
 ```
 
-The wheel is an asset of a
-[cabinet release](https://github.com/fancysnake/cabinet/releases). Run
-`mise install` after the edit.
+Run `mise install` after the edit. Newer wheels are assets of the
+[cabinet releases](https://github.com/fancysnake/cabinet/releases).
 
 The project's settings go in `~/.config/vekna/config.toml`. Change `path` to
 your checkout:
