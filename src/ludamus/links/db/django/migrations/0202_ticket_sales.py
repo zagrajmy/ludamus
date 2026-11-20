@@ -10,7 +10,7 @@ import ludamus.pacts.tickets
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0198_parley_encounter_chat")]
+    dependencies = [("db_main", "0201_party_enrolls_together")]
 
     operations = [
         migrations.CreateModel(

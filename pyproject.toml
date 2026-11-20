@@ -55,8 +55,6 @@ stripe = "~16.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-# NOTE: cabinet is not on PyPI, so it is pinned to its GitHub release wheel.
-cabinet = { url = "https://github.com/fancysnake/cabinet/releases/download/v5.0.0/cabinet-5.0.0-py3-none-any.whl" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^11.0.0"
@@ -190,7 +188,7 @@ DEP002 = [
 # djlint and regex: scripts/djlint_underscore_end.py is a djlint plugin, so it
 # imports the linter it extends and the regex flavour djlint compiles its
 # patterns with. Lint-time only, never at runtime.
-DEP004 = ["debug_toolbar", "djlint", "regex", "vekna", "zeal"]
+DEP004 = ["debug_toolbar", "djlint", "regex", "zeal"]
 
 # MYPY
 
@@ -646,10 +644,6 @@ ignore_names = [
     # Read only through ORM lookups (search_key__contains)
     "search_key",
     "test_func",
-    # Vekna rituals
-    "pr_refresh",
-    "pr_cover",
-    "pr_review",
 ]
 
 ignore_decorators = [
