@@ -1,0 +1,85 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    What the command menu offers, as the real links and buttons it runs:
+    command-menu/menu.tsx lists every link and button of each
+    [data-command-group] and clicks the one picked. Kept in a template so the
+    copy, the URLs and the {% icon %} glyphs have one source.
+
+    A [data-command-submenu] is one row that opens its own list: its
+    [data-command-submenu-label] names the row, its buttons are the list.
+    Typing at the top level still finds them. A signed-in person's menu also
+    fetches command-menu-entries.html on its first open.
+{% endcomment %}
+{% get_current_language as current_language %}
+{% get_available_languages as available_languages %}
+{% get_language_info_list for available_languages as languages %}
+<div hidden
+     data-command-menu
+     {% if request.user.is_authenticated %}data-entries-url="{% url 'web:command-menu-entries' %}"{% endif %}
+     data-title="{% translate "Command menu" %}"
+     data-placeholder="{% translate "Type a command or search…" %}"
+     data-empty="{% translate "No results found." %}"
+     data-entries-error="{% translate "Your events and encounters did not load. Reload the page to search them." %}"
+     data-back="{% translate "Back" %}">
+    <template data-command-search-icon>
+        {% icon "magnifying-glass" variant="mini" %}
+    </template>
+    <template data-command-checked-icon>
+        {% icon "check" variant="mini" %}
+    </template>
+    <template data-command-back-icon>
+        {% icon "arrow-left" variant="mini" %}
+    </template>
+    <template data-command-submenu-icon>
+        {% icon "chevron-right" variant="mini" %}
+    </template>
+    <div data-command-group="{% translate "Go to" %}">
+        <a href="{% url 'web:index' %}">{% icon "calendar-days" variant="mini" %}{% translate "Events" %}</a>
+        {% if request.user.is_authenticated %}
+            <a href="{{ root_origin }}{% url 'web:dashboard' %}">{% icon "home" variant="mini" %}{% translate "Your dashboard" %}</a>
+            {% if has_panel_access %}
+                <a href="{% url 'panel:index' %}">{% icon "squares-2x2" variant="mini" %}{% translate "Panel" %}</a>
+            {% endif %}
+            {% if BOARD_PUBLIC %}
+                <a href="{{ root_origin }}{% url 'web:board:index' %}">{% icon "megaphone" variant="mini" %}{% translate "Board" %}</a>
+            {% endif %}
+            <a href="{% url 'web:crowd:profile' %}">{% icon "user-circle" variant="mini" %}{% translate "Edit profile" %}</a>
+            <a href="{% url 'web:crowd:auth0:logout' %}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log out" %}</a>
+        {% else %}
+            <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri|urlencode }}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log in" %}</a>
+        {% endif %}
+    </div>
+    {# Fetched entries land here, so "Create" sits above the settings. #}
+    <div data-command-entries></div>
+    <div data-command-group="{% translate "Settings" %}">
+        {# Findable by "language" in every language: whoever needs the switch may not read the one on screen. #}
+        <form method="post"
+              action="{% url 'set_language' %}"
+              data-command-submenu
+              data-keywords="language język">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <span data-command-submenu-label>{% icon "language" variant="mini" %}{% translate "Language" %}</span>
+            {% for language in languages %}
+                <button type="submit"
+                        name="language"
+                        value="{{ language.code }}"
+                        lang="{{ language.code }}"
+                        aria-pressed="{% if language.code == current_language %}true{% else %}false{% endif %}">
+                    {% include "components/language_flag.html" with code=language.code only %}
+                    {{ language.name_local|capfirst }}
+                </button>
+            {% endfor %}
+        </form>
+        <div data-command-submenu>
+            <span data-command-submenu-label>{% icon "swatch" variant="mini" %}{% translate "Theme" %}</span>
+            <button type="button"
+                    data-command-theme="system">{% icon "computer-desktop" variant="mini" %}{% translate "System theme" %}</button>
+            <button type="button"
+                    data-command-theme="light">{% icon "sun" variant="mini" %}{% translate "Light theme" %}</button>
+            <button type="button"
+                    data-command-theme="dark">{% icon "moon" variant="mini" %}{% translate "Dark theme" %}</button>
+        </div>
+    </div>
+</div>

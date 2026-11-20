@@ -12,6 +12,7 @@ from ludamus.links.db.django.enrollment import (
     MemberEnrollmentRepository,
     ParticipationPromotionRepository,
 )
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
@@ -29,6 +30,10 @@ from ludamus.links.db.django.notifications import NotificationSubscriptionReposi
 from ludamus.links.db.django.parley import ParleyRepository
 from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
 from ludamus.links.db.django.parley_mentions import ParleyMentionRepository
+from ludamus.links.db.django.parley_owned_chats import (
+    EncounterChatRepository,
+    PartyChatRepository,
+)
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.repositories.encounter import EncounterInviteeRepository
@@ -124,6 +129,10 @@ class Repositories:
     @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
+
+    @cached_property
+    def event_deletion(self) -> EventDeletionRepository:
+        return EventDeletionRepository()
 
     @cached_property
     def landing_stats(self) -> repositories.LandingStatsRepository:
@@ -296,6 +305,14 @@ class Repositories:
     @cached_property
     def parley_conversations(self) -> ParleyConversationRepository:
         return ParleyConversationRepository()
+
+    @cached_property
+    def party_chats(self) -> PartyChatRepository:
+        return PartyChatRepository()
+
+    @cached_property
+    def encounter_chats(self) -> EncounterChatRepository:
+        return EncounterChatRepository()
 
     @cached_property
     def parley_mentions(self) -> ParleyMentionRepository:

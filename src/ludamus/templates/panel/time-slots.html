@@ -23,7 +23,7 @@
             <div class="mb-6">
                 <h2 class="text-sm font-semibold">{% translate "What are Time Slots?" %}</h2>
                 <p class="text-sm text-foreground-muted mt-1">
-                    {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
+                    {% translate "Time slots are the times proposers pick from when they say when they could host. Without any, they pick parts of a day instead. Slots do not place sessions: you choose each start time when you accept a proposal." %}
                 </p>
             </div>
             {% if event_days %}
@@ -133,7 +133,7 @@
             {% else %}
                 <div class="card p-8 text-center">
                     <p class="text-foreground-muted mb-4">
-                        {% translate "No time slots defined. Add time slots to configure the event schedule." %}
+                        {% translate "No time slots yet. Until you add some, proposers pick parts of a day." %}
                     </p>
                     <a href="?create=1"
                        class="btn btn-primary"

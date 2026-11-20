@@ -24,7 +24,7 @@ test("a host with nobody set up yet enrolls others by creating a party", async (
   await dialog.screenshot({ path: testInfo.outputPath("host-modal.png") });
   await dialog.getByRole("link", { name: "Enroll others…" }).click();
 
-  await expect(page.getByRole("dialog", { name: "Create party" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Create enrollment party" })).toBeVisible();
 });
 
 test("the group page greys out the host's own row", async ({ page }, testInfo) => {

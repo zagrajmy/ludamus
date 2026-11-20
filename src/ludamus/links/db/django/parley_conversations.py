@@ -3,11 +3,11 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.links.db.django.models import (
+    Encounter,
     ParleyBlock,
     ParleyConversation,
     ParleyConversationMember,
     Party,
-    PartyMembership,
     User,
 )
 from ludamus.pacts.parley import (
@@ -19,10 +19,8 @@ from ludamus.pacts.parley import (
     ParleyMembership,
     ParleyMemberSnapshot,
     ParleyMemberState,
-    ParleyPartyCandidate,
     ParleyPersonDTO,
 )
-from ludamus.pacts.party import PartyMembershipStatus
 from ludamus.pacts.user import AgeBand, UserType
 
 _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
@@ -30,12 +28,12 @@ _PRESENT = (ParleyMemberState.ACTIVE, ParleyMemberState.REQUEST)
 _NAMES_SHOWN = 3
 
 
-def _signs_in() -> Q:
+def signs_in() -> Q:
     return Q(is_active=True, user_type=UserType.ACTIVE)
 
 
 def _eligible() -> Q:
-    return _signs_in() & Q(age_band=AgeBand.SIXTEEN_PLUS.value)
+    return signs_in() & Q(age_band=AgeBand.SIXTEEN_PLUS.value)
 
 
 def _person(user: User) -> ParleyPersonDTO:
@@ -56,15 +54,23 @@ def _policy(conversation: ParleyConversation) -> ParleyConversationPolicy:
 
 
 def _given_name(conversation: ParleyConversation) -> str:
-    # A party's chat goes by the party's name for as long as there is one.
-    if conversation.party_id is None:
-        return conversation.title
-    name = (
-        Party.objects.filter(pk=conversation.party_id)
-        .values_list("name", flat=True)
-        .first()
-    )
-    return name or ""
+    # A party's or encounter's chat goes by its name for as long as there is
+    # one.
+    if conversation.party_id is not None:
+        name = (
+            Party.objects.filter(pk=conversation.party_id)
+            .values_list("name", flat=True)
+            .first()
+        )
+        return name or ""
+    if conversation.encounter_id is not None:
+        title = (
+            Encounter.objects.filter(pk=conversation.encounter_id)
+            .values_list("title", flat=True)
+            .first()
+        )
+        return title or ""
+    return conversation.title
 
 
 def _writable(
@@ -251,7 +257,7 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         everyone = list(conversation.members.select_related("user"))
         signing_in = set(
             User.objects.filter(
-                _signs_in(), pk__in=[member.user_id for member in everyone]
+                signs_in(), pk__in=[member.user_id for member in everyone]
             ).values_list("pk", flat=True)
         )
         return ParleyConversationKind(conversation.kind), [
@@ -299,72 +305,6 @@ class ParleyConversationRepository(ParleyConversationRepositoryProtocol):
         ParleyBlock.objects.filter(
             blocker_id=blocker_id, blocked_id=blocked_id
         ).delete()
-
-    @staticmethod
-    def list_party_candidates(party_id: int) -> list[ParleyPartyCandidate]:
-        return [
-            ParleyPartyCandidate(user_id=user_id, age_band=AgeBand(age_band))
-            for user_id, age_band in (
-                User.objects.filter(
-                    _signs_in(),
-                    party_memberships__party_id=party_id,
-                    party_memberships__status=PartyMembershipStatus.ACTIVE,
-                )
-                .order_by("pk")
-                .values_list("pk", "age_band")
-            )
-        ]
-
-    @staticmethod
-    def set_party_members(*, party_id: int, user_ids: list[int]) -> int | None:
-        conversation = ParleyConversation.objects.filter(party_id=party_id).first()
-        party = Party.objects.filter(pk=party_id).first()
-        if conversation is None:
-            if not user_ids or party is None:
-                return None
-            conversation = ParleyConversation.objects.create(
-                kind=ParleyConversationKind.PARTY, party_id=party_id
-            )
-        present = set(
-            conversation.members.filter(state__in=_PRESENT).values_list(
-                "user_id", flat=True
-            )
-        )
-        if present == set(user_ids):
-            return None
-        set_members(
-            conversation_id=conversation.pk, present=present, wanted=set(user_ids)
-        )
-        return conversation.pk
-
-    @staticmethod
-    def party_ids_of(user_id: int) -> list[int]:
-        member_of = PartyMembership.objects.filter(member_id=user_id).values_list(
-            "party_id", flat=True
-        )
-        chats = ParleyConversationMember.objects.filter(
-            user_id=user_id, conversation__party_id__isnull=False
-        ).values_list("conversation__party_id", flat=True)
-        return sorted({*member_of, *chats})
-
-    @staticmethod
-    def list_party_ids() -> list[int]:
-        orphaned = ParleyConversation.objects.filter(
-            party_id__isnull=False
-        ).values_list("party_id", flat=True)
-        return sorted({*Party.objects.values_list("pk", flat=True), *orphaned})
-
-    @staticmethod
-    def list_party_chat_ids() -> list[int]:
-        return list(
-            ParleyConversation.objects.filter(party_id__isnull=False)
-            .order_by("pk")
-            .values_list("pk", flat=True)
-        )
-
-    @staticmethod
-    def lock_party(party_id: int) -> None:
-        list(Party.objects.select_for_update().filter(pk=party_id).values_list("pk"))
 
     @staticmethod
     def has_conversation(

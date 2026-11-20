@@ -1,4 +1,4 @@
-import { insertLink, toggleBold, toggleItalic } from "markdown-actions";
+import { toggleBold, toggleItalic } from "markdown-actions";
 import { markdown } from "yace/highlighters/markdown";
 import { isKey } from "yace/plugins/isKey";
 
@@ -96,7 +96,6 @@ document.addEventListener("keydown", (event) => {
   if (!textarea || event.isComposing || event.key === "Process") return;
   if (isKey("ctrl/cmd+b", event)) toggleBold(textarea);
   else if (isKey("ctrl/cmd+i", event)) toggleItalic(textarea);
-  else if (isKey("ctrl/cmd+k", event)) insertLink(textarea);
   else if (!(isKey("enter", event) && continueList(textarea))) return;
   event.preventDefault();
 });

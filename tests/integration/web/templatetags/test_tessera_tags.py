@@ -790,6 +790,56 @@ class TestSwitcher:
             ).render(Context())
 
 
+class TestChoiceButtons:
+    @staticmethod
+    def _render(*, selected: str = "pl") -> str:
+        return Template(
+            "{% load tessera %}"
+            '{% tessera_choice_buttons name="language" selected=selected %}'
+            '{% tessera_choice_button "pl" lang="pl" %}Polski'
+            "{% end_tessera_choice_button %}"
+            '{% tessera_choice_button "en" lang="en" %}English'
+            "{% end_tessera_choice_button %}"
+            "{% end_tessera_choice_buttons %}"
+        ).render(Context({"selected": selected}))
+
+    def test_each_choice_submits_its_value_under_the_group_name(self) -> None:
+        html = self._render()
+
+        assert '<button type="submit" name="language" value="pl"' in html
+        assert '<button type="submit" name="language" value="en"' in html
+
+    def test_only_the_selected_choice_is_pressed(self) -> None:
+        html = self._render(selected="en")
+
+        assert re.search(r'value="en"[^>]*aria-pressed="true"[^>]*lang="en"', html)
+        assert re.search(r'value="pl"[^>]*aria-pressed="false"', html)
+
+    def test_choice_outside_a_group_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="must be used inside"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_choice_button "a" %}A{% end_tessera_choice_button %}'
+            ).render(Context())
+
+    def test_group_requires_a_name(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires a name"):
+            Template(
+                "{% load tessera %}{% tessera_choice_buttons %}"
+                '{% tessera_choice_button "a" %}A{% end_tessera_choice_button %}'
+                "{% end_tessera_choice_buttons %}"
+            ).render(Context())
+
+    def test_choice_missing_value_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_choice_buttons name="n" %}'
+                "{% tessera_choice_button %}A{% end_tessera_choice_button %}"
+                "{% end_tessera_choice_buttons %}"
+            )
+
+
 # The external row carries its own icon plus the exit arrow.
 EXTERNAL_ROW_ICONS = 2
 

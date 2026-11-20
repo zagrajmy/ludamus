@@ -99,6 +99,8 @@ class ParleyConversationKind(StrEnum):
     GROUP = "group"
     # A party's own, its members kept in step with the party's.
     PARTY = "party"
+    # An encounter's own: its creator and everyone signed up for it.
+    ENCOUNTER = "encounter"
     # A staff case's thread, its members kept in step with who is staff.
     STAFF = "staff"
 
@@ -140,6 +142,13 @@ CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy]
                 staff_only=False,
             ),
             ParleyConversationKind.PARTY: ParleyConversationPolicy(
+                needs_direct=False,
+                self_managed=False,
+                one_to_one=False,
+                pair_needs_direct=True,
+                staff_only=False,
+            ),
+            ParleyConversationKind.ENCOUNTER: ParleyConversationPolicy(
                 needs_direct=False,
                 self_managed=False,
                 one_to_one=False,
@@ -400,6 +409,11 @@ class ParleyRepositoryProtocol(Protocol):
     @staticmethod
     def list_chat_sphere_ids() -> list[int]: ...
 
+    # The sphere's encounters with a signup or a chat: the only ones its
+    # chat switch can open or close a chat for.
+    @staticmethod
+    def list_encounters_with_people(sphere_id: int) -> list[int]: ...
+
 
 class ParleySignerProtocol(Protocol):
     def sign(
@@ -429,6 +443,9 @@ class ParleyRevocationServiceProtocol(Protocol):
     def revoke_event(self, *, event_id: int) -> None: ...
 
     def age_changed(self, *, user_id: int) -> None: ...
+
+    # The sphere's chat was turned on or off; its encounters' chats follow.
+    def sphere_chat_switched(self, *, sphere_id: int) -> None: ...
 
 
 class ParleyServiceProtocol(Protocol):
@@ -495,8 +512,12 @@ class ParleyTeamSeat(BaseModel):
     role: SphereRole
 
 
-class ParleyPartyCandidate(BaseModel):
-    """An active member of a party who can sign in, and the age they confirmed."""
+class ParleyChatCandidate(BaseModel):
+    """Someone a party's or encounter's chat would take in, and their confirmed age.
+
+    An active member of the party, or the encounter's creator or one of its
+    signups, who can sign in.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -583,31 +604,6 @@ class ParleyConversationRepositoryProtocol(Protocol):
     def unblock(*, blocker_id: int, blocked_id: int) -> None: ...
 
     @staticmethod
-    def list_party_candidates(party_id: int) -> list[ParleyPartyCandidate]: ...
-
-    # Makes these people, and no one else, the party chat's members, opening
-    # the chat if it has none yet; the chat's id when who is in it changed,
-    # else None.
-    @staticmethod
-    def set_party_members(*, party_id: int, user_ids: list[int]) -> int | None: ...
-
-    # The parties this person is in, or whose chat they are in.
-    @staticmethod
-    def party_ids_of(user_id: int) -> list[int]: ...
-
-    # Every party, and every party a chat was kept for after it was gone.
-    @staticmethod
-    def list_party_ids() -> list[int]: ...
-
-    @staticmethod
-    def list_party_chat_ids() -> list[int]: ...
-
-    # Holds the party until the transaction ends, so its chat is synced by
-    # one change at a time.
-    @staticmethod
-    def lock_party(party_id: int) -> None: ...
-
-    @staticmethod
     def has_conversation(
         *, user_id: int, kinds: frozenset[ParleyConversationKind]
     ) -> bool: ...
@@ -664,13 +660,55 @@ class ParleyConversationServiceProtocol(Protocol):
     def unblock(self, *, user_id: int, blocked_id: int) -> None: ...
 
 
-class ParleyPartyChatProtocol(Protocol):
-    """Keeps a party's chat in step with who is in the party."""
+class ParleyOwnedChatRepositoryProtocol(Protocol):
+    """The chats of one kind of owner: each party's, or each encounter's.
 
-    def sync_party(self, party_id: int) -> None: ...
+    An owner has at most one chat. Its people are the candidates the owner
+    names, as `chat_members` narrows them; nobody joins, leaves or renames it
+    apart from the owner itself.
+    """
 
-    def sync_parties_of(self, user_id: int) -> None: ...
+    @property
+    def kind(self) -> ParleyConversationKind: ...
 
-    def parties_of(self, user_id: int) -> list[int]: ...
+    # Holds the owner until the transaction ends, so its chat is synced by one
+    # change at a time.
+    @staticmethod
+    def lock(owner_id: int) -> None: ...
+
+    @staticmethod
+    def list_candidates(owner_id: int) -> list[ParleyChatCandidate]: ...
+
+    # Makes these people, and no one else, the chat's members, opening it if
+    # the owner has none yet; the chat's id when who is in it changed, else
+    # None.
+    @staticmethod
+    def set_members(*, owner_id: int, user_ids: list[int]) -> int | None: ...
+
+    # The owners this person is a candidate of, or whose chat they are in.
+    @staticmethod
+    def owner_ids_of(user_id: int) -> list[int]: ...
+
+    # Every owner, and every owner a chat was kept for after it was gone.
+    @staticmethod
+    def list_owner_ids() -> list[int]: ...
+
+    @staticmethod
+    def list_chat_ids() -> list[int]: ...
+
+    @staticmethod
+    def chat_id(owner_id: int) -> int | None: ...
+
+
+class ParleyOwnedChatProtocol(Protocol):
+    """Keeps each owner's chat (a party's, an encounter's) in step with it."""
+
+    def sync(self, owner_id: int) -> None: ...
+
+    def sync_owners_of(self, user_id: int) -> None: ...
+
+    def owners_of(self, user_id: int) -> list[int]: ...
+
+    def chat_id(self, owner_id: int) -> int | None: ...
 
     def open_existing_chats(self) -> int: ...

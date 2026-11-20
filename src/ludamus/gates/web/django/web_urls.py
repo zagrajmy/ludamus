@@ -6,6 +6,7 @@ from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
+from ludamus.gates.web.django.command_menu import command_menu_entries
 from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter.urls import (
     authenticated_urlpatterns as encounter_authenticated,
@@ -96,6 +97,7 @@ urlpatterns = [
     path("events/", legacy_feed_redirect),
     path("timeline/", legacy_feed_redirect),
     path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
+    path("command-menu/", command_menu_entries, name="command-menu-entries"),
     path(
         "dashboard/spheres/<int:pk>/do/subscribe",
         dashboard_gate.SphereSubscribeActionView.as_view(),

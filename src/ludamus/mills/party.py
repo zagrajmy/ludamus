@@ -25,10 +25,11 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
+    SetEnrollsTogetherOutcome,
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts.parley import ParleyPartyChatProtocol
+    from ludamus.pacts.parley import ParleyOwnedChatProtocol
     from ludamus.pacts.party import (
         InvitablePartyDTO,
         PartiesOverviewDTO,
@@ -47,7 +48,7 @@ class PartyService(PartyServiceProtocol):
         transaction: TransactionProtocol,
         parties: PartyRepositoryProtocol,
         notifier: PartyNotifierProtocol,
-        chat: ParleyPartyChatProtocol,
+        chat: ParleyOwnedChatProtocol,
     ) -> None:
         self._transaction = transaction
         self._parties = parties
@@ -57,9 +58,27 @@ class PartyService(PartyServiceProtocol):
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO:
         return self._parties.overview(viewer_pk)
 
-    def create(self, *, leader_pk: int, name: str) -> int:
+    def create(self, *, leader_pk: int, name: str, enrolls_together: bool) -> int:
         with self._transaction.atomic():
-            return self._parties.create(leader_pk=leader_pk, name=name)
+            return self._parties.create(
+                leader_pk=leader_pk, name=name, enrolls_together=enrolls_together
+            )
+
+    def set_enrolls_together(
+        self, *, leader_pk: int, party_pk: int, enrolls_together: bool
+    ) -> SetEnrollsTogetherOutcome:
+        with self._transaction.atomic():
+            if not enrolls_together and self._parties.has_enrollments(
+                leader_pk=leader_pk, party_pk=party_pk
+            ):
+                return SetEnrollsTogetherOutcome.LOCKED
+            if not self._parties.set_enrolls_together(
+                leader_pk=leader_pk,
+                party_pk=party_pk,
+                enrolls_together=enrolls_together,
+            ):
+                return SetEnrollsTogetherOutcome.NOT_FOUND
+            return SetEnrollsTogetherOutcome.UPDATED
 
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool:
         with self._transaction.atomic():
@@ -71,7 +90,7 @@ class PartyService(PartyServiceProtocol):
         with self._transaction.atomic():
             if not self._parties.delete(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.NOT_FOUND
-            self._chat.sync_party(party_pk)
+            self._chat.sync(party_pk)
             return DeletePartyOutcome.DELETED
 
     def invite(
@@ -157,7 +176,7 @@ class PartyService(PartyServiceProtocol):
         with self._transaction.atomic():
             result = self._parties.join_via_token(token=token, user_pk=user_pk)
             if result is not None and result.joined:
-                self._chat.sync_party(result.party_pk)
+                self._chat.sync(result.party_pk)
             return result
 
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool:
@@ -166,7 +185,7 @@ class PartyService(PartyServiceProtocol):
                 membership_pk=membership_pk, user_pk=user_pk
             ):
                 return False
-            self._chat.sync_parties_of(user_pk)
+            self._chat.sync_owners_of(user_pk)
             return True
 
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool:
@@ -183,14 +202,14 @@ class PartyService(PartyServiceProtocol):
                 leader_pk=leader_pk, party_pk=party_pk, membership_pk=membership_pk
             )
             if status is PartyMembershipStatus.ACTIVE:
-                self._chat.sync_party(party_pk)
+                self._chat.sync(party_pk)
             return status
 
     def leave(self, *, user_pk: int, party_pk: int) -> bool:
         with self._transaction.atomic():
             if not self._parties.leave(user_pk=user_pk, party_pk=party_pk):
                 return False
-            self._chat.sync_party(party_pk)
+            self._chat.sync(party_pk)
             return True
 
     def set_my_consent(
@@ -213,7 +232,11 @@ class PartyService(PartyServiceProtocol):
         # means just themselves; an absent parameter defaults to their own led
         # party (else the first party they belong to); a value that is not one
         # of their parties is invalid, never silently substituted.
-        parties = self._parties.overview(viewer_pk).parties
+        parties = [
+            party
+            for party in self._parties.overview(viewer_pk).parties
+            if party.enrolls_together
+        ]
         choices = [
             EnrollmentPartyChoiceDTO(
                 pk=party.pk,

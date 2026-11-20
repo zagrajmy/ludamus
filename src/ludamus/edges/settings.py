@@ -302,6 +302,13 @@ LANGUAGE_CODE = "pl"
 
 LANGUAGES = [("pl", "Polski"), ("en", "English")]
 
+# A language picked in the footer or the command menu is a standing choice:
+# Django's default is a session cookie, which forgets it on browser restart.
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365
+LANGUAGE_COOKIE_DOMAIN = SESSION_COOKIE_DOMAIN
+LANGUAGE_COOKIE_SAMESITE = "Lax"
+LANGUAGE_COOKIE_SECURE = IS_PRODUCTION
+
 TIME_ZONE = "Europe/Warsaw"
 
 USE_I18N = True
@@ -389,6 +396,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
 PRIVATE_SPHERE_OPEN_PREFIXES: tuple[str, ...] = (
     *MIDDLEWARE_SKIP_PREFIXES,
     "/crowd/",
+    "/language/",
     # An invitation is how a stranger becomes a member of a private sphere.
     "/multiverse/join/",
     "/auth-error/",

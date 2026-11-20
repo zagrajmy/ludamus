@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import calendar
 from datetime import timedelta
 from typing import TYPE_CHECKING, TypedDict
@@ -6,10 +8,16 @@ from django import template
 from django.utils import timezone
 from django.utils.formats import date_format, get_format, time_format
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
+
+from ludamus.pacts.availability import DayPart
 
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.utils.functional import _StrPromise
+
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.time_ranges import DateTimeRangeProtocol
 
 register = template.Library()
@@ -63,6 +71,40 @@ def format_datetime_range(obj: DateTimeRangeProtocol) -> str:
     return _format_date_range(
         timezone.localtime(obj.start_time), timezone.localtime(obj.end_time)
     )
+
+
+# Lowercase: these land inside a sentence ("Friday morning"), never alone as a
+# label. The picker chips have their own Title Case set.
+DAY_PART_NAMES: dict[DayPart, _StrPromise] = {
+    DayPart.MORNING: gettext_lazy("morning"),
+    DayPart.AFTERNOON: gettext_lazy("afternoon"),
+    DayPart.EVENING: gettext_lazy("evening"),
+    DayPart.NIGHT: gettext_lazy("night"),
+}
+
+
+def offered_time_name(entry: AvailabilityDTO) -> str:
+    """Name an offered time within its day: its part, or its slot's hours.
+
+    Returns:
+        "evening", or "10:00–14:00" for a time slot, in the reader's language
+        and timezone.
+    """
+    if isinstance(offer := entry.offer, DayPart):
+        return str(DAY_PART_NAMES[offer])
+    start = timezone.localtime(offer.start_time)
+    end = timezone.localtime(offer.end_time)
+    return f"{time_format(start, 'H:i')}–{time_format(end, 'H:i')}"
+
+
+@register.filter
+def offered_part(entry: AvailabilityDTO) -> str:
+    """Template form of `offered_time_name`, read after the entry's day.
+
+    Returns:
+        The part of the day, or the slot's hours.
+    """
+    return offered_time_name(entry)
 
 
 # A game night that runs 19:00–01:00 is one evening on a calendar, not two

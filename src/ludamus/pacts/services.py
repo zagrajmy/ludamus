@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_deletion import EventDeletionServiceProtocol
     from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.parley import (
         ParleyConversationServiceProtocol,
-        ParleyPartyChatProtocol,
+        ParleyOwnedChatProtocol,
         ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
     )
@@ -150,7 +151,9 @@ class ServicesProtocol(Protocol):
     @property
     def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
     @property
-    def parley_party_chats(self) -> ParleyPartyChatProtocol: ...
+    def parley_party_chats(self) -> ParleyOwnedChatProtocol: ...
+    @property
+    def parley_encounter_chats(self) -> ParleyOwnedChatProtocol: ...
     @property
     def parley_revocations(self) -> ParleyRevocationServiceProtocol: ...
     @property
@@ -199,6 +202,8 @@ class ServicesProtocol(Protocol):
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def event_deletion(self) -> EventDeletionServiceProtocol: ...
     @property
     def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
