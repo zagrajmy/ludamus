@@ -45,9 +45,9 @@
                 <a href="{{ root_origin }}{% url 'web:board:index' %}">{% icon "megaphone" variant="mini" %}{% translate "Board" %}</a>
             {% endif %}
             <a href="{% url 'web:crowd:profile' %}">{% icon "user-circle" variant="mini" %}{% translate "Edit profile" %}</a>
-            <a href="{% url 'web:crowd:auth0:logout' %}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log out" %}</a>
+            <a href="{% url 'web:crowd:auth:logout' %}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log out" %}</a>
         {% else %}
-            <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri|urlencode }}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log in" %}</a>
+            <a href="{% url 'web:crowd:auth:login' %}?next={{ request.build_absolute_uri|urlencode }}">{% icon "arrow-right-on-rectangle" variant="mini" %}{% translate "Log in" %}</a>
         {% endif %}
     </div>
     {# Fetched entries land here, so "Create" sits above the settings. #}
