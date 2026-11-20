@@ -15013,11 +15013,11 @@ msgstr "Partner techniczny"
 
 #: src/ludamus/templates/sphere/panel/billing.html
 msgid ""
-"The Zagrajmy team runs the technical side of your convention with you: "
-"setup, your programme, and help on the day."
+"We run the technical side of your convention with you and are there on the "
+"day."
 msgstr ""
-"Zespół Zagrajmy prowadzi z tobą techniczną stronę konwentu: konfigurację, "
-"program i pomoc w trakcie wydarzenia."
+"Prowadzimy z tobą techniczną stronę konwentu i jesteśmy na miejscu w dniu "
+"wydarzenia."
 
 #: src/ludamus/templates/sphere/panel/billing.html
 msgid "Your sphere has terms agreed with the Zagrajmy team."
@@ -15056,15 +15056,11 @@ msgstr ""
 
 #: src/ludamus/templates/sphere/panel/billing.html
 msgid ""
-"Want your convention to run without technical worries? As a Technical "
-"Partner, the Zagrajmy team sets everything up with you, brings your "
-"programme in and is on hand during the event. We agree the terms, ticket fee "
-"included, for each convention."
+"We run the technical side of your convention with you and are there on the "
+"day. You can negotiate the ticket fee."
 msgstr ""
-"Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój partner "
-"techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie twój "
-"program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym prowizję od "
-"biletów, ustalamy osobno dla każdego konwentu."
+"Prowadzimy z tobą techniczną stronę konwentu i jesteśmy na miejscu w dniu "
+"wydarzenia. Prowizję od biletów można negocjować."
 
 #: src/ludamus/templates/sphere/panel/billing.html
 msgid "Ask about your terms"
@@ -16555,6 +16551,17 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid ""
+#~ "Want your convention to run without technical worries? As a Technical "
+#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
+#~ "programme in and is on hand during the event. We agree the terms, ticket "
+#~ "fee included, for each convention."
+#~ msgstr ""
+#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
+#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
+#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
+#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
 
 #~ msgid "Payments are not available here"
 #~ msgstr "Płatności nie są tu dostępne"
