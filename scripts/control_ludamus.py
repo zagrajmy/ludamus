@@ -41,7 +41,9 @@ EVIDENCE_ROOT = VERIFY_DIR / "evidence"
 CURRENT_PATH = VERIFY_DIR / "current.json"
 LIFECYCLE_LOCK_PATH = VERIFY_DIR / "lifecycle.lock"
 MANIFEST_PATH = REPO_ROOT / "src" / "ludamus" / "static" / "vite" / "manifest.json"
-SEED_PORT_SUFFIX = ":8000"
+# NOTE: the e2e seed puts the privacy scenario hosts on the second test
+# server, :8001; a launched instance serves every host on one port.
+SEED_PORT_SUFFIXES = (":8000", ":8001")
 SEED_SCRIPTS = (
     "tests/e2e/scripts/bootstrap_data.py",
     "tests/e2e/scripts/bootstrap_facilitators.py",
@@ -155,11 +157,12 @@ def _step(*, command: list[str], env: dict[str, str], log: Path) -> None:
 
 def _move_seed_hosts(*, db: Path, port: int) -> None:
     with sqlite3.connect(db) as connection:
-        connection.execute(
-            "UPDATE django_site SET domain = substr(domain, 1, length(domain) - ?)"
-            " || ? WHERE domain LIKE ?",
-            (len(SEED_PORT_SUFFIX), f":{port}", f"%{SEED_PORT_SUFFIX}"),
-        )
+        for suffix in SEED_PORT_SUFFIXES:
+            connection.execute(
+                "UPDATE django_site SET domain = substr(domain, 1, length(domain) - ?)"
+                " || ? WHERE domain LIKE ?",
+                (len(suffix), f":{port}", f"%{suffix}"),
+            )
 
 
 def _get(url: str) -> requests.Response | None:

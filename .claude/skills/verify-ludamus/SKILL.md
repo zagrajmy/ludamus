@@ -180,5 +180,5 @@ here. Those kill by port or process name and take down the user's servers.
 | `mcp [--scope maintainer] [--event <slug>] <tool> [json]` | Call any MCP tool with the run's tokens; use only `list_*` / `get_*` for proof. |
 | `cleanup` | Stop the instance. Evidence stays. |
 
-When the app changes, refresh the feature map with
-`/maintain-verification-skill`.
+When a change alters a flow a recipe drives, update the matching file in
+`features/` (and its line in `features/README.md`) in the same PR.
