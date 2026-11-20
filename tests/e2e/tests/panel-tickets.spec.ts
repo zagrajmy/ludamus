@@ -1,8 +1,14 @@
+import path from "node:path";
+
 import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
+import { CREW_SPHERE } from "./helpers/urls";
 
 const TICKETS_URL = "/panel/event/ticket-fair/tickets/";
+// Crew has no Stripe account connected, so its events can't sell yet.
+const UNCONNECTED_TICKETS_URL = `${CREW_SPHERE}/panel/event/crew-open-night/tickets/`;
+const crewManagerState = path.join(__dirname, "..", ".auth-state-crew-manager.json");
 
 test.describe("Panel tickets", () => {
   test.use({ storageState: managerState });
@@ -37,5 +43,23 @@ test.describe("Panel tickets", () => {
     await expect(page).toHaveURL(TICKETS_URL);
     await expect(page.getByText("Ticket type added.", { exact: true })).toBeVisible();
     await expect(page.getByRole("row", { name: new RegExp(name) })).toContainText("45.00 zł");
+  });
+});
+
+test.describe("Panel tickets in a sphere without Stripe", () => {
+  test.use({ storageState: crewManagerState });
+
+  test("a manager can connect Stripe from the Tickets page", async ({ page }, testInfo) => {
+    await page.goto(UNCONNECTED_TICKETS_URL);
+
+    const payouts = page.getByRole("region", { name: "Connect Stripe to sell tickets" });
+    await expect(payouts).toBeVisible();
+    await expect(payouts.getByRole("button", { name: "Connect Stripe" })).toBeEnabled();
+
+    await attachArtifacts(testInfo, {
+      name: "panel-tickets-connect-stripe",
+      region: payouts,
+      facts: { url: page.url() },
+    });
   });
 });

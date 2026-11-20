@@ -24,6 +24,7 @@ from ludamus.pacts.payment_api import (
     CheckoutEvent,
     CheckoutStage,
     PaymentProviderError,
+    PaymentsUnavailableError,
     RefundEvent,
     WebhookOutcome,
 )
@@ -250,13 +251,14 @@ class PayoutService(PayoutServiceProtocol):
         account = self._accounts.read(sphere_id=sphere_id)
         return PayoutPageDTO(
             status=payout_status(account),
-            available=self._payments.enabled,
             payouts_enabled=account is not None and account.payouts_enabled,
         )
 
     def onboarding_url(
         self, *, sphere_id: int, email: str, refresh_url: str, return_url: str
     ) -> str:
+        if not self._payments.enabled:
+            raise PaymentsUnavailableError
         if (account := self._accounts.read(sphere_id=sphere_id)) is None:
             account_id = self._payments.create_account(sphere_id=sphere_id, email=email)
             with self._transaction.atomic():
@@ -793,7 +795,6 @@ class TicketPanelService(TicketPanelServiceProtocol):
         paid = self._orders.paid_totals(event_id=event_id)
         return TicketPanelDTO(
             payout_status=payout_status(self._accounts.read(sphere_id=sphere_id)),
-            payments_available=self._payments.enabled,
             platform_fee_percent=platform_fee_percent(bps),
             rows=[
                 TicketTypeRowDTO(

@@ -72,10 +72,9 @@ def _form_data(**overrides):
     } | overrides
 
 
-def _empty_page(*, payments_available):
+def _empty_page():
     return TicketPanelDTO(
         payout_status=PayoutStatus.NOT_CONNECTED,
-        payments_available=payments_available,
         platform_fee_percent=Decimal("3.5"),
         rows=[],
         archived=[],
@@ -113,11 +112,12 @@ class TestTicketsPage:
             template_name="panel/tickets.html",
             context_data={
                 **panel_context(event, active_nav="tickets"),
-                "page": _empty_page(payments_available=True),
+                "page": _empty_page(),
+                "can_manage": True,
             },
         )
 
-    def test_without_stripe_tickets_can_be_prepared_but_not_sold(
+    def test_without_stripe_a_manager_is_still_offered_to_connect(
         self, panel_client, event, settings
     ):
         settings.STRIPE_SECRET_KEY = ""
@@ -130,7 +130,29 @@ class TestTicketsPage:
             template_name="panel/tickets.html",
             context_data={
                 **panel_context(event, active_nav="tickets"),
-                "page": _empty_page(payments_available=False),
+                "page": _empty_page(),
+                "can_manage": True,
+            },
+        )
+
+    def test_comms_member_reads_it_without_connecting(
+        self, client, active_user, sphere, event
+    ):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+        client.force_login(active_user)
+
+        response = client.get(_url("panel:tickets", event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/tickets.html",
+            context_data={
+                **panel_context(event, active_nav="tickets"),
+                "page": _empty_page(),
+                "can_manage": False,
             },
         )
 
@@ -149,7 +171,6 @@ class TestTicketsPage:
                 **panel_context(event, active_nav="tickets"),
                 "page": TicketPanelDTO(
                     payout_status=PayoutStatus.ACTIVE,
-                    payments_available=True,
                     platform_fee_percent=Decimal(0),
                     rows=[
                         TicketTypeRowDTO(
@@ -185,6 +206,7 @@ class TestTicketsPage:
                     orders=[],
                     more_orders=False,
                 ),
+                "can_manage": True,
             },
         )
 

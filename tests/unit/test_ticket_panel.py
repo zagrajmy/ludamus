@@ -4,6 +4,7 @@ Ways these services could fail, each pinned below:
 
 Payout account
 - Connecting twice opens a second Stripe account instead of resuming the first.
+- Connecting on a deployment without Stripe records an account or calls Stripe.
 - Resuming onboarding for a sphere that never connected sends it somewhere.
 - Coming back from onboarding shows the stale state Stripe has since changed.
 
@@ -20,7 +21,12 @@ from decimal import Decimal
 import pytest
 
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.payment_api import CheckoutStage, RefundEvent, WebhookOutcome
+from ludamus.pacts.payment_api import (
+    CheckoutStage,
+    PaymentsUnavailableError,
+    RefundEvent,
+    WebhookOutcome,
+)
 from ludamus.pacts.tickets import (
     OrderStatus,
     PayoutPageDTO,
@@ -56,7 +62,7 @@ _DEAL_FEE_ON_TWO = 150
 class TestPayoutService:
     def test_unconnected_sphere_has_no_payouts(self, payout):
         assert payout.page(sphere_id=SPHERE_ID) == PayoutPageDTO(
-            status=PayoutStatus.NOT_CONNECTED, available=True, payouts_enabled=False
+            status=PayoutStatus.NOT_CONNECTED, payouts_enabled=False
         )
 
     def test_connecting_opens_one_account_and_resumes_it_after(self, payout, accounts):
@@ -78,6 +84,21 @@ class TestPayoutService:
             "acct_new_1"
         ]
         assert payout.page(sphere_id=SPHERE_ID).status is PayoutStatus.INCOMPLETE
+
+    def test_connecting_without_stripe_records_nothing(
+        self, payout, payments, accounts
+    ):
+        payments.enabled = False
+
+        with pytest.raises(PaymentsUnavailableError):
+            payout.onboarding_url(
+                sphere_id=SPHERE_ID,
+                email="org@example.com",
+                refresh_url="/refresh/",
+                return_url="/return/",
+            )
+
+        assert accounts.rows == {}
 
     def test_resuming_onboarding_without_an_account_goes_nowhere(self, payout):
         assert (
@@ -105,7 +126,7 @@ class TestPayoutService:
         )
 
         assert payout.refresh(sphere_id=SPHERE_ID) == PayoutPageDTO(
-            status=PayoutStatus.ACTIVE, available=True, payouts_enabled=True
+            status=PayoutStatus.ACTIVE, payouts_enabled=True
         )
 
     def test_refresh_without_an_account_stays_unconnected(self, payout, accounts):
@@ -133,7 +154,6 @@ class TestPanel:
         page = panel.page(sphere_id=SPHERE_ID, event_id=EVENT_ID)
 
         assert page.payout_status is PayoutStatus.INCOMPLETE
-        assert page.payments_available
         assert page.platform_fee_percent == _FEE_PERCENT
         assert [row.ticket_type.pk for row in page.rows] == [on_sale.pk]
         assert page.rows[0].fees.platform_fee == _FEE_ON_TWO // 2

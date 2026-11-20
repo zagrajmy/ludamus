@@ -27,9 +27,7 @@
                 {% endblocktranslate %}
             </p>
             <div class="mt-4 text-sm text-foreground">
-                {% if not payouts.available %}
-                    <p>{% translate "This Zagrajmy installation has no Stripe account configured, so tickets can't be sold here yet." %}</p>
-                {% elif payouts.status == "not_connected" %}
+                {% if payouts.status == "not_connected" %}
                     <p>{% translate "Connect Stripe to sell tickets. Stripe asks for your organization's details and a bank account for payouts; it takes about ten minutes." %}</p>
                 {% elif payouts.status == "incomplete" %}
                     <p>{% translate "Stripe needs a few more details before it can take payments for you. Ticket sales stay paused until then." %}</p>
@@ -39,7 +37,7 @@
                     <p>{% translate "You can sell tickets. Stripe hasn't switched payouts on yet, so the money waits in your Stripe balance until it does." %}</p>
                 {% endif %}
             </div>
-            {% if payouts.available and can_manage %}
+            {% if can_manage %}
                 <div class="mt-5 flex flex-wrap gap-3">
                     {% if payouts.status == "active" %}
                         {% translate "Open Stripe dashboard" as dashboard_label %}

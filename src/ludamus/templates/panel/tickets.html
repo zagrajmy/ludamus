@@ -24,29 +24,32 @@
                 <section class="card" aria-labelledby="payouts-heading">
                     <div class="card-body max-w-2xl">
                         <h2 id="payouts-heading" class="text-lg font-semibold text-foreground">
-                            {% if not page.payments_available %}
-                                {% translate "Payments are not available here" %}
-                            {% elif page.payout_status == "incomplete" %}
+                            {% if page.payout_status == "incomplete" %}
                                 {% translate "Finish setting up payouts" %}
                             {% else %}
                                 {% translate "Connect Stripe to sell tickets" %}
                             {% endif %}
                         </h2>
                         <p class="mt-2 text-sm text-foreground-muted">
-                            {% if not page.payments_available %}
-                                {% translate "This Zagrajmy installation has no Stripe account configured, so tickets can be prepared but not sold." %}
-                            {% elif page.payout_status == "incomplete" %}
+                            {% if page.payout_status == "incomplete" %}
                                 {% translate "Stripe still needs a few details before it can take payments for you. Ticket types stay off sale until then." %}
                             {% else %}
                                 {% translate "Ticket money goes straight to your sphere's own Stripe account. Until it is connected, ticket types stay off sale." %}
                             {% endif %}
                         </p>
-                        {% if page.payments_available %}
-                            <div class="mt-5">
-                                {% translate "Set up payouts" as payouts_label %}
-                                {% url 'multiverse:panel:billing' as payouts_url %}
-                                {% tessera_button payouts_label href=payouts_url variant="secondary" icon="banknotes" %}
-                            </div>
+                        {% if can_manage %}
+                            <form method="post"
+                                  action="{% url 'multiverse:panel:billing-connect' %}"
+                                  class="mt-5">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                {% if page.payout_status == "incomplete" %}
+                                    {% translate "Continue Stripe setup" as connect_label %}
+                                {% else %}
+                                    {% translate "Connect Stripe" as connect_label %}
+                                {% endif %}
+                                {% tessera_button connect_label variant="secondary" icon="banknotes" %}
+                            </form>
                         {% endif %}
                     </div>
                 </section>

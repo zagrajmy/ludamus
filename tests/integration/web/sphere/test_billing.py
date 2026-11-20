@@ -43,6 +43,10 @@ STRIPE_DOWN = (
     messages.ERROR,
     "Stripe didn't respond. Nothing was changed; try again in a moment.",
 )
+SALES_NOT_OPEN = (
+    messages.WARNING,
+    "Ticket sales aren't open on Zagrajmy yet, so Stripe can't be connected for now.",
+)
 
 
 @pytest.fixture(name="manager")
@@ -102,14 +106,12 @@ def _no_deal_page(*, has_billing_history=False):
     )
 
 
-def _billing_context(plan, *, available=True):
+def _billing_context(plan):
     return {
         **sphere_sidebar_context(active_nav="billing"),
         "plan": plan,
         "payouts": PayoutPageDTO(
-            status=PayoutStatus.NOT_CONNECTED,
-            available=available,
-            payouts_enabled=False,
+            status=PayoutStatus.NOT_CONNECTED, payouts_enabled=False
         ),
         "can_manage": True,
     }
@@ -246,7 +248,7 @@ class TestBillingPage:
             response,
             HTTPStatus.OK,
             template_name="sphere/panel/billing.html",
-            context_data=_billing_context(_no_deal_page(), available=False),
+            context_data=_billing_context(_no_deal_page()),
         )
 
 
@@ -291,15 +293,34 @@ class TestConnect:
         assert not stripe_api.calls
         assert not PayoutAccount.objects.exists()
 
-    def test_deployment_without_stripe_creates_nothing(self, manager, settings):
+    def test_deployment_without_stripe_says_sales_are_not_open(self, manager, settings):
         settings.STRIPE_SECRET_KEY = ""
 
         response = manager.post(CONNECT_URL)
 
         assert_response(
-            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[STRIPE_DOWN]
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[SALES_NOT_OPEN]
         )
         assert not PayoutAccount.objects.exists()
+
+    def test_goes_back_to_the_page_it_was_pressed_on(self, manager, settings):
+        settings.STRIPE_SECRET_KEY = ""
+        tickets_page = "/panel/event/autumn-con/tickets/"
+
+        response = manager.post(CONNECT_URL, {"next": tickets_page})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=tickets_page, messages=[SALES_NOT_OPEN]
+        )
+
+    def test_ignores_a_next_page_on_another_site(self, manager, settings):
+        settings.STRIPE_SECRET_KEY = ""
+
+        response = manager.post(CONNECT_URL, {"next": "https://evil.example/"})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=BILLING_URL, messages=[SALES_NOT_OPEN]
+        )
 
     def test_stale_link_reuses_the_account(self, manager, sphere, stripe_api):
         connected_account(sphere, charges_enabled=False)

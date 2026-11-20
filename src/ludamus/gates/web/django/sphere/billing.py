@@ -20,10 +20,11 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import account_email
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.access import SphereAccessMixin
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.payment_api import PaymentProviderError
+from ludamus.pacts.payment_api import PaymentProviderError, PaymentsUnavailableError
 from ludamus.pacts.sphere import Capability
 from ludamus.pacts.tickets import PayoutStatus
 
@@ -41,7 +42,9 @@ def _absolute(request: PanelRequest, name: str) -> str:
     return request.build_absolute_uri(reverse(name))
 
 
-def _stripe_unreachable(request: PanelRequest, what: str) -> HttpResponse:
+def _stripe_unreachable(
+    request: PanelRequest, what: str, *, back: str = _BILLING_URL
+) -> HttpResponse:
     logger.warning(
         "Billing: Stripe %s failed for sphere=%s",
         what,
@@ -50,7 +53,7 @@ def _stripe_unreachable(request: PanelRequest, what: str) -> HttpResponse:
     messages.error(
         request, _("Stripe didn't respond. Nothing was changed; try again in a moment.")
     )
-    return redirect(_BILLING_URL)
+    return redirect(back)
 
 
 class BillingPageView(SphereAccessMixin, View):
@@ -86,12 +89,14 @@ class BillingConnectActionView(SphereAccessMixin, View):
     http_method_names = ("post",)
 
     def post(self, _request: PanelRequest) -> HttpResponse:
+        # The event's Tickets page offers this button too; refusals go back there.
+        back = safe_next_url(self.request, reverse(_BILLING_URL))
         if not (email := account_email(self.request)):
             messages.error(
                 self.request,
                 _("Add an email address to your profile first: Stripe needs one."),
             )
-            return redirect(_BILLING_URL)
+            return redirect(back)
         try:
             url = self.request.services.payouts.onboarding_url(
                 sphere_id=self.request.context.current_sphere_id,
@@ -99,8 +104,22 @@ class BillingConnectActionView(SphereAccessMixin, View):
                 refresh_url=_absolute(self.request, "multiverse:panel:billing-resume"),
                 return_url=_absolute(self.request, "multiverse:panel:billing-return"),
             )
+        except PaymentsUnavailableError:
+            logger.info(
+                "Billing: connect refused, no Stripe key: sphere=%s by=%s",
+                self.request.context.current_sphere_id,
+                self.request.context.current_user_id,
+            )
+            messages.warning(
+                self.request,
+                _(
+                    "Ticket sales aren't open on Zagrajmy yet, so Stripe can't be"
+                    " connected for now."
+                ),
+            )
+            return redirect(back)
         except PaymentProviderError:
-            return _stripe_unreachable(self.request, "onboarding")
+            return _stripe_unreachable(self.request, "onboarding", back=back)
         logger.info(
             "Billing: onboarding started for sphere=%s by=%s",
             self.request.context.current_sphere_id,

@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.event.panel.forms import TicketTypeForm
 from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelMixin,
@@ -19,6 +20,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import Capability
 from ludamus.pacts.tickets import RefundOutcome, TicketTypeData
 
 if TYPE_CHECKING:
@@ -74,6 +76,10 @@ class EventTicketsPageView(TicketsViewMixin, View):
         context["page"] = self.request.services.ticket_panel.page(
             sphere_id=self.request.context.current_sphere_id,
             event_id=self.current_event.pk,
+        )
+        # Reading roles see where the money goes; only managers connect Stripe.
+        context["can_manage"] = panel_access(self.request).allows(
+            Capability.PANEL_WRITE
         )
         return TemplateResponse(self.request, "panel/tickets.html", context)
 

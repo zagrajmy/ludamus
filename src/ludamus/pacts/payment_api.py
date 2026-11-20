@@ -18,6 +18,10 @@ class PaymentProviderError(Exception):
     """The provider refused or could not be reached; nothing was charged."""
 
 
+class PaymentsUnavailableError(Exception):
+    """This deployment has no Stripe key, so nothing was sent to Stripe."""
+
+
 class InvalidWebhookError(Exception):
     """The payload is not signed by Stripe with our secret, or is not JSON."""
 

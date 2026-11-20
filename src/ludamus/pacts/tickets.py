@@ -169,8 +169,6 @@ class PayoutAccountDTO(BaseModel):
 
 class PayoutPageDTO(BaseModel):
     status: PayoutStatus
-    # Stripe is configured on this deployment at all.
-    available: bool
     payouts_enabled: bool
 
 
@@ -437,7 +435,6 @@ class TicketTypeRowDTO(BaseModel):
 
 class TicketPanelDTO(BaseModel):
     payout_status: PayoutStatus
-    payments_available: bool
     platform_fee_percent: Decimal
     rows: list[TicketTypeRowDTO]
     archived: list[TicketTypeDTO]
