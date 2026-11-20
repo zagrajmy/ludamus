@@ -1,0 +1,15 @@
+{
+  "kind": "dupes",
+  "clone_groups": [
+    "src/parley/actions-menu.tsx:112-122|src/parley/emoji-picker.tsx:78-88",
+    "src/modal.ts:405-413|src/session-card.ts:6-14"
+  ],
+  "clone_fingerprints": [
+    "dup:3e107f52:2",
+    "dup:207400a8:2"
+  ],
+  "normalized_clone_fingerprints": [
+    "dup:47c3f2bf:2",
+    "dup:89064ba3:2"
+  ]
+}

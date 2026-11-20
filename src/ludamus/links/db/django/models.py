@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from unidecode import unidecode
 
 from ludamus.links.db.django.uploads import unique_upload_to
+from ludamus.pacts.availability import DayPart
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
 from ludamus.pacts.enrollment import (
@@ -626,7 +627,8 @@ class ParleyReport(models.Model):
 
 
 class Party(models.Model):
-    # The group that enrolls together. See RFC 0001.
+    # A group that plays together, and that also enrolls together while
+    # `enrolls_together` is on. See RFC 0001.
     name = models.CharField(max_length=255, blank=True, default="")
     leader = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="led_parties"
@@ -635,6 +637,7 @@ class Party(models.Model):
     invite_token = models.CharField(
         max_length=64, default=token_urlsafe, db_index=True, unique=True
     )
+    enrolls_together = models.BooleanField(default=True)
 
     class Meta:
         db_table = "party"
@@ -1053,7 +1056,7 @@ class GuildMembership(models.Model):
         return f"{self.member_id} in guild {self.guild_id}"
 
 
-class Event(models.Model):
+class Event(SoftDeleteModel):
     sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="events")
     name = models.CharField(max_length=255)
     slug = models.SlugField()
@@ -1150,6 +1153,29 @@ class Event(models.Model):
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
+
+
+class EventDeletionApproval(models.Model):
+    """One sphere manager's yes to deleting an event; enough of them delete it."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="deletion_approvals"
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="event_deletion_approvals"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "event_deletion_approval"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("event", "user"), name="event_deletion_approval_unique_user"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user_id} approves deleting event {self.event_id}"
 
 
 class EventProposalSettings(models.Model):
@@ -1422,6 +1448,14 @@ class Space(models.Model):
 
 
 class TimeSlot(models.Model):
+    """A window the organizer offers proposers to choose from.
+
+    Its one job is availability: an event that runs fixed programme blocks
+    lists them here, and a proposer says which of them they could run in. It
+    plays no part in where or when a session is placed; an event without any
+    asks in parts of a day instead (SessionAvailability).
+    """
+
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="time_slots"
     )
@@ -1651,6 +1685,8 @@ class Session(SoftDeleteModel):
         blank=True,
         help_text="ISO 8601 duration, e.g. PT1H30M",
     )
+    # The event's time slots the facilitator could run this in, where the event
+    # lists any; otherwise the answer is in parts of a day (availability).
     time_slots = models.ManyToManyField(TimeSlot, blank=True)
     status = models.CharField(
         max_length=15,
@@ -1699,6 +1735,38 @@ class Session(SoftDeleteModel):
     @property
     def cover_image_url(self) -> str:
         return self.cover_image.url if self.cover_image else ""
+
+
+class SessionAvailability(models.Model):
+    """A part of a programme day the facilitator could run this session in.
+
+    Availability belongs to the offer, so it lives on the session rather than
+    on the event. Where the event lists no time slots it is answered in named
+    parts rather than clock times: the proposer knows they are free on Friday
+    evening, not that the room opens at 18:30, and there is nothing to
+    configure before the question can be asked.
+    """
+
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="availability"
+    )
+    day = models.DateField()
+    part = models.CharField(
+        max_length=9, choices=[(part.value, part.name) for part in DayPart]
+    )
+
+    class Meta:
+        db_table = "session_availability"
+        ordering: ClassVar = ["day", "part"]
+        constraints = (
+            models.UniqueConstraint(
+                fields=("session", "day", "part"),
+                name="session_has_unique_availability",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.day.isoformat()} {self.part} ({self.id})"
 
 
 class AgendaItem(models.Model):
@@ -1759,6 +1827,13 @@ class ProposalCategory(models.Model):
     end_time = models.DateTimeField(blank=True, null=True)
     max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
+    asks_availability = models.BooleanField(
+        default=False,
+        help_text=(
+            "Ask proposers when they could run this. Off by default:"
+            " most categories do not need it."
+        ),
+    )
     durations = models.JSONField(
         default=list
     )  # ISO 8601 durations, e.g. ["PT30M", "PT1H"]
@@ -2130,33 +2205,6 @@ class SessionFieldValue(models.Model):
     def __str__(self) -> str:
         value_preview = str(self.value)[:50]
         return f"{self.field.name}: {value_preview}"
-
-
-class TimeSlotRequirement(models.Model):
-    """Specifies which time slots are available for a proposal category."""
-
-    category = models.ForeignKey(
-        ProposalCategory,
-        on_delete=models.CASCADE,
-        related_name="time_slot_requirements",
-    )
-    time_slot = models.ForeignKey(
-        TimeSlot, on_delete=models.CASCADE, related_name="category_requirements"
-    )
-    is_required = models.BooleanField(default=True)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        db_table = "time_slot_requirement"
-        constraints = (
-            models.UniqueConstraint(
-                fields=("category", "time_slot"), name="unique_time_slot_per_category"
-            ),
-        )
-
-    def __str__(self) -> str:
-        req = "required" if self.is_required else "optional"
-        return f"Time slot ({req}) for {self.category.name}"
 
 
 class Encounter(models.Model):

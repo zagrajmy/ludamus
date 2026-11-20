@@ -37,9 +37,26 @@ const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
 const skipWebkit = !!process.env.E2E_SKIP_WEBKIT;
-// CI sets this on pull requests once a merge queue runs the full suite:
-// Firefox repeats specs Chromium already ran, so it can wait for the queue.
-const skipFirefox = !!process.env.E2E_SKIP_FIREFOX;
+
+// CI runs the projects as three groups, each sharded on its own, so a shard's
+// share is one kind of work and the split stays even. "rest" is every project
+// the other two groups do not name: a project added below lands there rather
+// than in no group.
+const projectGroup = process.env.E2E_PROJECT_GROUP;
+const inProjectGroup = ({ name }: { name?: string }) => {
+  switch (projectGroup) {
+    case undefined:
+    case "":
+      return true;
+    case "chromium":
+    case "firefox":
+      return name === projectGroup;
+    case "rest":
+      return name !== "chromium" && name !== "firefox";
+    default:
+      throw new Error(`Unknown E2E_PROJECT_GROUP "${projectGroup}"`);
+  }
+};
 
 // Set before webServerEnv is built, so the runner and the server it starts
 // agree on whether this run measures coverage.
@@ -108,62 +125,58 @@ export default defineConfig({
       testIgnore: /.*\.auth\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
-    ...(skipFirefox
-      ? []
-      : [
-          {
-            name: "firefox",
-            // Specs that mutate shared seed data are pinned to chromium only, so a
-            // second project's copy can't run concurrently against the same event
-            // (the suite shares one seeded DB across projects).
-            testIgnore: [
-              /.*\.auth\.spec\.ts/,
-              /panel\.spec\.ts/,
-              /panel-crud\.spec\.ts/,
-              /facilitator-guild\.spec\.ts/,
-              /guilds\.spec\.ts/,
-              /panel-tracks\.spec\.ts/,
-              /guild-roster\.spec\.ts/,
-              /facilitator-merge\.spec\.ts/,
-              /facilitator-merge-target\.spec\.ts/,
-              /confirmations\.spec\.ts/,
-              /timetable\.spec\.ts/,
-              /timetable-conflict-count\.spec\.ts/,
-              /timetable-problems\.spec\.ts/,
-              /cover-images\.spec\.ts/,
-              /event-maps\.spec\.ts/,
-              /sphere-logo\.spec\.ts/,
-              /anonymous-proposal\.spec\.ts/,
-              /uncategorized-proposal\.spec\.ts/,
-              /proposal-delete-restore\.spec\.ts/,
-              /proposal-accept\.spec\.ts/,
-              /write-in-fields\.spec\.ts/,
-              /anonymous-enrollment\.spec\.ts/,
-              /proposal-bulk-review\.spec\.ts/,
-              /panel-enrollment-window\.spec\.ts/,
-              /timetable-publish\.spec\.ts/,
-              // Read-only but chains several full navigations of the heavy print
-              // preview; Firefox's slow loads make it time out where Chromium fits
-              // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
-              /print-flow\.spec\.ts/,
-            ],
-            use: {
-              ...devices["Desktop Firefox"],
-              // In sandboxed dev containers the runtime denies unprivileged user
-              // namespaces, so every Firefox content process dies on startup
-              // ("Sandbox: writing /proc/self/uid_map: EACCES", then SIGSEGV) and
-              // newPage() hangs until the test times out — whichever spec happens
-              // to run first is the one that "fails". The kernel sysctls still
-              // report userns as allowed, so there is nothing to feature-detect;
-              // gate on the sandbox's egress proxy — the same `proxyServer`
-              // signal `use.proxy` reads above. Real CI (no HTTPS_PROXY) keeps
-              // Firefox's content sandbox on.
-              ...(proxyServer
-                ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
-                : {}),
-            },
-          },
-        ]),
+    {
+      name: "firefox",
+      // Specs that mutate shared seed data are pinned to chromium only, so a
+      // second project's copy can't run concurrently against the same event
+      // (the suite shares one seeded DB across projects).
+      testIgnore: [
+        /.*\.auth\.spec\.ts/,
+        /panel\.spec\.ts/,
+        /panel-crud\.spec\.ts/,
+        /facilitator-guild\.spec\.ts/,
+        /guilds\.spec\.ts/,
+        /panel-tracks\.spec\.ts/,
+        /guild-roster\.spec\.ts/,
+        /facilitator-merge\.spec\.ts/,
+        /facilitator-merge-target\.spec\.ts/,
+        /confirmations\.spec\.ts/,
+        /timetable\.spec\.ts/,
+        /timetable-conflict-count\.spec\.ts/,
+        /timetable-problems\.spec\.ts/,
+        /cover-images\.spec\.ts/,
+        /event-maps\.spec\.ts/,
+        /sphere-logo\.spec\.ts/,
+        /anonymous-proposal\.spec\.ts/,
+        /uncategorized-proposal\.spec\.ts/,
+        /proposal-delete-restore\.spec\.ts/,
+        /proposal-accept\.spec\.ts/,
+        /write-in-fields\.spec\.ts/,
+        /anonymous-enrollment\.spec\.ts/,
+        /proposal-bulk-review\.spec\.ts/,
+        /panel-enrollment-window\.spec\.ts/,
+        /timetable-publish\.spec\.ts/,
+        // Read-only but chains several full navigations of the heavy print
+        // preview; Firefox's slow loads make it time out where Chromium fits
+        // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
+        /print-flow\.spec\.ts/,
+      ],
+      use: {
+        ...devices["Desktop Firefox"],
+        // In sandboxed dev containers the runtime denies unprivileged user
+        // namespaces, so every Firefox content process dies on startup
+        // ("Sandbox: writing /proc/self/uid_map: EACCES", then SIGSEGV) and
+        // newPage() hangs until the test times out — whichever spec happens
+        // to run first is the one that "fails". The kernel sysctls still
+        // report userns as allowed, so there is nothing to feature-detect;
+        // gate on the sandbox's egress proxy — the same `proxyServer`
+        // signal `use.proxy` reads above. Real CI (no HTTPS_PROXY) keeps
+        // Firefox's content sandbox on.
+        ...(proxyServer
+          ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
+          : {}),
+      },
+    },
     ...(skipWebkit
       ? []
       : [
@@ -193,7 +206,7 @@ export default defineConfig({
         storageState: path.join(__dirname, ".auth-state.json"),
       },
     },
-  ],
+  ].filter(inProjectGroup),
   webServer: [
     {
       command: WEB_COMMAND,

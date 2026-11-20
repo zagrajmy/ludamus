@@ -98,6 +98,7 @@ export const bootstrap = {
     groupNeedsPeople: "Add at least one person.",
     groupPeople: "People in the group",
     groupTitleTooLong: "Group names can be up to 80 characters.",
+    historyFailed: "Could not load messages.",
     leaveConversation: "Leave conversation",
     leaveConversationConfirm: "Leave this conversation? It will disappear from your list.",
     leaveGroup: "Leave group",

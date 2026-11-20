@@ -3,6 +3,7 @@ from ludamus.links.db.django.models import (
     Discount,
     Event,
     EventBan,
+    EventDeletionApproval,
     EventIntegration,
     EventMap,
     Facilitator,
@@ -20,6 +21,7 @@ SKIPPED_RELATIONS = {
     ContentChangeLog,
     Discount,
     EventBan,
+    EventDeletionApproval,
     EventIntegration,
     EventMap,
     Facilitator,
@@ -31,6 +33,7 @@ SKIPPED_RELATIONS = {
 SKIPPED_FIELDS = {
     "cover_image",
     "cover_image_original_name",
+    "deleted_at",
     "end_time",
     "id",
     "logo",

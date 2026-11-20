@@ -41,7 +41,9 @@ test("a card's room stays readable when the venue name is long", async ({ page }
 
 test("the unread badge caps at 99+ and the label keeps the count", async ({ page }) => {
   await page.goto(EVENT);
-  const bell = page.getByRole("button", { name: "Notifications (1284 unread)" });
+  // The seed gives 1,284; sphere-wide notifications from sweeps and other specs
+  // add a few more during a run.
+  const bell = page.getByRole("button", { name: /^Notifications \(12[89]\d unread\)$/ });
 
   await expect(bell).toHaveText("99+");
 });

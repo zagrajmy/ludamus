@@ -88,6 +88,7 @@ def _copy() -> dict[str, str]:
         "roomsLabel": _("Conversations"),
         "backLabel": _("Back to conversations"),
         "loadEarlier": _("Load earlier messages"),
+        "historyFailed": _("Could not load messages."),
         "retentionNote": _("Messages disappear a year after they are written."),
         "deletedMessage": _("Message deleted"),
         "retry": _("Try again"),

@@ -4,10 +4,10 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { managerState } from "./helpers/auth";
 import { expect, test } from "./helpers/fixtures";
 
-// accept-lab is seeded with one bookable room and one time slot, so the
-// scheduling form has nothing to ask. The organizer still has to be told
-// where and when they are about to put the session. Accepting consumes a
-// pending proposal, so the two scenarios run serially against one each.
+// accept-lab is seeded with one bookable room, so the space is foregone and the
+// card names it rather than asking. The time is a real field now: the organizer
+// picks when the session runs. Accepting consumes a pending proposal, so the
+// two scenarios run serially against one each.
 test.describe.configure({ mode: "serial" });
 
 const EVENT = "accept-lab";
@@ -29,16 +29,19 @@ async function reviewProposal(page: import("@playwright/test").Page, title: stri
 test.describe("Accepting a proposal", () => {
   test.use({ storageState: managerState });
 
-  test("a foregone space and time are named, not asked for", async ({ page }) => {
+  test("a foregone space is named, and the time is asked for", async ({ page }) => {
     const decision = await reviewProposal(page, "Solo Showcase");
 
-    // Nothing to choose, so the decision card asks nothing.
+    // One room means no picker; the card names what it will commit to.
     await expect(decision.getByRole("combobox")).toHaveCount(0);
-
-    // It names what the button is about to commit to instead.
     await expect(decision.getByText("Space", { exact: true })).toBeVisible();
     await expect(decision.getByText(ROOM)).toBeVisible();
-    await expect(decision.getByText("Time slot", { exact: true })).toBeVisible();
+
+    // The time is a genuine choice, so it is a field, pre-filled with the
+    // event's opening hour rather than left blank.
+    const startsAt = decision.getByLabel("Starts at");
+    await expect(startsAt).toBeVisible();
+    await expect(startsAt).not.toHaveValue("");
     await expect(decision.getByRole("button", { name: "Accept and add to agenda" })).toBeVisible();
   });
 
@@ -62,7 +65,10 @@ test.describe("Accepting a proposal", () => {
     expect(cardTop).toBeGreaterThanOrEqual(navBottom);
   });
 
-  test("the room and time it names are the ones it submits", async ({ browser, page }) => {
+  test("the time it is given is the time it books, and the proposer is told", async ({
+    browser,
+    page,
+  }) => {
     // The proposer has browsed in Polish before; the organizer accepts in English.
     const proposer = await browser.newContext({ storageState: proposerState, locale: "pl-PL" });
     const proposerPage = await proposer.newPage();
@@ -71,21 +77,21 @@ test.describe("Accepting a proposal", () => {
     const decision = await reviewProposal(page, "Solo Encore");
     // The organizer judges the proposal with the cover it will be shown with.
     await expectCoverShown(page.locator("[data-session-cover]"));
-    const [namedRoom, namedSlot] = await decision.locator("dd").allInnerTexts();
+    const startsAt = decision.getByLabel("Starts at");
+    const chosen = (await startsAt.inputValue()).slice(0, 16);
 
     await decision.getByRole("button", { name: "Accept and add to agenda" }).click();
     await expect(page).toHaveURL(new RegExp(`/event/${EVENT}/$`));
 
     // A hidden value nobody saw could schedule somewhere else, so the booking
-    // has to read back as the room and the hours the card named.
+    // has to read back as the room and the hour the form carried.
     await page.getByRole("link", { name: "Open details for Solo Encore" }).click();
     const details = page.getByRole("dialog");
-    await expect(details).toContainText(namedRoom.trim());
+    await expect(details).toContainText(ROOM);
     // The modal leads with the cover as its title's backdrop, whose shape
     // session-modal-cover.spec.ts owns; here it only has to have loaded.
     await expectCoverShown(details.locator("[data-cover-image]"));
-    const [start, end] = namedSlot.trim().split("–");
-    await expect(details).toContainText(`${start.slice(-5)}–${end}`);
+    await expect(details).toContainText(chosen.slice(-5));
 
     // The proposer hears about it in the bell, in their language, and the
     // link opens the session.
@@ -106,25 +112,31 @@ test.describe("Accepting a proposal", () => {
     await expect(proposerPage.getByRole("dialog")).toContainText("Solo Encore");
     await proposer.close();
   });
-
-  test("with its one placement taken, the page says so instead of offering it", async ({
-    page,
-  }) => {
-    // Runs after Solo Encore took the only room in the only slot.
-    const decision = await reviewProposal(page, "Solo Showcase");
-    await expect(decision.getByText(/Every space is taken at every time/)).toBeVisible();
-    await expect(decision.getByRole("button", { name: "Accept and add to agenda" })).toHaveCount(0);
-    await expect(decision.getByRole("link", { name: "Add a space" })).toBeVisible();
-  });
 });
 
-test.describe("Accepting into a partly booked slot", () => {
+// The wall clock the start field holds, moved on by whole hours: read as UTC
+// only so that Date adds the hours without the browser's own offset.
+function hoursLater(wallClock: string, hours: number): string {
+  const at = new Date(`${wallClock.slice(0, 16)}:00Z`);
+  at.setUTCHours(at.getUTCHours() + hours);
+  return at.toISOString().slice(0, 16);
+}
+
+test.describe("Accepting into a partly booked day", () => {
   test.use({ storageState: managerState });
 
-  test("a room already held then is shown taken, not offered", async ({ page }) => {
-    await page.goto("/event/accept-crowded-1/");
+  async function openCrowdedPitch(page: import("@playwright/test").Page) {
+    await page.goto("/event/accept-crowded/");
     await page.getByRole("link", { name: "Review proposal Crowded Pitch" }).click();
-    const space = page.getByRole("combobox", { name: "Space" });
+    return {
+      startsAt: page.getByLabel("Starts at"),
+      space: page.getByRole("combobox", { name: "Space" }),
+    };
+  }
+
+  test("a room held at the time picked is shown taken, not offered", async ({ page }) => {
+    // The pitch opens at the event's opening and runs into Already Here's hours.
+    const { space } = await openCrowdedPitch(page);
 
     await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
     await expect(space.getByRole("option", { name: "North Room" })).toBeEnabled();
@@ -138,28 +150,24 @@ test.describe("Accepting into a partly booked slot", () => {
     });
   });
 
-  test("with the time open too, the room follows the time picked", async ({ page }) => {
-    await page.goto("/event/accept-crowded-2/");
-    await page.getByRole("link", { name: "Review proposal Crowded Pitch" }).click();
-    const slot = page.getByRole("combobox", { name: "Time slot" });
-    const space = page.getByRole("combobox", { name: "Space" });
-    const [first, second] = await slot
-      .getByRole("option")
-      .filter({ hasNotText: "Choose a time" })
-      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+  test("the room follows the time picked", async ({ page }) => {
+    const { startsAt, space } = await openCrowdedPitch(page);
+    const opening = await startsAt.inputValue();
 
+    // Three hours on, Already Here has finished, so the room is free again.
+    await startsAt.fill(hoursLater(opening, 3));
+    const booked = space.getByRole("option", { name: "Booked Room", exact: true });
+    await expect(booked).toBeEnabled();
     await space.selectOption({ label: "Booked Room" });
-    await slot.selectOption(first);
+
+    await startsAt.fill(opening.slice(0, 16));
     await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
     // A pick the new time rules out is dropped, not submitted.
     await expect(space).toHaveValue("");
-
-    await slot.selectOption(second);
-    await expect(space.getByRole("option", { name: "Booked Room", exact: true })).toBeEnabled();
     await attachArtifacts(test.info(), {
       name: "accept-room-follows-time",
       region: page.getByRole("heading", { name: "Schedule it" }).locator(".."),
-      facts: { takenInFirstSlot: ["Booked Room"], freeInSecondSlot: ["Booked Room"] },
+      facts: { takenAtOpening: ["Booked Room"], freeThreeHoursLater: ["Booked Room"] },
     });
   });
 });
@@ -172,9 +180,9 @@ test.describe("Accepting into a meetup that needs no room", () => {
     await page.getByRole("link", { name: "Review proposal Roomless Talk" }).click();
     const decision = page.getByRole("heading", { name: "Schedule it" }).locator("..");
 
-    // No space to choose, and none required: the card names only the time.
+    // No space to choose, and none required: the card asks only for the time.
     await expect(decision.getByRole("combobox")).toHaveCount(0);
-    await expect(decision.getByText("Time slot", { exact: true })).toBeVisible();
+    await expect(decision.getByLabel("Starts at")).toBeVisible();
     await decision.getByRole("button", { name: "Accept and add to agenda" }).click();
     await expect(page).toHaveURL(/\/event\/roomless-meetup\/$/);
 
