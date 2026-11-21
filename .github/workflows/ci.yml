@@ -323,7 +323,18 @@ jobs:
   # gates a merge goes in `needs`.
   test:
     runs-on: ubuntu-latest
-    needs: [test-mills, test-unit, test-postgres, test-e2e, test-worker, bombadil]
+    # NOTE: pylint ran inside the required `checks` job until it became its
+    # own job, and frontend-analysis calls its lint blocking: neither could
+    # fail a merge while missing from this list.
+    needs:
+      - pylint
+      - frontend-analysis
+      - test-mills
+      - test-unit
+      - test-postgres
+      - test-e2e
+      - test-worker
+      - bombadil
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.
