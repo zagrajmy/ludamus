@@ -1,12 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "agent-browser": {
-      "source": "vercel-labs/agent-browser",
-      "sourceType": "github",
-      "skillPath": "skills/agent-browser/SKILL.md",
-      "computedHash": "a0dfac7503f69bcf529b2660fc79964064c4f179eb65695904ddc45fc0d99d20"
-    },
     "break-ui": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
@@ -36,13 +30,6 @@
       "sourceType": "github",
       "skillPath": "skills/minimalist-skill/SKILL.md",
       "computedHash": "08873a3131d3be27bef9bf3304b310b16b44ca6e3561aebe532797be3443f6bd"
-    },
-    "modern-web-guidance": {
-      "source": "vercel-labs/agent-browser",
-      "ref": "main",
-      "sourceType": "github",
-      "skillPath": "skill-data/modern-web-guidance/SKILL.md",
-      "computedHash": "bd779e7437fb83edc6956b183635b36574f8aa22e48777f93078354b0ce01862"
     },
     "show-me": {
       "source": "humanlayer/skills",
