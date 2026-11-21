@@ -4944,14 +4944,14 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "stripe"
-version = "16.0.1"
+version = "17.0.0"
 description = "Python bindings for the Stripe API"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "stripe-16.0.1-py3-none-any.whl", hash = "sha256:f87d6aaf6d20c9e788c8532d23511eb42be4602e48cf4f425327e96ccb7e4f00"},
-    {file = "stripe-16.0.1.tar.gz", hash = "sha256:44f20abd85c5cdac1d019c290b2fa055db2b6f4890f7f3b2daa493eb48c9a0d2"},
+    {file = "stripe-17.0.0-py3-none-any.whl", hash = "sha256:955bd99082dadcaf41b0d2d5075c0da8e6e848df1dccbbfcf7c856d9ac003420"},
+    {file = "stripe-17.0.0.tar.gz", hash = "sha256:5e1bdde6eac0311f6c3dea60457e3e49091789785db9c90d28d75a0398835589"},
 ]
 
 [package.dependencies]
@@ -5411,4 +5411,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "3477096e021a6284fbc12023e84ad5f1891df155ae272bb57cba641b93d9476a"
+content-hash = "10e3c04682d2ea6c9a0b942631a3eca552044f166431bf1c72f07f1161590e78"
