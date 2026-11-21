@@ -223,6 +223,9 @@ test("With storage refused, the chat window still opens and moves", async ({ pag
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);
+  // SAFETY: the loading window is replaced, header and all, once the chat
+  // connects; a header measured or grabbed across that swap is gone.
+  await expect(panel.getByRole("navigation", { name: "Conversations" })).toBeVisible();
   const header = panel.locator("header").first();
   await expect(header).toBeVisible();
   const grip = (await header.boundingBox())!;
