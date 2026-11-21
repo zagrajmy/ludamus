@@ -71,6 +71,30 @@
                         {{ listing.author_name }}
                     </dd>
                 </div>
+                {% if joined_responses %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "In your party" %}</dt>
+                        <dd>
+                            <ul class="flex flex-col gap-2">
+                                {% for response in joined_responses %}
+                                    <li data-ph-mask>
+                                        <p class="text-foreground-primary">{{ response.user_name }}</p>
+                                        <p class="text-foreground-secondary">
+                                            {% include "board/_contact.html" with contact=response.contact address=response.contact_address only %}
+                                        </p>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </dd>
+                    </div>
+                {% elif party_members %}
+                    <div>
+                        <dt class="text-foreground-muted">{% translate "Already in the party" %}</dt>
+                        <dd class="text-foreground-primary">
+                            {{ party_members|join:", " }}
+                        </dd>
+                    </div>
+                {% endif %}
                 {% if is_author %}
                     <div>
                         <dt class="text-foreground-muted">{% translate "Contact for your party" %}</dt>
@@ -117,7 +141,7 @@
                     {% tessera_button text=t_edit href=edit_url variant="secondary" extra_class="w-full justify-center" %}
                     {% if listing.status != "draft" %}
                         {% url 'web:board:responses' pk=listing.pk as responses_url %}
-                        {% blocktranslate asvar t_responses %}Responses ({{ waiting_count }}){% endblocktranslate %}
+                        {% blocktranslate asvar t_responses with count=waiting_count %}Interested ({{ count }}){% endblocktranslate %}
                         {% tessera_button text=t_responses href=responses_url variant="secondary" extra_class="w-full justify-center" %}
                     {% endif %}
                 </div>

@@ -4,9 +4,10 @@ from http import HTTPStatus
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Tag, TagCategory
+from ludamus.links.db.django.models import Party, PartyMembership, Tag, TagCategory
 from ludamus.pacts.listing import ListingContact, ListingStatus
-from tests.integration.conftest import PNG_BYTES, ListingFactory
+from ludamus.pacts.party import PartyMembershipStatus
+from tests.integration.conftest import PNG_BYTES, ListingFactory, UserFactory
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.board.expected import listing_dto
 
@@ -31,6 +32,39 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": None,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
+            },
+            template_name="board/detail.html",
+        )
+
+    def test_a_visitor_sees_who_is_already_in_the_shown_party(self, client, sphere):
+        author, member, invited = UserFactory(), UserFactory(), UserFactory()
+        party = Party.objects.create(leader=author, name="Drużyna")
+        for user, status in (
+            (author, PartyMembershipStatus.ACTIVE),
+            (member, PartyMembershipStatus.ACTIVE),
+            (invited, PartyMembershipStatus.INVITED),
+        ):
+            PartyMembership.objects.create(party=party, member=user, status=status)
+        listing = ListingFactory(sphere=sphere, author=author, party=party)
+
+        response = client.get(_url(listing))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing),
+                "is_author": False,
+                "open_for_days": 30,
+                "own_response": None,
+                "response_form": None,
+                "waiting_count": None,
+                "author_contact": "",
+                "party_members": [author.full_name, member.full_name],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -55,6 +89,9 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": 0,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -113,6 +150,9 @@ class TestListingDetailPageView:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": 0,
+                "author_contact": "",
+                "party_members": [],
+                "joined_responses": [],
             },
             template_name="board/detail.html",
         )

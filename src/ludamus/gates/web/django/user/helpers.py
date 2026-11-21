@@ -128,5 +128,9 @@ def build_party_detail_context(
         ),
         "history": history,
         "enrolling_locked": detail.enrolling_locked,
+        "listings": request.services.listings.party_listings(pk),
+        "party_contacts": request.services.listings.party_contacts(
+            party_id=pk, viewer_id=viewer_pk
+        ),
         "profile_active_tab": "parties",
     }

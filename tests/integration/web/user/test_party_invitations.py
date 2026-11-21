@@ -322,6 +322,8 @@ class TestPartyCompanionAddActionView:
                 "invite_token": party.invite_token,
                 "history": [],
                 "enrolling_locked": False,
+                "listings": [],
+                "party_contacts": {},
                 "profile_active_tab": "parties",
             },
             template_name="user/user/party_detail.html",
