@@ -1,6 +1,7 @@
 ---
 title: 'tingle check blames other PRs'' debt when the sandbox''s local main is stale'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1469'
 ---
 
 ### Expected Behavior
