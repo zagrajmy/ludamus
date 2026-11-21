@@ -65,6 +65,37 @@ test.describe("Design system page", () => {
     await expect(toasts).toHaveCount(0);
   });
 
+  test("puts a newly raised error in front of older toasts", async ({ page }) => {
+    // The collapsed stack shows only its front toast; the ones behind keep
+    // their content hidden. An htmx failure raised while "saved" is still up
+    // used to land behind it, so the one message that mattered was blank.
+    await page.goto("/design/");
+
+    const playground = page.getByRole("group", { name: "Toast playground" });
+    await playground.getByRole("button", { name: "Show success" }).click();
+    await playground.getByRole("button", { name: "Show sticky error" }).click();
+
+    const region = page.getByRole("region", { name: "Notifications" });
+    const error = region.getByRole("alert");
+    const success = region.getByRole("status");
+    await expect(error).toHaveText(/Something went wrong\./);
+    await expect(success).toHaveText(/Saved successfully\./);
+
+    // Read the stack only once its entrance transitions have finished: mid
+    // flight, a toast still sliding in sits above the one it will end behind.
+    const settled = async () => {
+      const moving = async (toast: typeof error) =>
+        toast.evaluate((element) => element.getAnimations({ subtree: true }).length > 0);
+      if ((await moving(error)) || (await moving(success))) return "moving";
+      const [front, back] = await Promise.all([error.boundingBox(), success.boundingBox()]);
+      return front !== null && back !== null && front.y < back.y
+        ? "error in front"
+        : "error behind";
+    };
+    await expect.poll(settled).toBe("error in front");
+    await expect(error.getByText("Something went wrong.")).toHaveCSS("opacity", "1");
+  });
+
   test("shows a disabled placeholder's label, which is no option to land on", async ({ page }) => {
     await page.goto("/design/");
 
