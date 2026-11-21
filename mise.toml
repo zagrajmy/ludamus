@@ -176,14 +176,17 @@ run = [
     # OperationalError as "SQLite does not support JSONFields" — once per JSON
     # field, naming a problem that does not exist. Say what is actually wrong
     # instead. Only a LISTEN socket counts: a browser tab connected to :8000
-    # shows up in a bare `lsof -ti` too.
+    # shows up in a bare `lsof -ti` too. The privacy server on :8001 opens the
+    # same databases.
     """
-    if lsof -ti :8000 -sTCP:LISTEN >/dev/null 2>&1; then
-      echo "The e2e server is already running on :8000." >&2
-      echo "Seeding would delete dev.e2e.sqlite3 underneath it." >&2
-      echo "Stop it first: mise run test:e2e:kill" >&2
-      exit 1
-    fi
+    for port in 8000 8001; do
+      if lsof -ti :$port -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "An e2e server is already running on :$port." >&2
+        echo "Seeding would delete the e2e databases underneath it." >&2
+        echo "Stop it first: mise run test:e2e:kill" >&2
+        exit 1
+      fi
+    done
     """,
     "mise bootstrap packages apply --yes",
     "poetry install",
@@ -214,8 +217,8 @@ run = [
 env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
 [tasks."test:e2e:kill"]
-description = "Kill the e2e dev server (Django on :8000)"
-run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
+description = "Kill the e2e dev servers (Django on :8000 and the privacy server on :8001)"
+run = "lsof -ti :8000 -ti :8001 | xargs -r kill -9 2>/dev/null; echo 'E2E servers killed'"
 
 [tasks."test:e2e:serve"]
 description = "Run the e2e dev server (assumes `test:e2e:prep` has run); restarts itself when a client rebuild replaces the Vite manifest"
