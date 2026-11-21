@@ -48,12 +48,14 @@ PanelNav = Literal[
     "timetable",
     "konwencik-export",
     "errata",
+    "tickets",
     "settings",
     "bans",
     "guilds",
     "team",
     "chats",
     "sphere-settings",
+    "billing",
     "event-create",
 ]
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
@@ -68,7 +70,7 @@ class PanelNavContext(TypedDict):
 # Every sidebar category. A category with no collapse rules in `panel/base.html`
 # renders a fully wired toggle that visibly does nothing, so `TestSidebarCoverage`
 # checks this set against the rules there.
-PanelCat = Literal["program", "schedule", "live", "settings", "sphere"]
+PanelCat = Literal["program", "schedule", "live", "sales", "settings", "sphere"]
 PANEL_CAT_KEYS: Final = frozenset(get_args(PanelCat))
 
 

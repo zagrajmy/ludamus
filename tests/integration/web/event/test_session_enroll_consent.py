@@ -316,6 +316,123 @@ class TestHeldSeatForConsentingMember:
         assert "disabled" in tag
 
 
+def _overlapping_agenda_item(agenda_item):
+    other = SessionFactory(
+        event=agenda_item.session.event,
+        title="Overlap",
+        presenter=agenda_item.session.presenter,
+    )
+    return AgendaItemFactory(
+        session=other,
+        space=SpaceFactory(event=agenda_item.session.event),
+        start_time=agenda_item.start_time,
+        end_time=agenda_item.end_time,
+    )
+
+
+def _held_seat(session, *, member, party, token):
+    return SessionParticipation.objects.create(
+        session=session,
+        user=member,
+        party=party,
+        status=SessionParticipationStatus.OFFERED,
+        claim_token=token,
+        offer_expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+
+
+class TestOfferedSeatTimeConflict:
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_held_seat_blocks_an_overlapping_hold(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        other_agenda = _overlapping_agenda_item(agenda_item)
+        _held_seat(agenda_item.session, member=member, party=party, token="held")
+
+        response = authenticated_client.post(
+            _url(other_agenda), data={f"user_{member.pk}": "enroll"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_context(
+                session=other_agenda.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member,
+                        has_time_conflict=True,
+                        is_member=True,
+                        needs_accept=True,
+                    ),
+                ],
+                **_party_pills(
+                    party,
+                    leader=active_user,
+                    member=member,
+                    consent=PartyConsentMode.ACCEPT_INVITES,
+                ),
+            ),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Select a valid choice. "
+                        "enroll is not one of the available choices."
+                    ),
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
+            ],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=member, session=other_agenda.session
+        ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_claim_releases_held_seat_overlapping_another_held_seat(
+        self, client, active_user, agenda_item
+    ):
+        party, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
+        _reassign_presenter(agenda_item)
+        other_agenda = _overlapping_agenda_item(agenda_item)
+        held = _held_seat(agenda_item.session, member=member, party=party, token="a")
+        clashing = _held_seat(
+            other_agenda.session, member=member, party=party, token="b"
+        )
+
+        response = client.post(
+            reverse("web:chronology:offer-claim", kwargs={"token": held.claim_token})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.session.event.slug}
+            ),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "This spot overlaps a session you already have a seat in, "
+                        "so it was released."
+                    ),
+                )
+            ],
+        )
+        assert not SessionParticipation.objects.filter(pk=held.pk).exists()
+        clashing.refresh_from_db()
+        assert clashing.status == SessionParticipationStatus.OFFERED
+
+
 class TestHeldSeatUnavailable:
     @pytest.mark.usefixtures("enrollment_config")
     def test_member_with_time_conflict_cannot_be_offered_a_seat(
