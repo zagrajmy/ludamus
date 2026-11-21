@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from ludamus.links.db.django.recipients import Recipient
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.event_deletion import EventDeletionRequestedNotification
     from ludamus.pacts.listing import (
         ListingDeclinedNotification,
         ListingInterestedNotification,
@@ -548,6 +549,40 @@ class DjangoUserNotifier:
                 Bell(
                     kind=NotificationKind.PRINTABLES_READY,
                     title=title,
+                    body=body,
+                    url=url,
+                    payload={"event_slug": notification.event_slug},
+                ),
+            )
+
+    @staticmethod
+    def notify_event_deletion_requested(
+        notification: EventDeletionRequestedNotification,
+    ) -> None:
+        with speaking_to(notification.recipient_user_id) as recipient:
+            url = absolute_url(
+                reverse(
+                    "panel:event-settings", kwargs={"slug": notification.event_slug}
+                )
+                + "#event-deletion",
+                domain=notification.sphere_domain,
+            )
+            title = _("%(name)s wants to delete %(event)s") % {
+                "name": notification.requester_name,
+                "event": notification.event_name,
+            }
+            body = ngettext(
+                "The event is deleted once %(count)d more manager approves. "
+                "Open its settings to approve or to leave it be.",
+                "The event is deleted once %(count)d more managers approve. "
+                "Open its settings to approve or to leave it be.",
+                notification.approvals_missing,
+            ) % {"count": notification.approvals_missing}
+            _deliver(
+                recipient,
+                Bell(
+                    kind=NotificationKind.EVENT_DELETION_REQUESTED,
+                    title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
                     body=body,
                     url=url,
                     payload={"event_slug": notification.event_slug},

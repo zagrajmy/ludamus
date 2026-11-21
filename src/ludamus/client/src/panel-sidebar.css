@@ -8,6 +8,7 @@
   html.catc-program [data-cat="program"] .sidebar-cat-body,
   html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
   html.catc-live [data-cat="live"] .sidebar-cat-body,
+  html.catc-sales [data-cat="sales"] .sidebar-cat-body,
   html.catc-settings [data-cat="settings"] .sidebar-cat-body,
   html.catc-sphere [data-cat="sphere"] .sidebar-cat-body {
     display: none;
@@ -16,6 +17,7 @@
   html.catc-program [data-cat="program"] .sidebar-cat-chevron,
   html.catc-schedule [data-cat="schedule"] .sidebar-cat-chevron,
   html.catc-live [data-cat="live"] .sidebar-cat-chevron,
+  html.catc-sales [data-cat="sales"] .sidebar-cat-chevron,
   html.catc-settings [data-cat="settings"] .sidebar-cat-chevron,
   html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
     transform: rotate(-90deg);

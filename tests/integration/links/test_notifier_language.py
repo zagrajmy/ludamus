@@ -21,6 +21,7 @@ from ludamus.links.db.django.recipients import (
 from ludamus.links.db.django.users import ClaimRepository
 from ludamus.pacts.dashboard import SphereEventPublishedNotification
 from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+from ludamus.pacts.event_deletion import EventDeletionRequestedNotification
 from ludamus.pacts.listing import (
     ListingDeclinedNotification,
     ListingInterestedNotification,
@@ -158,6 +159,14 @@ _SAMPLES = {
     ],
     "notify_printables_ready": [
         lambda r: PrintablesReadyNotification(recipient_user_id=r.user_id, **r.event)
+    ],
+    "notify_event_deletion_requested": [
+        lambda r: EventDeletionRequestedNotification(
+            recipient_user_id=r.user_id,
+            requester_name="Kasia",
+            approvals_missing=1,
+            **r.event,
+        )
     ],
     "notify_listing_interested": [
         lambda r: ListingInterestedNotification(

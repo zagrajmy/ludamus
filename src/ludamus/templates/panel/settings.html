@@ -105,6 +105,7 @@
                     </div>
                 </div>
             </form>
+            {% include "panel/parts/_event_deletion.html" with ballot=deletion form=deletion_form %}
         {% end_tab_shell_body %}
     {% end_tab_shell %}
 {% endblock content %}

@@ -6,6 +6,7 @@ from ludamus.gates.web.django.event.event_presentation import present_party_hist
 from ludamus.gates.web.django.user.forms import (
     CompanionForm,
     PartyCompanionForm,
+    PartyCreateForm,
     PartyInviteForm,
     PartyNameForm,
 )
@@ -71,7 +72,12 @@ def build_parties_context(
         "create_companion_form": (
             create_form or CompanionForm(auto_id=COMPANION_CREATE_AUTO_ID)
         ),
-        "party_form": PartyNameForm(auto_id="party_%s"),
+        "party_form": PartyCreateForm(
+            auto_id="party_%s", initial={"enrolls_together": True}
+        ),
+        "play_party_form": PartyCreateForm(
+            auto_id="play_party_%s", initial={"enrolls_together": False}
+        ),
         "profile_active_tab": "parties",
     }
 
@@ -121,6 +127,7 @@ def build_party_detail_context(
             else ""
         ),
         "history": history,
+        "enrolling_locked": detail.enrolling_locked,
         "listings": request.services.listings.party_listings(pk),
         "party_contacts": request.services.listings.party_contacts(
             party_id=pk, viewer_id=viewer_pk

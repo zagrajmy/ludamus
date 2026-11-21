@@ -1,0 +1,13 @@
+{% load i18n ticket_tags %}
+{# One admission: its QR carries only the code shown beside it. #}
+<li class="card card-body flex items-center gap-4">
+    <img src="{{ code|qr_data_url }}"
+         alt="{% blocktranslate %}QR code for ticket {{ code }}{% endblocktranslate %}"
+         class="size-24 shrink-0 rounded-lg bg-white p-1.5"
+         width="96"
+         height="96">
+    <div class="min-w-0">
+        <div class="text-sm text-foreground-muted wrap-anywhere">{{ ticket_type_name }}</div>
+        <div class="font-mono text-lg font-semibold tracking-widest text-foreground">{{ code }}</div>
+    </div>
+</li>

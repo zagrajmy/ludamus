@@ -13,6 +13,7 @@ from ludamus.pacts.sphere import SphereVisibility
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.billing import PlanServiceProtocol
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.dashboard import (
         DashboardServiceProtocol,
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
         LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_deletion import EventDeletionServiceProtocol
     from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
@@ -108,6 +110,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.staff_cases import StaffCaseServiceProtocol
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
+    from ludamus.pacts.tickets import (
+        PayoutServiceProtocol,
+        TicketPanelServiceProtocol,
+        TicketSalesServiceProtocol,
+    )
     from ludamus.pacts.timetable import (
         ConflictDetectionServiceProtocol,
         TimetableOverviewServiceProtocol,
@@ -136,6 +143,11 @@ class DatabaseConstraintError(Exception):
 class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+
+    # NOTE: commits on exit, and refuses to open inside another transaction.
+    @staticmethod
+    def durable() -> AbstractContextManager[None]: ...
+
     @staticmethod
     def savepoint() -> AbstractContextManager[None]: ...
 
@@ -201,6 +213,8 @@ class ServicesProtocol(Protocol):
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def event_deletion(self) -> EventDeletionServiceProtocol: ...
     @property
     def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
@@ -305,6 +319,14 @@ class ServicesProtocol(Protocol):
     def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+    @property
+    def payouts(self) -> PayoutServiceProtocol: ...
+    @property
+    def ticket_sales(self) -> TicketSalesServiceProtocol: ...
+    @property
+    def ticket_panel(self) -> TicketPanelServiceProtocol: ...
+    @property
+    def plan(self) -> PlanServiceProtocol: ...
 
 
 @dataclass

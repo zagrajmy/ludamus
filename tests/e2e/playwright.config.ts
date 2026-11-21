@@ -134,6 +134,8 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /panel-tickets\.spec\.ts/,
+        /ticket-guest\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
         /guilds\.spec\.ts/,
         /panel-tracks\.spec\.ts/,
@@ -221,7 +223,11 @@ export default defineConfig({
     },
     {
       command: "mise run test:e2e:serve:privacy",
-      url: "http://localhost:8001/",
+      // NOTE: not "/": that redirects to ludamus.localhost, which the runner
+      // follows in Node, and Node resolves *.localhost only where the system
+      // resolver does. Browsers and curl map it themselves, so the specs ran
+      // while this probe failed with ENOTFOUND.
+      url: "http://localhost:8001/healthz/",
       env: webServerEnv,
       reuseExistingServer: !isCI,
       timeout: 180 * 1000,
