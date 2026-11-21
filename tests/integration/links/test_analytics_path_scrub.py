@@ -32,7 +32,7 @@ CLAIM_TOKEN = (
     "GO0-USbBaA7GBzHOaEKgIAWVZDjkaXYapMVnKZO1HvE"
 )
 # The order page's sign-in and sign-up links, as the browser records them.
-SIGN_IN = "https://zagrajmy.net/crowd/auth0/do/login?next="
+SIGN_IN = "https://zagrajmy.net/crowd/auth/do/login?next="
 ORDER_SIGN_IN_URLS = (
     pytest.param(
         f"{SIGN_IN}{ORDERS}/{REFERENCE}/",

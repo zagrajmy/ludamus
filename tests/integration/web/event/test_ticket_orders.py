@@ -95,7 +95,7 @@ def _login_redirect(next_path):
 def _sign_in_url(next_path, **extra):
     # Slashes kept, so analytics redaction finds the reference inside `next`.
     query = urlencode({"next": next_path, **extra}, safe="/")
-    return f"{reverse('web:crowd:auth0:login')}?{query}"
+    return f"{reverse('web:crowd:auth:login')}?{query}"
 
 
 def _order_page_context(event, placed, *, order_matcher, state, claimable):

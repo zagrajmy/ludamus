@@ -253,8 +253,8 @@ def assert_rendered(
 
 
 def confirm_signup_age(client: Client) -> HttpResponse:
-    """Answer the age question a first-time Auth0 sign-in stops at."""
-    url = reverse("web:crowd:auth0:signup-age")
+    """Answer the age question a first-time sign-in stops at."""
+    url = reverse("web:crowd:auth:signup-age")
     page = client.get(url)
     return client.post(
         url,

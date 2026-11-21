@@ -96,12 +96,12 @@ def _guest_client(request: RootRequest) -> str:
 
 
 def _sign_in_url(next_path: str, *, signup: bool) -> str:
-    # Auth0 opens its signup screen when asked; either way the buyer comes
+    # AuthKit opens its sign-up screen when asked; either way the buyer comes
     # back to the order page, signed in, to claim it.
     params = {"next": next_path} | ({"screen_hint": "signup"} if signup else {})
     # SAFETY: slashes left as they are, so analytics redaction, which matches
     # the order route, also finds the reference inside this parameter.
-    return f"{reverse('web:crowd:auth0:login')}?{urlencode(params, safe='/')}"
+    return f"{reverse('web:crowd:auth:login')}?{urlencode(params, safe='/')}"
 
 
 def _shop(request: RootRequest, event: EventDTO) -> EventShopDTO:
