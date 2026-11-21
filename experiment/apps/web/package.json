@@ -1,0 +1,42 @@
+{
+  "name": "@zagrajmy/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./dist/server/entry.server.js",
+    "./build-manifest": "./dist/server/foldkit.build.json"
+  },
+  "scripts": {
+    "dev": "vite dev --port 1355",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "4.0.7",
+    "@foldkit/ui": "0.169.0",
+    "@zagrajmy/auth": "workspace:*",
+    "@zagrajmy/capability": "workspace:*",
+    "@zagrajmy/core": "workspace:*",
+    "@zagrajmy/database": "workspace:*",
+    "@zagrajmy/i18n": "workspace:*",
+    "effect": "4.0.7",
+    "foldkit": "0.169.0",
+    "marked": "18.0.14"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.7",
+    "@effect/vitest": "4.0.7",
+    "@foldkit/vite-plugin": "0.28.0",
+    "@hasparus/tailwind": "1.1.8",
+    "@tailwindcss/typography": "0.5.19",
+    "@tailwindcss/vite": "4.2.4",
+    "@types/node": "24.19.2",
+    "jsdom": "30.1.3",
+    "tailwindcss": "4.1.16",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}

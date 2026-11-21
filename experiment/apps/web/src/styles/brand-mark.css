@@ -1,0 +1,135 @@
+/*
+ * Brand mark motion. The mark's shapes share one 4-cubic superellipse
+ * structure, so states morph via `d` transitions (Chromium; other
+ * engines snap between valid states). tuck-in is the baseline hover:
+ * chairs tuck flush into the tabletop, knockout channels match the
+ * surface behind (--brand-knockout, defaulting to --color-bg-secondary
+ * for the navbar). Hosts on any other surface must set --brand-knockout
+ * to that surface's color.
+ */
+
+.bm-c {
+  opacity: 0;
+  fill: var(--brand-knockout, var(--color-bg-secondary));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bm-t,
+  .bm-s,
+  .bm-c {
+    transition:
+      d 180ms cubic-bezier(0.77, 0, 0.175, 1),
+      fill 180ms cubic-bezier(0.77, 0, 0.175, 1),
+      opacity 120ms ease;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-brand-hover]:hover .bm-t,
+    [data-brand-hover]:hover .bm-s,
+    [data-brand-hover]:hover .bm-c {
+      transition:
+        d 280ms cubic-bezier(0.77, 0, 0.175, 1),
+        fill 280ms cubic-bezier(0.77, 0, 0.175, 1),
+        opacity 200ms ease;
+    }
+
+    [data-brand-hover="tuck-in"]:hover .bm-c {
+      transition-delay: 0ms, 0ms, 110ms;
+    }
+  }
+
+  [data-brand-hover="tuck-in"]:hover .bm-t {
+    d: path(
+      "M99 60C99 99.25 99.25 99 60 99C20.75 99 21 99.25 21 60C21 20.75 20.75 21 60 21C99.25 21 99 20.75 99 60Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-s1 {
+    d: path(
+      "M73 21C73 29.25 67.15 32 60 32C52.85 32 47 29.25 47 21C51.42 21 55.71 21 60 21C64.29 21 68.58 21 73 21Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-s2 {
+    d: path(
+      "M99 73C90.75 73 88 67.15 88 60C88 52.85 90.75 47 99 47C99 51.42 99 55.71 99 60C99 64.29 99 68.58 99 73Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-s3 {
+    d: path(
+      "M47 99C47 90.75 52.85 88 60 88C67.15 88 73 90.75 73 99C68.58 99 64.29 99 60 99C55.71 99 51.42 99 47 99Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-s4 {
+    d: path(
+      "M21 47C29.25 47 32 52.85 32 60C32 67.15 29.25 73 21 73C21 68.58 21 64.29 21 60C21 55.71 21 51.42 21 47Z"
+    );
+  }
+
+  [data-brand-hover="tuck-in"]:hover .bm-c {
+    opacity: 1;
+  }
+
+  [data-brand-hover="tuck-in"]:hover .bm-c1 {
+    d: path(
+      "M77.2 21.12C77.2 32.4 69.46 36.2 60 36.2C50.54 36.2 42.8 32.4 42.8 21.12C48.65 21.12 54.32 21.12 60 21.12C65.68 21.12 71.35 21.12 77.2 21.12Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-c2 {
+    d: path(
+      "M98.88 77.2C87.6 77.2 83.8 69.46 83.8 60C83.8 50.54 87.6 42.8 98.88 42.8C98.88 48.65 98.88 54.32 98.88 60C98.88 65.68 98.88 71.35 98.88 77.2Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-c3 {
+    d: path(
+      "M42.8 98.88C42.8 87.6 50.54 83.8 60 83.8C69.46 83.8 77.2 87.6 77.2 98.88C71.35 98.88 65.68 98.88 60 98.88C54.32 98.88 48.65 98.88 42.8 98.88Z"
+    );
+  }
+  [data-brand-hover="tuck-in"]:hover .bm-c4 {
+    d: path(
+      "M21.12 42.8C32.4 42.8 36.2 50.54 36.2 60C36.2 69.46 32.4 77.2 21.12 77.2C21.12 71.35 21.12 65.68 21.12 60C21.12 54.32 21.12 48.65 21.12 42.8Z"
+    );
+  }
+
+  [data-brand-hover="d6"]:hover .bm-s {
+    fill: var(--brand-knockout, var(--color-bg-secondary));
+  }
+
+  [data-brand-hover="d6"]:hover .bm-t {
+    d: path(
+      "M96 60C96 96.23 96.23 96 60 96C23.77 96 24 96.23 24 60C24 23.77 23.77 24 60 24C96.23 24 96 23.77 96 60Z"
+    );
+  }
+  [data-brand-hover="d6"]:hover .bm-s1 {
+    d: path(
+      "M53 45C53 49.42 49.42 53 45 53C40.58 53 37 49.42 37 45C37 40.58 40.58 37 45 37C49.42 37 53 40.58 53 45Z"
+    );
+  }
+  [data-brand-hover="d6"]:hover .bm-s2 {
+    d: path(
+      "M83 45C83 49.42 79.42 53 75 53C70.58 53 67 49.42 67 45C67 40.58 70.58 37 75 37C79.42 37 83 40.58 83 45Z"
+    );
+  }
+  [data-brand-hover="d6"]:hover .bm-s3 {
+    d: path(
+      "M83 75C83 79.42 79.42 83 75 83C70.58 83 67 79.42 67 75C67 70.58 70.58 67 75 67C79.42 67 83 70.58 83 75Z"
+    );
+  }
+  [data-brand-hover="d6"]:hover .bm-s4 {
+    d: path(
+      "M53 75C53 79.42 49.42 83 45 83C40.58 83 37 79.42 37 75C37 70.58 40.58 67 45 67C49.42 67 53 70.58 53 75Z"
+    );
+  }
+}
+
+/* Lockup icon placement: the mark (120 viewBox) scaled so the tabletop
+ * spans the wordmark's z-band, 30.62..52.00 in lockup space: 21.38 band
+ * height / 64 tabletop = 0.3341, then translated so the icon centers on
+ * the band. Wordmark paths ride currentcolor. */
+.logo-lockup .lockup-icon {
+  transform: translate(9.96px, 21.27px) scale(0.3341);
+}
+
+.logo-lockup.mono .bm-t {
+  fill: currentcolor;
+}
