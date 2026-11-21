@@ -178,7 +178,7 @@ jobs:
           '{"name":"chromium-1","group":"chromium","shard":"1/3"},
           {"name":"chromium-2","group":"chromium","shard":"2/3"},
           {"name":"chromium-3","group":"chromium","shard":"3/3"},',
-          !(github.event_name == 'pull_request' && vars.CI_MERGE_QUEUE == 'on')
+          !(github.event_name == 'pull_request')
           && '{"name":"firefox-1","group":"firefox","shard":"1/2"},
           {"name":"firefox-2","group":"firefox","shard":"2/2"},' || '',
           '{"name":"rest-1","group":"rest","shard":"1/2"},
