@@ -1,0 +1,519 @@
+{
+  "kind": "health",
+  "finding_counts": {
+    "src/accept-placement.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/actions.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/bulk-status.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/checkbox-tree.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/combobox.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/command-menu.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/command-menu/menu.tsx": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/confirm.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/copy.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/dropzone.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/duration-list.ts": {
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/enroll-preview.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/event-print.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/event-timeline.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/field-picker.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/flash.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/import-recipe.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "src/konwencik-preview.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/landing.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/markdown-editor.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/menu.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/modal.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/multiselect-filter.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/nav-progress.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/panel-chrome.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/panel-columns.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/parley/actions-menu.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/parley/conversation.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/parley/conversations.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/parley/details.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/parley/mentions.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "src/parley/message-item.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/parley/parley.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "src/parley/people.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/parley/protocol.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/parley/reactions.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/parley/room-list.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/parley/use-floating-window.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/parley/use-room.ts": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/privacy-controller.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "src/programme-space-order.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/prologue.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/propose-copy.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/room-lanes.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 3
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/schedule-fold.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/schedule-now.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/session-bookmarks.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/session-edit.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/session-filters.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/show-when.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/sound.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/space-tree.ts": {
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/staging-inbox.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/stepper.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/tabs.ts": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/timetable.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 8
+      }
+    },
+    "src/url-state.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/write-in-chips.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "src/parley/parley.tsx:complexity",
+    "src/parley/conversation.tsx:complexity",
+    "src/space-tree.ts:untested risk",
+    "src/parley/message-item.tsx:complexity",
+    "src/parley/format.ts:high impact",
+    "src/flash.ts:untested risk",
+    "src/propose-copy.ts:untested risk",
+    "src/programme-space-order.ts:untested risk",
+    "src/privacy-controller.ts:untested risk",
+    "src/markdown-editor.ts:untested risk",
+    "src/menu.ts:untested risk",
+    "src/command-menu.ts:untested risk",
+    "src/session-edit.ts:untested risk",
+    "src/konwencik-preview.ts:complexity",
+    "src/duration-list.ts:untested risk",
+    "src/enroll-preview.ts:complexity",
+    "src/sound.ts:untested risk",
+    "src/schedule-fold.ts:untested risk",
+    "src/write-in-chips.ts:untested risk",
+    "src/dropzone.ts:untested risk",
+    "src/staging-inbox.ts:untested risk",
+    "src/nav-progress.ts:untested risk",
+    "src/show-when.ts:untested risk",
+    "src/session-filters.ts:complexity",
+    "src/combobox.ts:complexity",
+    "src/room-lanes.ts:complexity"
+  ]
+}

@@ -8,35 +8,22 @@
         <div>
             <h5 class="font-semibold">{% translate "Your parties" %}</h5>
             <p class="text-sm text-foreground-muted">
-                {% translate "A party signs up for sessions together and moves up a waiting list together." %}
+                {% translate "Sign up for sessions together, or keep a group you play with." %}
             </p>
         </div>
-        <a href="?new-party=1"
-           class="btn btn-primary shrink-0"
-           aria-controls="new-party-modal"
-           aria-haspopup="dialog">
-            {% icon "plus-circle" class="w-4 h-4" %}
-            {% translate "Create party" %}
-        </a>
+        <div class="flex flex-col gap-2 sm:flex-row shrink-0">
+            {% translate "Create play party" as t_create_play_party %}
+            {% tessera_button t_create_play_party href="?new-play-party=1" variant="secondary" icon="plus-circle" aria_controls="new-play-party-modal" aria_haspopup="dialog" %}
+            {% translate "Create enrollment party" as t_create_enrollment_party %}
+            {% tessera_button t_create_enrollment_party href="?new-party=1" icon="plus-circle" aria_controls="new-party-modal" aria_haspopup="dialog" %}
+        </div>
     </div>
-    <dialog id="new-party-modal"
-            class="modal w-[calc(100%-2rem)] max-w-md p-0"
-            aria-labelledby="new-party-modal-title">
-        <form action="{% url 'web:crowd:parties-create' %}" method="post">
-            {% csrf_token %}
-            <div class="px-6 pt-5 pb-4">
-                <h3 id="new-party-modal-title" class="font-semibold text-foreground">{% translate "Create party" %}</h3>
-                <p class="mt-1 text-sm text-foreground-muted">{% translate "Name your party — invite friends once it exists." %}</p>
-                <div class="mt-4">{% tessera_form party_form %}</div>
-            </div>
-            <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">
-                <button type="button"
-                        class="btn btn-secondary"
-                        data-modal-close="new-party-modal">{% translate "Cancel" %}</button>
-                <button type="submit" class="btn btn-primary">{% translate "Create party" %}</button>
-            </div>
-        </form>
-    </dialog>
+    {% translate "Create enrollment party" as enrollment_party_title %}
+    {% translate "Sign up for sessions together — invite friends once it exists." as enrollment_party_hint %}
+    {% include "user/user/_party_create_modal.html" with modal_id="new-party-modal" title=enrollment_party_title hint=enrollment_party_hint form=party_form %}
+    {% translate "Create play party" as play_party_title %}
+    {% translate "A group to play with, without enrolling together — invite friends once it exists." as play_party_hint %}
+    {% include "user/user/_party_create_modal.html" with modal_id="new-play-party-modal" title=play_party_title hint=play_party_hint form=play_party_form %}
     {% if invites %}
         <div class="rounded-lg bg-bg-secondary p-4 mb-6">
             <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
@@ -103,6 +90,12 @@
                             </span>
                             <span>{% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}</span>
                             <span>{% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}</span>
+                            {% if entry.party.enrolls_together %}
+                                <span class="inline-flex items-center gap-1">
+                                    {% icon "ticket" class="w-4 h-4" %}
+                                    {% translate "enrolls together" %}
+                                </span>
+                            {% endif %}
                         </p>
                     </div>
                     <div class="order-2 flex items-start gap-1.5 justify-end sm:order-3 sm:items-center">

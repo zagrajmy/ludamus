@@ -25,7 +25,7 @@ package-mode = false
 requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
-authlib = "~1.9.1"
+authlib = "~1.9.9"
 comrak = "0.0.16"
 cryptography = "~50.0.1"
 dbos = ">=3.2.0,<4"
@@ -51,11 +51,10 @@ segno = "~1.6.6"
 unidecode = "~1.4.0"
 urllib3 = "~2.8.0"
 whitenoise = "~6.12.0"
+stripe = "~16.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-# NOTE: cabinet is not on PyPI, so it is pinned to its GitHub release wheel.
-cabinet = { url = "https://github.com/fancysnake/cabinet/releases/download/v5.0.0/cabinet-5.0.0-py3-none-any.whl" }
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 diff-cover = "^11.0.0"
@@ -189,7 +188,7 @@ DEP002 = [
 # djlint and regex: scripts/djlint_underscore_end.py is a djlint plugin, so it
 # imports the linter it extends and the regex flavour djlint compiles its
 # patterns with. Lint-time only, never at runtime.
-DEP004 = ["debug_toolbar", "djlint", "regex", "vekna", "zeal"]
+DEP004 = ["debug_toolbar", "djlint", "regex", "zeal"]
 
 # MYPY
 
@@ -571,9 +570,11 @@ ignore_names = [
     "sphere_page_nav",
     # Used in templates
     "bookmark_count",
+    "awaiting_stripe",
     "button_class",
     "cloud_overflow",
     "date_leaf",
+    "estimated_net",
     "filter_categories",
     "has_guests",
     "has_secret",
@@ -587,6 +588,7 @@ ignore_names = [
     "location_crumbs",
     "location_label",
     "marks_now",
+    "on_sale",
     "opens_slot",
     "overflow_count",
     "panel_id",
@@ -598,6 +600,7 @@ ignore_names = [
     "slot_key",
     "span",
     "spots_scarce",
+    "subtotal",
     "unassigned_count",
     "unread_count",
     "user_bookmarked",
@@ -641,10 +644,6 @@ ignore_names = [
     # Read only through ORM lookups (search_key__contains)
     "search_key",
     "test_func",
-    # Vekna rituals
-    "pr_refresh",
-    "pr_cover",
-    "pr_review",
 ]
 
 ignore_decorators = [

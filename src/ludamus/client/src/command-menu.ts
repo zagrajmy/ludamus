@@ -3,6 +3,7 @@
 // only.
 
 let menu: Promise<{ toggle: () => void } | undefined> | undefined;
+let mountedFrom: HTMLElement | undefined;
 
 /**
  * What a signed-in person can search beyond the fixed commands: one fragment
@@ -28,6 +29,12 @@ const loadEntries = async (source: HTMLElement): Promise<boolean> => {
 const load = (): typeof menu => {
   const source = document.querySelector<HTMLElement>("[data-command-menu]");
   if (!source) return undefined;
+  // NOTE: htmx swaps the whole body in place when Back crosses a boosted
+  // navigation whose history it does not cache. That drops the dialog the
+  // menu appended and replaces the links it clicks, while this module and its
+  // promise live on: a menu mounted from markup that is gone starts over.
+  if (source !== mountedFrom) menu = undefined;
+  mountedFrom = source;
   menu ??= Promise.all([import("./command-menu/menu"), loadEntries(source)])
     .then(([{ mountCommandMenu }, loaded]) => mountCommandMenu(source, { entriesFailed: !loaded }))
     // A failed download must not be the answer for the rest of the page's

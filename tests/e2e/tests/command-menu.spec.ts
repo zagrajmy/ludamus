@@ -1,4 +1,5 @@
 import { expect, test } from "./helpers/fixtures";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 test.describe("Command menu", () => {
   test.beforeEach(async ({ page }) => {
@@ -172,6 +173,29 @@ test.describe("Command menu", () => {
     await expect(session).toBeVisible();
     await session.getByRole("button", { name: "Close" }).click();
     await expect(session).toBeHidden();
+  });
+
+  // A browser Back over a schedule view switch makes htmx swap the whole body
+  // in place, which drops everything a script appended to it.
+  test("opens again after Back restores the page under it", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(DENSE_EVENT_URL);
+    const menu = page.getByRole("dialog", { name: "Command menu" });
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(menu.getByRole("combobox")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
+    await page.getByRole("tab", { name: "Rooms" }).click();
+    await expect(page).toHaveURL(/view=rooms/);
+    await page.goBack();
+    await expect(page).not.toHaveURL(/view=rooms/);
+    await expect(page.getByRole("tab", { name: "List" })).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(menu.getByRole("combobox")).toBeFocused();
+    expect(errors).toEqual([]);
   });
 
   test("says so when nothing matches", async ({ page }) => {
