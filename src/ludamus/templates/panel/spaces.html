@@ -48,10 +48,10 @@
                     {# One copy of the key instructions, pointed at by every handle's #}
                     {# aria-describedby, so the handle's own name stays short. #}
                     <p id="space-reorder-keys" hidden>
-                        {% translate "Press Space to pick up, the arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a nested space to the top level." %}
+                        {% translate "Press Space to pick up, Up and Down Arrow to move, Space to drop, Escape to cancel. Before picking up, Left Arrow moves a nested space to the top level." %}
                     </p>
                     <p id="space-branch-keys" hidden>
-                        {% translate "Press Enter to show or hide the spaces inside. Press Space to pick up, the arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a nested space to the top level." %}
+                        {% translate "Press Enter to show or hide the spaces inside. Press Space to pick up, Up and Down Arrow to move, Space to drop, Escape to cancel. Before picking up, Left Arrow moves a nested space to the top level." %}
                     </p>
                     {# space-tree.ts fills {label}, {position} and {total}. #}
                     <space-list id="space-root-list" role="list" class="block" default-value="{% for node in tree %}{{ node.space.pk }}{% if not forloop.last %},{% endif %}{% endfor %}" data-parent-pk="" data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}" data-move-to-root-url="{% url 'panel:space-move-to-root' slug=current_event.slug %}" data-csrf="{{ csrf_token }}" data-reorder-error="{{ t_reorder_error }}" data-move-error="{{ t_move_error }}" data-message-grab="{% translate "Picked up {label}. Position {position} of {total}." %}" data-message-move="{% translate "{label}, position {position} of {total}." %}" data-message-drop="{% translate "Dropped {label} at position {position} of {total}." %}" data-message-cancel="{% translate "Move cancelled. {label} is back at position {position} of {total}." %}">

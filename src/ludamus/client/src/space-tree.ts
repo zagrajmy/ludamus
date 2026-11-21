@@ -34,10 +34,12 @@ const translated = (message: ReorderMessage): string => {
   const template =
     rootList()?.dataset[`message${message.type[0].toUpperCase()}${message.type.slice(1)}`];
   if (!template) return reorderMessage(message);
-  return template
-    .replace("{label}", message.label)
-    .replace("{position}", String(message.position))
-    .replace("{total}", String(message.total));
+  const tokens: Record<string, string> = {
+    label: message.label,
+    position: String(message.position),
+    total: String(message.total),
+  };
+  return template.replaceAll(/\{(label|position|total)\}/g, (_, token: string) => tokens[token]);
 };
 
 const isOver = (target: HTMLElement, event: PointerEvent): boolean => {
@@ -49,6 +51,12 @@ const isOver = (target: HTMLElement, event: PointerEvent): boolean => {
     event.clientY <= box.bottom
   );
 };
+
+const forPointer =
+  (pointerId: number, handler: (event: PointerEvent) => void) =>
+  (event: PointerEvent): void => {
+    if (event.pointerId === pointerId) handler(event);
+  };
 
 // NOTE: the reorder captures the pointer on the row, so the browser hands
 // the press's `click` to the row, not to the handle that was pressed. Keep
@@ -101,31 +109,33 @@ const spaceList = definePrimitive({
     // A nested row dragged onto the box above the tree leaves its list for
     // the top level. NOTE: registered before the reorder's own pointer
     // listeners, so the drop is claimed before it can land as a reorder.
-    const watchRootDrop = (key: string): void => {
+    const watchRootDrop = (key: string, pointerId: number): void => {
       const target = rootDropTarget();
       if (!target || !context.options().nested) return;
       const dragging = (): boolean => context.store.get().moving?.pointer === true;
       const stop = (): void => {
         globalThis.removeEventListener("pointermove", move);
         globalThis.removeEventListener("pointerup", up, true);
-        globalThis.removeEventListener("pointercancel", stop, true);
+        globalThis.removeEventListener("pointercancel", cancel, true);
         delete target.dataset.armed;
         delete target.dataset.over;
       };
-      const move = (event: PointerEvent): void => {
+      // Another finger on the screen neither moves nor drops this row.
+      const cancel = forPointer(pointerId, stop);
+      const move = forPointer(pointerId, (event) => {
         target.toggleAttribute("data-armed", dragging());
         target.toggleAttribute("data-over", dragging() && isOver(target, event));
-      };
-      const up = (event: PointerEvent): void => {
+      });
+      const up = forPointer(pointerId, (event) => {
         const lifted = dragging() && isOver(target, event);
         stop();
         if (!lifted) return;
         reorder.cancel();
         context.options().onLift?.(key);
-      };
+      });
       globalThis.addEventListener("pointermove", move);
       globalThis.addEventListener("pointerup", up, true);
-      globalThis.addEventListener("pointercancel", stop, true);
+      globalThis.addEventListener("pointercancel", cancel, true);
       context.onDestroy(stop);
     };
 
@@ -159,7 +169,7 @@ const spaceList = definePrimitive({
         },
         pointerdown: (event, { api, el, key }) => {
           press = el ? { dragged: false, handle: el } : null;
-          api.watchRootDrop(key);
+          api.watchRootDrop(key, event.pointerId);
           api.reorder.pointerdown(event, key);
         },
       },
@@ -225,6 +235,14 @@ const saveOrder = async (list: HTMLElement, order: string[]): Promise<void> => {
   });
 };
 
+const rememberFocus = (spaceId: string): void => {
+  try {
+    sessionStorage.setItem(FOCUS_AFTER_RELOAD, spaceId);
+  } catch (error) {
+    console.warn("Space tree: focus will not follow the moved space.", error);
+  }
+};
+
 const moveToRoot = async (spaceId: string): Promise<void> => {
   const root = rootList();
   if (!root) return;
@@ -236,8 +254,8 @@ const moveToRoot = async (spaceId: string): Promise<void> => {
   });
   if (!moved) return;
   // The tree is server-rendered; a moved branch reloads into its new place,
-  // and focus follows it there.
-  sessionStorage.setItem(FOCUS_AFTER_RELOAD, spaceId);
+  // and focus follows it there when storage lets it.
+  rememberFocus(spaceId);
   globalThis.location.reload();
 };
 
@@ -269,6 +287,31 @@ const branchDisclosureAt = (target: Element, event: Event): HTMLButtonElement | 
   );
 };
 
+// A keyboard click (detail 0) never belongs to a drag, even one the
+// browser cancelled without a click of its own.
+const endsDrag = (event: MouseEvent, pressed: typeof press): boolean =>
+  pressed?.dragged === true && event.detail !== 0;
+
+const clickedDisclosure = (
+  event: MouseEvent,
+  target: Element,
+  handle: HTMLElement | undefined,
+): HTMLButtonElement | null =>
+  target.closest<HTMLButtonElement>("[data-space-disclosure]") ??
+  pressedDisclosure(handle, target) ??
+  branchDisclosureAt(target, event);
+
+const takeFocusAfterReload = (): string | null => {
+  try {
+    const focusId = sessionStorage.getItem(FOCUS_AFTER_RELOAD);
+    sessionStorage.removeItem(FOCUS_AFTER_RELOAD);
+    return focusId;
+  } catch (error) {
+    console.warn("Space tree: could not restore focus after a move.", error);
+    return null;
+  }
+};
+
 const root = rootList();
 if (root) {
   for (const list of [root, ...root.querySelectorAll<HTMLElement>("space-list")]) {
@@ -283,17 +326,13 @@ if (root) {
     if (!(event.target instanceof Element)) return;
     const pressed = press;
     press = null;
-    if (pressed?.dragged) return;
-    const disclosure =
-      event.target.closest<HTMLButtonElement>("[data-space-disclosure]") ??
-      pressedDisclosure(pressed?.handle, event.target) ??
-      branchDisclosureAt(event.target, event);
+    if (endsDrag(event, pressed)) return;
+    const disclosure = clickedDisclosure(event, event.target, pressed?.handle);
     if (disclosure) toggleChildren(disclosure);
   });
 
-  const focusId = sessionStorage.getItem(FOCUS_AFTER_RELOAD);
+  const focusId = takeFocusAfterReload();
   if (focusId) {
-    sessionStorage.removeItem(FOCUS_AFTER_RELOAD);
     root
       .querySelector<HTMLElement>(`[data-space-id="${CSS.escape(focusId)}"] [data-drag-handle]`)
       ?.focus();

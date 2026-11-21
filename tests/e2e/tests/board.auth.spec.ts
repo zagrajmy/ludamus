@@ -89,7 +89,7 @@ test.describe("Board listings", () => {
     // Backspace in the empty input takes the last chip, and says which.
     await tags.press("Escape");
     await tags.press("Backspace");
-    await expect(page.locator("[aria-live='polite']", { hasText: /^Removed:/ })).toHaveText(
+    await expect(page.getByRole("status").filter({ hasText: /^Removed:/ })).toHaveText(
       "Removed: Dungeons & Dragons",
     );
     await chips.getByRole("button", { name: "Remove: Mörk Borg", exact: true }).click();
@@ -105,6 +105,7 @@ test.describe("Board listings", () => {
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByRole("main").getByText("Blades in the Dark")).toBeVisible();
     await expect(page.getByRole("main").getByText("Mörk Borg")).toHaveCount(0);
+    await expect(page.getByRole("main").getByText("Dungeons & Dragons")).toHaveCount(0);
   });
 
   test("asks for a date or a description of when", async ({ page }) => {

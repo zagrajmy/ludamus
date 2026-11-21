@@ -149,6 +149,9 @@ class ComboboxNode(template.Node):
         described_by = str(resolved.pop("described_by", ""))
         slot = self.nodelist.render(context)
         multiple = bool(resolved.get("multiple"))
+        if chips and multiple and described_by:
+            # The scriptless <select> names the same error or help text.
+            resolved.setdefault("aria_describedby", described_by)
 
         return render_to_string(
             self._CHIPS_TEMPLATE if chips and multiple else self._TEMPLATE,

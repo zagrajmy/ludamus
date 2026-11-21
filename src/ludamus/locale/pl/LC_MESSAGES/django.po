@@ -14238,23 +14238,23 @@ msgstr ""
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Press Space to pick up, the arrow keys to move, Space to drop, Escape to "
-"cancel. Left Arrow moves a nested space to the top level."
+"Press Space to pick up, Up and Down Arrow to move, Space to drop, Escape to "
+"cancel. Before picking up, Left Arrow moves a nested space to the top level."
 msgstr ""
-"Naciśnij spację, aby podnieść, strzałki, aby przesunąć, spację, aby upuścić, "
-"Escape, aby anulować. Strzałka w lewo przenosi zagnieżdżoną przestrzeń na "
-"najwyższy poziom."
+"Naciśnij spację, aby podnieść, strzałki w górę i w dół, aby przesunąć, "
+"spację, aby upuścić, Escape, aby anulować. Przed podniesieniem strzałka w "
+"lewo przenosi zagnieżdżoną przestrzeń na najwyższy poziom."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Press Enter to show or hide the spaces inside. Press Space to pick up, the "
-"arrow keys to move, Space to drop, Escape to cancel. Left Arrow moves a "
-"nested space to the top level."
+"Press Enter to show or hide the spaces inside. Press Space to pick up, Up "
+"and Down Arrow to move, Space to drop, Escape to cancel. Before picking up, "
+"Left Arrow moves a nested space to the top level."
 msgstr ""
 "Naciśnij Enter, aby pokazać lub ukryć przestrzenie w środku. Naciśnij "
-"spację, aby podnieść, strzałki, aby przesunąć, spację, aby upuścić, Escape, "
-"aby anulować. Strzałka w lewo przenosi zagnieżdżoną przestrzeń na najwyższy "
-"poziom."
+"spację, aby podnieść, strzałki w górę i w dół, aby przesunąć, spację, aby "
+"upuścić, Escape, aby anulować. Przed podniesieniem strzałka w lewo przenosi "
+"zagnieżdżoną przestrzeń na najwyższy poziom."
 
 #: src/ludamus/templates/panel/spaces.html
 #, python-brace-format

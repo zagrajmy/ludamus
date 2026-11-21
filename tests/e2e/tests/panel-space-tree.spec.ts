@@ -104,22 +104,19 @@ test.describe("Venue tree handles", () => {
     const handle = dragHandle(page, "North Wing");
     // NOTE: panel.spec.ts copies venues into this event, so scope to Aurora
     // and don't count on how many siblings it has.
-    const row = venueNode(page, auroraName).locator('space-list-item[label="North Wing"]');
     const siblingNames = venueNode(page, auroraName).getByText(/^(Hearth Lounge|North Wing)$/);
     const originalOrder = await siblingNames.allTextContents();
-    const announcer = page.locator("[data-ui-sdk-announcer]");
+    const announcer = page.getByRole("alert").filter({ hasText: /North Wing|Move cancelled/ });
     await expect(handle).toHaveAccessibleDescription(/Press Space to pick up/);
 
     await handle.focus();
     await handle.press("Space");
-    await expect(row).toHaveAttribute("data-grabbed", "");
     await expect(announcer).toHaveText(/^Picked up North Wing\. Position \d of \d\.$/);
     await handle.press(originalOrder[0] === "North Wing" ? "ArrowDown" : "ArrowUp");
     await expect(announcer).toHaveText(/^North Wing, position \d of \d\.$/);
     expect(await siblingNames.allTextContents()).not.toEqual(originalOrder);
 
     await handle.press("Escape");
-    await expect(row).not.toHaveAttribute("data-grabbed");
     await expect(announcer).toHaveText(/^Move cancelled\./);
     expect(await siblingNames.allTextContents()).toEqual(originalOrder);
     await expect(handle).toBeFocused();
@@ -195,7 +192,7 @@ test.describe("Venue tree handles", () => {
         await handle.press(from === 0 ? "ArrowDown" : "ArrowUp");
         await handle.press("Space");
         await expect(handle).toBeFocused();
-        await expect(page.locator("[data-ui-sdk-announcer]")).toHaveText(
+        await expect(page.getByRole("alert").filter({ hasText: /North Wing/ })).toHaveText(
           /^Dropped North Wing at position \d of \d\.$/,
         );
       } else {

@@ -4,8 +4,10 @@
 // each chip's remove button, both English in the library.
 import "@ui-sdk/web/combobox";
 
+import { normalizeText } from "./text";
+
 const fill = (template: string | undefined, label: string): string =>
-  (template ?? "{label}").replace("{label}", label);
+  (template ?? "{label}").replace("{label}", () => label);
 
 const nameRemoveButton = (chip: Element, template: string | undefined): void => {
   const name = fill(template, chip.getAttribute("aria-label") ?? "");
@@ -46,6 +48,12 @@ const wire = (root: ParentNode): void => {
   for (const combobox of root.querySelectorAll("ui-combobox")) {
     if (!Object.hasOwn(combobox.dataset, "comboboxChips") || wired.has(combobox)) continue;
     wired.add(combobox);
+    // NOTE: the library folds a label one character at a time, so a
+    // decomposed "Mo\u0308rk" keeps its mark; fold it as the plain picker does.
+    combobox.filter = (item, query) =>
+      [item.label, ...(item.keywords ?? [])].some((text) =>
+        normalizeText(text).includes(normalizeText(query.trim())),
+      );
     combobox.announcement = (change) => {
       if (change.type === "removed") return fill(combobox.dataset.removedLabel, change.label);
       // No matches: the list's own empty message is a live region already.
