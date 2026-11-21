@@ -319,10 +319,11 @@ jobs:
       - run: aube run typecheck
       - run: aube run test
 
-  # Named `test` because the branch ruleset requires that check; it now
+  # Named `test` because the branch ruleset requires that check; every job that
+  # gates a merge goes in `needs`.
   test:
     runs-on: ubuntu-latest
-    needs: [test-mills, test-unit, test-postgres, test-e2e, test-worker]
+    needs: [test-mills, test-unit, test-postgres, test-e2e, test-worker, bombadil]
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.
@@ -374,12 +375,13 @@ jobs:
       - uses: ./.github/actions/toolchain
       - run: mise run test:props:crosshair
 
-  # advisory: Bombadil explores the seeded app at random, so a run is a sample,
-  # not a gate. A violation leaves its trace and screenshots as an artifact;
-  # `bombadil browser test --reproduce` replays it.
+  # Bombadil explores the seeded app at random, so a green run is a sample, not
+  # a proof, and a red one may expose a bug the pull request did not write. It
+  # gates anyway: a violation is a real bug, and main stays green only if it is
+  # fixed before the next merge. The trace and screenshots land as an artifact;
+  # `bombadil browser test --reproduce` replays them.
   bombadil:
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
