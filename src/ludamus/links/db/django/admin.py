@@ -8,10 +8,12 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin import helpers
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import render
 
 from ludamus.links.db.django.delivery import Bell, ring_as_written
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.models import (
     MODERATION_GROUND_CHOICES,
     AgendaItem,
@@ -24,18 +26,23 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     ParleyReport,
+    PayoutAccount,
     ProposalCategory,
     Session,
     SessionFieldValue,
     Space,
     Sphere,
     SphereMembership,
+    SpherePlan,
     StatementOfReasons,
     Tag,
     TagCategory,
+    TicketOrder,
+    TicketType,
     User,
     UserEnrollmentConfig,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.moderation import (
     DECISION_TEXT_MAX_LENGTH,
     LEGAL_PROVISION_MAX_LENGTH,
@@ -530,9 +537,35 @@ class AgendaItemAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ...
 
 
+@admin.action(description="Restore selected deleted events", permissions=["change"])
+def restore_events(
+    modeladmin: _ActionAdmin, request: HttpRequest, queryset: QuerySet[Event]
+) -> None:
+    deleted = list(
+        queryset.filter(deleted_at__isnull=False).values_list("pk", flat=True)
+    )
+    with transaction.atomic():
+        for event_id in deleted:
+            EventDeletionRepository.restore_event(EventId(event_id))
+    modeladmin.message_user(
+        request, f"Restored {len(deleted)} event(s).", level=messages.SUCCESS
+    )
+
+
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+    list_display = ("name", "sphere", "start_time", "deleted_at")
+    list_filter = (("deleted_at", admin.EmptyFieldListFilter),)
+    actions = (restore_events,)
+    # Deleting and restoring move the event's sessions and votes with it; an
+    # edit to this field alone would leave them behind.
+    readonly_fields = ("deleted_at",)
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Event]:
+        # Staff restore deleted events from here, so they must be listed too.
+        return Event.all_objects.all()
 
 
 @admin.register(EventProposalSettings)
@@ -802,3 +835,61 @@ class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     search_fields = ("name", "search_key")
     autocomplete_fields = ("parent",)
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+
+# A sphere's deal is recorded here: Technical Partner or not, its ticket fee
+# in basis points (blank: the standard 350), its yearly price in grosze, and
+# the date it holds until. Source Manual for a deal paid by transfer, which
+# Stripe webhooks leave alone; Stripe, with the sphere's customer id, for one
+# billed by a subscription made in the Stripe dashboard.
+admin.site.register(
+    SpherePlan,
+    list_display=(
+        "sphere",
+        "technical_partner",
+        "ticket_fee_bps",
+        "yearly_price",
+        "source",
+        "paid_until",
+    ),
+    list_filter=("technical_partner", "source"),
+    search_fields=("sphere__name", "stripe_customer_id"),
+)
+admin.site.register(
+    PayoutAccount,
+    list_display=("sphere", "stripe_account_id", "charges_enabled", "payouts_enabled"),
+    readonly_fields=(
+        "stripe_account_id",
+        "details_submitted",
+        "charges_enabled",
+        "payouts_enabled",
+    ),
+    search_fields=("sphere__name", "stripe_account_id"),
+)
+admin.site.register(
+    TicketType,
+    list_display=("name", "event", "price", "quantity", "is_archived"),
+    list_filter=("is_archived",),
+    search_fields=("name", "event__name"),
+)
+admin.site.register(
+    TicketOrder,
+    list_display=("pk", "event", "email", "status", "total", "platform_fee"),
+    list_filter=("status",),
+    search_fields=("email", "stripe_checkout_session_id", "stripe_payment_intent_id"),
+    readonly_fields=(
+        "event",
+        "buyer",
+        "email",
+        "status",
+        "currency",
+        "total",
+        "platform_fee",
+        "stripe_account_id",
+        "stripe_checkout_session_id",
+        "stripe_payment_intent_id",
+        "hold_until",
+        "paid_at",
+        "refunded_at",
+    ),
+)

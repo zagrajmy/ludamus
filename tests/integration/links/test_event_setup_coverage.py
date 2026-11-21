@@ -3,6 +3,7 @@ from ludamus.links.db.django.models import (
     Discount,
     Event,
     EventBan,
+    EventDeletionApproval,
     EventIntegration,
     EventMap,
     Facilitator,
@@ -10,6 +11,8 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
     ScheduleChangeLog,
     Session,
+    TicketOrder,
+    TicketType,
 )
 from ludamus.links.db.django.repositories.event_setup import (
     COPIED_FIELDS,
@@ -20,6 +23,7 @@ SKIPPED_RELATIONS = {
     ContentChangeLog,
     Discount,
     EventBan,
+    EventDeletionApproval,
     EventIntegration,
     EventMap,
     Facilitator,
@@ -27,10 +31,14 @@ SKIPPED_RELATIONS = {
     PersonalDataFieldValue,
     ScheduleChangeLog,
     Session,
+    # Sales are per edition: dates and takings belong to the old event.
+    TicketOrder,
+    TicketType,
 }
 SKIPPED_FIELDS = {
     "cover_image",
     "cover_image_original_name",
+    "deleted_at",
     "end_time",
     "id",
     "logo",
