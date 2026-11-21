@@ -23,6 +23,28 @@ SLUG_MAX_LENGTH = 50
 # models.Party.invite_token: a bare token_urlsafe is 32 bytes.
 PARTY_TOKEN_LENGTH = 43
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
+# A ticket order's reference is token_urlsafe(16): 22 characters, below the floor.
+REFERENCE = "c-cLbhSWaBmVPVGH_k8joQ"
+ORDERS = "/event/con-2026/tickets/orders"
+# What links.order_claim_tokens signs: payload, timestamp and signature.
+CLAIM_TOKEN = (
+    "eyJvcmRlcl9wayI6MSwidXNlcl9pZCI6MX0:1xKcjA:"
+    "GO0-USbBaA7GBzHOaEKgIAWVZDjkaXYapMVnKZO1HvE"
+)
+# The order page's sign-in and sign-up links, as the browser records them.
+SIGN_IN = "https://zagrajmy.net/crowd/auth0/do/login?next="
+ORDER_SIGN_IN_URLS = (
+    pytest.param(
+        f"{SIGN_IN}{ORDERS}/{REFERENCE}/",
+        f"{SIGN_IN}{ORDERS}/:reference/",
+        id="sign-in",
+    ),
+    pytest.param(
+        f"{SIGN_IN}{ORDERS}/{REFERENCE}/&screen_hint=signup",
+        f"{SIGN_IN}{ORDERS}/:reference/&screen_hint=signup",
+        id="sign-up",
+    ),
+)
 
 
 pytestmark = pytest.mark.usefixtures("_rules")
@@ -48,6 +70,38 @@ class TestSafePath:
     )
     def test_bearer_token_is_replaced(self, path: str, expected: str) -> None:
         assert redaction.safe_path(path) == expected
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        (
+            pytest.param(f"{ORDERS}/{REFERENCE}/", f"{ORDERS}/:reference/", id="order"),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/do/cancel",
+                f"{ORDERS}/:reference/do/cancel",
+                id="cancel",
+            ),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/do/claim",
+                f"{ORDERS}/:reference/do/claim",
+                id="claim",
+            ),
+            pytest.param(
+                f"{ORDERS}/{REFERENCE}/claim/{CLAIM_TOKEN}/",
+                f"{ORDERS}/:reference/claim/:token/",
+                id="claim-confirm",
+            ),
+        ),
+    )
+    def test_ticket_order_reference_is_replaced(self, path: str, expected: str) -> None:
+        # A guest's order page has no other lock than its reference.
+        assert redaction.safe_path(path) == expected
+
+    @pytest.mark.parametrize(("url", "expected"), ORDER_SIGN_IN_URLS)
+    def test_order_reference_in_a_sign_in_links_next_is_replaced(
+        self, url: str, expected: str
+    ) -> None:
+        # Its `next` keeps its slashes, so the order route's rule finds it.
+        assert redaction.safe_path(url) == expected
 
     def test_redacts_a_link_whose_trailing_slash_was_eaten(self) -> None:
         # Matching by prefix rather than resolving is what makes this work:
@@ -146,6 +200,25 @@ class TestClientPatterns:
                 check=True,
                 capture_output=True,
             )
+
+    @pytest.mark.parametrize(("url", "expected"), ORDER_SIGN_IN_URLS)
+    def test_browser_replaces_the_order_reference_in_a_sign_in_links_next(
+        self, url: str, expected: str
+    ) -> None:
+        # What prologue.ts does with the patterns: each, in order, globally.
+        script = (
+            "const [rules, url] = JSON.parse(process.argv[1]);"
+            "process.stdout.write(rules.reduce("
+            "(text, [source, replacement]) =>"
+            " text.replace(new RegExp(source, 'g'), replacement), url));"
+        )
+        redacted = subprocess.run(
+            [NODE, "-e", script, json.dumps([redaction.client_patterns(), url])],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        assert redacted == expected
 
     def test_a_kept_parameter_uses_javascript_group_syntax(self) -> None:
         rule = rule_for("event/<slug:slug>/offer/<str:token>/claim/")

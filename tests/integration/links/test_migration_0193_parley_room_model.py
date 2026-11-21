@@ -19,7 +19,9 @@ party_chats_to_groups = import_module(
 def test_rolling_back_leaves_each_party_chat_a_group_under_the_party_s_name():
     services = Services()
     leader, friend = (UserFactory(age_band=AgeBand.SIXTEEN_PLUS) for _ in range(2))
-    party_pk = services.parties.create(leader_pk=leader.pk, name="Drużyna " * 20)
+    party_pk = services.parties.create(
+        leader_pk=leader.pk, name="Drużyna " * 20, enrolls_together=True
+    )
     services.parties.join_via_link(
         token=services.parties.read_invite_token(
             leader_pk=leader.pk, party_pk=party_pk

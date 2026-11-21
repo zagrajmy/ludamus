@@ -25,6 +25,7 @@ from ludamus.pacts.party import (
     PartyMembershipStatus,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
+    SetEnrollsTogetherOutcome,
 )
 
 if TYPE_CHECKING:
@@ -57,9 +58,27 @@ class PartyService(PartyServiceProtocol):
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO:
         return self._parties.overview(viewer_pk)
 
-    def create(self, *, leader_pk: int, name: str) -> int:
+    def create(self, *, leader_pk: int, name: str, enrolls_together: bool) -> int:
         with self._transaction.atomic():
-            return self._parties.create(leader_pk=leader_pk, name=name)
+            return self._parties.create(
+                leader_pk=leader_pk, name=name, enrolls_together=enrolls_together
+            )
+
+    def set_enrolls_together(
+        self, *, leader_pk: int, party_pk: int, enrolls_together: bool
+    ) -> SetEnrollsTogetherOutcome:
+        with self._transaction.atomic():
+            if not enrolls_together and self._parties.has_enrollments(
+                leader_pk=leader_pk, party_pk=party_pk
+            ):
+                return SetEnrollsTogetherOutcome.LOCKED
+            if not self._parties.set_enrolls_together(
+                leader_pk=leader_pk,
+                party_pk=party_pk,
+                enrolls_together=enrolls_together,
+            ):
+                return SetEnrollsTogetherOutcome.NOT_FOUND
+            return SetEnrollsTogetherOutcome.UPDATED
 
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool:
         with self._transaction.atomic():
@@ -213,7 +232,11 @@ class PartyService(PartyServiceProtocol):
         # means just themselves; an absent parameter defaults to their own led
         # party (else the first party they belong to); a value that is not one
         # of their parties is invalid, never silently substituted.
-        parties = self._parties.overview(viewer_pk).parties
+        parties = [
+            party
+            for party in self._parties.overview(viewer_pk).parties
+            if party.enrolls_together
+        ]
         choices = [
             EnrollmentPartyChoiceDTO(
                 pk=party.pk,

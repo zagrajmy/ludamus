@@ -3,12 +3,14 @@ from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
     SessionFieldRequirement,
 )
+from ludamus.pacts.availability import DayPart, offered_parts_by_day
 from ludamus.pacts.sessions import SessionDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
@@ -18,6 +20,48 @@ from tests.integration.web.panel.helpers import (
 )
 
 SAVED_TITLE = "Saved Session"
+
+DAY_PART_LABELS = {
+    DayPart.MORNING: "Morning",
+    DayPart.AFTERNOON: "Afternoon",
+    DayPart.EVENING: "Evening",
+    DayPart.NIGHT: "Night",
+}
+
+
+def offered_availability(event):
+    # The (day, part) pairs the event's own hours reach, which is what the
+    # picker offers and what the view accepts back.
+    return offered_parts_by_day(
+        start=event.start_time, end=event.end_time, tz=get_current_timezone()
+    )
+
+
+def first_offered(event):
+    day, parts = offered_availability(event)[0]
+    return day, parts[0]
+
+
+def availability_value(day, part):
+    return f"{day.isoformat()}:{part.value}"
+
+
+def availability_options(event, selected=()):
+    picked = set(selected)
+    return [
+        {
+            "day": day,
+            "parts": [
+                {
+                    "value": availability_value(day, part),
+                    "label": DAY_PART_LABELS[part],
+                    "is_selected": (day, part) in picked,
+                }
+                for part in parts
+            ],
+        }
+        for day, parts in offered_availability(event)
+    ]
 
 
 def form_url(event, proposal_id=None):
@@ -66,8 +110,7 @@ def form_context(event, session=None):
         "assigned_facilitator_pks": set(),
         "all_tracks": [],
         "assigned_track_pks": set(),
-        "all_time_slots": [],
-        "assigned_time_slot_pks": set(),
+        "availability_options": availability_options(event),
         "facilitator_personal_data": [],
     }
 

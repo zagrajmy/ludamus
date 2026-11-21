@@ -5,14 +5,18 @@ from typing import TYPE_CHECKING
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.formats import date_format
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.templatetags.date_tags import offered_time_name
+from ludamus.pacts.availability import offered_window
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from datetime import date, datetime
 
-    from ludamus.pacts.event import TimeSlotDTO
+    from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.session_cards import ProposalAcceptContextDTO
 
 # What this module hands ChoiceField: a pk (or "" for the placeholder) under a
@@ -21,40 +25,22 @@ type Choice = tuple[int | str, str]
 type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
 
 
-class TakenOptionsSelect(forms.Select):
-    # `taken` is read by the tessera select renderer: those options render
-    # disabled and marked taken, and a field left with one free option stops
-    # asking, as one with a single option does. With both selects open,
-    # accept-placement.ts disables the spaces taken in the slot picked.
-    def __init__(self, *, taken: frozenset[str] = frozenset()) -> None:
-        super().__init__()
-        self.taken = taken
+def day_label(day: date) -> str:
+    return date_format(day, "l, M j")
 
 
-def slot_label(slot: TimeSlotDTO) -> str:
-    # The `date` filter this replaced localises first, so a label built here
-    # has to as well or the times shift by the event's offset.
-    start = localtime(slot.start_time)
-    end = localtime(slot.end_time)
-    return f"{date_format(start, 'l, M j · G:i')}–{date_format(end, 'G:i')}"
+def availability_label(entry: AvailabilityDTO) -> str:
+    return f"{day_label(entry.day)} {offered_time_name(entry)}"
 
 
-def slot_choices(
-    time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
-) -> ChoiceList:
-    labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
-    blank: ChoiceList = [("", gettext("Choose a time…"))]
-    preferred = {*preferred_ids}
-    # The facilitator asked for these — float them to the top so the obvious
-    # choice is the first one, no footnote needed. Nothing to float means no
-    # headings at all: "Other times" alone would name a contrast with a group
-    # that is not there.
-    if not (wanted := [pair for pair in labelled if pair[0] in preferred]):
-        return [*blank, *labelled]
-    choices: ChoiceList = [*blank, (gettext("Preferred by the facilitator"), wanted)]
-    if rest := [pair for pair in labelled if pair[0] not in preferred]:
-        choices.append((gettext("Other times"), rest))
-    return choices
+def offered_times_hint(offered: Sequence[AvailabilityDTO]) -> str:
+    # The facilitator already said when they are free, so the reviewer reads
+    # it beside the field instead of going back to the proposal.
+    if not offered:
+        return ""
+    return gettext("The facilitator offered: %(times)s") % {
+        "times": ", ".join(availability_label(entry) for entry in offered)
+    }
 
 
 def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
@@ -67,12 +53,23 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
     return value
 
 
+def _initial_start(context: ProposalAcceptContextDTO) -> datetime:
+    # Open on the first time the facilitator offered, so the common case is a
+    # confirm rather than a fill-in. Its window gives the hour, never later than
+    # the event's own opening on that day.
+    opening = localtime(context.event.start_time)
+    if not context.availability:
+        return opening
+    first = context.availability[0]
+    start, _end = offered_window(first, get_current_timezone())
+    return max(start, opening) if start.date() == opening.date() else start
+
+
 def create_proposal_acceptance_form(
     context: ProposalAcceptContextDTO,
 ) -> type[forms.Form]:
     # Group bookable leaf spaces under their parent name (optgroups); the
     # service supplies the options so the form stays free of the ORM.
-    time_slots = context.time_slots
     grouped: dict[str, list[tuple[int, str]]] = {}
     for option in context.space_options:
         grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
@@ -86,25 +83,23 @@ def create_proposal_acceptance_form(
     choices.extend(grouped.items())
 
     allowed_space_ids = {option.pk for option in context.space_options}
-    allowed_time_slot_ids = {slot.pk for slot in time_slots}
-    placements = context.placements
 
     space_field = forms.ChoiceField(
         choices=choices,
         label=_("Space"),
-        widget=TakenOptionsSelect(
-            taken=frozenset(str(pk) for pk in placements.taken_space_ids)
-        ),
         help_text=_("Select the space where this session will take place"),
         required=context.space_required,
     )
-    time_slot_field = forms.ChoiceField(
-        choices=slot_choices(time_slots, context.preferred_time_slot_ids),
-        widget=TakenOptionsSelect(
-            taken=frozenset(str(pk) for pk in placements.full_time_slot_ids)
+    start_field = forms.DateTimeField(
+        label=_("Starts at"),
+        help_text=offered_times_hint(context.availability)
+        or _("When this session starts. It runs for %(minutes)s minutes.") % {
+            "minutes": context.duration_minutes
+        },
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
         ),
-        label=_("Time slot"),
-        help_text=_("Pick the start time for this session."),
+        initial=_initial_start(context),
         required=True,
     )
 
@@ -117,12 +112,13 @@ def create_proposal_acceptance_form(
             error=gettext("Invalid space selection."),
         )
 
-    def clean_time_slot(self: forms.Form) -> int:
-        return _validated_choice_id(
-            self.cleaned_data["time_slot"],
-            allowed=allowed_time_slot_ids,
-            error=gettext("Invalid time slot selection."),
-        )
+    def clean_start_time(self: forms.Form) -> datetime:
+        # datetime-local posts a wall clock with no offset; read it as the
+        # event's own timezone rather than UTC, or every placement shifts.
+        value: datetime = self.cleaned_data["start_time"]
+        if value.utcoffset() is None:
+            return value.replace(tzinfo=get_current_timezone())
+        return value
 
     # With no space required and none to choose from, the only answer is
     # "no space", and a field offering one option asks nothing.
@@ -136,7 +132,7 @@ def create_proposal_acceptance_form(
         (forms.Form,),
         {
             **space_fields,
-            "time_slot": time_slot_field,
-            "clean_time_slot": clean_time_slot,
+            "start_time": start_field,
+            "clean_start_time": clean_start_time,
         },
     )

@@ -21,6 +21,9 @@ test.describe("Facilitator merge", () => {
   test("an organizer reconciles three sign-ups into one, and an answer withdrawn meanwhile falls back to the target's", async ({
     page,
   }, testInfo) => {
+    // NOTE: about 30 page loads in a row. Alone that is 20s; with every local
+    // worker busy each load takes several seconds and the walk passes 120s.
+    test.slow();
     await signUp(page, { listUrl: LIST_URL, name: TARGET, shirt: "L", diet: "vegan" });
     await signUp(page, { listUrl: LIST_URL, name: IMPORTED, shirt: "M", diet: "vegan" });
     await signUp(page, { listUrl: LIST_URL, name: INITIALS, shirt: "S", diet: "halal" });
