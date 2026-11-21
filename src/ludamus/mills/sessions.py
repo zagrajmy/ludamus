@@ -82,6 +82,7 @@ if TYPE_CHECKING:
         ScheduleChangeLogRepositoryProtocol,
     )
     from ludamus.pacts.user import UserRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
 
 
 def _announce_acceptance(
@@ -336,6 +337,7 @@ class ProposalAcceptanceService:
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         events: EventRepositoryProtocol,
+        spaces: SpaceRepositoryProtocol,
         notifier: ProposalAcceptedNotifierProtocol,
     ) -> None:
         self._transaction = transaction
@@ -343,6 +345,7 @@ class ProposalAcceptanceService:
         self._agenda = _AgendaWrites(agenda_items, schedule_change_logs, events)
         self._active_users = active_users
         self._spheres = spheres
+        self._spaces = spaces
         self._notifier = notifier
 
     def get_accept_context(
@@ -419,8 +422,9 @@ class ProposalAcceptanceService:
         # so the move exemption that path carries does not apply here.
         confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
-            # Accepting on to a time the event does not cover yet moves the
-            # event, the same way dragging a card past its edge does.
+            self._sessions.lock(session_id)
+            if space_id is not None:
+                self._spaces.lock(space_id)
             widen_event_dates(
                 events=self._agenda.events,
                 event_pk=event.pk,

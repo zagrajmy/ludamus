@@ -614,6 +614,7 @@ class TestAssignSession:
         space.parent_id = None
         mock_uow.spaces.list_by_event.return_value = [space]
         mock_uow.agenda_items.read_by_session.return_value = None
+        mock_uow.agenda_items.list_overlapping_in_space.return_value = []
         session = MagicMock()
         session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
@@ -723,6 +724,17 @@ class TestAssignSession:
         assert excinfo.value.reason is PlacementRejection.END_NOT_AFTER_START
         assert str(excinfo.value) == "end_time must be after start_time"
         mock_uow.atomic.assert_not_called()
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_rejects_overlapping_space_and_time(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        mock_uow.agenda_items.list_overlapping_in_space.return_value = [MagicMock()]
+
+        with pytest.raises(PlacementRejectedError) as excinfo:
+            service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.SPACE_TIME_CONFLICT
         mock_uow.agenda_items.create.assert_not_called()
 
     def test_assign_writes_the_placement_and_its_log(self, service, mock_uow):
@@ -1514,6 +1526,18 @@ class _FakeAgendaItems:
         return next(
             (item for item in self.rows.values() if item.session_id == session_pk), None
         )
+
+    def list_overlapping_in_space(
+        self, space_pk, start_time, end_time, exclude_session_pk=None
+    ):
+        return [
+            item
+            for item in self.rows.values()
+            if item.space_id == space_pk
+            and item.start_time < end_time
+            and item.end_time > start_time
+            and item.session_id != exclude_session_pk
+        ]
 
     def create(self, data):
         self.created.append(data)

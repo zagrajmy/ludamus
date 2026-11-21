@@ -597,6 +597,7 @@ class Services:
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
             events=self._repos.events,
+            spaces=self._repos.spaces,
             notifier=DjangoUserNotifier(),
         )
 

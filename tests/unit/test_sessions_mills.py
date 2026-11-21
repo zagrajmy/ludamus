@@ -559,9 +559,12 @@ class TestProposalAcceptanceService:
     @pytest.fixture
     def events(self, sessions):
         events = MagicMock()
-        # Widening re-reads the event under its lock; that row is the session's.
         events.read.side_effect = lambda _pk: sessions.read_event.return_value
         return events
+
+    @pytest.fixture
+    def spaces(self):
+        return MagicMock()
 
     @pytest.fixture
     def transaction(self):
@@ -571,7 +574,7 @@ class TestProposalAcceptanceService:
 
     @pytest.fixture
     def service(
-        self, transaction, sessions, agenda_items, active_users, spheres, events
+        self, transaction, sessions, agenda_items, active_users, spheres, events, spaces
     ):
         return ProposalAcceptanceService(
             transaction=transaction,
@@ -581,6 +584,7 @@ class TestProposalAcceptanceService:
             active_users=active_users,
             spheres=spheres,
             events=events,
+            spaces=spaces,
             notifier=MagicMock(),
         )
 
@@ -667,7 +671,7 @@ class TestProposalAcceptanceService:
         events.update.assert_called_once_with(9, {"end_time": _END})
 
     def test_accept_session_raises_on_space_time_conflict(
-        self, service, sessions, agenda_items, active_users, spheres
+        self, service, sessions, agenda_items, active_users, spheres, spaces
     ):
         self._arrange_accept(sessions)
         agenda_items.list_overlapping_in_space.return_value = [
@@ -685,6 +689,8 @@ class TestProposalAcceptanceService:
                 sphere_id=3,
             )
 
+        sessions.lock.assert_called_once_with(5)
+        spaces.lock.assert_called_once_with(7)
         sessions.update.assert_not_called()
         agenda_items.create.assert_not_called()
 
@@ -1471,6 +1477,7 @@ class TestProposalAcceptanceWithFakes:
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
             events=events or _FakeEvents(sessions.event),
+            spaces=MagicMock(),
             notifier=notifier or _RecordingNotifier(),
         )
 
@@ -1586,6 +1593,7 @@ class TestProposalAcceptanceWithFakes:
                 managers=[(3, "manager")], require_session_space=False
             ),
             events=_FakeEvents(sessions.event),
+            spaces=MagicMock(),
             notifier=_RecordingNotifier(),
         )
 
