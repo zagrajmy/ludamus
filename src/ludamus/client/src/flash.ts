@@ -207,7 +207,9 @@ export const pushFlash = (level: "error" | "success", message: string): void => 
   if (!alert) return;
   const text = alert.querySelector<HTMLElement>("[data-flash-text]");
   if (text) text.textContent = message;
-  region.append(alert);
+  // The stack's front is its first child; anything appended lands behind,
+  // with its content hidden until someone hovers the stack.
+  region.prepend(alert);
   initFlash(alert);
 };
 

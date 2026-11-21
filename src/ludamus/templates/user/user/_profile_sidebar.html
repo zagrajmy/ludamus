@@ -1,6 +1,7 @@
 {% load i18n profile_tags tessera %}
 {% url 'web:crowd:profile' as profile_url %}
 {% url 'web:crowd:profile-parties' as parties_url %}
+{% url 'user:profile-tickets' as tickets_url %}
 {% url 'web:crowd:profile-safety' as safety_url %}
 {% url 'web:crowd:profile-notifications' as notifications_url %}
 {% url 'user:profile-privacy' as privacy_url %}
@@ -38,6 +39,9 @@
         {% endif %}
         {% blocktranslate count invites=summary.pending_invites asvar parties_badge %}{{ invites }} invitation{% plural %}{{ invites }} invitations{% endblocktranslate %}
         {% include "user/user/_profile_nav_link.html" with key="parties" icon="users" href=parties_url label=t_parties hint=parties_hint badge=parties_badge has_badge=summary.pending_invites %}
+        {% translate "Tickets" as t_tickets %}
+        {% translate "Entry codes for events" as tickets_hint %}
+        {% include "user/user/_profile_nav_link.html" with key="tickets" icon="ticket" href=tickets_url label=t_tickets hint=tickets_hint %}
         {% translate "Safety" as t_safety %}
         {% if summary.shadowbanned %}
             {% blocktranslate count players=summary.shadowbanned asvar safety_hint %}{{ players }} shadowbanned player{% plural %}{{ players }} shadowbanned players{% endblocktranslate %}

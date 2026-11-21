@@ -9,6 +9,7 @@ from ludamus.gates.web.django.auth_pages import login_required_page
 from ludamus.gates.web.django.user import auth, profile, views
 from ludamus.gates.web.django.user.age_range import ProfileAgeRangePageView
 from ludamus.gates.web.django.user.privacy import ProfilePrivacyPageView
+from ludamus.gates.web.django.user.tickets import ProfileTicketsPageView
 
 # No app_name here: the include() in gates/web/django/urls.py passes the
 # namespace as a (module, app_namespace) tuple, which spares the module a
@@ -20,6 +21,7 @@ urlpatterns = [
         ProfileAgeRangePageView.as_view(),
         name="profile-age-range",
     ),
+    path("profile/tickets/", ProfileTicketsPageView.as_view(), name="profile-tickets"),
 ]
 
 auth0_urlpatterns = [

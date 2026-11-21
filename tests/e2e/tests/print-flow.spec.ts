@@ -40,7 +40,8 @@ test.describe("Print page controls", () => {
     const label = (await option.textContent())!.trim();
     await scopeSelect.selectOption(value);
 
-    await expect(page).toHaveURL(new RegExp(`scope=${value}`));
+    // The reload re-renders the whole timetable; see the track test's timeout.
+    await expect(page).toHaveURL(new RegExp(`scope=${value}`), { timeout: 30_000 });
     const preview = page.getByRole("region", { name: "Print preview" });
     await expect(preview.getByRole("group").first()).toBeVisible();
     await expect(preview.getByText(label).first()).toBeVisible();

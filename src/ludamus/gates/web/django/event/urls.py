@@ -1,6 +1,7 @@
+from django.db.transaction import non_atomic_requests
 from django.urls import URLPattern, path
 
-from ludamus.gates.web.django.event import anonymous, propose, views
+from ludamus.gates.web.django.event import anonymous, propose, tickets, views
 from ludamus.gates.web.django.event.session_modal import SessionModalComponentView
 
 urlpatterns: list[URLPattern] = [
@@ -38,6 +39,40 @@ urlpatterns: list[URLPattern] = [
         "event/<str:event_slug>/session/propose/do/submit",
         propose.ProposeSessionSubmitActionView.as_view(),
         name="session-propose-submit",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/",
+        tickets.EventTicketsPageView.as_view(),
+        name="event-tickets",
+    ),
+    # SAFETY: non-atomic, so Checkout's seat hold commits, and releases the
+    # event's lock, before the Stripe call it waits on.
+    path(
+        "event/<str:event_slug>/tickets/do/buy",
+        non_atomic_requests(tickets.EventTicketsBuyActionView.as_view()),
+        name="event-tickets-buy",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/",
+        tickets.EventTicketOrderPageView.as_view(),
+        name="event-ticket-order",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/do/cancel",
+        non_atomic_requests(tickets.EventTicketOrderCancelActionView.as_view()),
+        name="event-ticket-order-cancel",
+    ),
+    # SAFETY: non-atomic, so the order's lock is released before the mail
+    # server is waited on.
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/do/claim",
+        non_atomic_requests(tickets.EventTicketOrderClaimActionView.as_view()),
+        name="event-ticket-order-claim",
+    ),
+    path(
+        "event/<str:event_slug>/tickets/orders/<slug:reference>/claim/<str:token>/",
+        tickets.EventTicketOrderClaimConfirmPageView.as_view(),
+        name="event-ticket-order-claim-confirm",
     ),
 ]
 

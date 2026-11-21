@@ -6,7 +6,7 @@ This is maintenance, not design. Do not redesign anything, do not open files out
 
 Three kinds of drift travel under "out of date". Keep them apart:
 
-- **Tool version.** The installed skill is older than the published one. `impeccable context` reports that at boot as `UPDATE_AVAILABLE` and `npx impeccable update` fixes it. Not this command's job.
+- **Tool version.** The installed skill is older than the published one. `impeccable context` reports that at boot as `UPDATE_AVAILABLE` and `npx impeccable update` fixes it, or the harness's plugin manager for a plugin install. Not this command's job.
 - **Schema drift.** An artifact was written by an older Impeccable: fields nothing reads, fields now expected, files in retired locations. Mechanical, and this command repairs most of it.
 - **Truth drift.** The code moved on and the document no longer describes it. No file comparison settles this. `document` owns DESIGN.md, `init` owns PRODUCT.md, and this command's job is to hand them a specific gap rather than a vague suspicion.
 
@@ -38,15 +38,19 @@ A finding that reports a deprecated field (`## Register` is the current one) is 
 
 ## Step 4: Do not overclaim on truth drift
 
-`design-md-drift` counts commits to the visual source directories since DESIGN.md was last edited. A commit count is not a contradiction. Report the number, say what it measures, and if the user wants to know whether the document is actually wrong, read DESIGN.md against the current tokens and components and answer from that. Never assert that DESIGN.md is stale because the number is large.
+`design-md-dead-path` and `design-md-color-drift` are contradictions, not suspicions: a file DESIGN.md names is gone, or a colour it declares is in none of the token files it names. Report exactly what they name. Fixing them is `document`'s job, or the code's; don't rewrite DESIGN.md as a side effect. Whether the rest of DESIGN.md still describes the product is a separate question: answer it only when asked, by reading DESIGN.md against the current tokens and components.
 
 The same restraint applies to `workspace-context-inherited`. Inheritance is a designed behavior. Whether one product record truthfully describes several apps is a question for the user, not a defect to fix.
+
+## Step 5: Compact DESIGN.md only with consent
+
+On `design-md-sprawl`, run `.claude/skills/impeccable/scripts/impeccable design-compact` (with Step 1's `--target`) and show the person its proposal and saving. Add `--write` only once they agree here; the original moves to `.impeccable/design-full.md`. Never compact as a side effect.
 
 ## Monorepo notes
 
 - `workspace-platform-native-evidence` is the finding that matters most here: a workspace carrying native build files while inheriting a root record that resolves to web gets web guidance for its whole life and never loads [ios.md](ios.md) or [android.md](android.md). The repair is a child PRODUCT.md in that workspace, because one inherited record cannot hold two platforms.
 - `config-project-roots-match-nothing` means every `projectRoots` glob missed, so the repo root is silently standing in as the active project. A renamed workspace directory is the usual cause. Report the patterns and ask which directories they should name.
-- `config-invalid-build-path` and `config-build-path-unset` both concern one key, `buildPath` in `.impeccable/config.json` (or the gitignored `.impeccable/config.local.json`, which wins for that developer). It holds `comp` or `code` and sets whether new surfaces are built from a generated comp or straight in code. An unread value does not fall back to the opposite path, so a project meaning `code` has been building comp-led; report the exact value. The unset finding fires only where a project has done direction work and never recorded a preference, and the offer belongs in it only when image generation exists in your tool surface. Without image generation there is nothing to choose and nothing to say.
+- `config-invalid-build-path` and `config-build-path-unset` both concern one key, `buildPath` in `.impeccable/config.json` (or the gitignored `.impeccable/config.local.json`, which wins for that developer). It holds `comp` or `code` and sets whether new Persuade and Experience surfaces are built from a generated comp or straight in code; Operate and Read surfaces are code-led whatever it holds. An unread value does not fall back to the opposite path, so a project meaning `code` has been building comp-led; report the exact value. The unset finding fires only where a project has done direction work and never recorded a preference, and the offer belongs in it only when image generation exists in your tool surface. Without image generation there is nothing to choose and nothing to say.
 - Use the `workspaces` table to show the user which apps carry their own context, which inherit, and which have none, before proposing any change.
 
 ## Opting out of the boot check
