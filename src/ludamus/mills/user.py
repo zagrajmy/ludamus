@@ -344,9 +344,9 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         )
 
     def _request(self, user: UserDTO, *, now: datetime) -> VerificationRequestOutcome:
-        target = user.pending_email or ("" if user.email_verified else user.email)
-        if not target:
+        if not user.needs_email_verification:
             return VerificationRequestOutcome.NOT_NEEDED
+        target = user.pending_email or user.email
         with self._transaction.atomic():
             # The throttle is claimed, not read: `user` is a snapshot the sweep
             # may have taken before a resend stamped the row, so checking it

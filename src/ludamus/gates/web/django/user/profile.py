@@ -54,7 +54,11 @@ class ProfilePageView(
         kwargs["user"] = profile.read(self.request.context.current_user_slug)
         kwargs["object"] = profile.read(self.request.context.current_user_slug)
         kwargs["profile_active_tab"] = "profile"
-        return super().get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
+        context["sheet_open"] = bool(context["form"].errors) or (
+            "next" in self.request.GET
+        )
+        return context
 
     def form_valid(self, form: UserForm) -> HttpResponse:
         data = form.user_data

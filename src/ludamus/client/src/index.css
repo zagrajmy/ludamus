@@ -7,6 +7,7 @@
 @import "./modal.css";
 @import "./parley.css";
 @import "./filters.css";
+@import "./bottom-sheet.css";
 @import "./tabs.css";
 @import "./timetable.css";
 @import "./import-recipe.css";
@@ -386,7 +387,12 @@ body {
   cursor: grabbing;
 }
 
-body:has(dialog.modal[open]) .app-scroll {
+/* .app-shell is overflow:hidden, so .app-scroll is the only thing that
+   scrolls. aria-modal marks a panel that is a dialog only at some widths: the
+   bottom sheet and the filter sheet on a phone. Unlayered, because
+   .app-scroll's own overflow-y is unlayered and a layered rule could not take
+   it back. */
+body:has(dialog.modal[open], [aria-modal="true"]) .app-scroll {
   overflow: hidden;
 }
 

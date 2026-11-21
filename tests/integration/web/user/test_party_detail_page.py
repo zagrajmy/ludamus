@@ -257,8 +257,7 @@ class TestPartyDetailPageView:
         [detail_query] = [
             query["sql"]
             for query in expanded_queries
-            if 'FROM "party"' in query["sql"]
-            and 'JOIN "party_membership"' in query["sql"]
+            if 'FROM "party"' in query["sql"] and 'JOIN "user"' in query["sql"]
         ]
         assert f'"party"."id" = {party.pk}' in detail_query
 
