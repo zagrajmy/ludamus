@@ -132,7 +132,7 @@ depends = [{ task = "lint:fast" }, { task = "lint:pylint" }]
 description = "Run end-to-end Playwright tests"
 run = "./scripts/run_e2e.sh"
 raw_args = true
-env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 dir = "tests/e2e"
 
 [tasks."test:e2e:install"]
@@ -191,11 +191,11 @@ run = [
     "mise bootstrap packages apply --yes",
     "poetry install",
     "aube install",
-    'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
+    # The glob also deletes the scheduler database (dev.e2e.sqlite3.dbos).
     # Workflows left pending by the last run name rows of the database just
     # deleted. Kept, every server start recovers and retries all of them, and
     # the pile grows with each run until pages take seconds.
-    'rm -f "{{ config_root }}"/dbos_sys.e2e.sqlite*',
+    'rm -f "{{ config_root }}"/dev.e2e.sqlite3*',
     # Captured mail belongs to the database just deleted. Left to pile up
     # across runs, it slows /dev/emails/ (which parses every file per request)
     # past the inbox specs' timeouts.
@@ -214,7 +214,7 @@ run = [
     # .ts sources with it.
     "aubr -C src/ludamus/client build -- --sourcemap inline",
 ]
-env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
 [tasks."test:e2e:kill"]
 description = "Kill the e2e dev servers (Django on :8000 and the privacy server on :8001)"
@@ -248,7 +248,7 @@ while true; do
   wait "$server" 2>/dev/null || true
 done
 '''
-env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
+env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
 [tasks."test:e2e:serve:privacy"]
 description = "Serve shared-parent privacy browser regressions on localhost:8001"
@@ -259,12 +259,12 @@ while ! curl --fail --silent "${E2E_BASE_URL:-http://localhost:8000}" >/dev/null
 done
 exec coverage run --source=src -m django runserver --insecure --noreload localhost:8001
 '''
-env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite", ROOT_DOMAIN = "ludamus.localhost:8001", SESSION_COOKIE_DOMAIN = ".ludamus.localhost", POSTHOG_HOST = "https://eu.i.posthog.com", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e.privacy" }
+env = { _.file = '.env.e2e', ROOT_DOMAIN = "ludamus.localhost:8001", SESSION_COOKIE_DOMAIN = ".ludamus.localhost", POSTHOG_HOST = "https://eu.i.posthog.com", COVERAGE_FILE = "{{ config_root }}/.coverage.e2e.privacy" }
 
 [tasks."test:e2e:boot"]
 description = "Run bootstrap script"
 run = "python"
-env = { _.file = '.env.e2e', DBOS_SYSTEM_DATABASE_URL = "sqlite:///{{ config_root }}/dbos_sys.e2e.sqlite" }
+env = { _.file = '.env.e2e' }
 
 ### Other types
 
