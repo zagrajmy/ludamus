@@ -7907,9 +7907,20 @@ msgstr "%(name_value)s (oznaczony)"
 msgid "Color picker"
 msgstr "Wybierz kolor"
 
+#: src/ludamus/templates/components/combobox-chips.html
 #: src/ludamus/templates/components/combobox.html
 msgid "Results"
 msgstr "Wyniki"
+
+#: src/ludamus/templates/components/combobox-chips.html
+#, python-brace-format
+msgid "Removed: {label}"
+msgstr "Usunięto: {label}"
+
+#: src/ludamus/templates/components/combobox-chips.html
+#, python-brace-format
+msgid "Remove: {label}"
+msgstr "Usuń: {label}"
 
 #: src/ludamus/templates/components/command-menu-entries.html
 #: src/ludamus/templates/event/panel/integrations/create.html
@@ -8299,8 +8310,18 @@ msgid "Enable interface sounds"
 msgstr "Włącz dźwięki interfejsu"
 
 #: src/ludamus/templates/components/stepper-field.html
+#, python-format
+msgid "Decrease: %(label)s"
+msgstr "Zmniejsz: %(label)s"
+
+#: src/ludamus/templates/components/stepper-field.html
 msgid "Decrease"
 msgstr "Zmniejsz"
+
+#: src/ludamus/templates/components/stepper-field.html
+#, python-format
+msgid "Increase: %(label)s"
+msgstr "Zwiększ: %(label)s"
 
 #: src/ludamus/templates/components/stepper-field.html
 msgid "Increase"
@@ -8710,6 +8731,18 @@ msgstr "Wiśnia"
 #: src/ludamus/templates/design.html
 msgid "Fruit with disabled options"
 msgstr "Owoce z wyłączonymi opcjami"
+
+#: src/ludamus/templates/design.html
+msgid "Fruit as chips"
+msgstr "Owoce jako etykiety"
+
+#: src/ludamus/templates/design.html
+msgid "Banana"
+msgstr "Banan"
+
+#: src/ludamus/templates/design.html
+msgid "Plum"
+msgstr "Śliwka"
 
 #: src/ludamus/templates/design.html
 #: src/ludamus/templates/event/_proposal_section.html
@@ -11356,17 +11389,13 @@ msgstr ""
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid ""
-"Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
-"children"
-msgstr ""
-"Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
-"kolejność; Enter lub spacja przełącza elementy podrzędne"
+msgid "Reorder or toggle %(name)s"
+msgstr "Zmień kolejność albo zwiń lub rozwiń: %(name)s"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "Reorder %(name)s — use the arrow keys"
-msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+msgid "Reorder %(name)s"
+msgstr "Zmień kolejność: %(name)s"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
@@ -14208,6 +14237,46 @@ msgstr ""
 "Klawiatura: ustaw fokus na jej uchwycie i naciśnij strzałkę w lewo."
 
 #: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Press Space to pick up, Up and Down Arrow to move, Space to drop, Escape to "
+"cancel. Before picking up, Left Arrow moves a nested space to the top level."
+msgstr ""
+"Naciśnij spację, aby podnieść, strzałki w górę i w dół, aby przesunąć, "
+"spację, aby upuścić, Escape, aby anulować. Przed podniesieniem strzałka w "
+"lewo przenosi zagnieżdżoną przestrzeń na najwyższy poziom."
+
+#: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Press Enter to show or hide the spaces inside. Press Space to pick up, Up "
+"and Down Arrow to move, Space to drop, Escape to cancel. Before picking up, "
+"Left Arrow moves a nested space to the top level."
+msgstr ""
+"Naciśnij Enter, aby pokazać lub ukryć przestrzenie w środku. Naciśnij "
+"spację, aby podnieść, strzałki w górę i w dół, aby przesunąć, spację, aby "
+"upuścić, Escape, aby anulować. Przed podniesieniem strzałka w lewo przenosi "
+"zagnieżdżoną przestrzeń na najwyższy poziom."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Picked up {label}. Position {position} of {total}."
+msgstr "Podniesiono: {label}. Pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "{label}, position {position} of {total}."
+msgstr "{label}, pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Dropped {label} at position {position} of {total}."
+msgstr "Upuszczono: {label}. Pozycja {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
+#, python-brace-format
+msgid "Move cancelled. {label} is back at position {position} of {total}."
+msgstr "Anulowano przenoszenie. {label} wraca na pozycję {position} z {total}."
+
+#: src/ludamus/templates/panel/spaces.html
 msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
 msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
@@ -16552,36 +16621,30 @@ msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
 
-#~ msgid ""
-#~ "Want your convention to run without technical worries? As a Technical "
-#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
-#~ "programme in and is on hand during the event. We agree the terms, ticket "
-#~ "fee included, for each convention."
-#~ msgstr ""
-#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
-#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
-#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
-#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
-
-#~ msgid "Payments are not available here"
-#~ msgstr "Płatności nie są tu dostępne"
+#~ msgid "Give the party a name."
+#~ msgstr "Nadaj drużynie nazwę."
 
 #~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can be prepared but not sold."
+#~ "A party signs up for sessions together and moves up a waiting list "
+#~ "together."
 #~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
-#~ "można przygotować, ale nie sprzedać."
+#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
+#~ "kolejce oczekujących."
 
-#~ msgid "Set up payouts"
-#~ msgstr "Skonfiguruj wypłaty"
+#~ msgid "Name your party — invite friends once it exists."
+#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
 
+#, python-format
 #~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can't be sold here yet."
+#~ "Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
+#~ "children"
 #~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
-#~ "się tu jeszcze sprzedawać biletów."
+#~ "Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
+#~ "kolejność; Enter lub spacja przełącza elementy podrzędne"
+
+#, python-format
+#~ msgid "Reorder %(name)s — use the arrow keys"
+#~ msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
@@ -16636,8 +16699,29 @@ msgstr ""
 #~ msgid "Please select at least one time slot."
 #~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
 
-#~ msgid "Give the party a name."
-#~ msgstr "Nadaj drużynie nazwę."
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
 
 #~ msgid "Preferred Time Slots"
 #~ msgstr "Preferowane przedziały czasowe"
@@ -16727,40 +16811,6 @@ msgstr ""
 #~ msgid "All scheduled sessions are inside their preferred slots."
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
-
-#~ msgid ""
-#~ "A party signs up for sessions together and moves up a waiting list "
-#~ "together."
-#~ msgstr ""
-#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
-#~ "kolejce oczekujących."
-
-#~ msgid "Name your party — invite friends once it exists."
-#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
-
-#~ msgid "Public: listed and announced to followers from its publication time"
-#~ msgstr ""
-#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
-#~ "obserwującym"
-
-#~ msgid ""
-#~ "Link only: anyone with the link can open it now; never listed or announced"
-#~ msgstr ""
-#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-#~ "się na listach ani w powiadomieniach"
-
-#~ msgid "Publication time"
-#~ msgstr "Czas publikacji"
-
-#~ msgid ""
-#~ "For a public event: when it appears in event lists and followers are "
-#~ "notified. Leave empty to keep it hidden."
-#~ msgstr ""
-#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
-
-#~ msgid "Create Encounter"
-#~ msgstr "Utwórz spotkanie"
 
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
@@ -16943,72 +16993,6 @@ msgstr ""
 #~ msgstr "Wybierz jeszcze raz, kogo szukasz."
 
 #~ msgid ""
-#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
-#~ "and stop anyone else using this link."
-#~ msgstr ""
-#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
-#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
-
-#~ msgid ""
-#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
-#~ "to buy now."
-#~ msgstr ""
-#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
-#~ "minut albo zaloguj się, żeby kupić od razu."
-
-#~ msgid "Add an email address to your profile first: tickets go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
-
-#~ msgid ""
-#~ "Thank you! Stripe is confirming the payment; the plan switches over "
-#~ "within a minute."
-#~ msgstr ""
-#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
-
-#~ msgid "Add an email address to your profile first: invoices go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
-
-#~ msgid "Log in to buy tickets"
-#~ msgstr "Zaloguj się, by kupić bilety"
-
-#~ msgctxt "plan"
-#~ msgid "Yearly"
-#~ msgstr "Roczny"
-
-#~ msgctxt "plan"
-#~ msgid "Pay per ticket"
-#~ msgstr "Opłata od biletu"
-
-#~ msgid ""
-#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
-#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
-#~ msgstr ""
-#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
-#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
-
-#, python-format
-#~ msgid "Paid until %(date)s."
-#~ msgstr "Opłacony do %(date)s."
-
-#~ msgid "Stripe is confirming the first payment."
-#~ msgstr "Stripe potwierdza pierwszą płatność."
-
-#~ msgid ""
-#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
-#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
-#~ "comes with onboarding help from the Zagrajmy team."
-#~ msgstr ""
-#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
-#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
-#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
-
-#~ msgid "Switch to the yearly plan"
-#~ msgstr "Przejdź na plan roczny"
-
-#~ msgid "Ask about the yearly plan"
-#~ msgstr "Zapytaj o plan roczny"
-
-#~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
 #~ "companion to sign you up for sessions."
 #~ msgstr ""
@@ -17020,6 +17004,9 @@ msgstr ""
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
 
 #~ msgid "How old are you?"
 #~ msgstr "Ile masz lat?"
@@ -17337,6 +17324,9 @@ msgstr ""
 #~ msgid "Place the session inside one of the event's time slots."
 #~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
 
+#~ msgid "total"
+#~ msgstr "łącznie"
+
 #~ msgid ""
 #~ "Friends who enroll together wait together and move up together, and "
 #~ "nobody skips past them. RSVP tools that count seats one by one split such "
@@ -17546,6 +17536,9 @@ msgstr ""
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
+
+#~ msgid "No events available"
+#~ msgstr "Brak dostępnych wydarzeń"
 
 #~ msgid "There are currently no events scheduled. Please check back later!"
 #~ msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
@@ -17889,6 +17882,9 @@ msgstr ""
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
+
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"
 
@@ -18144,10 +18140,6 @@ msgstr ""
 
 #~ msgid "Release"
 #~ msgstr "Zwolnij"
-
-#, python-format
-#~ msgid "Release %(name)s"
-#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -18483,18 +18475,6 @@ msgstr ""
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
-
-#~ msgid "total"
-#~ msgstr "łącznie"
-
-#~ msgid "No events available"
-#~ msgstr "Brak dostępnych wydarzeń"
-
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
 #~ msgid "Group name"
 #~ msgstr "Nazwa grupy"
 
@@ -18627,16 +18607,6 @@ msgstr ""
 #~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
 #~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
 
-#~ msgid "Nothing to moderate right now."
-#~ msgstr "Na razie nie ma czego moderować."
-
-#~ msgid "Select a language:"
-#~ msgstr "Wybierz język:"
-
-#, python-format
-#~ msgid "Delete %(event)s?"
-#~ msgstr "Usunąć %(event)s?"
-
 #~ msgid "Displayed on the first page of the proposal form."
 #~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
 
@@ -18649,6 +18619,10 @@ msgstr ""
 #~ msgstr[1] "Graczy"
 #~ msgstr[2] "Graczy"
 #~ msgstr[3] "Graczy"
+
+#, python-format
+#~ msgid "Release %(name)s"
+#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -18685,3 +18659,110 @@ msgstr ""
 
 #~ msgid "Group looking for a GM"
 #~ msgstr "Grupa szuka MG"
+
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"
+
+#~ msgid ""
+#~ "Want your convention to run without technical worries? As a Technical "
+#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
+#~ "programme in and is on hand during the event. We agree the terms, ticket "
+#~ "fee included, for each convention."
+#~ msgstr ""
+#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
+#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
+#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
+#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
+
+#~ msgid "Payments are not available here"
+#~ msgstr "Płatności nie są tu dostępne"
+
+#~ msgid ""
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can be prepared but not sold."
+#~ msgstr ""
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
+#~ "można przygotować, ale nie sprzedać."
+
+#~ msgid "Set up payouts"
+#~ msgstr "Skonfiguruj wypłaty"
+
+#~ msgid ""
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can't be sold here yet."
+#~ msgstr ""
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
+#~ "się tu jeszcze sprzedawać biletów."
+
+#~ msgid ""
+#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
+#~ "and stop anyone else using this link."
+#~ msgstr ""
+#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
+#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
+
+#~ msgid ""
+#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
+#~ "to buy now."
+#~ msgstr ""
+#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
+#~ "minut albo zaloguj się, żeby kupić od razu."
+
+#~ msgid "Add an email address to your profile first: tickets go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+
+#~ msgid ""
+#~ "Thank you! Stripe is confirming the payment; the plan switches over "
+#~ "within a minute."
+#~ msgstr ""
+#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
+
+#~ msgid "Add an email address to your profile first: invoices go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
+
+#~ msgid "Log in to buy tickets"
+#~ msgstr "Zaloguj się, by kupić bilety"
+
+#~ msgctxt "plan"
+#~ msgid "Yearly"
+#~ msgstr "Roczny"
+
+#~ msgctxt "plan"
+#~ msgid "Pay per ticket"
+#~ msgstr "Opłata od biletu"
+
+#~ msgid ""
+#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
+#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
+#~ msgstr ""
+#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
+#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
+
+#, python-format
+#~ msgid "Paid until %(date)s."
+#~ msgstr "Opłacony do %(date)s."
+
+#~ msgid "Stripe is confirming the first payment."
+#~ msgstr "Stripe potwierdza pierwszą płatność."
+
+#~ msgid ""
+#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
+#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
+#~ "comes with onboarding help from the Zagrajmy team."
+#~ msgstr ""
+#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
+#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
+#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
+
+#~ msgid "Switch to the yearly plan"
+#~ msgstr "Przejdź na plan roczny"
+
+#~ msgid "Ask about the yearly plan"
+#~ msgstr "Zapytaj o plan roczny"
+
+#, python-format
+#~ msgid "Delete %(event)s?"
+#~ msgstr "Usunąć %(event)s?"

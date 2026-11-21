@@ -35,14 +35,23 @@ shipped pattern lands here.
 - **Date/time presentation.** There's a `date_tags` library; the rules for
   relative vs absolute, timezone display, and range formatting aren't written
   down. Match the nearest existing usage.
-- **Numeric stepper.** No tessera component; a native number input (min/max
-  passed through `render_input`) is the accepted minimal pattern (guests field,
-  PR #498).
 - **Range slider.** No tessera component; a native `<input type="range">`
   with `accent-primary`, a visible `<label for>`, and arrow buttons flanking it
   is the accepted minimal pattern (the schedule's room pager,
   `panel/parts/timetable-grid.html`). Promote it to a tag if a second one
   appears.
+
+## UI SDK
+
+`@ui-sdk/core` and `@ui-sdk/web` (https://ui-sdk.dev) supply behaviour for
+three components: the number stepper (`ui-number-input`), the chips combobox
+(`ui-combobox`) and the venue tree's reordering (`createReorder` in
+`space-tree.ts`). The custom elements wrap server-rendered markup, so
+templates and Tailwind stay ours. Before hand-writing keyboard, focus or drag
+behaviour for a new component, check whether UI SDK ships it; its docs live
+in `node_modules/@ui-sdk/web/docs/`. It is a beta: pin exact versions, and
+its screen-reader strings are English unless you pass your own (see
+`combobox-chips.ts` and `space-tree.ts`).
 
 ## How to use this file
 

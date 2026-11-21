@@ -45,6 +45,9 @@ if (root) {
   // next submit — the server routes people before touching guests — so a
   // negative delta deliberately does not enter the projection.
   const guests = root.querySelector<HTMLInputElement>('input[name="guests"]');
+  // NOTE: the stepper rewrites the input's value attribute as it steps, so
+  // `defaultValue` follows the live count; keep the server's count from here.
+  const guestsBefore = Number(guests?.defaultValue || 0);
   // The submit button states the outcome. The server renders the initial
   // label; this keeps it truthful as boxes toggle: the viewer joining reads
   // "Join this session" / "Join the waiting list", anything else "Confirm".
@@ -86,7 +89,7 @@ if (root) {
       }
     }
     if (guests) {
-      const added = Number(guests.value || 0) - Number(guests.defaultValue || 0);
+      const added = Number(guests.value || 0) - guestsBefore;
       if (added > 0) seated += added;
     }
     if (tally && tallySeats && tallyWait) {
