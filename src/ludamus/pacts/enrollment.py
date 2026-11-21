@@ -52,11 +52,11 @@ def open_windows[W: DatedWindow](windows: Iterable[W], *, now: datetime) -> list
 def allowance_windows[W: DatedWindow](
     windows: Iterable[W], *, now: datetime
 ) -> list[W]:
-    """Name the windows whose passes a waiting-list promotion spends.
+    """Name the windows whose passes and seat share a waiting-list promotion uses.
 
     Returns:
         The windows open now; once every one has closed, the latest to end,
-        so a waiter keeps the allowance they joined under.
+        so a waiter keeps the allowance and the cap they joined under.
     """
     listed = list(windows)
     if opened := open_windows(listed, now=now):
@@ -84,11 +84,11 @@ def seat_cap(*, participants_limit: int, percentage_slots: int) -> int:
 
 
 class SessionSeatsDTO(BaseModel):
-    """A session's seats as stored, and the cap the open windows put on them."""
+    """A session's seats as stored, and the cap the windows put on them."""
 
     participants_limit: int
     # The most liberal share among the windows open now that can seat the
-    # session; None when none can.
+    # session, or, once all have closed, the last one's; None when none can.
     seating_percentage: int | None
     # CONFIRMED and OFFERED rows both hold a seat: an offered seat must not be
     # handed out twice.
