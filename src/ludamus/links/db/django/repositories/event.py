@@ -34,7 +34,7 @@ from ludamus.pacts.enrollment import (
     SessionParticipationStatus,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
-    allowance_windows,
+    last_closed_window,
     open_windows,
 )
 from ludamus.pacts.errors import NotFoundError
@@ -264,6 +264,7 @@ def card_stats(
     enrolled_count: int,
     waiting_count: int,
     configs: Collection[EnrollmentConfig],
+    now: datetime,
 ) -> SessionCardStatsDTO:
     """State a session's seats from the facts Session's own properties read.
 
@@ -271,15 +272,15 @@ def card_stats(
         The counts, whether it is full, the windows that can seat it and the
         cap they leave: what a card, a row read or an instance, prints.
     """
-    now = datetime.now(tz=UTC)
     eligible = [
         config
         for config in configs
         if config.can_seat(participants_limit=participants_limit, start_time=start_time)
     ]
+    opened = open_windows(eligible, now=now)
     # Once sign-ups close the last window's share still caps the seats, so a
     # waiting list refilling a half-capped session stops at half.
-    seating = allowance_windows(eligible, now=now)
+    seating = opened or last_closed_window(eligible, now=now)
     return SessionCardStatsDTO(
         participants_limit=participants_limit,
         seating_percentage=max(
@@ -287,9 +288,7 @@ def card_stats(
         ),
         enrolled_count=enrolled_count,
         waiting_count=waiting_count,
-        enrollment_window_ids=frozenset(
-            config.pk for config in open_windows(eligible, now=now)
-        ),
+        enrollment_window_ids=frozenset(config.pk for config in opened),
     )
 
 
@@ -306,6 +305,7 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
         ),
         waiting_count=statuses.count(SessionParticipationStatus.WAITING),
         configs=session.event.enrollment_configs.all(),
+        now=datetime.now(tz=UTC),
     )
 
 

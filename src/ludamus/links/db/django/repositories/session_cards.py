@@ -11,7 +11,7 @@ instances and share the card shape.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.utils.timezone import get_current_timezone
@@ -180,7 +180,7 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
 
 
 def _stats(
-    row: _SessionRow, *, configs: Collection[EnrollmentConfig]
+    *, row: _SessionRow, configs: Collection[EnrollmentConfig], now: datetime
 ) -> SessionCardStatsDTO:
     return card_stats(
         participants_limit=row.participants_limit,
@@ -188,6 +188,7 @@ def _stats(
         enrolled_count=row.enrolled_count_cached,
         waiting_count=row.waiting_count_cached,
         configs=configs,
+        now=now,
     )
 
 
@@ -325,6 +326,7 @@ def scheduled_session_cards(
     track_names = _track_names_by_session(session_ids)
     seats = _seats_by_session(session_ids) if len(rows) < roster_up_to else {}
     configs = list(EnrollmentConfig.objects.filter(event_id=event_id))
+    now = datetime.now(tz=UTC)
     return [
         SessionCardDTO(
             session=_session_dto(row),
@@ -336,7 +338,7 @@ def scheduled_session_cards(
             category_name=row.category__name or "",
             participations=seats.get(row.pk, []),
             offered_times=[],
-            **_stats(row, configs=configs).model_dump(),
+            **_stats(row=row, configs=configs, now=now).model_dump(),
         )
         for row in rows
     ]
