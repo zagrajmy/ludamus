@@ -46,7 +46,7 @@ from ludamus.pacts.availability import (
     in_reading_order,
     slot_availability,
 )
-from ludamus.pacts.enrollment import SessionParticipationStatus
+from ludamus.pacts.enrollment import SessionParticipationStatus, open_windows
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.event_page import EventScheduleRepositoryProtocol, SeatStatusDTO
 from ludamus.pacts.fields import SessionFieldValueDTO
@@ -180,15 +180,14 @@ def _field_value(row: _FieldValueRow) -> SessionFieldValueDTO:
 
 
 def _stats(
-    *, row: _SessionRow, configs: Collection[EnrollmentConfig], now: datetime
+    row: _SessionRow, *, active_configs: Collection[EnrollmentConfig]
 ) -> SessionCardStatsDTO:
     return card_stats(
         participants_limit=row.participants_limit,
         start_time=row.agenda_item__start_time,
         enrolled_count=row.enrolled_count_cached,
         waiting_count=row.waiting_count_cached,
-        configs=configs,
-        now=now,
+        active_configs=active_configs,
     )
 
 
@@ -325,8 +324,9 @@ def scheduled_session_cards(
     field_values = _field_values_by_session(session_ids)
     track_names = _track_names_by_session(session_ids)
     seats = _seats_by_session(session_ids) if len(rows) < roster_up_to else {}
-    configs = list(EnrollmentConfig.objects.filter(event_id=event_id))
-    now = datetime.now(tz=UTC)
+    active_configs = open_windows(
+        EnrollmentConfig.objects.filter(event_id=event_id), now=datetime.now(tz=UTC)
+    )
     return [
         SessionCardDTO(
             session=_session_dto(row),
@@ -338,7 +338,7 @@ def scheduled_session_cards(
             category_name=row.category__name or "",
             participations=seats.get(row.pk, []),
             offered_times=[],
-            **_stats(row=row, configs=configs, now=now).model_dump(),
+            **_stats(row, active_configs=active_configs).model_dump(),
         )
         for row in rows
     ]
