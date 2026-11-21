@@ -168,15 +168,21 @@ jobs:
       # project-ordered list into unequal slices, some of them Firefox only.
       # NOTE: each group's shards must count up to its own total. A missing
       # "2/3" silently skips a third of that group; nothing else checks it.
+      # Pull requests leave the Firefox group to the run on main: Firefox
+      # repeats 376 specs Chromium already ran, two shards of seven, and main
+      # does not deploy on its own, so a Firefox-only regression is caught
+      # there before it ships. Every run that is not a pull request keeps it.
+      # NOTE: a required check on a firefox shard would block every PR.
       matrix:
-        include:
-          - { name: chromium-1, group: chromium, shard: 1/3 }
-          - { name: chromium-2, group: chromium, shard: 2/3 }
-          - { name: chromium-3, group: chromium, shard: 3/3 }
-          - { name: firefox-1, group: firefox, shard: 1/2 }
-          - { name: firefox-2, group: firefox, shard: 2/2 }
-          - { name: rest-1, group: rest, shard: 1/2 }
-          - { name: rest-2, group: rest, shard: 2/2 }
+        include: ${{ fromJSON(format('[{0}{1}{2}]',
+          '{"name":"chromium-1","group":"chromium","shard":"1/3"},
+          {"name":"chromium-2","group":"chromium","shard":"2/3"},
+          {"name":"chromium-3","group":"chromium","shard":"3/3"},',
+          github.event_name != 'pull_request'
+          && '{"name":"firefox-1","group":"firefox","shard":"1/2"},
+          {"name":"firefox-2","group":"firefox","shard":"2/2"},' || '',
+          '{"name":"rest-1","group":"rest","shard":"1/2"},
+          {"name":"rest-2","group":"rest","shard":"2/2"}')) }}
     steps:
       - uses: actions/checkout@v7
       # NOTE: the browser install below is a no-op for browsers this cache
@@ -323,7 +329,18 @@ jobs:
   # gates a merge goes in `needs`.
   test:
     runs-on: ubuntu-latest
-    needs: [test-mills, test-unit, test-postgres, test-e2e, test-worker, bombadil]
+    # NOTE: pylint ran inside the required `checks` job until it became its
+    # own job, and frontend-analysis calls its lint blocking: neither could
+    # fail a merge while missing from this list.
+    needs:
+      - pylint
+      - frontend-analysis
+      - test-mills
+      - test-unit
+      - test-postgres
+      - test-e2e
+      - test-worker
+      - bombadil
     # SAFETY: GitHub reports a skipped job as success to a required check, so
     # anything that skips this one turns the merge gate green. always(), not
     # !cancelled(): a cancelled run skips under the latter and would pass.

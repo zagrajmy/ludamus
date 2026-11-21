@@ -215,7 +215,7 @@ _BASE_TEMPLATE_LOADERS = [
 
 _TEMPLATE_LOADERS: list[str | tuple[str, list[str]]] = (
     [("django.template.loaders.cached.Loader", _BASE_TEMPLATE_LOADERS)]
-    if IS_PRODUCTION
+    if ENV != "development"
     else list(_BASE_TEMPLATE_LOADERS)
 )
 
@@ -649,6 +649,8 @@ if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
             f":{quote(env.str('DB_PASSWORD'), safe='')}"
             f"@{_dbos_host}/{env('DB_NAME')}"
         )
+    elif (_db_name := env("DB_NAME")) and _db_name != ":memory:":
+        DBOS_SYSTEM_DATABASE_URL = f"sqlite:///{_db_name}.dbos"
     else:
         DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
