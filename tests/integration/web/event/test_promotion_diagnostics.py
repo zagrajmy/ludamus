@@ -11,7 +11,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.enrollment import PromotionMode
-from tests.integration.conftest import ProposalCategoryFactory
+from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 
 
 def _service():
@@ -190,3 +190,38 @@ class TestPromotionAfterEnrollmentCloses:
         participation.refresh_from_db()
         assert result.promoted == [participation.pk]
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_closed_window_percentage_no_longer_caps_promotion(
+        self, session, event, waiter
+    ):
+        now = datetime.now(UTC)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=10),
+            end_time=now - timedelta(days=1),
+            percentage_slots=50,
+        )
+        session.participants_limit = 10
+        session.save()
+        confirmed = [
+            SessionParticipation.objects.create(
+                session=session,
+                user=UserFactory(),
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+            for _ in range(5)
+        ]
+        first_wait = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+        second_wait = SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.WAITING,
+        )
+        confirmed[0].delete()
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert result.promoted == [first_wait.pk, second_wait.pk]

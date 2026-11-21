@@ -99,6 +99,10 @@ class SessionSeatsDTO(BaseModel):
         # With no window seating the session its own limit stands: a waiting
         # list keeps moving after enrollment closes. A seat for one actor is a
         # different question, answered by EnrollmentPolicy.
+        # NOTE: percentage_slots releases seats in stages while windows are
+        # open; it does not reserve the remainder. Once every window has
+        # closed the room's full limit applies again. #846 tried the opposite
+        # reading and was reverted.
         return seat_cap(
             participants_limit=self.participants_limit,
             percentage_slots=(
