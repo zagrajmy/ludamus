@@ -1,8 +1,9 @@
-{% load tessera %}
+{% load i18n tessera %}
 <div class="w-full max-w-md flex flex-col gap-3">
     <a href="#design-bottom-sheet" class="btn btn-secondary lg:hidden">Open sheet</a>
     {% url 'web:design' as design_url %}
-    {% bottom_sheet id="design-bottom-sheet" title="Section" close_url=design_url %}
+    {% translate "Section" as section_title %}
+    {% bottom_sheet id="design-bottom-sheet" title=section_title close_url=design_url %}
         <p class="text-sm text-foreground-secondary">A card in the page from lg up, a bottom sheet below it.</p>
     {% end_bottom_sheet %}
 </div>

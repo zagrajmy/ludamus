@@ -3,6 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
+from ludamus.links.analytics import redaction
 from tests.integration.utils import assert_response
 
 
@@ -43,12 +44,14 @@ class TestProfilePrivacyPageView:
             context_data={"profile_active_tab": "privacy"},
             template_name="user/user/privacy.html",
         )
-        assert response.context["optional_features_available"] is True
-        assert response.context["posthog_config"] is None
+        optional_features_available = response.context["optional_features_available"]
+        posthog_config = response.context["posthog_config"]
+        assert optional_features_available is True
+        assert posthog_config is None
 
     @pytest.mark.usefixtures("sixteen_plus_user")
     def test_get_sixteen_plus_with_analytics_configured(
-        self, authenticated_client, settings
+        self, authenticated_client, sixteen_plus_user, settings
     ):
         settings.POSTHOG_API_KEY = "phc_integration"
 
@@ -60,5 +63,14 @@ class TestProfilePrivacyPageView:
             context_data={"profile_active_tab": "privacy"},
             template_name="user/user/privacy.html",
         )
-        assert response.context["optional_features_available"] is True
-        assert response.context["posthog_config"]["api_key"] == "phc_integration"
+        optional_features_available = response.context["optional_features_available"]
+        posthog_config = response.context["posthog_config"]
+        assert optional_features_available is True
+        assert posthog_config == {
+            "api_key": "phc_integration",
+            "host": settings.POSTHOG_HOST,
+            "user_id": f"test:{sixteen_plus_user.pk}",
+            "privacy_revision": str(sixteen_plus_user.privacy_revision),
+            "environment": "test",
+            "redaction_rules": redaction.client_patterns(),
+        }
