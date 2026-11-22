@@ -14,5 +14,12 @@
     "target": "ES2021",
     "types": ["node", "@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "vitest.config.ts",
+    "vite.config.ts",
+    "alchemy.run.ts"
+  ],
+  "exclude": ["client"]
 }

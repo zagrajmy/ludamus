@@ -37,10 +37,11 @@ class TestBoardCreateActionView:
         response = authenticated_client.post(self.URL)
 
         board = Board.objects.get()
+        # Straight to the board app, in the language the creator reads.
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=reverse("web:boards:board", kwargs={"share_code": board.share_code}),
+            url=f"http://localhost:8788/b/{board.share_code}?lang=en",
         )
         today = formats.date_format(localdate(), "MONTH_DAY_FORMAT")
         assert (board.sphere_id, board.creator_id, board.title) == (
@@ -151,7 +152,10 @@ class TestBoardResetLinkActionView:
             messages=reset,
         )
         bootstrap = authenticated_client.post(
-            reverse("web:boards:bootstrap", kwargs={"share_code": board.share_code})
+            reverse("web:boards:bootstrap", kwargs={"share_code": board.share_code}),
+            data="{}",
+            content_type="application/json",
+            headers={"origin": "http://localhost:8788"},
         )
         assert verified_claims(bootstrap.json()["pass"])["link"] == 1
 

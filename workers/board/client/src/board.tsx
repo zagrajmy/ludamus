@@ -1,59 +1,73 @@
 import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-import { type Answer, type Door, type Ending, knock, PassKeeper } from "./bootstrap";
+import {
+  type Answer,
+  type Bootstrap,
+  type Door,
+  type Ending,
+  knock,
+  PassKeeper,
+} from "./bootstrap";
 import { BoardCanvas } from "./canvas";
-import { type Copy, withFallbacks } from "./copy";
+import { type Copy, fill } from "./copy";
 import { NameForm } from "./name-form";
 import { Notice } from "./notice";
 
 type Stage =
-  | { copy: Copy; ending: Ending; kind: "ended" }
-  | { copy: Copy; error: string | null; kind: "name" }
-  | { copy: Copy; kind: "failed"; text: string }
-  | { keeper: PassKeeper; kind: "ready" }
+  | { ending: Ending; exit: Exit; kind: "ended" }
+  | { error: string | null; kind: "name" }
+  | { exit: Exit; keeper: PassKeeper; kind: "ready" }
+  | { kind: "failed"; text: string }
   | { kind: "loading" };
 
 export type Exit = { href: string; label: string };
 
 type Mount = {
-  // The page's own copy, for the screens shown before the bootstrap answers.
   copy: Copy;
   door: Door;
-  // Where a person goes from here: "My boards", or the sphere for a guest.
-  exit: Exit;
+  // Where a person goes before Django has said whose board this is.
+  fallbackExit: Exit;
   first: Promise<Answer>;
   language: string;
   licenseKey: string;
 };
 
-function Board({ copy: pageCopy, door, exit, first, language, licenseKey }: Mount) {
+// Where a person goes from the board: "My boards" on its sphere for a
+// member, the sphere itself for a guest.
+function exitOf(copy: Copy, { boardsUrl, sphere }: Bootstrap): Exit {
+  return boardsUrl === null
+    ? { href: sphere.url, label: fill(copy.backTo, { sphere: sphere.name }) }
+    : { href: boardsUrl, label: copy.myBoards };
+}
+
+function Board({ copy, door, fallbackExit, first, language, licenseKey }: Mount) {
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
 
   const settle = useCallback(
-    (answer: Answer, previous: Copy = pageCopy) => {
+    (answer: Answer) => {
       if (answer.kind === "ready") {
-        const copy = withFallbacks(answer.bootstrap.copy);
+        const exit = exitOf(copy, answer.bootstrap);
+        document.title = answer.bootstrap.title;
         // NOTE: an ending only ever moves forward; a late renewal answer
         // must not bring a reset board back.
         const keeper = new PassKeeper(door, answer.bootstrap, (ending) =>
           setStage((current) =>
-            current.kind === "ended" ? current : { copy, ending, kind: "ended" },
+            current.kind === "ended" ? current : { ending, exit, kind: "ended" },
           ),
         );
-        setStage({ keeper, kind: "ready" });
+        setStage({ exit, keeper, kind: "ready" });
       } else if (answer.kind === "name-required" || answer.kind === "name-invalid") {
-        const copy = withFallbacks(answer.copy);
         const error = answer.kind === "name-invalid" ? copy.nameInvalid : null;
-        setStage({ copy, error, kind: "name" });
+        setStage({ error, kind: "name" });
       } else if (answer.kind === "gone") {
-        setStage({ copy: previous, ending: "gone", kind: "ended" });
+        setStage({ ending: "gone", exit: fallbackExit, kind: "ended" });
       } else {
-        const text = answer.kind === "throttled" ? previous.tooManyTries : previous.bootstrapFailed;
-        setStage({ copy: previous, kind: "failed", text });
+        const text = answer.kind === "throttled" ? copy.tooManyTries : copy.bootstrapFailed;
+        setStage({ kind: "failed", text });
       }
     },
-    [door, pageCopy],
+    [copy, door, fallbackExit],
   );
 
   useEffect(() => {
@@ -65,43 +79,44 @@ function Board({ copy: pageCopy, door, exit, first, language, licenseKey }: Moun
     case "ended":
       return (
         <Notice
-          action={exit}
-          text={stage.ending === "gone" ? stage.copy.boardGone : stage.copy.linkReset}
+          action={stage.exit}
+          text={stage.ending === "gone" ? copy.boardGone : copy.linkReset}
         />
       );
     case "failed":
       return (
         <Notice
           action={{
-            label: stage.copy.retry,
+            label: copy.retry,
             run: () => {
               setStage({ kind: "loading" });
-              void knock(door).then((answer) => settle(answer, stage.copy));
+              void knock(door).then(settle);
             },
           }}
           text={stage.text}
         />
       );
     case "loading":
-      return <Notice busy text={pageCopy.loading} />;
+      return <Notice busy text={copy.loading} />;
     case "name":
       return (
         <NameForm
-          copy={stage.copy}
+          copy={copy}
           error={stage.error}
           onSubmit={async (name) => {
             const answer = await knock(door, name);
-            if (answer.kind === "failed") setStage({ ...stage, error: stage.copy.bootstrapFailed });
+            if (answer.kind === "failed") setStage({ ...stage, error: copy.bootstrapFailed });
             else if (answer.kind === "throttled") {
-              setStage({ ...stage, error: stage.copy.tooManyTries });
-            } else settle(answer, stage.copy);
+              setStage({ ...stage, error: copy.tooManyTries });
+            } else settle(answer);
           }}
         />
       );
     case "ready":
       return (
         <BoardCanvas
-          exit={exit}
+          copy={copy}
+          exit={stage.exit}
           keeper={stage.keeper}
           language={language}
           licenseKey={licenseKey}

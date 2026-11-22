@@ -4,12 +4,16 @@ import { attachArtifacts } from "./helpers/artifacts";
 import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
 
-// The board, end to end against the real board Worker (playwright.config.ts
-// starts it on :8788; .env.e2e points BOARD_HOST at it). Unlike Parley,
-// nothing here is faked: Django signs the passes, the Worker verifies them,
-// runs the tldraw sync room and draws every die.
+// The board, end to end against the board app on its own origin: the
+// Worker serves the built client and the rooms on :8788 (playwright.config.ts
+// builds and starts it; .env.e2e points BOARD_HOST at it), and the client asks
+// Django on :8000 for passes across origins. Nothing here is faked: Django
+// signs the passes, the Worker verifies them, runs the tldraw sync room and
+// draws every die.
 
 const GUEST = "Ania";
+const BOARD_APP = "http://localhost:8788";
+const ON_BOARD_APP = /^http:\/\/localhost:8788\/b\/(\w+)$/u;
 const PHONE = devices["Pixel 7"];
 
 // The board's own controls sit in tldraw's bottom bar; the sheets they open
@@ -51,6 +55,15 @@ async function guestAtPhone(browser: Browser, url: string): Promise<Page> {
   return page;
 }
 
+// The board app's page leaves with a policy of its own, so "no violations"
+// below means something.
+async function expectOwnPolicy(page: Page): Promise<void> {
+  const response = await page.request.get(page.url());
+  const policy = response.headers()["content-security-policy"] ?? "";
+  expect(policy).toContain("default-src 'none'");
+  expect(policy).toContain("connect-src 'self' ws://localhost:8788 http://localhost:8000");
+}
+
 const shoot = async (page: Page, name: string, facts: object) =>
   attachArtifacts(test.info(), { name, region: page.locator("body"), facts });
 
@@ -70,16 +83,21 @@ test("a creator and a guest share one board: drawing, dice, places, link reset",
   test.setTimeout(180_000);
   await installCspViolationCollector(page);
 
-  // The creator starts a board from "My boards".
+  // The creator starts a board from "My boards" and lands on the board app,
+  // which takes the language from the address and then drops it.
   await page.goto("/boards/");
+  const site = new URL(page.url()).origin;
   await page.getByRole("button", { name: "New board" }).first().click();
-  await expect(page).toHaveURL(/\/b\/\w+\/$/u);
+  await expect(page).toHaveURL(ON_BOARD_APP);
   const boardUrl = page.url();
-  const boardPath = new URL(boardUrl).pathname;
+  const shareCode = ON_BOARD_APP.exec(boardUrl)![1]!;
   await expect(page.getByRole("button", { name: "Dice", exact: true })).toBeVisible();
+  await expectOwnPolicy(page);
 
-  // The guest opens the link on a phone and names themself once.
-  const guest = await guestAtPhone(browser, boardUrl);
+  // The guest opens the old link on the site, on a phone, and Django sends
+  // them on to the board app, where they name themself once.
+  const guest = await guestAtPhone(browser, `${site}/b/${shareCode}/`);
+  await expect(guest).toHaveURL(boardUrl);
   await guest.getByLabel("Your name").fill(GUEST);
   await shoot(guest, "board-guest-name", { step: "guest names themself", name: GUEST });
   await guest.getByRole("button", { name: "Join the board" }).click();
@@ -129,7 +147,9 @@ test("a creator and a guest share one board: drawing, dice, places, link reset",
   // tell apart, then resets its link and opens the board again.
   const title = `Mörk Borg night ${Date.now()}`;
   await page.goto("/boards/");
-  const byLink = page.getByRole("listitem").filter({ has: page.locator(`a[href="${boardPath}"]`) });
+  const byLink = page
+    .getByRole("listitem")
+    .filter({ has: page.locator(`a[href^="${BOARD_APP}/b/${shareCode}?"]`) });
   await byLink.getByRole("button", { name: "Board actions" }).click();
   await byLink.getByRole("link", { name: "Rename" }).click();
   await page.getByLabel("Board name").fill(title);
@@ -141,8 +161,9 @@ test("a creator and a guest share one board: drawing, dice, places, link reset",
   await row.getByRole("button", { name: /Reset link/u }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Reset link" }).click();
   await expect(page.getByText("The board has a new link.")).toBeVisible();
-  await expect(page.locator(`a[href="${boardPath}"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href^="${BOARD_APP}/b/${shareCode}?"]`)).toHaveCount(0);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
+  await expect(page).toHaveURL(ON_BOARD_APP);
   await expect(page).not.toHaveURL(boardUrl);
   await expect(onBoard(page, "Hello table")).toBeVisible();
 

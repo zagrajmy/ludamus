@@ -1186,7 +1186,6 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 #: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/gates/web/django/whiteboard/copy.py
 #: src/ludamus/templates/board/_create_actions.html
 #: src/ludamus/templates/board/_edit_actions.html
 #: src/ludamus/templates/components/confirm-dialog.html
@@ -3576,7 +3575,6 @@ msgid "Gathering conversations…"
 msgstr "Zbieramy rozmowy…"
 
 #: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "Connection lost. Reconnecting…"
 msgstr "Utracono połączenie. Łączymy ponownie…"
 
@@ -3644,9 +3642,7 @@ msgstr "Wiadomości znikają rok po napisaniu."
 msgid "Message deleted"
 msgstr "Wiadomość usunięta"
 
-#: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#: src/ludamus/templates/base.html
+#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
@@ -3816,7 +3812,6 @@ msgid "Sad"
 msgstr "Smutek"
 
 #: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "Dice"
 msgstr "Kość do gry"
 
@@ -4008,7 +4003,6 @@ msgid "Back to the conversation"
 msgstr "Wróć do rozmowy"
 
 #: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "People"
 msgstr "Osoby"
 
@@ -4985,181 +4979,6 @@ msgstr "Opuszczasz drużynę."
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Could not leave this party."
 msgstr "Nie udało się opuścić tej drużyny."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#, python-format
-msgid "Add %(die)s"
-msgstr "Dodaj %(die)s"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Add to places"
-msgstr "Dodaj do miejsc"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "This board is full. You will join as soon as someone leaves."
-msgstr "Tablica jest pełna. Dołączysz, gdy tylko ktoś wyjdzie."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "This board no longer exists."
-msgstr "Ta tablica już nie istnieje."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Could not open the board. Check your connection and try again."
-msgstr "Nie udało się otworzyć tablicy. Sprawdź połączenie i spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgctxt "board dice pool"
-msgid "Clear"
-msgstr "Wyczyść"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#, python-format
-msgctxt "board die, e.g. d6"
-msgid "d%(sides)s"
-msgstr "k%(sides)s"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgctxt "board person badge"
-msgid "Guest"
-msgstr "Gość"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Images are coming soon."
-msgstr "Dodawanie obrazów już wkrótce."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Join the board"
-msgstr "Dołącz do tablicy"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "The board's link was reset. Ask its creator for the new one."
-msgstr ""
-"Ten link do tablicy już nie działa. Poproś o nowy osobę, która ją założyła."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#: src/ludamus/templates/whiteboard/board.html
-msgid "Opening the board…"
-msgstr "Otwieramy tablicę…"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "My place"
-msgstr "Moje miejsce"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Others at the board see this name. Up to 40 characters."
-msgstr "Wszyscy przy tablicy zobaczą to imię. Do 40 znaków."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "This name cannot be used. Try another one."
-msgstr "Tego imienia nie można użyć. Wpisz inne."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "No places yet. Select something on the board and add it to places."
-msgstr "Nie ma jeszcze miejsc. Zaznacz coś na tablicy i dodaj to do miejsc."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Nobody has rolled yet."
-msgstr "Nikt jeszcze nie rzucał."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Place name"
-msgstr "Nazwa miejsca"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Places"
-msgstr "Miejsca"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Tap dice to add them to the roll."
-msgstr "Dotknij kości, żeby dodać je do rzutu."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Reload"
-msgstr "Odśwież"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#, python-format
-msgid "Remove %(die)s"
-msgstr "Usuń %(die)s"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Remove from places"
-msgstr "Usuń z miejsc"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgctxt "board dice, a verb"
-msgid "Roll"
-msgstr "Rzuć"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Roll again"
-msgstr "Rzuć jeszcze raz"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#, python-format
-msgid "%(name)s rolled"
-msgstr "%(name)s rzuca"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "The roll did not go through. Try again."
-msgstr "Nie udało się wykonać rzutu. Spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Roll log"
-msgstr "Historia rzutów"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Wait a moment before rolling again."
-msgstr "Zaczekaj chwilę przed kolejnym rzutem."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-#: src/ludamus/templates/event/panel/integrations/edit.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/discounts/edit.html
-#: src/ludamus/templates/panel/display-settings.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/proposal-columns.html
-#: src/ludamus/templates/panel/proposal-form.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/sphere/panel/announcements/edit.html
-#: src/ludamus/templates/sphere/panel/connections/edit.html
-#: src/ludamus/templates/sphere/panel/guilds/edit.html
-#: src/ludamus/templates/user/user/avatar.html
-#: src/ludamus/templates/user/user/edit.html
-msgid "Save"
-msgstr "Zapisz"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Too many tries. Wait a minute, then try again."
-msgstr "Za dużo prób. Zaczekaj minutę i spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Total"
-msgstr "Suma"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgctxt "board person list, next to one's own name"
-msgid "you"
-msgstr "ty"
-
-#: src/ludamus/gates/web/django/whiteboard/copy.py
-msgid "Your name"
-msgstr "Twoje imię"
 
 #: src/ludamus/gates/web/django/whiteboard/forms.py
 msgid "Board name"
@@ -6998,7 +6817,6 @@ msgid "Your dashboard"
 msgstr "Twój pulpit"
 
 #: src/ludamus/templates/components/navbar.html
-#: src/ludamus/templates/whiteboard/board.html
 #: src/ludamus/templates/whiteboard/index.html
 msgid "My boards"
 msgstr "Moje tablice"
@@ -8096,6 +7914,14 @@ msgid "Finish"
 msgstr "Zakończ"
 
 #: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/notifications/parts/modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Close"
+msgstr "Zamknij"
+
+#: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"
 msgstr "Kod Anonimowy"
 
@@ -8384,6 +8210,28 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/event/panel/integrations/edit.html
 msgid "Edit integration"
 msgstr "Edytuj integrację"
+
+#: src/ludamus/templates/event/panel/integrations/edit.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/discounts/edit.html
+#: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/proposal-columns.html
+#: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/space-form.html
+#: src/ludamus/templates/panel/time-slot-edit.html
+#: src/ludamus/templates/sphere/panel/announcements/edit.html
+#: src/ludamus/templates/sphere/panel/connections/edit.html
+#: src/ludamus/templates/sphere/panel/guilds/edit.html
+#: src/ludamus/templates/user/user/avatar.html
+#: src/ludamus/templates/user/user/edit.html
+msgid "Save"
+msgstr "Zapisz"
 
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Enrolled"
@@ -14236,11 +14084,6 @@ msgstr ""
 msgid "Delete board"
 msgstr "Usuń tablicę"
 
-#: src/ludamus/templates/whiteboard/board.html
-#, python-format
-msgid "Back to %(sphere)s"
-msgstr "Wróć na stronę %(sphere)s"
-
 #: src/ludamus/templates/whiteboard/edit.html
 msgid "Rename board"
 msgstr "Zmień nazwę tablicy"
@@ -14256,6 +14099,121 @@ msgid ""
 msgstr ""
 "Załóż tablicę i udostępnij jej link, a wszyscy razem będą na niej rysować i "
 "rzucać kośćmi. Tu pojawią się też tablice, do których dołączysz."
+
+#, python-format
+#~ msgid "Add %(die)s"
+#~ msgstr "Dodaj %(die)s"
+
+#~ msgid "Add to places"
+#~ msgstr "Dodaj do miejsc"
+
+#~ msgid "This board is full. You will join as soon as someone leaves."
+#~ msgstr "Tablica jest pełna. Dołączysz, gdy tylko ktoś wyjdzie."
+
+#~ msgid "This board no longer exists."
+#~ msgstr "Ta tablica już nie istnieje."
+
+#~ msgid "Could not open the board. Check your connection and try again."
+#~ msgstr ""
+#~ "Nie udało się otworzyć tablicy. Sprawdź połączenie i spróbuj ponownie."
+
+#~ msgctxt "board dice pool"
+#~ msgid "Clear"
+#~ msgstr "Wyczyść"
+
+#, python-format
+#~ msgctxt "board die, e.g. d6"
+#~ msgid "d%(sides)s"
+#~ msgstr "k%(sides)s"
+
+#~ msgctxt "board person badge"
+#~ msgid "Guest"
+#~ msgstr "Gość"
+
+#~ msgid "Images are coming soon."
+#~ msgstr "Dodawanie obrazów już wkrótce."
+
+#~ msgid "Join the board"
+#~ msgstr "Dołącz do tablicy"
+
+#~ msgid "The board's link was reset. Ask its creator for the new one."
+#~ msgstr ""
+#~ "Ten link do tablicy już nie działa. Poproś o nowy osobę, która ją "
+#~ "założyła."
+
+#~ msgid "Opening the board…"
+#~ msgstr "Otwieramy tablicę…"
+
+#~ msgid "My place"
+#~ msgstr "Moje miejsce"
+
+#~ msgid "Others at the board see this name. Up to 40 characters."
+#~ msgstr "Wszyscy przy tablicy zobaczą to imię. Do 40 znaków."
+
+#~ msgid "This name cannot be used. Try another one."
+#~ msgstr "Tego imienia nie można użyć. Wpisz inne."
+
+#~ msgid "No places yet. Select something on the board and add it to places."
+#~ msgstr "Nie ma jeszcze miejsc. Zaznacz coś na tablicy i dodaj to do miejsc."
+
+#~ msgid "Nobody has rolled yet."
+#~ msgstr "Nikt jeszcze nie rzucał."
+
+#~ msgid "Place name"
+#~ msgstr "Nazwa miejsca"
+
+#~ msgid "Places"
+#~ msgstr "Miejsca"
+
+#~ msgid "Tap dice to add them to the roll."
+#~ msgstr "Dotknij kości, żeby dodać je do rzutu."
+
+#~ msgid "Reload"
+#~ msgstr "Odśwież"
+
+#, python-format
+#~ msgid "Remove %(die)s"
+#~ msgstr "Usuń %(die)s"
+
+#~ msgid "Remove from places"
+#~ msgstr "Usuń z miejsc"
+
+#~ msgctxt "board dice, a verb"
+#~ msgid "Roll"
+#~ msgstr "Rzuć"
+
+#~ msgid "Roll again"
+#~ msgstr "Rzuć jeszcze raz"
+
+#, python-format
+#~ msgid "%(name)s rolled"
+#~ msgstr "%(name)s rzuca"
+
+#~ msgid "The roll did not go through. Try again."
+#~ msgstr "Nie udało się wykonać rzutu. Spróbuj ponownie."
+
+#~ msgid "Roll log"
+#~ msgstr "Historia rzutów"
+
+#~ msgid "Wait a moment before rolling again."
+#~ msgstr "Zaczekaj chwilę przed kolejnym rzutem."
+
+#~ msgid "Too many tries. Wait a minute, then try again."
+#~ msgstr "Za dużo prób. Zaczekaj minutę i spróbuj ponownie."
+
+#~ msgid "Total"
+#~ msgstr "Suma"
+
+#~ msgctxt "board person list, next to one's own name"
+#~ msgid "you"
+#~ msgstr "ty"
+
+#~ msgid "Your name"
+#~ msgstr "Twoje imię"
+
+#, python-format
+#~ msgid "Back to %(sphere)s"
+#~ msgstr "Wróć na stronę %(sphere)s"
 
 #~ msgid "Give the group a name."
 #~ msgstr "Nadaj grupie nazwę."

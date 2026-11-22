@@ -12,7 +12,9 @@ Ways it can fail, each covered below:
 - a deleted board's room is left on the Worker, or a Worker that does not
   answer undoes the deletion;
 - one address asks for passes without limit;
-- a guest's visit is recorded, or a member's is not.
+- a guest's visit is recorded, or a member's is not;
+- the sphere's old address opens a board of another sphere, or the board
+  app's pass request cannot open one on any sphere.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -28,6 +30,7 @@ from ludamus.pacts.board import (
     BoardNameInvalidError,
     BoardNameRequiredError,
     BoardPassClaims,
+    BoardSphereDTO,
     BoardThrottledError,
     BoardTitleInvalidError,
     BoardWorkerDTO,
@@ -39,9 +42,7 @@ from tests.unit.encounter_fakes import FakeCache
 from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 11, 12, 18, tzinfo=UTC)
-WORKER = BoardWorkerDTO(
-    http_origin="https://board.example.com", socket_origin="wss://board.example.com"
-)
+WORKER = BoardWorkerDTO(http_origin="https://board.example.com")
 SPHERE = 3
 CREATOR = 7
 OTHER = 8
@@ -71,6 +72,16 @@ class FakeBoards:
             if board.share_code == share_code and board.sphere_id == sphere_id:
                 return board
         raise NotFoundError
+
+    def read_shared(self, share_code):
+        for board in self.boards.values():
+            if board.share_code == share_code:
+                return board
+        raise NotFoundError
+
+    @staticmethod
+    def read_sphere(sphere_id):
+        return BoardSphereDTO(name=f"Sphere {sphere_id}", domain=f"s{sphere_id}.test")
 
     def read_owned(self, *, pk, sphere_id, creator_id):
         board = self.boards.get(pk)
@@ -153,7 +164,6 @@ def _service(*, worker=WORKER, boards=None, signer=None, cache=None, rooms=None)
 def _bootstrap(service, board, **overrides):
     arguments = {
         "share_code": board.share_code,
-        "sphere_id": SPHERE,
         "user_id": None,
         "guest": BoardGuestDTO(),
         "requested_name": None,
@@ -164,6 +174,9 @@ def _bootstrap(service, board, **overrides):
 
 
 class TestAvailability:
+    def test_on_with_a_board_app(self):
+        assert _service().origin() == "https://board.example.com"
+
     def test_off_without_a_worker(self):
         service = _service(worker=None)
 
@@ -171,7 +184,9 @@ class TestAvailability:
         with pytest.raises(NotFoundError):
             service.create(sphere_id=SPHERE, user_id=CREATOR, title="Board")
         with pytest.raises(NotFoundError):
-            service.open(share_code="x", sphere_id=SPHERE, user_id=None, now=NOW)
+            service.origin()
+        with pytest.raises(NotFoundError):
+            service.open(share_code="x", sphere_id=SPHERE)
         with pytest.raises(NotFoundError):
             service.read_owned(pk=1, sphere_id=SPHERE, user_id=CREATOR)
         assert service.list_mine(sphere_id=SPHERE, user_id=CREATOR) == []
@@ -203,43 +218,20 @@ class TestCreate:
 
 
 class TestOpen:
-    def test_member_visit_is_recorded_guest_visit_is_not(self):
+    def test_finds_the_board_of_this_sphere_and_records_nothing(self):
         boards = FakeBoards()
         service = _service(boards=boards)
         board = service.create(sphere_id=SPHERE, user_id=CREATOR, title="B")
 
-        service.open(
-            share_code=board.share_code, sphere_id=SPHERE, user_id=None, now=NOW
-        )
+        assert service.open(share_code=board.share_code, sphere_id=SPHERE) == board
         assert not boards.visits
-        service.open(
-            share_code=board.share_code, sphere_id=SPHERE, user_id=OTHER, now=NOW
-        )
-
-        assert boards.visits == {(board.pk, OTHER): NOW}
-        assert service.list_mine(sphere_id=SPHERE, user_id=OTHER) == [
-            BoardListItemDTO(
-                pk=board.pk,
-                title="B",
-                share_code=board.share_code,
-                is_owner=False,
-                last_opened_at=NOW,
-            )
-        ]
 
     def test_code_from_another_sphere(self):
-        boards = FakeBoards()
-        service = _service(boards=boards)
+        service = _service()
         board = service.create(sphere_id=SPHERE, user_id=CREATOR, title="B")
 
         with pytest.raises(NotFoundError):
-            service.open(
-                share_code=board.share_code,
-                sphere_id=SPHERE + 1,
-                user_id=OTHER,
-                now=NOW,
-            )
-        assert not boards.visits
+            service.open(share_code=board.share_code, sphere_id=SPHERE + 1)
 
 
 class TestBootstrap:
@@ -253,12 +245,13 @@ class TestBootstrap:
 
         result = _bootstrap(service, board, user_id=CREATOR)
 
-        assert result.model_dump(by_alias=True) == {
-            "pass": "pass-1",
-            "socketUrl": f"wss://board.example.com/rooms/{board.pk}",
-            "httpUrl": f"https://board.example.com/rooms/{board.pk}",
+        assert result.model_dump() == {
+            "pass_token": "pass-1",
+            "board_id": str(board.pk),
             "person": {"id": f"u:{CREATOR}", "name": "Ania", "owner": True},
             "title": "Mothership",
+            "sphere_name": f"Sphere {SPHERE}",
+            "sphere_domain": f"s{SPHERE}.test",
         }
         assert signer.signed == [
             BoardPassClaims(
@@ -343,6 +336,48 @@ class TestBootstrap:
         _bootstrap(service, reset, user_id=OTHER)
 
         assert signer.signed[0].link == 1
+
+    def test_member_pass_puts_the_board_on_their_list_a_guest_pass_does_not(self):
+        boards = FakeBoards()
+        service = _service(boards=boards)
+        board = self._board(service)
+
+        _bootstrap(service, board, guest=BoardGuestDTO(name="Ola"))
+        assert not boards.visits
+        _bootstrap(service, board, user_id=OTHER)
+
+        assert boards.visits == {(board.pk, OTHER): NOW}
+        assert [
+            item.pk for item in service.list_mine(sphere_id=SPHERE, user_id=OTHER)
+        ] == [board.pk]
+
+    def test_board_of_any_sphere_opens_by_its_code_and_names_its_sphere(self):
+        service = _service()
+        board = service.create(sphere_id=SPHERE + 1, user_id=CREATOR, title="B")
+
+        result = _bootstrap(service, board, user_id=OTHER)
+
+        assert (result.board_id, result.sphere_name, result.sphere_domain) == (
+            str(board.pk),
+            f"Sphere {SPHERE + 1}",
+            f"s{SPHERE + 1}.test",
+        )
+
+    def test_unknown_code_signs_nothing(self):
+        signer = ClaimsSigner()
+        service = _service(signer=signer)
+        self._board(service)
+
+        with pytest.raises(NotFoundError):
+            service.bootstrap(
+                share_code="missing",
+                user_id=OTHER,
+                guest=BoardGuestDTO(),
+                requested_name=None,
+                client_ip="203.0.113.5",
+                now=NOW,
+            )
+        assert not signer.signed
 
     def test_one_address_is_throttled_another_is_not(self):
         cache = FakeCache()

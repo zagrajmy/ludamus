@@ -1,4 +1,4 @@
-"""Where browsers find the board Worker, from settings."""
+"""Where the board app runs, from settings."""
 
 from __future__ import annotations
 
@@ -14,8 +14,6 @@ def board_worker() -> BoardWorkerDTO | None:
     private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
     if not (host and private_key):
         return None
-    local = is_local(host)
     return BoardWorkerDTO(
-        http_origin=f"{'http' if local else 'https'}://{host}",
-        socket_origin=f"{'ws' if local else 'wss'}://{host}",
+        http_origin=f"{'http' if is_local(host) else 'https'}://{host}"
     )

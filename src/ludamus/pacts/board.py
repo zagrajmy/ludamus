@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from ludamus.pacts.ids import UserId
@@ -75,21 +75,27 @@ class BoardDeletionClaims(BaseModel):
     exp: int
 
 
-class BoardBootstrapDTO(BaseModel):
-    model_config = ConfigDict(serialize_by_alias=True)
+class BoardSphereDTO(BaseModel):
+    """The sphere a board belongs to, as its people reach it."""
 
-    pass_token: str = Field(serialization_alias="pass")
-    socket_url: str = Field(serialization_alias="socketUrl")
-    http_url: str = Field(serialization_alias="httpUrl")
+    name: str
+    domain: str
+
+
+class BoardBootstrapDTO(BaseModel):
+    pass_token: str
+    # The board's room on the board app's own origin: /rooms/<board id>.
+    board_id: str
     person: BoardPersonDTO
     title: str
+    sphere_name: str
+    sphere_domain: str
 
 
 class BoardWorkerDTO(BaseModel):
-    """Where browsers reach the board Worker, scheme included."""
+    """Where the board app runs: its Worker and its pages, scheme included."""
 
     http_origin: str
-    socket_origin: str
 
 
 class BoardNameRequiredError(Exception):
@@ -119,6 +125,10 @@ class BoardRepositoryProtocol(Protocol):
     ) -> BoardDTO: ...
     @staticmethod
     def read_by_share_code(*, share_code: str, sphere_id: int) -> BoardDTO: ...
+    @staticmethod
+    def read_shared(share_code: str) -> BoardDTO: ...
+    @staticmethod
+    def read_sphere(sphere_id: int) -> BoardSphereDTO: ...
     @staticmethod
     def read_owned(*, pk: int, sphere_id: int, creator_id: UserId) -> BoardDTO: ...
     @staticmethod
@@ -150,15 +160,13 @@ class BoardRoomsProtocol(Protocol):
 
 class BoardServiceProtocol(Protocol):
     def available(self) -> bool: ...
+    def origin(self) -> str: ...
     def create(self, *, sphere_id: int, user_id: UserId, title: str) -> BoardDTO: ...
-    def open(
-        self, *, share_code: str, sphere_id: int, user_id: UserId | None, now: datetime
-    ) -> BoardDTO: ...
+    def open(self, *, share_code: str, sphere_id: int) -> BoardDTO: ...
     def bootstrap(
         self,
         *,
         share_code: str,
-        sphere_id: int,
         user_id: UserId | None,
         guest: BoardGuestDTO,
         requested_name: str | None,

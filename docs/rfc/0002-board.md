@@ -358,6 +358,12 @@ Progress, 2026-11-12:
 
 ### Phase 1b — the board moves to its own subdomain
 
+Progress, 2026-11-22: built; the first deploy waits on DNS and the tldraw
+licence key (`workers/board/README.md`, "Deployment"). The board answers
+at `board.<ROOT_DOMAIN>`; `vtt.`, `tabletop.` and `tablica.` redirect to it.
+The pass request goes to the root domain and finds the board by its share
+code alone, whatever its sphere.
+
 1. The Worker serves the client as static assets, with its own strict
    security policy, a web app manifest and the tldraw licence key.
 2. The client moves from `src/ludamus/client/src/board/` into

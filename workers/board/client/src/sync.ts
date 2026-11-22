@@ -2,9 +2,10 @@ import { TLRemoteSyncError, TLSyncErrorCloseEventReason, useSync } from "@tldraw
 import { useEffect, useMemo, useState } from "react";
 import { atom, createUserId, type TLUserStore, UserRecordType } from "tldraw";
 
-import { assetStore } from "./assets";
 import type { PassKeeper } from "./bootstrap";
 import type { Rolls } from "./rolls";
+
+import { assetStore } from "./assets";
 
 // tldraw's cursor colours, picked by person so a colour stays with them.
 const COLORS = [

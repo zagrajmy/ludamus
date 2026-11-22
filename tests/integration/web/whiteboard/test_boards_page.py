@@ -49,10 +49,11 @@ class TestBoardsPageView:
             HTTPStatus.OK,
             template_name="whiteboard/index.html",
             context_data={
+                "board_origin": "http://localhost:8788",
                 "boards": [
                     _item(visited, is_owner=False, opened_at=opened_at),
                     _item(created, is_owner=True, opened_at=created.creation_time),
-                ]
+                ],
             },
         )
 
@@ -65,7 +66,7 @@ class TestBoardsPageView:
             response,
             HTTPStatus.OK,
             template_name="whiteboard/index.html",
-            context_data={"boards": []},
+            context_data={"board_origin": "http://localhost:8788", "boards": []},
         )
 
     def test_unavailable_without_a_signing_key(self, authenticated_client, settings):
@@ -79,3 +80,41 @@ class TestBoardsPageView:
         board_settings.BOARD_HOST = ""
 
         assert_response_404(client.get(URL))
+
+
+class TestNewBoardFormAction:
+    # Browsers apply the page's form-action to the redirect that follows
+    # "New board", which lands on the board app's origin.
+    def test_page_lets_its_form_end_on_the_board_app(
+        self, authenticated_client, settings
+    ):
+        settings.SECURE_CSP = {"default-src": ["'none'"], "form-action": ["'self'"]}
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="whiteboard/index.html",
+            context_data={"board_origin": "http://localhost:8788", "boards": []},
+            headers={
+                "Content-Security-Policy": (
+                    "default-src 'none'; form-action 'self' http://localhost:8788"
+                )
+            },
+        )
+
+    def test_policy_without_form_action_is_left_alone(
+        self, authenticated_client, settings
+    ):
+        settings.SECURE_CSP = {"default-src": ["'self'"]}
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="whiteboard/index.html",
+            context_data={"board_origin": "http://localhost:8788", "boards": []},
+            headers={"Content-Security-Policy": "default-src 'self'"},
+        )

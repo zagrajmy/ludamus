@@ -4,6 +4,13 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-06",
   "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -20,7 +27,9 @@
   },
   "vars": {
     "JWT_ISSUER": "ludamus",
-    "JWT_AUDIENCE": "board"
+    "JWT_AUDIENCE": "board",
+    "APP_ORIGIN": "http://localhost:8000",
+    "ROOT_DOMAIN": ""
   },
   "secrets": {
     "required": ["BOARD_PUBLIC_KEY"]

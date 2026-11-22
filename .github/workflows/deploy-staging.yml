@@ -95,8 +95,19 @@ jobs:
       sha: ${{ needs.resolve-staging.outputs.sha }}
     secrets: inherit
 
+  board:
+    needs: [resolve-staging, start-deployment]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-board.yml
+    with:
+      environment: staging
+      stage: staging
+      sha: ${{ needs.resolve-staging.outputs.sha }}
+    secrets: inherit
+
   deploy:
-    needs: [resolve-staging, start-deployment, parley]
+    needs: [resolve-staging, start-deployment, parley, board]
     permissions:
       contents: read
       packages: write

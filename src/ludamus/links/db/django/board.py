@@ -7,8 +7,13 @@ from typing import TYPE_CHECKING
 from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
-from ludamus.links.db.django.models import Board, BoardVisit, User
-from ludamus.pacts.board import BoardDTO, BoardListItemDTO, BoardRepositoryProtocol
+from ludamus.links.db.django.models import Board, BoardVisit, Sphere, User
+from ludamus.pacts.board import (
+    BoardDTO,
+    BoardListItemDTO,
+    BoardRepositoryProtocol,
+    BoardSphereDTO,
+)
 from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -41,6 +46,15 @@ class BoardRepository(BoardRepositoryProtocol):
     @staticmethod
     def read_by_share_code(*, share_code: str, sphere_id: int) -> BoardDTO:
         return BoardDTO.model_validate(_get(share_code=share_code, sphere_id=sphere_id))
+
+    @staticmethod
+    def read_shared(share_code: str) -> BoardDTO:
+        return BoardDTO.model_validate(_get(share_code=share_code))
+
+    @staticmethod
+    def read_sphere(sphere_id: int) -> BoardSphereDTO:
+        sphere = Sphere.objects.select_related("site").get(pk=sphere_id)
+        return BoardSphereDTO(name=sphere.name, domain=sphere.site.domain)
 
     @staticmethod
     def read_owned(*, pk: int, sphere_id: int, creator_id: UserId) -> BoardDTO:

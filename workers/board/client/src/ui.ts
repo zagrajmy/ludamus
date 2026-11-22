@@ -1,5 +1,6 @@
-import { createContext, useContext } from "react";
 import type { Editor, TLShapeId } from "tldraw";
+
+import { createContext, useContext } from "react";
 
 import type { Person } from "./bootstrap";
 import type { Copy } from "./copy";

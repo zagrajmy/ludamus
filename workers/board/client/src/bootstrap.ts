@@ -1,13 +1,14 @@
-import type { Copy } from "./copy";
-
 export type Person = { id: string; name: string; owner: boolean };
 
+// What Django's pass endpoint answers (gates/web/django/whiteboard/views.py).
 export type Bootstrap = {
-  copy: Partial<Copy>;
-  httpUrl: string;
+  // The board's id: its room is /rooms/<board> on this origin.
+  board: string;
+  // "My boards" on the board's sphere, for a member; null for a guest.
+  boardsUrl: string | null;
   pass: string;
   person: Person;
-  socketUrl: string;
+  sphere: { name: string; url: string };
   title: string;
 };
 
@@ -22,18 +23,22 @@ export type Roll = {
 
 export type Answer =
   | { bootstrap: Bootstrap; kind: "ready" }
-  | { copy: Partial<Copy>; kind: "name-invalid" | "name-required" }
-  | { kind: "failed" | "gone" | "throttled" };
+  | { kind: "failed" | "gone" | "throttled" }
+  | { kind: "name-invalid" | "name-required" };
 
-export type Door = { bootstrapUrl: string; csrfToken: string };
+// Django's pass endpoint for this board, on the app's own origin.
+export type Door = { bootstrapUrl: string };
 
+// NOTE: the request crosses origins with the session cookie, which the board
+// host and the app share as one site. Django answers only this origin, and
+// the JSON content type makes the browser ask it first (a CORS preflight).
 export async function knock(door: Door, name?: string): Promise<Answer> {
   let response: Response;
   try {
     response = await fetch(door.bootstrapUrl, {
       body: JSON.stringify(name === undefined ? {} : { name }),
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": door.csrfToken },
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
       method: "POST",
     });
   } catch (error) {
@@ -43,12 +48,12 @@ export async function knock(door: Door, name?: string): Promise<Answer> {
   if (response.status === 404) return { kind: "gone" };
   if (response.status === 429) return { kind: "throttled" };
   const body: unknown = await response.json().catch(() => null);
-  const refusal = body as { copy?: Partial<Copy>; error?: string } | null;
+  const refusal = body as { error?: string } | null;
   if (
     response.status === 422 &&
     (refusal?.error === "name-required" || refusal?.error === "name-invalid")
   ) {
-    return { copy: refusal.copy ?? {}, kind: refusal.error };
+    return { kind: refusal.error };
   }
   if (!response.ok || body === null) {
     console.error("board: bootstrap refused", response.status);
@@ -90,7 +95,13 @@ export class PassKeeper {
 
   async socketUri(): Promise<string> {
     const pass = await this.pass();
-    return `${this.latest.socketUrl}/connect?pass=${encodeURIComponent(pass)}`;
+    const origin = location.origin.replace(/^http/u, "ws");
+    return `${origin}${this.room}/connect?pass=${encodeURIComponent(pass)}`;
+  }
+
+  // The board's rooms API, on the board's own origin.
+  get room(): string {
+    return `/rooms/${this.latest.board}`;
   }
 
   end(ending: Ending): void {

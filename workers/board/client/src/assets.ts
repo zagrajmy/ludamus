@@ -27,7 +27,7 @@ export function guardExternalContent(
     toasts.addToast({ severity: "info", title: comingSoon });
   });
   // NOTE: tldraw's own link handler fetches the pasted page to read its
-  // preview, and the site's Content-Security-Policy refuses any host but
+  // preview, and the board's Content-Security-Policy refuses any host but
   // ours. A pasted link becomes a plain bookmark that names its address.
   editor.registerExternalAssetHandler("url", async ({ url }) => ({
     id: AssetRecordType.createId(getHashForString(url)),

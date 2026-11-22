@@ -39,7 +39,7 @@ export function useRolls(keeper: PassKeeper): Rolls {
 
   const request = useCallback(
     async (path: string, init: RequestInit = {}) =>
-      fetch(`${keeper.bootstrap.httpUrl}${path}`, {
+      fetch(`${keeper.room}${path}`, {
         ...init,
         headers: { Authorization: `Bearer ${await keeper.pass()}`, ...init.headers },
       }),

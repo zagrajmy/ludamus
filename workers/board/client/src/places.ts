@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
 import type { Editor, TLShape, TLShapeId } from "tldraw";
+
+import { useCallback, useState } from "react";
 
 // A place is a shape whose meta carries a name, so tldraw sync shares it
 // like any other property, it follows the shape, and it goes with it.

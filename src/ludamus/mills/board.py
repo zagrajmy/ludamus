@@ -108,6 +108,14 @@ class BoardService(BoardServiceProtocol):
             raise NotFoundError
         return self._worker
 
+    def origin(self) -> str:
+        """Where the board app runs; the only origin its passes are given to.
+
+        Raises:
+            NotFoundError: no board app is configured.
+        """
+        return self._require_available().http_origin
+
     def create(self, *, sphere_id: int, user_id: UserId, title: str) -> BoardDTO:
         self._require_available()
         board = self._boards.create(
@@ -122,22 +130,17 @@ class BoardService(BoardServiceProtocol):
         )
         return board
 
-    def open(
-        self, *, share_code: str, sphere_id: int, user_id: UserId | None, now: datetime
-    ) -> BoardDTO:
+    def open(self, *, share_code: str, sphere_id: int) -> BoardDTO:
+        """Find a board of this sphere by its link, for the sphere's old address."""
         self._require_available()
-        board = self._boards.read_by_share_code(
+        return self._boards.read_by_share_code(
             share_code=share_code, sphere_id=sphere_id
         )
-        if user_id is not None:
-            self._boards.record_visit(pk=board.pk, user_id=user_id, now=now)
-        return board
 
     def bootstrap(
         self,
         *,
         share_code: str,
-        sphere_id: int,
         user_id: UserId | None,
         guest: BoardGuestDTO,
         requested_name: str | None,
@@ -146,8 +149,13 @@ class BoardService(BoardServiceProtocol):
     ) -> BoardBootstrapDTO:
         """Sign a pass onto the board for whoever is asking.
 
-        A member is named by their account. A guest keeps the id and name the
-        session remembers, and a name given now replaces the remembered one.
+        A member is named by their account, and the board joins their list.
+        A guest keeps the id and name the session remembers, and a name given
+        now replaces the remembered one.
+
+        The board app asks the app's root domain, whatever sphere the board is
+        on, so the board is found by its share code alone. The code is the
+        capability: whoever holds the link may open the board, on any sphere.
 
         Raises:
             BoardThrottledError: the address asked too often just now.
@@ -156,14 +164,15 @@ class BoardService(BoardServiceProtocol):
         Returns:
             The pass, where to use it, and who it names.
         """
-        worker = self._require_available()
+        self._require_available()
         self._throttle(client_ip=client_ip, now=now)
-        board = self._boards.read_by_share_code(
-            share_code=share_code, sphere_id=sphere_id
-        )
+        board = self._boards.read_shared(share_code)
         person = self._person(
             board=board, user_id=user_id, guest=guest, requested_name=requested_name
         )
+        if user_id is not None:
+            self._boards.record_visit(pk=board.pk, user_id=user_id, now=now)
+        sphere = self._boards.read_sphere(board.sphere_id)
         issued_at = int(now.timestamp())
         token = self._signer.sign(
             BoardPassClaims(
@@ -186,13 +195,13 @@ class BoardService(BoardServiceProtocol):
                 "owner": person.owner,
             },
         )
-        room = f"/rooms/{board.pk}"
         return BoardBootstrapDTO(
             pass_token=token,
-            socket_url=f"{worker.socket_origin}{room}",
-            http_url=f"{worker.http_origin}{room}",
+            board_id=str(board.pk),
             person=person,
             title=board.title,
+            sphere_name=sphere.name,
+            sphere_domain=sphere.domain,
         )
 
     def _person(

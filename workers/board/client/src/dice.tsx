@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 
 import type { Roll } from "./bootstrap";
+import type { RollRefusal } from "./rolls";
+
 import { type Copy, dieLabel, fill } from "./copy";
 import { DieShape } from "./die-shape";
 import { Icon } from "./icons";
-import type { RollRefusal } from "./rolls";
 import { Sheet } from "./sheet";
 import { useBoardUi } from "./ui";
 

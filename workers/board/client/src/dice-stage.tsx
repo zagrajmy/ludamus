@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Roll } from "./bootstrap";
 import type { Copy } from "./copy";
-import { total } from "./dice";
 import type { DiceThrow } from "./dice-3d";
+
+import { total } from "./dice";
 import { dropDice3d, isDice3dDown } from "./dice-stage-fallback";
 import { DieShape } from "./die-shape";
 

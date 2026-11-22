@@ -1,11 +1,13 @@
 {% load i18n tessera %}
 {% comment %}
-    One board on "My boards". Variables: board (BoardListItemDTO). Its creator
-    gets the menu that changes it; anyone else only opens it.
+    One board on "My boards". Variables: board (BoardListItemDTO), board_origin
+    (where the board app runs). Its creator gets the menu that changes it;
+    anyone else only opens it. The link people share is the board app's own,
+    without the language it opens in.
 {% endcomment %}
-{% url 'web:boards:board' share_code=board.share_code as board_url %}
+{% get_current_language as LANGUAGE_CODE %}
 <li class="flex items-center gap-3 px-4 py-3">
-    <a href="{{ board_url }}"
+    <a href="{{ board_origin }}/b/{{ board.share_code }}?lang={{ LANGUAGE_CODE }}"
        class="flex min-w-0 grow flex-col gap-0.5 rounded-md py-1 focus-visible:outline-2 focus-visible:outline-primary">
         <span class="break-words font-semibold text-foreground-primary">{{ board.title }}</span>
         <span class="text-sm text-foreground-secondary">
@@ -31,11 +33,13 @@
                 {% tessera_action_dropdown id=menu_id label=t_actions hover=False align="end" trigger_class="grid size-11 place-items-center text-foreground-muted transition-colors duration-150 hover:duration-0 hover:text-foreground hover:bg-bg-tertiary aria-expanded:text-foreground" %}
                     {% icon "ellipsis-vertical" class="size-5" %}
                     {% action_dropdown_menu %}
-                    {% tessera_copy board_url variant="menu-item" origin=True %}
-                        <span aria-hidden="true"
-                              class="shrink-0 opacity-60">{% icon "clipboard-document" variant="mini" class="h-4 w-4" %}</span>
-                        {% translate "Copy link" %}
-                    {% end_tessera_copy %}
+                    {% with board_url=board_origin|add:"/b/"|add:board.share_code %}
+                        {% tessera_copy board_url variant="menu-item" %}
+                            <span aria-hidden="true"
+                                  class="shrink-0 opacity-60">{% icon "clipboard-document" variant="mini" class="h-4 w-4" %}</span>
+                            {% translate "Copy link" %}
+                        {% end_tessera_copy %}
+                    {% endwith %}
                     {% url 'web:boards:edit' pk=board.pk as edit_url %}
                     {% translate "Rename" as t_rename %}
                     {% tessera_action_dropdown_item t_rename href=edit_url icon="pencil-square" %}

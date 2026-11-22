@@ -1,13 +1,15 @@
 import { getAssetUrlsByImport } from "@tldraw/assets/imports.vite";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { type Editor, EmbedShapeUtil, Tldraw, useEditor, useToasts } from "tldraw";
+
 import "./board.css";
 
-import { guardExternalContent } from "./assets";
 import type { Exit } from "./board";
 import type { PassKeeper } from "./bootstrap";
+import type { Copy } from "./copy";
+
+import { guardExternalContent } from "./assets";
 import { components } from "./chrome";
-import { type Copy, withFallbacks } from "./copy";
 import { DiceSheet, rollSentence } from "./dice";
 import { Notice } from "./notice";
 import { PeopleSheet } from "./people";
@@ -63,19 +65,19 @@ function ConnectionBanner({ copy }: { copy: Copy }) {
 }
 
 export function BoardCanvas({
+  copy,
   exit,
   keeper,
   language,
   licenseKey,
 }: {
+  copy: Copy;
   exit: Exit;
   keeper: PassKeeper;
   language: string;
   licenseKey: string;
 }) {
-  const { person, socketUrl } = keeper.bootstrap;
-  const copy = useMemo(() => withFallbacks(keeper.bootstrap.copy), [keeper]);
-  const board = socketUrl.split("/").at(-1) ?? socketUrl;
+  const { board, person } = keeper.bootstrap;
   const color = colorFor(person.id);
   const rolls = useRolls(keeper);
   const { refusal, store } = useBoardStore({ color, keeper, rolls });

@@ -61,7 +61,6 @@ env = environ.Env(
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     # Board
     BOARD_HOST=(str, ""),
-    TLDRAW_LICENSE_KEY=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -743,29 +742,13 @@ if PARLEY_AGENT_HOST:
         ]
     )
 
-# Board: the whiteboard Worker. Its passes are signed with Parley's key.
-# A deployment's Worker serves board.<ROOT_DOMAIN>, a laptop runs it on 8788
-# beside the app, and tests have none.
+# Board: the board app, a Worker with its own pages that asks Django for
+# passes across origins. Its passes are signed with Parley's key. A
+# deployment's Worker serves board.<ROOT_DOMAIN>, a laptop runs it on 8788
+# beside the app, and tests have none. No Django page talks to it.
 BOARD_HOST = env("BOARD_HOST") or (
     {"development": "localhost:8788", "test": ""}.get(ENV, f"board.{ROOT_DOMAIN}")
 )
-# NOTE: the tldraw SDK refuses to run in production without a licence key;
-# local runs need none.
-TLDRAW_LICENSE_KEY = env("TLDRAW_LICENSE_KEY")
-if BOARD_HOST:
-    # Same rule as links.parley_worker.is_local, which settings cannot import.
-    _BOARD_HOSTNAME = urlsplit(f"//{BOARD_HOST}").hostname or ""
-    _BOARD_IS_LOCAL = _BOARD_HOSTNAME in {
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    } or _BOARD_HOSTNAME.endswith(".localhost")
-    CSP_POLICY["connect-src"].extend(
-        [
-            f"{'http' if _BOARD_IS_LOCAL else 'https'}://{BOARD_HOST}",
-            f"{'ws' if _BOARD_IS_LOCAL else 'wss'}://{BOARD_HOST}",
-        ]
-    )
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor
