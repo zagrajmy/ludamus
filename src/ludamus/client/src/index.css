@@ -9,6 +9,7 @@
 @import "./modal.css";
 @import "./parley.css";
 @import "./filters.css";
+@import "./bottom-sheet.css";
 @import "./tabs.css";
 @import "./timetable.css";
 @import "./import-recipe.css";
@@ -72,6 +73,24 @@
     rgb(0 0 0 / 0.094) 80%,
     rgb(0 0 0 / 0.025) 90%,
     rgb(0 0 0 / 0) 100%
+  );
+}
+
+@utility scrim-title {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.018) 0.4rem,
+    rgb(0 0 0 / 0.068) 0.8rem,
+    rgb(0 0 0 / 0.14) 1.2rem,
+    rgb(0 0 0 / 0.229) 1.6rem,
+    rgb(0 0 0 / 0.325) 2rem,
+    rgb(0 0 0 / 0.421) 2.4rem,
+    rgb(0 0 0 / 0.51) 2.8rem,
+    rgb(0 0 0 / 0.582) 3.2rem,
+    rgb(0 0 0 / 0.632) 3.6rem,
+    rgb(0 0 0 / 0.65) 4rem,
+    rgb(0 0 0 / 0.75) 100%
   );
 }
 
@@ -187,7 +206,12 @@ body {
   cursor: grabbing;
 }
 
-body:has(dialog.modal[open]) .app-scroll {
+/* .app-shell is overflow:hidden, so .app-scroll is the only thing that
+   scrolls. aria-modal marks a panel that is a dialog only at some widths: the
+   bottom sheet and the filter sheet on a phone. Unlayered, because
+   .app-scroll's own overflow-y is unlayered and a layered rule could not take
+   it back. */
+body:has(dialog.modal[open], [aria-modal="true"]) .app-scroll {
   overflow: hidden;
 }
 
@@ -377,21 +401,32 @@ button:active {
     padding: 1rem;
     border-width: 1px;
     border-style: solid;
+    /* Light catches the top edge and fades out by the bottom, over the
+       level's own ground, so the toast is a lit surface, not a flat swatch.
+       Kept faint: text contrast is checked against the darker stop. */
+    --alert-sheen: rgb(255 255 255 / 0.6);
+    background-image: linear-gradient(to bottom, var(--alert-sheen), transparent);
     /* Trim the first and last line's half-leading so the padding above the
        cap height matches the padding below the baseline. */
     text-box: auto;
+  }
+
+  .dark .alert {
+    --alert-sheen: rgb(255 255 255 / 0.05);
   }
 
   .alert-success {
     background-color: var(--color-success-bg);
     border-color: var(--color-success-light);
     color: var(--color-success-text);
+    --alert-icon: var(--color-success);
   }
 
   .alert-warning {
     background-color: var(--color-warning-bg);
     border-color: var(--color-warning-light);
     color: var(--color-warning-text);
+    --alert-icon: var(--color-warning);
   }
 
   .alert-error,
@@ -399,12 +434,20 @@ button:active {
     background-color: var(--color-danger-bg);
     border-color: var(--color-danger-light);
     color: var(--color-danger-text);
+    --alert-icon: var(--color-danger);
+  }
+
+  /* The level's saturated base colours only the leading icon; the words
+     keep the deeper text tint. */
+  .alert > svg {
+    color: var(--alert-icon, currentColor);
   }
 
   .alert-info {
     background-color: var(--color-info-bg);
     border-color: var(--color-info-light);
     color: var(--color-info-text);
+    --alert-icon: var(--color-info);
   }
 
   .alert-default {
