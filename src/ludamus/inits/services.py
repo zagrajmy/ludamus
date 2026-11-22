@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.board import board_worker
+from ludamus.inits.board import board_service
 from ludamus.inits.builders import (
     build_credentials_decryptor,
     build_credentials_encryptor,
@@ -29,7 +29,6 @@ from ludamus.inits.dbos_scheduler import (
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
-from ludamus.links.board_worker import BoardWorkerClient
 from ludamus.links.cache import (
     CacheAuthorizationCodeStore,
     DjangoCache,
@@ -51,7 +50,6 @@ from ludamus.links.payment_api.stripe import StripeBilling, StripeConnect, build
 from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.billing import PlanService
-from ludamus.mills.board import BoardService
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
@@ -173,6 +171,7 @@ from ludamus.pacts.user import gravatar_url
 if TYPE_CHECKING:
     import stripe
 
+    from ludamus.mills.board import BoardService
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
@@ -204,16 +203,7 @@ class Services:
 
     @cached_property
     def boards(self) -> BoardService:
-        signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
-        worker = board_worker()
-        return BoardService(
-            transaction=self._transaction,
-            boards=self._repos.boards,
-            signer=JwtSigner(signing_private_key),
-            cache=DjangoCache(),
-            rooms=BoardWorkerClient(worker),
-            worker=worker,
-        )
+        return board_service(transaction=self._transaction, boards=self._repos.boards)
 
     @cached_property
     def parley(self) -> ParleyService:
