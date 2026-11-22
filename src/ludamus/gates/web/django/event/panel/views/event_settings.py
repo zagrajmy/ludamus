@@ -10,26 +10,34 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
+from django.utils.translation import pgettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
-from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
+from ludamus.gates.web.django.forms import ProposalSettingsForm
 from ludamus.gates.web.django.panel import PanelRequest, settings_tab_urls
 from ludamus.gates.web.django.request_ids import parse_ids
+from ludamus.gates.web.django.settings_forms import (
+    EventDeletionConfirmForm,
+    EventSettingsForm,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
     EventDatesInvalidError,
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
-    EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.images import StoredFile, resolve_uploaded_file_field, stored_file
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.pacts.event import EventDTO
+    from ludamus.pacts.event_deletion import EventDeletionBallotDTO
     from ludamus.pacts.event_settings import ProposalSettingsUpdateData
 
 
@@ -55,16 +63,18 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "address": cd.get("address") or "",
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
-        "publication_time": cd.get("publication_time"),
-        "visibility": EventVisibility(cd["visibility"]),
         "allow_facilitator_session_edit": _choice_to_override(
             cd.get("allow_facilitator_session_edit") or ""
+        ),
+        "require_session_space": _choice_to_override(
+            cd.get("require_session_space") or ""
         ),
         "auto_confirm_sessions": bool(cd.get("auto_confirm_sessions")),
         "use_session_cover_placeholders": bool(
             cd.get("use_session_cover_placeholders")
         ),
         "use_participants_label": bool(cd.get("use_participants_label")),
+        "parley_enabled": _choice_to_override(cd.get("parley_enabled") or ""),
     }
     if (cover := resolve_uploaded_file_field(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
@@ -82,6 +92,19 @@ def _stored_images(event: EventDTO) -> dict[str, StoredFile | None]:
     }
 
 
+def _follow_sphere_choices(
+    form: EventSettingsForm, name: str, *, inherited: str, on: str, off: str
+) -> None:
+    # Null follows the sphere, which the first choice says the value of.
+    field = form.fields[name]
+    if isinstance(field, forms.ChoiceField):
+        field.choices = [
+            ("", _("Use sphere default (currently: {})").format(inherited)),
+            ("true", on),
+            ("false", off),
+        ]
+
+
 class EventSettingsPageView(EventPanelMixin, View):
     """Event settings page view."""
 
@@ -91,25 +114,46 @@ class EventSettingsPageView(EventPanelMixin, View):
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )
-        resolved = (
-            _("allowed") if sphere.allow_facilitator_session_edit else _("disallowed")
+        _follow_sphere_choices(
+            form,
+            "allow_facilitator_session_edit",
+            inherited=(
+                _("allowed")
+                if sphere.allow_facilitator_session_edit
+                else _("disallowed")
+            ),
+            on=_("Allow"),
+            off=_("Disallow"),
         )
-        edit_field = form.fields["allow_facilitator_session_edit"]
-        if isinstance(edit_field, forms.ChoiceField):
-            edit_field.choices = [
-                ("", _("Use sphere default (currently: {})").format(resolved)),
-                ("true", _("Allow")),
-                ("false", _("Disallow")),
-            ]
+        _follow_sphere_choices(
+            form,
+            "parley_enabled",
+            inherited=(
+                pgettext("event chat", "on")
+                if sphere.parley_events_enabled
+                else pgettext("event chat", "off")
+            ),
+            on=pgettext("event chat", "On"),
+            off=pgettext("event chat", "Off"),
+        )
+        _follow_sphere_choices(
+            form,
+            "require_session_space",
+            inherited=_("required") if sphere.require_session_space else _("optional"),
+            on=_("Required"),
+            off=_("Optional"),
+        )
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context = self.panel_context()
+    def _deletion_ballot(self) -> EventDeletionBallotDTO:
+        return self.request.services.event_deletion.read_ballot(
+            sphere_id=self.request.context.current_sphere_id,
+            event_id=EventId(self.current_event.pk),
+            viewer_id=self.request.context.current_user_id,
+        )
 
-        context["active_nav"] = "settings"
-        context["active_tab"] = "general"
-        context["tab_urls"] = settings_tab_urls(slug)
+    def _saved_settings_form(self) -> EventSettingsForm:
         override = self.current_event.allow_facilitator_session_edit
-        form = EventSettingsForm(
+        return EventSettingsForm(
             initial={
                 "name": self.current_event.name,
                 "slug": self.current_event.slug,
@@ -123,29 +167,53 @@ class EventSettingsPageView(EventPanelMixin, View):
                     if self.current_event.publication_time
                     else None
                 ),
-                "visibility": self.current_event.visibility.value,
+                "publication": self.current_event.publication_choice.value,
                 "allow_facilitator_session_edit": _override_to_choice(value=override),
+                "require_session_space": _override_to_choice(
+                    value=self.current_event.require_session_space
+                ),
                 "auto_confirm_sessions": self.current_event.auto_confirm_sessions,
                 "use_session_cover_placeholders": (
                     self.current_event.use_session_cover_placeholders
                 ),
                 "use_participants_label": self.current_event.use_participants_label,
+                "parley_enabled": _override_to_choice(
+                    value=self.current_event.parley_enabled
+                ),
             }
         )
+
+    def render_page(
+        self,
+        *,
+        form: EventSettingsForm | None = None,
+        deletion_form: EventDeletionConfirmForm | None = None,
+    ) -> HttpResponse:
+        """Render the General tab, either form bound when it failed to validate."""
+        form = form or self._saved_settings_form()
         self._apply_facilitator_choices(form)
+        context = self.panel_context()
+        context["active_nav"] = "settings"
+        context["active_tab"] = "general"
+        context["tab_urls"] = settings_tab_urls(self.current_event.slug)
         context["form"] = form
+        context["deletion"] = self._deletion_ballot()
+        context["deletion_form"] = deletion_form or EventDeletionConfirmForm(
+            event_name=self.current_event.name
+        )
         return TemplateResponse(self.request, "panel/settings.html", context)
 
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context = self.panel_context()
+    def get(self, _request: PanelRequest, **_kwargs: str) -> HttpResponse:
+        return self.render_page()
 
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         form = EventSettingsForm(
             self.request.POST,
             self.request.FILES,
             initial=_stored_images(self.current_event),
         )
         if not form.is_valid():
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
 
         cd = form.cleaned_data
         new_slug = cd["slug"]
@@ -155,34 +223,28 @@ class EventSettingsPageView(EventPanelMixin, View):
                 sphere_id=self.request.context.current_sphere_id,
                 slug=slug,
                 data=_event_update_data(cd, new_slug),
+                publication=PublicationIntent(
+                    choice=PublicationChoice(cd["publication"]),
+                    chosen_time=cd.get("publication_time"),
+                ),
             )
         except EventSlugConflictError:
             form.add_error("slug", _("An event with this slug already exists."))
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except EventDatesInvalidError:
             form.add_error("end_time", _("End time must be after start time."))
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except EventPublicationInvalidError:
             form.add_error(
                 "publication_time", _("Publication time must not be after start time.")
             )
-            return self._render_with_form(context=context, slug=slug, form=form)
+            return self.render_page(form=form)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:index")
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
-
-    def _render_with_form(
-        self, *, context: dict[str, object], slug: str, form: EventSettingsForm
-    ) -> HttpResponse:
-        context["active_nav"] = "settings"
-        context["active_tab"] = "general"
-        context["tab_urls"] = settings_tab_urls(slug)
-        self._apply_facilitator_choices(form)
-        context["form"] = form
-        return TemplateResponse(self.request, "panel/settings.html", context)
 
 
 class EventDisplaySettingsPageView(EventPanelMixin, View):

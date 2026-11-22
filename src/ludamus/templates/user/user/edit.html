@@ -5,26 +5,31 @@
 {% endblock title %}
 {% block email_verification_banner %}
 {% endblock email_verification_banner %}
-{% block profile_content %}
-    <form action="{% url 'web:crowd:profile' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
-          method="post">
-        {% csrf_token %}
-        {% tessera_errors form %}
-        {% for field in form %}
-            {% if field.name == "email" %}
-                {% if user.pending_email or user.email and not user.email_verified %}
-                    {% tessera_field field label_action_template="user/user/_email_verify_action.html" %}
+{% block profile_sheet %}
+    {% translate "Personal Information" as sheet_title %}
+    {% url 'web:crowd:profile' as sheet_close_url %}
+    {% bottom_sheet id="personal" title=sheet_title close_url=sheet_close_url height=form.errors|yesno:"full,half" open=sheet_open level=1 %}
+        <form action="{% url 'web:crowd:profile' %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}"
+              method="post">
+            {% csrf_token %}
+            {% tessera_errors form %}
+            {% for field in form %}
+                {% if field.name == "email" %}
+                    {% if user.needs_email_verification %}
+                        {% tessera_field field label_action_template="user/user/_email_verify_action.html" %}
+                    {% else %}
+                        {% tessera_field field %}
+                    {% endif %}
                 {% else %}
                     {% tessera_field field %}
                 {% endif %}
-            {% else %}
-                {% tessera_field field %}
-            {% endif %}
-        {% endfor %}
-        {% translate "Save" as t_save %}
-        {% tessera_button t_save %}
-    </form>
-    {% if user.pending_email or user.email and not user.email_verified %}
-        {% include "user/user/_email_verify_modal.html" %}
-    {% endif %}
-{% endblock profile_content %}
+            {% endfor %}
+            {% translate "Save" as t_save %}
+            {% tessera_button t_save %}
+        </form>
+        {% include "components/language_switcher.html" %}
+        {% if user.needs_email_verification %}
+            {% include "user/user/_email_verify_modal.html" %}
+        {% endif %}
+    {% end_bottom_sheet %}
+{% endblock profile_sheet %}

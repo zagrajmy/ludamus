@@ -261,18 +261,6 @@
   }
 }
 
-/* The same lock index.css gives the session modal, and on the same element:
-   .app-shell is overflow:hidden, so .app-scroll is the only thing that
-   scrolls and the document never does. Keyed on aria-modal because that
-   attribute is already the answer to "is this a dialog right now" — it is
-   set at the phone breakpoint and removed at every other, so the dropdown
-   leaves the schedule scrollable under it. Unlayered, like the modal's lock:
-   .app-scroll's own overflow-y is unlayered and a layered rule could not
-   take it back. */
-body:has(#filter-panel[aria-modal="true"]) .app-scroll {
-  overflow: hidden;
-}
-
 @keyframes filter-chip-in {
   from {
     opacity: 0;

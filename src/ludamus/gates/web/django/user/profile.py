@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
@@ -33,6 +34,8 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
 
+logger = logging.getLogger(__name__)
+
 
 class ProfilePageView(
     LoginRequiredMixin,
@@ -51,7 +54,11 @@ class ProfilePageView(
         kwargs["user"] = profile.read(self.request.context.current_user_slug)
         kwargs["object"] = profile.read(self.request.context.current_user_slug)
         kwargs["profile_active_tab"] = "profile"
-        return super().get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
+        context["sheet_open"] = bool(context["form"].errors) or bool(
+            {"next", "verify-email"} & self.request.GET.keys()
+        )
+        return context
 
     def form_valid(self, form: UserForm) -> HttpResponse:
         data = form.user_data
@@ -318,14 +325,46 @@ class ProfileNotificationsPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        user_id = request.context.current_user_id
         subscriptions = request.services.notification_subscriptions.list_for_user(
-            request.context.current_user_id
+            user_id
         )
         return TemplateResponse(
             request,
             "user/user/notifications.html",
-            {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
+            {
+                "subscriptions": subscriptions,
+                "mention_mail_enabled": request.services.parley_mentions.read_enabled(
+                    user_id
+                ),
+                "profile_active_tab": "notifications",
+            },
         )
+
+
+class ProfileMentionMailActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        enabled = request.POST.get("enabled") == "true"
+        request.services.parley_mentions.set_enabled(
+            user_id=request.context.current_user_id, enabled=enabled
+        )
+        logger.info(
+            "Mention mail %s in settings: user=%s",
+            "on" if enabled else "off",
+            request.context.current_user_id,
+        )
+        messages.success(
+            request,
+            (
+                _("Mention emails turned on.")
+                if enabled
+                else _("Mention emails turned off.")
+            ),
+        )
+        return redirect("web:crowd:profile-notifications")
 
 
 class ProfileNotificationsMuteActionView(LoginRequiredMixin, View):

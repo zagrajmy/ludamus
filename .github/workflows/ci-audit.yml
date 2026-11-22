@@ -1,0 +1,37 @@
+---
+name: CI audit
+
+# Where CI time goes: waiting for a runner, setting the job up, or running the
+# check. The report lands in the run's summary; the raw samples in an artifact.
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: How many finished CI runs to measure
+        default: "150"
+  pull_request:
+    paths:
+      - scripts/ci_audit.py
+      - .github/workflows/ci-audit.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 scripts/ci_audit.py --runs "$RUNS" --json ci-audit.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUNS: ${{ inputs.runs || '150' }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ci-audit
+          path: ci-audit.json
+          retention-days: 30

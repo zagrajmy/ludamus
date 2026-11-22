@@ -31,9 +31,11 @@ from .action_dropdown import (
     do_action_dropdown,
     tessera_action_dropdown_item,
 )
+from .bottom_sheet import BottomSheetNode, bottom_sheet
 from .checkbox import tessera_checkbox_toggle
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
+from .dialog_close_button import tessera_dialog_close_button
 from .dynamic_field import dynamic_field
 from .form import (
     tessera_button,
@@ -46,15 +48,28 @@ from .form import (
 from .icon import icon
 from .icon_button import tessera_icon_button
 from .icon_toggle import tessera_icon_toggle
+from .link_tile import tessera_link_tile
 from .radio import RadioNode, do_radio
 from .select import SelectNode, do_select
-from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
+from .switcher import (
+    ChoiceButtonNode,
+    ChoiceButtonsNode,
+    SegmentNode,
+    SwitcherNode,
+    tessera_choice_button,
+    tessera_choice_buttons,
+    tessera_segment,
+    tessera_switcher,
+)
 from .tab_shell import TabShellBodyNode, TabShellNode, tab_shell, tab_shell_body
 from .table import TableNode, do_tessera_table
 from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
     "ActionDropdownNode",
+    "BottomSheetNode",
+    "ChoiceButtonNode",
+    "ChoiceButtonsNode",
     "ComboboxNode",
     "RadioNode",
     "SegmentNode",
@@ -65,6 +80,7 @@ __all__ = [
     "TabShellNode",
     "TableNode",
     "TabsNode",
+    "bottom_sheet",
     "copy_lines",
     "do_action_dropdown",
     "do_combobox",
@@ -81,15 +97,19 @@ __all__ = [
     "tessera_action_dropdown_item",
     "tessera_button",
     "tessera_checkbox_toggle",
+    "tessera_choice_button",
+    "tessera_choice_buttons",
     "tessera_copy",
     "tessera_copy_chip",
     "tessera_copy_popover",
+    "tessera_dialog_close_button",
     "tessera_errors",
     "tessera_field",
     "tessera_form",
     "tessera_icon_button",
     "tessera_icon_toggle",
     "tessera_inplace",
+    "tessera_link_tile",
     "tessera_segment",
     "tessera_sole_choice",
     "tessera_switcher",

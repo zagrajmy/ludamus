@@ -12,7 +12,8 @@
             <div class="card-body">
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    {% include "encounter/_form.html" with submit_label="Save Changes" %}
+                    {% translate "Save changes" as save_label %}
+                    {% include "encounter/_form.html" with submit_label=save_label %}
                 </form>
                 <div class="mt-6 pt-4 border-t border-border">
                     <form method="post"

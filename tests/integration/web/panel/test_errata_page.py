@@ -8,12 +8,7 @@ from ludamus.links.db.django.models import ScheduleChangeLog, SphereMembership
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
 from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import ScheduleChangeAction
-from tests.integration.conftest import (
-    EventFactory,
-    SessionFactory,
-    SpaceFactory,
-    TimeSlotFactory,
-)
+from tests.integration.conftest import EventFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -30,6 +25,16 @@ def _log(event, session, user, action, **kwargs):
     return ScheduleChangeLog.objects.create(
         event=event, session=session, user=user, action=action, **kwargs
     )
+
+
+def _pending(sessions: int) -> dict[str, int]:
+    # NOTE: each SessionFactory session is a pending proposal with its own presenter.
+    return {
+        "pending_proposals": sessions,
+        "total_proposals": sessions,
+        "total_sessions": sessions,
+        "hosts_count": sessions,
+    }
 
 
 @pytest.fixture(name="session")
@@ -101,7 +106,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(unpublished, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    unpublished, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [],
                 "pending_count": 0,
                 "page_obj": PageMatcher(number=1, num_pages=1),
@@ -128,7 +135,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[log.pk],
@@ -179,7 +188,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(2)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[important.pk],
@@ -237,7 +248,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[log.pk],
@@ -289,7 +302,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=2),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=2, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[out.pk, into.pk],
@@ -318,9 +333,6 @@ class TestErrataPageView:
         # Through the real assign endpoint: the move is recorded where it
         # happens, so the page never has to guess two rows back into one.
         destination = SpaceFactory(event=event, name="Room B")
-        TimeSlotFactory(
-            event=event, start_time=event.start_time, end_time=event.end_time
-        )
         session = make_timetable_session(proposal_category, status="accepted")
         assign_url = reverse("panel:timetable-assign", kwargs={"slug": event.slug})
         for space in (room, destination):
@@ -411,7 +423,9 @@ class TestErrataPageView:
             HTTPStatus.OK,
             template_name="panel/errata.html",
             context_data={
-                **panel_context(event, active_nav="errata", rooms_count=1),
+                **panel_context(
+                    event, active_nav="errata", rooms_count=1, **_pending(1)
+                ),
                 "errata": [
                     ErratumDTO(
                         log_pks=[added[0].pk],

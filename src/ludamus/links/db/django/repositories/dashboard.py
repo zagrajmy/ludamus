@@ -30,6 +30,7 @@ from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     sessions_run_by,
 )
+from ludamus.links.db.django.session_urls import session_popup_url
 from ludamus.pacts.dashboard import (
     DashboardCardDTO,
     DashboardRepositoryProtocol,
@@ -59,18 +60,14 @@ def _session_card(
     item = session.agenda_item
     return DashboardCardDTO(
         title=session.title,
-        url=absolute_url(
-            reverse(
-                "web:chronology:session-enrollment",
-                kwargs={"event_slug": event.slug, "session_id": session.pk},
-            ),
-            domain=sphere.site.domain,
+        url=session_popup_url(
+            event_slug=event.slug, session_id=session.pk, domain=sphere.site.domain
         ),
         start_time=item.start_time,
         origin_name=event.name,
         role=role,
         cover_url=session.cover_image_url or event.cover_image_url,
-        place=item.space.name,
+        place=item.space.name if item.space is not None else "",
         attending_count=getattr(session, "enrolled_count_cached", 0),
         capacity=session.participants_limit,
         offer_expires_at=offer_expires_at,
@@ -137,7 +134,11 @@ def _event_card(event: Event, *, role: DashboardRole) -> DashboardCardDTO:
 def _held_sessions(user_id: int, *, now: datetime) -> list[SessionParticipation]:
     return list(
         SessionParticipation.objects.filter(
-            user_id=user_id, session__agenda_item__start_time__gte=now
+            user_id=user_id,
+            session__agenda_item__start_time__gte=now,
+            # A deleted event keeps its sessions' timetable for a restore; the
+            # seat must go from the agenda with it.
+            session__deleted_at__isnull=True,
         )
         # A lapsed offer waits for the expiry sweep; a claim button on it
         # could only fail.

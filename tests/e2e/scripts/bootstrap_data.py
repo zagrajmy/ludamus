@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
@@ -24,10 +25,14 @@ django.setup()
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
+from django.core.files import File
+from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
+from PIL import Image
 
+from ludamus.pacts.availability import DayPart, programme_date
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
@@ -39,6 +44,7 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     Notification,
+    PayoutAccount,
     PersonalDataField,
     ProposalCategory,
     Session,
@@ -50,6 +56,11 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     Space,
     Sphere,
+    SessionAvailability,
+    Ticket,
+    TicketOrder,
+    TicketOrderLine,
+    TicketType,
     TimeSlot,
     Track,
     User,
@@ -61,6 +72,8 @@ from ludamus.pacts.encounter import EncountersPolicy
 from ludamus.pacts.enrollment import SessionParticipationStatus
 from ludamus.pacts.event import EventVisibility
 from ludamus.pacts.notifications import NotificationKind
+from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
+from ludamus.pacts.parley_mentions import ParleyMentionUnsubscribePayload
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -313,6 +326,47 @@ def _create_party_companion_scenario() -> None:
 CREW_HOST = "crew.localhost"
 
 
+COUNCIL_HOST = "council.localhost"
+
+
+def _create_event_deletion_scenario() -> None:
+    """Seed what event-deletion.spec needs: a sphere two managers must agree on.
+
+    A sphere of its own, so deleting its one event leaves every other spec's
+    fixtures alone, and so the team stays at the two whose approvals it takes.
+    """
+    _, council = _create_site(f"{COUNCIL_HOST}:8000", name="Council")
+    for slug, name in (
+        ("e2e-council-first", "Ada Council"),
+        ("e2e-council-second", "Bert Council"),
+    ):
+        member = User.objects.create_user(
+            username=slug,
+            email=f"{slug}@test.local",
+            password=f"{slug}-123",
+            name=name,
+            slug=slug,
+        )
+        council.managers.add(member)
+        _write_storage_state(
+            member,
+            domain=COUNCIL_HOST,
+            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+        )
+    # A deletion cannot be taken back from the panel, so each attempt (CI
+    # allows two retries) votes on an event of its own number.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        _create_event(
+            council,
+            name=f"Council Retreat {attempt}",
+            slug=f"council-retreat-{attempt}",
+            description="A weekend the council no longer plans to hold.",
+            start_offset=timedelta(days=9),
+            duration_hours=8,
+            publication_offset=timedelta(days=1),
+        )
+
+
 def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
     """Seed what unlisted-events.spec and sphere-invitations.auth.spec need.
 
@@ -330,6 +384,10 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
         slug="e2e-crew-manager",
     )
     crew.managers.add(crew_manager)
+    # NOTE: managers only: organize-choice.spec needs a non-root feed whose manager
+    # may create both an event and an encounter.
+    crew.encounters_policy = EncountersPolicy.MANAGERS
+    crew.save(update_fields=["encounters_policy"])
     _write_storage_state(
         crew_manager,
         domain=CREW_HOST,
@@ -378,6 +436,130 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
     )
 
 
+def _create_ticket_sales_scenario(sphere: Sphere, *, tester: User) -> None:
+    """Seed an event that sells tickets, for ticket-sales.auth.spec and panel.
+
+    The sphere's Stripe account is connected (charges on), so the event page
+    offers "Buy tickets". The tester holds one paid order (two tickets) and one
+    order still in Checkout, which the spec pays with a signed webhook.
+    """
+    now = timezone.now()
+    PayoutAccount.objects.create(
+        sphere=sphere,
+        stripe_account_id="acct_e2e_ticket_fair",
+        details_submitted=True,
+        charges_enabled=True,
+        payouts_enabled=True,
+    )
+    event = _create_event(
+        sphere,
+        name="Ticket Fair",
+        slug="ticket-fair",
+        description="A convention that sells its entry on Zagrajmy.",
+        start_offset=timedelta(days=21),
+        duration_hours=48,
+        publication_offset=timedelta(days=3),
+    )
+    weekend = TicketType.objects.create(
+        event=event,
+        name="Weekend pass",
+        description="Both days, every room.",
+        price=12_000,
+        quantity=200,
+        order=0,
+    )
+    saturday = TicketType.objects.create(
+        event=event, name="Saturday only", price=7_000, order=1
+    )
+    supporter = TicketType.objects.create(
+        event=event,
+        name="Supporter pass",
+        description="A weekend pass and our thanks on the wall.",
+        price=25_000,
+        quantity=1,
+        order=2,
+    )
+    TicketType.objects.create(
+        event=event,
+        name="Last-minute day pass",
+        price=8_000,
+        sales_start=now + timedelta(days=14),
+        order=3,
+    )
+    supporter_buyer = User.objects.create_user(
+        username="e2e-ticket-supporter",
+        email="supporter@test.local",
+        password=None,
+        name="Sam Supporter",
+        slug="e2e-ticket-supporter",
+    )
+
+    def order(
+        buyer: User | None,
+        lines: list[tuple[TicketType, int]],
+        *,
+        status: str,
+        session_id: str,
+        codes: tuple[str, ...] = (),
+    ) -> None:
+        total = sum(kind.price * quantity for kind, quantity in lines)
+        created = TicketOrder.objects.create(
+            # Readable in the specs' URLs; a real one is token_urlsafe(16).
+            reference=f"e2e-{session_id.removeprefix('cs_e2e_')}",
+            event=event,
+            buyer=buyer,
+            email=buyer.email if buyer is not None else "guest@test.local",
+            status=status,
+            currency="pln",
+            total=total,
+            platform_fee=(total * 350 + 5_000) // 10_000,
+            stripe_account_id="acct_e2e_ticket_fair",
+            stripe_checkout_session_id=session_id,
+            stripe_payment_intent_id=f"pi_{session_id}" if codes else "",
+            hold_until=now + timedelta(days=1),
+            paid_at=now if codes else None,
+        )
+        remaining = iter(codes)
+        for kind, quantity in lines:
+            TicketOrderLine.objects.create(
+                order=created,
+                ticket_type=kind,
+                quantity=quantity,
+                unit_price=kind.price,
+            )
+            for _ in range(quantity if codes else 0):
+                Ticket.objects.create(
+                    order=created, ticket_type=kind, holder=buyer, code=next(remaining)
+                )
+
+    order(
+        tester,
+        [(weekend, 2)],
+        status="paid",
+        session_id="cs_e2e_paid",
+        codes=("WKND2E2EAA", "WKND2E2EBB"),
+    )
+    order(
+        supporter_buyer,
+        [(supporter, 1)],
+        status="paid",
+        session_id="cs_e2e_supporter",
+        codes=("SUPP2E2ECC",),
+    )
+    # Held in Checkout for a day; the spec completes it through the webhook.
+    order(tester, [(saturday, 1)], status="pending", session_id="cs_e2e_pending")
+    # Bought by guests: one the guest spec pays through the webhook, one
+    # already paid that the tester claims into their account.
+    order(None, [(saturday, 1)], status="pending", session_id="cs_e2e_guest")
+    order(
+        None,
+        [(weekend, 1)],
+        status="paid",
+        session_id="cs_e2e_unclaimed",
+        codes=("GST2E2EDDD",),
+    )
+
+
 def _create_notifications_scenario() -> None:
     """Seed a dedicated user with a content and a destination notification.
 
@@ -412,6 +594,32 @@ def _create_notifications_scenario() -> None:
         title="Autumn Open: doors to hall B open at 9:00",
         body="Bring your badge. Coffee is by the entrance.",
         url="",
+    )
+
+
+def _create_mention_mail_scenario() -> None:
+    """Seed a user whose chat mention emails the settings and unsubscribe e2e flip.
+
+    Its own account, so turning mention emails off never reaches another spec.
+    """
+    user = User.objects.create_user(
+        username="e2e-mentioned",
+        email="e2e-mentioned@test.local",
+        password="e2e-mentioned-123",
+        name="E2E Mentioned",
+        slug="e2e-mentioned",
+        email_verified=True,
+    )
+    _write_storage_state(
+        user,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-mentioned.json",
+    )
+    token = DjangoParleyMentionUnsubscribeCodec().dumps(
+        ParleyMentionUnsubscribePayload(user_id=user.pk)
+    )
+    (REPO_ROOT / "tests" / "e2e" / ".parley-mention-mail.json").write_text(
+        json.dumps({"unsubscribeToken": token}), encoding="utf-8"
     )
 
 
@@ -529,6 +737,50 @@ def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> Non
     )
     session.presenter = superuser
     session.save(update_fields=["presenter"])
+    # Its own session for the save-closes-the-dialog spec: modal-surfaces
+    # renames Own Table Demo in parallel, and a save loaded before that rename
+    # would write the old title back.
+    refreshed = _create_session(
+        event,
+        space,
+        title="Card Refresh Demo",
+        slug="card-refresh-demo",
+        presenter=superuser.name,
+        description="A session whose card a saved edit refreshes.",
+        start_offset=timedelta(hours=4),
+        duration_hours=2,
+        participants_limit=8,
+        min_age=0,
+    )
+    refreshed.presenter = superuser
+    refreshed.save(update_fields=["presenter"])
+    # A proposal its author still waits on: no panel access, so the event page
+    # shows it under their own pending proposals, which open the edit page.
+    author = User.objects.create_user(
+        username="e2e-proposal-author",
+        email="e2e-proposal-author@test.local",
+        password="e2e-proposal-author-123",
+        name="Pending Author",
+        slug="e2e-proposal-author",
+    )
+    _write_storage_state(
+        author,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-proposal-author.json",
+    )
+    Session.objects.create(
+        event=event,
+        presenter=author,
+        facilitator_name=author.name,
+        contact_email=author.email,
+        title="Still Waiting Table",
+        slug="still-waiting-table",
+        description="A proposal nobody has accepted yet.",
+        duration="PT2H",
+        participants_limit=4,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
 
 
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
@@ -1229,11 +1481,6 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     )
     venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
     _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time + timedelta(hours=1),
-        end_time=event.start_time + timedelta(hours=3),
-    )
     category = ProposalCategory.objects.create(
         event=event,
         name="Showcase",
@@ -1258,12 +1505,13 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     )
     # Two proposals, so the spec that reads the page and the spec that accepts
     # one never contend for the same pending row — including on a retry, which
-    # re-runs a serial block from the top.
+    # re-runs a serial block from the top. The accepted one carries a cover,
+    # which the accept page and then the session modal both show.
     for title, slug, presenter in (
         ("Solo Showcase", "solo-showcase", User.objects.get(username="e2e-tester")),
         ("Solo Encore", "solo-encore", polish_proposer),
     ):
-        Session.objects.create(
+        session = Session.objects.create(
             event=event,
             presenter=presenter,
             facilitator_name=presenter.name,
@@ -1277,7 +1525,91 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
             min_age=0,
             status=SessionStatus.PENDING,
         )
+        if slug == "solo-encore":
+            session.cover_image.save(f"{slug}.png", _cover_png(), save=True)
     return event
+
+
+def _create_meetup_without_rooms_event(sphere: Sphere) -> None:
+    # A meetup that only needs a time: no spaces at all, so accepting asks
+    # nothing about a room and the session lands in the "No space" lane.
+    event = _create_event(
+        sphere,
+        name="Roomless Meetup",
+        slug="roomless-meetup",
+        description="A meetup that only needs a time.",
+        start_offset=timedelta(days=20),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    event.require_session_space = False
+    event.save(update_fields=["require_session_space"])
+    presenter = User.objects.get(username="e2e-tester")
+    Session.objects.create(
+        event=event,
+        presenter=presenter,
+        facilitator_name=presenter.name,
+        contact_email=presenter.email,
+        category=ProposalCategory.objects.create(
+            event=event, name="Talk", slug="talk", durations=["PT2H"]
+        ),
+        title="Roomless Talk",
+        slug="roomless-talk",
+        description="Needs a time, not a room.",
+        duration="PT2H",
+        participants_limit=0,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+
+
+def _create_accept_crowded_event(sphere: Sphere) -> None:
+    # Three rooms, one of them held from an hour after opening for two hours.
+    # The two-hour pitch opens at the event's opening, so the accept page shows
+    # that room taken then, and accept-placement.ts frees it once the start
+    # moves past the booking, never leaving it a conflict found on submit.
+    event = _create_event(
+        sphere,
+        name="Crowded Room Convention",
+        slug="accept-crowded",
+        description="Three rooms, one of them booked for part of the day.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Old Mill", slug="old-mill")
+    booked = _create_space(venue, name="Booked Room", slug="booked-room", capacity=8)
+    _create_space(venue, name="North Room", slug="north-room", capacity=8)
+    _create_space(venue, name="South Room", slug="south-room", capacity=8)
+    _create_session(
+        event,
+        booked,
+        title="Already Here",
+        slug="already-here",
+        presenter="Host",
+        description="Holds the booked room for two hours of the day.",
+        start_offset=timedelta(hours=1),
+        duration_hours=2,
+    )
+    presenter = User.objects.get(username="e2e-tester")
+    Session.objects.create(
+        event=event,
+        presenter=presenter,
+        facilitator_name=presenter.name,
+        contact_email=presenter.email,
+        category=ProposalCategory.objects.create(
+            event=event, name="Talk", slug="talk", durations=["PT2H"]
+        ),
+        title="Crowded Pitch",
+        slug="crowded-pitch",
+        description="A proposal for a room that is mostly free.",
+        duration="PT2H",
+        participants_limit=4,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
 
 
 def _create_orphan_answers_event(sphere: Sphere, *, tester: User) -> None:
@@ -1325,6 +1657,12 @@ def _create_orphan_answers_event(sphere: Sphere, *, tester: User) -> None:
         status=SessionStatus.PENDING,
     )
     SessionFieldValue.objects.create(session=session, field=field, value="Old answer")
+
+
+def _cover_png() -> ContentFile[bytes]:
+    buffer = io.BytesIO()
+    Image.new("RGB", (160, 90), (180, 120, 60)).save(buffer, format="PNG")
+    return ContentFile(buffer.getvalue())
 
 
 # A live event whose slots are in every state a card schedule can show: one
@@ -1399,6 +1737,56 @@ def _create_single_slot_event(sphere: Sphere) -> None:
         description="The only session of the evening.",
         seats=6,
         hour=1,
+    )
+
+
+def _create_session_covers_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Gallery Night",
+        slug="session-covers",
+        description="Two tables, one with a picture.",
+        start_offset=timedelta(days=19),
+        duration_hours=4,
+        publication_offset=timedelta(days=2),
+    )
+    venue = _create_venue(event, name="Gallery Venue", slug="gallery-venue")
+    area = _create_area(venue, name="Gallery Area", slug="gallery-area")
+    space = _create_space(area, name="Gallery Room", slug="gallery-room", capacity=6)
+    pictured = _scheduled_session(
+        event,
+        space,
+        title="Meeple Painting",
+        slug="meeple-painting",
+        presenter="Gallery GM",
+        description=(
+            "Bring a brush; the meeples are on us.\n\n"
+            "We start with a base coat and a wash, then move on to "
+            "highlights and a simple two-tone cloak. Every table has "
+            "paints, water pots and spare brushes, so come empty-handed "
+            "if you like.\n\n"
+            "Painted meeples go home with you. Wear something you do "
+            "not mind getting a little colourful.\n\n"
+            "No experience needed. If you have painted before, bring "
+            "your own figures and we will help you push them further.\n\n"
+            "The last half hour is a quiet gallery walk: every table "
+            "lines up its work and we vote on a favourite."
+        ),
+        seats=6,
+        hour=1,
+    )
+    cover = settings.BASE_DIR / "static" / "placeholder-images" / "01.webp"
+    with cover.open("rb") as image:
+        pictured.cover_image.save("meeple-painting.webp", File(image))
+    _scheduled_session(
+        event,
+        space,
+        title="Blank Canvas",
+        slug="blank-canvas",
+        presenter="Gallery GM",
+        description="A session with no cover of its own.",
+        seats=6,
+        hour=2,
     )
 
 
@@ -1648,12 +2036,6 @@ def _create_placement_lab_event(sphere: Sphere) -> None:
     )
     venue = _create_venue(event, name="Bazaar Hall", slug="bazaar-hall")
     _create_space(venue, name="Brass Room", slug="brass-room", capacity=8)
-    # The timetable draws its grid over the event's time slots.
-    TimeSlot.objects.create(
-        event=event,
-        start_time=event.start_time,
-        end_time=event.start_time + timedelta(hours=4),
-    )
     Session.objects.create(
         event=event,
         category=category,
@@ -1747,6 +2129,60 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
     SessionFieldRequirement.objects.create(
         category=category, field=triggers, is_required=False
     )
+    return event
+
+
+def _create_slot_availability_event(sphere: Sphere, *, tester: User) -> Event:
+    # An organizer who draws time slots gets them offered in place of parts
+    # of a day; a proposal that picked one carries its hours to the card and
+    # the accept page.
+    event = _create_event(
+        sphere,
+        name="Slotted Weekend",
+        slug="slot-con",
+        description="A day of fixed blocks, offered to proposers as they are.",
+        start_offset=timedelta(days=16),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+        allow_anonymous_proposals=True,
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Blocks",
+        slug="blocks",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+        asks_availability=True,
+    )
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=4),
+    )
+    afternoon = TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=4),
+        end_time=event.start_time + timedelta(hours=8),
+    )
+    venue = _create_venue(event, name="Block Hall", slug="block-hall")
+    area = _create_area(venue, name="Block Floor", slug="block-floor")
+    _create_space(area, name="Block Room", slug="block-room", capacity=6)
+    proposal = Session.objects.create(
+        event=event,
+        presenter=tester,
+        facilitator_name="E2E Tester",
+        contact_email="e2e@test.local",
+        category=category,
+        title="Afternoon Block Proposal",
+        slug="afternoon-block-proposal",
+        description="Picked the afternoon slot.",
+        duration="PT1H",
+        participants_limit=4,
+        status=SessionStatus.PENDING,
+    )
+    proposal.time_slots.add(afternoon)
     return event
 
 
@@ -2040,7 +2476,9 @@ def main() -> None:
     # A dedicated user with content + destination notifications, for the
     # notification overlay + list e2e.
     _create_notifications_scenario()
+    _create_mention_mail_scenario()
     _create_unlisted_and_team_scenario(sphere)
+    _create_event_deletion_scenario()
 
     _create_party_companion_scenario()
 
@@ -2074,6 +2512,9 @@ def main() -> None:
         domain=_cookie_domain(),
         path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
     )
+
+    # An event selling tickets on a connected Stripe account.
+    _create_ticket_sales_scenario(sphere, tester=tester)
 
     local_manager = User.objects.create_user(
         username="auth0|local-manager",
@@ -2234,11 +2675,6 @@ def main() -> None:
         max_participants_limit=6,
         durations=["PT1H"],
     )
-    proposal_slot = TimeSlot.objects.create(
-        event=upcoming_event,
-        start_time=upcoming_event.start_time + timedelta(hours=1),
-        end_time=upcoming_event.start_time + timedelta(hours=2),
-    )
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -2253,11 +2689,15 @@ def main() -> None:
         min_age=12,
         status=SessionStatus.PENDING,
     )
-    pending_session.time_slots.add(proposal_slot)
+    SessionAvailability.objects.create(
+        session=pending_session,
+        day=programme_date(upcoming_event.start_time, get_current_timezone()),
+        part=DayPart.EVENING,
+    )
 
     # A second proposal covering the card's other two arms: no participants
     # limit at all (which must render nothing, not "0 seats"), and more
-    # preferred slots than the meta row can name.
+    # offered times than the meta row can name.
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
@@ -2272,13 +2712,16 @@ def main() -> None:
         min_age=0,
         status=SessionStatus.PENDING,
     )
-    open_session.time_slots.set(
-        TimeSlot.objects.create(
-            event=upcoming_event,
-            start_time=upcoming_event.start_time + timedelta(hours=offset),
-            end_time=upcoming_event.start_time + timedelta(hours=offset + 1),
+    first_day = programme_date(upcoming_event.start_time, get_current_timezone())
+    SessionAvailability.objects.bulk_create(
+        SessionAvailability(
+            session=open_session, day=first_day + timedelta(days=offset), part=part
         )
-        for offset in (3, 5, 7)
+        for offset, part in (
+            (0, DayPart.MORNING),
+            (1, DayPart.EVENING),
+            (2, DayPart.AFTERNOON),
+        )
     )
 
     # Dedicated events for the mutating panel / cover-image specs, so they
@@ -2307,11 +2750,15 @@ def main() -> None:
     )
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_slot_availability_event(sphere, tester=tester)
     _create_discord_proposal_scenario(sphere)
     _create_reuse_proposal_scenario(sphere)
     _create_accept_lab_event(sphere)
+    _create_meetup_without_rooms_event(sphere)
+    _create_accept_crowded_event(sphere)
     _create_orphan_answers_event(sphere, tester=tester)
     _create_single_slot_event(sphere)
+    _create_session_covers_event(sphere)
     _create_slot_states_event(sphere)
     _create_anonymous_signup_event(sphere)
     _create_party_seats_event(sphere)

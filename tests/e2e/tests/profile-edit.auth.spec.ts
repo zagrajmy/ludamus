@@ -57,10 +57,7 @@ test.describe("Editing your own profile", () => {
     await expect(signup).toContainText("You're signed up");
     await expect(signup).toContainText("Chart Room");
     await expect(signup).toContainText(/\d{1,2} \w+, \d{2}:\d{2}/);
-    await expect(signup).toHaveAttribute(
-      "href",
-      /\/event\/tidewater-night\/session\/\d+\/enrollment\/$/,
-    );
+    await expect(signup).toHaveAttribute("href", /\/event\/tidewater-night\/\?session=\d+$/);
     await attachArtifacts(testInfo, {
       name: "profile-dashboard-signup",
       region: comingUp,
@@ -74,7 +71,7 @@ test.describe("Editing your own profile", () => {
 
   test("profile and dashboard remain readable on a narrow viewport", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(PROFILE_URL);
+    await page.goto(`${PROFILE_URL}#personal`);
     await expect(page.getByLabel("Display name")).toBeVisible();
     await expect(page.getByText(/confirmed session participation/)).toHaveCount(0);
     await attachArtifacts(testInfo, {

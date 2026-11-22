@@ -1,0 +1,208 @@
+"""Settings forms: an event's and its sphere's."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext, pgettext_lazy
+from django.utils.translation import gettext_lazy as _
+
+from ludamus.gates.uploads import validate_uploaded_image
+from ludamus.gates.web.django.forms import (
+    DATETIME_LOCAL_FORMATS,
+    MAX_ADDRESS_LINES,
+    MarkdownTextarea,
+    cover_image_field,
+    datetime_local_widget,
+    logo_field,
+)
+from ludamus.pacts.event import PublicationChoice
+
+if TYPE_CHECKING:
+    from django.http import QueryDict
+
+
+class EventSettingsForm(forms.Form):
+    """Form for event settings."""
+
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        error_messages={
+            "max_length": _("Event name is too long (max 255 characters)."),
+            "required": _("Event name is required."),
+        },
+    )
+    slug = forms.SlugField(
+        label=_("Slug"),
+        max_length=50,
+        help_text=_("URL identifier for this event. Must be unique."),
+        error_messages={"required": _("Event slug is required.")},
+    )
+    description = forms.CharField(
+        label=_("Description"),
+        required=False,
+        widget=MarkdownTextarea(published=True, attrs={"rows": 3}),
+        help_text=_("Aim for about 230 characters."),
+    )
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        label=_("Address"),
+        help_text=_("Venue address, two lines at most. Shown with a map link."),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
+    )
+
+    def clean_address(self) -> str:
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(gettext("An address can have at most two lines."))
+        return "\n".join(kept)
+
+    cover_image = cover_image_field(crop="top-and-bottom")
+    logo = logo_field()
+    start_time = forms.DateTimeField(
+        label=_("Start time"),
+        widget=datetime_local_widget(),
+        input_formats=DATETIME_LOCAL_FORMATS,
+        error_messages={"required": _("Start time is required.")},
+    )
+    end_time = forms.DateTimeField(
+        label=_("End time"),
+        widget=datetime_local_widget(),
+        input_formats=DATETIME_LOCAL_FORMATS,
+        error_messages={"required": _("End time is required.")},
+    )
+    publication = forms.ChoiceField(
+        choices=[
+            (
+                PublicationChoice.LINK_ONLY.value,
+                _(
+                    "Link only: anyone with the link can open it; never listed "
+                    "or announced"
+                ),
+            ),
+            (
+                PublicationChoice.PUBLIC_NOW.value,
+                _("Public now: listed and announced to followers"),
+            ),
+            (
+                PublicationChoice.SCHEDULED.value,
+                _("Publish at a set time: listed and announced from then"),
+            ),
+        ],
+        widget=forms.RadioSelect,
+        label=_("Who can see the event"),
+    )
+    publication_time = forms.DateTimeField(
+        required=False,
+        widget=datetime_local_widget(),
+        input_formats=DATETIME_LOCAL_FORMATS,
+        label=_("Publish at"),
+        help_text=_("Leave empty to keep the event hidden until you pick a time."),
+    )
+    allow_facilitator_session_edit = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", _("Allow")),
+            ("false", _("Disallow")),
+        ],
+        label=_("Facilitators editing their own sessions"),
+    )
+    require_session_space = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", _("Required")),
+            ("false", _("Optional")),
+        ],
+        label=_("A space for every scheduled session"),
+        help_text=_(
+            "Optional suits a meetup that only needs a time: sessions can be "
+            "placed without a room."
+        ),
+    )
+    auto_confirm_sessions = forms.BooleanField(
+        required=False,
+        label=_("Automatically confirm program items once scheduled"),
+        help_text=_(
+            "When on, a program item is confirmed the moment it is placed on "
+            "the schedule. Turn off to confirm items manually."
+        ),
+    )
+    use_session_cover_placeholders = forms.BooleanField(
+        required=False,
+        label=_("Use placeholder images for sessions without a cover image"),
+        help_text=_(
+            "When off, sessions without uploaded images are shown as text-only cards."
+        ),
+    )
+    use_participants_label = forms.BooleanField(
+        required=False,
+        label=_('Label the attendee count "Participants" instead of "Players"'),
+        help_text=_(
+            "Turn on for non-gaming events so the public page counts participants "
+            "rather than players."
+        ),
+    )
+    parley_enabled = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", _("Use sphere default")),
+            ("true", pgettext_lazy("event chat", "On")),
+            ("false", pgettext_lazy("event chat", "Off")),
+        ],
+        label=_("Event chat"),
+        help_text=_(
+            "When on, everyone with a place or on a waitlist, the hosts and the "
+            "organizers share one chat. Turning it off closes it at once."
+        ),
+    )
+
+    def full_clean(self) -> None:
+        super().full_clean()
+        # NOTE: the time field shows only for "Publish at", so its error would
+        # block a save under any other choice with nothing on screen to fix.
+        if (
+            self.is_bound
+            and self.cleaned_data.get("publication") != PublicationChoice.SCHEDULED
+        ):
+            self.errors.pop("publication_time", None)
+            self.cleaned_data["publication_time"] = None
+
+    def clean_cover_image(self) -> object:
+        image = self.cleaned_data.get("cover_image")
+        validate_uploaded_image(image)
+        return image
+
+
+class EventDeletionConfirmForm(forms.Form):
+    """Asks for the event's name before an approval to delete it counts.
+
+    Typing it is slower than a click on purpose: it makes sure the manager
+    knows which event they are voting away.
+    """
+
+    event_name = forms.CharField(
+        strip=True, error_messages={"required": _("Type the event's name to confirm.")}
+    )
+
+    def __init__(self, data: QueryDict | None = None, *, event_name: str) -> None:
+        super().__init__(data)
+        self._event_name = event_name
+        field = self.fields["event_name"]
+        field.label = gettext("Type the event's name to confirm: %(name)s") % {
+            "name": event_name
+        }
+        field.widget.attrs.update({"autocomplete": "off", "spellcheck": "false"})
+
+    def clean_event_name(self) -> str:
+        typed = str(self.cleaned_data.get("event_name") or "")
+        if typed != self._event_name.strip():
+            raise ValidationError(gettext("The name you typed does not match."))
+        return typed

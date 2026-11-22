@@ -27,10 +27,15 @@ export type Copy = Record<
   | "detailsLabel"
   | "directMessage"
   | "emptyDirect"
+  | "emptyEncounter"
+  | "emptyEvent"
   | "emptyGroup"
+  | "emptyOrganizers"
+  | "emptyParty"
   | "emptyReadOnly"
   | "emptySession"
-  | "emptySphere"
+  | "encounterHint"
+  | "encounterRoom"
   | "errorArchived"
   | "errorForbidden"
   | "errorInvalid"
@@ -43,15 +48,18 @@ export type Copy = Record<
   | "errorReactionRateLimited"
   | "errorTooMany"
   | "errorUnknown"
+  | "eventRoom"
   | "groupName"
   | "groupNeedsPeople"
   | "groupPeople"
   | "groupTitleTooLong"
+  | "historyFailed"
   | "leaveConversation"
   | "leaveConversationConfirm"
   | "leaveGroup"
   | "leaveGroupConfirm"
   | "linkCopied"
+  | "linkUnavailable"
   | "loadEarlier"
   | "loading"
   | "loadingEmoji"
@@ -60,13 +68,21 @@ export type Copy = Record<
   | "membersLabel"
   | "membersMany"
   | "membersOne"
+  | "mentionedYou"
+  | "mentionPeople"
   | "messageActions"
   | "messageLabel"
   | "messageListLabel"
   | "messageTooLong"
   | "messagingNeedsAge"
   | "messagingUnder16"
+  | "moderatedRoomsFew"
+  | "moderatedRoomsMany"
+  | "moderatedRoomsOne"
+  | "moderation"
   | "moderatorDelete"
+  | "moderatorReading"
+  | "moderatorView"
   | "muteConfirm"
   | "muted"
   | "mutedUntil"
@@ -85,6 +101,10 @@ export type Copy = Record<
   | "noEmoji"
   | "offline"
   | "onThisPage"
+  | "organizerPlaceholder"
+  | "organizersRoom"
+  | "partyHint"
+  | "partyRoom"
   | "presenceFew"
   | "presenceMany"
   | "presenceOne"
@@ -107,6 +127,7 @@ export type Copy = Record<
   | "removeLabel"
   | "removeMember"
   | "removeSelected"
+  | "reportConfirm"
   | "reported"
   | "reportMessage"
   | "requestFrom"
@@ -125,7 +146,6 @@ export type Copy = Record<
   | "sending"
   | "sendLabel"
   | "sessionRoom"
-  | "sphereRoom"
   | "title"
   | "typingMany"
   | "typingOne"
@@ -138,6 +158,7 @@ export type Copy = Record<
   | "unreadCountFew"
   | "unreadCountMany"
   | "unreadCountOne"
+  | "writeAsOrganizer"
   | "writePlaceholder"
   | "writingRestored"
   | "you",
@@ -146,13 +167,14 @@ export type Copy = Record<
 
 export type Person = { avatarUrl: string; id: string; name: string };
 
-// A direct or group conversation as its member sees it; members lists the
+// A direct, group, party, encounter or staff case conversation as its member
+// sees it; members lists the
 // people in it now, its member among them.
 export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "group";
+  kind: "direct" | "encounter" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;
@@ -166,9 +188,11 @@ export type Room = {
   canWrite: boolean;
   conversation?: ConversationInfo;
   id: string;
-  kind: "conversation" | "session" | "sphere";
-  // The programme point a session room is about.
-  sessionId: number | null;
+  kind: "conversation" | "event" | "organizers" | "session";
+  // Here only because this person moderates its sphere: they are not in it.
+  moderating: boolean;
+  // The sphere a sphere's room belongs to; a conversation has none.
+  sphere?: number;
   title: string;
 };
 export type Bootstrap = {
@@ -184,8 +208,10 @@ export type Bootstrap = {
   conversations: ConversationInfo[];
   copy: Copy;
   csrfToken: string;
+  // Where this sphere's rooms this person only moderates are read; null
+  // when there are none.
+  moderationUrl: string | null;
   rooms: Room[];
-  sphere: { id: string; name: string };
   user: { avatarUrl: string; id: string; name: string };
 };
 
@@ -197,6 +223,8 @@ export type Message = {
   createdAt: number;
   deletedAt: number | null;
   id: number;
+  // Whom the body's "<@id>" tokens mention; older messages have none.
+  mentions?: string[];
   nonce: string;
   // Each reaction's people, in the order they reacted, and the names they
   // reacted under; a Worker older than reactions sends neither.
@@ -209,9 +237,25 @@ export type Reactors = Record<string, string>;
 
 export type ReactionChange = { messageId: number; reactions: Reactions; reactors: Reactors };
 
-export type RoomActivity = { at: number; unread: boolean };
+// mentionedBy: whose mentions of this person they have yet to read; a
+// sphere's rooms keep no member list to mention from, so theirs is empty.
+export type RoomActivity = { at: number; mentionedBy: string[]; unread: boolean };
 
 export type Result<T> = { code: string; ok: false } | { ok: true; value: T };
+
+const CALL_TIMEOUT = 10_000;
+// "timeout" covers every call that got no answer: a socket that dropped
+// mid-call as much as one that stayed silent.
+const UNANSWERED = { code: "timeout", ok: false } as const;
+
+// A call's answer, or a failed result once the socket drops or goes quiet,
+// so no caller waits for good or has a rejection to catch.
+export function answerOf<T>(call: Promise<Result<T>>): Promise<Result<T>> {
+  return Promise.race([
+    call.catch(() => UNANSWERED),
+    new Promise<Result<T>>((resolve) => setTimeout(() => resolve(UNANSWERED), CALL_TIMEOUT)),
+  ]);
+}
 export type Event = { payload: unknown; type: string; v: 1 };
 
 // NOTE: the Worker closes a socket with these once its pass has expired or

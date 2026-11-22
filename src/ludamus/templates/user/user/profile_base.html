@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% load i18n tessera %}
+{% block extra_head %}
+    {% include "components/bottom-sheet-head.html" %}
+{% endblock extra_head %}
 {% block body %}
-    <div class="max-w-3xl mx-auto w-full min-w-0">
-        <div class="overflow-hidden rounded-2xl border border-border">
-            {% include "components/tab-shell-bar.html" with tabs_partial="user/user/_profile_tabs.html" active_tab=profile_active_tab %}
-            {% tab_shell_body %}
-                {% block profile_content %}
-                {% endblock profile_content %}
-            {% end_tab_shell_body %}
+    <div class="max-w-5xl mx-auto w-full min-w-0 flex flex-col lg:flex-row lg:items-start gap-6">
+        {% include "user/user/_profile_sidebar.html" %}
+        <div class="flex-1 min-w-0">
+            {% block profile_sheet %}
+            {% endblock profile_sheet %}
         </div>
     </div>
 {% endblock body %}

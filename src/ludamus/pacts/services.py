@@ -13,6 +13,7 @@ from ludamus.pacts.sphere import SphereVisibility
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.billing import PlanServiceProtocol
     from ludamus.pacts.board import BoardServiceProtocol
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.dashboard import (
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
         LandingServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_deletion import EventDeletionServiceProtocol
     from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
@@ -48,6 +50,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.listing import ListingServiceProtocol
     from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.mcp import McpAuthorizationServiceProtocol
+    from ludamus.pacts.moderation import (
+        ActiveRecipientsServiceProtocol,
+        ChatReportIntakeServiceProtocol,
+        ModerationDecisionServiceProtocol,
+        NoticeServiceProtocol,
+        StatementOfReasonsServiceProtocol,
+    )
     from ludamus.pacts.notifications import (
         NotificationsServiceProtocol,
         NotificationSubscriptionsServiceProtocol,
@@ -59,8 +68,11 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.parley import (
         ParleyConversationServiceProtocol,
+        ParleyOwnedChatProtocol,
+        ParleyRevocationServiceProtocol,
         ParleyServiceProtocol,
     )
+    from ludamus.pacts.parley_mentions import ParleyMentionMailServiceProtocol
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -96,8 +108,14 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.staff_cases import StaffCaseServiceProtocol
     from ludamus.pacts.tags import TagServiceProtocol
     from ludamus.pacts.team import SphereTeamServiceProtocol
+    from ludamus.pacts.tickets import (
+        PayoutServiceProtocol,
+        TicketPanelServiceProtocol,
+        TicketSalesServiceProtocol,
+    )
     from ludamus.pacts.timetable import (
         ConflictDetectionServiceProtocol,
         TimetableOverviewServiceProtocol,
@@ -126,6 +144,11 @@ class DatabaseConstraintError(Exception):
 class TransactionProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+
+    # NOTE: commits on exit, and refuses to open inside another transaction.
+    @staticmethod
+    def durable() -> AbstractContextManager[None]: ...
+
     @staticmethod
     def savepoint() -> AbstractContextManager[None]: ...
 
@@ -137,6 +160,16 @@ class ServicesProtocol(Protocol):
     def parley(self) -> ParleyServiceProtocol: ...
     @property
     def parley_conversations(self) -> ParleyConversationServiceProtocol: ...
+    @property
+    def staff_cases(self) -> StaffCaseServiceProtocol: ...
+    @property
+    def parley_mentions(self) -> ParleyMentionMailServiceProtocol: ...
+    @property
+    def parley_party_chats(self) -> ParleyOwnedChatProtocol: ...
+    @property
+    def parley_encounter_chats(self) -> ParleyOwnedChatProtocol: ...
+    @property
+    def parley_revocations(self) -> ParleyRevocationServiceProtocol: ...
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
@@ -183,6 +216,8 @@ class ServicesProtocol(Protocol):
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def event_deletion(self) -> EventDeletionServiceProtocol: ...
     @property
     def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
@@ -246,6 +281,16 @@ class ServicesProtocol(Protocol):
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
     @property
+    def notices(self) -> NoticeServiceProtocol: ...
+    @property
+    def chat_report_intake(self) -> ChatReportIntakeServiceProtocol: ...
+    @property
+    def statements_of_reasons(self) -> StatementOfReasonsServiceProtocol: ...
+    @property
+    def moderation_decisions(self) -> ModerationDecisionServiceProtocol: ...
+    @property
+    def active_recipients(self) -> ActiveRecipientsServiceProtocol: ...
+    @property
     def bookmarks(self) -> BookmarkServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
@@ -277,6 +322,14 @@ class ServicesProtocol(Protocol):
     def encounter_replies(self) -> EncounterReplyServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+    @property
+    def payouts(self) -> PayoutServiceProtocol: ...
+    @property
+    def ticket_sales(self) -> TicketSalesServiceProtocol: ...
+    @property
+    def ticket_panel(self) -> TicketPanelServiceProtocol: ...
+    @property
+    def plan(self) -> PlanServiceProtocol: ...
 
 
 @dataclass

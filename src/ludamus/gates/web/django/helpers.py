@@ -30,6 +30,11 @@ def read_public_event(request: RootRequest, slug: str) -> EventDTO:
     return event
 
 
+def account_email(request: HttpRequest) -> str:
+    # Where receipts and tickets go: the signed-in user's own address.
+    return request.user.email if request.user.is_authenticated else ""
+
+
 def _parse_ip(value: str) -> str | None:
     try:
         return str(ip_address(value.strip()))

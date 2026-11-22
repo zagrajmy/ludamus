@@ -41,6 +41,26 @@ const isCI = !!process.env.CI;
 const BOARD_E2E_STATE = ".wrangler/e2e-state";
 const skipWebkit = !!process.env.E2E_SKIP_WEBKIT;
 
+// CI runs the projects as three groups, each sharded on its own, so a shard's
+// share is one kind of work and the split stays even. "rest" is every project
+// the other two groups do not name: a project added below lands there rather
+// than in no group.
+const projectGroup = process.env.E2E_PROJECT_GROUP;
+const inProjectGroup = ({ name }: { name?: string }) => {
+  switch (projectGroup) {
+    case undefined:
+    case "":
+      return true;
+    case "chromium":
+    case "firefox":
+      return name === projectGroup;
+    case "rest":
+      return name !== "chromium" && name !== "firefox";
+    default:
+      throw new Error(`Unknown E2E_PROJECT_GROUP "${projectGroup}"`);
+  }
+};
+
 // Set before webServerEnv is built, so the runner and the server it starts
 // agree on whether this run measures coverage.
 process.env.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
@@ -117,6 +137,8 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /panel-tickets\.spec\.ts/,
+        /ticket-guest\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
         /guilds\.spec\.ts/,
         /panel-tracks\.spec\.ts/,
@@ -189,7 +211,7 @@ export default defineConfig({
         storageState: path.join(__dirname, ".auth-state.json"),
       },
     },
-  ],
+  ].filter(inProjectGroup),
   webServer: [
     {
       command: WEB_COMMAND,
@@ -221,7 +243,11 @@ export default defineConfig({
     },
     {
       command: "mise run test:e2e:serve:privacy",
-      url: "http://localhost:8001/",
+      // NOTE: not "/": that redirects to ludamus.localhost, which the runner
+      // follows in Node, and Node resolves *.localhost only where the system
+      // resolver does. Browsers and curl map it themselves, so the specs ran
+      // while this probe failed with ENOTFOUND.
+      url: "http://localhost:8001/healthz/",
       env: webServerEnv,
       reuseExistingServer: !isCI,
       timeout: 180 * 1000,

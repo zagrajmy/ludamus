@@ -3,6 +3,7 @@ import agents from "agents/vite";
 import * as Alchemy from "alchemy";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import { createPublicKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
@@ -61,6 +62,15 @@ const compileDecorators = Effect.promise(async () => {
   return file;
 });
 
+const DEV_MENTIONS_SECRET = "parley-dev-mentions-secret-not-for-production";
+
+function refuseDevSecret(secret: Redacted.Redacted<string>): Redacted.Redacted<string> {
+  if (Redacted.value(secret) === DEV_MENTIONS_SECRET) {
+    throw new Error("PARLEY_MENTIONS_SECRET is the committed development value");
+  }
+  return secret;
+}
+
 function refuseDevKey(pem: string): string {
   const key = createPublicKey(pem.replaceAll("\\n", "\n"));
   if (key.export({ format: "der", type: "spki" }).equals(devPublicKey)) {
@@ -97,6 +107,10 @@ export default Alchemy.Stack(
         ...testedRuntime.vars,
         ROOT_DOMAIN: Config.String("ROOT_DOMAIN"),
         PARLEY_PUBLIC_KEY: Config.String("PARLEY_PUBLIC_KEY").pipe(Config.map(refuseDevKey)),
+        PARLEY_MENTIONS_SECRET: Config.Redacted("PARLEY_MENTIONS_SECRET").pipe(
+          Config.withDefault(Redacted.make("")),
+          Config.map(refuseDevSecret),
+        ),
       },
     });
     return { url: parley.url };

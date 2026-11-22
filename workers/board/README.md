@@ -1,7 +1,7 @@
 # board
 
 The board, the shared whiteboard with dice
-([RFC 0002](../../docs/rfc/0002-board.md)), as an application of its own on
+([RFC 0003](../../docs/rfc/0003-board.md)), as an application of its own on
 its own host. One Cloudflare Worker serves the React client (`client/`,
 built by Vite into `dist/`) and the rooms. Each board is one SQLite-backed
 Durable Object, `BoardRoom`. It runs a tldraw sync room and keeps the

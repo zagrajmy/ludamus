@@ -1,6 +1,7 @@
 import {
   Agent,
   callable,
+  getAgentByName,
   getCurrentAgent,
   type AgentContext,
   type AgentNamespace,
@@ -10,16 +11,17 @@ import {
 
 import type { ParleyConversationAgent } from "./conversation-agent";
 import type { ParleyInboxAgent } from "./inbox-agent";
-import type { ParleySessionAgent } from "./session-agent";
+import type { ParleyEventAgent, ParleyOrganizersAgent, ParleySessionAgent } from "./session-agent";
 import type { ParleySphereAgent } from "./sphere-agent";
 
-import { canModerate, canRead, canWrite, parseRoom, type Room } from "./access";
+import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } from "./access";
 import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
-import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage, retentionCutoff } from "./limits";
+import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage } from "./limits";
+import { mentionsIn } from "./mentions";
+import { closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
   NOT_A_MEMBER,
-  PASS_EXPIRED,
   PASS_REVOKED,
   type Capability,
   type ConnectionState,
@@ -38,31 +40,34 @@ import {
 export type Env = {
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
+  PARLEY_MENTIONS_SECRET: string;
   PARLEY_PUBLIC_KEY: string;
   ROOT_DOMAIN: string;
   // NOTE: routeAgentRequest serves each namespace under its binding name,
   // kebab-cased, and the browser addresses rooms by class name.
   ParleyConversationAgent: AgentNamespace<ParleyConversationAgent>;
+  ParleyEventAgent: AgentNamespace<ParleyEventAgent>;
   ParleyInboxAgent: AgentNamespace<ParleyInboxAgent>;
+  ParleyOrganizersAgent: AgentNamespace<ParleyOrganizersAgent>;
   ParleySessionAgent: AgentNamespace<ParleySessionAgent>;
   ParleySphereAgent: AgentNamespace<ParleySphereAgent>;
 };
 
-function passExpired(capability: Capability): boolean {
-  return capability.exp * 1_000 <= Date.now();
+// The Durable Object behind any room, by the room Django named.
+export function roomAgent(env: Env, room: Room) {
+  const namespaces = {
+    conversation: env.ParleyConversationAgent,
+    event: env.ParleyEventAgent,
+    organizers: env.ParleyOrganizersAgent,
+    session: env.ParleySessionAgent,
+  };
+  return getAgentByName<Env, RoomAgent>(
+    namespaces[room.kind] as unknown as DurableObjectNamespace<RoomAgent>,
+    room.id.slice(room.id.indexOf(":") + 1),
+  );
 }
 
 export { NOT_A_MEMBER };
-
-export function revokes(
-  revocation: Pick<Revocation, "revokedBefore" | "sub">,
-  capability: Capability,
-) {
-  return (
-    (revocation.sub === "*" || revocation.sub === capability.sub) &&
-    capability.iat < revocation.revokedBefore
-  );
-}
 
 type MessageRow = {
   author_avatar_url: string;
@@ -76,6 +81,8 @@ type MessageRow = {
 };
 
 type ReactionRow = { emoji: string; message_id: number; user_id: string; user_name: string };
+
+type MentionRow = { message_id: number; user_id: string };
 
 const QUICK: readonly string[] = REACTIONS;
 
@@ -97,7 +104,7 @@ function reactionsOf(rows: ReactionRow[]): { reactions: Reactions; reactors: Rea
 export abstract class RoomAgent extends Agent<Env> {
   protected readonly agentContext: AgentContext;
   protected readonly workerEnv: Env;
-  protected abstract readonly roomPrefix: "conversation" | "session" | "sphere";
+  protected abstract readonly roomPrefix: RoomKind;
 
   constructor(context: AgentContext, env: Env) {
     super(context, env);
@@ -142,6 +149,11 @@ export abstract class RoomAgent extends Agent<Env> {
       created_at INTEGER NOT NULL,
       PRIMARY KEY (message_id, user_id, emoji)
     )`;
+    void this.sql`CREATE TABLE IF NOT EXISTS mentions (
+      message_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      PRIMARY KEY (message_id, user_id)
+    )`;
     void this.sql`CREATE TABLE IF NOT EXISTS rate_events (
       user_id TEXT NOT NULL,
       kind TEXT NOT NULL,
@@ -177,12 +189,7 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   closeRevoked(revocation: Pick<Revocation, "revokedBefore" | "sub">): void {
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const capability = connection.state?.capability;
-      if (capability !== undefined && revokes(revocation, capability)) {
-        connection.close(PASS_REVOKED, "Access revoked");
-      }
-    }
+    closeRevokedIn(this.getConnections<ConnectionState>(), revocation);
   }
 
   onClose(): void {
@@ -190,7 +197,7 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   @callable()
-  sendMessage(input: { body?: unknown; nonce?: unknown }): RpcResult<Message> {
+  sendMessage(input: { body?: unknown; mentions?: unknown; nonce?: unknown }): RpcResult<Message> {
     const capability = this.currentCapability();
     const writeError = this.writeError(capability);
     if (writeError !== null) return writeError;
@@ -204,27 +211,61 @@ export abstract class RoomAgent extends Agent<Env> {
       return { ok: false, code: "invalid" };
     }
     this.purgeExpiredMessages();
-    const existing = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    if (existing !== undefined)
-      return { ok: true, value: this.message(existing, this.reactionsFor(existing.id)) };
+    const existing = this.sentMessage(capability.sub, input.nonce);
+    if (existing !== null) return { ok: true, value: existing };
     if (
       !this.consumeRate(capability.sub, "message", 5, 10_000) ||
       !this.consumeRate(capability.sub, "message-minute", 30, 60_000)
     ) {
       return { ok: false, code: "rate_limited" };
     }
+    return {
+      ok: true,
+      value: this.writeMessage({
+        avatar: capability.avatar,
+        body,
+        id: capability.sub,
+        mentions: mentionsIn({
+          allowed: this.mentionable(capability),
+          asked: input.mentions,
+          body,
+        }),
+        name: capability.name,
+        nonce: input.nonce,
+      }),
+    };
+  }
+
+  // What an author already sent under this nonce, if anything.
+  protected sentMessage(authorId: string, nonce: string): Message | null {
+    const row = this
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${authorId} AND client_nonce = ${nonce}`[0];
+    return row === undefined ? null : this.messages([row])[0]!;
+  }
+
+  // The one place a message is written, whoever wrote it, and everyone told.
+  protected writeMessage(author: {
+    avatar: string;
+    body: string;
+    id: string;
+    mentions: string[];
+    name: string;
+    nonce: string;
+  }): Message {
     const now = Date.now();
     void this
       .sql`INSERT INTO messages (author_id, author_name, author_avatar_url, body, client_nonce, created_at)
-      VALUES (${capability.sub}, ${capability.name}, ${capability.avatar}, ${body}, ${input.nonce}, ${now})`;
+      VALUES (${author.id}, ${author.name}, ${author.avatar}, ${author.body}, ${author.nonce}, ${now})`;
     const row = this
-      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${capability.sub} AND client_nonce = ${input.nonce}`[0];
-    const message = this.message(row, { reactions: {}, reactors: {} });
+      .sql<MessageRow>`SELECT * FROM messages WHERE author_id = ${author.id} AND client_nonce = ${author.nonce}`[0]!;
+    for (const userId of author.mentions) {
+      void this.sql`INSERT INTO mentions (message_id, user_id) VALUES (${row.id}, ${userId})`;
+    }
+    const message = this.message(row, { mentions: author.mentions, reactions: {}, reactors: {} });
     this.emit({ type: "message.created", v: 1, payload: message });
     void this.scheduleSweep({ earliest: now, idempotent: true });
     this.afterMessage(message);
-    return { ok: true, value: message };
+    return message;
   }
 
   @callable()
@@ -258,12 +299,15 @@ export abstract class RoomAgent extends Agent<Env> {
     if (row.deleted_at === null) {
       void this
         .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = ${capability.sub}, deletion_reason = 'author' WHERE id = ${messageId}`;
-      void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
+      this.forgetAbout(messageId);
       this.emit({ type: "message.deleted", v: 1, payload: { id: messageId } });
     }
     return { ok: true, value: { id: messageId } };
   }
 
+  // TODO(#1755): a moderator's delete and mute owe the author a statement of
+  // reasons (DSA Art. 17); Django's StatementOfReasonsService sends it once
+  // the Worker reports these actions back.
   @callable()
   deleteMessage(input: { messageId?: unknown }): RpcResult<{ id: number }> {
     const capability = this.currentCapability();
@@ -278,7 +322,7 @@ export abstract class RoomAgent extends Agent<Env> {
     if (row.deleted_at === null) {
       void this
         .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = ${capability.sub}, deletion_reason = 'moderator' WHERE id = ${messageId}`;
-      void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
+      this.forgetAbout(messageId);
       this.emit({ type: "message.deleted", v: 1, payload: { id: messageId } });
     }
     return { ok: true, value: { id: messageId } };
@@ -396,17 +440,24 @@ export abstract class RoomAgent extends Agent<Env> {
 
   protected afterMessage(_message: Message): void {}
 
+  protected mentionable(_capability: Capability): ReadonlySet<string> {
+    return new Set();
+  }
+
+  protected afterDelete(_messageId: number, _mentions: string[]): void {}
+
+  private forgetAbout(messageId: number): void {
+    const mentions = this.sql<{ user_id: string }>`SELECT user_id FROM mentions
+      WHERE message_id = ${messageId}`.map((mention) => mention.user_id);
+    void this.sql`DELETE FROM reactions WHERE message_id = ${messageId}`;
+    void this.sql`DELETE FROM mentions WHERE message_id = ${messageId}`;
+    this.afterDelete(messageId, mentions);
+  }
+
   protected currentCapability(): Capability {
-    const connection = getCurrentAgent<RoomAgent>().connection as
-      | Connection<ConnectionState>
-      | undefined;
-    const state = connection?.state;
-    if (connection === undefined || !state?.admitted) throw new Error("Missing capability");
-    if (passExpired(state.capability)) {
-      connection.close(PASS_EXPIRED, "Pass expired");
-      throw new Error("Pass expired");
-    }
-    return state.capability as Capability;
+    return passOf(
+      getCurrentAgent<RoomAgent>().connection as Connection<ConnectionState> | undefined,
+    );
   }
 
   protected moderates(capability: Capability): boolean {
@@ -415,23 +466,15 @@ export abstract class RoomAgent extends Agent<Env> {
   }
 
   protected emit(event: ServerEvent): void {
-    this.emitWhere(event, () => true);
+    sendWhere(this.getConnections<ConnectionState>(), event);
   }
 
   protected emitTo(userId: string, event: ServerEvent): void {
-    this.emitWhere(event, (capability) => capability.sub === userId);
-  }
-
-  // A socket outlives the pass it opened with; once that pass expires the
-  // socket is closed rather than kept reading on it.
-  private emitWhere(event: ServerEvent, include: (capability: Capability) => boolean): void {
-    const message = JSON.stringify(event);
-    for (const connection of this.getConnections<ConnectionState>()) {
-      const state = connection.state;
-      if (!state?.admitted || !include(state.capability)) continue;
-      if (passExpired(state.capability)) connection.close(PASS_EXPIRED, "Pass expired");
-      else connection.send(message);
-    }
+    sendWhere(
+      this.getConnections<ConnectionState>(),
+      event,
+      (capability) => capability.sub === userId,
+    );
   }
 
   protected writeError(capability: Capability): Extract<RpcResult<never>, { ok: false }> | null {
@@ -472,6 +515,23 @@ export abstract class RoomAgent extends Agent<Env> {
     return true;
   }
 
+  // Not @callable: staff, acting on a report from a room nobody moderates,
+  // delete over the Worker's own fetch. Answers whether the room has it.
+  deleteAsStaff(id: number): boolean {
+    this.purgeExpiredMessages();
+    const row = this.sql<{
+      deleted_at: number | null;
+    }>`SELECT deleted_at FROM messages WHERE id = ${id}`[0];
+    if (row === undefined) return false;
+    if (row.deleted_at === null) {
+      void this
+        .sql`UPDATE messages SET deleted_at = ${Date.now()}, deleted_by = 'staff', deletion_reason = 'staff' WHERE id = ${id}`;
+      this.forgetAbout(id);
+      this.emit({ type: "message.deleted", v: 1, payload: { id } });
+    }
+    return true;
+  }
+
   // Not @callable: Django asks, over the Worker's own fetch, to keep a copy
   // of a reported message. A deleted one keeps its words for that.
   readMessage(id: number): Reported | null {
@@ -490,11 +550,19 @@ export abstract class RoomAgent extends Agent<Env> {
   private messages(rows: MessageRow[]): Message[] {
     if (rows.length === 0) return [];
     const ids = rows.map((row) => row.id);
+    const [first, last] = [Math.min(...ids), Math.max(...ids)];
     const held = this.sql<ReactionRow>`SELECT emoji, message_id, user_id, user_name FROM reactions
-      WHERE message_id BETWEEN ${Math.min(...ids)} AND ${Math.max(...ids)}
+      WHERE message_id BETWEEN ${first} AND ${last}
       ORDER BY created_at, rowid`;
+    const mentioned = this.sql<MentionRow>`SELECT message_id, user_id FROM mentions
+      WHERE message_id BETWEEN ${first} AND ${last}`;
     return rows.map((row) =>
-      this.message(row, reactionsOf(held.filter((reaction) => reaction.message_id === row.id))),
+      this.message(row, {
+        mentions: mentioned
+          .filter((mention) => mention.message_id === row.id)
+          .map((mention) => mention.user_id),
+        ...reactionsOf(held.filter((reaction) => reaction.message_id === row.id)),
+      }),
     );
   }
 
@@ -505,13 +573,19 @@ export abstract class RoomAgent extends Agent<Env> {
     );
   }
 
+  protected messageLifetime(): number {
+    return MESSAGE_LIFETIME_MS;
+  }
+
   // The one place a message is deleted for good. Every read purges first,
   // so a late alarm never lets a message outlive its year.
   // NOTE: a table keyed by message id deletes its rows here, before the
   // messages that name them.
   protected purgeExpiredMessages(): void {
-    const cutoff = retentionCutoff();
+    const cutoff = Date.now() - this.messageLifetime();
     void this.sql`DELETE FROM reactions
+      WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
+    void this.sql`DELETE FROM mentions
       WHERE message_id IN (SELECT id FROM messages WHERE created_at <= ${cutoff})`;
     void this.sql`DELETE FROM messages WHERE created_at <= ${cutoff}`;
   }
@@ -532,7 +606,7 @@ export abstract class RoomAgent extends Agent<Env> {
     }>`SELECT created_at FROM messages ORDER BY created_at LIMIT 1`[0];
     if (oldest === undefined) return;
     await this.schedule(
-      new Date(Math.max(oldest.created_at + MESSAGE_LIFETIME_MS, options.earliest)),
+      new Date(Math.max(oldest.created_at + this.messageLifetime(), options.earliest)),
       "sweepExpiredMessages",
       undefined,
       { idempotent: options.idempotent },
@@ -541,7 +615,11 @@ export abstract class RoomAgent extends Agent<Env> {
 
   private message(
     row: MessageRow,
-    { reactions, reactors }: { reactions: Reactions; reactors: Reactors },
+    {
+      mentions,
+      reactions,
+      reactors,
+    }: { mentions: string[]; reactions: Reactions; reactors: Reactors },
   ): Message {
     return {
       authorAvatarUrl: row.author_avatar_url,
@@ -551,6 +629,7 @@ export abstract class RoomAgent extends Agent<Env> {
       createdAt: row.created_at,
       deletedAt: row.deleted_at,
       id: row.id,
+      mentions,
       nonce: row.client_nonce,
       reactions,
       reactors,

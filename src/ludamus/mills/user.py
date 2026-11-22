@@ -212,6 +212,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     def _set_age_band(self, user_slug: str, age_band: AgeBand) -> bool:
         if (previous := self._users.set_age_band(user_slug, age_band)) != age_band:
             self._users.update(user_slug, UserData(privacy_revision=uuid4()))
+            self._chat.age_changed(user_id=self._users.read(user_slug).pk)
         # A subscription made under one age range is no consent under another:
         # only an account that was and stays 16+ keeps its subscriptions.
         if previous.allows_optional_features and age_band.allows_optional_features:
@@ -343,9 +344,9 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         )
 
     def _request(self, user: UserDTO, *, now: datetime) -> VerificationRequestOutcome:
-        target = user.pending_email or ("" if user.email_verified else user.email)
-        if not target:
+        if not user.needs_email_verification:
             return VerificationRequestOutcome.NOT_NEEDED
+        target = user.pending_email or user.email
         with self._transaction.atomic():
             # The throttle is claimed, not read: `user` is a snapshot the sweep
             # may have taken before a resend stamped the row, so checking it

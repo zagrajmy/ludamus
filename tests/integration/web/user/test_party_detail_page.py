@@ -49,6 +49,7 @@ def _context(party_dto, **overrides):
         "companion_form": ANY if party_dto.is_active_member else None,
         "invite_token": "",
         "history": [],
+        "enrolling_locked": False,
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -112,6 +113,34 @@ class TestPartyDetailPageView:
                 "Invite a member",
             ],
             not_contains=["Rename party", "Delete party", "Regenerate link"],
+        )
+
+    def test_get_leader_sees_withdraw_for_invited_member(
+        self, authenticated_client, active_user
+    ):
+        invitee = UserFactory(username="invitee")
+        party = sponsor_user(leader=active_user, member=active_user)
+        PartyMembership.objects.create(
+            party=party,
+            member=invitee,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.INVITED,
+        )
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(active_user, party), _member_dto(invitee, party)],
+                ),
+                invite_token=party.invite_token,
+            ),
+            template_name=TEMPLATE,
         )
 
     def test_get_foreign_party_is_not_found(self, authenticated_client):
@@ -256,8 +285,7 @@ class TestPartyDetailPageView:
         [detail_query] = [
             query["sql"]
             for query in expanded_queries
-            if 'FROM "party"' in query["sql"]
-            and 'JOIN "party_membership"' in query["sql"]
+            if 'FROM "party"' in query["sql"] and 'JOIN "user"' in query["sql"]
         ]
         assert f'"party"."id" = {party.pk}' in detail_query
 
@@ -295,6 +323,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
+                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
@@ -329,6 +358,7 @@ class TestPartyDetailSessionHistory:
             context_data=_context(
                 _party_dto(party, active_user, [_member_dto(active_user, party)]),
                 invite_token=party.invite_token,
+                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
@@ -364,6 +394,7 @@ class TestPartyDetailSessionHistory:
             context_data=_context(
                 _party_dto(party, active_user, [_member_dto(active_user, party)]),
                 invite_token=party.invite_token,
+                enrolling_locked=True,
                 history=[
                     _history_group(response, session.event),
                     _history_group(response, other_event, index=1),
@@ -397,6 +428,7 @@ class TestPartyDetailSessionHistory:
                 context_data=_context(
                     _party_dto(party, active_user, [_member_dto(active_user, party)]),
                     invite_token=party.invite_token,
+                    enrolling_locked=True,
                     history=[_history_group(response, session.event)],
                 ),
                 template_name=TEMPLATE,
@@ -487,6 +519,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
+                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,

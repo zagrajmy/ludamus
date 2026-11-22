@@ -6,6 +6,7 @@
 // history entries or server round trips.
 
 import { wireComboboxes } from "./combobox";
+import { focusableIn, holdFocus, setModal } from "./sheet-dialog";
 import { normalizeText } from "./text";
 import {
   flagParam,
@@ -253,18 +254,21 @@ const initSessionFilters = (): void => {
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
   // search is where it stays findable.
-  const cardHaystacks = new Map<HTMLElement, string>();
-  for (const card of sessionCards) {
-    const descEl = card.querySelector("[data-session-description]");
-    const description = descEl ? (descEl.textContent ?? "") : "";
-    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
-    cardHaystacks.set(
-      card,
-      normalizeText(
+  // Per element, so a card swapped in after an edit is read afresh.
+  const cardHaystacks = new WeakMap<HTMLElement, string>();
+  const haystackOf = (card: HTMLElement): string => {
+    let haystack = cardHaystacks.get(card);
+    if (haystack === undefined) {
+      const descEl = card.querySelector("[data-session-description]");
+      const description = descEl ? (descEl.textContent ?? "") : "";
+      const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
+      haystack = normalizeText(
         `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
-      ),
-    );
-  }
+      );
+      cardHaystacks.set(card, haystack);
+    }
+    return haystack;
+  };
 
   /** Distinct values of one card dataset key, keeping first-seen labels. */
   const cardValues = (key: "day" | "host" | "hour", labelKey?: "dayLabel"): Map<string, string> => {
@@ -603,11 +607,11 @@ const initSessionFilters = (): void => {
       .map((filter) => ({ filter, values: filter.values() }))
       .filter(({ values }) => values.length > 0);
 
-    for (const card of sessionCards) {
+    for (const card of document.querySelectorAll<HTMLElement>(".session")) {
       let show = true;
 
       if (searchTokens.length > 0) {
-        const haystack = cardHaystacks.get(card) ?? "";
+        const haystack = haystackOf(card);
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
       for (const f of activeFlags) show &&= f.matches(card);
@@ -773,47 +777,19 @@ const initSessionFilters = (): void => {
   // The same element is a dropdown at most widths and a modal dialog on a
   // phone, and only the second one may say so: announcing a dialog that the
   // page is not covered by, or holding focus inside a popover the user can
-  // click past, both mislead. No media query reaches ARIA, so the semantics
-  // go on and come off with the breakpoint the stylesheet switches on.
+  // click past, both mislead.
   const sheetWidth = globalThis.matchMedia("(max-width: 30rem)");
-  const FOCUSABLE =
-    "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])," +
-    ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
   const isPanelOpen = (): boolean => filterPanel.classList.contains("is-open");
 
-  // offsetParent is null for a display:none subtree, which is how the hidden
-  // filter groups and the wide-width chrome drop out of the tab order here.
-  const focusablePanelItems = (): HTMLElement[] =>
-    [...filterPanel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-      (el) => el.offsetParent !== null,
-    );
-
   const syncDialogSemantics = (): void => {
-    // aria-modal is the only state this writes: the stylesheet keys the scroll
-    // lock off it too, so "is a dialog" and "holds the page still" cannot drift
-    // apart the way a second flag would let them.
-    if (sheetWidth.matches && isPanelOpen()) {
-      filterPanel.setAttribute("role", "dialog");
-      filterPanel.setAttribute("aria-modal", "true");
-      filterPanel.setAttribute("aria-labelledby", "filter-sheet-title");
-      return;
-    }
-    filterPanel.removeAttribute("role");
-    filterPanel.removeAttribute("aria-modal");
-    filterPanel.removeAttribute("aria-labelledby");
+    const modal = sheetWidth.matches && isPanelOpen();
+    setModal(filterPanel, modal);
+    if (modal) filterPanel.setAttribute("aria-labelledby", "filter-sheet-title");
+    else filterPanel.removeAttribute("aria-labelledby");
   };
 
-  // A dialog that leaves focus behind it is a dialog only to the eye, so Tab
-  // wraps at the ends rather than walking out into the schedule underneath.
-  filterPanel.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key !== "Tab" || filterPanel.getAttribute("aria-modal") !== "true") return;
-    const items = focusablePanelItems();
-    const edge = event.shiftKey ? items.at(0) : items.at(-1);
-    if (!edge || document.activeElement !== edge) return;
-    event.preventDefault();
-    (event.shiftKey ? items.at(-1) : items.at(0))?.focus();
-  });
+  holdFocus(filterPanel);
 
   sheetWidth.addEventListener("change", syncDialogSemantics, {
     signal: documentListeners.signal,
@@ -855,7 +831,7 @@ const initSessionFilters = (): void => {
     syncDialogSemantics();
     // Only the dialog takes focus: the dropdown leaves it on the trigger, so
     // Tab from there walks into the panel the way it already reads.
-    if (sheetWidth.matches) focusablePanelItems().at(0)?.focus();
+    if (sheetWidth.matches) focusableIn(filterPanel).at(0)?.focus();
   };
 
   const closePanel = (): void => {
@@ -939,6 +915,11 @@ const initSessionFilters = (): void => {
     },
     { signal: documentListeners.signal },
   );
+
+  // A card swapped in on its own, as an edit refreshes it, arrives unfiltered.
+  document.body.addEventListener("htmx:afterSettle", filterSessions, {
+    signal: documentListeners.signal,
+  });
 
   // NOTE: Firefox can restore control values before boot; the cards still need filtering.
   applyUrlState();

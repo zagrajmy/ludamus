@@ -6,6 +6,7 @@ from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django import staging_inbox
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.board.urls import urlpatterns as board_urls
+from ludamus.gates.web.django.command_menu import command_menu_entries
 from ludamus.gates.web.django.design import DesignPageView
 from ludamus.gates.web.django.encounter.urls import (
     authenticated_urlpatterns as encounter_authenticated,
@@ -29,6 +30,8 @@ from ludamus.gates.web.django.landing import (
     landing_page,
     legacy_feed_redirect,
 )
+from ludamus.gates.web.django.staff.mail import StaffMailHookView
+from ludamus.gates.web.django.staff.urls import urlpatterns as staff_urls
 from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.whiteboard.urls import (
     authenticated_urlpatterns as whiteboard_authenticated,
@@ -100,6 +103,7 @@ urlpatterns = [
     path("events/", legacy_feed_redirect),
     path("timeline/", legacy_feed_redirect),
     path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
+    path("command-menu/", command_menu_entries, name="command-menu-entries"),
     path(
         "dashboard/spheres/<int:pk>/do/subscribe",
         dashboard_gate.SphereSubscribeActionView.as_view(),
@@ -172,6 +176,8 @@ urlpatterns = [
         EncounterCalendarReplyView.as_view(),
         name="calendar-replies",
     ),
+    path("hooks/staff-mail", StaffMailHookView.as_view(), name="staff-mail"),
+    path("staff/", include((staff_urls, "staff"), namespace="staff")),
     path(
         "",
         include(

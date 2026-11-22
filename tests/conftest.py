@@ -1,4 +1,5 @@
 import os
+import zlib
 import zoneinfo
 
 import pytest
@@ -36,7 +37,21 @@ def pytest_configure(config):
     )
 
 
-def pytest_collection_modifyitems(items):
+def _keep_shard(config, items, shard):
+    # By file, so a module's fixtures and its tests stay in one shard. Every
+    # file hashes into exactly one of the shards, so together they run all.
+    index, total = (int(part) for part in shard.split("/"))
+    kept, dropped = [], []
+    for item in items:
+        mine = zlib.crc32(item.nodeid.partition("::")[0].encode()) % total
+        (kept if mine == index - 1 else dropped).append(item)
+    config.hook.pytest_deselected(items=dropped)
+    items[:] = kept
+
+
+def pytest_collection_modifyitems(config, items):
+    if shard := os.environ.get("PYTEST_SHARD"):
+        _keep_shard(config, items, shard)
     if connection.vendor == "postgresql":
         return
     skip_postgres = pytest.mark.skip(

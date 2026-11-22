@@ -39,6 +39,12 @@ def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
 def _copy() -> dict[str, str]:
     return {
         **_plural_forms(
+            "moderatedRooms",
+            lambda count: ngettext(
+                "%(count)s chat you moderate", "%(count)s chats you moderate", count
+            ),
+        ),
+        **_plural_forms(
             "presence",
             lambda count: ngettext(
                 "%(count)s person here", "%(count)s people here", count
@@ -58,8 +64,15 @@ def _copy() -> dict[str, str]:
         "closeLabel": _("Close chat"),
         "loading": _("Gathering conversations…"),
         "offline": _("Connection lost. Reconnecting…"),
-        "emptySphere": _(
+        "emptyEvent": _(
             "Quiet in here. Say hello before someone starts a rules debate."
+        ),
+        "emptyOrganizers": _(
+            "Just the organizers in here. Plan away, nobody else can read it."
+        ),
+        "emptyParty": _("Your party's own chat. Say hello to everyone."),
+        "emptyEncounter": _(
+            "A chat for everyone signed up for this encounter. Say hello to everyone."
         ),
         "emptySession": _("You found the table first. Leave a note for the others."),
         "readOnly": _("You can read this conversation, but not write in it."),
@@ -75,6 +88,7 @@ def _copy() -> dict[str, str]:
         "roomsLabel": _("Conversations"),
         "backLabel": _("Back to conversations"),
         "loadEarlier": _("Load earlier messages"),
+        "historyFailed": _("Could not load messages."),
         "retentionNote": _("Messages disappear a year after they are written."),
         "deletedMessage": _("Message deleted"),
         "retry": _("Try again"),
@@ -92,7 +106,17 @@ def _copy() -> dict[str, str]:
         "messageActions": _("Message actions"),
         "linkCopied": _("Link copied."),
         "sessionRoom": _("Programme point"),
-        "sphereRoom": _("Common room"),
+        "eventRoom": _("Event chat"),
+        "organizersRoom": _("Organizers"),
+        "partyRoom": _("Party"),
+        "partyHint": _(
+            "Everyone in your party is here. To leave this chat, leave the party."
+        ),
+        "encounterRoom": _("Encounter"),
+        "encounterHint": _(
+            "The organizer and everyone signed up are here. To leave this chat,"
+            " cancel your signup."
+        ),
         "moderatorDelete": _("Delete as moderator"),
         "muteOneHour": _("Mute for 1 hour"),
         "muteOneDay": _("Mute for 24 hours"),
@@ -103,7 +127,11 @@ def _copy() -> dict[str, str]:
         "unread": _("Unread"),
         "copyLink": _("Copy message link"),
         "reportMessage": _("Report message"),
-        "reported": _("Message reported."),
+        "reported": _("Message reported. Zagrajmy staff will write to you."),
+        "reportConfirm": _(
+            "Report this message to Zagrajmy staff? You confirm you are reporting"
+            " it in good faith and that the report is accurate."
+        ),
         "cancelLabel": _("Cancel"),
         "mutedUntil": _("Your writing access is muted until %(time)s."),
         "typingOne": _("%(name)s is typing…"),
@@ -168,6 +196,15 @@ def _conversation_copy() -> dict[str, str]:
         "requests": _("Requests"),
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
+        "moderation": _("Moderation"),
+        "linkUnavailable": _(
+            "That chat can't be opened here. It may have closed, or your access to"
+            " it has changed."
+        ),
+        "moderatorView": _("Moderator view"),
+        "moderatorReading": _("You are reading this chat as a moderator."),
+        "writeAsOrganizer": _("Write as organizer"),
+        "organizerPlaceholder": _("Write to everyone in this chat…"),
         "messagingNeedsAge": _(
             "To message people directly, confirm you're 16 or older."
         ),
@@ -194,6 +231,8 @@ def _conversation_copy() -> dict[str, str]:
         "detailsLabel": _("Conversation details"),
         "backToConversation": _("Back to the conversation"),
         "membersLabel": _("People"),
+        "mentionedYou": _("Mentioned you"),
+        "mentionPeople": _("People in this conversation"),
         "you": _("(you)"),
         "addPeople": _("Add people"),
         "memberAdded": _("%(name)s added."),
@@ -240,13 +279,16 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "authentication_required"}, status=401)
 
     payload = request.services.parley.bootstrap(
-        sphere_id=request.context.current_sphere_id,
         user_id=request.context.current_user_id,
+        sphere_id=request.context.current_sphere_id,
         now=datetime.now(tz=UTC),
     )
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
+    response_data["moderationUrl"] = (
+        reverse("multiverse:panel:chats") if payload.has_moderated_rooms else None
+    )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
     response_data["ageUrl"] = reverse("user:profile-privacy")
@@ -258,9 +300,11 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
 def report(request: RootHttpRequest) -> JsonResponse:
     if request.context.current_user_id is None:
         return JsonResponse({"error": "authentication_required"}, status=401)
+    # DSA Art. 16(2)(d): the reporter vouches for the report.
+    if request.POST.get("good_faith") != "1":
+        return JsonResponse({"error": "invalid_report"}, status=422)
     try:
         data = ParleyReportData(
-            sphere_id=request.context.current_sphere_id,
             user_id=request.context.current_user_id,
             room_id=request.POST["room_id"],
             message_id=int(request.POST["message_id"]),
@@ -273,12 +317,14 @@ def report(request: RootHttpRequest) -> JsonResponse:
     )
     if not created:
         return JsonResponse({"error": "invalid_report"}, status=422)
+    request.services.chat_report_intake.take(
+        reporter_id=data.user_id, room_id=data.room_id, message_id=data.message_id
+    )
     logger.info(
         "Parley message reported",
         extra={
             "message_id": data.message_id,
             "room_id": data.room_id,
-            "sphere_id": data.sphere_id,
             "user_id": data.user_id,
         },
     )

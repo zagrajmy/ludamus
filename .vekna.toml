@@ -1,16 +1,12 @@
-[rituals]
-modules = ["cabinet.rituals"]
-
-# Only what differs from cabinet's defaults; everything else follows the tome,
-# so a cabinet bump is not silently frozen out by a copied value.
-[cabinet]
-remote = "https-origin"
-sign_commits = false
-review_skill = ".claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
-coverage = "mise run diff-cover"
-
-# Job names in .github/workflows/ci.yml, matched by prefix. `test` covers
-# test-postgres/-unit/-e2e and the aggregator; `tingle` is left out on
-# purpose — it is continue-on-error and never turns the board red.
-[cabinet.ci]
-gate_checks = ["checks", "frontend-analysis", "test"]
+# NOTE: a pooled worktree starts without the ignored local files (env files,
+# `.local/`). Those matching `.worktreeinclude` are copied once from the main
+# checkout, and an existing copy is kept.
+[circle]
+prepare = '''
+set -e
+main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+git -C "$main" ls-files --others --ignored --directory --exclude-from=.worktreeinclude |
+  while read -r path; do
+    [ -e "$path" ] || { mkdir -p "$(dirname "$path")" && cp -r "$main/$path" "$path"; }
+  done
+'''

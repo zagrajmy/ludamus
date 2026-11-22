@@ -7,7 +7,7 @@ import {
 } from "tldraw";
 
 // TODO: images upload to the Worker's R2 bucket once phase 1 step 4 lands
-// (docs/rfc/0002-board.md, "Assets"). Until then the board refuses files at
+// (docs/rfc/0003-board.md, "Assets"). Until then the board refuses files at
 // the door, so nothing is inlined into the shared document as base64.
 
 class UploadsUnavailable extends Error {

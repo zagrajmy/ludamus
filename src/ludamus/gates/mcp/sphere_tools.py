@@ -25,6 +25,13 @@ class _UpdateSphereSettingsInput(BaseModel):
         default=None,
         description="Whether facilitators may edit their accepted sessions",
     )
+    require_session_space: bool | None = Field(
+        default=None,
+        description=(
+            "Whether every scheduled session needs a space; false lets events "
+            "place sessions with only a time (meetups). Events can override it"
+        ),
+    )
     event_cover_buttons_at_bottom: bool | None = Field(
         default=None,
         description=(
@@ -43,6 +50,28 @@ class _UpdateSphereSettingsInput(BaseModel):
     encounters_policy: EncountersPolicy | None = Field(
         default=None, description="Who may organize encounters in the sphere"
     )
+    parley_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere has chat at all: its organizers' room, its "
+            "programme points' rooms and its events' chats. Turning it off "
+            "closes them at once."
+        ),
+    )
+    parley_organizers_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere's team has a room of its own. Turning it off "
+            "closes it at once."
+        ),
+    )
+    parley_events_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the sphere's events have a chat unless an event says "
+            "otherwise (update_event parley_enabled)."
+        ),
+    )
     confirmed_encounters_disable: bool = Field(
         default=False,
         description=(
@@ -56,6 +85,8 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["allow_facilitator_session_edit"] = (
                 self.allow_facilitator_session_edit
             )
+        if self.require_session_space is not None:
+            changes["require_session_space"] = self.require_session_space
         if self.event_cover_buttons_at_bottom is not None:
             changes["event_cover_buttons_at_bottom"] = (
                 self.event_cover_buttons_at_bottom
@@ -64,6 +95,12 @@ class _UpdateSphereSettingsInput(BaseModel):
             changes["visibility"] = self.visibility
         if self.encounters_policy is not None:
             changes["encounters_policy"] = self.encounters_policy
+        if self.parley_enabled is not None:
+            changes["parley_enabled"] = self.parley_enabled
+        if self.parley_organizers_enabled is not None:
+            changes["parley_organizers_enabled"] = self.parley_organizers_enabled
+        if self.parley_events_enabled is not None:
+            changes["parley_events_enabled"] = self.parley_events_enabled
         return changes
 
 

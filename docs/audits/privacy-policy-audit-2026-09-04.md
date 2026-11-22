@@ -282,6 +282,9 @@ Decided: the policy and terms name `radek@zagrajmy.net`, not a personal
 domain. Moving to `support@zagrajmy.net` waits on confirming that address is
 set up in Resend; `SUPPORT_EMAIL` should then point at the same inbox.
 
+Done 2026-11-15: `support@zagrajmy.net` reaches both maintainers. The policy,
+the terms and `SUPPORT_EMAIL` all name it.
+
 ## What holds up
 
 Checked, and fine. Worth knowing before anyone "improves" it:

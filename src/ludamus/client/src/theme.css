@@ -150,25 +150,32 @@
   --color-secondary-hover: #0d947e;
   --color-secondary-light: #f0fdfa;
 
-  --color-success: #2cb65b;
-  --color-success-light: #dcfce7;
-  --color-success-bg: #f0fdf4;
-  --color-success-text: #166534;
+  /* Status colours are a triad on the coral primary's OKLCH hue (33°):
+     danger is the coral itself, deepened so an error never reads as a call
+     to action; success is the triad's green (153°); warning is ochre, the
+     coral's warm neighbour (73°). Info stays warm ink, so it reads as the
+     app speaking rather than as one more alarm. Each `*-text` clears AA on
+     its `*-bg`, each base clears 3:1 there for icons, and the danger and
+     success bases also clear AA as text on the page surfaces. */
+  --color-success: #387e51;
+  --color-success-light: #c3e5cb;
+  --color-success-bg: #ecfaf0;
+  --color-success-text: #225032;
 
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
-  --color-warning-bg: #fffbeb;
-  --color-warning-text: #92400e;
+  --color-warning: #be7e0b;
+  --color-warning-light: #f8d2a3;
+  --color-warning-bg: #fff4e3;
+  --color-warning-text: #6c470d;
 
-  --color-danger: #ef4444;
-  --color-danger-light: #fee2e2;
-  --color-danger-bg: #fef2f2;
-  --color-danger-text: #991b1b;
+  --color-danger: #b9381f;
+  --color-danger-light: #fbcdc2;
+  --color-danger-bg: #fff2ef;
+  --color-danger-text: #792a1a;
 
-  --color-info: #3b82f6;
-  --color-info-light: #dbeafe;
-  --color-info-bg: #eff6ff;
-  --color-info-text: #1e40af;
+  --color-info: #706052;
+  --color-info-light: #e2d7ce;
+  --color-info-bg: #faf5f0;
+  --color-info-text: #473a30;
 }
 
 @utility text-box-trim-start {
@@ -207,21 +214,27 @@
   --color-secondary: #2dd4b3;
   --color-secondary-hover: #5fe9cb;
   --color-secondary-light: #134e45;
-  --color-success: #4ade80;
-  --color-success-light: #14532d;
-  --color-success-bg: #052e16a2;
-  --color-success-text: #86efac;
-  --color-warning: #fbbf24;
-  --color-warning-light: #44380f;
-  --color-warning-bg: #292211ad;
-  --color-warning-text: #fbbf24;
-  --color-danger-light: #450a0a;
-  --color-danger-bg: #3c0d0de1;
-  --color-danger-text: #fca5a5;
-  --color-info: #60a5fa;
-  --color-info-light: #1e3a5f;
-  --color-info-bg: #0c1e36ad;
-  --color-info-text: #93c5fd;
+  /* Opaque grounds: a see-through tint over a blur changes contrast with
+     whatever scrolls behind a toast. Text is a pale tint and the base stays
+     saturated, so the icon and the words don't melt into one colour. */
+  --color-success: #71c78c;
+  --color-success-light: #223e2b;
+  --color-success-bg: #142519;
+  --color-success-text: #bfe7c9;
+  --color-warning: #f2af50;
+  --color-warning-light: #4b3413;
+  --color-warning-bg: #2d1f0b;
+  --color-warning-text: #f8dcba;
+  /* NOTE: also the ground of white badge counts, so it can't go paler
+     without failing those; this is the balance point. */
+  --color-danger: #ea6d54;
+  --color-danger-light: #512a22;
+  --color-danger-bg: #311914;
+  --color-danger-text: #fad0c6;
+  --color-info: #c0ad9e;
+  --color-info-light: #3e3833;
+  --color-info-bg: #25211e;
+  --color-info-text: #e8e0d9;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }

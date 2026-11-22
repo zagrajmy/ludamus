@@ -13,7 +13,12 @@ from ludamus.gates.mcp.inputs import (
     NonBlankName,
 )
 from ludamus.gates.mcp.map_tools import map_tools
-from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
+from ludamus.gates.mcp.organizer_context import (
+    actor_sphere,
+    event_json,
+    require_event,
+    token_event,
+)
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.gates.mcp.sphere_tools import sphere_tools
@@ -112,8 +117,10 @@ class OrganizerCurrentEventTool(Tool[EmptyInput]):
 
     @staticmethod
     def handle(call: ToolCall[EmptyInput]) -> str:
-        return token_event(services=call.services, actor=call.actor).model_dump_json(
-            indent=2
+        return event_json(
+            services=call.services,
+            actor=call.actor,
+            event=token_event(services=call.services, actor=call.actor),
         )
 
 
@@ -141,9 +148,9 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
 class OrganizerListTimeSlotsTool(Tool[EventIdInput]):
     name = "list_time_slots"
     description = (
-        "List an event's time slots: the day windows sessions can be placed in. "
-        "Returns each slot's pk and aware start/end times. Read-only; works for "
-        "any event in this token's sphere."
+        "List an event's time slots: the windows proposers pick from when they "
+        "say when they could run a session. Returns each slot's pk and aware "
+        "start/end times. Read-only; works for any event in this token's sphere."
     )
     scope = ToolScope.ORGANIZER
     input_model = EventIdInput
@@ -321,8 +328,10 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
 class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = (
-        "Create a time slot (a day window) in this token's event. The window "
-        "must start before it ends and not overlap an existing slot; a "
+        "Create a time slot in this token's event: a window proposers can pick "
+        "when they say when they could run a session. It does not place "
+        "sessions. The window must start before it ends and not overlap an "
+        "existing slot; a "
         "rejection names which rule failed. A window past the event dates "
         "widens them, which the result reports as event_dates_widened."
     )
@@ -664,8 +673,12 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
 class _AssignSessionInput(AwareDatetimeRange):
     session_id: int = Field(description="Session pk (see list_sessions)")
-    space_id: int = Field(
-        description="Leaf space pk (see list_spaces); must belong to this event"
+    space_id: int | None = Field(
+        default=None,
+        description=(
+            "Leaf space pk (see list_spaces); must belong to this event. Omit "
+            "only where the event does not require a space"
+        ),
     )
 
 

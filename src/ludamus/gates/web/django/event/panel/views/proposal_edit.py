@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -31,6 +33,7 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_descriptors,
     personal_fields_form,
 )
+from ludamus.gates.web.django.event.propose import availability_descriptors
 from ludamus.gates.web.django.forms import (
     CUSTOM_DURATION,
     SessionEditForm,
@@ -38,6 +41,7 @@ from ludamus.gates.web.django.forms import (
 )
 from ludamus.gates.web.django.redirects import RedirectError
 from ludamus.gates.web.django.request_ids import parse_id, parse_ids
+from ludamus.pacts.availability import AvailabilityDTO, offered_times, pick_offered
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueData
@@ -79,7 +83,7 @@ def _facilitator_prefix(facilitator_id: int) -> str:
 
 
 class _HasPk(Protocol):
-    # The three checkbox pickers hold unrelated DTOs; all the shared code needs
+    # The checkbox pickers hold unrelated DTOs; all the shared code needs
     # from them is a pk.
     pk: int
 
@@ -293,6 +297,27 @@ class ProposalFormPageView(_ProposalFormBase):
         submitted = set(parse_ids(self.request.POST.getlist(f"{singular}_ids")))
         return list(submitted & {item.pk for item in valid})
 
+    @cached_property
+    def _offered_times(self) -> list[AvailabilityDTO]:
+        event = self.current_event
+        return offered_times(
+            start=event.start_time,
+            end=event.end_time,
+            slots=self.request.services.panel_time_slots.list_for_event(event.pk),
+            tz=get_current_timezone(),
+        )
+
+    def _collect_availability(self) -> list[AvailabilityDTO] | None:
+        # Same sentinel contract as the id pickers: absent means "the picker
+        # was not on the page", present-but-empty means "cleared". Times the
+        # event does not offer (another event's slot, a part its hours do not
+        # reach) are dropped rather than written.
+        if self.request.POST.get("availability_submitted") != "1":
+            return None
+        return pick_offered(
+            self.request.POST.getlist("availability"), self._offered_times
+        )
+
     def _picker_context(
         self,
         context: PanelContext,
@@ -387,12 +412,10 @@ class ProposalFormPageView(_ProposalFormBase):
             all_items=page.tracks,
             stored=page.assigned.track_ids,
         )
-        self._picker_context(
-            context,
-            plural="time_slots",
-            singular="time_slot",
-            all_items=page.time_slots,
-            stored=page.assigned.time_slot_ids,
+        submitted = self._collect_availability()
+        context["availability_options"] = availability_descriptors(
+            self._offered_times,
+            submitted if submitted is not None else page.assigned.availability,
         )
         context.update(self._field_context(page.fields, form))
         context["facilitator_personal_data"] = personal_data or []
@@ -462,7 +485,7 @@ class ProposalFormPageView(_ProposalFormBase):
         requirements = page.fields.requirements
         title = form.cleaned_data["title"]
         session_data = SessionData(
-            category_id=int(form.cleaned_data["category_id"]),
+            category_id=parse_id(form.cleaned_data.get("category_id")),
             event_id=event_id,
             contact_email=form.cleaned_data.get("contact_email") or "",
             description=form.cleaned_data.get("description") or "",
@@ -492,10 +515,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     plural="tracks", singular="track", valid=page.tracks
                 )
                 or [],
-                time_slot_ids=self._collect_ids(
-                    plural="time_slots", singular="time_slot", valid=page.time_slots
-                )
-                or [],
+                availability=self._collect_availability() or [],
             ),
         )
 
@@ -566,9 +586,7 @@ class ProposalFormPageView(_ProposalFormBase):
                 track_ids=self._collect_ids(
                     plural="tracks", singular="track", valid=page.tracks
                 ),
-                time_slot_ids=self._collect_ids(
-                    plural="time_slots", singular="time_slot", valid=page.time_slots
-                ),
+                availability=self._collect_availability(),
                 remove_field_ids=self._collect_remove_field_ids(page.fields),
             ),
             personal_data={

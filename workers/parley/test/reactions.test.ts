@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Message, ReactionChange } from "../src/protocol";
 
 import { MEMBERSHIP_AUDIENCE } from "../src/auth";
-import { now, open, pass, post, settle, type Socket } from "./support";
+import { eventGrant, manager, now, open, pass, post, settle, type Socket } from "./support";
 
 type Result<T = unknown> = { code?: string; ok: boolean; value?: T };
 
@@ -26,8 +26,8 @@ const history = async (socket: Socket) =>
 describe("a reaction", () => {
   it("toggles once per person and emoji, and every open socket hears of it", async () => {
     const sphere = sphereId();
-    const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
-    const bea = await open(`parley-sphere-agent/${sphere}`, await pass("8", sphere));
+    const ada = await open(`parley-session-agent/${sphere}:101`, await pass("7", sphere));
+    const bea = await open(`parley-session-agent/${sphere}:101`, await pass("8", sphere));
     const sent = await say(ada, "Who brings the dice?");
     expect([sent.reactions, sent.reactors]).toEqual([{}, {}]);
 
@@ -64,7 +64,7 @@ describe("a reaction", () => {
 
   it("takes one emoji of any kind, after the quick ones, and nothing else", async () => {
     const sphere = sphereId();
-    const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
+    const ada = await open(`parley-session-agent/${sphere}:101`, await pass("7", sphere));
     const kept = await say(ada, "Keep me");
 
     for (const emoji of ["👩🏽‍🚀", "🇵🇱", "1️⃣", "🏳️‍🌈", "🙂", "👍"]) {
@@ -88,7 +88,7 @@ describe("a reaction", () => {
     const sphere = sphereId();
     const [ada, bea, cyd] = await Promise.all(
       ["7", "8", "9"].map(async (user) =>
-        open(`parley-sphere-agent/${sphere}`, await pass(user, sphere)),
+        open(`parley-session-agent/${sphere}:101`, await pass(user, sphere)),
       ),
     );
     const sent = await say(ada!, "React to me");
@@ -106,7 +106,7 @@ describe("a reaction", () => {
 
   it("is taken only on a message still standing", async () => {
     const sphere = sphereId();
-    const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
+    const ada = await open(`parley-session-agent/${sphere}:101`, await pass("7", sphere));
     await say(ada, "Keep me");
     const gone = await say(ada, "Delete me");
     await react(ada, gone.id, "👍");
@@ -124,7 +124,7 @@ describe("a reaction", () => {
 
   it("is limited to ten in ten seconds", async () => {
     const sphere = sphereId();
-    const ada = await open(`parley-sphere-agent/${sphere}`, await pass("7", sphere));
+    const ada = await open(`parley-session-agent/${sphere}:101`, await pass("7", sphere));
     const sent = await say(ada, "Click me");
     for (let count = 0; count < 10; count += 1) {
       expect(await react(ada, sent.id, "😂")).toMatchObject({ ok: true });
@@ -137,30 +137,29 @@ describe("a reaction", () => {
 describe("who may react", () => {
   it("is nobody muted, and nobody reading a room they cannot write in", async () => {
     const sphere = sphereId();
-    const manager = await open(
-      `parley-sphere-agent/${sphere}`,
-      await pass("1", sphere, now(), { role: "manager", sessions: {} }),
-    );
-    const muted = await open(`parley-sphere-agent/${sphere}`, await pass("8", sphere));
-    const sent = await say(manager, "House rules");
-    await manager.call("muteUser", { durationMs: 3_600_000, userId: "8" });
+    const moderator = await open(`parley-session-agent/${sphere}:101`, await manager("1", sphere));
+    const muted = await open(`parley-session-agent/${sphere}:101`, await pass("8", sphere));
+    const sent = await say(moderator, "House rules");
+    await moderator.call("muteUser", { durationMs: 3_600_000, userId: "8" });
     expect(await react(muted, sent.id, "👍")).toEqual({ code: "muted", ok: false });
 
     const reader = await open(
       `parley-session-agent/${sphere}:101`,
       await pass("8", sphere, now(), {
-        sessions: { "101": { endsAt: now() + 3_600, writable: false } },
+        events: { [`${sphere}:1`]: eventGrant({ "101": false }) },
       }),
     );
     expect(await react(reader, 1, "👍")).toEqual({ code: "forbidden", ok: false });
     const late = await open(
       `parley-session-agent/${sphere}:102`,
       await pass("9", sphere, now(), {
-        sessions: { "102": { endsAt: now() - 3 * 86_400, writable: true } },
+        events: {
+          [`${sphere}:2`]: eventGrant({ "102": true }, { endsAt: now() - 3 * 86_400 }),
+        },
       }),
     );
     expect(await react(late, 1, "👍")).toEqual({ code: "archived", ok: false });
-    for (const socket of [manager, muted, reader, late]) socket.socket.close();
+    for (const socket of [moderator, muted, reader, late]) socket.socket.close();
   }, 20_000);
 
   it("is nobody in a direct request until it is accepted", async () => {

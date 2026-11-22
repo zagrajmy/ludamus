@@ -178,10 +178,15 @@ test.describe("Backoffice Panel", () => {
   test("shows the footer without scrolling on a tall viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1400 });
     await page.goto("/panel/");
+    const appScroll = page.locator("#app-scroll");
+    // NOTE: "tall" is relative to the page. The sidebar's list sets the
+    // shortest viewport everything fits in, and it grows with every panel page.
+    const pageHeight = await appScroll.evaluate((element) => element.scrollHeight);
+    await page.setViewportSize({ width: 1600, height: pageHeight + 100 });
 
-    const overflow = await page
-      .locator("#app-scroll")
-      .evaluate((element) => element.scrollHeight - element.clientHeight);
+    const overflow = await appScroll.evaluate(
+      (element) => element.scrollHeight - element.clientHeight,
+    );
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
@@ -870,50 +875,6 @@ test.describe("Backoffice Panel", () => {
       ).toBeVisible();
       proposalCategoryPath = new URL(page.url()).pathname;
     });
-
-    test("creates time slots for proposal flow", async ({ page }) => {
-      // Get the event date from the time slots page
-      await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
-      const addLink = page
-        .getByRole("link", {
-          name: "Add",
-          exact: true,
-        })
-        .first();
-      const addHref = await addLink.getAttribute("href");
-      // Extract date from ?date= param
-      const dateMatch = addHref?.match(/date=(\d{4}-\d{2}-\d{2})/);
-      const dateStr = dateMatch?.[1] ?? "";
-
-      // Compute event start hour from "Event starts at HH:MM" text
-      const startsText = await page.getByText(/Event starts at/).textContent();
-      const hourMatch = startsText?.match(/starts at (\d{2}):(\d{2})/);
-      const baseHour = parseInt(hourMatch?.[1] ?? "9", 10);
-      // Add 1 minute to avoid seconds-precision issue
-      // (event start has seconds, form only takes HH:MM)
-      const rawMin = parseInt(hourMatch?.[2] ?? "0", 10);
-      const safeMin = rawMin + 1;
-
-      // Create 3 time slots (30min each), starting 2h after event start
-      // to avoid overlap with the bootstrapped 10:00–12:00 slot
-      for (let i = 0; i < 3; i++) {
-        const start = dateTimeAfter(dateStr, baseHour, safeMin, 120 + i * 30);
-        const end = dateTimeAfter(dateStr, baseHour, safeMin, 120 + (i + 1) * 30);
-        await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
-        if (await page.getByText(`${start.time} – ${end.time}`).count()) continue;
-
-        await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-        const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
-        await createDialog.getByRole("textbox", { name: /^Date/ }).fill(start.date);
-        await createDialog.getByRole("textbox", { name: /^End date/ }).fill(end.date);
-        await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(start.time);
-        await createDialog.getByRole("textbox", { name: /^End time/ }).fill(end.time);
-        await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
-
-        await expect(page.getByText("Time slot created successfully.")).toBeVisible();
-      }
-    });
-
     test("creates personal data fields for proposal flow", async ({ page }) => {
       // Field 1: City (text, required)
       await page.goto("/panel/event/frostfire-con/cfp/personal-data/create/");
@@ -999,7 +960,7 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("Session field created successfully.")).toBeVisible();
     });
 
-    test("configures session type with all fields and time slots", async ({ page }) => {
+    test("configures session type with all fields and availability", async ({ page }) => {
       await page.goto(proposalCategoryPath);
 
       // Set submission window (past to future)
@@ -1038,11 +999,8 @@ test.describe("Backoffice Panel", () => {
         await ensureChosen("#session-fields-list", fieldName);
       }
 
-      // Add all time slots
-      const slotAvail = page.locator("#time-slots-list .avail-list [data-field-item]");
-      while ((await slotAvail.count()) > 0) {
-        await slotAvail.first().locator(".add-field").click();
-      }
+      // Ask proposers which days they could host.
+      await page.getByLabel("Ask when they could host").check();
 
       // Add a duration: 2h 0min
       await page.locator("#duration-hours").fill("2");
@@ -1108,17 +1066,17 @@ test.describe("Backoffice Panel", () => {
       await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
-      // Step 3: Time Slots
+      // Step 3: When. frostfire-con runs for a single day, but the hours it
+      // keeps still span several parts, so the proposer is asked which of them
+      // would work -- never for a clock time.
       await expect(
         page.locator("#wizard-content").getByRole("heading", {
-          name: "Preferred Time Slots",
+          name: "When could you host?",
         }),
       ).toBeVisible();
-
-      // Check 1st and 3rd slot
-      const slotLabels = page.locator('label:has(input[name="time_slot_ids"])');
-      await slotLabels.nth(0).click();
-      await slotLabels.nth(2).click();
+      const evening = page.getByRole("checkbox", { name: "Evening" });
+      await evening.check();
+      await expect(evening).toBeChecked();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       // Step 4: Session Details
@@ -1198,8 +1156,7 @@ test.describe("Backoffice Panel", () => {
       await proposalCategoryOption(page, proposalCategoryName).click();
       await page.getByRole("button", { name: /Continue/ }).click();
 
-      const slotLabels = page.locator('label:has(input[name="time_slot_ids"])');
-      await slotLabels.nth(1).click();
+      await page.getByRole("checkbox", { name: "Morning" }).check();
       await page.getByRole("button", { name: /Continue/ }).click();
 
       await expect(
@@ -1237,23 +1194,6 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText(regressionTitle)).toBeVisible();
 
       await context.close();
-    });
-
-    test("says why Delete is unavailable on a slot a proposal asked for", async ({ page }) => {
-      // The wizard above asked for slots, so delete() refuses those. Assert the
-      // invariant rather than a count: every slot row renders exactly one of
-      // the sentence or the button, and both kinds are on this page. A count
-      // would only track how many proposals the tests before this one filed.
-      await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
-
-      const spokenFor = page.getByText("Used by proposals");
-      await expect(spokenFor.first()).toBeVisible();
-
-      // Every slot row renders exactly one of the sentence or the button, so
-      // the two counts partition the rows however many proposals were filed.
-      const rows = await page.getByRole("link", { name: "Edit", exact: true }).count();
-      const deletable = await page.getByRole("button", { name: "Delete", exact: true }).count();
-      expect((await spokenFor.count()) + deletable).toBe(rows);
     });
 
     test("says why Delete is unavailable on an answered personal data field", async ({ page }) => {

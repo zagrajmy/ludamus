@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% load i18n tessera %}
 {% block title %}
-    {% translate "Create Encounter" %}
+    {% translate "Create encounter" %}
 {% endblock title %}
 {% block header %}
-    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Create Encounter" %}</h1>
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Create encounter" %}</h1>
 {% endblock header %}
 {% block body %}
     <div class="w-full max-w-5xl mx-auto">
@@ -12,7 +12,8 @@
             <div class="card-body">
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    {% include "encounter/_form.html" with submit_label="Create Encounter" %}
+                    {% translate "Create encounter" as create_label %}
+                    {% include "encounter/_form.html" with submit_label=create_label %}
                 </form>
             </div>
         </div>

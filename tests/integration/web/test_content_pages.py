@@ -26,9 +26,22 @@ class TestContentPageView:
             template_name="content/page.html",
             context_data={
                 "title": title,
-                "document": (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8"),
+                "document": (
+                    (CONTENT_DIR / f"{slug}.md")
+                    .read_text(encoding="utf-8")
+                    .replace("$staff_email", "staff@zagrajmy.net")
+                ),
             },
         )
+
+    def test_terms_name_the_contact_point_from_settings(self, *, client, settings):
+        settings.STAFF_EMAIL = "kontakt@example.org"
+
+        response = client.get(reverse("terms-of-service"))
+
+        document = response.context_data["document"]
+        assert "**kontakt@example.org**" in document
+        assert "$staff_email" not in document
 
     def test_unknown_slug_is_not_read_from_disk(self):
         # Both URLs name their slug, so this guard is what keeps a future third

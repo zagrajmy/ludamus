@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -11,6 +11,9 @@ from ludamus.pacts.event import (
     EventPublicationInvalidError,
     EventSlugConflictError,
     EventUpdateData,
+    EventVisibility,
+    PublicationChoice,
+    PublicationIntent,
 )
 from ludamus.pacts.event_settings import EventSettingsRepos, ProposalSettingsUpdateData
 from ludamus.pacts.fields import OrganizerFieldDTO
@@ -69,6 +72,12 @@ class FakeEvents:
             if (event.slug, event.sphere_id) == (slug, sphere_id):
                 return event
         raise NotFoundError
+
+    def slug_exists(self, sphere_id: int, slug: str) -> bool:
+        return any(
+            (event.slug, event.sphere_id) == (slug, sphere_id)
+            for event in self.rows.values()
+        )
 
     def update(self, pk: int, data: EventUpdateData) -> EventDTO:
         if self._update_error is not None:
@@ -145,6 +154,14 @@ def _category(pk: int) -> ProposalCategoryDTO:
     )
 
 
+class FakeChat:
+    def __init__(self) -> None:
+        self.revoked_events: list[int] = []
+
+    def revoke_event(self, *, event_id: int) -> None:
+        self.revoked_events.append(event_id)
+
+
 class _Fakes:
     def __init__(
         self,
@@ -160,6 +177,7 @@ class _Fakes:
         self.session_fields = FakeSessionFields(fields or [])
         self.proposal = FakeProposalSettings()
         self.categories = FakeProposalCategories(categories or [])
+        self.chat = FakeChat()
         self.service = EventSettingsService(
             transaction=FakeTransaction(),
             repos=EventSettingsRepos(
@@ -168,6 +186,7 @@ class _Fakes:
                 proposal_categories=self.categories,
                 session_fields=self.session_fields,
             ),
+            chat=self.chat,
         )
 
 
@@ -182,6 +201,30 @@ def _proposal_data(*, apply_to_categories: bool) -> ProposalSettingsUpdateData:
 
 
 class TestUpdateGeneral:
+    @pytest.mark.parametrize(
+        ("was", "becomes", "revoked"),
+        (
+            (None, True, False),
+            (False, True, False),
+            (False, None, False),
+            (True, True, False),
+            (True, False, True),
+            (True, None, True),
+            (None, False, True),
+        ),
+    )
+    def test_passes_are_taken_back_only_when_the_event_chat_may_close(
+        self, was, becomes, revoked
+    ):
+        fakes = _Fakes(events=[_event().model_copy(update={"parley_enabled": was})])
+
+        fakes.service.update_general(
+            sphere_id=SPHERE_ID, slug="conf", data={"parley_enabled": becomes}
+        )
+
+        assert fakes.events.rows[_EVENT_PK].parley_enabled is becomes
+        assert fakes.chat.revoked_events == ([_EVENT_PK] if revoked else [])
+
     def test_writes_the_patch_onto_the_event(self):
         fakes = _Fakes()
 
@@ -298,6 +341,86 @@ class TestUpdateGeneral:
         )
 
         assert fakes.events.rows[_EVENT_PK] == _event(publication_time=_START)
+
+
+class TestPublicationChoice:
+    """How each visibility choice lands on the stored event.
+
+    Ways it could go wrong: Link only drops or moves the stored time; Public
+    now re-stamps an event already out; Public now stamps a time after the
+    start, which the save then refuses; Publish at ignores the chosen time; a
+    kept time ends up after a start moved earlier.
+    """
+
+    @staticmethod
+    def _save(fakes, *, choice, chosen=None, data=None):
+        fakes.service.update_general(
+            sphere_id=SPHERE_ID,
+            slug="conf",
+            data=data or {},
+            publication=PublicationIntent(choice=choice, chosen_time=chosen),
+        )
+        event = fakes.events.rows[_EVENT_PK]
+        return event.visibility, event.publication_time
+
+    def test_link_only_keeps_the_stored_time(self):
+        stored = _START - timedelta(days=3)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(fakes, choice=PublicationChoice.LINK_ONLY)
+
+        assert saved == (EventVisibility.UNLISTED, stored)
+
+    def test_a_kept_time_follows_a_start_moved_before_it(self):
+        stored = _START - timedelta(days=3)
+        earlier = stored - timedelta(days=1)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(
+            fakes,
+            choice=PublicationChoice.LINK_ONLY,
+            data={"start_time": earlier, "end_time": _END},
+        )
+
+        assert saved == (EventVisibility.UNLISTED, earlier)
+
+    def test_public_now_keeps_the_time_of_an_event_already_out(self):
+        stored = _START - timedelta(days=3)
+        fakes = _Fakes(events=[_event(publication_time=stored)])
+
+        saved = self._save(fakes, choice=PublicationChoice.PUBLIC_NOW)
+
+        assert saved == (EventVisibility.PUBLIC, stored)
+
+    def test_public_now_publishes_a_started_event_from_its_start(self):
+        fakes = _Fakes()
+
+        saved = self._save(fakes, choice=PublicationChoice.PUBLIC_NOW)
+
+        assert saved == (EventVisibility.PUBLIC, _START)
+
+    def test_public_now_publishes_an_upcoming_event_now(self):
+        start = datetime.now(tz=UTC) + timedelta(days=30)
+        fakes = _Fakes()
+        before = datetime.now(tz=UTC)
+
+        visibility, published = self._save(
+            fakes,
+            choice=PublicationChoice.PUBLIC_NOW,
+            data={"start_time": start, "end_time": start + timedelta(days=1)},
+        )
+
+        assert visibility is EventVisibility.PUBLIC
+        assert published is not None
+        assert before <= published <= datetime.now(tz=UTC)
+
+    def test_publish_at_stores_the_chosen_time(self):
+        chosen = _START - timedelta(days=10)
+        fakes = _Fakes()
+
+        saved = self._save(fakes, choice=PublicationChoice.SCHEDULED, chosen=chosen)
+
+        assert saved == (EventVisibility.PUBLIC, chosen)
 
 
 class TestDisplayAndProposalSettings:

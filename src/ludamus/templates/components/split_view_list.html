@@ -1,0 +1,5 @@
+{% comment %}
+Rendered by {% split_view_list %} (split_view_tags): the list column, hidden
+on a narrow screen while an item is opened.
+{% endcomment %}
+<div class="flex flex-col {% if opened %}hidden lg:flex{% endif %}">{{ content }}</div>

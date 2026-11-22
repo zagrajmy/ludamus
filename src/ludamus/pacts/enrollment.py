@@ -59,9 +59,13 @@ def allowance_windows[W: DatedWindow](
         so a waiter keeps the allowance they joined under.
     """
     listed = list(windows)
-    if opened := open_windows(listed, now=now):
-        return opened
-    if not (ended := [window for window in listed if window.end_time <= now]):
+    return open_windows(listed, now=now) or last_closed_window(listed, now=now)
+
+
+def last_closed_window[W: DatedWindow](
+    windows: Iterable[W], *, now: datetime
+) -> list[W]:
+    if not (ended := [window for window in windows if window.end_time <= now]):
         return []
     return [max(ended, key=_last_to_end)]
 
@@ -84,11 +88,12 @@ def seat_cap(*, participants_limit: int, percentage_slots: int) -> int:
 
 
 class SessionSeatsDTO(BaseModel):
-    """A session's seats as stored, and the cap the open windows put on them."""
+    """A session's seats as stored, and the cap the windows put on them."""
 
     participants_limit: int
     # The most liberal share among the windows open now that can seat the
-    # session; None when none can.
+    # session; once none of those is open, the share of the last of them to
+    # close. None when no window that can seat the session has opened yet.
     seating_percentage: int | None
     # CONFIRMED and OFFERED rows both hold a seat: an offered seat must not be
     # handed out twice.
@@ -96,9 +101,11 @@ class SessionSeatsDTO(BaseModel):
 
     @property
     def effective_participants_limit(self) -> int:
-        # With no window seating the session its own limit stands: a waiting
-        # list keeps moving after enrollment closes. A seat for one actor is a
-        # different question, answered by EnrollmentPolicy.
+        # Before any window that can seat the session opens, its own limit
+        # stands. After the last one closes its share still holds, so a waiting
+        # list refills only up to the cap the session was enrolled under. A
+        # seat for one actor is a different question, answered by
+        # EnrollmentPolicy.
         return seat_cap(
             participants_limit=self.participants_limit,
             percentage_slots=(
@@ -171,7 +178,7 @@ class PromotionStateDTO(BaseModel):
     start_time: datetime
     promotion_mode: PromotionMode
     offer_claim_window: timedelta
-    presenter_id: int | None
+    host_ids: frozenset[int]
     seats: SessionSeatsDTO
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
@@ -201,6 +208,10 @@ class OfferDTO(BaseModel):
     # themselves, the sponsoring leader for login-less companions. Distinct.
     recipients: list[int]
     offer_expires_at: datetime
+    # On the claim path this is read under the session lock: someone linked
+    # as a facilitator after the offer was made must not claim a seat at
+    # their own table.
+    host_ids: frozenset[int]
 
 
 class PromotionResult(BaseModel):
@@ -211,8 +222,9 @@ class PromotionResult(BaseModel):
 
 
 # "conflict": the offered seat overlaps one the member already holds, so it
-# was released rather than claimed.
-type ClaimFailure = Literal["not_found", "expired", "conflict"]
+# was released rather than claimed. "host": someone in the offer runs the
+# session, so it was released the same way.
+type ClaimFailure = Literal["not_found", "expired", "conflict", "host"]
 
 
 class ClaimResult(BaseModel):
@@ -614,6 +626,7 @@ class SessionSeatingDTO(BaseModel):
     title: str
     participants_limit: int
     presenter_id: int | None = None
+    host_ids: frozenset[int]
     # CONFIRMED and OFFERED rows: both hold a seat.
     enrolled_count: int
     eligible_windows: list[EnrollmentWindowSnapshot]

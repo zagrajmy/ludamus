@@ -1,10 +1,24 @@
 from contextlib import AbstractContextManager, nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from ludamus.pacts.enrollment import (
+    PromotionMode,
+    PromotionStateDTO,
+    SessionSeatsDTO,
+    WaitingParticipantDTO,
+)
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO
+from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldValueDTO
+from ludamus.pacts.integrations import (
+    EventIntegrationDTO,
+    IntegrationImplementationId,
+    IntegrationKind,
+)
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
+from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
@@ -49,6 +63,10 @@ class FakeUsers:
 class FakeTransaction:
     @staticmethod
     def atomic() -> AbstractContextManager[None]:
+        return nullcontext()
+
+    @staticmethod
+    def durable() -> AbstractContextManager[None]:
         return nullcontext()
 
     @staticmethod
@@ -116,6 +134,50 @@ def session_dto(**overrides) -> SessionDTO:
     return SessionDTO(**(defaults | overrides))
 
 
+def event_integration_dto(**overrides) -> EventIntegrationDTO:
+    defaults = {
+        "config_json": "{}",
+        "connection_display_name": "Connection",
+        "connection_id": 1,
+        "display_name": "Integration",
+        "event_id": 1,
+        "implementation": IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER,
+        "kind": IntegrationKind.IMPORT,
+        "pk": 1,
+        "settings_json": "{}",
+    }
+    return EventIntegrationDTO(**(defaults | overrides))
+
+
+def facilitator_dto(**overrides) -> FacilitatorDTO:
+    defaults = {
+        "accreditation_type": AccreditationType.NONE,
+        "display_name": "Facilitator",
+        "event_id": 1,
+        "pk": 1,
+        "slug": "facilitator",
+        "user_id": None,
+    }
+    return FacilitatorDTO(**(defaults | overrides))
+
+
+def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
+    defaults = {
+        "field_type": "text",
+        "name": "Field",
+        "order": 0,
+        "pk": 1,
+        "question": "Field?",
+        "slug": "field",
+    }
+    return OrganizerFieldDTO(**(defaults | overrides))
+
+
+def session_field_value_dto(**overrides) -> SessionFieldValueDTO:
+    defaults = {"field_name": "Field", "field_question": "Field?", "value": ""}
+    return SessionFieldValueDTO(**(defaults | overrides))
+
+
 def track_dto(**overrides) -> TrackDTO:
     defaults = {
         "creation_time": DEFAULT_START,
@@ -148,4 +210,23 @@ def category(
         pk=pk,
         slug=slug,
         start_time=None,
+    )
+
+
+def promotion_state(
+    waiting: list[WaitingParticipantDTO], *, seats: int = 1
+) -> PromotionStateDTO:
+    """Build the state of an auto-promoting session a week out that nobody hosts."""
+    return PromotionStateDTO(
+        session_id=1,
+        session_title="S",
+        event_slug="ev",
+        start_time=datetime(2026, 6, 4, 12, 0, tzinfo=UTC) + timedelta(days=7),
+        promotion_mode=PromotionMode.AUTO,
+        offer_claim_window=timedelta(hours=24),
+        host_ids=frozenset(),
+        seats=SessionSeatsDTO(
+            participants_limit=seats, seating_percentage=None, enrolled_count=0
+        ),
+        waiting=waiting,
     )

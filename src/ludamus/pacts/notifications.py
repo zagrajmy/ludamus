@@ -128,3 +128,4 @@ class NotificationKind(StrEnum):
     LISTING_NOT_CHOSEN = auto()
     LISTING_CHANGED = auto()
     PROPOSAL_ACCEPTED = auto()
+    EVENT_DELETION_REQUESTED = auto()

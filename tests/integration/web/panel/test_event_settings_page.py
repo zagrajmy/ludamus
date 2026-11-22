@@ -6,10 +6,13 @@ import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
+from ludamus.links.db.django.models import Event
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventDTO
+from ludamus.pacts.event_deletion import EventDeletionBallotDTO, EventDeletionStep
 from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import (
@@ -21,7 +24,17 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     panel_context,
+    settings_post_data,
     settings_tab_urls,
+    settings_url,
+)
+
+SOLO_MANAGER_BALLOT = EventDeletionBallotDTO(
+    manager_count=1,
+    approvals_needed=1,
+    approvals=[],
+    next_step=EventDeletionStep.DELETE,
+    missing_after_viewer=0,
 )
 
 # The settings page renders a cover image and a logo dropzone.
@@ -62,6 +75,8 @@ class TestEventSettingsPageViewGet:
                 "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -81,6 +96,8 @@ class TestEventSettingsPageViewGet:
                 "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -99,6 +116,8 @@ class TestEventSettingsPageViewGet:
                 **panel_context(event, active_nav="settings"),
                 "active_tab": "general",
                 "tab_urls": settings_tab_urls(event),
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -123,11 +142,44 @@ class TestEventSettingsPageViewGet:
                 "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
         edit_field = response.context["form"].fields["allow_facilitator_session_edit"]
         assert "disallowed" in dict(edit_field.choices)[""]
+
+    @pytest.mark.parametrize(("events_on", "shown"), ((True, "on"), (False, "off")))
+    def test_event_chat_says_what_following_the_sphere_comes_to(
+        self, panel_client, sphere, event, events_on, shown
+    ):
+        sphere.parley_events_enabled = events_on
+        sphere.save()
+        event.parley_enabled = True
+        event.save()
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "is_proposal_active": response.context["is_proposal_active"],
+                "active_tab": "general",
+                "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
+                "form": ANY,
+            },
+        )
+        form = response.context["form"]
+        assert dict(form.fields["parley_enabled"].choices)[""] == (
+            f"Use sphere default (currently: {shown})"
+        )
+        assert form.initial["parley_enabled"] == "true"
 
     def test_form_initial_uses_false_when_event_disallows_edits(
         self, panel_client, event
@@ -146,6 +198,8 @@ class TestEventSettingsPageViewGet:
                 "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
@@ -186,27 +240,16 @@ class TestEventSettingsPageViewGet:
                 "active_nav": "settings",
                 "active_tab": "general",
                 "tab_urls": response.context["tab_urls"],
+                "deletion": SOLO_MANAGER_BALLOT,
+                "deletion_form": ANY,
                 "form": ANY,
             },
         )
 
 
 class TestEventSettingsPageViewPost:
-    @staticmethod
-    def get_url(event):
-        return reverse("panel:event-settings", kwargs={"slug": event.slug})
-
-    @staticmethod
-    def _post_data(event, **overrides):
-        data = {
-            "name": event.name,
-            "slug": event.slug,
-            "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
-            "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
-            "visibility": event.visibility,
-        }
-        data.update(overrides)
-        return data
+    get_url = staticmethod(settings_url)
+    _post_data = staticmethod(settings_post_data)
 
     @staticmethod
     def _render_context(response, event):
@@ -225,6 +268,8 @@ class TestEventSettingsPageViewPost:
             "active_nav": "settings",
             "active_tab": "general",
             "tab_urls": response.context["tab_urls"],
+            "deletion": SOLO_MANAGER_BALLOT,
+            "deletion_form": ANY,
             "form": ANY,
         }
 
@@ -264,20 +309,6 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.name == new_name
-
-    def test_makes_the_event_unlisted(self, panel_client, event):
-        response = panel_client.post(
-            self.get_url(event), data=self._post_data(event, visibility="unlisted")
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
-            url=f"/panel/event/{event.slug}/settings/",
-        )
-        event.refresh_from_db()
-        assert event.visibility == "unlisted"
 
     def test_normalizes_address_lines(self, panel_client, event):
         response = panel_client.post(
@@ -631,7 +662,9 @@ class TestEventSettingsPageViewPost:
         response = panel_client.post(
             self.get_url(event),
             data=self._post_data(
-                event, publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M")
+                event,
+                publication="scheduled",
+                publication_time=event.end_time.strftime("%Y-%m-%dT%H:%M"),
             ),
         )
 
@@ -686,6 +719,26 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.slug == original_slug
+
+    def test_a_deleted_event_keeps_its_slug(self, panel_client, sphere, event, faker):
+        deleted = EventFactory(sphere=sphere, slug=faker.slug())
+        Event.objects.filter(pk=deleted.pk).update(deleted_at=timezone.now())
+
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, slug=deleted.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                **self._render_context(response, event),
+                "form": FormErrorsMatcher(
+                    slug=["An event with this slug already exists."]
+                ),
+            },
+            template_name="panel/settings.html",
+        )
 
     def test_duplicate_slug_rerender_keeps_stored_images(
         self, panel_client, sphere, event, faker
@@ -846,3 +899,22 @@ class TestEventSettingsPageViewPost:
         )
         event.refresh_from_db()
         assert event.use_participants_label is False
+
+    @pytest.mark.parametrize(
+        ("choice", "stored"), (("true", True), ("false", False), ("", None))
+    )
+    def test_event_chat_overrides_or_follows_the_sphere(
+        self, panel_client, event, choice, stored
+    ):
+        response = panel_client.post(
+            self.get_url(event), data=self._post_data(event, parley_enabled=choice)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.parley_enabled is stored

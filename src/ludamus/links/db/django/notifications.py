@@ -33,6 +33,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.notification_inbox import already_told
 from ludamus.links.db.django.recipients import Voice, speaking_to
+from ludamus.links.db.django.session_urls import session_popup_url
 from ludamus.pacts.notifications import NotificationKind, SubscriptionDTO
 from ludamus.pacts.user import EMAIL_LINK_MAX_AGE, AgeBand
 
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
     from ludamus.links.db.django.recipients import Recipient
     from ludamus.pacts.dashboard import SphereEventPublishedNotification
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.event_deletion import EventDeletionRequestedNotification
     from ludamus.pacts.listing import (
         ListingDeclinedNotification,
         ListingInterestedNotification,
@@ -70,13 +72,9 @@ logger = logging.getLogger(__name__)
 _EMAIL_LINK_HOURS = EMAIL_LINK_MAX_AGE // timedelta(hours=1)
 
 
-def _session_enrollment_url(event_slug: str, session_id: int) -> str:
-    return absolute_url(
-        reverse(
-            "web:chronology:session-enrollment",
-            kwargs={"event_slug": event_slug, "session_id": session_id},
-        ),
-        domain=_session_host(session_id),
+def _session_url(event_slug: str, session_id: int) -> str:
+    return session_popup_url(
+        event_slug=event_slug, session_id=session_id, domain=_session_host(session_id)
     )
 
 
@@ -97,16 +95,16 @@ def _session_host(session_id: int) -> str:
 
 
 def _acceptance_copy(acceptance: ProposalAcceptance) -> tuple[str, str, str]:
-    url = absolute_url(
-        reverse("web:chronology:event", kwargs={"slug": acceptance.event_slug}),
-        domain=_session_host(acceptance.session_id),
-    )
     if acceptance.placed:
-        url = f"{url}?session={acceptance.session_id}"
+        url = _session_url(acceptance.event_slug, acceptance.session_id)
         body = _(
             "Your proposal for %(event)s was accepted and added to the agenda."
         ) % {"event": acceptance.event_name}
     else:
+        url = absolute_url(
+            reverse("web:chronology:event", kwargs={"slug": acceptance.event_slug}),
+            domain=_session_host(acceptance.session_id),
+        )
         body = _(
             "Your proposal for %(event)s was accepted. It will appear on the "
             "agenda once the organizers give it a time and place."
@@ -251,9 +249,7 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_promoted(notification: PromotionNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
-            url = _session_enrollment_url(
-                notification.event_slug, notification.session_id
-            )
+            url = _session_url(notification.event_slug, notification.session_id)
             title = _("You're in: a spot opened in %(session)s") % {
                 "session": notification.session_title
             }
@@ -325,9 +321,7 @@ class DjangoUserNotifier:
                     kind=NotificationKind.OFFER_EXPIRED,
                     title=title,
                     body=body,
-                    url=_session_enrollment_url(
-                        notification.event_slug, notification.session_id
-                    ),
+                    url=_session_url(notification.event_slug, notification.session_id),
                     payload={"session_id": notification.session_id},
                 ),
             )
@@ -361,9 +355,7 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_party_enrolled(notification: PartyEnrolledNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
-            url = _session_enrollment_url(
-                notification.event_slug, notification.session_id
-            )
+            url = _session_url(notification.event_slug, notification.session_id)
             title = _("%(leader)s enrolled you in %(session)s") % {
                 "leader": notification.actor_name,
                 "session": notification.session_title,
@@ -531,6 +523,40 @@ class DjangoUserNotifier:
                 Bell(
                     kind=NotificationKind.PRINTABLES_READY,
                     title=title,
+                    body=body,
+                    url=url,
+                    payload={"event_slug": notification.event_slug},
+                ),
+            )
+
+    @staticmethod
+    def notify_event_deletion_requested(
+        notification: EventDeletionRequestedNotification,
+    ) -> None:
+        with speaking_to(notification.recipient_user_id) as recipient:
+            url = absolute_url(
+                reverse(
+                    "panel:event-settings", kwargs={"slug": notification.event_slug}
+                )
+                + "#event-deletion",
+                domain=notification.sphere_domain,
+            )
+            title = _("%(name)s wants to delete %(event)s") % {
+                "name": notification.requester_name,
+                "event": notification.event_name,
+            }
+            body = ngettext(
+                "The event is deleted once %(count)d more manager approves. "
+                "Open its settings to approve or to leave it be.",
+                "The event is deleted once %(count)d more managers approve. "
+                "Open its settings to approve or to leave it be.",
+                notification.approvals_missing,
+            ) % {"count": notification.approvals_missing}
+            _deliver(
+                recipient,
+                Bell(
+                    kind=NotificationKind.EVENT_DELETION_REQUESTED,
+                    title=Truncator(title).chars(NOTIFICATION_TITLE_MAX_LENGTH),
                     body=body,
                     url=url,
                     payload={"event_slug": notification.event_slug},
