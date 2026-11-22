@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+import pytest
 from django.urls import reverse
 
 from tests.integration.utils import assert_response
@@ -27,3 +28,37 @@ class TestProfilePrivacyPageView:
             context_data={"profile_active_tab": "privacy"},
             template_name="user/user/privacy.html",
         )
+
+    @pytest.mark.usefixtures("sixteen_plus_user")
+    def test_get_sixteen_plus_without_analytics_configured(
+        self, authenticated_client, settings
+    ):
+        settings.POSTHOG_API_KEY = ""
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"profile_active_tab": "privacy"},
+            template_name="user/user/privacy.html",
+        )
+        assert response.context["optional_features_available"] is True
+        assert response.context["posthog_config"] is None
+
+    @pytest.mark.usefixtures("sixteen_plus_user")
+    def test_get_sixteen_plus_with_analytics_configured(
+        self, authenticated_client, settings
+    ):
+        settings.POSTHOG_API_KEY = "phc_integration"
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"profile_active_tab": "privacy"},
+            template_name="user/user/privacy.html",
+        )
+        assert response.context["optional_features_available"] is True
+        assert response.context["posthog_config"]["api_key"] == "phc_integration"
