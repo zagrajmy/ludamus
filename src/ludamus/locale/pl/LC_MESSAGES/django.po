@@ -8108,6 +8108,10 @@ msgstr "Zorganizuj"
 msgid "What do you want to organize?"
 msgstr "Co chcesz zorganizować?"
 
+#: src/ludamus/templates/components/design/bottom-sheet.html
+msgid "Section"
+msgstr "Sekcja"
+
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "This value is too long to add here."
 msgstr "Ta wartość jest za długa, aby ją dodać."
@@ -16061,6 +16065,10 @@ msgstr "Zaimportowany z Twojego konta logowania społecznościowego."
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Use this avatar"
 msgstr "Użyj tego awatara"
+
+#: src/ludamus/templates/user/user/avatar.html
+msgid "Gravatar"
+msgstr "Gravatar"
 
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Based on your email address."
