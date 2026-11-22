@@ -44,8 +44,9 @@ from tests.integration.web.event.helpers import (
     enroll_context,
     enroll_page_context,
     enroll_session,
+    led_party_context,
+    no_party_context,
     participation_row,
-    party_context,
     party_member,
     stored_seats,
 )
@@ -54,7 +55,7 @@ from tests.integration.web.event.helpers import (
 def _companion_pills(party, *, leader, companion):
     # The pills a leader sponsoring one login-less companion should see: their
     # own unnamed party, selected, with the two of them on it.
-    return party_context(
+    return led_party_context(
         party,
         leader_name=leader.name,
         members=[
@@ -99,7 +100,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -210,7 +211,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 # The seat is held for them, so the only move the form offers
@@ -477,7 +478,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -553,7 +554,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
@@ -774,7 +775,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -1098,7 +1099,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -1143,7 +1144,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -1185,7 +1186,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -1679,7 +1680,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -1874,7 +1875,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -1929,7 +1930,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -2008,7 +2009,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -2069,7 +2070,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "event": EventDTO.model_validate(agenda_item.space.event),
                 "form": ANY,
@@ -2122,7 +2123,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),
                 "event": EventDTO.model_validate(event),
@@ -2289,7 +2290,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **party_context(),
+                **no_party_context(),
                 "companions": [],
                 "session": enroll_session(agenda_item.session),
                 "seats": stored_seats(agenda_item.session),

@@ -37,14 +37,14 @@ when Pylint's `R0801` flags the duplication.
 - What the test is about stays at the call site. A helper that swallows the
   value under assertion trades duplication for a test that no longer says what
   it checks.
-- A helper has no `if`. Where a flag would pick between two behaviours, write
-  two functions named after the behaviours and extract what they share into a
-  third.
+- A helper takes no flag or `None` default that selects behaviour. Where one
+  would pick between two behaviours, write two functions named after the
+  behaviours and extract what they share into a third. An `if` that filters
+  the helper's own input data is fine.
 - One helper builds one thing and takes keyword-only arguments named after
   what varies.
 - A complicated object comes from a builder or factory class, not from a long
-  literal repeated per test: `ImportWorld` in `tests/unit/import_fakes.py`,
-  the factories in `tests/integration/factories.py`.
+  literal repeated per test: the factories in `tests/integration/conftest.py`.
 - Helpers live in the test module that owns them, or in a shared sibling
   module once a second module needs them:
   `tests/integration/web/event/helpers.py`, `tests/unit/factories.py`.

@@ -225,12 +225,15 @@ def compact_day(cards):
     )
 
 
-def party_context(party=None, *, leader_name="", members=()):
-    # The enroll page's party plumbing. The default is a viewer who is in no
-    # party at all; a scenario that gives them one they lead states the pills
-    # the page should show, rather than asking the service the view asks.
-    if party is None:
-        return {"party_choices": [], "selected_party": None}
+def no_party_context():
+    # The enroll page's party plumbing for a viewer who is in no party at all.
+    return {"party_choices": [], "selected_party": None}
+
+
+def led_party_context(party, *, leader_name, members):
+    # The enroll page's party plumbing for a viewer who leads `party`: the
+    # scenario states the pills the page should show, rather than asking the
+    # service the view asks.
     pill = {
         "pk": party.pk,
         "name": party.name,
@@ -301,8 +304,8 @@ def enroll_context(
 ):
     return {
         "seats": seats or stored_seats(session),
-        # The two party keys, as `party_context` spells them: a caller with a
-        # party splices its result straight in.
+        # The two party keys, as `no_party_context` and `led_party_context` spell
+        # them: a caller splices either result straight in.
         "party_choices": list(party_choices),
         "selected_party": selected_party,
         "companions": list(companions),

@@ -27,8 +27,8 @@ from tests.integration.utils import assert_response, input_tag
 from tests.integration.web.event.helpers import (
     commit_before_seat_lock,
     enroll_context,
+    led_party_context,
     participation_row,
-    party_context,
     party_member,
 )
 
@@ -62,7 +62,7 @@ def _party_pills(party, *, leader, member, consent, extra=()):
     # The two pills the page shows for the party `_led_party_with_member`
     # makes: the leader first on the membership default, then the member on
     # the consent mode the scenario is about.
-    return party_context(
+    return led_party_context(
         party,
         leader_name=leader.name,
         members=[

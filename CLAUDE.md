@@ -114,9 +114,9 @@ constructor, and own transactional boundaries.
   `mise run test:e2e -- tests/<name>.spec.ts --project=chromium`. CI runs
   the full suite; say in the PR which specs you ran.
 - Python test helpers arrange or assert, never act: the call under test
-  stays in the test body. No `if` in a helper; write explicit functions and
-  extract what they share. Build complicated objects with builder or factory
-  classes. Shared helper modules are fine. Details:
+  stays in the test body. No flag or `None` default that selects behaviour in a
+  helper; write explicit functions and extract what they share. Build
+  complicated objects with builder or factory classes. Details:
   [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - If you must test a system in isolation, first write down all the ways it
   could fail, then write the code.
