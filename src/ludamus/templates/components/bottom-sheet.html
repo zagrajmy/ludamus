@@ -1,0 +1,41 @@
+{% load i18n tessera %}
+{% comment %}
+Rendered by {% bottom_sheet %}. The page also needs components/bottom-sheet-head.html
+in extra_head; src/bottom-sheet.ts finds the parts below by their data-bottom-sheet-* hooks.
+{% endcomment %}
+<section id="{{ id }}"
+         class="bottom-sheet"
+         data-bottom-sheet
+         data-height="{{ height }}"
+         data-discard-message="{% translate "Discard your unsaved changes?" %}"
+         data-discard-label="{% translate "Discard" %}"
+         {% if open %}data-open{% endif %}
+         aria-labelledby="{{ id }}-title">
+    <button type="button"
+            class="bottom-sheet-handle"
+            data-bottom-sheet-handle
+            data-label-grow="{% translate "Expand to full height" %}"
+            data-label-shrink="{% translate "Shrink to half height" %}"
+            aria-label="{% translate "Expand to full height" %}"></button>
+    <div class="bottom-sheet-header">
+        {% if level == 1 %}
+            <h1 id="{{ id }}-title"
+                class="text-lg lg:text-xl font-semibold min-w-0 break-words outline-none"
+                tabindex="-1"
+                data-bottom-sheet-title>{{ title }}</h1>
+        {% else %}
+            <h2 id="{{ id }}-title"
+                class="text-lg lg:text-xl font-semibold min-w-0 break-words outline-none"
+                tabindex="-1"
+                data-bottom-sheet-title>{{ title }}</h2>
+        {% endif %}
+        <a href="{{ close_url }}"
+           class="bottom-sheet-close icon-btn size-11 items-center justify-center"
+           data-bottom-sheet-close>
+            {% icon "x-mark" class="w-5 h-5" %}
+            <span class="sr-only">{% translate "Close" %}</span>
+        </a>
+    </div>
+    <div class="bottom-sheet-body">{{ content }}</div>
+</section>
+<div class="bottom-sheet-backdrop" data-bottom-sheet-backdrop hidden></div>

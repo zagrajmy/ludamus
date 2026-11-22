@@ -107,6 +107,17 @@ constructor, and own transactional boundaries.
 - E2E tests check behaviour through what assistive tech sees: roles, accessible
   names, labels, focus and ARIA state, not CSS selectors or ids. They take no
   `page.screenshot`; screenshots belong in the PR description.
+- Never run the whole E2E suite locally: it takes most of an hour. Run only
+  the specs you added or changed, plus the specs that cover the pages,
+  templates, or client code you touched (grep `tests/e2e/tests` for the URL,
+  role, or copy):
+  `mise run test:e2e -- tests/<name>.spec.ts --project=chromium`. CI runs
+  the full suite; say in the PR which specs you ran.
+- Python test helpers arrange or assert, never act: the call under test
+  stays in the test body. No `if` in a helper; write explicit functions and
+  extract what they share. Build complicated objects with builder or factory
+  classes. Shared helper modules are fine. Details:
+  [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md).
 - If you must test a system in isolation, first write down all the ways it
   could fail, then write the code.
 - Tautological tests considered harmful: a test that restates the code it
