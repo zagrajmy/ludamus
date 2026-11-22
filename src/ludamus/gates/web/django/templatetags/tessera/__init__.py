@@ -31,6 +31,7 @@ from .action_dropdown import (
     do_action_dropdown,
     tessera_action_dropdown_item,
 )
+from .bottom_sheet import BottomSheetNode, bottom_sheet
 from .checkbox import tessera_checkbox_toggle
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
@@ -66,6 +67,7 @@ from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
     "ActionDropdownNode",
+    "BottomSheetNode",
     "ChoiceButtonNode",
     "ChoiceButtonsNode",
     "ComboboxNode",
@@ -78,6 +80,7 @@ __all__ = [
     "TabShellNode",
     "TableNode",
     "TabsNode",
+    "bottom_sheet",
     "copy_lines",
     "do_action_dropdown",
     "do_combobox",
