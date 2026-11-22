@@ -27,11 +27,11 @@ hadolint = "pipx:hadolint-py"
 # mise.toml's — nothing checks that they agree, and they had already drifted
 # (sandboxes ran 0.5.2 against laptops' 0.5.4).
 [tools]
-"go:github.com/reteps/dockerfmt" = "v0.5.4"
+"go:github.com/reteps/dockerfmt" = "v1.0.0"
 # hk's mise.toml entry carries `workflow = "release.yml"`: a packslip signing
 # policy (accept only releases signed by that workflow) that laptops need and
 # the cargo backend rejects — mise validates options per backend since
 # 2026.10, so the alias alone fails every sandbox `mise install`. A nearer
 # [tools] entry replaces the whole entry, options included, and an alias can't
 # strip one, hence the second duplicated pin. Bump it together with mise.toml's.
-hk = "2.11.1"
+hk = "2.12.0"
