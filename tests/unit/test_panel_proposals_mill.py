@@ -23,6 +23,7 @@ from tests.unit.factories import (
     facilitator_list_item_dto,
     organizer_field_dto,
     session_dto,
+    session_list_item_dto,
     track_dto,
 )
 
@@ -129,49 +130,6 @@ class TestProposalPanelService:
         assert not result.sort
         assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
-    def test_create_writes_session_field_values_and_availability_together(
-        self, service, sessions, session_fields, facilitators, tracks
-    ):
-        sessions.slug_exists.return_value = False
-        sessions.create.return_value = _NEW_PROPOSAL_ID
-        session_fields.list_by_event.side_effect = _by_event(
-            [organizer_field_dto(pk=3, field_type="select", order=0, name="System")]
-        )
-        facilitators.list_by_event.side_effect = _by_event(
-            [facilitator_list_item_dto(pk=7)]
-        )
-        tracks.list_by_event.side_effect = _by_event([track_dto(pk=4)])
-
-        proposal_id = service.create_proposal(
-            event_id=1,
-            draft=ProposalDraft(
-                data={"title": "Dragon Heist", "event_id": 1},
-                facilitator_ids=[7],
-                field_values={3: "D&D 5e"},
-                track_ids=[4],
-                availability=[_offered(DayPart.EVENING)],
-            ),
-        )
-
-        assert proposal_id == _NEW_PROPOSAL_ID
-        sessions.create.assert_called_once_with(
-            {
-                "title": "Dragon Heist",
-                "event_id": 1,
-                "slug": "dragon-heist",
-                "status": SessionStatus.PENDING,
-            },
-            facilitator_ids=[7],
-        )
-        sessions.save_field_values.assert_called_once_with(
-            _NEW_PROPOSAL_ID,
-            [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
-        )
-        sessions.set_availability.assert_called_once_with(
-            _NEW_PROPOSAL_ID, [_offered(DayPart.EVENING)]
-        )
-        sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
-
     def test_create_rejects_foreign_event_id_in_draft(self, service, sessions):
         with pytest.raises(NotFoundError):
             service.create_proposal(
@@ -180,15 +138,6 @@ class TestProposalPanelService:
             )
 
         sessions.create.assert_not_called()
-
-    def test_create_skips_empty_field_values_and_availability(self, service, sessions):
-        sessions.slug_exists.return_value = False
-        sessions.create.return_value = _NEW_PROPOSAL_ID
-
-        service.create_proposal(event_id=1, draft=ProposalDraft(data={"title": "Bare"}))
-
-        sessions.save_field_values.assert_not_called()
-        sessions.set_availability.assert_not_called()
 
     def test_create_accepted_session_recovers_from_constraint_error(
         self, service, sessions
@@ -231,7 +180,8 @@ class TestProposalPanelService:
         panel_settings.read_or_create.side_effect = _by_event(
             event_panel_settings_dto(proposal_columns=["title"])
         )
-        sessions.list_sessions_by_event.return_value = ["proposal"]
+        listed = session_list_item_dto(pk=3)
+        sessions.list_sessions_by_event.return_value = [listed]
 
         result = service.list_context(
             event_id=1,
@@ -266,7 +216,7 @@ class TestProposalPanelService:
             result.status,
             result.sort,
             [c.key for c in result.columns],
-        ) == (["proposal"], [select_field], [talk], 5, "scheduled", "-title", ["title"])
+        ) == ([listed], [select_field], [talk], 5, "scheduled", "-title", ["title"])
 
     def test_real_status_excludes_scheduled_sessions(self, service, sessions):
         result = service.list_context(
@@ -404,7 +354,7 @@ class TestProposalPanelService:
         sessions.update.assert_not_called()
 
     def test_set_session_facilitator_name_updates_the_session(self, service, sessions):
-        sessions.read_by_event.side_effect = _by_session(3, "proposal")
+        sessions.read_by_event.side_effect = _by_session(3, session_dto(pk=3))
 
         service.set_session_facilitator_name(
             event_id=1, session_id=3, facilitator_name="Ala"
@@ -442,22 +392,21 @@ class TestProposalPanelService:
         tracks,
     ):
         session_fields.list_by_event.side_effect = _by_event(
-            [organizer_field_dto(pk=1), organizer_field_dto(pk=2)]
+            [organizer_field_dto(pk=pk) for pk in (1, 2, 3)]
         )
         proposal_categories.list_by_event.side_effect = _by_event([category(pk=5)])
         facilitators.list_by_event.side_effect = _by_event(
             [facilitator_list_item_dto(pk=3)]
         )
         tracks.list_by_event.side_effect = _by_event([track_dto(pk=4)])
-        sessions.slug_exists.side_effect = lambda event_id, slug: (event_id, slug) == (
-            1,
-            "full",
+        sessions.slug_exists.side_effect = lambda event_id, slug: (
+            (event_id, slug) == (1, "full")
         )
         sessions.create.return_value = 11
         draft = ProposalDraft(
             data={"title": "Full", "category_id": 5},
             facilitator_ids=[3],
-            field_values={1: "  ", 2: False},
+            field_values={1: "D&D 5e", 2: False, 3: "  "},
             track_ids=[4],
             availability=[_offered(DayPart.EVENING)],
         )
@@ -467,12 +416,20 @@ class TestProposalPanelService:
 
         assert (first, second) == (11, 11)
         payload, kwargs = sessions.create.call_args_list[0]
+        slug = payload[0]["slug"]
+        assert slug.startswith("full-")
+        assert payload[0] == {
+            "title": "Full",
+            "category_id": 5,
+            "event_id": 1,
+            "slug": slug,
+            "status": SessionStatus.PENDING,
+        }
         assert kwargs == {"facilitator_ids": [3]}
-        assert payload[0]["status"] == SessionStatus.PENDING
-        assert "ident" not in payload[0]
-        assert payload[0]["slug"].startswith("full-")
-        assert payload[0]["slug"] != "full"
-        answered = [SessionFieldValueData(session_id=11, field_id=2, value=False)]
+        answered = [
+            SessionFieldValueData(session_id=11, field_id=1, value="D&D 5e"),
+            SessionFieldValueData(session_id=11, field_id=2, value=False),
+        ]
         assert sessions.save_field_values.call_args_list == [call(11, answered)] * 2
         sessions.set_session_tracks.assert_called_with(11, [4])
         sessions.set_availability.assert_called_with(11, [_offered(DayPart.EVENING)])
