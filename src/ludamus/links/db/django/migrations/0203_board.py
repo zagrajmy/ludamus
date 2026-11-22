@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0192_remove_encounterrsvp_ip_address")]
+    dependencies = [("db_main", "0202_ticket_sales")]
 
     operations = [
         migrations.CreateModel(
