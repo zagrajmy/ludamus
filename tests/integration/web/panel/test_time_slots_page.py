@@ -15,10 +15,10 @@ from tests.integration.utils import (
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
-    cfp_tab_urls,
     day_range,
     empty_days,
     panel_context,
+    settings_tab_urls,
     time_slots_page_context,
 )
 
@@ -27,7 +27,7 @@ DAYS_PER_PAGE = 3
 
 
 class TestTimeSlotsPageView:
-    """Tests for /panel/event/<slug>/cfp/time-slots/ page."""
+    """Tests for /panel/event/<slug>/settings/availability/ page."""
 
     @staticmethod
     def get_url(event):
@@ -89,9 +89,9 @@ class TestTimeSlotsPageView:
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
-                "active_tab": "time_slots",
-                "tab_urls": cfp_tab_urls(event),
+                **panel_context(event, active_nav="settings"),
+                "active_tab": "availability",
+                "tab_urls": settings_tab_urls(event),
                 "time_slots": [],
                 "undeletable_slot_reasons": {},
                 "days": {day.isoformat(): []},
@@ -208,9 +208,9 @@ class TestTimeSlotsPageView:
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
-                "active_tab": "time_slots",
-                "tab_urls": cfp_tab_urls(event),
+                **panel_context(event, active_nav="settings"),
+                "active_tab": "availability",
+                "tab_urls": settings_tab_urls(event),
                 "time_slots": [],
                 "undeletable_slot_reasons": {},
                 "days": {(start + timedelta(days=i)).isoformat(): [] for i in range(3)},
@@ -237,9 +237,9 @@ class TestTimeSlotsPageView:
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
-                "active_tab": "time_slots",
-                "tab_urls": cfp_tab_urls(event),
+                **panel_context(event, active_nav="settings"),
+                "active_tab": "availability",
+                "tab_urls": settings_tab_urls(event),
                 "time_slots": [],
                 "undeletable_slot_reasons": {},
                 "days": {

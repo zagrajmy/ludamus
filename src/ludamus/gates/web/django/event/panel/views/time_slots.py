@@ -1,4 +1,4 @@
-"""Time slot views for the CFP."""
+"""Time slot views: the availability windows under event settings."""
 
 from __future__ import annotations
 
@@ -16,7 +16,11 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import TimeSlotForm
-from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, cfp_tab_urls
+from ludamus.gates.web.django.panel import (
+    PanelNavContext,
+    PanelRequest,
+    settings_tab_urls,
+)
 from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
@@ -131,9 +135,9 @@ def _time_slots_context(
             continuation_slots.add((time_slot.pk, end_date.isoformat()))
 
     return {
-        "active_nav": "cfp",
-        "active_tab": "time_slots",
-        "tab_urls": cfp_tab_urls(event.slug),
+        "active_nav": "settings",
+        "active_tab": "availability",
+        "tab_urls": settings_tab_urls(event.slug),
         "time_slots": time_slots,
         "undeletable_slot_reasons": undeletable_slot_reasons,
         "days": days,
@@ -245,7 +249,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
             "end_time": local_end.strftime("%H:%M"),
         }
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "settings"
         context["time_slot"] = time_slot
         context["form"] = TimeSlotForm(initial=initial)
         return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
@@ -263,7 +267,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
 
         form = TimeSlotForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "settings"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
@@ -278,7 +282,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
             )
         except TimeSlotRejectedError as error:
             _add_slot_errors(form, error.errors)
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "settings"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)

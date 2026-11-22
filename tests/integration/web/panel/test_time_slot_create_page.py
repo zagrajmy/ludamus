@@ -50,7 +50,7 @@ def _assert_modal_reopens(response, *, event, slots=(), form=ANY):
 
 
 class TestTimeSlotCreatePageView:
-    """Tests for /panel/event/<slug>/cfp/time-slots/create/ page."""
+    """Tests for /panel/event/<slug>/settings/availability/create/ page."""
 
     @staticmethod
     def get_url(event):
@@ -123,7 +123,7 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Time slot created successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(event=event).count() == 1
         slot = TimeSlot.objects.get(event=event)
@@ -160,7 +160,7 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Time slot created successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
         expected_date = event.start_time.date()
@@ -242,7 +242,7 @@ class TestTimeSlotCreatePageView:
             messages=[
                 (messages.SUCCESS, "Time slot created. The event dates now cover it.")
             ],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
         event.refresh_from_db()
@@ -268,7 +268,7 @@ class TestTimeSlotCreatePageView:
             messages=[
                 (messages.SUCCESS, "Time slot created. The event dates now cover it.")
             ],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
         event.refresh_from_db()
@@ -354,7 +354,7 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Time slot created successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(event=event).count() == 1 + 1
 
@@ -378,7 +378,7 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Time slot created successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
         assert slot.start_time.date() == event.start_time.date()
@@ -404,7 +404,7 @@ class TestTimeSlotCreatePageView:
             messages=[
                 (messages.SUCCESS, "Time slot created. The event dates now cover it.")
             ],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
         event.refresh_from_db()
