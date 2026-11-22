@@ -173,6 +173,39 @@ private hands of cards and waits until cards need it.
 
 ## Architecture
 
+**Decided 2026-11-22: the board is its own application on its own
+subdomain, and Django stays the owner of accounts and board records.**
+The first build mounted the board page inside Django. This section's
+diagram and the "Client" paragraph below describe that first build. The
+move is phase 1b in the plan.
+
+Why the page moves out of Django:
+
+- A tldraw licence key is tied to domains. One fixed domain is simple to
+  license. Every sphere domain, custom domains included, is not.
+- The board gets a security policy of its own. It can allow WebAssembly
+  for dice physics while the main site's policy stays strict.
+- The board deploys alone with Alchemy. Its 700 KB of scripts leave the
+  Django build, and a broken board release cannot break the main site.
+- tldraw is not open source. A separate application keeps it out of what
+  a self-hoster of Zagrajmy runs.
+- On its own origin the board can be added to a phone's home screen.
+
+Why it is not fully independent: the shared sign-in, parties, Parley and
+encounters all live in Django. A second copy of users and boards would
+need a sync, and that is where bugs come from.
+
+The shape after the move:
+
+- The board Worker serves the React application as static assets and
+  runs the rooms. The client code lives in the Worker's package.
+- Django keeps the `Board` records, "My boards", the create action and the
+  pass endpoint. The old page at `/b/<code>/` redirects to the board's
+  domain.
+- The board application asks Django for a pass across origins. The two
+  hosts are the same site, so the browser sends the session cookie.
+- The board application carries its own Polish and English texts.
+
 The board follows Parley's shape: Django renders the page and signs a
 pass, a React island runs in the page, and a Worker with Durable Objects
 holds the live state.
@@ -322,6 +355,19 @@ Progress, 2026-11-12:
    the same result in both logs, add a place in one and jump to it from the other,
    reset the link and see the guest removed.
    The run saves screenshots of both screens as its artifact.
+
+### Phase 1b — the board moves to its own subdomain
+
+1. The Worker serves the client as static assets, with its own strict
+   security policy, a web app manifest and the tldraw licence key.
+2. The client moves from `src/ludamus/client/src/board/` into
+   `workers/board`, with its own Vite build and its own texts.
+3. Django's pass endpoint answers the board's origin, with tests for
+   every origin it must refuse.
+4. Django's board page becomes a redirect. The Vite entry, the tldraw
+   packages and the copy module leave the Django build.
+5. An Alchemy stack deploys the Worker with its domain, as Parley's does.
+6. The end-to-end test runs against the new shape.
 
 ### Phase 2 — private layer, paper and pieces
 
