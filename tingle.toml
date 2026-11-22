@@ -8,12 +8,6 @@ include = ["pyproject.toml"]
 [ranges.python-src]
 include = ["src/**/*.py"]
 
-[ranges.legacy-code]
-include = ["src/**/legacy.py"]
-
-[ranges.gates]
-include = ["src/ludamus/gates/**/*.py"]
-
 [ranges.old-subdomain-modules]
 include = [
     "src/ludamus/**/chronology.py",
@@ -164,12 +158,6 @@ pattern = 'disallow_\w+ = false'
 ranges = ["config"]
 
 # refactoring
-
-[[metrics]]
-name = "legacy-files"
-type = "file_count"
-group = "refactoring"
-ranges = ["legacy-code"]
 
 # A file past the template's line gate has stopped being one thing. Counts
 # crossings both ways, so splitting one back under the gate pays for pushing

@@ -174,9 +174,8 @@ Original list, kept for the record:
   3.14 (PEP 758), not a bug.
 - Cross-sphere encounter access by `share_code`: capability-style
   share link, intended behavior, not an IDOR.
-- Legacy `adapters/` + `request.di.uow` existence, links facade
-  `__init__.py`, per-module mypy relaxations: documented, deliberate
-  tradeoffs.
+- Links facade `__init__.py`, per-module mypy relaxations: documented,
+  deliberate tradeoffs.
 - `docs/refactors/README.md` row 4 "next step": checked against the
   code and still accurate (only row 1 is stale — plan 005).
 
