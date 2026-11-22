@@ -1,3 +1,6 @@
 !./
 worktrees/
 settings.local.json
+
+# Impeccable engine binary, downloaded by the launcher on first run
+skills/impeccable/scripts/bin/
