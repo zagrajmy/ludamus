@@ -55,8 +55,8 @@ class ProfilePageView(
         kwargs["object"] = profile.read(self.request.context.current_user_slug)
         kwargs["profile_active_tab"] = "profile"
         context = super().get_context_data(**kwargs)
-        context["sheet_open"] = bool(context["form"].errors) or (
-            "next" in self.request.GET
+        context["sheet_open"] = bool(context["form"].errors) or bool(
+            {"next", "verify-email"} & self.request.GET.keys()
         )
         return context
 

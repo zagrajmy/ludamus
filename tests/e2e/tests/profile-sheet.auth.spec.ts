@@ -12,12 +12,13 @@ const row = (page: Page, name: string) =>
   page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name });
 
 // NOTE: the card is a plain div, so the innermost one holding both this party's link
-// and a menu button is the card; its ancestors match too and come first.
-const partyCard = (scope: Locator, name: string) =>
+// and a menu button is the card; its ancestors match too and come first. `has` is
+// matched inside each div, so it takes page-level locators, not ones under `scope`.
+const partyCard = (page: Page, scope: Locator, name: string) =>
   scope
     .locator("div")
-    .filter({ has: scope.getByRole("link", { name, exact: true }) })
-    .filter({ has: scope.getByRole("button", { name: "More actions" }) })
+    .filter({ has: page.getByRole("link", { name, exact: true }) })
+    .filter({ has: page.getByRole("button", { name: "More actions" }) })
     .last();
 
 const dragHandle = async (page: Page, deltaY: number) => {
@@ -214,7 +215,7 @@ test.describe("Profile on a phone", () => {
     await expect(page).toHaveURL(/profile\/parties\/$/);
 
     const sections = page.getByRole("dialog", { name: "Parties" });
-    const card = partyCard(sections, name);
+    const card = partyCard(page, sections, name);
     await card.getByRole("button", { name: "More actions" }).click();
     await card.getByRole("button", { name: "Remove" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete party" }).click();

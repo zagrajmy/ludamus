@@ -43,6 +43,16 @@ class TestProfilePageView:
             template_name=["user/user/edit.html"],
         )
 
+    def test_get_opens_sheet_for_verify_email(self, authenticated_client, active_user):
+        response = authenticated_client.get(f"{self.URL}?verify-email=1")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user, sheet_open=True),
+            template_name=["user/user/edit.html"],
+        )
+
     def test_get_keeps_sheet_closed_for_other_params(
         self, authenticated_client, active_user
     ):

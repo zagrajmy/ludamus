@@ -16,7 +16,7 @@
                data-ph-mask>{{ current_user.email }}</p>
         {% endif %}
         <a href="{% url 'web:crowd:profile-avatar' %}"
-           class="inline-flex items-center min-h-11 px-3 text-sm text-primary hover:underline">
+           class="inline-flex items-center min-h-11 px-3 text-sm text-foreground-secondary underline hover:text-foreground">
             {% translate "Change avatar" %}
         </a>
     </div>
