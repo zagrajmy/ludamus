@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import type { Roll } from "./bootstrap";
 import { type Copy, dieLabel, fill } from "./copy";
+import { DieShape } from "./die-shape";
 import { Icon } from "./icons";
 import type { RollRefusal } from "./rolls";
 import { Sheet } from "./sheet";
@@ -32,7 +33,7 @@ export function rollSentence(copy: Copy, roll: Roll): string {
 }
 
 const DIE_BUTTON =
-  "grid h-12 place-items-center rounded-xl border border-border bg-bg-tertiary text-sm font-semibold tabular-nums text-foreground transition-transform select-none touch-manipulation active:scale-95 disabled:opacity-40 hover:border-warm-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
+  "grid h-12 place-items-center rounded-xl transition-transform select-none touch-manipulation active:scale-95 disabled:opacity-40 hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
 
 function LogEntry({ copy, locale, roll }: { copy: Copy; locale: string; roll: Roll }) {
   return (
@@ -49,13 +50,14 @@ function LogEntry({ copy, locale, roll }: { copy: Copy; locale: string; roll: Ro
         </p>
         <p className="mt-1 flex flex-wrap gap-1">
           {roll.dice.map((die, index) => (
-            <span
-              className="grid h-7 min-w-7 place-items-center rounded-md bg-bg-tertiary px-1 text-sm font-medium tabular-nums ring-1 ring-border"
+            <DieShape
+              copy={copy}
               key={index}
-              title={dieLabel(copy, die.sides)}
-            >
-              {die.value}
-            </span>
+              sides={die.sides}
+              size="sm"
+              tone="quiet"
+              value={die.value}
+            />
           ))}
         </p>
       </div>
@@ -103,14 +105,15 @@ export function DiceSheet() {
           <>
             {pool.map((sides, index) => (
               <button
-                aria-label={fill(copy.removeDie, { die: dieLabel(copy, sides) })}
-                className="inline-flex h-11 touch-manipulation items-center gap-1 rounded-full bg-primary-light pr-2.5 pl-3.5 text-sm font-semibold text-coral-800 ring-1 ring-coral-200 focus-visible:outline-2 focus-visible:outline-border-focus active:scale-95"
+                aria-label={fill(copy.removeDie, {
+                  die: dieLabel(copy, sides),
+                })}
+                className="grid h-11 min-w-11 touch-manipulation place-items-center rounded-xl focus-visible:outline-2 focus-visible:outline-border-focus active:scale-95"
                 key={index}
                 onClick={() => setPool(pool.toSpliced(index, 1))}
                 type="button"
               >
-                {dieLabel(copy, sides)}
-                <Icon className="size-4 opacity-70" name="Close" />
+                <DieShape copy={copy} sides={sides} tone="soft" />
               </button>
             ))}
             {pool.length > 1 && (
@@ -136,7 +139,7 @@ export function DiceSheet() {
             onClick={() => setPool([...pool, sides])}
             type="button"
           >
-            {dieLabel(copy, sides)}
+            <DieShape copy={copy} sides={sides} size="lg" tone="quiet" />
           </button>
         ))}
       </div>

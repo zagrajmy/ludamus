@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Roll } from "./bootstrap";
-import { type Copy, dieLabel, fill } from "./copy";
+import type { Copy } from "./copy";
 import { total } from "./dice";
 import type { DiceThrow } from "./dice-3d";
 import { dropDice3d, isDice3dDown } from "./dice-stage-fallback";
+import { DieShape } from "./die-shape";
 
 // NOTE: a throw that never reports back must not hide the result for good.
 const GIVE_UP_MS = 12_000;
@@ -35,36 +36,24 @@ function ResultCard({ copy, onClose, roll }: { copy: Copy; onClose: () => void; 
     <div className="pointer-events-none fixed inset-x-0 top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] z-60 flex justify-center px-4">
       <button
         aria-label={copy.close}
-        className="pointer-events-auto flex w-full max-w-sm flex-col gap-2 rounded-2xl bg-bg-secondary/95 px-4 py-3 text-foreground shadow-[0_8px_28px_rgb(37_34_32/0.24)] ring-1 ring-border backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-border-focus"
+        className="pointer-events-auto flex w-full max-w-sm items-center gap-2.5 rounded-2xl bg-bg-secondary/95 px-3 py-2 text-foreground shadow-[0_8px_28px_rgb(37_34_32/0.24)] ring-1 ring-border backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-border-focus"
         onClick={onClose}
         ref={card}
         type="button"
       >
-        <span className="flex items-baseline justify-between gap-3">
-          <span className="truncate text-sm font-medium text-foreground-secondary">
-            {fill(copy.rolledBy, { name: roll.name })}
-          </span>
-          {roll.dice.length > 1 && (
-            <span className="flex shrink-0 items-baseline gap-1.5">
-              <span className="text-xs text-foreground-secondary">{copy.total}</span>
-              <span className="text-2xl leading-none font-bold tabular-nums">{total(roll)}</span>
-            </span>
-          )}
+        <span className="max-w-[42%] min-w-14 shrink-0 truncate text-left text-sm font-semibold">
+          {roll.name}
         </span>
-        <span className="flex flex-wrap gap-1.5">
+        <span className="flex min-w-0 flex-1 flex-wrap justify-end gap-1">
           {roll.dice.map((die, index) => (
-            <span
-              className="grid min-w-8 place-items-center rounded-lg bg-primary px-1.5 py-1 text-sm leading-none font-bold text-white tabular-nums"
-              key={index}
-              title={dieLabel(copy, die.sides)}
-            >
-              {die.value}
-              <span className="text-[0.5625rem] font-medium opacity-80">
-                {dieLabel(copy, die.sides)}
-              </span>
-            </span>
+            <DieShape copy={copy} key={index} sides={die.sides} size="sm" value={die.value} />
           ))}
         </span>
+        {roll.dice.length > 1 && (
+          <span className="min-w-8 shrink-0 border-l border-border pl-2.5 text-xl leading-none font-bold tabular-nums">
+            {total(roll)}
+          </span>
+        )}
       </button>
     </div>
   );
@@ -116,7 +105,7 @@ export function DiceStage({ copy, onSettled, roll }: DiceStageProps) {
       {!still && !unavailable && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 top-44 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 sm:top-36 [&_canvas]:pointer-events-none"
+          className="pointer-events-none fixed inset-x-0 top-32 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 sm:top-28 [&_canvas]:pointer-events-none"
           ref={host}
         />
       )}
