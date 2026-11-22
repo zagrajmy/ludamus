@@ -1,5 +1,4 @@
 from datetime import date
-from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -17,7 +16,15 @@ from ludamus.pacts.panel import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionStatus
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import (
+    FakeTransaction,
+    category,
+    event_panel_settings_dto,
+    facilitator_list_item_dto,
+    organizer_field_dto,
+    session_dto,
+    track_dto,
+)
 
 _NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
@@ -61,7 +68,7 @@ class TestProposalPanelService:
     def panel_settings(self):
         repo = MagicMock()
         repo.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=[])
+            event_panel_settings_dto(proposal_columns=[])
         )
         return repo
 
@@ -100,8 +107,8 @@ class TestProposalPanelService:
     ):
         session_fields.list_by_event.side_effect = _by_event(
             [
-                SimpleNamespace(pk=1, field_type="select", order=0, name="A"),
-                SimpleNamespace(pk=2, field_type="text", order=1, name="B"),
+                organizer_field_dto(pk=1, field_type="select", order=0, name="A"),
+                organizer_field_dto(pk=2, field_type="text", order=1, name="B"),
             ]
         )
 
@@ -128,10 +135,12 @@ class TestProposalPanelService:
         sessions.slug_exists.return_value = False
         sessions.create.return_value = _NEW_PROPOSAL_ID
         session_fields.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=3, field_type="select", order=0, name="System")]
+            [organizer_field_dto(pk=3, field_type="select", order=0, name="System")]
         )
-        facilitators.list_by_event.side_effect = _by_event([SimpleNamespace(pk=7)])
-        tracks.list_by_event.side_effect = _by_event([SimpleNamespace(pk=4)])
+        facilitators.list_by_event.side_effect = _by_event(
+            [facilitator_list_item_dto(pk=7)]
+        )
+        tracks.list_by_event.side_effect = _by_event([track_dto(pk=4)])
 
         proposal_id = service.create_proposal(
             event_id=1,
@@ -215,12 +224,12 @@ class TestProposalPanelService:
     def test_known_category_and_scheduled_filter_reach_the_query(
         self, service, sessions, session_fields, proposal_categories, panel_settings
     ):
-        category = SimpleNamespace(pk=5)
-        select_field = SimpleNamespace(pk=1, field_type="select", order=0, name="A")
-        proposal_categories.list_by_event.side_effect = _by_event([category])
+        talk = category(pk=5)
+        select_field = organizer_field_dto(pk=1, field_type="select", order=0, name="A")
+        proposal_categories.list_by_event.side_effect = _by_event([talk])
         session_fields.list_by_event.side_effect = _by_event([select_field])
         panel_settings.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=["title"])
+            event_panel_settings_dto(proposal_columns=["title"])
         )
         sessions.list_sessions_by_event.return_value = ["proposal"]
 
@@ -257,15 +266,7 @@ class TestProposalPanelService:
             result.status,
             result.sort,
             [c.key for c in result.columns],
-        ) == (
-            ["proposal"],
-            [select_field],
-            [category],
-            5,
-            "scheduled",
-            "-title",
-            ["title"],
-        )
+        ) == (["proposal"], [select_field], [talk], 5, "scheduled", "-title", ["title"])
 
     def test_real_status_excludes_scheduled_sessions(self, service, sessions):
         result = service.list_context(
@@ -287,7 +288,7 @@ class TestProposalPanelService:
         assert (filters["status"], filters["scheduled"]) == (None, None)
 
     def test_read_proposal_finds_only_the_events_own(self, service, sessions):
-        own = SimpleNamespace(pk=3)
+        own = session_dto(pk=3)
 
         def read_by_event(pk, event_id):
             if (pk, event_id) != (own.pk, _EVENT_ID):
@@ -314,10 +315,10 @@ class TestProposalPanelService:
         self, service, session_fields, panel_settings
     ):
         session_fields.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=4, order=0, name="A")]
+            [organizer_field_dto(pk=4, order=0, name="A")]
         )
         panel_settings.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=["field_4", "title"])
+            event_panel_settings_dto(proposal_columns=["field_4", "title"])
         )
 
         context = service.columns_context(1)
@@ -441,13 +442,13 @@ class TestProposalPanelService:
         tracks,
     ):
         session_fields.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=1), SimpleNamespace(pk=2)]
+            [organizer_field_dto(pk=1), organizer_field_dto(pk=2)]
         )
-        proposal_categories.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=5)]
+        proposal_categories.list_by_event.side_effect = _by_event([category(pk=5)])
+        facilitators.list_by_event.side_effect = _by_event(
+            [facilitator_list_item_dto(pk=3)]
         )
-        facilitators.list_by_event.side_effect = _by_event([SimpleNamespace(pk=3)])
-        tracks.list_by_event.side_effect = _by_event([SimpleNamespace(pk=4)])
+        tracks.list_by_event.side_effect = _by_event([track_dto(pk=4)])
         sessions.slug_exists.side_effect = lambda event_id, slug: (event_id, slug) == (
             1,
             "full",

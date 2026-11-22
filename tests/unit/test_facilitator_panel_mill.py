@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,11 +11,8 @@ from ludamus.mills.panel_facilitators import (
     name_reconcile,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.facilitators import FacilitatorDTO
-from ludamus.pacts.fields import OrganizerFieldDTO
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
-    EventPanelSettingsDTO,
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
@@ -29,11 +25,21 @@ from ludamus.pacts.propose import (
     FacilitatorSessionCountsDTO,
     OrganizerActionRefusal,
 )
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import (
+    FakeTransaction,
+    event_panel_settings_dto,
+    facilitator_change_log_dto,
+    facilitator_dto,
+    facilitator_list_item_dto,
+    guild_summary_dto,
+    organizer_field_dto,
+    session_list_item_dto,
+    user_dto,
+)
 
 
 def _field(pk, field_type="select"):
-    return OrganizerFieldDTO.model_construct(
+    return organizer_field_dto(
         pk=pk,
         field_type=field_type,
         name=f"Field {pk}",
@@ -44,7 +50,7 @@ def _field(pk, field_type="select"):
 
 
 def _facilitator_row(pk, slug):
-    return SimpleNamespace(pk=pk, slug=slug)
+    return facilitator_list_item_dto(pk=pk, slug=slug)
 
 
 def _lookup(rows):
@@ -68,9 +74,7 @@ class FakeFacilitatorsRepo:
 class FakeSettingsRepo:
     def __init__(self, columns=(), event_id=1):
         self._by_event = {
-            event_id: EventPanelSettingsDTO.model_construct(
-                facilitator_columns=list(columns), pk=1
-            )
+            event_id: event_panel_settings_dto(facilitator_columns=list(columns))
         }
 
     def read_or_create(self, event_id):
@@ -232,7 +236,7 @@ _ACTOR = 3
 
 
 def _facilitator(pk, slug, user_id=None, guild_id=None, organizer_id=None):
-    return SimpleNamespace(
+    return facilitator_dto(
         pk=pk,
         slug=slug,
         user_id=user_id,
@@ -428,7 +432,7 @@ class TestFacilitatorMerge:
     def test_linked_target_keeps_its_membership_when_a_source_has_another_guild(self):
         service, repos = _merge_service(
             [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", guild_id=7)],
-            membership=SimpleNamespace(pk=8),
+            membership=guild_summary_dto(pk=8),
         )
 
         service.merge(
@@ -450,7 +454,7 @@ class TestCreateFacilitator:
         facilitators_repo.slug_exists.side_effect = lambda _event_id, slug: (
             slug in taken_slugs
         )
-        facilitators_repo.create.side_effect = lambda data: SimpleNamespace(
+        facilitators_repo.create.side_effect = lambda data: facilitator_dto(
             pk=_CREATED_PK, **data
         )
         service, repos = _service_and_repos(
@@ -464,7 +468,7 @@ class TestCreateFacilitator:
 
     def test_find_or_create_returns_exact_existing_facilitator_under_event_lock(self):
         service, repos = self._create_service()
-        existing = SimpleNamespace(pk=9, display_name="Alice")
+        existing = facilitator_dto(pk=9, display_name="Alice")
         repos.facilitators.find_by_event_and_display_name.return_value = existing
 
         result = service.find_or_create_facilitator(
@@ -572,9 +576,7 @@ class TestCreateFacilitator:
 
 
 def _merge_facilitator(*, pk, display_name):
-    return FacilitatorDTO.model_construct(
-        pk=pk, display_name=display_name, accreditation_type="none"
-    )
+    return facilitator_dto(pk=pk, display_name=display_name)
 
 
 class TestFieldReconcile:
@@ -679,7 +681,7 @@ class FakeOrganizerRepo:
 
     @staticmethod
     def read_by_event_and_slug(event_id, slug):
-        rows = {(1, "alice"): FacilitatorDTO.model_construct(pk=7, organizer_id=_MINE)}
+        rows = {(1, "alice"): facilitator_dto(pk=7, organizer_id=_MINE)}
         return rows[event_id, slug]
 
     def release(self, pk, *, organizer_id):
@@ -709,7 +711,7 @@ class FakeDeletionRepo:
 
     def lock_by_event_and_slugs(self, event_id, slugs):
         self.calls.append(("lock", event_id, slugs))
-        return [FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)]
+        return [facilitator_dto(pk=_FACILITATOR_PK)]
 
     def count_sessions(self, pk):
         self.calls.append(("count_sessions", pk))
@@ -775,7 +777,7 @@ def _mock_service(fields=(), *, event_id=1, columns=()):
 
 
 def _row(pk):
-    return SimpleNamespace(pk=pk)
+    return session_list_item_dto(pk=pk)
 
 
 class TestListContext:
@@ -843,7 +845,7 @@ class TestReadPaths:
     @pytest.mark.parametrize(
         ("include_deleted", "user_id", "user_lookup", "linked"),
         (
-            (True, 10, lambda pk: SimpleNamespace(pk=pk), SimpleNamespace(pk=10)),
+            (True, 10, lambda pk: user_dto(pk=pk), user_dto(pk=10)),
             (False, 10, MagicMock(side_effect=NotFoundError), None),
             (False, None, MagicMock(), None),
         ),
@@ -879,8 +881,9 @@ class TestReadPaths:
         repos.facilitators.read_including_deleted.side_effect = _lookup(
             {(1, "alice"): _facilitator(7, "alice")}
         )
-        mine, other = SimpleNamespace(facilitator_id=7), SimpleNamespace(
-            facilitator_id=8
+        mine, other = (
+            facilitator_change_log_dto(facilitator_id=7),
+            facilitator_change_log_dto(facilitator_id=8),
         )
         repos.facilitator_change_logs.list_by_event.side_effect = _lookup(
             {(1,): [mine, other]}

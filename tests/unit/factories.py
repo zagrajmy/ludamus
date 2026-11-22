@@ -9,17 +9,19 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventDTO
-from ludamus.pacts.facilitators import FacilitatorDTO
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.facilitators import FacilitatorChangeLogDTO, FacilitatorDTO
 from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldValueDTO
+from ludamus.pacts.guild import GuildSummaryDTO
 from ludamus.pacts.integrations import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
 )
+from ludamus.pacts.panel import EventPanelSettingsDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.propose import AccreditationType
-from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
@@ -134,6 +136,19 @@ def session_dto(**overrides) -> SessionDTO:
     return SessionDTO(**(defaults | overrides))
 
 
+def session_list_item_dto(**overrides) -> SessionListItemDTO:
+    defaults = {
+        "category_name": "",
+        "creation_time": DEFAULT_START,
+        "facilitator_name": "",
+        "is_scheduled": False,
+        "pk": 1,
+        "status": SessionStatus.ACCEPTED,
+        "title": "Session",
+    }
+    return SessionListItemDTO(**(defaults | overrides))
+
+
 def event_integration_dto(**overrides) -> EventIntegrationDTO:
     defaults = {
         "config_json": "{}",
@@ -159,6 +174,43 @@ def facilitator_dto(**overrides) -> FacilitatorDTO:
         "user_id": None,
     }
     return FacilitatorDTO(**(defaults | overrides))
+
+
+def facilitator_list_item_dto(**overrides) -> FacilitatorListItemDTO:
+    defaults = {
+        "accreditation_type": AccreditationType.NONE,
+        "display_name": "Facilitator",
+        "organizer_id": None,
+        "organizer_name": None,
+        "pk": 1,
+        "session_count": 0,
+        "slug": "facilitator",
+        "user_id": None,
+    }
+    return FacilitatorListItemDTO(**(defaults | overrides))
+
+
+def facilitator_change_log_dto(**overrides) -> FacilitatorChangeLogDTO:
+    defaults = {
+        "changes": [],
+        "creation_time": DEFAULT_START,
+        "event_id": 1,
+        "facilitator_id": 1,
+        "facilitator_name": "Facilitator",
+        "pk": 1,
+        "user_id": None,
+        "user_name": "",
+    }
+    return FacilitatorChangeLogDTO(**(defaults | overrides))
+
+
+def event_panel_settings_dto(**overrides) -> EventPanelSettingsDTO:
+    return EventPanelSettingsDTO(**({"pk": 1} | overrides))
+
+
+def guild_summary_dto(**overrides) -> GuildSummaryDTO:
+    defaults = {"name": "Guild", "pk": 1, "slug": "guild"}
+    return GuildSummaryDTO(**(defaults | overrides))
 
 
 def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
