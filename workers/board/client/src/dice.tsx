@@ -158,8 +158,14 @@ export function DiceSheet() {
       >
         {again && <Icon className="size-4 shrink-0" name="Repeat" />}
         <span className="truncate">
-          {again ? copy.rollAgain : copy.roll}
-          {next.length > 0 && <span className="font-normal"> {poolLabel(copy, next)}</span>}
+          {again ? (
+            fill(copy.rollAgain, { pool: poolLabel(copy, next) })
+          ) : (
+            <>
+              {copy.roll}
+              {next.length > 0 && <span className="font-normal"> {poolLabel(copy, next)}</span>}
+            </>
+          )}
         </span>
       </button>
       {refusal !== null && (
