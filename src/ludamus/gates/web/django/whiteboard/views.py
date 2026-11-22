@@ -160,7 +160,7 @@ def _requested_name(request: HttpRequest) -> str | None:
     """Read the name a guest typed, if the body carries one.
 
     Raises:
-        ValidationError: the body is not a JSON object with a string name.
+        ValidationError: the body is not JSON shaped like {"name": "<text>"}.
 
     Returns:
         The name as typed, or None when the body names nobody.

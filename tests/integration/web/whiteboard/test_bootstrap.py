@@ -8,7 +8,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Board, BoardVisit
 from tests.integration.conftest import BoardFactory, SphereFactory, UserFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    NonEmptyStringMatcher,
+    assert_response,
+    assert_response_404,
+)
 from tests.integration.web.whiteboard.helpers import verified_claims
 
 BOARD_APP = "http://localhost:8788"
@@ -79,12 +83,22 @@ class TestMember:
 
         response = _post(authenticated_client, board, {"name": "Impostor"})
 
-        assert_response(response, HTTPStatus.OK)
-        assert response.json()["person"] == {
-            "id": f"u:{active_user.pk}",
-            "name": "Test User",
-            "owner": False,
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            json={
+                "pass": NonEmptyStringMatcher(),
+                "board": str(board.pk),
+                "person": {
+                    "id": f"u:{active_user.pk}",
+                    "name": "Test User",
+                    "owner": False,
+                },
+                "title": board.title,
+                "sphere": {"name": sphere.name, "url": "http://testserver/"},
+                "boardsUrl": "http://testserver/boards/",
+            },
+        )
 
     def test_the_pass_puts_the_board_on_their_list(
         self, authenticated_client, active_user, sphere
@@ -119,8 +133,18 @@ class TestMember:
 
         response = _post(client, board)
 
-        assert_response(response, HTTPStatus.OK)
-        assert response.json()["person"]["name"] == "A" * 40
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            json={
+                "pass": NonEmptyStringMatcher(),
+                "board": str(board.pk),
+                "person": {"id": f"u:{user.pk}", "name": "A" * 40, "owner": False},
+                "title": board.title,
+                "sphere": {"name": sphere.name, "url": "http://testserver/"},
+                "boardsUrl": "http://testserver/boards/",
+            },
+        )
 
 
 class TestGuest:

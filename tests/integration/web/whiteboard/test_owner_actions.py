@@ -1,6 +1,5 @@
 import time
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 import requests
@@ -12,7 +11,11 @@ from django.utils.timezone import localdate
 
 from ludamus.links.db.django.models import Board
 from tests.integration.conftest import BoardFactory, SphereFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_response,
+    assert_response_404,
+)
 from tests.integration.web.whiteboard.helpers import board_dto, verified_claims
 
 INDEX = reverse("web:boards:index")
@@ -92,11 +95,11 @@ class TestBoardEditPageView:
             response,
             HTTPStatus.OK,
             template_name="whiteboard/edit.html",
-            context_data={"board": board_dto(board), "form": ANY},
+            context_data={
+                "board": board_dto(board),
+                "form": FormErrorsMatcher(title=["This field is required."]),
+            },
         )
-        assert response.context_data["form"].errors == {
-            "title": ["This field is required."]
-        }
         board.refresh_from_db()
         assert board.title == "Before"
 

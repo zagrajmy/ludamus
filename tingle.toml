@@ -148,6 +148,7 @@ type = "regex_count"
 group = "typing"
 pattern = '(?<![\.\w])object\b(?!-)'
 ranges = ["python-src"]
+ignore_lines = ['\*{1,2}\w+: object\b']
 
 [[metrics]]
 name = "type-cast"
