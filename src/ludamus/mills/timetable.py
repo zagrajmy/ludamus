@@ -589,7 +589,10 @@ class TimetableService(TimetableServiceProtocol):
                     PlacementRejection.SPACE_TIME_CONFLICT,
                     "another session is already scheduled in this space at this time",
                 )
+            # Programme placed past the event's edges moves the edges; the
+            # grid's hours follow the items, so nothing else has to be told.
             self._widen_event_around(placement, event_pk)
+            # A move needs the facilitator's fresh agreement to the new time.
             confirmed = event.auto_confirm_sessions and not is_move
             self._repos.sessions.update(session_pk, {"schedule_confirmed": confirmed})
             self._repos.agenda_items.create(
