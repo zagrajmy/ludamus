@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
+from ludamus.gates.web.django.whiteboard.copy import board_copy
 from ludamus.links.db.django.models import BoardVisit
 from tests.integration.conftest import BoardFactory, SphereFactory
 from tests.integration.utils import assert_response, assert_response_404
@@ -24,6 +25,7 @@ class TestBoardPageView:
             template_name="whiteboard/board.html",
             context_data={
                 "board": board_dto(board),
+                "board_copy": board_copy(),
                 "is_owner": False,
                 "license_key": "",
             },
@@ -44,6 +46,7 @@ class TestBoardPageView:
             template_name="whiteboard/board.html",
             context_data={
                 "board": board_dto(board),
+                "board_copy": board_copy(),
                 "is_owner": False,
                 "license_key": "tldraw-key",
             },
@@ -61,6 +64,7 @@ class TestBoardPageView:
             template_name="whiteboard/board.html",
             context_data={
                 "board": board_dto(board),
+                "board_copy": board_copy(),
                 "is_owner": True,
                 "license_key": "",
             },

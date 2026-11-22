@@ -1,5 +1,5 @@
 import { TLRemoteSyncError, TLSyncErrorCloseEventReason, useSync } from "@tldraw/sync";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { atom, createUserId, type TLUserStore, UserRecordType } from "tldraw";
 
 import { assetStore } from "./assets";
@@ -28,12 +28,26 @@ export function colorFor(id: string): string {
   return COLORS[hash % COLORS.length]!;
 }
 
-// The Worker closes a socket as forbidden when its link has been reset.
-export const isLinkReset = (error: Error) =>
-  error instanceof TLRemoteSyncError && error.reason === TLSyncErrorCloseEventReason.FORBIDDEN;
+export type Refusal = "full" | "gone" | "link-reset";
 
-// The board's tldraw store, synced through the Worker, and whether the
-// Worker turned the socket away because the board is full.
+// The Worker accepts a socket it must turn away and closes it at once with
+// tldraw's final close code and one of these reasons (workers/board README,
+// "Refusals").
+const REFUSALS: Partial<Record<string, Refusal>> = {
+  [TLSyncErrorCloseEventReason.FORBIDDEN]: "link-reset",
+  [TLSyncErrorCloseEventReason.NOT_FOUND]: "gone",
+  [TLSyncErrorCloseEventReason.ROOM_FULL]: "full",
+};
+
+export const refusalOf = (error: Error): Refusal | null =>
+  error instanceof TLRemoteSyncError ? (REFUSALS[error.reason] ?? null) : null;
+
+// NOTE: a full board refuses for good as far as tldraw is concerned; the
+// board asks again this often, so a person gets in once someone leaves.
+const FULL_RETRY_MS = 15_000;
+
+// The board's tldraw store, synced through the Worker. A reset link or a
+// deleted board ends the board for this person; a full one waits.
 export function useBoardStore({
   color,
   keeper,
@@ -44,11 +58,10 @@ export function useBoardStore({
   rolls: Rolls;
 }) {
   const { person } = keeper.bootstrap;
-  const [full, setFull] = useState(false);
-  const attempts = useRef({ count: 0, loaded: false, probed: false });
+  const [attempt, setAttempt] = useState(0);
 
   // NOTE: useSync reconnects whenever this object changes, so it is built
-  // once per board; a new object on each render loops React.
+  // once per board and attempt; a new object on each render loops React.
   const syncOptions = useMemo(() => {
     const users: TLUserStore = {
       currentUser: atom(
@@ -56,40 +69,23 @@ export function useBoardStore({
         UserRecordType.create({ color, id: createUserId(person.id), name: person.name }),
       ),
     };
-    // A socket the Worker refuses (board full, or an old link) only fails
-    // to open; the reason never reaches the page. One refused attempt, and
-    // the roll log, which checks the pass the same way, tells which it was.
-    const probe = async () => {
-      const response = await fetch(`${keeper.bootstrap.httpUrl}/rolls`, {
-        headers: { Authorization: `Bearer ${await keeper.pass()}` },
-      }).catch(() => null);
-      if (response?.status === 403) keeper.end("link-reset");
-      else if (response?.ok === true && !attempts.current.loaded) setFull(true);
-    };
     return {
       assets: assetStore,
+      attempt,
       onCustomMessageReceived: rolls.receive,
-      uri: async () => {
-        const state = attempts.current;
-        state.count += 1;
-        if (state.count > 1 && !state.loaded && !state.probed) {
-          state.probed = true;
-          void probe();
-        }
-        return keeper.socketUri();
-      },
+      uri: async () => keeper.socketUri(),
       users,
     };
-  }, [color, keeper, person, rolls.receive]);
+  }, [attempt, color, keeper, person, rolls.receive]);
   const store = useSync(syncOptions);
+  const refusal = store.status === "error" ? refusalOf(store.error) : null;
 
   useEffect(() => {
-    if (store.status === "synced-remote") {
-      attempts.current.loaded = true;
-      setFull(false);
-    }
-    if (store.status === "error" && isLinkReset(store.error)) keeper.end("link-reset");
-  }, [keeper, store]);
+    if (refusal === "gone" || refusal === "link-reset") keeper.end(refusal);
+    if (refusal !== "full") return;
+    const retry = setTimeout(() => setAttempt((count) => count + 1), FULL_RETRY_MS);
+    return () => clearTimeout(retry);
+  }, [keeper, refusal]);
 
-  return { full, store };
+  return { refusal, store };
 }

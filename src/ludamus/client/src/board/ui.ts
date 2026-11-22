@@ -15,6 +15,8 @@ export type BoardUi = {
   color: string;
   copy: Copy;
   editor: Editor | null;
+  // Where the board's menu leads out: "My boards", or the sphere for a guest.
+  exit: { href: string; label: string };
   locale: string;
   // The shape whose new place name is being typed.
   naming: TLShapeId | null;

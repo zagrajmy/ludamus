@@ -44,6 +44,7 @@
                 {% tessera_button text=exit_label href=exit_url variant="secondary" icon="arrow-left" %}
             </div>
         </div>
+        {{ board_copy|json_script:"board-copy" }}
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/board/index.ts' %}
     </body>

@@ -1,7 +1,10 @@
+import time
 from http import HTTPStatus
 from unittest.mock import ANY
 
 import pytest
+import requests
+import responses
 from django.contrib.messages import constants
 from django.urls import reverse
 from django.utils import formats
@@ -173,16 +176,69 @@ class TestBoardDeleteActionView:
     def _url(self, board):
         return reverse("web:boards:delete", kwargs={"pk": board.pk})
 
-    def test_deletes(self, authenticated_client, active_user, sphere):
+    def test_deletes_and_has_the_worker_wipe_the_room(
+        self, authenticated_client, active_user, sphere
+    ):
         board = BoardFactory(sphere=sphere, creator=active_user)
+        wipe = f"http://localhost:8788/rooms/{board.pk}/delete"
 
-        response = authenticated_client.post(self._url(board))
+        with responses.RequestsMock() as worker:
+            worker.post(wipe, status=204)
+            before = int(time.time())
+            response = authenticated_client.post(self._url(board))
+            [call] = worker.calls
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=INDEX,
             messages=[(constants.SUCCESS, "Board deleted.")],
+        )
+        assert not Board.objects.filter(pk=board.pk).exists()
+        scheme, token = call.request.headers["Authorization"].split(" ")
+        claims = verified_claims(token)
+        issued_at = claims.pop("iat")
+        assert before <= issued_at <= int(time.time())
+        assert (scheme, claims) == (
+            "Bearer",
+            {
+                "iss": "ludamus",
+                # NOTE: a board pass says "board"; the Worker wipes only on this.
+                "aud": "board-deletion",
+                "board": str(board.pk),
+                "exp": issued_at + 60,
+            },
+        )
+
+    @pytest.mark.parametrize(
+        "failure", (503, 403, requests.ConnectionError("Worker away"))
+    )
+    def test_deletion_stands_when_the_worker_does_not_wipe(
+        self, authenticated_client, active_user, sphere, failure
+    ):
+        board = BoardFactory(sphere=sphere, creator=active_user)
+        wipe = f"http://localhost:8788/rooms/{board.pk}/delete"
+
+        with responses.RequestsMock() as worker:
+            if isinstance(failure, int):
+                worker.post(wipe, status=failure)
+            else:
+                worker.post(wipe, body=failure)
+            response = authenticated_client.post(self._url(board))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=INDEX,
+            messages=[
+                (
+                    constants.WARNING,
+                    (
+                        "Board deleted. Anyone still on it can keep drawing "
+                        "until they leave."
+                    ),
+                )
+            ],
         )
         assert not Board.objects.filter(pk=board.pk).exists()
 

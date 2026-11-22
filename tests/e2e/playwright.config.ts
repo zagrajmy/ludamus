@@ -200,6 +200,19 @@ export default defineConfig({
       gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
     },
     {
+      // The real board Worker: wrangler runs it in workerd with the dev
+      // public key from workers/board/.env.development, so the passes the
+      // e2e server signs with the committed dev key open its rooms.
+      command: "aube run dev",
+      // A room without a pass answers 403, which counts as up.
+      url: "http://localhost:8788/rooms/e2e/rolls",
+      env: { ...webServerEnv, WRANGLER_SEND_METRICS: "false" },
+      reuseExistingServer: !isCI,
+      timeout: 120 * 1000,
+      cwd: path.join(repoRoot, "workers", "board"),
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
+    },
+    {
       command: "mise run test:e2e:serve:privacy",
       url: "http://localhost:8001/",
       env: webServerEnv,

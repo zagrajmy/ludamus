@@ -65,6 +65,16 @@ class BoardPassClaims(BaseModel):
     exp: int
 
 
+class BoardDeletionClaims(BaseModel):
+    """Lets Django tell the Worker to wipe one board's room and roll log."""
+
+    iss: str
+    aud: str
+    board: str
+    iat: int
+    exp: int
+
+
 class BoardBootstrapDTO(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True)
 
@@ -98,6 +108,10 @@ class BoardThrottledError(Exception):
     """Too many passes asked for from one address in a short time."""
 
 
+class BoardWorkerUnavailableError(Exception):
+    """The board Worker could not be reached, or refused the request."""
+
+
 class BoardRepositoryProtocol(Protocol):
     @staticmethod
     def create(
@@ -122,7 +136,16 @@ class BoardRepositoryProtocol(Protocol):
 
 
 class BoardSignerProtocol(Protocol):
-    def sign(self, claims: BoardPassClaims) -> str: ...
+    def sign(self, claims: BoardPassClaims | BoardDeletionClaims) -> str: ...
+
+
+class BoardRoomsProtocol(Protocol):
+    def wipe(self, *, board_id: int, token: str) -> None:
+        """Close a board's connections and drop its document and roll log.
+
+        Raises:
+            BoardWorkerUnavailableError: the Worker did not confirm it.
+        """
 
 
 class BoardServiceProtocol(Protocol):
@@ -147,7 +170,9 @@ class BoardServiceProtocol(Protocol):
         self, *, pk: int, sphere_id: int, user_id: UserId, title: str
     ) -> BoardDTO: ...
     def reset_link(self, *, pk: int, sphere_id: int, user_id: UserId) -> BoardDTO: ...
-    def delete(self, *, pk: int, sphere_id: int, user_id: UserId) -> None: ...
+    def delete(
+        self, *, pk: int, sphere_id: int, user_id: UserId, now: datetime
+    ) -> bool: ...
     def list_mine(
         self, *, sphere_id: int, user_id: UserId
     ) -> list[BoardListItemDTO]: ...

@@ -1,3 +1,4 @@
+from django.db.transaction import non_atomic_requests
 from django.urls import URLPattern, URLResolver, path
 
 from ludamus.gates.web.django.whiteboard import views
@@ -20,5 +21,11 @@ authenticated_urlpatterns: list[URLPattern | URLResolver] = [
         views.BoardResetLinkActionView.as_view(),
         name="reset-link",
     ),
-    path("<int:pk>/do/delete", views.BoardDeleteActionView.as_view(), name="delete"),
+    # NOTE: the service commits the deletion itself before it calls the
+    # Worker, so the Worker never wipes a board whose deletion rolls back.
+    path(
+        "<int:pk>/do/delete",
+        non_atomic_requests(views.BoardDeleteActionView.as_view()),
+        name="delete",
+    ),
 ]

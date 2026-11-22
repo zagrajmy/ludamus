@@ -50,9 +50,12 @@ def tessera_copy_popover() -> str:
 # secondary button or a row in a dropdown menu. `relative` anchors the popover.
 _VARIANT_CLASSES = {
     "button": "btn btn-secondary text-sm w-full",
+    # NOTE: matches tessera_action_dropdown_item, the rows it sits among.
     "menu-item": (
-        "relative w-full px-3 py-2 rounded-lg text-sm text-left text-foreground "
-        "hover:bg-bg-tertiary focus-visible:bg-bg-tertiary"
+        "relative flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm "
+        "font-medium text-left text-foreground-secondary transition-colors "
+        "duration-150 hover:bg-bg-tertiary hover:text-foreground "
+        "focus-visible:bg-bg-tertiary"
     ),
 }
 

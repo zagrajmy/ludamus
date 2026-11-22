@@ -116,6 +116,7 @@ class BoardPageView(_BoardGate):
             "whiteboard/board.html",
             {
                 "board": board,
+                "board_copy": board_copy(),
                 "is_owner": board.creator_id == request.context.current_user_id,
                 "license_key": license_key,
             },
@@ -171,9 +172,14 @@ class BoardBootstrapEndpointView(_BoardGate):
         except BoardThrottledError:
             return JsonResponse({"error": "too-many-requests"}, status=429)
         except BoardNameRequiredError:
-            return JsonResponse({"error": "name-required"}, status=422)
+            # The name form is the guest's first screen, so it needs the copy.
+            return JsonResponse(
+                {"error": "name-required", "copy": board_copy()}, status=422
+            )
         except BoardNameInvalidError:
-            return JsonResponse({"error": "name-invalid"}, status=422)
+            return JsonResponse(
+                {"error": "name-invalid", "copy": board_copy()}, status=422
+            )
         if user_id is None:
             request.session[_GUEST_ID] = payload.person.id
             request.session[_GUEST_NAME] = payload.person.name
@@ -251,12 +257,22 @@ class BoardDeleteActionView(_BoardGate, LoginRequiredMixin, View):
     @staticmethod
     def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         try:
-            request.services.boards.delete(
+            wiped = request.services.boards.delete(
                 pk=pk,
                 sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
+                now=_now(),
             )
         except NotFoundError as exception:
             raise Http404 from exception
-        messages.success(request, _("Board deleted."))
+        if wiped:
+            messages.success(request, _("Board deleted."))
+        else:
+            messages.warning(
+                request,
+                _(
+                    "Board deleted. Anyone still on it can keep drawing "
+                    "until they leave."
+                ),
+            )
         return redirect("web:boards:index")

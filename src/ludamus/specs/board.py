@@ -9,5 +9,8 @@ BOARD_PASS_LIFETIME = timedelta(minutes=5)
 BOARD_NAME_MAX_LENGTH = 40
 # About 71 bits: the link is the only thing between a stranger and the board.
 BOARD_SHARE_CODE_LENGTH = 12
+# Django sends a deletion at once; a token that lives longer only widens
+# the window for a replay.
+BOARD_DELETION_TOKEN_LIFETIME = timedelta(minutes=1)
 BOARD_BOOTSTRAP_LIMIT = 30
 BOARD_BOOTSTRAP_WINDOW_SECONDS = 60

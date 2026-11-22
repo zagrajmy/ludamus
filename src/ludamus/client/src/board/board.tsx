@@ -3,24 +3,35 @@ import { createRoot } from "react-dom/client";
 
 import { type Answer, type Door, type Ending, knock, PassKeeper } from "./bootstrap";
 import { BoardCanvas } from "./canvas";
-import { type Copy, FALLBACK, withFallbacks } from "./copy";
+import { type Copy, withFallbacks } from "./copy";
 import { NameForm } from "./name-form";
 import { Notice } from "./notice";
 
 type Stage =
   | { copy: Copy; ending: Ending; kind: "ended" }
-  | { copy: Copy; failed: boolean; kind: "name" }
-  | { copy: Copy; kind: "failed" }
+  | { copy: Copy; error: string | null; kind: "name" }
+  | { copy: Copy; kind: "failed"; text: string }
   | { keeper: PassKeeper; kind: "ready" }
   | { kind: "loading" };
 
-type Mount = { door: Door; first: Promise<Answer>; language: string; licenseKey: string };
+export type Exit = { href: string; label: string };
 
-function Board({ door, first, language, licenseKey }: Mount) {
+type Mount = {
+  // The page's own copy, for the screens shown before the bootstrap answers.
+  copy: Copy;
+  door: Door;
+  // Where a person goes from here: "My boards", or the sphere for a guest.
+  exit: Exit;
+  first: Promise<Answer>;
+  language: string;
+  licenseKey: string;
+};
+
+function Board({ copy: pageCopy, door, exit, first, language, licenseKey }: Mount) {
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
 
   const settle = useCallback(
-    (answer: Answer, previous: Copy = FALLBACK) => {
+    (answer: Answer, previous: Copy = pageCopy) => {
       if (answer.kind === "ready") {
         const copy = withFallbacks(answer.bootstrap.copy);
         // NOTE: an ending only ever moves forward; a late renewal answer
@@ -31,15 +42,18 @@ function Board({ door, first, language, licenseKey }: Mount) {
           ),
         );
         setStage({ keeper, kind: "ready" });
-      } else if (answer.kind === "name-required") {
-        setStage({ copy: withFallbacks(answer.copy), failed: false, kind: "name" });
+      } else if (answer.kind === "name-required" || answer.kind === "name-invalid") {
+        const copy = withFallbacks(answer.copy);
+        const error = answer.kind === "name-invalid" ? copy.nameInvalid : null;
+        setStage({ copy, error, kind: "name" });
       } else if (answer.kind === "gone") {
         setStage({ copy: previous, ending: "gone", kind: "ended" });
       } else {
-        setStage({ copy: previous, kind: "failed" });
+        const text = answer.kind === "throttled" ? previous.tooManyTries : previous.bootstrapFailed;
+        setStage({ copy: previous, kind: "failed", text });
       }
     },
-    [door],
+    [door, pageCopy],
   );
 
   useEffect(() => {
@@ -47,13 +61,12 @@ function Board({ door, first, language, licenseKey }: Mount) {
   }, [first, settle]);
 
   switch (stage.kind) {
+    // NOTE: a reload cannot help either ending: the old link opens nothing.
     case "ended":
-      return stage.ending === "gone" ? (
-        <Notice text={stage.copy.boardGone} />
-      ) : (
+      return (
         <Notice
-          action={{ label: stage.copy.reload, run: () => location.reload() }}
-          text={stage.copy.linkReset}
+          action={exit}
+          text={stage.ending === "gone" ? stage.copy.boardGone : stage.copy.linkReset}
         />
       );
     case "failed":
@@ -66,25 +79,34 @@ function Board({ door, first, language, licenseKey }: Mount) {
               void knock(door).then((answer) => settle(answer, stage.copy));
             },
           }}
-          text={stage.copy.bootstrapFailed}
+          text={stage.text}
         />
       );
     case "loading":
-      return <Notice busy text={FALLBACK.loading} />;
+      return <Notice busy text={pageCopy.loading} />;
     case "name":
       return (
         <NameForm
           copy={stage.copy}
-          failed={stage.failed}
+          error={stage.error}
           onSubmit={async (name) => {
             const answer = await knock(door, name);
-            if (answer.kind === "failed") setStage({ ...stage, failed: true });
-            else settle(answer, stage.copy);
+            if (answer.kind === "failed") setStage({ ...stage, error: stage.copy.bootstrapFailed });
+            else if (answer.kind === "throttled") {
+              setStage({ ...stage, error: stage.copy.tooManyTries });
+            } else settle(answer, stage.copy);
           }}
         />
       );
     case "ready":
-      return <BoardCanvas keeper={stage.keeper} language={language} licenseKey={licenseKey} />;
+      return (
+        <BoardCanvas
+          exit={exit}
+          keeper={stage.keeper}
+          language={language}
+          licenseKey={licenseKey}
+        />
+      );
   }
 }
 

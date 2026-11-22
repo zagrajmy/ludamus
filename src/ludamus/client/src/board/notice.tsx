@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+export type NoticeAction = { href: string; label: string } | { label: string; run: () => void };
+
 // The whole screen for a board that cannot be shown: loading, gone, a reset
 // link, or a failure. One sentence and at most one way forward.
 export function Notice({
@@ -7,7 +9,7 @@ export function Notice({
   busy = false,
   text,
 }: {
-  action?: { label: string; run: () => void };
+  action?: NoticeAction;
   busy?: boolean;
   text: string;
 }) {
@@ -27,11 +29,16 @@ export function Notice({
         >
           {text}
         </p>
-        {action !== undefined && (
-          <button className="btn btn-primary min-h-11" onClick={action.run} type="button">
-            {action.label}
-          </button>
-        )}
+        {action !== undefined &&
+          ("href" in action ? (
+            <a className="btn btn-primary min-h-11" href={action.href}>
+              {action.label}
+            </a>
+          ) : (
+            <button className="btn btn-primary min-h-11" onClick={action.run} type="button">
+              {action.label}
+            </button>
+          ))}
       </div>
     </div>
   );

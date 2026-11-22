@@ -22,9 +22,8 @@ export type Roll = {
 
 export type Answer =
   | { bootstrap: Bootstrap; kind: "ready" }
-  | { copy: Partial<Copy>; kind: "name-required" }
-  | { kind: "failed" }
-  | { kind: "gone" };
+  | { copy: Partial<Copy>; kind: "name-invalid" | "name-required" }
+  | { kind: "failed" | "gone" | "throttled" };
 
 export type Door = { bootstrapUrl: string; csrfToken: string };
 
@@ -42,9 +41,14 @@ export async function knock(door: Door, name?: string): Promise<Answer> {
     return { kind: "failed" };
   }
   if (response.status === 404) return { kind: "gone" };
+  if (response.status === 429) return { kind: "throttled" };
   const body: unknown = await response.json().catch(() => null);
-  if (response.status === 422 && (body as { error?: string } | null)?.error === "name-required") {
-    return { copy: (body as { copy?: Partial<Copy> }).copy ?? {}, kind: "name-required" };
+  const refusal = body as { copy?: Partial<Copy>; error?: string } | null;
+  if (
+    response.status === 422 &&
+    (refusal?.error === "name-required" || refusal?.error === "name-invalid")
+  ) {
+    return { copy: refusal.copy ?? {}, kind: refusal.error };
   }
   if (!response.ok || body === null) {
     console.error("board: bootstrap refused", response.status);
@@ -103,7 +107,8 @@ export class PassKeeper {
         }
         // NOTE: a person Django no longer lets in (board deleted, or a guest
         // put out by a link reset) gets 404 or a name request back.
-        if (answer.kind !== "failed") this.end(answer.kind === "gone" ? "gone" : "link-reset");
+        if (answer.kind === "gone") this.end("gone");
+        else if (answer.kind === "name-required") this.end("link-reset");
         throw new Error(`board: pass renewal ${answer.kind}`);
       })
       .finally(() => {

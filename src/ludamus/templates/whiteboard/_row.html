@@ -12,9 +12,16 @@
             {% if board.is_owner %}
                 {% translate "Yours" %} ·
             {% endif %}
-            {% blocktranslate with when=board.last_opened_at|timesince trimmed %}
-                Opened {{ when }} ago
-            {% endblocktranslate %}
+            {% with when=board.last_opened_at|timesince %}
+                {% comment %}NOTE: timesince says "0 minutes" for anything under one.{% endcomment %}
+                {% if when|first == "0" %}
+                    {% translate "Opened just now" %}
+                {% else %}
+                    {% blocktranslate trimmed %}
+                        Opened {{ when }} ago
+                    {% endblocktranslate %}
+                {% endif %}
+            {% endwith %}
         </span>
     </a>
     {% if board.is_owner %}
@@ -25,7 +32,8 @@
                     {% icon "ellipsis-vertical" class="size-5" %}
                     {% action_dropdown_menu %}
                     {% tessera_copy board_url variant="menu-item" origin=True %}
-                        {% icon "clipboard-document" variant="mini" class="h-4 w-4 inline opacity-60" %}
+                        <span aria-hidden="true"
+                              class="shrink-0 opacity-60">{% icon "clipboard-document" variant="mini" class="h-4 w-4" %}</span>
                         {% translate "Copy link" %}
                     {% end_tessera_copy %}
                     {% url 'web:boards:edit' pk=board.pk as edit_url %}

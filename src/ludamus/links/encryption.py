@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from ludamus.pacts.sphere import DecryptionError
 
 if TYPE_CHECKING:
-    from ludamus.pacts.board import BoardPassClaims
+    from ludamus.pacts.board import BoardDeletionClaims, BoardPassClaims
     from ludamus.pacts.parley import (
         ParleyCapabilityClaims,
         ParleyMembershipClaims,
@@ -56,7 +56,8 @@ class JwtSigner:
     def sign(
         self,
         claims: (
-            BoardPassClaims
+            BoardDeletionClaims
+            | BoardPassClaims
             | ParleyCapabilityClaims
             | ParleyMembershipClaims
             | ParleyMessageLookupClaims

@@ -27,6 +27,7 @@ from ludamus.inits.dbos_scheduler import (
 )
 from ludamus.inits.parley import parley_message_reader
 from ludamus.inits.repositories import Repositories
+from ludamus.links.board_worker import BoardWorkerClient
 from ludamus.links.cache import CacheAuthorizationCodeStore, DjangoCache
 from ludamus.links.client_metadata import HttpClientMetadataFetcher
 from ludamus.links.db.django.encounter_invites import SignedReplyAddress
@@ -162,12 +163,14 @@ class Services:
     @cached_property
     def boards(self) -> BoardService:
         signing_private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+        worker = board_worker()
         return BoardService(
             transaction=self._transaction,
             boards=self._repos.boards,
             signer=JwtSigner(signing_private_key),
             cache=DjangoCache(),
-            worker=board_worker(),
+            rooms=BoardWorkerClient(worker),
+            worker=worker,
         )
 
     @cached_property

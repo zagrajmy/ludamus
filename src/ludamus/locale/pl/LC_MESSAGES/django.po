@@ -1186,6 +1186,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/whiteboard/copy.py
 #: src/ludamus/templates/board/_create_actions.html
 #: src/ludamus/templates/board/_edit_actions.html
 #: src/ludamus/templates/components/confirm-dialog.html
@@ -1226,6 +1227,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/sphere/panel/guilds/delete.html
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
+#: src/ludamus/templates/whiteboard/edit.html
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -3574,6 +3576,7 @@ msgid "Gathering conversations…"
 msgstr "Zbieramy rozmowy…"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "Connection lost. Reconnecting…"
 msgstr "Utracono połączenie. Łączymy ponownie…"
 
@@ -3641,7 +3644,9 @@ msgstr "Wiadomości znikają rok po napisaniu."
 msgid "Message deleted"
 msgstr "Wiadomość usunięta"
 
-#: src/ludamus/gates/web/django/parley/views.py src/ludamus/templates/base.html
+#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#: src/ludamus/templates/base.html
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
@@ -3811,6 +3816,7 @@ msgid "Sad"
 msgstr "Smutek"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "Dice"
 msgstr "Kość do gry"
 
@@ -4002,6 +4008,7 @@ msgid "Back to the conversation"
 msgstr "Wróć do rozmowy"
 
 #: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/gates/web/django/whiteboard/copy.py
 msgid "People"
 msgstr "Osoby"
 
@@ -4072,6 +4079,7 @@ msgstr "Zapisano nazwę."
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
+#: src/ludamus/templates/whiteboard/edit.html
 msgid "Save name"
 msgstr "Zapisz nazwę"
 
@@ -4978,6 +4986,212 @@ msgstr "Opuszczasz drużynę."
 msgid "Could not leave this party."
 msgstr "Nie udało się opuścić tej drużyny."
 
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#, python-format
+msgid "Add %(die)s"
+msgstr "Dodaj %(die)s"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Add to places"
+msgstr "Dodaj do miejsc"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "This board is full. You will join as soon as someone leaves."
+msgstr "Tablica jest pełna. Dołączysz, gdy tylko ktoś wyjdzie."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "This board no longer exists."
+msgstr "Ta tablica już nie istnieje."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Could not open the board. Check your connection and try again."
+msgstr "Nie udało się otworzyć tablicy. Sprawdź połączenie i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgctxt "board dice pool"
+msgid "Clear"
+msgstr "Wyczyść"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#: src/ludamus/templates/event/event.html
+#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/notifications/parts/modal.html
+#: src/ludamus/templates/user/user/_email_verify_modal.html
+#: src/ludamus/templates/user/user/party_detail.html
+msgid "Close"
+msgstr "Zamknij"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#, python-format
+msgctxt "board die, e.g. d6"
+msgid "d%(sides)s"
+msgstr "k%(sides)s"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgctxt "board person badge"
+msgid "Guest"
+msgstr "Gość"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Images are coming soon."
+msgstr "Dodawanie obrazów już wkrótce."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Join the board"
+msgstr "Dołącz do tablicy"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "The board's link was reset. Ask its creator for the new one."
+msgstr ""
+"Ten link do tablicy już nie działa. Poproś o nowy osobę, która ją założyła."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#: src/ludamus/templates/whiteboard/board.html
+msgid "Opening the board…"
+msgstr "Otwieramy tablicę…"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "My place"
+msgstr "Moje miejsce"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Others at the board see this name. Up to 40 characters."
+msgstr "Wszyscy przy tablicy zobaczą to imię. Do 40 znaków."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "This name cannot be used. Try another one."
+msgstr "Tego imienia nie można użyć. Wpisz inne."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "No places yet. Select something on the board and add it to places."
+msgstr "Nie ma jeszcze miejsc. Zaznacz coś na tablicy i dodaj to do miejsc."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Nobody has rolled yet."
+msgstr "Nikt jeszcze nie rzucał."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Place name"
+msgstr "Nazwa miejsca"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Places"
+msgstr "Miejsca"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Tap dice to add them to the roll."
+msgstr "Dotknij kości, żeby dodać je do rzutu."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Reload"
+msgstr "Odśwież"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#, python-format
+msgid "Remove %(die)s"
+msgstr "Usuń %(die)s"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Remove from places"
+msgstr "Usuń z miejsc"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgctxt "board dice, a verb"
+msgid "Roll"
+msgstr "Rzuć"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Roll again"
+msgstr "Rzuć jeszcze raz"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#, python-format
+msgid "%(name)s rolled"
+msgstr "%(name)s rzuca"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "The roll did not go through. Try again."
+msgstr "Nie udało się wykonać rzutu. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Roll log"
+msgstr "Historia rzutów"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Wait a moment before rolling again."
+msgstr "Zaczekaj chwilę przed kolejnym rzutem."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+#: src/ludamus/templates/event/panel/integrations/edit.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/discounts/edit.html
+#: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/proposal-columns.html
+#: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/session-field-edit.html
+#: src/ludamus/templates/panel/space-form.html
+#: src/ludamus/templates/panel/time-slot-edit.html
+#: src/ludamus/templates/sphere/panel/announcements/edit.html
+#: src/ludamus/templates/sphere/panel/connections/edit.html
+#: src/ludamus/templates/sphere/panel/guilds/edit.html
+#: src/ludamus/templates/user/user/avatar.html
+#: src/ludamus/templates/user/user/edit.html
+msgid "Save"
+msgstr "Zapisz"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Too many tries. Wait a minute, then try again."
+msgstr "Za dużo prób. Zaczekaj minutę i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Total"
+msgstr "Suma"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgctxt "board person list, next to one's own name"
+msgid "you"
+msgstr "ty"
+
+#: src/ludamus/gates/web/django/whiteboard/copy.py
+msgid "Your name"
+msgstr "Twoje imię"
+
+#: src/ludamus/gates/web/django/whiteboard/forms.py
+msgid "Board name"
+msgstr "Nazwa tablicy"
+
+#: src/ludamus/gates/web/django/whiteboard/forms.py
+msgid "Everyone at the board sees this name."
+msgstr "Tę nazwę widzą wszyscy przy tablicy."
+
+#: src/ludamus/gates/web/django/whiteboard/views.py
+#, python-format
+msgid "Board %(date)s"
+msgstr "Tablica %(date)s"
+
+#: src/ludamus/gates/web/django/whiteboard/views.py
+msgid "Board renamed."
+msgstr "Zmieniono nazwę tablicy."
+
+#: src/ludamus/gates/web/django/whiteboard/views.py
+msgid "The board has a new link. The old one no longer opens it."
+msgstr "Tablica ma nowy link. Stary już jej nie otwiera."
+
+#: src/ludamus/gates/web/django/whiteboard/views.py
+msgid "Board deleted."
+msgstr "Usunięto tablicę."
+
+#: src/ludamus/gates/web/django/whiteboard/views.py
+msgid "Board deleted. Anyone still on it can keep drawing until they leave."
+msgstr ""
+"Usunięto tablicę. Osoby, które są na niej teraz, mogą rysować, dopóki z niej "
+"nie wyjdą."
+
 #: src/ludamus/inits/request_context.py
 msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
@@ -5472,7 +5686,6 @@ msgstr "Przejdź do strony głównej"
 msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
 
-#
 #: src/ludamus/templates/about.html src/ludamus/templates/base.html
 msgid "About Zagrajmy"
 msgstr "O Zagrajmy"
@@ -5499,12 +5712,10 @@ msgstr ""
 msgid "What Zagrajmy does"
 msgstr "Czym zajmuje się Zagrajmy"
 
-#
 #: src/ludamus/templates/about.html
 msgid "Programme proposals and review"
 msgstr "Zgłoszenia i akceptacja programu"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Programme creators send proposals through a form with your own questions. "
@@ -5515,12 +5726,10 @@ msgstr ""
 "Każde trafia do jednej skrzynki, gdzie Twój zespół je akceptuje, odkłada "
 "albo odrzuca."
 
-#
 #: src/ludamus/templates/about.html
 msgid "Scheduling"
 msgstr "Układanie harmonogramu"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "You build the grid from tracks, rooms, and time slots. Two programme items "
@@ -5531,7 +5740,6 @@ msgstr ""
 "jednej sali o tej samej godzinie? Zagrajmy podświetla konflikt, zanim "
 "zobaczą go uczestnicy."
 
-#
 #: src/ludamus/templates/about.html
 msgid "The event page"
 msgstr "Strona wydarzenia"
@@ -5565,7 +5773,6 @@ msgctxt "landing walkthrough step"
 msgid "Print"
 msgstr "Druk"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "The full schedule, day plans, and door cards for every room print straight "
@@ -5581,7 +5788,6 @@ msgstr ""
 msgid "Encounters"
 msgstr "Spotkania"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Players post a game night, send friends one link, and see who's coming and "
@@ -5595,12 +5801,10 @@ msgstr ""
 msgid "What makes Zagrajmy different"
 msgstr "Czym Zagrajmy się wyróżnia"
 
-#
 #: src/ludamus/templates/about.html
 msgid "We set up your event with you"
 msgstr "Ustawiamy wydarzenie razem z Tobą"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Before you ever see an empty form, we get on a call about how your event "
@@ -5611,7 +5815,6 @@ msgstr ""
 "wydarzenie. Potem razem z Tobą ustawiamy pierwszą wersję zgłoszeń, sal i "
 "przedziałów czasowych."
 
-#
 #: src/ludamus/templates/about.html
 msgid "Groups stay together on the waiting list"
 msgstr "Grupa zostaje razem na liście oczekujących"
@@ -5642,7 +5845,6 @@ msgstr ""
 "importujemy go, zamiast kazać Ci go przepisywać. Gotowy program można też "
 "wyeksportować do Konwencika."
 
-#
 #: src/ludamus/templates/about.html
 msgid "Open source, so you can always leave"
 msgstr "Otwarty kod, więc zawsze możesz odejść"
@@ -5662,7 +5864,6 @@ msgstr ""
 msgid "Free for attendees and small meetups"
 msgstr "Za darmo dla uczestników i małych meetupów"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Attendees never pay Zagrajmy to enroll, and small meetups and Encounters "
@@ -5713,12 +5914,10 @@ msgstr ""
 msgid "Players who invite others to a game night with an Encounter"
 msgstr "Gracze, którzy zapraszają innych na wieczór z grą przez Spotkanie"
 
-#
 #: src/ludamus/templates/about.html
 msgid "The team behind Zagrajmy"
 msgstr "Zespół Zagrajmy"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "We're Radek and Piotrek. Radek is the one with the guitar, and Piotrek is "
@@ -5730,7 +5929,6 @@ msgstr ""
 "wytatuowany. Gramy w gry fabularne i piszemy własne, a Zagrajmy to "
 "narzędzie, którego sami chcieliśmy po obu stronach konwentowego stołu."
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "We first tried to build it in 2020, then other things took over. In June "
@@ -5825,7 +6023,6 @@ msgid ""
 "You click through it with us and we publish when you decide it is ready."
 msgstr "Przeklikujesz ją z nami i publikujemy, kiedy uznasz, że jest gotowa."
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "After that, the event is yours to run from the organizer panel, at its own "
@@ -5838,13 +6035,11 @@ msgstr ""
 msgid "Key facts"
 msgstr "Najważniejsze fakty"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Name"
 msgstr "Nazwa"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Type"
@@ -5856,7 +6051,6 @@ msgstr ""
 "Otwartoźródłowa platforma do prowadzenia programu wydarzeń, konfigurowana "
 "razem z organizatorami"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Founded"
@@ -5866,7 +6060,6 @@ msgstr "Rok założenia"
 msgid "2020; relaunched in 2025"
 msgstr "2020; ponowny start w 2025"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Founders"
@@ -5891,7 +6084,6 @@ msgctxt "about key facts"
 msgid "Core offering"
 msgstr "Główna usługa"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Running an event's programme: proposals, review, the schedule, the event "
@@ -5913,7 +6105,6 @@ msgstr ""
 "Za darmo dla uczestników, małych meetupów i Spotkań; konwenty i konferencje "
 "dostają pisemną propozycję dopasowaną do skali wydarzenia"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Contract terms"
@@ -5925,7 +6116,6 @@ msgstr ""
 "Ustalane dla każdego wydarzenia na piśmie, zanim się do czegokolwiek "
 "zobowiążesz"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Services"
@@ -5941,7 +6131,6 @@ msgstr ""
 "zgłoszeń, układanie harmonogramu, strony wydarzeń, zapisy i listy "
 "oczekujących, materiały do druku, eksport do Konwencika"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Communication"
@@ -5964,19 +6153,16 @@ msgstr "Języki"
 msgid "Polish, English"
 msgstr "polski, angielski"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Notable clients"
 msgstr "Wybrani klienci"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Events in Zagrajmy"
 msgstr "Wydarzenia w Zagrajmy"
 
-#
 #: src/ludamus/templates/about.html
 msgctxt "about key facts"
 msgid "Programme items"
@@ -6019,12 +6205,10 @@ msgstr ""
 "się w tym samym programie. Sale, bloki, przedziały czasowe i limity miejsc "
 "działają tak samo dla każdego rodzaju punktu programu."
 
-#
 #: src/ludamus/templates/about.html
 msgid "Can I set up an event on my own?"
 msgstr "Czy mogę samodzielnie założyć wydarzenie?"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Not a convention or conference, not yet: we set those up with you, so the "
@@ -6067,12 +6251,10 @@ msgstr ""
 "dane, które już masz, z Arkuszy Google. Wchodzisz z tym, co masz, zamiast "
 "zaczynać od pustej tabeli."
 
-#
 #: src/ludamus/templates/about.html
 msgid "Do attendees need an account?"
 msgstr "Czy uczestnicy potrzebują konta?"
 
-#
 #: src/ludamus/templates/about.html
 msgid ""
 "Not to browse the programme. To enroll, usually yes: signing in takes a "
@@ -6551,6 +6733,7 @@ msgstr "Czy na pewno chcesz to usunąć?"
 #: src/ludamus/templates/sphere/panel/connections/delete.html
 #: src/ludamus/templates/sphere/panel/connections/list.html
 #: src/ludamus/templates/sphere/panel/guilds/list.html
+#: src/ludamus/templates/whiteboard/_row.html
 msgid "Delete"
 msgstr "Usuń"
 
@@ -6813,6 +6996,12 @@ msgstr "Panel"
 #: src/ludamus/templates/dashboard/index.html
 msgid "Your dashboard"
 msgstr "Twój pulpit"
+
+#: src/ludamus/templates/components/navbar.html
+#: src/ludamus/templates/whiteboard/board.html
+#: src/ludamus/templates/whiteboard/index.html
+msgid "My boards"
+msgstr "Moje tablice"
 
 #: src/ludamus/templates/components/navbar.html
 #: src/ludamus/templates/user/user/edit.html
@@ -7300,6 +7489,7 @@ msgstr "Udostępnij"
 
 #: src/ludamus/templates/encounter/_organizer_actions.html
 #: src/ludamus/templates/staging_email_inbox.html
+#: src/ludamus/templates/whiteboard/_row.html
 msgid "Copy link"
 msgstr "Kopiuj link"
 
@@ -7906,14 +8096,6 @@ msgid "Finish"
 msgstr "Zakończ"
 
 #: src/ludamus/templates/event/event.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/notifications/parts/modal.html
-#: src/ludamus/templates/user/user/_email_verify_modal.html
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Close"
-msgstr "Zamknij"
-
-#: src/ludamus/templates/event/event.html
 msgid "Anonymous Code"
 msgstr "Kod Anonimowy"
 
@@ -8202,28 +8384,6 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/event/panel/integrations/edit.html
 msgid "Edit integration"
 msgstr "Edytuj integrację"
-
-#: src/ludamus/templates/event/panel/integrations/edit.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/discounts/edit.html
-#: src/ludamus/templates/panel/display-settings.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/personal-data-field-edit.html
-#: src/ludamus/templates/panel/proposal-columns.html
-#: src/ludamus/templates/panel/proposal-form.html
-#: src/ludamus/templates/panel/session-field-edit.html
-#: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/sphere/panel/announcements/edit.html
-#: src/ludamus/templates/sphere/panel/connections/edit.html
-#: src/ludamus/templates/sphere/panel/guilds/edit.html
-#: src/ludamus/templates/user/user/avatar.html
-#: src/ludamus/templates/user/user/edit.html
-msgid "Save"
-msgstr "Zapisz"
 
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Enrolled"
@@ -13633,6 +13793,7 @@ msgid "More actions"
 msgstr "Więcej opcji"
 
 #: src/ludamus/templates/user/user/parties.html
+#: src/ludamus/templates/whiteboard/_row.html
 msgid "Rename"
 msgstr "Zmień nazwę"
 
@@ -14024,8 +14185,77 @@ msgstr ""
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
+#: src/ludamus/templates/whiteboard/_create_button.html
+msgid "New board"
+msgstr "Nowa tablica"
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Yours"
+msgstr "Twoja"
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Opened just now"
+msgstr "Otwarta przed chwilą"
+
+#: src/ludamus/templates/whiteboard/_row.html
+#, python-format
+msgid "Opened %(when)s ago"
+msgstr "Otwarta %(when)s temu"
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Board actions"
+msgstr "Opcje tablicy"
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Reset link"
+msgstr "Wygeneruj nowy link"
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Guests with the old link drop off"
+msgstr "Goście ze starym linkiem tracą dostęp"
+
+#: src/ludamus/templates/whiteboard/_row.html
+#, python-format
+msgid ""
+"Give “%(title)s” a new link? The old link stops working, and guests who came "
+"by it drop off the board."
+msgstr ""
+"Wygenerować nowy link do tablicy „%(title)s”? Stary link przestanie działać, "
+"a goście, którzy przez niego weszli, stracą dostęp do tablicy."
+
+#: src/ludamus/templates/whiteboard/_row.html
+#, python-format
+msgid ""
+"Delete “%(title)s”? Its link stops working for everyone. This cannot be "
+"undone."
+msgstr ""
+"Usunąć tablicę „%(title)s”? Jej link przestanie działać dla wszystkich. Tego "
+"nie da się cofnąć."
+
+#: src/ludamus/templates/whiteboard/_row.html
+msgid "Delete board"
+msgstr "Usuń tablicę"
+
+#: src/ludamus/templates/whiteboard/board.html
+#, python-format
+msgid "Back to %(sphere)s"
+msgstr "Wróć na stronę %(sphere)s"
+
+#: src/ludamus/templates/whiteboard/edit.html
+msgid "Rename board"
+msgstr "Zmień nazwę tablicy"
+
+#: src/ludamus/templates/whiteboard/index.html
+msgid "No boards yet"
+msgstr "Nie masz jeszcze tablic"
+
+#: src/ludamus/templates/whiteboard/index.html
+msgid ""
+"Start a board, share its link, and everyone draws and rolls dice on it "
+"together. Boards you join show up here too."
+msgstr ""
+"Załóż tablicę i udostępnij jej link, a wszyscy razem będą na niej rysować i "
+"rzucać kośćmi. Tu pojawią się też tablice, do których dołączysz."
 
 #~ msgid "Give the group a name."
 #~ msgstr "Nadaj grupie nazwę."
@@ -14402,7 +14632,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 #~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
 #~ "publicznej liście punktów programu."
 
-#
 #~ msgid ""
 #~ "Piotrek cares about the small details of how software feels to use, which "
 #~ "is most of the reason Zagrajmy's interface looks the way it does."
@@ -14431,9 +14660,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Place the session inside one of the event's time slots."
 #~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
 
 #~ msgid ""
 #~ "Friends who enroll together wait together and move up together, and "
@@ -14544,9 +14770,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Friday, 7:00 PM"
 #~ msgstr "Piątek, 19:00"
-
-#~ msgid "Mike's place"
-#~ msgstr "U Michała"
 
 #~ msgid "D&D One-Shot"
 #~ msgstr "D&D One-Shot"
@@ -15410,9 +15633,6 @@ msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #~ msgid "Pick venues of this event."
 #~ msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
 
 #~ msgid "What are maps?"
 #~ msgstr "Czym są mapy?"

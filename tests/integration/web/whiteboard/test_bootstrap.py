@@ -5,6 +5,7 @@ from http import HTTPStatus
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils import translation
 
 from ludamus.gates.web.django.whiteboard.copy import board_copy
 from tests.integration.conftest import BoardFactory, SphereFactory, UserFactory
@@ -102,7 +103,32 @@ class TestGuest:
         response = _post(client, board)
 
         assert_response(
-            response, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "name-required"}
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            json={"error": "name-required", "copy": board_copy()},
+        )
+
+    @pytest.mark.usefixtures("polish_catalog")
+    def test_polish_guest_is_asked_for_a_name_in_polish(self, client, sphere):
+        board = BoardFactory(sphere=sphere)
+
+        response = client.post(
+            _url(board),
+            data="",
+            content_type="application/json",
+            headers={"accept-language": "pl"},
+        )
+
+        with translation.override("pl"):
+            polish = board_copy()
+        assert_response(
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            json={"error": "name-required", "copy": polish},
+        )
+        assert (polish["yourName"], polish["join"]) == (
+            "Twoje imię",
+            "Dołącz do tablicy",
         )
 
     def test_name_is_remembered_and_the_id_stays_the_same(self, client, sphere):
@@ -144,7 +170,9 @@ class TestGuest:
         response = _post(client, board, {"name": name})
 
         assert_response(
-            response, HTTPStatus.UNPROCESSABLE_ENTITY, json={"error": "name-invalid"}
+            response,
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            json={"error": "name-invalid", "copy": board_copy()},
         )
 
     @pytest.mark.parametrize("body", ("[]", '{"name": 7}', "not json"))

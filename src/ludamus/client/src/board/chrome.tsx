@@ -3,6 +3,8 @@ import {
   DefaultActionsMenu,
   DefaultContextMenu,
   DefaultContextMenuContent,
+  DefaultMainMenu,
+  DefaultMainMenuContent,
   DefaultQuickActions,
   DefaultToolbar,
   DrawToolbarItem,
@@ -189,6 +191,23 @@ function PlaceMenuItems() {
   );
 }
 
+// tldraw's menu, with the way out of the board on top.
+function BoardMainMenu() {
+  const { exit } = useBoardUi();
+  return (
+    <DefaultMainMenu>
+      <TldrawUiMenuGroup id="board-exit">
+        <TldrawUiMenuItem
+          id="board-exit"
+          label={exit.label}
+          onSelect={() => location.assign(exit.href)}
+        />
+      </TldrawUiMenuGroup>
+      <DefaultMainMenuContent />
+    </DefaultMainMenu>
+  );
+}
+
 function BoardContextMenu(props: TLUiContextMenuProps) {
   return (
     <DefaultContextMenu {...props}>
@@ -210,6 +229,7 @@ function BoardContextMenu(props: TLUiContextMenuProps) {
 export const components: TLComponents = {
   ActionsMenu: BoardActionsMenu,
   ContextMenu: BoardContextMenu,
+  MainMenu: BoardMainMenu,
   PageMenu: null,
   QuickActions: BoardQuickActions,
   SharePanel: null,

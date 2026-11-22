@@ -9,6 +9,8 @@ Ways it can fail, each covered below:
   stale link version, or makes a non-creator the owner;
 - someone other than the creator renames, resets or deletes;
 - a reset keeps the old code or the old version;
+- a deleted board's room is left on the Worker, or a Worker that does not
+  answer undoes the deletion;
 - one address asks for passes without limit;
 - a guest's visit is recorded, or a member's is not.
 """
@@ -19,6 +21,7 @@ import pytest
 
 from ludamus.mills.board import BoardService, clean_display_name
 from ludamus.pacts.board import (
+    BoardDeletionClaims,
     BoardDTO,
     BoardGuestDTO,
     BoardListItemDTO,
@@ -28,6 +31,7 @@ from ludamus.pacts.board import (
     BoardThrottledError,
     BoardTitleInvalidError,
     BoardWorkerDTO,
+    BoardWorkerUnavailableError,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.specs.board import BOARD_BOOTSTRAP_LIMIT, BOARD_SHARE_CODE_LENGTH
@@ -115,19 +119,33 @@ class ClaimsSigner:
     """Signs by keeping the claims, so a test reads what the pass says."""
 
     def __init__(self):
-        self.signed: list[BoardPassClaims] = []
+        self.signed: list[BoardPassClaims | BoardDeletionClaims] = []
 
     def sign(self, claims):
         self.signed.append(claims)
         return f"pass-{len(self.signed)}"
 
 
-def _service(*, worker=WORKER, boards=None, signer=None, cache=None):
+class FakeRooms:
+    """The Worker's wipe: records each call, or refuses like a Worker away."""
+
+    def __init__(self, *, confirms=True):
+        self.confirms = confirms
+        self.wiped: list[tuple[int, str]] = []
+
+    def wipe(self, *, board_id, token):
+        if not self.confirms:
+            raise BoardWorkerUnavailableError
+        self.wiped.append((board_id, token))
+
+
+def _service(*, worker=WORKER, boards=None, signer=None, cache=None, rooms=None):
     return BoardService(
         transaction=FakeTransaction(),
         boards=boards if boards is not None else FakeBoards(),
         signer=signer or ClaimsSigner(),
         cache=cache or FakeCache(),
+        rooms=rooms or FakeRooms(),
         worker=worker,
     )
 
@@ -364,13 +382,34 @@ class TestOwnerActions:
         assert reset.share_code != board.share_code
         assert reset.link_version == board.link_version + 1
 
-    def test_delete(self):
-        boards = FakeBoards()
-        service = _service(boards=boards)
+    def test_delete_has_the_worker_wipe_the_room(self):
+        boards, signer, rooms = FakeBoards(), ClaimsSigner(), FakeRooms()
+        service = _service(boards=boards, signer=signer, rooms=rooms)
         board = self._board(service)
 
-        service.delete(pk=board.pk, sphere_id=SPHERE, user_id=CREATOR)
+        wiped = service.delete(pk=board.pk, sphere_id=SPHERE, user_id=CREATOR, now=NOW)
 
+        assert wiped
+        assert not boards.boards
+        assert rooms.wiped == [(board.pk, "pass-1")]
+        assert signer.signed == [
+            BoardDeletionClaims(
+                iss="ludamus",
+                aud="board-deletion",
+                board=str(board.pk),
+                iat=int(NOW.timestamp()),
+                exp=int((NOW + timedelta(minutes=1)).timestamp()),
+            )
+        ]
+
+    def test_delete_stands_when_the_worker_does_not_confirm(self):
+        boards = FakeBoards()
+        service = _service(boards=boards, rooms=FakeRooms(confirms=False))
+        board = self._board(service)
+
+        wiped = service.delete(pk=board.pk, sphere_id=SPHERE, user_id=CREATOR, now=NOW)
+
+        assert not wiped
         assert not boards.boards
 
     @pytest.mark.parametrize(
@@ -388,7 +427,7 @@ class TestOwnerActions:
         with pytest.raises(NotFoundError):
             service.reset_link(pk=board.pk, sphere_id=sphere_id, user_id=user_id)
         with pytest.raises(NotFoundError):
-            service.delete(pk=board.pk, sphere_id=sphere_id, user_id=user_id)
+            service.delete(pk=board.pk, sphere_id=sphere_id, user_id=user_id, now=NOW)
         assert boards.boards == {board.pk: board}
 
 

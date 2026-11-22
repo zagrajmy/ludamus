@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.board import (
     BOARD_TITLE_MAX_LENGTH,
     BoardBootstrapDTO,
+    BoardDeletionClaims,
     BoardNameInvalidError,
     BoardNameRequiredError,
     BoardPassClaims,
@@ -19,11 +20,13 @@ from ludamus.pacts.board import (
     BoardServiceProtocol,
     BoardThrottledError,
     BoardTitleInvalidError,
+    BoardWorkerUnavailableError,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.specs.board import (
     BOARD_BOOTSTRAP_LIMIT,
     BOARD_BOOTSTRAP_WINDOW_SECONDS,
+    BOARD_DELETION_TOKEN_LIFETIME,
     BOARD_NAME_MAX_LENGTH,
     BOARD_PASS_LIFETIME,
     BOARD_SHARE_CODE_LENGTH,
@@ -37,6 +40,7 @@ if TYPE_CHECKING:
         BoardGuestDTO,
         BoardListItemDTO,
         BoardRepositoryProtocol,
+        BoardRoomsProtocol,
         BoardSignerProtocol,
         BoardWorkerDTO,
     )
@@ -86,12 +90,14 @@ class BoardService(BoardServiceProtocol):
         boards: BoardRepositoryProtocol,
         signer: BoardSignerProtocol,
         cache: CacheProtocol,
+        rooms: BoardRoomsProtocol,
         worker: BoardWorkerDTO | None,
     ) -> None:
         self._transaction = transaction
         self._boards = boards
         self._signer = signer
         self._cache = cache
+        self._rooms = rooms
         self._worker = worker
 
     def available(self) -> bool:
@@ -268,7 +274,19 @@ class BoardService(BoardServiceProtocol):
         )
         return reset
 
-    def delete(self, *, pk: int, sphere_id: int, user_id: UserId) -> None:
+    def delete(
+        self, *, pk: int, sphere_id: int, user_id: UserId, now: datetime
+    ) -> bool:
+        """Delete the board, then have the Worker wipe what was drawn on it.
+
+        The record goes first and stays gone whatever the Worker answers: the
+        link stops opening the board at once, and no new pass is signed for
+        it. A Worker that does not confirm leaves the room's document and
+        roll log behind, unreachable, and anyone still connected on it.
+
+        Returns:
+            Whether the Worker confirmed the wipe.
+        """
         with self._transaction.atomic():
             board = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
             self._boards.delete(board.pk)
@@ -276,6 +294,26 @@ class BoardService(BoardServiceProtocol):
             "Board deleted",
             extra={"board_id": board.pk, "sphere_id": sphere_id, "user_id": user_id},
         )
+        issued_at = int(now.timestamp())
+        token = self._signer.sign(
+            BoardDeletionClaims(
+                iss="ludamus",
+                aud="board-deletion",
+                board=str(board.pk),
+                iat=issued_at,
+                exp=int((now + BOARD_DELETION_TOKEN_LIFETIME).timestamp()),
+            )
+        )
+        try:
+            self._rooms.wipe(board_id=board.pk, token=token)
+        except BoardWorkerUnavailableError:
+            logger.exception(
+                "Board room not wiped: the Worker did not confirm",
+                extra={"board_id": board.pk},
+            )
+            return False
+        logger.info("Board room wiped", extra={"board_id": board.pk})
+        return True
 
     def list_mine(self, *, sphere_id: int, user_id: UserId) -> list[BoardListItemDTO]:
         if not self.available():

@@ -4,27 +4,43 @@ import { type Editor, EmbedShapeUtil, Tldraw, useEditor, useToasts } from "tldra
 import "./board.css";
 
 import { guardExternalContent } from "./assets";
+import type { Exit } from "./board";
 import type { PassKeeper } from "./bootstrap";
 import { components } from "./chrome";
 import { type Copy, withFallbacks } from "./copy";
 import { DiceSheet, rollSentence } from "./dice";
-import { Icon } from "./icons";
 import { Notice } from "./notice";
 import { PeopleSheet } from "./people";
 import { PlacesSheet } from "./places-sheet";
 import { useRolls } from "./rolls";
-import { colorFor, isLinkReset, useBoardStore } from "./sync";
+import { colorFor, useBoardStore } from "./sync";
 import { type BoardUi, BoardUiContext, type Panel } from "./ui";
 
 // NOTE: fonts, icons and tldraw's own translations ship in our build: the
 // Content-Security-Policy allows no host but ours.
 const assetUrls = getAssetUrlsByImport();
 
-// The 3D dice will replace the stage; it loads once the canvas is up.
+// The dice load after the canvas is usable (see warmUpDice).
 const DiceStage = lazy(async () => {
   const { DiceStage: Stage } = await import("./dice-stage");
   return { default: Stage };
 });
+
+const loadDice = () => {
+  void import("./dice-stage");
+  void import("./dice-3d");
+};
+
+// Fetches the dice code while the page is idle, so the first roll does not
+// wait for it. Safari has no requestIdleCallback.
+function warmUpDice(): () => void {
+  if ("requestIdleCallback" in globalThis) {
+    const handle = requestIdleCallback(loadDice, { timeout: 5000 });
+    return () => cancelIdleCallback(handle);
+  }
+  const handle = setTimeout(loadDice, 1500);
+  return () => clearTimeout(handle);
+}
 
 function Guard({ copy }: { copy: Copy }) {
   const editor = useEditor();
@@ -47,10 +63,12 @@ function ConnectionBanner({ copy }: { copy: Copy }) {
 }
 
 export function BoardCanvas({
+  exit,
   keeper,
   language,
   licenseKey,
 }: {
+  exit: Exit;
   keeper: PassKeeper;
   language: string;
   licenseKey: string;
@@ -60,7 +78,19 @@ export function BoardCanvas({
   const board = socketUrl.split("/").at(-1) ?? socketUrl;
   const color = colorFor(person.id);
   const rolls = useRolls(keeper);
-  const { full, store } = useBoardStore({ color, keeper, rolls });
+  const { refusal, store } = useBoardStore({ color, keeper, rolls });
+  const usable = store.status === "synced-remote";
+  useEffect(() => (usable ? warmUpDice() : undefined), [usable]);
+  // tldraw keeps trying a Worker it cannot reach behind a bare spinner; after
+  // a while the person is told why nothing shows.
+  const [stalled, setStalled] = useState(false);
+  const connecting = store.status === "loading";
+  useEffect(() => {
+    setStalled(false);
+    if (!connecting) return;
+    const timer = setTimeout(() => setStalled(true), STALLED_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [connecting]);
 
   const [editor, setEditor] = useState<Editor | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -72,6 +102,7 @@ export function BoardCanvas({
       color,
       copy,
       editor,
+      exit,
       locale: language,
       naming,
       open: (next) => {
@@ -85,11 +116,16 @@ export function BoardCanvas({
       setNaming,
       setPool,
     }),
-    [board, color, copy, editor, language, naming, panel, person, pool, rolls],
+    [board, color, copy, editor, exit, language, naming, panel, person, pool, rolls],
   );
 
+  // NOTE: a full board waits and asks again (useBoardStore); the way out
+  // stays in reach meanwhile.
+  if (refusal === "full") return <Notice action={exit} text={copy.boardFull} />;
+  // NOTE: a reset link or a deleted board ends the board (keeper.end).
+  if (refusal !== null) return <Notice busy text={copy.loading} />;
   // NOTE: tldraw logs the reason of any sync error itself.
-  if (store.status === "error" && !isLinkReset(store.error)) {
+  if (store.status === "error") {
     return (
       <Notice
         action={{ label: copy.reload, run: () => location.reload() }}
@@ -97,7 +133,9 @@ export function BoardCanvas({
       />
     );
   }
-  const offline = store.status === "synced-remote" && store.connectionStatus === "offline";
+  const offline =
+    (store.status === "synced-remote" && store.connectionStatus === "offline") ||
+    (connecting && stalled);
 
   return (
     <BoardUiContext.Provider value={ui}>
@@ -129,21 +167,12 @@ export function BoardCanvas({
         <div aria-live="polite" className="sr-only">
           {rolls.arrived !== null && rollSentence(copy, rolls.arrived)}
         </div>
-        {full && (
-          <div className="fixed inset-0 z-70 grid place-items-center bg-background/90 p-6">
-            <p
-              className="flex max-w-sm items-center gap-3 text-center text-base text-foreground"
-              role="status"
-            >
-              <Icon className="size-6 shrink-0 text-foreground-muted" name="Group" />
-              {copy.boardFull}
-            </p>
-          </div>
-        )}
       </div>
     </BoardUiContext.Provider>
   );
 }
+
+const STALLED_AFTER_MS = 8000;
 
 // NOTE: one page per board (see chrome.tsx).
 const OPTIONS = { maxPages: 1 };

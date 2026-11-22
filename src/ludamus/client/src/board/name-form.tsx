@@ -7,11 +7,11 @@ const MAX_NAME_LENGTH = 40;
 // A guest's one step before the board: the name the others will see.
 export function NameForm({
   copy,
-  failed,
+  error,
   onSubmit,
 }: {
   copy: Copy;
-  failed: boolean;
+  error: string | null;
   onSubmit: (name: string) => Promise<void>;
 }) {
   const [name, setName] = useState("");
@@ -40,8 +40,11 @@ export function NameForm({
         </p>
         <input
           aria-describedby={
-            failed ? "board-guest-name-help board-guest-name-error" : "board-guest-name-help"
+            error === null
+              ? "board-guest-name-help"
+              : "board-guest-name-help board-guest-name-error"
           }
+          aria-invalid={error !== null}
           autoComplete="nickname"
           className="mt-3 block h-12 w-full rounded-lg border border-border bg-bg-secondary px-3 text-base text-foreground focus:border-primary focus:outline-none"
           enterKeyHint="go"
@@ -52,9 +55,9 @@ export function NameForm({
           required
           value={name}
         />
-        {failed && (
+        {error !== null && (
           <p className="mt-2 text-sm text-danger-text" id="board-guest-name-error" role="alert">
-            {copy.bootstrapFailed}
+            {error}
           </p>
         )}
         <button
