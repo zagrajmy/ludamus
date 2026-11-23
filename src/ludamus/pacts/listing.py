@@ -37,9 +37,18 @@ class ListingResponseStatus(StrEnum):
     NOT_CHOSEN = "not_chosen"
 
 
+class ListingResponseStage(StrEnum):
+    # NOTE: read, not stored. Joined comes from the party, where accepting,
+    # joining by link, leaving and removal happen, and wins over the stored
+    # status. Invited reads as waiting once the membership behind it is gone.
+    WAITING = "waiting"
+    INVITED = "invited"
+    JOINED = "joined"
+    DECLINED = "declined"
+    NOT_CHOSEN = "not_chosen"
+
+
 class ListingResponseTab(StrEnum):
-    # NOTE: joined is read from the party, not stored: accepting, joining by
-    # link, leaving and removal all happen on the party side.
     WAITING = "waiting"
     INVITED = "invited"
     JOINED = "joined"
@@ -130,21 +139,24 @@ class ListingCreateDict(ListingWriteDict):
     author_id: int
 
 
+class ListingPartyContactDTO(BaseModel):
+    contact: ListingContact
+    address: str
+
+
 class ListingResponseDTO(BaseModel):
     pk: int
     listing_id: int
     user_id: int
     user_name: str
     message: str
-    # NOTE: invited reads as waiting once their membership in that party is gone.
-    status: ListingResponseStatus
+    stage: ListingResponseStage
     decline_message: str
     creation_time: datetime
-    contact: ListingContact
     party_name: str
-    joined: bool
-    # Filled only between the author and a responder who joined their party.
-    contact_address: str = ""
+    # NOTE: both contacts are shared only once the responder joined.
+    contact: ListingPartyContactDTO | None
+    author_contact: ListingPartyContactDTO | None
 
 
 class ListingResponseCreateDict(TypedDict):
@@ -181,9 +193,7 @@ class ListingDetailDTO(BaseModel):
     can_respond: bool
     waiting_count: int | None
     open_for_days: int
-    author_contact: str
     party_members: list[str]
-    joined_responses: list[ListingResponseDTO]
 
 
 class ListingPartyChoiceDTO(BaseModel):
@@ -191,9 +201,10 @@ class ListingPartyChoiceDTO(BaseModel):
     name: str
 
 
-class ListingPartyContactDTO(BaseModel):
-    contact: ListingContact
-    address: str
+class ListingPartyDTO(BaseModel):
+    listings: list[ListingDTO]
+    # NOTE: keyed by user id; holds only the contacts the viewer may see.
+    contacts: dict[int, ListingPartyContactDTO]
 
 
 class ListingResponsesDTO(BaseModel):
@@ -354,9 +365,6 @@ class ListingServiceProtocol(Protocol):
         self, *, pk: int, sphere_id: int, author_id: int, tab: ListingResponseTab
     ) -> ListingResponsesDTO: ...
     def led_parties(self, author_id: int) -> list[ListingPartyChoiceDTO]: ...
-    def party_listings(self, party_id: int) -> list[ListingDTO]: ...
-    def party_contacts(
-        self, *, party_id: int, viewer_id: int
-    ) -> dict[int, ListingPartyContactDTO]: ...
+    def party_listings(self, *, party_id: int, viewer_id: int) -> ListingPartyDTO: ...
     @staticmethod
     def open_for_days() -> int: ...

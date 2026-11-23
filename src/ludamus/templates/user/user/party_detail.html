@@ -1,5 +1,5 @@
 {% extends "user/user/profile_base.html" %}
-{% load i18n tessera cfp_tags %}
+{% load i18n tessera %}
 {% block title %}
     {% if party.name %}
         {{ party.name }}
@@ -80,19 +80,17 @@
                 {% endif %}
             </div>
             <ul class="mt-7 flex flex-col">
-                {% for member in party.members %}
+                {% for member, party_contact in member_rows %}
                     <li class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-border{% endif %}">
                         {% include "components/avatar.html" with user=member size="size-9" %}
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-medium text-foreground truncate"
                                data-ph-mask>{{ member.full_name }}</p>
-                            {% with party_contact=party_contacts|get_item:member.user_pk %}
-                                {% if party_contact %}
-                                    <p class="break-words text-xs text-foreground-secondary" data-ph-mask>
-                                        {% include "board/_contact.html" with contact=party_contact.contact address=party_contact.address only %}
-                                    </p>
-                                {% endif %}
-                            {% endwith %}
+                            {% if party_contact %}
+                                <p class="break-words text-xs text-foreground-secondary" data-ph-mask>
+                                    {% include "board/_contact.html" with party_contact=party_contact only %}
+                                </p>
+                            {% endif %}
                             {% if member.is_leader %}
                                 <p class="text-xs text-foreground-muted">{% translate "leader" %}</p>
                             {% elif member.status == "invited" %}

@@ -45,11 +45,11 @@
                         {% if response.message %}
                             <p class="whitespace-pre-line break-words text-sm text-foreground-secondary">{{ response.message }}</p>
                         {% endif %}
-                        {% if response.joined %}
+                        {% if response.stage == "joined" %}
                             <p class="break-words text-sm text-foreground-primary">
-                                {% include "board/_contact.html" with contact=response.contact address=response.contact_address only %}
+                                {% include "board/_contact.html" with party_contact=response.contact only %}
                             </p>
-                        {% elif response.status == "invited" %}
+                        {% elif response.stage == "invited" %}
                             <p class="break-words text-sm text-foreground-muted">
                                 {% if response.party_name %}
                                     {% blocktranslate with party=response.party_name %}Invited to {{ party }}. They join once they accept.{% endblocktranslate %}
@@ -57,7 +57,7 @@
                                     {% translate "Invited to your party. They join once they accept." %}
                                 {% endif %}
                             </p>
-                        {% elif response.status == "waiting" %}
+                        {% elif response.stage == "waiting" %}
                             <form method="post"
                                   action="{% url 'web:board:invite' pk=listing.pk response_pk=response.pk %}"
                                   class="flex flex-col">

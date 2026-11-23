@@ -255,9 +255,6 @@ class ListingForm(forms.Form):
         return cleaned
 
 
-NEW_PARTY = "new"
-
-
 def _party_label(party: ListingPartyChoiceDTO) -> str:
     return party.name or gettext("Your party")
 
@@ -267,16 +264,14 @@ class ListingInviteForm(forms.Form):
         self, data: QueryDict | None = None, *, parties: list[ListingPartyChoiceDTO]
     ) -> None:
         super().__init__(data)
-        self.fields["party"] = forms.ChoiceField(
+        self.fields["party"] = forms.TypedChoiceField(
             label=_("Party"),
+            required=False,
+            coerce=int,
+            empty_value=None,
             choices=[
-                (NEW_PARTY, gettext("A new party")),
-                *((str(party.pk), _party_label(party)) for party in parties),
+                ("", gettext("A new party")),
+                *((party.pk, _party_label(party)) for party in parties),
             ],
-            initial=NEW_PARTY,
             widget=forms.Select if parties else forms.HiddenInput,
         )
-
-    def clean_party(self) -> int | None:
-        party = self.cleaned_data["party"]
-        return None if party == NEW_PARTY else int(party)

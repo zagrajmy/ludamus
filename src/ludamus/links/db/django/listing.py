@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from django.db.models import (
     Case,
     CharField,
+    Count,
     Exists,
     F,
     OuterRef,
@@ -24,6 +25,7 @@ from ludamus.links.db.django.models import (
     Party,
     PartyMembership,
     Tag,
+    User,
 )
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
@@ -36,9 +38,11 @@ from ludamus.pacts.listing import (
     ListingDTO,
     ListingNotification,
     ListingPartyChoiceDTO,
+    ListingPartyContactDTO,
     ListingRepositoryProtocol,
     ListingResponseDTO,
     ListingResponseRepositoryProtocol,
+    ListingResponseStage,
     ListingResponseStatus,
     ListingResponseTab,
     ListingSeeking,
@@ -59,14 +63,13 @@ if TYPE_CHECKING:
         ListingWriteDict,
     )
 
-    class _Joined(TypedDict):
-        joined: bool
+    class _Staged(TypedDict):
         stage: str
 
     class _PartyFormed(TypedDict):
         party_formed: bool
 
-    type _Response = WithAnnotations[ListingResponse, _Joined]
+    type _Response = WithAnnotations[ListingResponse, _Staged]
     type _Listing = WithAnnotations[Listing, _PartyFormed]
 
 
@@ -95,16 +98,17 @@ def _in_invited_party() -> Exists:
 
 
 def _stage() -> Case:
-    """Read the stored status, unless the membership behind an invite is gone.
+    """Read joined from the party, then the stored status.
 
     Declining an invite, having it withdrawn, leaving or being removed all
     happen on the party side and leave the stored status `invited`; such a
     responder is waiting again.
     """
     return Case(
+        When(_joined(), then=Value(ListingResponseStage.JOINED.value)),
         When(
             Q(status=ListingResponseStatus.INVITED) & ~_in_invited_party(),
-            then=Value(ListingResponseStatus.WAITING.value),
+            then=Value(ListingResponseStage.WAITING.value),
         ),
         default=F("status"),
         output_field=CharField(),
@@ -112,9 +116,9 @@ def _stage() -> Case:
 
 
 def _responses() -> QuerySet[_Response]:
-    return ListingResponse.objects.select_related("user", "party").annotate(
-        joined=_joined(), stage=_stage()
-    )
+    return ListingResponse.objects.select_related(
+        "user", "party", "listing__author"
+    ).annotate(stage=_stage())
 
 
 def _listings() -> QuerySet[_Listing]:
@@ -125,7 +129,9 @@ def _listings() -> QuerySet[_Listing]:
         )
         .annotate(
             party_formed=Exists(
-                _responses().filter(listing_id=OuterRef("pk"), joined=True)
+                _responses().filter(
+                    listing_id=OuterRef("pk"), stage=ListingResponseStage.JOINED
+                )
             )
         )
     )
@@ -292,26 +298,31 @@ class ListingRepository(ListingRepositoryProtocol):
         ]
 
 
+def _party_contact(user: User, contact: str) -> ListingPartyContactDTO:
+    channel = ListingContact(contact)
+    address = user.discord_username if channel is ListingContact.DISCORD else user.email
+    return ListingPartyContactDTO(contact=channel, address=address)
+
+
 def _response_dto(response: _Response) -> ListingResponseDTO:
+    stage = ListingResponseStage(response.stage)
+    joined = stage is ListingResponseStage.JOINED
+    listing = response.listing
     return ListingResponseDTO(
         pk=response.pk,
         listing_id=response.listing_id,
         user_id=response.user_id,
         user_name=response.user.full_name,
         message=response.message,
-        status=ListingResponseStatus(response.stage),
+        stage=stage,
         decline_message=response.decline_message,
         creation_time=response.creation_time,
-        contact=ListingContact(response.contact),
         party_name=response.party.name if response.party else "",
-        joined=response.joined,
+        contact=_party_contact(response.user, response.contact) if joined else None,
+        author_contact=(
+            _party_contact(listing.author, listing.contact) if joined else None
+        ),
     )
-
-
-def _in_tab(tab: ListingResponseTab) -> Q:
-    if tab is ListingResponseTab.JOINED:
-        return Q(joined=True)
-    return Q(joined=False, stage=tab.value)
 
 
 class ListingResponseRepository(ListingResponseRepositoryProtocol):
@@ -335,21 +346,26 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
     def list_in_tab(
         *, listing_id: int, tab: ListingResponseTab
     ) -> list[ListingResponseDTO]:
-        responses = _responses().filter(_in_tab(tab), listing_id=listing_id)
+        responses = _responses().filter(listing_id=listing_id, stage=tab.value)
         return [_response_dto(response) for response in responses.order_by("pk")]
 
     @staticmethod
     def count_by_tab(listing_id: int) -> dict[ListingResponseTab, int]:
-        responses = _responses().filter(listing_id=listing_id)
-        return {
-            tab: responses.filter(_in_tab(tab)).count() for tab in ListingResponseTab
-        }
+        counts = dict(
+            _responses()
+            .filter(listing_id=listing_id)
+            .order_by()
+            .values("stage")
+            .annotate(count=Count("pk"))
+            .values_list("stage", "count")
+        )
+        return {tab: counts.get(tab.value, 0) for tab in ListingResponseTab}
 
     @staticmethod
     def waiting_user_ids(listing_id: int) -> list[int]:
         return list(
             _responses()
-            .filter(listing_id=listing_id, stage=ListingResponseStatus.WAITING)
+            .filter(listing_id=listing_id, stage=ListingResponseStage.WAITING)
             .order_by("pk")
             .values_list("user_id", flat=True)
         )
@@ -370,11 +386,7 @@ class ListingResponseRepository(ListingResponseRepositoryProtocol):
     def dismiss_waiting(listing_ids: list[int]) -> list[ListingNotification]:
         waiting = list(
             _responses()
-            .filter(
-                listing_id__in=listing_ids,
-                stage=ListingResponseStatus.WAITING,
-                joined=False,
-            )
+            .filter(listing_id__in=listing_ids, stage=ListingResponseStage.WAITING)
             .order_by("listing_id", "pk")
             .values_list("pk", "user_id", "listing_id", "listing__title")
         )

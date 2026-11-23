@@ -12,7 +12,9 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts.listing import (
     ListingContact,
+    ListingPartyContactDTO,
     ListingResponseDTO,
+    ListingResponseStage,
     ListingResponseStatus,
     ListingResponseTab,
     ListingStatus,
@@ -56,23 +58,28 @@ def _invite(response):
     )
 
 
-def _response_dto(response, *, joined=False, contact_address="", status=None):
+def _response_dto(response, *, stage=None):
     response = ListingResponse.objects.select_related("user", "party").get(
         pk=response.pk
     )
     return ListingResponseDTO(
-        joined=joined,
-        contact_address=contact_address,
         party_name=response.party.name if response.party else "",
-        contact=ListingContact(response.contact),
         pk=response.pk,
         listing_id=response.listing_id,
         user_id=response.user_id,
         user_name=response.user.full_name,
         message=response.message,
-        status=status or ListingResponseStatus(response.status),
+        stage=stage or ListingResponseStage(response.status),
         decline_message=response.decline_message,
         creation_time=response.creation_time,
+        contact=None,
+        author_contact=None,
+    )
+
+
+def _joined_dto(response, *, contact, author_contact):
+    return _response_dto(response, stage=ListingResponseStage.JOINED).model_copy(
+        update={"contact": contact, "author_contact": author_contact}
     )
 
 
@@ -172,9 +179,7 @@ class TestListingRespondActionView:
                 "own_response": _response_dto(own),
                 "response_form": None,
                 "waiting_count": None,
-                "author_contact": "",
                 "party_members": [],
-                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -255,9 +260,7 @@ class TestListingRespondActionView:
                     ]
                 ),
                 "waiting_count": None,
-                "author_contact": "",
                 "party_members": [],
-                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -468,7 +471,7 @@ class TestListingResponseInviteActionView:
             listing=listing, user=responder, contact=ListingContact.EMAIL
         )
 
-        response = authenticated_client.post(_invite(waiting), {"party": "new"})
+        response = authenticated_client.post(_invite(waiting), {"party": ""})
 
         assert_response(
             response,
@@ -528,7 +531,7 @@ class TestListingResponseInviteActionView:
             PartyMembershipStatus.INVITED
         )
 
-    def test_a_party_led_by_someone_else_is_not_found(
+    def test_a_party_led_by_someone_else_is_reported_stale(
         self, authenticated_client, active_user, sphere
     ):
         listing = ListingFactory(sphere=sphere, author=active_user)
@@ -541,13 +544,46 @@ class TestListingResponseInviteActionView:
             _invite(waiting), {"party": str(foreign.pk)}
         )
 
-        assert_response_404(response)
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.ERROR, STALE),),
+            url=_responses(listing),
+        )
         waiting.refresh_from_db()
         assert (waiting.status, waiting.party_id) == (
             ListingResponseStatus.WAITING,
             None,
         )
         assert not PartyMembership.objects.filter(member=waiting.user).exists()
+        assert not Notification.objects.exists()
+
+    def test_a_party_deleted_in_another_tab_is_reported_stale(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        deleted = _party(active_user)
+        deleted_pk = deleted.pk
+        deleted.delete()
+        waiting = ListingResponse.objects.create(
+            listing=listing, user=UserFactory(), contact=ListingContact.EMAIL
+        )
+
+        response = authenticated_client.post(
+            _invite(waiting), {"party": str(deleted_pk)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.ERROR, STALE),),
+            url=_responses(listing),
+        )
+        waiting.refresh_from_db()
+        assert (waiting.status, waiting.party_id) == (
+            ListingResponseStatus.WAITING,
+            None,
+        )
         assert not Notification.objects.exists()
 
     def test_a_response_to_another_listing_is_not_found(
@@ -564,7 +600,7 @@ class TestListingResponseInviteActionView:
             reverse(
                 "web:board:invite", kwargs={"pk": own.pk, "response_pk": foreign.pk}
             ),
-            {"party": "new"},
+            {"party": ""},
         )
 
         assert_response_404(response)
@@ -583,7 +619,7 @@ class TestListingResponseInviteActionView:
             status=ListingResponseStatus.DECLINED,
         )
 
-        response = authenticated_client.post(_invite(declined), {"party": "new"})
+        response = authenticated_client.post(_invite(declined), {"party": ""})
 
         assert_response(
             response,
@@ -614,9 +650,7 @@ class TestListingResponseInviteActionView:
             HTTPStatus.OK,
             context_data={
                 "listing": listing_dto(listing),
-                "responses": [
-                    _response_dto(stale, status=ListingResponseStatus.WAITING)
-                ],
+                "responses": [_response_dto(stale, stage=ListingResponseStage.WAITING)],
                 "counts": _counts(waiting=1),
                 "active_tab": "waiting",
                 "decline_form": ANY,
@@ -679,8 +713,14 @@ class TestJoinedResponders:
             context_data={
                 "listing": listing_dto(listing, party_formed=True),
                 "responses": [
-                    _response_dto(
-                        joined, joined=True, contact_address="ola@example.com"
+                    _joined_dto(
+                        joined,
+                        contact=ListingPartyContactDTO(
+                            contact=ListingContact.EMAIL, address="ola@example.com"
+                        ),
+                        author_contact=ListingPartyContactDTO(
+                            contact=ListingContact.EMAIL, address=active_user.email
+                        ),
                     )
                 ],
                 "counts": _counts(joined=1),
@@ -707,12 +747,18 @@ class TestJoinedResponders:
                 "listing": listing_dto(listing, party_formed=True),
                 "is_author": False,
                 "open_for_days": 30,
-                "own_response": _response_dto(own, joined=True),
+                "own_response": _joined_dto(
+                    own,
+                    contact=ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address=active_user.email
+                    ),
+                    author_contact=ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address="gm@example.com"
+                    ),
+                ),
                 "response_form": None,
                 "waiting_count": None,
-                "author_contact": "gm@example.com",
                 "party_members": [],
-                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -735,7 +781,15 @@ class TestJoinedResponders:
             context_data={
                 "listing": listing_dto(listing, party_formed=True),
                 "responses": [
-                    _response_dto(joined, joined=True, contact_address="ola#7")
+                    _joined_dto(
+                        joined,
+                        contact=ListingPartyContactDTO(
+                            contact=ListingContact.DISCORD, address="ola#7"
+                        ),
+                        author_contact=ListingPartyContactDTO(
+                            contact=ListingContact.EMAIL, address=active_user.email
+                        ),
+                    )
                 ],
                 "counts": _counts(joined=1),
                 "active_tab": "joined",
@@ -763,12 +817,18 @@ class TestJoinedResponders:
                 "listing": listing_dto(listing, party_formed=True),
                 "is_author": False,
                 "open_for_days": 30,
-                "own_response": _response_dto(own, joined=True),
+                "own_response": _joined_dto(
+                    own,
+                    contact=ListingPartyContactDTO(
+                        contact=ListingContact.EMAIL, address=active_user.email
+                    ),
+                    author_contact=ListingPartyContactDTO(
+                        contact=ListingContact.DISCORD, address="gm#1"
+                    ),
+                ),
                 "response_form": None,
                 "waiting_count": None,
-                "author_contact": "gm#1",
                 "party_members": [],
-                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -794,9 +854,7 @@ class TestJoinedResponders:
                 "own_response": _response_dto(own),
                 "response_form": None,
                 "waiting_count": None,
-                "author_contact": "",
                 "party_members": [],
-                "joined_responses": [],
             },
             template_name="board/detail.html",
         )
@@ -805,7 +863,7 @@ class TestJoinedResponders:
         author, responder = UserFactory(), UserFactory()
         party = _party(author, responder)
         listing = ListingFactory(sphere=sphere, author=author, party=party)
-        joined_response = ListingResponse.objects.create(
+        ListingResponse.objects.create(
             listing=listing, user=responder, contact=ListingContact.EMAIL
         )
         client.force_login(author)
@@ -824,13 +882,7 @@ class TestJoinedResponders:
                 "own_response": None,
                 "response_form": None,
                 "waiting_count": 0,
-                "author_contact": "",
                 "party_members": [author.full_name, responder.full_name],
-                "joined_responses": [
-                    _response_dto(
-                        joined_response, joined=True, contact_address=responder.email
-                    )
-                ],
             },
             template_name="board/detail.html",
         )

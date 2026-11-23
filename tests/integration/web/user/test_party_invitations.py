@@ -316,6 +316,7 @@ class TestPartyCompanionAddActionView:
                 "party": _party_dto(
                     party, active_user, [_member_dto(active_user, party)]
                 ),
+                "member_rows": [(_member_dto(active_user, party), None)],
                 "rename_form": ANY,
                 "invite_form": ANY,
                 "companion_form": ANY,
@@ -323,7 +324,6 @@ class TestPartyCompanionAddActionView:
                 "history": [],
                 "enrolling_locked": False,
                 "listings": [],
-                "party_contacts": {},
                 "profile_active_tab": "parties",
             },
             template_name="user/user/party_detail.html",

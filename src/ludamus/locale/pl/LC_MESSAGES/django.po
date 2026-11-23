@@ -7664,10 +7664,6 @@ msgid "Posted by"
 msgstr "Autor"
 
 #: src/ludamus/templates/board/detail.html
-msgid "In your party"
-msgstr "W drużynie"
-
-#: src/ludamus/templates/board/detail.html
 msgid "Already in the party"
 msgstr "Już w drużynie"
 

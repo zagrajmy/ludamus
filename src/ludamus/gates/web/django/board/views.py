@@ -168,9 +168,7 @@ def _render_detail(
                 else None
             ),
             "waiting_count": detail.waiting_count,
-            "author_contact": detail.author_contact,
             "party_members": detail.party_members,
-            "joined_responses": detail.joined_responses,
         },
     )
 
@@ -288,7 +286,8 @@ class ListingResponseInviteActionView(_BoardGate, LoginRequiredMixin, View):
         author_id = request.context.current_user_id
         form = ListingInviteForm(request.POST, parties=listings.led_parties(author_id))
         if not form.is_valid():
-            raise Http404
+            messages.error(request, _STALE)
+            return redirect("web:board:responses", pk=pk)
         try:
             listings.add_to_party(
                 pk=pk,

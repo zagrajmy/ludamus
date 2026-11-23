@@ -50,9 +50,13 @@ def _history_group(response, event, index=0):
     }
 
 
-def _context(party_dto, **overrides):
+def _context(party_dto, contacts=None, **overrides):
+    contacts = contacts or {}
     context = {
         "party": party_dto,
+        "member_rows": [
+            (member, contacts.get(member.user_pk)) for member in party_dto.members
+        ],
         "rename_form": ANY if party_dto.is_leader else None,
         "invite_form": ANY if party_dto.is_active_member else None,
         "companion_form": ANY if party_dto.is_active_member else None,
@@ -60,7 +64,6 @@ def _context(party_dto, **overrides):
         "history": [],
         "enrolling_locked": False,
         "listings": [],
-        "party_contacts": {},
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -622,7 +625,7 @@ class TestPartyDetailListings:
                 ),
                 invite_token=party.invite_token,
                 listings=[listing_dto(listing, party_formed=True)],
-                party_contacts={
+                contacts={
                     player.pk: ListingPartyContactDTO(
                         contact=ListingContact.EMAIL, address="ola@example.com"
                     )
@@ -659,7 +662,7 @@ class TestPartyDetailListings:
                     [_member_dto(gm, party), _member_dto(active_user, party)],
                 ),
                 listings=[listing_dto(listing, party_formed=True)],
-                party_contacts={
+                contacts={
                     gm.pk: ListingPartyContactDTO(
                         contact=ListingContact.EMAIL, address="gm@example.com"
                     )
