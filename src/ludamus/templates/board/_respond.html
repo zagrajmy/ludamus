@@ -5,14 +5,30 @@
 {% endcomment %}
 {% if own_response %}
     <div class="flex flex-col gap-2 border-t border-border pt-4">
-        {% if own_response.status == "waiting" %}
+        {% if own_response.stage == "joined" %}
+            <p class="text-sm text-foreground-primary">{% translate "You're in the author's party." %}</p>
+            <p class="break-words text-sm text-foreground-secondary">
+                {% if own_response.author_contact.contact == "discord" %}
+                    {% blocktranslate with address=own_response.author_contact.address %}Author's Discord: {{ address }}{% endblocktranslate %}
+                {% else %}
+                    {% blocktranslate with address=own_response.author_contact.address %}Author's email: {{ address }}{% endblocktranslate %}
+                {% endif %}
+            </p>
+        {% elif own_response.stage == "invited" %}
+            <p class="text-sm text-foreground-primary">
+                {% translate "The author invited you to their party. Accept the invitation to swap contacts." %}
+            </p>
+            {% url 'web:crowd:profile-parties' as parties_url %}
+            {% translate "See the invitation" as t_parties %}
+            {% tessera_button text=t_parties href=parties_url extra_class="w-full justify-center" %}
+        {% elif own_response.stage == "waiting" %}
             <p class="text-sm text-foreground-primary">{% translate "You're interested. The author will add you to their party or let you know." %}</p>
             <form method="post" action="{% url 'web:board:withdraw' pk=listing.pk %}">
                 {% csrf_token %}
                 {% translate "Withdraw response" as t_withdraw %}
                 {% tessera_button text=t_withdraw variant="secondary" extra_class="w-full" %}
             </form>
-        {% elif own_response.status == "declined" %}
+        {% elif own_response.stage == "declined" %}
             <p class="text-sm text-foreground-primary">{% translate "Not this time." %}</p>
             {% if own_response.decline_message %}
                 <p class="text-sm text-foreground-secondary break-words">{{ own_response.decline_message }}</p>

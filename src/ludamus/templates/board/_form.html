@@ -24,6 +24,9 @@
     </div>
     {% tessera_field form.seats %}
     {% tessera_field form.contact %}
+    {% if "party" in form.fields %}
+        {% tessera_field form.party %}
+    {% endif %}
     {% for category in form.tag_categories %}
         {% if category.options %}
             <div class="mb-4">

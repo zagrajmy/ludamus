@@ -29,6 +29,7 @@ def _update(listing, **data):
             "starts_at": listing.starts_at,
             "when_text": listing.when_text,
             "contact": listing.contact,
+            "party_id": listing.party_id,
         }
         | data,
         tag_ids=[],
