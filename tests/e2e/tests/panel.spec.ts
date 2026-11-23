@@ -783,12 +783,12 @@ test.describe("Backoffice Panel", () => {
     await addLink.click();
 
     // Fill project-specific times so cross-browser runs do not collide.
-    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    const createDialog = page.getByRole("dialog", { name: "New availability window" });
     await createDialog.getByLabel("Start time").fill(startTime);
     await createDialog.getByLabel("End time").fill(endTime);
-    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
+    await createDialog.getByRole("button", { name: "Add availability window" }).click();
 
-    await expect(page.getByText("Time slot created successfully.")).toBeVisible();
+    await expect(page.getByText("Availability window created successfully.")).toBeVisible();
     const createdSlot = page.getByText(`${startTime} – ${endTime}`);
     await expect(createdSlot).toBeVisible();
 
@@ -803,7 +803,7 @@ test.describe("Backoffice Panel", () => {
     await page.locator("#id_end_time").fill(updatedEndTime);
     await page.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByText("Time slot updated successfully.")).toBeVisible();
+    await expect(page.getByText("Availability window updated successfully.")).toBeVisible();
     await expect(page.getByText(`${startTime} – ${updatedEndTime}`)).toBeVisible();
 
     // Delete
@@ -813,7 +813,7 @@ test.describe("Backoffice Panel", () => {
       .click();
     await acceptConfirmModal(page);
 
-    await expect(page.getByText("Time slot deleted successfully.")).toBeVisible();
+    await expect(page.getByText("Availability window deleted successfully.")).toBeVisible();
   });
 
   // --- Step 9: Proposals & Access Control ---
@@ -1360,25 +1360,25 @@ test.describe("Backoffice Panel", () => {
     const slotEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 15);
 
     await page.goto("/panel/event/frostfire-con/settings/availability/create/");
-    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    const createDialog = page.getByRole("dialog", { name: "New availability window" });
     await createDialog.getByRole("textbox", { name: /^Date/ }).fill(slotStart.date);
     await createDialog.getByRole("textbox", { name: /^End date/ }).fill(slotEnd.date);
     await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(slotStart.time);
     await createDialog.getByRole("textbox", { name: /^End time/ }).fill(slotEnd.time);
-    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
-    await expect(page.getByText("Time slot created successfully.")).toBeVisible();
+    await createDialog.getByRole("button", { name: "Add availability window" }).click();
+    await expect(page.getByText("Availability window created successfully.")).toBeVisible();
 
     // Try creating overlapping slot: offset+5 to offset+20
     // This overlaps with the first slot
     const overlapStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 5);
     const overlapEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 20);
     await page.goto("/panel/event/frostfire-con/settings/availability/create/");
-    const overlapDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    const overlapDialog = page.getByRole("dialog", { name: "New availability window" });
     await overlapDialog.getByRole("textbox", { name: /^Date/ }).fill(overlapStart.date);
     await overlapDialog.getByRole("textbox", { name: /^End date/ }).fill(overlapEnd.date);
     await overlapDialog.getByRole("textbox", { name: /^Start time/ }).fill(overlapStart.time);
     await overlapDialog.getByRole("textbox", { name: /^End time/ }).fill(overlapEnd.time);
-    await overlapDialog.getByRole("button", { name: "Add Time Slot" }).click();
+    await overlapDialog.getByRole("button", { name: "Add availability window" }).click();
 
     // Verify error message about overlap
     await expect(page.getByText("overlaps with an existing slot")).toBeVisible();
@@ -1394,7 +1394,7 @@ test.describe("Backoffice Panel", () => {
       .last()
       .click();
     await acceptConfirmModal(page);
-    await expect(page.getByText("Time slot deleted successfully.")).toBeVisible();
+    await expect(page.getByText("Availability window deleted successfully.")).toBeVisible();
   });
 
   // --- Facilitators: merge ---

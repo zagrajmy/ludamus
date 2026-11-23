@@ -122,7 +122,7 @@ class TestTimeSlotCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot created successfully.")],
+            messages=[(messages.SUCCESS, "Availability window created successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(event=event).count() == 1
@@ -159,7 +159,7 @@ class TestTimeSlotCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot created successfully.")],
+            messages=[(messages.SUCCESS, "Availability window created successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
@@ -240,7 +240,10 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window created. The event dates now cover it.",
+                )
             ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
@@ -266,7 +269,10 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window created. The event dates now cover it.",
+                )
             ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
@@ -296,7 +302,7 @@ class TestTimeSlotCreatePageView:
             form=FormErrorsMatcher(
                 __all__=[
                     (
-                        "The time slot starts before the event is published. "
+                        "The availability window starts before the event is published. "
                         "Move the publication time in the event settings first."
                     )
                 ]
@@ -327,7 +333,7 @@ class TestTimeSlotCreatePageView:
             event=event,
             slots=[existing],
             form=FormErrorsMatcher(
-                __all__=["Time slot overlaps with an existing slot."]
+                __all__=["Availability window overlaps with an existing one."]
             ),
         )
         assert TimeSlot.objects.filter(event=event).count() == 1
@@ -353,7 +359,7 @@ class TestTimeSlotCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot created successfully.")],
+            messages=[(messages.SUCCESS, "Availability window created successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(event=event).count() == 1 + 1
@@ -377,7 +383,7 @@ class TestTimeSlotCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot created successfully.")],
+            messages=[(messages.SUCCESS, "Availability window created successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot = TimeSlot.objects.get(event=event)
@@ -402,7 +408,10 @@ class TestTimeSlotCreatePageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot created. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window created. The event dates now cover it.",
+                )
             ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )

@@ -41,7 +41,7 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot deleted successfully.")],
+            messages=[(messages.SUCCESS, "Availability window deleted successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert not TimeSlot.objects.filter(pk=time_slot.pk).exists()
@@ -70,7 +70,12 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Cannot delete time slot used in proposals.")],
+            messages=[
+                (
+                    messages.ERROR,
+                    "Cannot delete an availability window used in proposals.",
+                )
+            ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(pk=time_slot.pk).exists()
@@ -85,7 +90,7 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
+            messages=[(messages.ERROR, "Availability window not found.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
@@ -110,7 +115,7 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
+            messages=[(messages.ERROR, "Availability window not found.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(pk=other_slot.pk).exists()

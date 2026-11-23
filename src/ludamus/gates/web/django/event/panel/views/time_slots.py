@@ -52,10 +52,10 @@ def _slot_error_message(error: TimeSlotValidationError) -> str:
         case TimeSlotValidationError.START_NOT_BEFORE_END:
             return _("Start must be before end.")
         case TimeSlotValidationError.OVERLAPS_EXISTING_SLOT:
-            return _("Time slot overlaps with an existing slot.")
+            return _("Availability window overlaps with an existing one.")
         case TimeSlotValidationError.STARTS_BEFORE_PUBLICATION:
             return _(
-                "The time slot starts before the event is published. "
+                "The availability window starts before the event is published. "
                 "Move the publication time in the event settings first."
             )
         case _:
@@ -216,9 +216,9 @@ class TimeSlotCreatePageView(EventPanelMixin, View):
         messages.success(
             self.request,
             (
-                _("Time slot created. The event dates now cover it.")
+                _("Availability window created. The event dates now cover it.")
                 if saved.event_dates_widened
-                else _("Time slot created successfully.")
+                else _("Availability window created successfully.")
             ),
         )
         return redirect("panel:time-slots", slug=slug)
@@ -237,7 +237,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         local_start = localtime(time_slot.start_time)
@@ -262,7 +262,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         form = TimeSlotForm(self.request.POST)
@@ -290,9 +290,9 @@ class TimeSlotEditPageView(EventPanelMixin, View):
         messages.success(
             self.request,
             (
-                _("Time slot updated. The event dates now cover it.")
+                _("Availability window updated. The event dates now cover it.")
                 if saved.event_dates_widened
-                else _("Time slot updated successfully.")
+                else _("Availability window updated successfully.")
             ),
         )
         return redirect("panel:time-slots", slug=slug)
@@ -310,14 +310,15 @@ class TimeSlotDeleteActionView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         if not deleted:
             messages.error(
-                self.request, _("Cannot delete time slot used in proposals.")
+                self.request,
+                _("Cannot delete an availability window used in proposals."),
             )
             return redirect("panel:time-slots", slug=slug)
 
-        messages.success(self.request, _("Time slot deleted successfully."))
+        messages.success(self.request, _("Availability window deleted successfully."))
         return redirect("panel:time-slots", slug=slug)

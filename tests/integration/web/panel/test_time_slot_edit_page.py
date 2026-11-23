@@ -80,7 +80,7 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         time_slot.refresh_from_db()
@@ -123,7 +123,7 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot.refresh_from_db()
@@ -192,7 +192,7 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
+            messages=[(messages.ERROR, "Availability window not found.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
@@ -206,7 +206,7 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
+            messages=[(messages.ERROR, "Availability window not found.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
@@ -229,7 +229,10 @@ class TestTimeSlotEditPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window updated. The event dates now cover it.",
+                )
             ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
@@ -275,7 +278,7 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "The time slot starts before the event is published. "
+            "The availability window starts before the event is published. "
             "Move the publication time in the event settings first."
             in response.context["form"].non_field_errors()
         )
@@ -322,7 +325,7 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "Time slot overlaps with an existing slot." in response.context[
+            "Availability window overlaps with an existing one." in response.context[
                 "form"
             ].non_field_errors()
         )
@@ -346,7 +349,7 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
@@ -370,7 +373,10 @@ class TestTimeSlotEditPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window updated. The event dates now cover it.",
+                )
             ],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )
@@ -390,6 +396,6 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
+            messages=[(messages.ERROR, "Availability window not found.")],
             url=f"/panel/event/{event.slug}/settings/availability/",
         )

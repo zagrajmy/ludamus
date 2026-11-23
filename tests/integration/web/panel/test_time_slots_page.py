@@ -109,7 +109,7 @@ class TestTimeSlotsPageView:
                 f"?create=1&date={day:%Y-%m-%d}",
                 "data-modal-reload",
                 '<dialog id="time-slot-create-modal"',
-                "New Time Slot",
+                "New availability window",
             ],
             not_contains=f"time-slot-create-modal-{day:%Y%m%d}",
         )
