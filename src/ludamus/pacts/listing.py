@@ -32,8 +32,27 @@ class ListingContact(StrEnum):
 
 class ListingResponseStatus(StrEnum):
     WAITING = "waiting"
+    INVITED = "invited"
     DECLINED = "declined"
     NOT_CHOSEN = "not_chosen"
+
+
+class ListingResponseStage(StrEnum):
+    # NOTE: read, not stored. Joined comes from the party, where accepting,
+    # joining by link, leaving and removal happen, and wins over the stored
+    # status. Invited reads as waiting once the membership behind it is gone.
+    WAITING = "waiting"
+    INVITED = "invited"
+    JOINED = "joined"
+    DECLINED = "declined"
+    NOT_CHOSEN = "not_chosen"
+
+
+class ListingResponseTab(StrEnum):
+    WAITING = "waiting"
+    INVITED = "invited"
+    JOINED = "joined"
+    DECLINED = "declined"
 
 
 class ListingTagDTO(BaseModel):
@@ -61,6 +80,8 @@ class ListingDTO(BaseModel):
     opened_at: datetime | None
     header_image_url: str
     header_image_original_name: str
+    party_id: int | None
+    party_formed: bool
 
 
 class ListingBoardRowDTO(BaseModel):
@@ -109,6 +130,7 @@ class ListingWriteDict(TypedDict):
     starts_at: datetime | None
     when_text: str
     contact: ListingContact
+    party_id: int | None
     header_image: NotRequired[UploadedFileProtocol | str]
 
 
@@ -117,15 +139,24 @@ class ListingCreateDict(ListingWriteDict):
     author_id: int
 
 
+class ListingPartyContactDTO(BaseModel):
+    contact: ListingContact
+    address: str
+
+
 class ListingResponseDTO(BaseModel):
     pk: int
     listing_id: int
     user_id: int
     user_name: str
     message: str
-    status: ListingResponseStatus
+    stage: ListingResponseStage
     decline_message: str
     creation_time: datetime
+    party_name: str
+    # NOTE: both contacts are shared only once the responder joined.
+    contact: ListingPartyContactDTO | None
+    author_contact: ListingPartyContactDTO | None
 
 
 class ListingResponseCreateDict(TypedDict):
@@ -150,6 +181,11 @@ class ListingInterestedNotification(ListingNotification):
     message: str
 
 
+class ListingPartyInviteNotification(ListingNotification):
+    party_name: str
+    author_name: str
+
+
 class ListingDetailDTO(BaseModel):
     listing: ListingDTO
     is_author: bool
@@ -157,12 +193,25 @@ class ListingDetailDTO(BaseModel):
     can_respond: bool
     waiting_count: int | None
     open_for_days: int
+    party_members: list[str]
+
+
+class ListingPartyChoiceDTO(BaseModel):
+    pk: int
+    name: str
+
+
+class ListingPartyDTO(BaseModel):
+    listings: list[ListingDTO]
+    # NOTE: keyed by user id; holds only the contacts the viewer may see.
+    contacts: dict[int, ListingPartyContactDTO]
 
 
 class ListingResponsesDTO(BaseModel):
     listing: ListingDTO
     responses: list[ListingResponseDTO]
-    counts: dict[ListingResponseStatus, int]
+    counts: dict[ListingResponseTab, int]
+    parties: list[ListingPartyChoiceDTO]
 
 
 class ListingContactMissingError(Exception):
@@ -206,6 +255,12 @@ class ListingRepositoryProtocol(Protocol):
     def close(pk: int) -> None: ...
     @staticmethod
     def close_opened_before(cutoff: datetime) -> list[int]: ...
+    @staticmethod
+    def party_member_names(party_id: int) -> list[str]: ...
+    @staticmethod
+    def list_for_party(party_id: int) -> list[ListingDTO]: ...
+    @staticmethod
+    def led_parties(leader_id: int) -> list[ListingPartyChoiceDTO]: ...
 
 
 class ListingResponseRepositoryProtocol(Protocol):
@@ -216,15 +271,17 @@ class ListingResponseRepositoryProtocol(Protocol):
     @staticmethod
     def read_own(*, listing_id: int, user_id: int) -> ListingResponseDTO | None: ...
     @staticmethod
-    def list_for_listing(
-        *, listing_id: int, status: ListingResponseStatus
+    def list_in_tab(
+        *, listing_id: int, tab: ListingResponseTab
     ) -> list[ListingResponseDTO]: ...
     @staticmethod
-    def count_by_status(listing_id: int) -> dict[ListingResponseStatus, int]: ...
+    def count_by_tab(listing_id: int) -> dict[ListingResponseTab, int]: ...
     @staticmethod
     def waiting_user_ids(listing_id: int) -> list[int]: ...
     @staticmethod
     def decline(*, pk: int, message: str) -> None: ...
+    @staticmethod
+    def invite(*, pk: int, party_id: int) -> None: ...
     @staticmethod
     def dismiss_waiting(listing_ids: list[int]) -> list[ListingNotification]: ...
     @staticmethod
@@ -240,6 +297,9 @@ class ListingNotifierProtocol(Protocol):
     ) -> None: ...
     def notify_listing_not_chosen(self, notification: ListingNotification) -> None: ...
     def notify_listing_changed(self, notification: ListingNotification) -> None: ...
+    def notify_listing_party_invited(
+        self, notification: ListingPartyInviteNotification
+    ) -> None: ...
 
 
 class ListingServiceProtocol(Protocol):
@@ -292,8 +352,19 @@ class ListingServiceProtocol(Protocol):
     def decline(
         self, *, pk: int, sphere_id: int, author_id: int, response_id: int, message: str
     ) -> None: ...
+    def add_to_party(
+        self,
+        *,
+        pk: int,
+        sphere_id: int,
+        author_id: int,
+        response_id: int,
+        party_id: int | None,
+    ) -> None: ...
     def responses(
-        self, *, pk: int, sphere_id: int, author_id: int, status: ListingResponseStatus
+        self, *, pk: int, sphere_id: int, author_id: int, tab: ListingResponseTab
     ) -> ListingResponsesDTO: ...
+    def led_parties(self, author_id: int) -> list[ListingPartyChoiceDTO]: ...
+    def party_listings(self, *, party_id: int, viewer_id: int) -> ListingPartyDTO: ...
     @staticmethod
     def open_for_days() -> int: ...

@@ -28,7 +28,13 @@ from ludamus.pacts.konwencik import (
 from ludamus.pacts.sheets import SheetExportError
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.venues import SpaceDTO
-from tests.unit.factories import track_dto
+from tests.unit.factories import (
+    category,
+    event_dto,
+    event_integration_dto,
+    organizer_field_dto,
+    track_dto,
+)
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 NEW_YORK = ZoneInfo("America/New_York")
@@ -130,7 +136,7 @@ def _make_service(
     repos.session_fields.list_by_event.side_effect = _by_event(session_fields)
     repos.categories.list_by_event.side_effect = _by_event(categories)
     repos.events.read.side_effect = {
-        EVENT_PK: SimpleNamespace(pk=EVENT_PK, sphere_id=SPHERE_PK)
+        EVENT_PK: event_dto(pk=EVENT_PK, sphere_id=SPHERE_PK)
     }.__getitem__
 
     transaction = MagicMock()
@@ -161,20 +167,16 @@ def _make_service(
     )
 
 
-def _integration(
-    *,
-    settings_json="{}",
-    config_json='{"spreadsheet_id": "sheet-1", "tab": "harmonogram"}',
-):
-    return SimpleNamespace(
-        pk=INTEGRATION_PK,
-        event_id=EVENT_PK,
-        connection_id=CONNECTION_PK,
-        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER,
-        config_json=config_json,
-        settings_json=settings_json,
-        last_run_json="{}",
-    )
+def _integration(**overrides):
+    defaults = {
+        "pk": INTEGRATION_PK,
+        "event_id": EVENT_PK,
+        "connection_id": CONNECTION_PK,
+        "kind": IntegrationKind.EXPORT,
+        "implementation": IntegrationImplementationId.KONWENCIK_SHEET_PUSHER,
+        "config_json": '{"spreadsheet_id": "sheet-1", "tab": "harmonogram"}',
+    }
+    return event_integration_dto(**(defaults | overrides))
 
 
 def _run(env, settings_json="{}"):
@@ -393,7 +395,7 @@ class TestKonwencikRowBuilder:
         env = _make_service(
             items=[_item()],
             spaces=[_space()],
-            session_fields=[SimpleNamespace(pk=77, slug="icon-field")],
+            session_fields=[organizer_field_dto(pk=77, slug="icon-field")],
             field_values={SESSION_PK: {"icon-field": "fa.trophy"}},
         )
 
@@ -408,7 +410,7 @@ class TestKonwencikRowBuilder:
         env = _make_service(
             items=[_item()],
             spaces=[_space()],
-            session_fields=[SimpleNamespace(pk=77, slug="icon-field")],
+            session_fields=[organizer_field_dto(pk=77, slug="icon-field")],
             field_values={SESSION_PK: {"icon-field": ["fa.trophy", "fa.dice"]}},
         )
 
@@ -420,7 +422,7 @@ class TestKonwencikRowBuilder:
         env = _make_service(
             items=[_item()],
             spaces=[_space()],
-            session_fields=[SimpleNamespace(pk=78, slug="photo")],
+            session_fields=[organizer_field_dto(pk=78, slug="photo")],
             field_values={SESSION_PK: {"photo": "https://img.example/dracula.jpg"}},
         )
 
@@ -599,9 +601,7 @@ class TestKonwencikMidnight:
 
 class TestKonwencikUpdateStyles:
     def test_patches_fresh_settings_without_clearing_lock(self):
-        env = _make_service(
-            tracks=[_track()], categories=[SimpleNamespace(pk=CATEGORY_PK)]
-        )
+        env = _make_service(tracks=[_track()], categories=[category(pk=CATEGORY_PK)])
         env.integrations.get.return_value = _integration()
         fresh = KonwencikExportSettings(
             track_colors={20: "#203b50", 21: "#02897e"},
@@ -636,9 +636,7 @@ class TestKonwencikUpdateStyles:
         )
 
     def test_a_blank_blob_takes_the_patch_and_ignores_a_removal(self):
-        env = _make_service(
-            tracks=[_track()], categories=[SimpleNamespace(pk=CATEGORY_PK)]
-        )
+        env = _make_service(tracks=[_track()], categories=[category(pk=CATEGORY_PK)])
         env.integrations.get.return_value = _integration()
         env.integrations.get_for_update.side_effect = None
         env.integrations.get_for_update.return_value = _integration(settings_json="")
@@ -680,12 +678,14 @@ class TestKonwencikSettingsContext:
             items=[item],
             tracks=[public, private],
             tracks_by_session={item.session_id: {public.pk: public.name}},
-            session_fields=[SimpleNamespace(pk=31, name="Photo")],
-            categories=[SimpleNamespace(pk=CATEGORY_PK, name="RPG")],
+            session_fields=[organizer_field_dto(pk=31, name="Photo")],
+            categories=[category(pk=CATEGORY_PK, name="RPG")],
         )
         last_run = KonwencikLastRun(time=_NOW, ok=True, rows_written=3)
-        integration = _integration(settings_json='{"sync_enabled": true}')
-        integration.last_run_json = last_run.model_dump_json()
+        integration = _integration(
+            settings_json='{"sync_enabled": true}',
+            last_run_json=last_run.model_dump_json(),
+        )
         env.integrations.get.return_value = integration
 
         context = env.service.get_settings_context(
@@ -712,8 +712,7 @@ class TestKonwencikSettingsContext:
 
     def test_a_row_never_saved_or_run_has_defaults_and_no_last_run(self):
         env = _make_service()
-        integration = _integration(settings_json="")
-        integration.last_run_json = ""
+        integration = _integration(settings_json="", last_run_json="")
         env.integrations.get.return_value = integration
 
         context = env.service.get_settings_context(
@@ -742,8 +741,9 @@ class TestKonwencikExportNow:
         # An importer's row must not be run against a sheet, nor have its
         # settings replaced by the Konwencik page's.
         env = _make_service(items=[], spaces=[])
-        importer = _integration()
-        importer.implementation = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+        importer = _integration(
+            implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+        )
         env.integrations.get.return_value = importer
 
         with pytest.raises(NotFoundError):
@@ -828,10 +828,7 @@ class TestKonwencikLock:
 
 
 def _sync_integration(**overrides):
-    integration = _integration(settings_json='{"sync_enabled": true}')
-    for key, value in overrides.items():
-        setattr(integration, key, value)
-    return integration
+    return _integration(**({"settings_json": '{"sync_enabled": true}'} | overrides))
 
 
 class TestKonwencikSweep:
@@ -902,8 +899,8 @@ OTHER_CATEGORY_PK = 10
 
 def _settings_env(**kwargs):
     return _make_service(
-        categories=[SimpleNamespace(pk=CATEGORY_PK, name="RPG")],
-        session_fields=[SimpleNamespace(pk=FIELD_PK, name="Icon", slug="icon")],
+        categories=[category(pk=CATEGORY_PK, name="RPG")],
+        session_fields=[organizer_field_dto(pk=FIELD_PK, name="Icon", slug="icon")],
         **kwargs,
     )
 
