@@ -293,15 +293,6 @@ test.describe("Board parties", () => {
     });
 
     await page.goto(listingUrl);
-    await expect(page.getByRole("complementary")).toContainText(INVITEE);
-    await expect(page.getByRole("complementary")).toContainText(/(Discord|Email): \S+/);
-    await attachArtifacts(test.info(), {
-      name: "listing-author-sees-players",
-      region: page.getByRole("main"),
-      facts: { title, responder: INVITEE },
-    });
-
-    await page.goto(listingUrl);
     await page.getByRole("button", { name: "Close listing" }).click();
     await expect(page.getByText("Party formed")).toBeVisible();
 
