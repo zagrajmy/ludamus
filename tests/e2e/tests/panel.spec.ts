@@ -1381,7 +1381,7 @@ test.describe("Backoffice Panel", () => {
     await overlapDialog.getByRole("button", { name: "Add availability window" }).click();
 
     // Verify error message about overlap
-    await expect(page.getByText("overlaps with an existing slot")).toBeVisible();
+    await expect(page.getByText("overlaps with an existing one")).toBeVisible();
 
     // Verify still on create form
     await expect(page).toHaveURL(/\/create\//);
