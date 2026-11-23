@@ -78,6 +78,14 @@ class FakeTransaction:
         return nullcontext()
 
 
+class FakeSessionFields:
+    def __init__(self, rows: dict[int, list[OrganizerFieldDTO]]) -> None:
+        self.rows = rows
+
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self.rows.get(event_id, [])
+
+
 def user_dto(**overrides) -> UserDTO:
     defaults = {
         "age_band": AgeBand.UNKNOWN,
@@ -129,13 +137,13 @@ def sphere_dto(**overrides) -> SphereDTO:
 
 def agenda_item_dto(**overrides) -> AgendaItemDTO:
     defaults = {
-        "end_time": DEFAULT_START + timedelta(hours=1),
+        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         "pk": 1,
         "schedule_confirmed": False,
         "session_id": 1,
         "session_title": "Session",
         "space_id": 1,
-        "start_time": DEFAULT_START,
+        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
     }
     return AgendaItemDTO(**(defaults | overrides))
 

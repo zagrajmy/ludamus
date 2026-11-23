@@ -8,6 +8,7 @@ from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.sessions import SessionEditNotAllowedError
 from tests.unit.factories import (
+    FakeSessionFields,
     FakeTransaction,
     agenda_item_dto,
     event_dto,
@@ -68,14 +69,6 @@ class _FakeSpheres:
         return self.rows[pk]
 
 
-class _FakeSessionFields:
-    def __init__(self):
-        self.rows: dict[int, list] = {}
-
-    def list_by_event(self, event_id):
-        return self.rows.get(event_id, [])
-
-
 class _FakeAgendaItems:
     def __init__(self, *items):
         self.rows = {item.pk: item for item in items}
@@ -125,7 +118,7 @@ def _build(
     sphere = sphere_dto(allow_facilitator_session_edit=sphere_default, pk=_SPHERE_PK)
     world = SimpleNamespace(
         sessions=sessions,
-        session_fields=_FakeSessionFields(),
+        session_fields=FakeSessionFields({}),
         agenda_items=_FakeAgendaItems(),
         logs=_FakeContentChangeLogs(),
         promotion=_FakePromotion(),

@@ -42,10 +42,14 @@ def _read_by_event(pk, event_id):
     return session_dto(pk=_PROPOSAL_ID, category_id=_LARP)
 
 
-def _requirement(category_id):
-    return SessionFieldRequirementDTO(
-        field=organizer_field_dto(pk=category_id), is_required=True
-    )
+_REQUIREMENTS = {
+    _RPG: SessionFieldRequirementDTO(
+        field=organizer_field_dto(pk=1, name="System"), is_required=True
+    ),
+    _LARP: SessionFieldRequirementDTO(
+        field=organizer_field_dto(pk=2, name="Props"), is_required=False
+    ),
+}
 
 
 @pytest.fixture(name="repos")
@@ -57,7 +61,7 @@ def _repos():
         [category(pk=_RPG, name="RPG"), category(pk=_LARP, name="LARP")]
     )
     categories.list_session_field_requirements.side_effect = lambda pk: [
-        _requirement(pk)
+        _REQUIREMENTS[pk]
     ]
     facilitators = MagicMock()
     facilitators.list_by_event.side_effect = _by_event(
@@ -143,7 +147,7 @@ class TestFormFields:
         )
 
         assert fields.category.pk == _RPG
-        assert fields.requirements == [_requirement(_RPG)]
+        assert fields.requirements == [_REQUIREMENTS[_RPG]]
         assert fields.session_fields == [_SESSION_FIELD]
 
     def test_a_foreign_category_falls_back_to_the_proposals_own(self, service):
@@ -152,6 +156,7 @@ class TestFormFields:
         )
 
         assert fields.category.pk == _LARP
+        assert fields.requirements == [_REQUIREMENTS[_LARP]]
 
     def test_a_new_proposal_starts_in_the_first_category_with_no_answers(
         self, service, repos
