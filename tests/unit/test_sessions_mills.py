@@ -36,27 +36,19 @@ from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import AgendaItemDTO, ScheduleChangeAction
 from ludamus.pacts.venues import SpaceOptionDTO
 from tests.unit.factories import (
+    FakeSessionFields,
     FakeTransaction,
     FakeUsers,
+    agenda_item_dto,
     event_dto,
+    facilitator_dto,
+    organizer_field_dto,
     session_dto,
+    session_field_value_dto,
+    sphere_dto,
     track_dto,
     user_dto,
 )
-
-
-def _make_item(**overrides):
-    defaults = {
-        "pk": 1,
-        "session_id": 1,
-        "session_title": "Session",
-        "space_id": 1,
-        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "schedule_confirmed": False,
-    }
-    defaults.update(overrides)
-    return AgendaItemDTO(**defaults)
 
 
 class TestContentEditRevert:
@@ -164,7 +156,7 @@ class TestContentEditRevert:
         )
 
     def test_session_history_rejects_cross_event_session(self, service, repos):
-        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+        repos.sessions.read_event.return_value = event_dto(pk=2)
 
         with pytest.raises(NotFoundError):
             service.session_history(event_id=1, session_id=5)
@@ -235,16 +227,16 @@ class TestContentEditStoresAnswers:
     def test_every_kind_of_change_is_written_and_logged_once(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Old")
         repos.sessions.read_field_values.return_value = [
-            SimpleNamespace(field_id=7, value="Pathfinder"),
-            SimpleNamespace(field_id=8, value="gone"),
+            session_field_value_dto(field_id=7, value="Pathfinder"),
+            session_field_value_dto(field_id=8, value="gone"),
         ]
         repos.sessions.read_facilitators.side_effect = [
-            [SimpleNamespace(display_name="Bob")],
-            [SimpleNamespace(display_name="Ann")],
+            [facilitator_dto(display_name="Bob")],
+            [facilitator_dto(display_name="Ann")],
         ]
         repos.sessions.read_tracks.side_effect = [
-            [SimpleNamespace(name="RPG")],
-            [SimpleNamespace(name="LARP")],
+            [track_dto(name="RPG")],
+            [track_dto(name="LARP")],
         ]
         evening = AvailabilityDTO(day=date(2026, 1, 1), offer=DayPart.EVENING)
         repos.sessions.read_availability.side_effect = [[], [evening]]
@@ -307,7 +299,7 @@ class TestContentEditStoresAnswers:
     def test_an_edit_that_changes_nothing_writes_no_log(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Same")
         repos.sessions.read_facilitators.return_value = [
-            SimpleNamespace(display_name="Bob")
+            facilitator_dto(display_name="Bob")
         ]
 
         service.apply(
@@ -349,7 +341,7 @@ class TestContentEditResizesAgendaItem:
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
-            agenda_items=_FakeAgendaItems(_make_item()),
+            agenda_items=_FakeAgendaItems(agenda_item_dto()),
             waitlist_promotion=MagicMock(),
         )
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
@@ -671,7 +663,7 @@ class TestProposalAcceptanceService:
     ):
         self._arrange_accept(sessions)
         agenda_items.list_overlapping_in_space.return_value = [
-            _make_item(pk=9, space_id=7)
+            agenda_item_dto(pk=9, space_id=7)
         ]
         active_users.read.return_value = _user_dto()
         spheres.manager_role.return_value = SphereRole.MANAGER
@@ -882,21 +874,13 @@ class _FakeScheduleChangeLogs:
         return len(self.rows)
 
 
-class _FakeSessionFields:
-    def __init__(self, *fields):
-        self.rows = list(fields)
-
-    def list_by_event(self, event_id):
-        return [field for field in self.rows if field.event_id == event_id]
-
-
 class _FakeSpheres:
     def __init__(self, *, managers=(), require_session_space=True):
         self.managers = set(managers)
         self.require_session_space = require_session_space
 
     def read(self, _sphere_id):
-        return SimpleNamespace(require_session_space=self.require_session_space)
+        return sphere_dto(require_session_space=self.require_session_space)
 
     def manager_role(self, sphere_id, user_slug):
         return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
@@ -931,7 +915,7 @@ _EVENT_PK = 9
 
 class TestSessionConfirmationOfOwnEvent:
     def test_confirms_an_item_whose_session_belongs_to_the_event(self):
-        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(pk=7, session_id=_SESSION_PK))
         sessions = _FakeSessions(_session_dto())
         service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
 
@@ -949,7 +933,7 @@ class TestSessionDeletion:
         return SessionDeletionService(FakeTransaction(), sessions, agenda_items, logs)
 
     def test_soft_delete_frees_the_slot_and_logs_the_unassignment(self):
-        item = _make_item(pk=7, session_id=_SESSION_PK, space_id=4)
+        item = agenda_item_dto(pk=7, session_id=_SESSION_PK, space_id=4)
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
         agenda_items = _FakeAgendaItems(item)
         logs = _FakeScheduleChangeLogs()
@@ -989,7 +973,7 @@ class TestSessionDeletion:
 
     def test_soft_delete_rejects_a_session_from_another_event(self):
         sessions = _FakeSessions(_session_dto())
-        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(pk=7, session_id=_SESSION_PK))
 
         with pytest.raises(NotFoundError):
             self._service(
@@ -1150,7 +1134,7 @@ class TestProposalStatus:
 
     def test_a_scheduled_session_cannot_leave_accepted(self):
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
-        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(session_id=_SESSION_PK))
 
         with pytest.raises(ProposalScheduledError):
             self._service(sessions, agenda_items).mark_rejected(
@@ -1161,7 +1145,7 @@ class TestProposalStatus:
 
     def test_a_scheduled_session_can_be_re_accepted(self):
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
-        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(session_id=_SESSION_PK))
 
         self._service(sessions, agenda_items).mark_accepted(
             event_pk=_EVENT_PK, session_pk=_SESSION_PK
@@ -1227,15 +1211,11 @@ class TestContentEditWithFakes:
             waitlist_promotion=MagicMock(),
         )
 
-    @staticmethod
-    def _field_value(field_id, value):
-        return SessionFieldValueDTO(
-            field_id=field_id, field_name="", field_question="", value=value
-        )
-
     def test_dropping_answers_of_removed_fields_logs_them_for_revert(self):
         sessions = _FakeSessions(_session_dto())
-        sessions.form["field_values"] = [self._field_value(7, "Pathfinder")]
+        sessions.form["field_values"] = [
+            session_field_value_dto(field_id=7, value="Pathfinder")
+        ]
         logs = _FakeContentChangeLogs()
 
         self._service(sessions, logs).apply(
@@ -1406,10 +1386,14 @@ class TestContentEditWithFakes:
         assert service.list_log(_EVENT_PK) == [mine]
 
     def test_list_field_names_maps_pk_to_current_name(self):
-        session_fields = _FakeSessionFields(
-            SimpleNamespace(pk=7, name="System", event_id=_EVENT_PK),
-            SimpleNamespace(pk=8, name="Diet", event_id=_EVENT_PK),
-            SimpleNamespace(pk=9, name="Other", event_id=_EVENT_PK + 1),
+        session_fields = FakeSessionFields(
+            {
+                _EVENT_PK: [
+                    organizer_field_dto(pk=7, name="System"),
+                    organizer_field_dto(pk=8, name="Diet"),
+                ],
+                _EVENT_PK + 1: [organizer_field_dto(pk=9, name="Other")],
+            }
         )
         service = self._service(
             _FakeSessions(), _FakeContentChangeLogs(), session_fields=session_fields
