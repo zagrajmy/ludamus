@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
+from unittest.mock import patch
 
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ListingResponse, Notification
+from ludamus.links.db.django.models import ListingResponse, Notification, Party
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import ListingContact, ListingResponseStatus
 from ludamus.pacts.notifications import NotificationKind
 from tests.integration.conftest import ListingFactory, UserFactory
@@ -75,6 +77,22 @@ class TestListingEditPageView:
             "New title",
             "Board games",
         )
+
+    def test_post_a_party_that_vanishes_mid_request_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user, title="Before")
+        party = Party.objects.create(leader=active_user, name="Wtorki")
+
+        with patch(
+            "ludamus.mills.listing.ListingService._check_party",
+            side_effect=NotFoundError,
+        ):
+            response = authenticated_client.post(_url(listing), _post(party=party.pk))
+
+        assert_response_404(response)
+        listing.refresh_from_db()
+        assert (listing.title, listing.party) == ("Before", None)
 
     def test_post_tells_waiting_responders_it_changed(
         self, authenticated_client, active_user, sphere

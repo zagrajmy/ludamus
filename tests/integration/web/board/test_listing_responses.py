@@ -629,6 +629,41 @@ class TestListingResponseInviteActionView:
         )
 
 
+class TestInvitedResponders:
+    def test_an_invitation_shows_under_invited(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user)
+        responder = UserFactory()
+        party = _party(active_user, name="Wtorki")
+        PartyMembership.objects.create(
+            party=party, member=responder, status=PartyMembershipStatus.INVITED
+        )
+        invited = ListingResponse.objects.create(
+            listing=listing,
+            user=responder,
+            contact=ListingContact.EMAIL,
+            status=ListingResponseStatus.INVITED,
+            party=party,
+        )
+
+        response = authenticated_client.get(_responses(listing) + "?tab=invited")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "listing": listing_dto(listing),
+                "responses": [_response_dto(invited)],
+                "counts": _counts(invited=1),
+                "active_tab": "invited",
+                "decline_form": ANY,
+                "invite_form": ANY,
+            },
+            template_name="board/responses.html",
+        )
+
+
 class TestJoinedResponders:
     def test_author_sees_the_contact_of_whoever_joined(
         self, authenticated_client, active_user, sphere
