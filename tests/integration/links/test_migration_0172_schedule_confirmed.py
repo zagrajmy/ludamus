@@ -38,3 +38,13 @@ class TestBackfillScheduleConfirmed:
         assert confirmed.session.schedule_confirmed is True
         assert unconfirmed.session.schedule_confirmed is False
         assert unplaced.schedule_confirmed is False
+
+    def test_reaches_a_soft_deleted_session(self, apps_at_0172):
+        deleted = AgendaItemFactory()
+        AgendaItem.objects.filter(pk=deleted.pk).update(session_confirmed=True)
+        deleted.session.soft_delete()
+
+        backfill_schedule_confirmed(apps_at_0172, None)
+
+        deleted.session.refresh_from_db()
+        assert deleted.session.schedule_confirmed is True
