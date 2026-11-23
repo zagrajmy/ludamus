@@ -57,11 +57,11 @@ happy path + one edge case tested.
 `request.di.uow`, legacy and old-subdomain files, …). `tingle stat --diff` /
 `tingle report --diff` show what your branch adds vs `main`.
 
-`tingle check` (`mise run lint:tingle`; part of `fullcheck` and CI, not of
-`lint` or `check`) fails when the branch's metrics
-grow on net — paying debt in one offsets taking it on in another. Read the
-added occurrences it prints and remove what you can. A justified addition is
-fine; say so in the PR. Don't game a counter to keep a number flat.
+`tingle check` (`mise run lint:tingle`; `mise run check` does not run it)
+fails when the branch's metrics grow on net — paying debt in one offsets
+taking it on in another. Read the added occurrences it prints and remove what
+you can. A justified addition is fine; say so in the PR. Don't game a counter
+to keep a number flat.
 
 ## Frontend debt (fallow)
 
