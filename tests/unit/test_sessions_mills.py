@@ -39,7 +39,11 @@ from tests.unit.factories import (
     FakeTransaction,
     FakeUsers,
     event_dto,
+    facilitator_dto,
+    organizer_field_dto,
     session_dto,
+    session_field_value_dto,
+    sphere_dto,
     track_dto,
     user_dto,
 )
@@ -164,7 +168,7 @@ class TestContentEditRevert:
         )
 
     def test_session_history_rejects_cross_event_session(self, service, repos):
-        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+        repos.sessions.read_event.return_value = event_dto(pk=2)
 
         with pytest.raises(NotFoundError):
             service.session_history(event_id=1, session_id=5)
@@ -235,16 +239,16 @@ class TestContentEditStoresAnswers:
     def test_every_kind_of_change_is_written_and_logged_once(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Old")
         repos.sessions.read_field_values.return_value = [
-            SimpleNamespace(field_id=7, value="Pathfinder"),
-            SimpleNamespace(field_id=8, value="gone"),
+            session_field_value_dto(field_id=7, value="Pathfinder"),
+            session_field_value_dto(field_id=8, value="gone"),
         ]
         repos.sessions.read_facilitators.side_effect = [
-            [SimpleNamespace(display_name="Bob")],
-            [SimpleNamespace(display_name="Ann")],
+            [facilitator_dto(display_name="Bob")],
+            [facilitator_dto(display_name="Ann")],
         ]
         repos.sessions.read_tracks.side_effect = [
-            [SimpleNamespace(name="RPG")],
-            [SimpleNamespace(name="LARP")],
+            [track_dto(name="RPG")],
+            [track_dto(name="LARP")],
         ]
         evening = AvailabilityDTO(day=date(2026, 1, 1), offer=DayPart.EVENING)
         repos.sessions.read_availability.side_effect = [[], [evening]]
@@ -307,7 +311,7 @@ class TestContentEditStoresAnswers:
     def test_an_edit_that_changes_nothing_writes_no_log(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Same")
         repos.sessions.read_facilitators.return_value = [
-            SimpleNamespace(display_name="Bob")
+            facilitator_dto(display_name="Bob")
         ]
 
         service.apply(
@@ -883,11 +887,11 @@ class _FakeScheduleChangeLogs:
 
 
 class _FakeSessionFields:
-    def __init__(self, *fields):
-        self.rows = list(fields)
+    def __init__(self, rows=None):
+        self.rows: dict[int, list] = rows or {}
 
     def list_by_event(self, event_id):
-        return [field for field in self.rows if field.event_id == event_id]
+        return self.rows.get(event_id, [])
 
 
 class _FakeSpheres:
@@ -896,7 +900,7 @@ class _FakeSpheres:
         self.require_session_space = require_session_space
 
     def read(self, _sphere_id):
-        return SimpleNamespace(require_session_space=self.require_session_space)
+        return sphere_dto(require_session_space=self.require_session_space)
 
     def manager_role(self, sphere_id, user_slug):
         return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
@@ -1407,9 +1411,13 @@ class TestContentEditWithFakes:
 
     def test_list_field_names_maps_pk_to_current_name(self):
         session_fields = _FakeSessionFields(
-            SimpleNamespace(pk=7, name="System", event_id=_EVENT_PK),
-            SimpleNamespace(pk=8, name="Diet", event_id=_EVENT_PK),
-            SimpleNamespace(pk=9, name="Other", event_id=_EVENT_PK + 1),
+            {
+                _EVENT_PK: [
+                    organizer_field_dto(pk=7, name="System"),
+                    organizer_field_dto(pk=8, name="Diet"),
+                ],
+                _EVENT_PK + 1: [organizer_field_dto(pk=9, name="Other")],
+            }
         )
         service = self._service(
             _FakeSessions(), _FakeContentChangeLogs(), session_fields=session_fields

@@ -22,6 +22,8 @@ from ludamus.pacts.panel import EventPanelSettingsDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.sphere import SiteDTO, SphereDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
@@ -114,6 +116,28 @@ def event_dto(**overrides) -> EventDTO:
         "start_time": DEFAULT_START,
     }
     return EventDTO(**(defaults | overrides))
+
+
+def sphere_dto(**overrides) -> SphereDTO:
+    defaults = {
+        "name": "Sphere",
+        "pk": 1,
+        "site": SiteDTO(domain="example.com", name="Example", pk=1),
+    }
+    return SphereDTO(**(defaults | overrides))
+
+
+def agenda_item_dto(**overrides) -> AgendaItemDTO:
+    defaults = {
+        "end_time": DEFAULT_START + timedelta(hours=1),
+        "pk": 1,
+        "schedule_confirmed": False,
+        "session_id": 1,
+        "session_title": "Session",
+        "space_id": 1,
+        "start_time": DEFAULT_START,
+    }
+    return AgendaItemDTO(**(defaults | overrides))
 
 
 def session_dto(**overrides) -> SessionDTO:

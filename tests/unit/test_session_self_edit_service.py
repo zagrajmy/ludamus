@@ -7,8 +7,16 @@ from ludamus.mills.sessions import SessionContentEditService, SessionSelfEditSer
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.sessions import SessionEditNotAllowedError
-from ludamus.pacts.sphere import SiteDTO, SphereDTO
-from tests.unit.factories import FakeTransaction, event_dto, session_dto
+from tests.unit.factories import (
+    FakeTransaction,
+    agenda_item_dto,
+    event_dto,
+    facilitator_dto,
+    organizer_field_dto,
+    session_dto,
+    session_field_value_dto,
+    sphere_dto,
+)
 
 _SESSION_PK = 5
 _EVENT_PK = 7
@@ -61,11 +69,11 @@ class _FakeSpheres:
 
 
 class _FakeSessionFields:
-    def __init__(self, *fields):
-        self.rows = list(fields)
+    def __init__(self):
+        self.rows: dict[int, list] = {}
 
     def list_by_event(self, event_id):
-        return [field for field in self.rows if field.event_id == event_id]
+        return self.rows.get(event_id, [])
 
 
 class _FakeAgendaItems:
@@ -114,12 +122,7 @@ def _build(
             allow_facilitator_session_edit=event_override,
         ),
     )
-    sphere = SphereDTO(
-        allow_facilitator_session_edit=sphere_default,
-        name="Sphere",
-        pk=_SPHERE_PK,
-        site=SiteDTO(domain="example.com", name="Example", pk=1),
-    )
+    sphere = sphere_dto(allow_facilitator_session_edit=sphere_default, pk=_SPHERE_PK)
     world = SimpleNamespace(
         sessions=sessions,
         session_fields=_FakeSessionFields(),
@@ -152,10 +155,11 @@ class TestUpdate:
             sphere_default=True,
             duration="PT1H",
         )
-        world.agenda_items.rows[3] = SimpleNamespace(
+        world.agenda_items.rows[3] = agenda_item_dto(
             pk=3,
             session_id=_SESSION_PK,
             start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         )
 
         world.service.update(
@@ -321,17 +325,16 @@ class TestUpdate:
 class TestGetEditContext:
     def test_pairs_each_field_with_the_sessions_answer(self):
         world = _build(presenter_id=_USER_PK, event_override=None, sphere_default=True)
-        system = SimpleNamespace(slug="system", event_id=_EVENT_PK)
-        diet = SimpleNamespace(slug="diet", event_id=_EVENT_PK)
-        world.session_fields.rows = [
-            system,
-            diet,
-            SimpleNamespace(slug="other", event_id=_EVENT_PK + 1),
-        ]
+        system = organizer_field_dto(slug="system")
+        diet = organizer_field_dto(slug="diet")
+        world.session_fields.rows = {
+            _EVENT_PK: [system, diet],
+            _EVENT_PK + 1: [organizer_field_dto(slug="other")],
+        }
         world.sessions.field_values = [
-            SimpleNamespace(field_slug="system", value="Pathfinder")
+            session_field_value_dto(field_slug="system", value="Pathfinder")
         ]
-        world.sessions.facilitators = [SimpleNamespace(display_name="Bob")]
+        world.sessions.facilitators = [facilitator_dto(display_name="Bob")]
 
         context = world.service.get_edit_context(_SESSION_PK, _USER_PK)
 

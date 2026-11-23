@@ -47,16 +47,14 @@ from ludamus.pacts.tracks import (
     TrackSessionCountsDTO,
 )
 from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
-from tests.unit.factories import event_dto, session_dto, track_dto
+from tests.unit.factories import event_dto, session_dto, sphere_dto, track_dto
 
 UNASSIGN_LOG_PK = 77
 
 
 def _spheres(*, require_session_space: bool) -> MagicMock:
     spheres = MagicMock(spec=SphereRepositoryProtocol)
-    spheres.read.return_value = SimpleNamespace(
-        require_session_space=require_session_space
-    )
+    spheres.read.return_value = sphere_dto(require_session_space=require_session_space)
     return spheres
 
 
