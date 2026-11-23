@@ -422,6 +422,13 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             return queryset.update(schedule_confirmed=confirmed)
 
     @staticmethod
+    def backfill_schedule_confirmed() -> int:
+        # `all_objects`: a deleted session keeps its confirmation for a restore.
+        return Session.all_objects.filter(
+            agenda_item__session_confirmed=True, schedule_confirmed=False
+        ).update(schedule_confirmed=True)
+
+    @staticmethod
     def soft_delete(pk: int) -> None:
         # Reach through `all_objects` so an already-dead row raises NotFound
         # instead of silently re-stamping `deleted_at`.
