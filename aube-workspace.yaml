@@ -8,3 +8,5 @@ packages:
   - "./src/ludamus/client"
   - "./tests/e2e"
   - "./workers/parley"
+patchedDependencies:
+  eslint-plugin-better-tailwindcss@4.0.2: patches/eslint-plugin-better-tailwindcss@4.0.2.patch

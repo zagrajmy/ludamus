@@ -3,7 +3,8 @@
 // data-menu-hover also open on hover-capable devices; their markup bridges the
 // trigger-to-panel gap with a safe pointer corridor.
 
-const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { FOCUSABLE } from "./sheet-dialog";
+
 const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
 const wired = new WeakSet<HTMLElement>();
 
