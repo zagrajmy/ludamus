@@ -2092,7 +2092,6 @@ msgstr "Zaplanowane"
 #: src/ludamus/gates/web/django/event/panel/views/export.py
 #: src/ludamus/gates/web/django/event/panel/views/proposals.py
 #: src/ludamus/templates/landing/scena.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-columns.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2906,13 +2905,13 @@ msgid "Start must be before end."
 msgstr "Początek musi być przed końcem."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot overlaps with an existing slot."
+msgid "Availability window overlaps with an existing one."
 msgstr "Przedział czasowy nakłada się na istniejący przedział."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
 msgid ""
-"The time slot starts before the event is published. Move the publication "
-"time in the event settings first."
+"The availability window starts before the event is published. Move the "
+"publication time in the event settings first."
 msgstr ""
 "Przedział czasowy zaczyna się przed publikacją wydarzenia. Najpierw przesuń "
 "czas publikacji w ustawieniach wydarzenia."
@@ -2922,32 +2921,32 @@ msgid "Used by proposals"
 msgstr "Używany przez zgłoszenia"
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot created. The event dates now cover it."
+msgid "Availability window created. The event dates now cover it."
 msgstr "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot created successfully."
+msgid "Availability window created successfully."
 msgstr "Przedział czasowy został utworzony."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot not found."
+msgid "Availability window not found."
 msgstr "Przedział czasowy nie został znaleziony."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot updated. The event dates now cover it."
+msgid "Availability window updated. The event dates now cover it."
 msgstr ""
 "Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go obejmują."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot updated successfully."
+msgid "Availability window updated successfully."
 msgstr "Przedział czasowy został zaktualizowany."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Cannot delete time slot used in proposals."
+msgid "Cannot delete an availability window used in proposals."
 msgstr "Nie można usunąć przedziału czasowego używanego w zgłoszeniach."
 
 #: src/ludamus/gates/web/django/event/panel/views/time_slots.py
-msgid "Time slot deleted successfully."
+msgid "Availability window deleted successfully."
 msgstr "Przedział czasowy został usunięty."
 
 #: src/ludamus/gates/web/django/event/panel/views/timetable.py
@@ -11353,21 +11352,13 @@ msgstr "Kategorie"
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/personal-data-fields.html
-msgid "Host Data Fields"
+msgid "Personal data fields"
 msgstr "Pola danych twórcy"
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/parts/proposal-session-fields.html
-#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/session-fields.html
-msgid "Session Fields"
+msgid "Session fields"
 msgstr "Pola punktu programu"
-
-#: src/ludamus/templates/panel/_cfp_tabs.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Time Slots"
-msgstr "Przedziały czasowe"
 
 #: src/ludamus/templates/panel/_column_key_picker.html
 #, python-format
@@ -11399,6 +11390,16 @@ msgstr "Historia zmian"
 #: src/ludamus/templates/sphere/panel/_sphere_tabs_nav.html
 msgid "General"
 msgstr "Ogólne"
+
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/proposal-settings.html
+msgid "Call for proposals"
+msgstr "Nabór zgłoszeń"
+
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Availability windows"
+msgstr "Przedziały czasowe"
 
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html
@@ -11550,16 +11551,16 @@ msgid "Refunded"
 msgstr "Zwrócone"
 
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
-msgid "New Time Slot"
+msgid "New availability window"
 msgstr "Nowy przedział czasowy"
 
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Add Time Slot"
+msgid "Add availability window"
 msgstr "Dodaj przedział czasowy"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
-msgid "Time Slot Details"
+msgid "Availability window details"
 msgstr "Szczegóły przedziału czasowego"
 
 #: src/ludamus/templates/panel/_time-slot-form.html
@@ -11763,8 +11764,10 @@ msgstr "Pulpit"
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/cfp.html
-msgid "Call for Proposals"
-msgstr "Nabór zgłoszeń"
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Session configuration"
+msgstr "Konfiguracja punktów programu"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/import-json.html
@@ -11816,6 +11819,8 @@ msgstr "Sprzedaż"
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/proposal-settings.html
 #: src/ludamus/templates/panel/settings.html
+#: src/ludamus/templates/panel/time-slot-edit.html
+#: src/ludamus/templates/panel/time-slots.html
 msgid "Event Settings"
 msgstr "Ustawienia wydarzenia"
 
@@ -11960,6 +11965,12 @@ msgid "No durations configured yet."
 msgstr "Nie skonfigurowano jeszcze czasów trwania."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Session Fields"
+msgstr "Pola punktu programu"
+
+#: src/ludamus/templates/panel/cfp-edit.html
 msgid "Select which session fields hosts must provide."
 msgstr "Wybierz, które pola punktu programu muszą podać twórcy."
 
@@ -12000,10 +12011,10 @@ msgstr "Dostępność"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid ""
-"Ask proposers when they could run this. Where the event has time slots, they "
-"pick from those; otherwise they pick parts of a day (a morning, an evening, "
-"and so on) taken from the event's own dates, so there is nothing else to set "
-"up."
+"Ask proposers when they could run this. Where the event has availability "
+"windows, they pick from those; otherwise they pick parts of a day (a "
+"morning, an evening, and so on) taken from the event's own dates, so there "
+"is nothing else to set up."
 msgstr ""
 "Pytaj zgłaszających, kiedy mogliby to poprowadzić. Jeśli wydarzenie ma "
 "przedziały czasowe, wybierają spośród nich; w przeciwnym razie wybierają "
@@ -13887,11 +13898,6 @@ msgstr "Wpisz jedną opcję na linię."
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
-msgid "CFP Fields"
-msgstr "Pola naboru"
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
 msgid "New Field"
 msgstr "Nowe pole"
 
@@ -14057,10 +14063,6 @@ msgstr "Dane osobowe twórcy programu"
 msgid "Personal-data answers for each assigned facilitator."
 msgstr ""
 "Odpowiedzi dotyczące danych osobowych każdego przypisanego twórcy programu."
-
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Proposal Settings"
-msgstr "Ustawienia zgłoszeń"
 
 #: src/ludamus/templates/panel/proposal-settings.html
 #: src/ludamus/templates/panel/settings.html
@@ -14579,27 +14581,22 @@ msgstr ""
 "Stripe."
 
 #: src/ludamus/templates/panel/time-slot-edit.html
-msgid "Edit Time Slot"
+msgid "Edit availability window"
 msgstr "Edytuj przedział czasowy"
 
-#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Schedule Configuration"
-msgstr "Konfiguracja harmonogramu"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Are you sure you want to delete this time slot?"
+msgid "Are you sure you want to delete this availability window?"
 msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
 
 #: src/ludamus/templates/panel/time-slots.html
-msgid "What are Time Slots?"
+msgid "What are availability windows?"
 msgstr "Czym są przedziały czasowe?"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid ""
-"Time slots are the times proposers pick from when they say when they could "
-"host. Without any, they pick parts of a day instead. Slots do not place "
-"sessions: you choose each start time when you accept a proposal."
+"Availability windows are the times proposers pick from when they say when "
+"they could host. Without any, they pick parts of a day instead. Windows do "
+"not place sessions: you choose each start time when you accept a proposal."
 msgstr ""
 "Przedziały czasowe to terminy, spośród których zgłaszający wybierają, kiedy "
 "mogliby poprowadzić punkt programu. Bez nich wybierają pory dnia. Przedziały "
@@ -14620,7 +14617,7 @@ msgid "continues from"
 msgstr "kontynuacja z"
 
 #: src/ludamus/templates/panel/time-slots.html
-msgid "No slots"
+msgid "No availability windows"
 msgstr "Brak przedziałów czasowych"
 
 #: src/ludamus/templates/panel/time-slots.html
@@ -14628,19 +14625,21 @@ msgid "Event ends at"
 msgstr "Wydarzenie kończy się"
 
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Orphaned Time Slots"
+msgid "Orphaned availability windows"
 msgstr "Osierocone przedziały czasowe"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid ""
-"These time slots fall outside the current event dates. Edit them to move "
-"within event dates, or delete them."
+"These availability windows fall outside the current event dates. Edit them "
+"to move within event dates, or delete them."
 msgstr ""
 "Te przedziały czasowe wykraczają poza daty bieżącego wydarzenia. Edytuj je, "
 "aby przenieść w zakres dat wydarzenia, lub usuń je."
 
 #: src/ludamus/templates/panel/time-slots.html
-msgid "No time slots yet. Until you add some, proposers pick parts of a day."
+msgid ""
+"No availability windows yet. Until you add some, proposers pick parts of a "
+"day."
 msgstr ""
 "Nie ma jeszcze przedziałów czasowych. Dopóki ich nie dodasz, zgłaszający "
 "wybierają pory dnia."
@@ -16793,22 +16792,150 @@ msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
 
-#~ msgid "Give the party a name."
-#~ msgstr "Nadaj drużynie nazwę."
-
-#~ msgid ""
-#~ "A party signs up for sessions together and moves up a waiting list "
-#~ "together."
-#~ msgstr ""
-#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
-#~ "kolejce oczekujących."
-
-#~ msgid "Name your party — invite friends once it exists."
-#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
-
 #, python-format
 #~ msgid "Responses (%(waiting_count)s)"
 #~ msgstr "Zgłoszenia (%(waiting_count)s)"
+
+#~ msgid "Proposal Settings"
+#~ msgstr "Ustawienia zgłoszeń"
+
+#~ msgid "CFP Fields"
+#~ msgstr "Pola naboru"
+
+#~ msgid "Host Data Fields"
+#~ msgstr "Pola danych twórcy"
+
+#~ msgid "Time Slots"
+#~ msgstr "Przedziały czasowe"
+
+#~ msgid "Schedule Configuration"
+#~ msgstr "Konfiguracja harmonogramu"
+
+#~ msgid "What are Time Slots?"
+#~ msgstr "Czym są przedziały czasowe?"
+
+#~ msgid "Time slot overlaps with an existing slot."
+#~ msgstr "Przedział czasowy nakłada się na istniejący przedział."
+
+#~ msgid ""
+#~ "The time slot starts before the event is published. Move the publication "
+#~ "time in the event settings first."
+#~ msgstr ""
+#~ "Przedział czasowy zaczyna się przed publikacją wydarzenia. Najpierw "
+#~ "przesuń czas publikacji w ustawieniach wydarzenia."
+
+#~ msgid "Time slot created. The event dates now cover it."
+#~ msgstr ""
+#~ "Przedział czasowy został utworzony. Daty wydarzenia teraz go obejmują."
+
+#~ msgid "Time slot created successfully."
+#~ msgstr "Przedział czasowy został utworzony."
+
+#~ msgid "Time slot not found."
+#~ msgstr "Przedział czasowy nie został znaleziony."
+
+#~ msgid "Time slot updated. The event dates now cover it."
+#~ msgstr ""
+#~ "Przedział czasowy został zaktualizowany. Daty wydarzenia teraz go "
+#~ "obejmują."
+
+#~ msgid "Time slot updated successfully."
+#~ msgstr "Przedział czasowy został zaktualizowany."
+
+#~ msgid "Cannot delete time slot used in proposals."
+#~ msgstr "Nie można usunąć przedziału czasowego używanego w zgłoszeniach."
+
+#~ msgid "Time slot deleted successfully."
+#~ msgstr "Przedział czasowy został usunięty."
+
+#~ msgid "New Time Slot"
+#~ msgstr "Nowy przedział czasowy"
+
+#~ msgid "Add Time Slot"
+#~ msgstr "Dodaj przedział czasowy"
+
+#~ msgid "Time Slot Details"
+#~ msgstr "Szczegóły przedziału czasowego"
+
+#~ msgid "Call for Proposals"
+#~ msgstr "Nabór zgłoszeń"
+
+#~ msgid ""
+#~ "Ask proposers when they could run this. Where the event has time slots, "
+#~ "they pick from those; otherwise they pick parts of a day (a morning, an "
+#~ "evening, and so on) taken from the event's own dates, so there is nothing "
+#~ "else to set up."
+#~ msgstr ""
+#~ "Pytaj zgłaszających, kiedy mogliby to poprowadzić. Jeśli wydarzenie ma "
+#~ "przedziały czasowe, wybierają spośród nich; w przeciwnym razie wybierają "
+#~ "pory dnia (rano, wieczorem i tak dalej) wynikające z dat wydarzenia, więc "
+#~ "nie trzeba nic więcej ustawiać."
+
+#~ msgid "Edit Time Slot"
+#~ msgstr "Edytuj przedział czasowy"
+
+#~ msgid "Are you sure you want to delete this time slot?"
+#~ msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
+
+#~ msgid ""
+#~ "Time slots are the times proposers pick from when they say when they "
+#~ "could host. Without any, they pick parts of a day instead. Slots do not "
+#~ "place sessions: you choose each start time when you accept a proposal."
+#~ msgstr ""
+#~ "Przedziały czasowe to terminy, spośród których zgłaszający wybierają, "
+#~ "kiedy mogliby poprowadzić punkt programu. Bez nich wybierają pory dnia. "
+#~ "Przedziały nie umieszczają punktów w programie: godzinę rozpoczęcia "
+#~ "wybierasz, akceptując zgłoszenie."
+
+#~ msgid "No slots"
+#~ msgstr "Brak przedziałów czasowych"
+
+#~ msgid "Orphaned Time Slots"
+#~ msgstr "Osierocone przedziały czasowe"
+
+#~ msgid ""
+#~ "These time slots fall outside the current event dates. Edit them to move "
+#~ "within event dates, or delete them."
+#~ msgstr ""
+#~ "Te przedziały czasowe wykraczają poza daty bieżącego wydarzenia. Edytuj "
+#~ "je, aby przenieść w zakres dat wydarzenia, lub usuń je."
+
+#~ msgid ""
+#~ "No time slots yet. Until you add some, proposers pick parts of a day."
+#~ msgstr ""
+#~ "Nie ma jeszcze przedziałów czasowych. Dopóki ich nie dodasz, zgłaszający "
+#~ "wybierają pory dnia."
+
+#~ msgid ""
+#~ "Want your convention to run without technical worries? As a Technical "
+#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
+#~ "programme in and is on hand during the event. We agree the terms, ticket "
+#~ "fee included, for each convention."
+#~ msgstr ""
+#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
+#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
+#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
+#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
+
+#~ msgid "Payments are not available here"
+#~ msgstr "Płatności nie są tu dostępne"
+
+#~ msgid ""
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can be prepared but not sold."
+#~ msgstr ""
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
+#~ "można przygotować, ale nie sprzedać."
+
+#~ msgid "Set up payouts"
+#~ msgstr "Skonfiguruj wypłaty"
+
+#~ msgid ""
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can't be sold here yet."
+#~ msgstr ""
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
+#~ "się tu jeszcze sprzedawać biletów."
 
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
@@ -16863,29 +16990,8 @@ msgstr ""
 #~ msgid "Please select at least one time slot."
 #~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
 
-#~ msgid "Public: listed and announced to followers from its publication time"
-#~ msgstr ""
-#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
-#~ "obserwującym"
-
-#~ msgid ""
-#~ "Link only: anyone with the link can open it now; never listed or announced"
-#~ msgstr ""
-#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-#~ "się na listach ani w powiadomieniach"
-
-#~ msgid "Publication time"
-#~ msgstr "Czas publikacji"
-
-#~ msgid ""
-#~ "For a public event: when it appears in event lists and followers are "
-#~ "notified. Leave empty to keep it hidden."
-#~ msgstr ""
-#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
-
-#~ msgid "Create Encounter"
-#~ msgstr "Utwórz spotkanie"
+#~ msgid "Give the party a name."
+#~ msgstr "Nadaj drużynie nazwę."
 
 #~ msgid "Preferred Time Slots"
 #~ msgstr "Preferowane przedziały czasowe"
@@ -16976,6 +17082,40 @@ msgstr ""
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
 
+#~ msgid ""
+#~ "A party signs up for sessions together and moves up a waiting list "
+#~ "together."
+#~ msgstr ""
+#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
+#~ "kolejce oczekujących."
+
+#~ msgid "Name your party — invite friends once it exists."
+#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
+
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
+
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
 
@@ -16988,9 +17128,6 @@ msgstr ""
 #~ msgstr ""
 #~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
 #~ "programu, w których biorą udział."
-
-#~ msgid "Unnamed party"
-#~ msgstr "Drużyna bez nazwy"
 
 #~ msgid "yourself"
 #~ msgstr "siebie"
@@ -17092,20 +17229,17 @@ msgstr ""
 #~ "Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
 #~ "odświeżona."
 
-#~ msgid "Group name"
-#~ msgstr "Nazwa grupy"
-
-#~ msgid "Give the group a name."
-#~ msgstr "Nadaj grupie nazwę."
-
 #~ msgid "URL Slug"
 #~ msgstr "Slug URL"
 
-#~ msgid "0 = no age restriction"
-#~ msgstr "0 = brak ograniczenia wiekowego"
-
 #~ msgid "Markdown supported."
 #~ msgstr "Obsługuje Markdown."
+
+#~ msgid "Session details saved. Next step coming soon."
+#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+
+#~ msgid "0 = no age restriction"
+#~ msgstr "0 = brak ograniczenia wiekowego"
 
 #~ msgid ""
 #~ "Session info — public by default. A 🔒 marks what only organizers see."
@@ -17116,8 +17250,117 @@ msgstr ""
 #~ msgid "Select the tracks your session belongs to."
 #~ msgstr "Wybierz bloki programowe dla tego punktu programu."
 
-#~ msgid "Session details saved. Next step coming soon."
-#~ msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+#~ msgid "Player looking for a GM"
+#~ msgstr "Gracz szuka MG"
+
+#~ msgid "Player looking for a group"
+#~ msgstr "Gracz szuka grupy"
+
+#~ msgid "Group looking for players"
+#~ msgstr "Grupa szuka graczy"
+
+#~ msgctxt "listing role"
+#~ msgid "GM"
+#~ msgstr "MG"
+
+#~ msgctxt "listing role"
+#~ msgid "Player"
+#~ msgstr "Gracz"
+
+#~ msgctxt "listing role"
+#~ msgid "Group"
+#~ msgstr "Grupa"
+
+#~ msgctxt "listing seeking"
+#~ msgid "Group"
+#~ msgstr "Grupy"
+
+#~ msgid "I am"
+#~ msgstr "Jestem"
+
+#~ msgid "Pick one of the options offered for who you are."
+#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
+
+#~ msgid "Who is looking for whom"
+#~ msgstr "Kto kogo szuka"
+
+#~ msgid "Online or offline"
+#~ msgstr "Online czy na miejscu"
+
+#~ msgid "A player"
+#~ msgstr "Gracz"
+
+#~ msgid "A group"
+#~ msgstr "Grupa"
+
+#~ msgid "Pick who you are looking for again."
+#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
+
+#~ msgid ""
+#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
+#~ "and stop anyone else using this link."
+#~ msgstr ""
+#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
+#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
+
+#~ msgid ""
+#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
+#~ "to buy now."
+#~ msgstr ""
+#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
+#~ "minut albo zaloguj się, żeby kupić od razu."
+
+#~ msgid "Add an email address to your profile first: tickets go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+
+#~ msgid ""
+#~ "Thank you! Stripe is confirming the payment; the plan switches over "
+#~ "within a minute."
+#~ msgstr ""
+#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
+
+#~ msgid "Add an email address to your profile first: invoices go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
+
+#~ msgid "Log in to buy tickets"
+#~ msgstr "Zaloguj się, by kupić bilety"
+
+#~ msgctxt "plan"
+#~ msgid "Yearly"
+#~ msgstr "Roczny"
+
+#~ msgctxt "plan"
+#~ msgid "Pay per ticket"
+#~ msgstr "Opłata od biletu"
+
+#~ msgid ""
+#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
+#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
+#~ msgstr ""
+#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
+#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
+
+#, python-format
+#~ msgid "Paid until %(date)s."
+#~ msgstr "Opłacony do %(date)s."
+
+#~ msgid "Stripe is confirming the first payment."
+#~ msgstr "Stripe potwierdza pierwszą płatność."
+
+#~ msgid ""
+#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
+#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
+#~ "comes with onboarding help from the Zagrajmy team."
+#~ msgstr ""
+#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
+#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
+#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
+
+#~ msgid "Switch to the yearly plan"
+#~ msgstr "Przejdź na plan roczny"
+
+#~ msgid "Ask about the yearly plan"
+#~ msgstr "Zapytaj o plan roczny"
 
 #~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
@@ -17131,9 +17374,6 @@ msgstr ""
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
 
 #~ msgid "How old are you?"
 #~ msgstr "Ile masz lat?"
@@ -17209,37 +17449,8 @@ msgstr ""
 #~ msgid "LIVE"
 #~ msgstr "W TRAKCIE"
 
-#~ msgid "You're already on this sphere's team as a manager."
-#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
-
-#, python-format
-#~ msgid "%(name)s invited you to manage this sphere."
-#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
-
-#~ msgid "You're invited to manage this sphere."
-#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
-
-#~ msgid ""
-#~ "An unlisted event is never listed and never announced to the sphere's "
-#~ "followers."
-#~ msgstr ""
-#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
-#~ "obserwujące sferę nie dostają o nim powiadomienia."
-
-#~ msgid "Comms: reads the panel and posts schedule updates"
-#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
-
-#~ msgid "Invitation revoked."
-#~ msgstr "Zaproszenie wycofane."
-
-#~ msgid "Unlisted"
-#~ msgstr "Niepubliczne"
-
-#~ msgid "Copy invitation link"
-#~ msgstr "Kopiuj link zaproszenia"
-
-#~ msgid "Revoke invitation"
-#~ msgstr "Wycofaj zaproszenie"
+#~ msgid "Publication Time"
+#~ msgstr "Czas publikacji"
 
 #~ msgid ""
 #~ "When the event becomes publicly visible. Leave empty for immediate "
@@ -17248,41 +17459,76 @@ msgstr ""
 #~ "Kiedy wydarzenie stanie się publicznie widoczne. Pozostaw puste, aby było "
 #~ "widoczne natychmiast."
 
-#~ msgid "Copy email"
-#~ msgstr "Skopiuj e-mail"
+#, python-format
+#~ msgid "Export failed: %(hint)s"
+#~ msgstr "Eksport nie powiódł się: %(hint)s"
+
+#, python-format
+#~ msgid "Accreditation sheet exported (%(count)d creator)."
+#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
+#~ msgstr[0] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
+#~ msgstr[1] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[2] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
+#~ msgstr[3] ""
+#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
+
+#~ msgid "Google Sheets link"
+#~ msgstr "Link do arkusza Google"
+
+#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
+#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#~ msgid "Tab name"
+#~ msgstr "Nazwa zakładki"
+
+#~ msgid "The tab has to exist already; the export replaces its content."
+#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
 
 #~ msgid ""
-#~ "Everything the app sends from this server lands here. None of it reaches "
-#~ "a real inbox."
+#~ "Facilitator and personal data written before the discount columns. Pick "
+#~ "what this sheet needs; nothing is exported by default."
 #~ msgstr ""
-#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
-#~ "do prawdziwych skrzynek."
+#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
+#~ "niczego."
 
-#~ msgid "Live: new emails show up on their own"
-#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
-
-#~ msgid "Link in this email"
-#~ msgid_plural "Links in this email"
-#~ msgstr[0] "Link w tym e-mailu"
-#~ msgstr[1] "Linki w tym e-mailu"
-#~ msgstr[2] "Linki w tym e-mailu"
-#~ msgstr[3] "Linki w tym e-mailu"
-
-#~ msgid "Staging inbox"
-#~ msgstr "Skrzynka staging"
-
-#~ msgid "Received"
-#~ msgstr "Otrzymano"
-
-#~ msgid "No events available for this sphere."
-#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
+#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
 
 #~ msgid ""
-#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
-#~ "you here."
+#~ "Writes every accredited facilitator with their discount into the chosen "
+#~ "tab, replacing its current content."
 #~ msgstr ""
-#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
-#~ "Ciebie."
+#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
+#~ "zakładki, zastępując jej obecną zawartość."
+
+#, python-format
+#~ msgid ""
+#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
+#~ "połączenia %(name)s."
+
+#~ msgid ""
+#~ "Share the spreadsheet with the connection's service account e-mail as an "
+#~ "editor first."
+#~ msgstr ""
+#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
+#~ "połączenia."
+
+#~ msgid ""
+#~ "No connections yet. Add a Google service account connection to export the "
+#~ "accreditation sheet."
+#~ msgstr ""
+#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
+#~ "arkusz akredytacji."
+
+#~ msgid "Go to connections"
+#~ msgstr "Przejdź do połączeń"
 
 #~ msgid "Shown columns"
 #~ msgstr "Wyświetlane kolumny"
@@ -17294,8 +17540,49 @@ msgstr ""
 #~ msgid "Available columns"
 #~ msgstr "Dostępne kolumny"
 
-#~ msgid "Bookmarks"
-#~ msgstr "Zakładki"
+#~ msgid "No events available for this sphere."
+#~ msgstr "Brak wydarzeń dostępnych dla tej sfery."
+
+#, python-format
+#~ msgid ""
+#~ "Radek has been running tabletop RPGs for more than twenty years. He "
+#~ "writes his own games, like the narrative RPG <a "
+#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
+#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
+#~ "and sings RPG songs on YouTube as Radek MG."
+#~ msgstr ""
+#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
+#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
+#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
+#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
+
+#
+#~ msgid ""
+#~ "Piotrek cares about the small details of how software feels to use, which "
+#~ "is most of the reason Zagrajmy's interface looks the way it does."
+#~ msgstr ""
+#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
+#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+
+#, python-format
+#~ msgid ""
+#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
+#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
+#~ "sacrifice."
+#~ msgstr ""
+#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
+#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
+#~ "poświęceniu."
+
+#~ msgid "Not Yet Available"
+#~ msgstr "Jeszcze Niedostępne"
+
+#~ msgid ""
+#~ "Nothing yet. Sign up for a session or an encounter and it will wait for "
+#~ "you here."
+#~ msgstr ""
+#~ "Jeszcze nic. Zapisz się na punkt programu albo spotkanie, a poczeka tu na "
+#~ "Ciebie."
 
 #, python-format
 #~ msgid ""
@@ -17326,6 +17613,15 @@ msgstr ""
 
 #~ msgid "Configure host data fields"
 #~ msgstr "Skonfiguruj pola danych twórcy"
+
+#~ msgid "Filterable Session Fields"
+#~ msgstr "Pola filtrowania punktów programu"
+
+#~ msgid ""
+#~ "Select which session fields appear as filters on the public session list."
+#~ msgstr ""
+#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
+#~ "publicznej liście punktów programu."
 
 #~ msgid "Program item confirmed"
 #~ msgstr "Punkt programu potwierdzony"
@@ -17358,25 +17654,20 @@ msgstr ""
 #~ msgstr ""
 #~ "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
 
-#~ msgid "Not Yet Available"
-#~ msgstr "Jeszcze Niedostępne"
+#~ msgid "Staging inbox"
+#~ msgstr "Skrzynka staging"
 
-#~ msgid "Filterable Session Fields"
-#~ msgstr "Pola filtrowania punktów programu"
+#~ msgid "Received"
+#~ msgstr "Otrzymano"
 
-#~ msgid ""
-#~ "Select which session fields appear as filters on the public session list."
-#~ msgstr ""
-#~ "Wybierz, które pola punktu programu będą widoczne jako filtry na "
-#~ "publicznej liście punktów programu."
+#~ msgid "Subject"
+#~ msgstr "Temat"
 
-#
-#~ msgid ""
-#~ "Piotrek cares about the small details of how software feels to use, which "
-#~ "is most of the reason Zagrajmy's interface looks the way it does."
-#~ msgstr ""
-#~ "Piotrek dba o drobne szczegóły tego, jak się korzysta z oprogramowania, i "
-#~ "to głównie dlatego interfejs Zagrajmy wygląda tak, jak wygląda."
+#~ msgid "No emails captured yet."
+#~ msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Bookmarks"
+#~ msgstr "Zakładki"
 
 #~ msgid "Swipe the grid sideways to see all the rooms."
 #~ msgstr "Przesuń siatkę w bok, żeby zobaczyć wszystkie sale."
@@ -17399,9 +17690,6 @@ msgstr ""
 
 #~ msgid "Place the session inside one of the event's time slots."
 #~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
-
-#~ msgid "total"
-#~ msgstr "łącznie"
 
 #~ msgid ""
 #~ "Friends who enroll together wait together and move up together, and "
@@ -17444,6 +17732,10 @@ msgstr ""
 #~ "komputerem. Współtworzy Zagrajmy od listopada 2025, przede wszystkim "
 #~ "interfejs."
 
+#~ msgctxt "about key facts"
+#~ msgid "Team"
+#~ msgstr "Zespół"
+
 #~ msgid ""
 #~ "We reply with a concrete plan for setting up your event. No commitment."
 #~ msgstr ""
@@ -17474,6 +17766,9 @@ msgstr ""
 
 #~ msgid "See open Encounters at zagrajmy.net/encounters"
 #~ msgstr "Zobacz otwarte Spotkania na zagrajmy.net/encounters"
+
+#~ msgid "Enabled pages"
+#~ msgstr "Włączone strony"
 
 #~ msgid "At least one page must stay enabled."
 #~ msgstr "Przynajmniej jedna strona musi pozostać włączona."
@@ -17605,9 +17900,6 @@ msgstr ""
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
-
-#~ msgid "No events available"
-#~ msgstr "Brak dostępnych wydarzeń"
 
 #~ msgid "There are currently no events scheduled. Please check back later!"
 #~ msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
@@ -17951,9 +18243,6 @@ msgstr ""
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"
 
@@ -18254,10 +18543,6 @@ msgstr ""
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
 
 #, python-format
-#~ msgid "Remove %(name)s from your party?"
-#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
-
-#, python-format
 #~ msgid "Party of %(leader_name)s"
 #~ msgstr "Drużyna %(leader_name)s"
 
@@ -18463,6 +18748,58 @@ msgstr ""
 #~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
 #~ "%(token_max_age_days)s dni."
 
+#~ msgid ""
+#~ "Everything the app sends from this server lands here. None of it reaches "
+#~ "a real inbox."
+#~ msgstr ""
+#~ "Tu trafia wszystko, co aplikacja wysyła z tego serwera. Nic nie dociera "
+#~ "do prawdziwych skrzynek."
+
+#~ msgid "Live: new emails show up on their own"
+#~ msgstr "Na żywo: nowe e-maile pojawiają się same"
+
+#~ msgid "Link in this email"
+#~ msgid_plural "Links in this email"
+#~ msgstr[0] "Link w tym e-mailu"
+#~ msgstr[1] "Linki w tym e-mailu"
+#~ msgstr[2] "Linki w tym e-mailu"
+#~ msgstr[3] "Linki w tym e-mailu"
+
+#~ msgid "Copy email"
+#~ msgstr "Skopiuj e-mail"
+
+#~ msgid "You're already on this sphere's team as a manager."
+#~ msgstr "Jesteś już w zespole tej sfery jako menedżer."
+
+#, python-format
+#~ msgid "%(name)s invited you to manage this sphere."
+#~ msgstr "%(name)s zaprasza Cię do zarządzania tą sferą."
+
+#~ msgid "You're invited to manage this sphere."
+#~ msgstr "Masz zaproszenie do zarządzania tą sferą."
+
+#~ msgid ""
+#~ "An unlisted event is never listed and never announced to the sphere's "
+#~ "followers."
+#~ msgstr ""
+#~ "Niepubliczne wydarzenie nie pojawia się na żadnej liście, a osoby "
+#~ "obserwujące sferę nie dostają o nim powiadomienia."
+
+#~ msgid "Comms: reads the panel and posts schedule updates"
+#~ msgstr "Komunikacja: przegląda panel i publikuje zmiany w harmonogramie"
+
+#~ msgid "Invitation revoked."
+#~ msgstr "Zaproszenie wycofane."
+
+#~ msgid "Unlisted"
+#~ msgstr "Niepubliczne"
+
+#~ msgid "Copy invitation link"
+#~ msgstr "Kopiuj link zaproszenia"
+
+#~ msgid "Revoke invitation"
+#~ msgstr "Wycofaj zaproszenie"
+
 #~ msgid "Different address? Save your profile first."
 #~ msgstr "Inny adres? Najpierw zapisz profil."
 
@@ -18497,164 +18834,30 @@ msgstr ""
 #~ msgstr "Wyślij ponownie wiadomość weryfikacyjną"
 
 #, python-format
-#~ msgid "Export failed: %(hint)s"
-#~ msgstr "Eksport nie powiódł się: %(hint)s"
-
-#, python-format
-#~ msgid "Accreditation sheet exported (%(count)d creator)."
-#~ msgid_plural "Accreditation sheet exported (%(count)d creators)."
-#~ msgstr[0] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórca programu)."
-#~ msgstr[1] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-#~ msgstr[2] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórców programu)."
-#~ msgstr[3] ""
-#~ "Arkusz akredytacji został wyeksportowany (%(count)d twórcy programu)."
-
-#~ msgid "Google Sheets link"
-#~ msgstr "Link do arkusza Google"
-
-#~ msgid "Paste the spreadsheet link (or its ID) from the address bar."
-#~ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
-
-#~ msgid "Tab name"
-#~ msgstr "Nazwa zakładki"
-
-#~ msgid "The tab has to exist already; the export replaces its content."
-#~ msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
-
-#~ msgid ""
-#~ "Facilitator and personal data written before the discount columns. Pick "
-#~ "what this sheet needs; nothing is exported by default."
-#~ msgstr ""
-#~ "Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
-#~ "Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy "
-#~ "niczego."
-
-#~ msgid "Enter a Google Sheets link or a spreadsheet ID."
-#~ msgstr "Podaj link do arkusza Google lub ID arkusza."
-
-#~ msgid ""
-#~ "Writes every accredited facilitator with their discount into the chosen "
-#~ "tab, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej "
-#~ "zakładki, zastępując jej obecną zawartość."
-
-#, python-format
-#~ msgid ""
-#~ "Share the spreadsheet with the service account e-mail of %(name)s as an "
-#~ "editor first."
-#~ msgstr ""
-#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi "
-#~ "połączenia %(name)s."
-
-#~ msgid ""
-#~ "Share the spreadsheet with the connection's service account e-mail as an "
-#~ "editor first."
-#~ msgstr ""
-#~ "Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi z tego "
-#~ "połączenia."
-
-#~ msgid ""
-#~ "No connections yet. Add a Google service account connection to export the "
-#~ "accreditation sheet."
-#~ msgstr ""
-#~ "Brak połączeń. Dodaj połączenie z kontem usługi Google, aby wyeksportować "
-#~ "arkusz akredytacji."
-
-#~ msgid "Go to connections"
-#~ msgstr "Przejdź do połączeń"
-
-#, python-format
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
-#~ msgid "Publication Time"
-#~ msgstr "Czas publikacji"
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
 
-#~ msgid "Subject"
-#~ msgstr "Temat"
+#~ msgid "total"
+#~ msgstr "łącznie"
 
-#~ msgid "No emails captured yet."
-#~ msgstr "Brak przechwyconych e-maili."
+#~ msgid "No events available"
+#~ msgstr "Brak dostępnych wydarzeń"
 
-#~ msgctxt "about key facts"
-#~ msgid "Team"
-#~ msgstr "Zespół"
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
-#, python-format
-#~ msgid ""
-#~ "Radek has been running tabletop RPGs for more than twenty years. He "
-#~ "writes his own games, like the narrative RPG <a "
-#~ "href=\"%(tern_url)s\"><cite>Tern</cite></a> and the dungeon crawl <a "
-#~ "href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej Zagłady</cite></a>, "
-#~ "and sings RPG songs on YouTube as Radek MG."
-#~ msgstr ""
-#~ "Radek prowadzi sesje RPG od ponad dwudziestu lat. Pisze własne gry, jak "
-#~ "narracyjne <a href=\"%(tern_url)s\"><cite>Tern</cite></a> czy "
-#~ "eksploracyjne <a href=\"%(labirynty_url)s\"><cite>Labirynty Szalonej "
-#~ "Zagłady</cite></a>, a na YouTubie jako Radek MG śpiewa erpegowe piosenki."
+#~ msgid "Group name"
+#~ msgstr "Nazwa grupy"
+
+#~ msgid "Give the group a name."
+#~ msgstr "Nadaj grupie nazwę."
 
 #, python-format
-#~ msgid ""
-#~ "Piotrek's own games are small: <a href=\"%(game_url)s\"><cite>Why Would "
-#~ "You Fight a Dragon?</cite></a> is a two-page RPG of violence, change, and "
-#~ "sacrifice."
-#~ msgstr ""
-#~ "Gry Piotrka są małe: <a href=\"%(game_url)s\"><cite>Why Would You Fight a "
-#~ "Dragon?</cite></a> to dwustronicowe RPG o przemocy, przemianie i "
-#~ "poświęceniu."
-
-#~ msgid "Player looking for a GM"
-#~ msgstr "Gracz szuka MG"
-
-#~ msgid "Player looking for a group"
-#~ msgstr "Gracz szuka grupy"
-
-#~ msgid "Group looking for players"
-#~ msgstr "Grupa szuka graczy"
-
-#~ msgctxt "listing role"
-#~ msgid "GM"
-#~ msgstr "MG"
-
-#~ msgctxt "listing role"
-#~ msgid "Player"
-#~ msgstr "Gracz"
-
-#~ msgctxt "listing role"
-#~ msgid "Group"
-#~ msgstr "Grupa"
-
-#~ msgctxt "listing seeking"
-#~ msgid "Group"
-#~ msgstr "Grupy"
-
-#~ msgid "I am"
-#~ msgstr "Jestem"
-
-#~ msgid "Pick one of the options offered for who you are."
-#~ msgstr "Wybierz jedną z opcji dostępnych dla tego, kim jesteś."
-
-#~ msgid "Who is looking for whom"
-#~ msgstr "Kto kogo szuka"
-
-#~ msgid "Online or offline"
-#~ msgstr "Online czy na miejscu"
-
-#~ msgid "A player"
-#~ msgstr "Gracz"
-
-#~ msgid "Pick who you are looking for again."
-#~ msgstr "Wybierz jeszcze raz, kogo szukasz."
-
-#~ msgid "Enabled pages"
-#~ msgstr "Włączone strony"
-
-#~ msgid "A group"
-#~ msgstr "Grupa"
+#~ msgid "Remove %(name)s from your party?"
+#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
 
 #
 #~ msgid "Note added to the thread."
@@ -18778,6 +18981,16 @@ msgstr ""
 #~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
 #~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
 
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"
+
+#, python-format
+#~ msgid "Delete %(event)s?"
+#~ msgstr "Usunąć %(event)s?"
+
 #~ msgid "Displayed on the first page of the proposal form."
 #~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
 
@@ -18827,109 +19040,5 @@ msgstr ""
 #~ msgid "Group looking for a GM"
 #~ msgstr "Grupa szuka MG"
 
-#~ msgid "Nothing to moderate right now."
-#~ msgstr "Na razie nie ma czego moderować."
-
-#~ msgid "Select a language:"
-#~ msgstr "Wybierz język:"
-
-#~ msgid ""
-#~ "Want your convention to run without technical worries? As a Technical "
-#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
-#~ "programme in and is on hand during the event. We agree the terms, ticket "
-#~ "fee included, for each convention."
-#~ msgstr ""
-#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
-#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
-#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
-#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
-
-#~ msgid "Payments are not available here"
-#~ msgstr "Płatności nie są tu dostępne"
-
-#~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can be prepared but not sold."
-#~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
-#~ "można przygotować, ale nie sprzedać."
-
-#~ msgid "Set up payouts"
-#~ msgstr "Skonfiguruj wypłaty"
-
-#~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can't be sold here yet."
-#~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
-#~ "się tu jeszcze sprzedawać biletów."
-
-#~ msgid ""
-#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
-#~ "and stop anyone else using this link."
-#~ msgstr ""
-#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
-#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
-
-#~ msgid ""
-#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
-#~ "to buy now."
-#~ msgstr ""
-#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
-#~ "minut albo zaloguj się, żeby kupić od razu."
-
-#~ msgid "Add an email address to your profile first: tickets go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
-
-#~ msgid ""
-#~ "Thank you! Stripe is confirming the payment; the plan switches over "
-#~ "within a minute."
-#~ msgstr ""
-#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
-
-#~ msgid "Add an email address to your profile first: invoices go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
-
-#~ msgid "Log in to buy tickets"
-#~ msgstr "Zaloguj się, by kupić bilety"
-
-#~ msgctxt "plan"
-#~ msgid "Yearly"
-#~ msgstr "Roczny"
-
-#~ msgctxt "plan"
-#~ msgid "Pay per ticket"
-#~ msgstr "Opłata od biletu"
-
-#~ msgid ""
-#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
-#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
-#~ msgstr ""
-#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
-#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
-
-#, python-format
-#~ msgid "Paid until %(date)s."
-#~ msgstr "Opłacony do %(date)s."
-
-#~ msgid "Stripe is confirming the first payment."
-#~ msgstr "Stripe potwierdza pierwszą płatność."
-
-#~ msgid ""
-#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
-#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
-#~ "comes with onboarding help from the Zagrajmy team."
-#~ msgstr ""
-#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
-#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
-#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
-
-#~ msgid "Switch to the yearly plan"
-#~ msgstr "Przejdź na plan roczny"
-
-#~ msgid "Ask about the yearly plan"
-#~ msgstr "Zapytaj o plan roczny"
-
-#, python-format
-#~ msgid "Delete %(event)s?"
-#~ msgstr "Usunąć %(event)s?"
+#~ msgid "Unnamed party"
+#~ msgstr "Drużyna bez nazwy"

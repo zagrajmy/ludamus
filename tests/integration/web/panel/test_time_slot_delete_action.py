@@ -41,8 +41,8 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot deleted successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.SUCCESS, "Availability window deleted successfully.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert not TimeSlot.objects.filter(pk=time_slot.pk).exists()
 
@@ -70,8 +70,13 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Cannot delete time slot used in proposals.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[
+                (
+                    messages.ERROR,
+                    "Cannot delete an availability window used in proposals.",
+                )
+            ],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(pk=time_slot.pk).exists()
 
@@ -85,8 +90,8 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.ERROR, "Availability window not found.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
     def test_post_redirects_on_invalid_event_slug(self, panel_client, time_slot):
@@ -110,7 +115,7 @@ class TestTimeSlotDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.ERROR, "Availability window not found.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         assert TimeSlot.objects.filter(pk=other_slot.pk).exists()

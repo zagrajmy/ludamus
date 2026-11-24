@@ -41,7 +41,7 @@ class TestPersonalDataFieldsPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-fields.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
@@ -69,7 +69,7 @@ class TestPersonalDataFieldsPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-fields.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
@@ -98,7 +98,7 @@ class TestPersonalDataFieldsPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-fields.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [
@@ -127,7 +127,7 @@ class TestPersonalDataFieldsPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-fields.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
@@ -178,7 +178,7 @@ class TestPersonalDataFieldsPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-fields.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "host",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
