@@ -423,8 +423,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def backfill_schedule_confirmed() -> int:
-        # TODO(fancysnake): goes with AgendaItem.session_confirmed, as do the
-        # service method, both protocol entries and the command:
+        # Goes with AgendaItem.session_confirmed, as do the service method,
+        # both protocol entries and the command:
         # https://github.com/zagrajmy/ludamus/issues/1340
         # `all_objects`: a deleted session keeps its confirmation for a restore.
         return Session.all_objects.filter(
