@@ -4,7 +4,7 @@ import pytest
 from django.db import connection
 from django.db.migrations.loader import MigrationLoader
 
-from ludamus.links.db.django.models import AgendaItem
+from ludamus.links.db.django.models import AgendaItem, Session
 from tests.integration.conftest import AgendaItemFactory, SessionFactory
 
 backfill_schedule_confirmed = import_module(
@@ -38,6 +38,18 @@ class TestBackfillScheduleConfirmed:
         assert missed.session.schedule_confirmed is True
         assert in_step.session.schedule_confirmed is True
         assert unconfirmed.session.schedule_confirmed is False
+        assert unplaced.schedule_confirmed is False
+
+    def test_copies_a_withdrawn_confirmation(self, apps_at_0204):
+        withdrawn = AgendaItemFactory(session_confirmed=False)
+        Session.objects.filter(pk=withdrawn.session.pk).update(schedule_confirmed=True)
+        unplaced = SessionFactory(schedule_confirmed=True)
+
+        backfill_schedule_confirmed(apps_at_0204, None)
+
+        withdrawn.session.refresh_from_db()
+        unplaced.refresh_from_db()
+        assert withdrawn.session.schedule_confirmed is False
         assert unplaced.schedule_confirmed is False
 
     def test_reaches_a_soft_deleted_session(self, apps_at_0204):
