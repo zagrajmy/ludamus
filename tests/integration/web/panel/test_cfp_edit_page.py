@@ -69,7 +69,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -207,7 +207,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "proposal_count": 0,
@@ -291,7 +291,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -318,7 +318,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -369,7 +369,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": FormErrorsMatcher(
                     offer_claim_window_minutes=[
@@ -454,7 +454,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -480,7 +480,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -620,7 +620,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [
@@ -680,7 +680,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [
@@ -731,7 +731,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [
@@ -919,7 +919,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [
@@ -984,7 +984,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [
@@ -1029,7 +1029,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -1096,7 +1096,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],
@@ -1127,7 +1127,7 @@ class TestProposalCategorySettingsPageView:
             context_data={
                 **panel_context(
                     event,
-                    active_nav="cfp",
+                    active_nav="session-config",
                     hosts_count=1 + 1 + 1,
                     pending_proposals=1 + 1 + 1,
                     total_proposals=1 + 1 + 1,
@@ -1166,7 +1166,7 @@ class TestProposalCategorySettingsPageView:
             context_data={
                 **panel_context(
                     event,
-                    active_nav="cfp",
+                    active_nav="session-config",
                     hosts_count=1 + 1 + 1,
                     pending_proposals=1 + 1 + 1,
                     total_proposals=1 + 1 + 1,
@@ -1202,7 +1202,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_session_fields": [],

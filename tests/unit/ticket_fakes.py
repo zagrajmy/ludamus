@@ -363,8 +363,9 @@ class FakeOrders:
             )
             for _order, ticket in self._valid_tickets(
                 holder_id=holder_id,
-                belongs=lambda order: order.event_id == event.pk
-                and event.sphere_id == sphere_id,
+                belongs=lambda order: (
+                    order.event_id == event.pk and event.sphere_id == sphere_id
+                ),
             )
         ]
 

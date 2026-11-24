@@ -1,13 +1,14 @@
 from http import HTTPStatus
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 from django.contrib.messages import constants
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Listing, Tag, TagCategory
+from ludamus.links.db.django.models import Listing, Party, Tag, TagCategory
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import ListingStatus
-from tests.integration.conftest import PNG_BYTES
+from tests.integration.conftest import PNG_BYTES, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
     FormFieldsMatcher,
@@ -75,6 +76,61 @@ class TestListingCreatePageView:
             },
             template_name="board/create.html",
         )
+
+    def test_get_offers_the_parties_the_author_leads(
+        self, authenticated_client, active_user
+    ):
+        first = Party.objects.create(leader=active_user, name="Wtorki")
+        second = Party.objects.create(leader=active_user, name="")
+        Party.objects.create(leader=UserFactory(), name="Cudza")
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": FormFieldsMatcher(
+                    party={
+                        "choices": [
+                            ("", "Don't show a party"),
+                            (first.pk, "Wtorki"),
+                            (second.pk, "Your party"),
+                        ]
+                    }
+                ),
+                "open_for_days": 30,
+            },
+            template_name="board/create.html",
+        )
+
+    def test_publish_shows_the_picked_party(self, authenticated_client, active_user):
+        party = Party.objects.create(leader=active_user, name="Wtorki")
+
+        response = authenticated_client.post(URL, _post(party=party.pk, publish=""))
+
+        listing = Listing.objects.get()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "Listing published."),),
+            url=reverse("web:board:detail", kwargs={"pk": listing.pk}),
+        )
+        assert listing.party == party
+
+    def test_a_party_that_vanishes_mid_request_is_not_found(
+        self, authenticated_client, active_user
+    ):
+        party = Party.objects.create(leader=active_user, name="Wtorki")
+
+        with patch(
+            "ludamus.mills.listing.ListingService._check_party",
+            side_effect=NotFoundError,
+        ):
+            response = authenticated_client.post(URL, _post(party=party.pk))
+
+        assert_response_404(response)
+        assert not Listing.objects.exists()
 
     def test_other_sphere_has_no_form(self, authenticated_client, non_root_sphere):
         response = authenticated_client.get(URL, HTTP_HOST=non_root_sphere.site.domain)

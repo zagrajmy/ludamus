@@ -22,6 +22,8 @@ from ludamus.pacts.panel import EventPanelSettingsDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
 from ludamus.pacts.propose import AccreditationType
 from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.sphere import SiteDTO, SphereDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
@@ -76,6 +78,14 @@ class FakeTransaction:
         return nullcontext()
 
 
+class FakeSessionFields:
+    def __init__(self, rows: dict[int, list[OrganizerFieldDTO]]) -> None:
+        self.rows = rows
+
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self.rows.get(event_id, [])
+
+
 def user_dto(**overrides) -> UserDTO:
     defaults = {
         "age_band": AgeBand.UNKNOWN,
@@ -114,6 +124,28 @@ def event_dto(**overrides) -> EventDTO:
         "start_time": DEFAULT_START,
     }
     return EventDTO(**(defaults | overrides))
+
+
+def sphere_dto(**overrides) -> SphereDTO:
+    defaults = {
+        "name": "Sphere",
+        "pk": 1,
+        "site": SiteDTO(domain="example.com", name="Example", pk=1),
+    }
+    return SphereDTO(**(defaults | overrides))
+
+
+def agenda_item_dto(**overrides) -> AgendaItemDTO:
+    defaults = {
+        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        "pk": 1,
+        "schedule_confirmed": False,
+        "session_id": 1,
+        "session_title": "Session",
+        "space_id": 1,
+        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+    }
+    return AgendaItemDTO(**(defaults | overrides))
 
 
 def session_dto(**overrides) -> SessionDTO:

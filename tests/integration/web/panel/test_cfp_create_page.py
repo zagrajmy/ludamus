@@ -41,7 +41,10 @@ class TestCFPCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-create.html",
-            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
+            context_data={
+                **panel_context(event, active_nav="session-config"),
+                "form": ANY,
+            },
         )
 
     def test_get_redirects_on_invalid_event_slug(self, panel_client):
@@ -110,7 +113,10 @@ class TestCFPCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-create.html",
-            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
+            context_data={
+                **panel_context(event, active_nav="session-config"),
+                "form": ANY,
+            },
         )
         assert not ProposalCategory.objects.filter(event=event).exists()
 

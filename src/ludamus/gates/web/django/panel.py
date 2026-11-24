@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 # sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
     "index",
-    "cfp",
+    "session-config",
     "proposals",
     "facilitators",
     "discounts",
@@ -121,6 +121,7 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
     return {
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
+        "availability": reverse("panel:time-slots", kwargs={"slug": slug}),
         "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
         "discounts": reverse("panel:event-discount-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
@@ -136,7 +137,6 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
         "types": reverse("panel:cfp", kwargs={"slug": slug}),
         "host": reverse("panel:personal-data-fields", kwargs={"slug": slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": slug}),
-        "time_slots": reverse("panel:time-slots", kwargs={"slug": slug}),
     }
 
 
