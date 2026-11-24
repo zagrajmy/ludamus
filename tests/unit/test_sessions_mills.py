@@ -763,7 +763,6 @@ class _FakeSessions:
             "deleted": [],
             "restored": [],
             "deleted_field_ids": [],
-            "missed_confirmations": [],
         }
 
     def read(self, pk):
@@ -782,14 +781,6 @@ class _FakeSessions:
 
     def update(self, pk, data):
         self.updates.setdefault(pk, {}).update(data)
-
-    def backfill_schedule_confirmed(self):
-        missed = self.calls["missed_confirmations"]
-        for pk in missed:
-            self.update(pk, {"schedule_confirmed": True})
-        copied = len(missed)
-        missed.clear()
-        return copied
 
     def soft_delete(self, pk):
         self.calls["deleted"].append(pk)
@@ -934,21 +925,6 @@ class TestSessionConfirmationOfOwnEvent:
 
         assert agenda_items.updates == {7: {"session_confirmed": True}}
         assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": True}}
-
-
-class TestScheduleConfirmedBackfill:
-    def test_reports_how_many_sessions_it_confirmed(self):
-        missed = [3, 4]
-        sessions = _FakeSessions()
-        sessions.calls["missed_confirmations"] = list(missed)
-        service = SessionConfirmationService(
-            FakeTransaction(), _FakeAgendaItems(), sessions
-        )
-
-        copied = service.backfill_schedule_confirmed()
-
-        assert copied == len(missed)
-        assert sessions.updates == {pk: {"schedule_confirmed": True} for pk in missed}
 
 
 class TestSessionDeletion:
