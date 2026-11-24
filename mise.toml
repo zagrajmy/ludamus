@@ -45,7 +45,7 @@ actionlint = "1.7.12"
 shellcheck = "prefix:0.11.0"
 hadolint = "prefix:2.15.1"
 "github:reteps/dockerfmt" = "1.0.0"
-pipx = "1.18.16"
+pipx = "1.18.19"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
