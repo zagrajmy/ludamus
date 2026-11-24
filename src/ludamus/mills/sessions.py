@@ -169,6 +169,11 @@ class SessionConfirmationService:
             self._sessions.update(session_pk, {"schedule_confirmed": confirmed})
             self._agenda_items.update(agenda_item.pk, {"session_confirmed": confirmed})
 
+    def backfill_schedule_confirmed(self) -> int:
+        copied = self._sessions.backfill_schedule_confirmed()
+        logger.info("Backfilled schedule confirmation on %s sessions", copied)
+        return copied
+
 
 class SessionDeletionService:
     def __init__(
