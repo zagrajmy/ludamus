@@ -82,6 +82,7 @@ if TYPE_CHECKING:
         ScheduleChangeLogRepositoryProtocol,
     )
     from ludamus.pacts.user import UserRepositoryProtocol
+    from ludamus.pacts.venues import SpaceRepositoryProtocol
 
 
 def _announce_acceptance(
@@ -333,6 +334,7 @@ class ProposalAcceptanceService:
         sessions: SessionRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
+        spaces: SpaceRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
         events: EventRepositoryProtocol,
@@ -341,6 +343,7 @@ class ProposalAcceptanceService:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda = _AgendaWrites(agenda_items, schedule_change_logs, events)
+        self._spaces = spaces
         self._active_users = active_users
         self._spheres = spheres
         self._notifier = notifier
@@ -419,8 +422,21 @@ class ProposalAcceptanceService:
         # so the move exemption that path carries does not apply here.
         confirmed = event.auto_confirm_sessions
         with self._transaction.atomic():
-            # Accepting on to a time the event does not cover yet moves the
-            # event, the same way dragging a card past its edge does.
+            self._sessions.lock(session_id)
+            current = self._sessions.read(session_id)
+            if current.status is not SessionStatus.PENDING:
+                placed = self._agenda.agenda_items.read_by_session(session_id)
+                if (
+                    current.status is SessionStatus.ACCEPTED
+                    and placed is not None
+                    and placed.space_id == space_id
+                    and placed.start_time == start_time
+                    and placed.end_time == end_time
+                ):
+                    return
+                raise ProposalScheduledError
+            if space_id is not None:
+                self._spaces.lock(space_id)
             widen_event_dates(
                 events=self._agenda.events,
                 event_pk=event.pk,
@@ -434,13 +450,11 @@ class ProposalAcceptanceService:
                 )
             ):
                 raise SpaceTimeConflictError
-            # The session already has a unique slug from proposal creation;
-            # regenerating it here dropped the uniqueness suffix and collided.
             self._sessions.update(
                 session_id,
                 {
                     "status": SessionStatus.ACCEPTED,
-                    "facilitator_name": session.facilitator_name,
+                    "facilitator_name": current.facilitator_name,
                     "schedule_confirmed": confirmed,
                 },
             )
@@ -453,8 +467,6 @@ class ProposalAcceptanceService:
                     "end_time": end_time,
                 }
             )
-            # NOTE: errata are read from these logs, so a placement made here must
-            # leave the same trace as one made on the timetable.
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": session_id,
@@ -465,14 +477,13 @@ class ProposalAcceptanceService:
                 "new_end_time": end_time,
             }
             self._agenda.schedule_change_logs.create(log_data)
-            if session.status != SessionStatus.ACCEPTED:
-                _announce_acceptance(
-                    sessions=self._sessions,
-                    notifier=self._notifier,
-                    session=session,
-                    event=event,
-                    placed=True,
-                )
+            _announce_acceptance(
+                sessions=self._sessions,
+                notifier=self._notifier,
+                session=current,
+                event=event,
+                placed=True,
+            )
 
 
 def _normalize(value: ContentFieldValue) -> ContentFieldValue:
