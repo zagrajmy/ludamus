@@ -310,7 +310,7 @@ test.describe("Session modal cover", () => {
     await page.goto(EVENT_URL);
     const dialog = await openSession(page, COVERED);
     const close = dialog.getByRole("button", { name: "Close" });
-    // A bare white icon on the dark cover...
+    // A bare white icon on the cover, which it leaves with below.
     await expect(close).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(close).toHaveCSS("color", "rgb(255, 255, 255)");
 
@@ -329,10 +329,7 @@ test.describe("Session modal cover", () => {
     const tabsBox = await boxOf(dialog.getByRole("tablist"));
     const scrollerBox = await boxOf(scroller);
     expect(Math.abs(tabsBox.y - scrollerBox.y)).toBeLessThanOrEqual(1);
-    await expect(close).toBeInViewport();
-    // ...that takes a surface of its own once the light tab bar is under it.
-    await expect(close).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(close).not.toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(close).not.toBeInViewport();
   });
 
   test("keeps the plain header for a session without a cover", async ({ page }) => {

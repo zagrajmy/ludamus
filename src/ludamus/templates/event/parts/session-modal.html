@@ -7,24 +7,9 @@
         data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
         data-login-url="{% url 'web:crowd:auth0:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
-    {% if cover_image_url %}
-        {# Pinned to the dialog while the cover scrolls away beneath it. Over #}
-        {# the cover it is a bare white icon, the shadow keeping it legible on a #}
-        {# light photo; past the cover it takes the surface colour, or it would #}
-        {# vanish on the tab bar. cover-close.ts sets data-over-cover; it starts #}
-        {# set, since the modal opens scrolled to the top. #}
-        <button type="button"
-                data-modal-close="session-{{ data.session.pk }}"
-                data-morph="close"
-                data-cover-close
-                data-over-cover
-                aria-label="{% translate "Close" %}"
-                class="absolute top-2 right-2 z-20 size-11 flex items-center justify-center rounded-lg bg-bg-secondary/90 text-foreground shadow-sm transition-colors hover:bg-bg-secondary data-over-cover:bg-transparent data-over-cover:text-white data-over-cover:shadow-none data-over-cover:drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] data-over-cover:hover:bg-white/15">
-            {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-        </button>
-    {% endif %}
-    {# With a cover, the cover and the title on it scroll with the body and #}
-    {# the tab bar sticks, so a short screen can scroll the picture away. #}
+    {# With a cover, the cover, the title and the close button on it scroll #}
+    {# with the body and the tab bar sticks, so a short screen can scroll the #}
+    {# picture away. #}
     {# Without one this wrapper is display:contents and the panels scroll. #}
     <div class="{% if cover_image_url %}@container flex-auto min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] has-[>[data-session-tabs][hidden]]:flex-none{% else %}contents{% endif %}"
          {% if cover_image_url %}data-session-scroll{% endif %}>
@@ -32,8 +17,8 @@
             {# NOTE: 100cqw/6 is the floor: the dropzone's safe zone is a #}
             {# 6:1 band, so no viewport crops this past the upload guide. #}
             {% with pk=data.session.pk|stringformat:"d" %}
-                {% with title_id="session-"|add:pk|add:"-title" %}
-                    {% include "components/cover-heading.html" with url=cover_image_url title=data.session.title heading_id=title_id close_gap=True extra_class="min-h-[max(min(13rem,30dvh),100cqw/6)]" only %}
+                {% with title_id="session-"|add:pk|add:"-title" dialog_id="session-"|add:pk %}
+                    {% include "components/cover-heading.html" with url=cover_image_url title=data.session.title heading_id=title_id close_for=dialog_id extra_class="min-h-[max(min(13rem,30dvh),100cqw/6)]" only %}
                 {% endwith %}
             {% endwith %}
         {% else %}

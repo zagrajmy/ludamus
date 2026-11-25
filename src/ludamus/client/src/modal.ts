@@ -18,7 +18,6 @@
  * interception below only fires for anchor navigations to the current pathname.
  */
 
-import { watchCoverClose } from "./cover-close";
 import { restoreCarriedSearchParams } from "./url-state";
 import { numberWaitingPositions } from "./waiting-positions";
 
@@ -413,7 +412,6 @@ const wireCloseButtons = (root: ParentNode): void => {
 
 const wireInjectedModal = (dialog: HTMLElement): void => {
   wireCloseButtons(dialog);
-  watchCoverClose(dialog);
   numberWaitingPositions(dialog);
   htmx.process(dialog);
 };
