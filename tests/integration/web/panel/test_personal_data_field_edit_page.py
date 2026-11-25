@@ -63,7 +63,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": context_field,
                 "form": ANY,
                 "can_switch_type": True,
@@ -225,7 +225,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": response.context["field"],
                 "form": FormErrorsMatcher(
                     is_required=["A checkbox cannot be required."],
@@ -284,7 +284,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": context_field,
                 "form": ANY,
                 "can_switch_type": True,
@@ -550,7 +550,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": response.context["field"],
                 "form": ANY,
                 "can_switch_type": False,
@@ -622,7 +622,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": response.context["field"],
                 "form": FormErrorsMatcher(
                     options=["Add at least one option, or allow custom values."]

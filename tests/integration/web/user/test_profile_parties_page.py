@@ -201,6 +201,62 @@ class TestPartiesPageView:
             contains=["Join party", "Decline"],
         )
 
+    def test_get_lists_pending_invite_to_an_unnamed_party(
+        self, authenticated_client, active_user
+    ):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        party = Party.objects.create(leader=friend, name="")
+        PartyMembership.objects.create(party=party, member=friend)
+        invite = PartyMembership.objects.create(
+            party=party,
+            member=active_user,
+            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+            status=PartyMembershipStatus.INVITED,
+        )
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_base_context(
+                invites=[
+                    PartyInviteDTO(
+                        membership_pk=invite.pk,
+                        party_pk=party.pk,
+                        party_name="",
+                        leader_name="Frida Friend",
+                    )
+                ]
+            ),
+            template_name="user/user/parties.html",
+        )
+
+    def test_get_stacks_five_avatars_and_counts_the_rest(
+        self, authenticated_client, active_user
+    ):
+        party = Party.objects.create(leader=active_user, name="Big crew")
+        PartyMembership.objects.create(party=party, member=active_user)
+        for index in range(5):
+            PartyMembership.objects.create(
+                party=party,
+                member=UserFactory(username=f"crew{index}"),
+                status=PartyMembershipStatus.ACTIVE,
+            )
+        members = [
+            _member_dto(membership.member, party)
+            for membership in party.memberships.select_related("member").order_by("pk")
+        ]
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_base_context(parties=[_entry(party, active_user, members)]),
+            template_name="user/user/parties.html",
+        )
+
     def test_membership_query_count_is_constant_across_parties(
         self, authenticated_client, active_user
     ):

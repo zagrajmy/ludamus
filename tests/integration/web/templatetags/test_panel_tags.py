@@ -56,10 +56,10 @@ class TestSidebarLink:
         tpl = Template(
             "{% load panel_tags %}"
             '{% sidebar_link url="panel:cfp" slug="an-event" icon="rectangle-stack"'
-            ' label="CfP" key="cfp" %}'
+            ' label="CfP" key="session-config" %}'
         )
 
-        html = tpl.render(Context({"active_nav": "cfp"}))
+        html = tpl.render(Context({"active_nav": "session-config"}))
 
         assert 'href="/panel/event/an-event/cfp/"' in html
 

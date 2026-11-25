@@ -21,6 +21,7 @@ from ludamus.pacts.party import (
     PartiesOverviewDTO,
     PartyActionContextDTO,
     PartyConsentMode,
+    PartyCountsDTO,
     PartyDTO,
     PartyInviteDTO,
     PartyJoinResult,
@@ -31,11 +32,22 @@ from ludamus.pacts.party import (
 from ludamus.pacts.user import CompanionDTO, UserType
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
     from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
+
+
+def _parties_of(viewer_pk: int) -> QuerySet[Party]:
+    active = PartyMembership.objects.filter(
+        member_id=viewer_pk, status=PartyMembershipStatus.ACTIVE
+    )
+    return Party.objects.filter(
+        Q(leader_id=viewer_pk) | Q(pk__in=active.values("party_id"))
+    )
 
 
 def _party_dto(party: Party, *, viewer_pk: int) -> PartyDTO:
@@ -83,13 +95,7 @@ class PartyRepository(PartyRepositoryProtocol):
     @staticmethod
     def overview(viewer_pk: int) -> PartiesOverviewDTO:
         parties = (
-            Party.objects.filter(
-                Q(leader_id=viewer_pk)
-                | Q(
-                    memberships__member_id=viewer_pk,
-                    memberships__status=PartyMembershipStatus.ACTIVE,
-                )
-            )
+            _parties_of(viewer_pk)
             .select_related("leader")
             .prefetch_related(
                 Prefetch(
@@ -99,7 +105,6 @@ class PartyRepository(PartyRepositoryProtocol):
                     ),
                 )
             )
-            .distinct()
             .order_by("pk")
         )
         party_dtos = [_party_dto(party, viewer_pk=viewer_pk) for party in parties]
@@ -121,16 +126,19 @@ class PartyRepository(PartyRepositoryProtocol):
         return PartiesOverviewDTO(parties=party_dtos, invites=invites)
 
     @staticmethod
+    def counts(viewer_pk: int) -> PartyCountsDTO:
+        return PartyCountsDTO(
+            parties=_parties_of(viewer_pk).count(),
+            pending_invites=PartyMembership.objects.filter(
+                member_id=viewer_pk, status=PartyMembershipStatus.INVITED
+            ).count(),
+        )
+
+    @staticmethod
     def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None:
         party = (
-            Party.objects.filter(
-                Q(leader_id=viewer_pk)
-                | Q(
-                    memberships__member_id=viewer_pk,
-                    memberships__status=PartyMembershipStatus.ACTIVE,
-                ),
-                pk=party_pk,
-            )
+            _parties_of(viewer_pk)
+            .filter(pk=party_pk)
             .select_related("leader")
             .prefetch_related(
                 Prefetch(
@@ -140,7 +148,6 @@ class PartyRepository(PartyRepositoryProtocol):
                     ),
                 )
             )
-            .distinct()
             .first()
         )
         if party is None:

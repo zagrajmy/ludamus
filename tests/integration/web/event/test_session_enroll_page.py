@@ -689,7 +689,11 @@ class TestSessionEnrollPageView:
                 for future in [pool.submit(cancel, client) for client in clients]
             ]
 
-        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
+        # NOTE: a request that reads the page after its rival committed no longer
+        # sees "cancel" as a choice and re-renders the form with a 200.
+        statuses = {response.status_code for response in responses}
+        assert statuses <= {HTTPStatus.OK, HTTPStatus.FOUND}
+        assert HTTPStatus.FOUND in statuses
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
         ).exists()

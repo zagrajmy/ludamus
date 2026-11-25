@@ -9,9 +9,21 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import EventDTO
+from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.facilitators import FacilitatorChangeLogDTO, FacilitatorDTO
+from ludamus.pacts.fields import OrganizerFieldDTO, SessionFieldValueDTO
+from ludamus.pacts.guild import GuildSummaryDTO
+from ludamus.pacts.integrations import (
+    EventIntegrationDTO,
+    IntegrationImplementationId,
+    IntegrationKind,
+)
+from ludamus.pacts.panel import EventPanelSettingsDTO
 from ludamus.pacts.proposal_categories import ProposalCategoryDTO
-from ludamus.pacts.sessions import SessionDTO, SessionStatus
+from ludamus.pacts.propose import AccreditationType
+from ludamus.pacts.sessions import SessionDTO, SessionListItemDTO, SessionStatus
+from ludamus.pacts.sphere import SiteDTO, SphereDTO
+from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
 
@@ -66,6 +78,14 @@ class FakeTransaction:
         return nullcontext()
 
 
+class FakeSessionFields:
+    def __init__(self, rows: dict[int, list[OrganizerFieldDTO]]) -> None:
+        self.rows = rows
+
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
+        return self.rows.get(event_id, [])
+
+
 def user_dto(**overrides) -> UserDTO:
     defaults = {
         "age_band": AgeBand.UNKNOWN,
@@ -106,6 +126,28 @@ def event_dto(**overrides) -> EventDTO:
     return EventDTO(**(defaults | overrides))
 
 
+def sphere_dto(**overrides) -> SphereDTO:
+    defaults = {
+        "name": "Sphere",
+        "pk": 1,
+        "site": SiteDTO(domain="example.com", name="Example", pk=1),
+    }
+    return SphereDTO(**(defaults | overrides))
+
+
+def agenda_item_dto(**overrides) -> AgendaItemDTO:
+    defaults = {
+        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        "pk": 1,
+        "schedule_confirmed": False,
+        "session_id": 1,
+        "session_title": "Session",
+        "space_id": 1,
+        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+    }
+    return AgendaItemDTO(**(defaults | overrides))
+
+
 def session_dto(**overrides) -> SessionDTO:
     defaults = {
         "category_id": None,
@@ -124,6 +166,100 @@ def session_dto(**overrides) -> SessionDTO:
         "title": "Session",
     }
     return SessionDTO(**(defaults | overrides))
+
+
+def session_list_item_dto(**overrides) -> SessionListItemDTO:
+    defaults = {
+        "category_name": "",
+        "creation_time": DEFAULT_START,
+        "facilitator_name": "",
+        "is_scheduled": False,
+        "pk": 1,
+        "status": SessionStatus.ACCEPTED,
+        "title": "Session",
+    }
+    return SessionListItemDTO(**(defaults | overrides))
+
+
+def event_integration_dto(**overrides) -> EventIntegrationDTO:
+    defaults = {
+        "config_json": "{}",
+        "connection_display_name": "Connection",
+        "connection_id": 1,
+        "display_name": "Integration",
+        "event_id": 1,
+        "implementation": IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER,
+        "kind": IntegrationKind.IMPORT,
+        "pk": 1,
+        "settings_json": "{}",
+    }
+    return EventIntegrationDTO(**(defaults | overrides))
+
+
+def facilitator_dto(**overrides) -> FacilitatorDTO:
+    defaults = {
+        "accreditation_type": AccreditationType.NONE,
+        "display_name": "Facilitator",
+        "event_id": 1,
+        "pk": 1,
+        "slug": "facilitator",
+        "user_id": None,
+    }
+    return FacilitatorDTO(**(defaults | overrides))
+
+
+def facilitator_list_item_dto(**overrides) -> FacilitatorListItemDTO:
+    defaults = {
+        "accreditation_type": AccreditationType.NONE,
+        "display_name": "Facilitator",
+        "organizer_id": None,
+        "organizer_name": None,
+        "pk": 1,
+        "session_count": 0,
+        "slug": "facilitator",
+        "user_id": None,
+    }
+    return FacilitatorListItemDTO(**(defaults | overrides))
+
+
+def facilitator_change_log_dto(**overrides) -> FacilitatorChangeLogDTO:
+    defaults = {
+        "changes": [],
+        "creation_time": DEFAULT_START,
+        "event_id": 1,
+        "facilitator_id": 1,
+        "facilitator_name": "Facilitator",
+        "pk": 1,
+        "user_id": None,
+        "user_name": "",
+    }
+    return FacilitatorChangeLogDTO(**(defaults | overrides))
+
+
+def event_panel_settings_dto(**overrides) -> EventPanelSettingsDTO:
+    return EventPanelSettingsDTO(**({"pk": 1} | overrides))
+
+
+def guild_summary_dto(**overrides) -> GuildSummaryDTO:
+    defaults = {"name": "Guild", "pk": 1, "slug": "guild"}
+    return GuildSummaryDTO(**(defaults | overrides))
+
+
+def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
+    defaults = {
+        "field_type": "text",
+        "name": "Field",
+        "order": 0,
+        "pk": 1,
+        "question": "Field?",
+        "slug": "field",
+    }
+    return OrganizerFieldDTO(**(defaults | overrides))
+
+
+def session_field_value_dto(**overrides) -> SessionFieldValueDTO:
+    defaults = {"field_name": "Field", "field_question": "Field?", "value": ""}
+    return SessionFieldValueDTO(**(defaults | overrides))
 
 
 def track_dto(**overrides) -> TrackDTO:
