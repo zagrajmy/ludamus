@@ -8,13 +8,18 @@
         data-login-url="{% url 'web:crowd:auth0:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     {% if cover_image_url %}
-        {# Pinned to the dialog while the cover scrolls away beneath it, so it #}
-        {# carries the surface colour: legible on the photo and on the tab bar. #}
+        {# Pinned to the dialog while the cover scrolls away beneath it. Over #}
+        {# the cover it is a bare white icon, the shadow keeping it legible on a #}
+        {# light photo; past the cover it takes the surface colour, or it would #}
+        {# vanish on the tab bar. cover-close.ts sets data-over-cover; it starts #}
+        {# set, since the modal opens scrolled to the top. #}
         <button type="button"
                 data-modal-close="session-{{ data.session.pk }}"
                 data-morph="close"
+                data-cover-close
+                data-over-cover
                 aria-label="{% translate "Close" %}"
-                class="absolute top-2 right-2 z-20 size-11 flex items-center justify-center rounded-lg bg-bg-secondary/90 text-foreground shadow-sm hover:bg-bg-secondary">
+                class="absolute top-2 right-2 z-20 size-11 flex items-center justify-center rounded-lg bg-bg-secondary/90 text-foreground shadow-sm transition-colors hover:bg-bg-secondary data-over-cover:bg-transparent data-over-cover:text-white data-over-cover:shadow-none data-over-cover:drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)] data-over-cover:hover:bg-white/15">
             {% icon "x-mark" class="w-5 h-5" variant="mini" %}
         </button>
     {% endif %}
