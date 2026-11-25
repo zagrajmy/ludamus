@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -6,14 +7,6 @@ from ludamus.mills.propose.engine import FieldIdsByHeader, ImportEngine
 from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.facilitators import FacilitatorDTO
-from ludamus.pacts.fields import (
-    OrganizerFieldDTO,
-    PersonalDataFieldValueData,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
-)
-from ludamus.pacts.integrations import EventIntegrationDTO
 from ludamus.pacts.propose import (
     AvailabilitySpec,
     EntityRef,
@@ -30,8 +23,25 @@ from ludamus.pacts.propose import (
     QuestionTarget,
 )
 from ludamus.pacts.services import DatabaseConstraintError
-from ludamus.pacts.sessions import SessionData, SessionDTO, SessionUpdateData
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import (
+    FakeTransaction,
+    event_integration_dto,
+    facilitator_dto,
+    organizer_field_dto,
+    session_dto,
+    session_field_value_dto,
+)
+
+if TYPE_CHECKING:
+    from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
+        PersonalDataFieldValueData,
+        SessionFieldValueData,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.integrations import EventIntegrationDTO
+    from ludamus.pacts.sessions import SessionData, SessionDTO, SessionUpdateData
 
 EVENT_ID = 4
 INTEGRATION_PK = 3
@@ -48,7 +58,7 @@ class _Integrations:
         self.settings_json = settings_json
 
     def get(self, event_id: int, pk: int) -> EventIntegrationDTO:
-        return EventIntegrationDTO.model_construct(
+        return event_integration_dto(
             pk=pk, event_id=event_id, settings_json=self.settings_json
         )
 
@@ -100,9 +110,7 @@ class _Sessions:
 
     def read_field_values(self, session_id: int) -> list[SessionFieldValueDTO]:
         return [
-            SessionFieldValueDTO.model_construct(
-                field_id=value["field_id"], value=value["value"]
-            )
+            session_field_value_dto(field_id=value["field_id"], value=value["value"])
             for value in self.field_values.get(session_id, [])
         ]
 
@@ -120,7 +128,7 @@ class _Sessions:
 
     def read_facilitators(self, session_id: int) -> list[FacilitatorDTO]:
         return [
-            FacilitatorDTO.model_construct(pk=pk)
+            facilitator_dto(pk=pk)
             for pk in self.links["facilitators"].get(session_id, [])
         ]
 
@@ -136,13 +144,13 @@ class _Fields:
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         if slug not in self.by_slug:
             raise NotFoundError
-        return OrganizerFieldDTO.model_construct(pk=self.by_slug[slug], slug=slug)
+        return organizer_field_dto(pk=self.by_slug[slug], slug=slug)
 
     def create(self, event_id: int, data) -> OrganizerFieldDTO:
         pk = 10 + len(self.by_slug)
         self.by_slug[data["slug"]] = pk
         self.created[data["slug"]] = data
-        return OrganizerFieldDTO.model_construct(pk=pk, slug=data["slug"])
+        return organizer_field_dto(pk=pk, slug=data["slug"])
 
 
 class _PersonalValues:
@@ -194,7 +202,7 @@ class _Facilitators:
     def create(self, data) -> FacilitatorDTO:
         pk = 50 + len(self.created)
         self.created.append(data)
-        self.rows[pk] = FacilitatorDTO.model_construct(
+        self.rows[pk] = facilitator_dto(
             pk=pk,
             slug=data["slug"],
             display_name=data["display_name"],
@@ -217,7 +225,7 @@ class _LogEntries:
 
 
 def _facilitator(pk: int, *, slug: str, ident: str = "") -> FacilitatorDTO:
-    return FacilitatorDTO.model_construct(
+    return facilitator_dto(
         pk=pk, slug=slug, display_name=slug.title(), ident=ident, deleted_at=None
     )
 
@@ -232,7 +240,7 @@ def _session(pk: int, **fields) -> SessionDTO:
         "participants_limit": 0,
         "category_id": None,
     }
-    return SessionDTO.model_construct(pk=pk, **{**defaults, **fields})
+    return session_dto(pk=pk, **{**defaults, **fields})
 
 
 def _repos(**overrides) -> ImportRepos:

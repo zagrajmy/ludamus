@@ -34,8 +34,10 @@ WORKDIR /work
 # the final checkout copy.
 COPY mise.toml tasks.toml python_tasks.toml pyproject.toml poetry.lock ./
 COPY .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
+COPY patches ./patches
 COPY src/ludamus/client/package.json ./src/ludamus/client/
 COPY tests/e2e/package.json ./tests/e2e/
+COPY workers/parley/package.json ./workers/parley/
 
 # NOTE: mise install fetches GitHub artifact attestations for several tools;
 # anonymous requests share GitHub's low unauthenticated rate limit and can

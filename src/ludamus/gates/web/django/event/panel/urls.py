@@ -295,22 +295,22 @@ urlpatterns = [
         name="space-move-to-root",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/",
+        "event/<slug:slug>/settings/availability/",
         time_slots.TimeSlotsPageView.as_view(),
         name="time-slots",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/create/",
+        "event/<slug:slug>/settings/availability/create/",
         time_slots.TimeSlotCreatePageView.as_view(),
         name="time-slot-create",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/edit/",
+        "event/<slug:slug>/settings/availability/<int:pk>/edit/",
         time_slots.TimeSlotEditPageView.as_view(),
         name="time-slot-edit",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/do/delete",
+        "event/<slug:slug>/settings/availability/<int:pk>/do/delete",
         time_slots.TimeSlotDeleteActionView.as_view(),
         name="time-slot-delete",
     ),

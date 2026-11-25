@@ -1,6 +1,5 @@
 from ludamus.mills.sessions import diff_session_content
-from ludamus.pacts.fields import SessionFieldValueDTO
-from ludamus.pacts.sessions import SessionDTO
+from tests.unit.factories import session_dto, session_field_value_dto
 
 
 def _session(**overrides):
@@ -15,13 +14,11 @@ def _session(**overrides):
         "cover_image_url": "",
     }
     base.update(overrides)
-    return SessionDTO.model_construct(**base)
+    return session_dto(**base)
 
 
 def _value(field_id, value):
-    return SessionFieldValueDTO.model_construct(
-        field_id=field_id, value=value, field_name=""
-    )
+    return session_field_value_dto(field_id=field_id, value=value)
 
 
 class TestCoreColumns:

@@ -9,13 +9,14 @@ from ludamus.pacts.user import UserDTO, UserType
 from tests.integration.utils import assert_response
 
 
-def _expected_context(user):
+def _expected_context(user, *, sheet_open=False):
     return {
         "object": UserDTO.model_validate(user),
         "user": UserDTO.model_validate(user),
         "form": ANY,
         "view": ANY,
         "profile_active_tab": "profile",
+        "sheet_open": sheet_open,
     }
 
 
@@ -24,6 +25,38 @@ class TestProfilePageView:
 
     def test_get_ok(self, authenticated_client, active_user):
         response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user),
+            template_name=["user/user/edit.html"],
+        )
+
+    def test_get_opens_sheet_for_next(self, authenticated_client, active_user):
+        response = authenticated_client.get(f"{self.URL}?next=/")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user, sheet_open=True),
+            template_name=["user/user/edit.html"],
+        )
+
+    def test_get_opens_sheet_for_verify_email(self, authenticated_client, active_user):
+        response = authenticated_client.get(f"{self.URL}?verify-email=1")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_expected_context(active_user, sheet_open=True),
+            template_name=["user/user/edit.html"],
+        )
+
+    def test_get_keeps_sheet_closed_for_other_params(
+        self, authenticated_client, active_user
+    ):
+        response = authenticated_client.get(f"{self.URL}?utm_source=mail")
 
         assert_response(
             response,
@@ -156,7 +189,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data=_expected_context(active_user),
+            context_data=_expected_context(active_user, sheet_open=True),
             template_name=["user/user/edit.html"],
         )
 
@@ -174,7 +207,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.OK,
             messages=[(messages.WARNING, "Please correct the errors below.")],
-            context_data=_expected_context(active_user),
+            context_data=_expected_context(active_user, sheet_open=True),
             template_name=["user/user/edit.html"],
         )
 

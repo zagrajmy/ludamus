@@ -1,4 +1,4 @@
-"""Time slot views for the CFP."""
+"""Time slot views: the availability windows under event settings."""
 
 from __future__ import annotations
 
@@ -16,7 +16,11 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import EventPanelMixin
 from ludamus.gates.web.django.forms import TimeSlotForm
-from ludamus.gates.web.django.panel import PanelNavContext, PanelRequest, cfp_tab_urls
+from ludamus.gates.web.django.panel import (
+    PanelNavContext,
+    PanelRequest,
+    settings_tab_urls,
+)
 from ludamus.gates.web.django.request_ids import parse_id
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
@@ -48,10 +52,10 @@ def _slot_error_message(error: TimeSlotValidationError) -> str:
         case TimeSlotValidationError.START_NOT_BEFORE_END:
             return _("Start must be before end.")
         case TimeSlotValidationError.OVERLAPS_EXISTING_SLOT:
-            return _("Time slot overlaps with an existing slot.")
+            return _("Availability window overlaps with an existing one.")
         case TimeSlotValidationError.STARTS_BEFORE_PUBLICATION:
             return _(
-                "The time slot starts before the event is published. "
+                "The availability window starts before the event is published. "
                 "Move the publication time in the event settings first."
             )
         case _:
@@ -131,9 +135,9 @@ def _time_slots_context(
             continuation_slots.add((time_slot.pk, end_date.isoformat()))
 
     return {
-        "active_nav": "cfp",
-        "active_tab": "time_slots",
-        "tab_urls": cfp_tab_urls(event.slug),
+        "active_nav": "settings",
+        "active_tab": "availability",
+        "tab_urls": settings_tab_urls(event.slug),
         "time_slots": time_slots,
         "undeletable_slot_reasons": undeletable_slot_reasons,
         "days": days,
@@ -212,9 +216,9 @@ class TimeSlotCreatePageView(EventPanelMixin, View):
         messages.success(
             self.request,
             (
-                _("Time slot created. The event dates now cover it.")
+                _("Availability window created. The event dates now cover it.")
                 if saved.event_dates_widened
-                else _("Time slot created successfully.")
+                else _("Availability window created successfully.")
             ),
         )
         return redirect("panel:time-slots", slug=slug)
@@ -233,7 +237,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         local_start = localtime(time_slot.start_time)
@@ -245,7 +249,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
             "end_time": local_end.strftime("%H:%M"),
         }
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "settings"
         context["time_slot"] = time_slot
         context["form"] = TimeSlotForm(initial=initial)
         return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
@@ -258,12 +262,12 @@ class TimeSlotEditPageView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         form = TimeSlotForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "settings"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
@@ -278,7 +282,7 @@ class TimeSlotEditPageView(EventPanelMixin, View):
             )
         except TimeSlotRejectedError as error:
             _add_slot_errors(form, error.errors)
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "settings"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
@@ -286,9 +290,9 @@ class TimeSlotEditPageView(EventPanelMixin, View):
         messages.success(
             self.request,
             (
-                _("Time slot updated. The event dates now cover it.")
+                _("Availability window updated. The event dates now cover it.")
                 if saved.event_dates_widened
-                else _("Time slot updated successfully.")
+                else _("Availability window updated successfully.")
             ),
         )
         return redirect("panel:time-slots", slug=slug)
@@ -306,14 +310,15 @@ class TimeSlotDeleteActionView(EventPanelMixin, View):
                 event_id=self.current_event.pk, pk=pk
             )
         except NotFoundError:
-            messages.error(self.request, _("Time slot not found."))
+            messages.error(self.request, _("Availability window not found."))
             return redirect("panel:time-slots", slug=slug)
 
         if not deleted:
             messages.error(
-                self.request, _("Cannot delete time slot used in proposals.")
+                self.request,
+                _("Cannot delete an availability window used in proposals."),
             )
             return redirect("panel:time-slots", slug=slug)
 
-        messages.success(self.request, _("Time slot deleted successfully."))
+        messages.success(self.request, _("Availability window deleted successfully."))
         return redirect("panel:time-slots", slug=slug)

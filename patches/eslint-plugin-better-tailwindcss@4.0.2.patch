@@ -1,0 +1,24 @@
+diff --git a/lib/async-utils/worker.js b/lib/async-utils/worker.js
+--- a/lib/async-utils/worker.js
++++ b/lib/async-utils/worker.js
+@@ -1,15 +1,18 @@
+ import { env } from "node:process";
+ import { TsRunner } from "synckit";
++// NOTE: Tailwind's first canonicalizeCandidates call precomputes every utility
++// and takes 20-35s on a loaded 8-core machine; the upstream 30s cap flakes.
++const TIMEOUT = 120000;
+ export function getWorkerOptions() {
+     if (env.NODE_ENV === "test") {
+         return {
+-            timeout: 30000,
++            timeout: TIMEOUT,
+             tsRunner: TsRunner.OXC
+         };
+     }
+     else {
+         return {
+-            timeout: 30000
++            timeout: TIMEOUT
+         };
+     }
+ }

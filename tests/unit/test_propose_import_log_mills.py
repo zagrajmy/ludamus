@@ -1,11 +1,11 @@
 import json
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ludamus.mills.propose.import_log import ImportLogService
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.integrations import EventIntegrationDTO
 from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -15,6 +15,10 @@ from ludamus.pacts.propose import (
     ImportSettings,
     QuestionTarget,
 )
+from tests.unit.factories import event_integration_dto
+
+if TYPE_CHECKING:
+    from ludamus.pacts.integrations import EventIntegrationDTO
 
 SPHERE_ID = 1
 EVENT_ID = 4
@@ -25,7 +29,7 @@ _SETTINGS = ImportSettings(questions={"Title": QuestionTarget(to="session.title"
 
 class _Integrations:
     def __init__(self, rows: list[ImportRow] | None = None) -> None:
-        self.integration = EventIntegrationDTO.model_construct(
+        self.integration = event_integration_dto(
             pk=INTEGRATION_PK,
             event_id=EVENT_ID,
             settings_json=_SETTINGS.model_dump_json(),

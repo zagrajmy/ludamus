@@ -31,6 +31,9 @@ overrides:
   vite@>=8.0.0 <8.1.6: 8.1.6
   zod@>=3.0.0 <4.6.6: 4.6.7
 
+patchedDependencies:
+  eslint-plugin-better-tailwindcss@4.0.2: aa6e5ee38bc9dfd940f3ced5f98fc8ad35d4ab5a80e33837e424d72246e80dec
+
 importers:
 
   .:

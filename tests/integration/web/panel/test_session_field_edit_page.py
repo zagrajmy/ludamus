@@ -68,7 +68,7 @@ class TestSessionFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/session-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": context_field,
                 "form": ANY,
                 "categories": [],
@@ -226,7 +226,7 @@ class TestSessionFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/session-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": context_field,
                 "form": ANY,
                 "categories": [],
@@ -496,7 +496,7 @@ class TestSessionFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/session-field-edit.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "field": response.context["field"],
                 "form": FormErrorsMatcher(
                     options=["Add at least one option, or allow custom values."]
