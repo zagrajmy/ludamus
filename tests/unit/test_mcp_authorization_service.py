@@ -1,7 +1,6 @@
 import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
 
 import pytest
 from freezegun import freeze_time
@@ -25,6 +24,7 @@ from ludamus.pacts.mcp import (
     OrganizerGrant,
     ToolScope,
 )
+from tests.unit.factories import event_dto, user_dto
 
 CLIENT_ID = "https://client.example/oauth/metadata.json"
 LOOPBACK_REDIRECT = "http://127.0.0.1/callback"
@@ -73,7 +73,7 @@ def _pending(scope=ToolScope.MAINTAINER):
 
 def _event(pk, *, days):
     start = datetime.now(UTC) + timedelta(days=days)
-    return SimpleNamespace(
+    return event_dto(
         pk=pk, name=f"Event {pk}", start_time=start, end_time=start + timedelta(hours=8)
     )
 
@@ -130,7 +130,7 @@ class FakeSpheres:
 
 class FakeUsers:
     def __init__(self, *, superuser):
-        self._users = {USER_SLUG: SimpleNamespace(is_superuser=superuser)}
+        self._users = {USER_SLUG: user_dto(slug=USER_SLUG, is_superuser=superuser)}
 
     def read(self, slug):
         return self._users[slug]
@@ -361,7 +361,7 @@ class TestConsent:
     @freeze_time("2026-08-01 09:00:00")
     def test_organizer_lists_an_event_ending_right_now_as_upcoming(self):
         now = datetime.now(UTC)
-        ending_now = SimpleNamespace(
+        ending_now = event_dto(
             pk=1, name="Event 1", start_time=now - timedelta(hours=8), end_time=now
         )
         deps = _Deps(events=[_event(2, days=1), ending_now])

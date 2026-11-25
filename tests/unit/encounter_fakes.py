@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
 from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
@@ -11,8 +10,14 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import SiteDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
-from tests.unit.factories import FakeTransaction, FakeUsers
+from tests.unit.factories import (
+    FakeTransaction,
+    FakeUsers,
+    encounter_rsvp_dto,
+    sphere_dto,
+)
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -64,10 +69,10 @@ def make_user(pk=CREATOR_ID, **overrides):
 class FakeSites:
     def __init__(self, policy):
         self.rows = {
-            SPHERE_ID: SimpleNamespace(
+            SPHERE_ID: sphere_dto(
+                pk=SPHERE_ID,
                 encounters_policy=policy,
-                name="Sphere",
-                site=SimpleNamespace(domain="sphere.example.com"),
+                site=SiteDTO(domain="sphere.example.com", name="Sphere", pk=1),
             )
         }
 
@@ -188,7 +193,7 @@ class FakeRSVPs:
 
     def list_by_encounter(self, encounter_id):
         return [
-            SimpleNamespace(user_id=user_id)
+            encounter_rsvp_dto(encounter_id=enc, user_id=user_id)
             for enc, user_id in self.signups
             if enc == encounter_id
         ]
