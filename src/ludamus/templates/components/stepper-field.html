@@ -29,14 +29,17 @@
             {# text-base keeps 16px on mobile so iOS Safari doesn't auto-zoom on focus. #}
             {# shadow-none!: the ring is drawn on the group around it, and the #}
             {# page-wide :focus-visible ring is unlayered CSS. #}
+            {# The SDK turns the input into type="text"; the role and bounds keep #}
+            {# it a spinbutton to assistive tech. #}
             <input type="number"
+                   role="spinbutton"
                    inputmode="numeric"
                    class="w-10 py-1.5 text-center text-base sm:text-sm border-0 bg-bg-secondary text-foreground tabular-nums focus:ring-0 focus-visible:shadow-none! disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                    name="{{ name }}"
                    {% if id|default:"" %}id="{{ id }}"{% endif %}
                    {% if value|default:"" %}value="{{ value }}"{% endif %}
-                   {% if min|default:"" %}min="{{ min }}"{% endif %}
-                   {% if max|default:"" %}max="{{ max }}"{% endif %}
+                   {% if min|default:"" %}min="{{ min }}" aria-valuemin="{{ min }}"{% endif %}
+                   {% if max|default:"" %}max="{{ max }}" aria-valuemax="{{ max }}"{% endif %}
                    {% if required|default:False %}required{% endif %}
                    {% if disabled|default:False %}disabled{% endif %}
                    {% if has_errors|default:False %}aria-invalid="true"{% endif %}

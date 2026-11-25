@@ -111,8 +111,12 @@ const spaceList = definePrimitive({
     // listeners, so the drop is claimed before it can land as a reorder.
     const watchRootDrop = (key: string, pointerId: number): void => {
       const target = rootDropTarget();
-      if (!target || !context.options().nested) return;
-      const dragging = (): boolean => context.store.get().moving?.pointer === true;
+      // A second press while a row is moving belongs to no drag of its own.
+      if (!target || !context.options().nested || context.store.get().moving) return;
+      const dragging = (): boolean => {
+        const { moving } = context.store.get();
+        return moving?.pointer === true && moving.key === key;
+      };
       const stop = (): void => {
         globalThis.removeEventListener("pointermove", move);
         globalThis.removeEventListener("pointerup", up, true);
