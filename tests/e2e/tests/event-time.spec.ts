@@ -3,7 +3,7 @@ import { expect, test } from "./helpers/fixtures";
 
 // Pure date arithmetic, so no page: the fold script decides which programme
 // days are over from this, and it has to agree with the server's date_of
-// (mills/timeslots.py) on the nights the clocks change.
+// (mills/opening_hours.py) on the nights the clocks change.
 test.describe("programmeDate", () => {
   const warsaw = "Europe/Warsaw";
 

@@ -5,6 +5,8 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.create_options import encounter_option
+from ludamus.links.db.django.event_deletion import EventDeletionRepository
 from ludamus.links.db.django.models import (
     Facilitator,
     SessionBookmark,
@@ -43,7 +45,10 @@ def _assert_empty_dashboard(response):
     assert_response(
         response,
         HTTPStatus.OK,
-        context_data={"dashboard": EMPTY_DASHBOARD, "can_create_encounter": True},
+        context_data={
+            "dashboard": EMPTY_DASHBOARD,
+            "create_options": (encounter_option(),),
+        },
         template_name="dashboard/index.html",
     )
 
@@ -110,6 +115,15 @@ class TestDashboardPageView:
         )
 
         assert_response_404(response)
+
+    def test_a_root_sphere_manager_is_offered_encounters_only(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
 
     def test_an_empty_account_still_gets_a_page(self, authenticated_client):
         response = authenticated_client.get(DASHBOARD_URL)
@@ -353,6 +367,23 @@ class TestDashboardPageView:
             status="offered",
             claim_token="lapsed-token",
             offer_expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+
+        response = authenticated_client.get(DASHBOARD_URL)
+
+        _assert_empty_dashboard(response)
+
+    def test_a_seat_at_a_deleted_event_leaves_the_agenda(
+        self, authenticated_client, active_user, sphere
+    ):
+        event = EventFactory(sphere=sphere, publication_time=None)
+        SessionParticipationFactory(
+            session=_bookmarked_session(event, user=UserFactory()),
+            user=active_user,
+            status="confirmed",
+        )
+        EventDeletionRepository.soft_delete_event(
+            event_id=event.pk, at=datetime.now(UTC)
         )
 
         response = authenticated_client.get(DASHBOARD_URL)

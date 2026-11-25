@@ -559,6 +559,37 @@ class TestTabShellBody:
             )
 
 
+class TestBottomSheet:
+    def test_renders_every_hook_the_script_needs(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% bottom_sheet id="s" title=title close_url="/back/" open=True %}'
+            "Hello"
+            "{% end_bottom_sheet %}"
+        )
+        html = tpl.render(Context({"title": "<b>Section</b>"}))
+        for hook in (
+            "data-bottom-sheet\n",
+            'data-height="half"',
+            "data-open",
+            'aria-labelledby="s-title"',
+            "data-bottom-sheet-handle",
+            '<h2 id="s-title"',
+            "data-bottom-sheet-title>&lt;b&gt;Section&lt;/b&gt;</h2>",
+            'href="/back/"',
+            "data-bottom-sheet-close",
+            "data-bottom-sheet-backdrop",
+            "Hello",
+        ):
+            assert hook in html
+
+    def test_requires_title_and_close_url(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires title, close_url"):
+            Template(
+                '{% load tessera %}{% bottom_sheet id="s" %}{% end_bottom_sheet %}'
+            )
+
+
 ICON_TOGGLE_ICONS = 2
 SWITCHER_SEGMENTS = 3
 
@@ -790,6 +821,56 @@ class TestSwitcher:
             ).render(Context())
 
 
+class TestChoiceButtons:
+    @staticmethod
+    def _render(*, selected: str = "pl") -> str:
+        return Template(
+            "{% load tessera %}"
+            '{% tessera_choice_buttons name="language" selected=selected %}'
+            '{% tessera_choice_button "pl" lang="pl" %}Polski'
+            "{% end_tessera_choice_button %}"
+            '{% tessera_choice_button "en" lang="en" %}English'
+            "{% end_tessera_choice_button %}"
+            "{% end_tessera_choice_buttons %}"
+        ).render(Context({"selected": selected}))
+
+    def test_each_choice_submits_its_value_under_the_group_name(self) -> None:
+        html = self._render()
+
+        assert '<button type="submit" name="language" value="pl"' in html
+        assert '<button type="submit" name="language" value="en"' in html
+
+    def test_only_the_selected_choice_is_pressed(self) -> None:
+        html = self._render(selected="en")
+
+        assert re.search(r'value="en"[^>]*aria-pressed="true"[^>]*lang="en"', html)
+        assert re.search(r'value="pl"[^>]*aria-pressed="false"', html)
+
+    def test_choice_outside_a_group_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="must be used inside"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_choice_button "a" %}A{% end_tessera_choice_button %}'
+            ).render(Context())
+
+    def test_group_requires_a_name(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires a name"):
+            Template(
+                "{% load tessera %}{% tessera_choice_buttons %}"
+                '{% tessera_choice_button "a" %}A{% end_tessera_choice_button %}'
+                "{% end_tessera_choice_buttons %}"
+            ).render(Context())
+
+    def test_choice_missing_value_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_choice_buttons name="n" %}'
+                "{% tessera_choice_button %}A{% end_tessera_choice_button %}"
+                "{% end_tessera_choice_buttons %}"
+            )
+
+
 # The external row carries its own icon plus the exit arrow.
 EXTERNAL_ROW_ICONS = 2
 
@@ -930,3 +1011,31 @@ class TestActionDropdown:
                 '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
                 "{% action_dropdown_menu %}{% end_tessera_action_dropdown %}"
             ).render(Context())
+
+
+class TestTable:
+    def test_extra_attributes_land_on_the_table(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_table flush=True class="max-sm:block" role="table" '
+            'aria_label="Tracks" data_kind="tracks" %}'
+            "<tbody></tbody>{% end_tessera_table %}"
+        )
+        html = tpl.render(Context())
+        table = re.search(r"<table[^>]*>", html)
+        assert table is not None
+        assert 'role="table"' in table.group()
+        assert 'aria-label="Tracks"' in table.group()
+        assert 'data-kind="tracks"' in table.group()
+        assert "max-sm:block" in table.group()
+        assert html.count('role="table"') == 1
+        assert "flush" not in html
+
+    def test_without_extra_attributes_the_table_carries_only_its_class(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            "{% tessera_table %}<tbody></tbody>{% end_tessera_table %}"
+        )
+        table = re.search(r"<table[^>]*>", tpl.render(Context()))
+        assert table is not None
+        assert table.group() == '<table class="min-w-full divide-y divide-border">'

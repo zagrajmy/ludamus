@@ -11,7 +11,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.enrollment import PromotionMode
-from tests.integration.conftest import ProposalCategoryFactory
+from tests.integration.conftest import ProposalCategoryFactory, UserFactory
 
 
 def _service():
@@ -190,3 +190,51 @@ class TestPromotionAfterEnrollmentCloses:
         participation.refresh_from_db()
         assert result.promoted == [participation.pk]
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
+
+    @pytest.mark.usefixtures("agenda_item")
+    def test_closed_window_percentage_cap_still_limits_promotion(
+        self, session, event, waiter
+    ):
+        now = datetime.now(UTC)
+        half_cap_percent = 50
+        effective_cap = 5
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=10),
+            end_time=now - timedelta(days=1),
+            percentage_slots=half_cap_percent,
+        )
+        session.participants_limit = 10
+        session.save()
+        confirmed = [
+            SessionParticipation.objects.create(
+                session=session,
+                user=UserFactory(),
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+            for _ in range(effective_cap)
+        ]
+        second_waiter = UserFactory()
+        first_wait = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+        second_wait = SessionParticipation.objects.create(
+            session=session,
+            user=second_waiter,
+            status=SessionParticipationStatus.WAITING,
+        )
+        confirmed[0].delete()
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        first_wait.refresh_from_db()
+        second_wait.refresh_from_db()
+        assert result.promoted == [first_wait.pk]
+        assert first_wait.status == SessionParticipationStatus.CONFIRMED.value
+        assert second_wait.status == SessionParticipationStatus.WAITING.value
+        assert (
+            SessionParticipation.objects.filter(
+                session=session, status=SessionParticipationStatus.CONFIRMED
+            ).count()
+            == effective_cap
+        )

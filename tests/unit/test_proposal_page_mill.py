@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,8 +10,17 @@ from ludamus.pacts.panel import (
     ProposalPanelRepos,
     ProposalRecordRepos,
 )
+from ludamus.pacts.proposal_categories import SessionFieldRequirementDTO
 from ludamus.pacts.sessions import SessionContentEditData
-from tests.unit.factories import FakeTransaction, session_dto
+from tests.unit.factories import (
+    FakeTransaction,
+    category,
+    facilitator_dto,
+    facilitator_list_item_dto,
+    organizer_field_dto,
+    session_dto,
+    track_dto,
+)
 
 _EVENT_ID = 1
 _PROPOSAL_ID = 5
@@ -21,6 +29,7 @@ _RPG = 3
 _LARP = 4
 _ANN = 7
 _BOB = 8
+_SESSION_FIELD = organizer_field_dto()
 
 
 def _by_event(rows):
@@ -33,8 +42,14 @@ def _read_by_event(pk, event_id):
     return session_dto(pk=_PROPOSAL_ID, category_id=_LARP)
 
 
-def _ids(*pks):
-    return [SimpleNamespace(pk=pk) for pk in pks]
+_REQUIREMENTS = {
+    _RPG: SessionFieldRequirementDTO(
+        field=organizer_field_dto(pk=1, name="System"), is_required=True
+    ),
+    _LARP: SessionFieldRequirementDTO(
+        field=organizer_field_dto(pk=2, name="Props"), is_required=False
+    ),
+}
 
 
 @pytest.fixture(name="repos")
@@ -43,17 +58,21 @@ def _repos():
     sessions.read_by_event.side_effect = _read_by_event
     categories = MagicMock()
     categories.list_by_event.side_effect = _by_event(
-        [SimpleNamespace(pk=_RPG, name="RPG"), SimpleNamespace(pk=_LARP, name="LARP")]
+        [category(pk=_RPG, name="RPG"), category(pk=_LARP, name="LARP")]
     )
-    categories.list_session_field_requirements.side_effect = lambda pk: [f"req-{pk}"]
+    categories.list_session_field_requirements.side_effect = lambda pk: [
+        _REQUIREMENTS[pk]
+    ]
     facilitators = MagicMock()
-    facilitators.list_by_event.side_effect = _by_event(_ids(_ANN, _BOB))
+    facilitators.list_by_event.side_effect = _by_event(
+        [facilitator_list_item_dto(pk=_ANN), facilitator_list_item_dto(pk=_BOB)]
+    )
     tracks = MagicMock()
-    tracks.list_by_event.side_effect = _by_event(_ids(_RPG, _LARP))
-    time_slots = MagicMock()
-    time_slots.list_by_event.side_effect = _by_event(_ids(1, 2))
+    tracks.list_by_event.side_effect = _by_event(
+        [track_dto(pk=_RPG), track_dto(pk=_LARP)]
+    )
     session_fields = MagicMock()
-    session_fields.list_by_event.side_effect = _by_event(["field"])
+    session_fields.list_by_event.side_effect = _by_event([_SESSION_FIELD])
     return ProposalPanelRepos(
         sessions=sessions,
         session_fields=session_fields,
@@ -61,14 +80,13 @@ def _repos():
         panel_settings=MagicMock(),
         facilitators=facilitators,
         tracks=tracks,
-        time_slots=time_slots,
     )
 
 
 @pytest.fixture(name="records")
 def _records():
     personal_fields = MagicMock()
-    personal_fields.list_by_event.side_effect = _by_event(_ids(11))
+    personal_fields.list_by_event.side_effect = _by_event([organizer_field_dto(pk=11)])
     return ProposalRecordRepos(
         agenda_items=MagicMock(),
         schedule_change_logs=MagicMock(),
@@ -129,8 +147,8 @@ class TestFormFields:
         )
 
         assert fields.category.pk == _RPG
-        assert fields.requirements == [f"req-{_RPG}"]
-        assert fields.session_fields == ["field"]
+        assert fields.requirements == [_REQUIREMENTS[_RPG]]
+        assert fields.session_fields == [_SESSION_FIELD]
 
     def test_a_foreign_category_falls_back_to_the_proposals_own(self, service):
         fields = service.form_fields(
@@ -138,6 +156,7 @@ class TestFormFields:
         )
 
         assert fields.category.pk == _LARP
+        assert fields.requirements == [_REQUIREMENTS[_LARP]]
 
     def test_a_new_proposal_starts_in_the_first_category_with_no_answers(
         self, service, repos
@@ -170,7 +189,7 @@ class TestForm:
     def test_an_edit_reads_the_assigned_facilitators_personal_data(
         self, service, repos, records
     ):
-        repos.sessions.read_facilitators.return_value = _ids(_ANN)
+        repos.sessions.read_facilitators.return_value = [facilitator_dto(pk=_ANN)]
 
         page = service.form(
             event_id=_EVENT_ID, proposal_id=_PROPOSAL_ID, category_id=None
@@ -202,21 +221,14 @@ class TestUpdate:
             user_id=_USER_ID,
             edit=ProposalEdit(
                 content=SessionContentEditData(
-                    update={"title": "T"},
-                    facilitator_ids=[_BOB, 99],
-                    track_ids=None,
-                    time_slot_ids=[2, 98],
+                    update={"title": "T"}, facilitator_ids=[_BOB, 99], track_ids=None
                 ),
                 personal_data={_ANN: entries},
             ),
         )
 
         data = content_edit.apply.call_args.kwargs["data"]
-        assert (data.facilitator_ids, data.track_ids, data.time_slot_ids) == (
-            [_BOB],
-            None,
-            [2],
-        )
+        assert (data.facilitator_ids, data.track_ids) == ([_BOB], None)
         personal_data.update_personal_data.assert_called_once_with(
             event_id=_EVENT_ID, facilitator_id=_ANN, entries=entries, user_id=_USER_ID
         )

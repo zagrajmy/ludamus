@@ -118,6 +118,10 @@ class EncounterRepositoryProtocol(Protocol):
         sphere_id: int, user_id: int | None, *, limit: int
     ) -> list[EncounterDTO]: ...
     @staticmethod
+    def list_by_creator(
+        sphere_id: int, creator_id: int, *, limit: int
+    ) -> list[EncounterDTO]: ...
+    @staticmethod
     def update(pk: int, data: EncounterData) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
@@ -186,6 +190,8 @@ class EncounterDetailContextDTO(BaseModel):
     # though not in `attendees`.
     accepted_guest_count: int = 0
     calendar_links: EncounterCalendarLinks
+    # NOTE: filled for the creator and the signed up alone: the chat is theirs.
+    chat_id: int | None = None
 
     # Derived from the capacity and the signup count rather than stored, so
     # the two can't drift apart.
@@ -334,6 +340,7 @@ class EncounterServiceProtocol(Protocol):
         self, *, sphere_id: int, user_id: int | None, limit: int
     ) -> list[EncounterIndexItem]: ...
     def can_create(self, *, sphere_id: int, user_id: int) -> bool: ...
+    def list_organized(self, *, sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
     def build_detail(
         self,
         *,

@@ -1,9 +1,10 @@
-from types import SimpleNamespace
+from datetime import date
 from unittest.mock import MagicMock, call
 
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.panel import (
@@ -15,8 +16,18 @@ from ludamus.pacts.panel import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionStatus
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import (
+    FakeTransaction,
+    category,
+    event_panel_settings_dto,
+    facilitator_list_item_dto,
+    organizer_field_dto,
+    session_dto,
+    session_list_item_dto,
+    track_dto,
+)
 
+_NEW_PROPOSAL_ID = 42
 _EXISTING_SESSION_ID = 99
 _CREATED_SESSION_ID = 7
 _EVENT_ID = 1
@@ -28,6 +39,10 @@ def _by_event(rows):
 
 def _by_session(session_id, row):
     return lambda pk, event_id: {(session_id, _EVENT_ID): row}[pk, event_id]
+
+
+def _offered(part: DayPart) -> AvailabilityDTO:
+    return AvailabilityDTO(day=date(2026, 6, 1), offer=part)
 
 
 class TestProposalPanelService:
@@ -54,7 +69,7 @@ class TestProposalPanelService:
     def panel_settings(self):
         repo = MagicMock()
         repo.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=[])
+            event_panel_settings_dto(proposal_columns=[])
         )
         return repo
 
@@ -67,10 +82,6 @@ class TestProposalPanelService:
         return MagicMock()
 
     @pytest.fixture
-    def time_slots(self):
-        return MagicMock()
-
-    @pytest.fixture
     def service(
         self,
         sessions,
@@ -79,7 +90,6 @@ class TestProposalPanelService:
         panel_settings,
         facilitators,
         tracks,
-        time_slots,
     ):
         return ProposalPanelService(
             FakeTransaction(),
@@ -90,7 +100,6 @@ class TestProposalPanelService:
                 panel_settings=panel_settings,
                 facilitators=facilitators,
                 tracks=tracks,
-                time_slots=time_slots,
             ),
         )
 
@@ -99,8 +108,8 @@ class TestProposalPanelService:
     ):
         session_fields.list_by_event.side_effect = _by_event(
             [
-                SimpleNamespace(pk=1, field_type="select", order=0, name="A"),
-                SimpleNamespace(pk=2, field_type="text", order=1, name="B"),
+                organizer_field_dto(pk=1, field_type="select", order=0, name="A"),
+                organizer_field_dto(pk=2, field_type="text", order=1, name="B"),
             ]
         )
 
@@ -164,14 +173,15 @@ class TestProposalPanelService:
     def test_known_category_and_scheduled_filter_reach_the_query(
         self, service, sessions, session_fields, proposal_categories, panel_settings
     ):
-        category = SimpleNamespace(pk=5)
-        select_field = SimpleNamespace(pk=1, field_type="select", order=0, name="A")
-        proposal_categories.list_by_event.side_effect = _by_event([category])
+        talk = category(pk=5)
+        select_field = organizer_field_dto(pk=1, field_type="select", order=0, name="A")
+        proposal_categories.list_by_event.side_effect = _by_event([talk])
         session_fields.list_by_event.side_effect = _by_event([select_field])
         panel_settings.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=["title"])
+            event_panel_settings_dto(proposal_columns=["title"])
         )
-        sessions.list_sessions_by_event.return_value = ["proposal"]
+        listed = session_list_item_dto(pk=3)
+        sessions.list_sessions_by_event.return_value = [listed]
 
         result = service.list_context(
             event_id=1,
@@ -206,15 +216,7 @@ class TestProposalPanelService:
             result.status,
             result.sort,
             [c.key for c in result.columns],
-        ) == (
-            ["proposal"],
-            [select_field],
-            [category],
-            5,
-            "scheduled",
-            "-title",
-            ["title"],
-        )
+        ) == ([listed], [select_field], [talk], 5, "scheduled", "-title", ["title"])
 
     def test_real_status_excludes_scheduled_sessions(self, service, sessions):
         result = service.list_context(
@@ -236,7 +238,7 @@ class TestProposalPanelService:
         assert (filters["status"], filters["scheduled"]) == (None, None)
 
     def test_read_proposal_finds_only_the_events_own(self, service, sessions):
-        own = SimpleNamespace(pk=3)
+        own = session_dto(pk=3)
 
         def read_by_event(pk, event_id):
             if (pk, event_id) != (own.pk, _EVENT_ID):
@@ -263,10 +265,10 @@ class TestProposalPanelService:
         self, service, session_fields, panel_settings
     ):
         session_fields.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=4, order=0, name="A")]
+            [organizer_field_dto(pk=4, order=0, name="A")]
         )
         panel_settings.read_or_create.side_effect = _by_event(
-            SimpleNamespace(proposal_columns=["field_4", "title"])
+            event_panel_settings_dto(proposal_columns=["field_4", "title"])
         )
 
         context = service.columns_context(1)
@@ -352,7 +354,7 @@ class TestProposalPanelService:
         sessions.update.assert_not_called()
 
     def test_set_session_facilitator_name_updates_the_session(self, service, sessions):
-        sessions.read_by_event.side_effect = _by_session(3, "proposal")
+        sessions.read_by_event.side_effect = _by_session(3, session_dto(pk=3))
 
         service.set_session_facilitator_name(
             event_id=1, session_id=3, facilitator_name="Ala"
@@ -366,14 +368,13 @@ class TestProposalPanelService:
             ProposalDraft(data={"title": "X"}, field_values={9: "a"}),
             ProposalDraft(data={"title": "X"}, facilitator_ids=[9]),
             ProposalDraft(data={"title": "X"}, track_ids=[9]),
-            ProposalDraft(data={"title": "X"}, time_slot_ids=[9]),
             ProposalDraft(data={"title": "X", "category_id": 9}),
         ),
     )
     def test_create_rejects_references_outside_the_event(
-        self, service, sessions, facilitators, tracks, time_slots, draft
+        self, service, sessions, facilitators, tracks, draft
     ):
-        for repo in (facilitators, tracks, time_slots):
+        for repo in (facilitators, tracks):
             repo.list_by_event.side_effect = _by_event([])
 
         with pytest.raises(NotFoundError):
@@ -381,7 +382,7 @@ class TestProposalPanelService:
 
         sessions.create.assert_not_called()
 
-    def test_create_stores_answers_tracks_and_slots_and_caches_event_ids(
+    def test_create_stores_answers_tracks_and_availability_and_caches_event_ids(
         self,
         service,
         sessions,
@@ -389,28 +390,25 @@ class TestProposalPanelService:
         proposal_categories,
         facilitators,
         tracks,
-        time_slots,
     ):
         session_fields.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=1), SimpleNamespace(pk=2)]
+            [organizer_field_dto(pk=pk) for pk in (1, 2, 3)]
         )
-        proposal_categories.list_by_event.side_effect = _by_event(
-            [SimpleNamespace(pk=5)]
+        proposal_categories.list_by_event.side_effect = _by_event([category(pk=5)])
+        facilitators.list_by_event.side_effect = _by_event(
+            [facilitator_list_item_dto(pk=3)]
         )
-        facilitators.list_by_event.side_effect = _by_event([SimpleNamespace(pk=3)])
-        tracks.list_by_event.side_effect = _by_event([SimpleNamespace(pk=4)])
-        time_slots.list_by_event.side_effect = _by_event([SimpleNamespace(pk=6)])
-        sessions.slug_exists.side_effect = lambda event_id, slug: (event_id, slug) == (
-            1,
-            "full",
+        tracks.list_by_event.side_effect = _by_event([track_dto(pk=4)])
+        sessions.slug_exists.side_effect = lambda event_id, slug: (
+            (event_id, slug) == (1, "full")
         )
         sessions.create.return_value = 11
         draft = ProposalDraft(
             data={"title": "Full", "category_id": 5},
             facilitator_ids=[3],
-            field_values={1: "  ", 2: False},
+            field_values={1: "D&D 5e", 2: False, 3: "  "},
             track_ids=[4],
-            time_slot_ids=[6],
+            availability=[_offered(DayPart.EVENING)],
         )
 
         first = service.create_proposal(event_id=1, draft=draft)
@@ -418,21 +416,29 @@ class TestProposalPanelService:
 
         assert (first, second) == (11, 11)
         payload, kwargs = sessions.create.call_args_list[0]
+        slug = payload[0]["slug"]
+        assert slug.startswith("full-")
+        assert payload[0] == {
+            "title": "Full",
+            "category_id": 5,
+            "event_id": 1,
+            "slug": slug,
+            "status": SessionStatus.PENDING,
+        }
         assert kwargs == {"facilitator_ids": [3]}
-        assert payload[0]["status"] == SessionStatus.PENDING
-        assert "ident" not in payload[0]
-        assert payload[0]["slug"].startswith("full-")
-        assert payload[0]["slug"] != "full"
-        answered = [SessionFieldValueData(session_id=11, field_id=2, value=False)]
+        answered = [
+            SessionFieldValueData(session_id=11, field_id=1, value="D&D 5e"),
+            SessionFieldValueData(session_id=11, field_id=2, value=False),
+        ]
         assert sessions.save_field_values.call_args_list == [call(11, answered)] * 2
         sessions.set_session_tracks.assert_called_with(11, [4])
-        sessions.set_time_slots.assert_called_with(11, [6])
+        sessions.set_availability.assert_called_with(11, [_offered(DayPart.EVENING)])
         assert tracks.list_by_event.call_count == 1
 
     def test_create_without_answers_or_placement_writes_only_the_session(
-        self, service, sessions, facilitators, tracks, time_slots
+        self, service, sessions, facilitators, tracks
     ):
-        for repo in (facilitators, tracks, time_slots):
+        for repo in (facilitators, tracks):
             repo.list_by_event.side_effect = _by_event([])
         sessions.slug_exists.return_value = False
         sessions.create.return_value = _CREATED_SESSION_ID
@@ -445,4 +451,4 @@ class TestProposalPanelService:
         assert sessions.create.call_args[0][0]["slug"] == "bare"
         sessions.save_field_values.assert_not_called()
         sessions.set_session_tracks.assert_not_called()
-        sessions.set_time_slots.assert_not_called()
+        sessions.set_availability.assert_not_called()

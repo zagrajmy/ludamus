@@ -6,7 +6,7 @@ from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import (
@@ -18,6 +18,7 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
 )
 from ludamus.links.db.django.users import user_dto
+from ludamus.pacts.availability import part_of, programme_date
 from ludamus.pacts.event import EventDTO, FacilitatorListItemDTO
 from ludamus.pacts.integrations import (
     EventIntegrationDTO,
@@ -42,9 +43,9 @@ from ludamus.specs.timetable import (
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
+    SessionAvailabilityFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
 )
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -227,16 +228,16 @@ def make_room_and_facilitator_clash(event, category):
     return space, sessions, facilitator
 
 
-def schedule_outside_preferred_slot(*, event, category, space):
-    # Scheduled at the event start while its only preferred slot sits hours
-    # later: a slot violation, which the conflict panel deliberately ignores.
+def schedule_outside_offered_time(*, event, category, space):
+    # Scheduled when the event opens while the only time the facilitator
+    # offered is the next day: an availability violation, which the conflict
+    # panel deliberately ignores.
     session = make_timetable_session(category)
-    session.time_slots.add(
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=4),
-            end_time=event.start_time + timedelta(hours=6),
-        )
+    tz = get_current_timezone()
+    SessionAvailabilityFactory(
+        session=session,
+        day=programme_date(event.start_time, tz) + timedelta(days=1),
+        part=part_of(event.start_time, tz),
     )
     schedule_session(session=session, space=space, start=event.start_time)
     return session
@@ -276,7 +277,6 @@ def grid_with(
     day_start=None,
     extra_days=0,
     total_minutes=0,
-    closed_ranges=None,
     sessions_by_space=None,
     page=1,
     total_pages=1,
@@ -314,7 +314,6 @@ def grid_with(
                 )
                 for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
             ],
-            closed_ranges=closed_ranges or [],
         ) for index, start in enumerate(day_starts)
     ]
     return TimetableGridDTO(
@@ -360,7 +359,6 @@ def cfp_tab_urls(event):
         "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
         "host": reverse("panel:personal-data-fields", kwargs={"slug": event.slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": event.slug}),
-        "time_slots": reverse("panel:time-slots", kwargs={"slug": event.slug}),
     }
 
 
@@ -391,9 +389,9 @@ def time_slots_page_context(
     # inside it is what every caller so far asks for, so the empty orphan list
     # and the page-zero markers are written here rather than passed in.
     return {
-        **panel_context(event, active_nav="cfp", **stats),
-        "active_tab": "time_slots",
-        "tab_urls": cfp_tab_urls(event),
+        **panel_context(event, active_nav="settings", **stats),
+        "active_tab": "availability",
+        "tab_urls": settings_tab_urls(event),
         "time_slots": list(time_slots),
         "undeletable_slot_reasons": undeletable_slot_reasons or {},
         "days": days,
@@ -408,12 +406,35 @@ def time_slots_page_context(
     }
 
 
+def settings_url(event):
+    return reverse("panel:event-settings", kwargs={"slug": event.slug})
+
+
+def settings_post_data(event, **overrides):
+    data = {
+        "name": event.name,
+        "slug": event.slug,
+        "start_time": event.start_time.strftime("%Y-%m-%dT%H:%M"),
+        "end_time": event.end_time.strftime("%Y-%m-%dT%H:%M"),
+        # NOTE: re-posts the stored publication as it stands.
+        "publication": "scheduled",
+        "publication_time": (
+            localtime(event.publication_time).strftime("%Y-%m-%dT%H:%M")
+            if event.publication_time
+            else ""
+        ),
+    }
+    data.update(overrides)
+    return data
+
+
 def settings_tab_urls(event):
     return {
         "general": reverse("panel:event-settings", kwargs={"slug": event.slug}),
         "proposals": reverse(
             "panel:event-proposal-settings", kwargs={"slug": event.slug}
         ),
+        "availability": reverse("panel:time-slots", kwargs={"slug": event.slug}),
         "enrollment": reverse(
             "panel:event-enrollment-settings", kwargs={"slug": event.slug}
         ),
@@ -469,7 +490,7 @@ def proposal_detail_context(*, event, session, presenter) -> dict:
         "field_values": [],
         "facilitators": [],
         "presenter": user_dto(presenter),
-        "preferred_time_slots": [],
+        "availability": [],
         "import_log_entry": None,
         "import_log_integration": None,
     }

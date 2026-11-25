@@ -34,6 +34,7 @@ from ludamus.gates.web.django.event.schedule import (
 from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.meta import (
     LinkPreview,
+    event_when_and_where,
     markdown_summary,
     session_link_preview,
 )
@@ -128,6 +129,9 @@ class EventPageView(TemplateView):
             for sid, data in sessions_data.items()
         }
         has_maps = self.request.services.event_maps.has_maps(self.event.pk)
+        ticket_shop = self.request.services.ticket_sales.shop(
+            event=self.event, viewer_id=current_user_id
+        )
 
         hour_data = self._get_hour_data(sessions_data)
 
@@ -186,6 +190,7 @@ class EventPageView(TemplateView):
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "event_banned": event_banned,
+                "ticket_shop": ticket_shop,
                 "status_pills": event_status_pills(
                     is_live=self.event.is_live,
                     is_ended=self.event.is_ended,
@@ -211,7 +216,13 @@ class EventPageView(TemplateView):
         raw = self.request.GET.get("session", "")
         if raw.isdecimal() and (data := sessions_data.get(int(raw))) is not None:
             return session_link_preview(data=data, event_name=self.event.name)
-        return LinkPreview(description=markdown_summary(self.event.description))
+        event = self.event
+        return LinkPreview(
+            description=markdown_summary(event.description)
+            or event_when_and_where(
+                start=event.start_time, end=event.end_time, address=event.address_inline
+            )
+        )
 
     def _get_anonymous_context(self) -> dict[str, Any]:
         if self.request.context.current_user_id and self.request.session.get(
@@ -459,7 +470,7 @@ class EventPageView(TemplateView):
                     )
                     for seat in card.participations
                 ],
-                preferred_time_slots=card.preferred_time_slots,
+                offered_times=card.offered_times,
             )
 
         current_time = datetime.now(tz=UTC)

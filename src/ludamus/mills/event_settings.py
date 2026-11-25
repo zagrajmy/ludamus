@@ -1,22 +1,28 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.mills.event import check_event_dates
-from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import EventSlugConflictError
 from ludamus.pacts.event_settings import (
     EventDisplaySettingsContextDTO,
     EventSettingsServiceProtocol,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.specs.event_publication import resolve_publication
 from ludamus.specs.parley import event_chat_may_close
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ludamus.pacts.event import EventDTO, EventProposalSettingsDTO, EventUpdateData
+    from ludamus.pacts.event import (
+        EventDTO,
+        EventProposalSettingsDTO,
+        EventUpdateData,
+        PublicationIntent,
+    )
     from ludamus.pacts.event_settings import (
         EventSettingsRepos,
         ProposalSettingsUpdateData,
@@ -59,9 +65,26 @@ class EventSettingsService(EventSettingsServiceProtocol):
         self._chat = chat
 
     def update_general(
-        self, *, sphere_id: int, slug: str, data: EventUpdateData
+        self,
+        *,
+        sphere_id: int,
+        slug: str,
+        data: EventUpdateData,
+        publication: PublicationIntent | None = None,
     ) -> None:
         current_event = self._repos.events.read_by_slug(slug, sphere_id)
+        if publication is not None:
+            visibility, publication_time = resolve_publication(
+                intent=publication,
+                event=current_event,
+                start_time=data.get("start_time", current_event.start_time),
+                now=datetime.now(tz=UTC),
+            )
+            data = {
+                **data,
+                "visibility": visibility,
+                "publication_time": publication_time,
+            }
         _check_dates(current_event, data)
         # The unique (sphere, slug) index is the only authority on slug
         # collisions: a pre-flight read loses the race against a concurrent
@@ -74,7 +97,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
             # only re-label the failure when another event really holds the
             # slug now; anything else keeps its own error.
             if self._slug_held_by_other(
-                slug=data.get("slug"), sphere_id=sphere_id, event_pk=current_event.pk
+                slug=data.get("slug"), sphere_id=sphere_id, own_slug=current_event.slug
             ):
                 raise EventSlugConflictError from exc
             raise
@@ -89,14 +112,11 @@ class EventSettingsService(EventSettingsServiceProtocol):
             self._chat.revoke_event(event_id=current_event.pk)
 
     def _slug_held_by_other(
-        self, *, slug: str | None, sphere_id: int, event_pk: int
+        self, *, slug: str | None, sphere_id: int, own_slug: str
     ) -> bool:
-        if slug is None:
+        if slug is None or slug == own_slug:
             return False
-        try:
-            return self._repos.events.read_by_slug(slug, sphere_id).pk != event_pk
-        except NotFoundError:
-            return False
+        return self._repos.events.slug_exists(sphere_id, slug)
 
     def get_display_context(
         self, *, sphere_id: int, slug: str

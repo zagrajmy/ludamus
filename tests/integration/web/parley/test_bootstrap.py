@@ -22,6 +22,8 @@ from ludamus.pacts.sessions import SessionStatus
 from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.user import AgeBand
 from tests.integration.conftest import (
+    EncounterFactory,
+    EncounterRSVPFactory,
     EventFactory,
     SessionFactory,
     SessionParticipationFactory,
@@ -105,6 +107,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": elsewhere.name,
             "canWrite": True,
             "canModerate": True,
+            "moderating": False,
         },
         {
             "id": f"event:{sphere.pk}:{event.pk}",
@@ -113,6 +116,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": event.name,
             "canWrite": True,
             "canModerate": False,
+            "moderating": False,
         },
         {
             "id": f"session:{sphere.pk}:{confirmed.pk}",
@@ -121,6 +125,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Mothership",
             "canWrite": True,
             "canModerate": False,
+            "moderating": False,
         },
         {
             "id": f"session:{sphere.pk}:{facilitated.pk}",
@@ -129,6 +134,7 @@ def test_returns_scoped_rooms_and_verifiable_capability(
             "title": "Workshop",
             "canWrite": False,
             "canModerate": False,
+            "moderating": False,
         },
     ]
     assert payload["agentHost"] == "parley.example.com"
@@ -296,3 +302,79 @@ def test_says_whether_age_keeps_direct_messages_shut(
     payload = response.json()
     assert payload["canMessage"] is can_message
     assert payload["ageGate"] == age_gate
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_points_a_moderator_to_this_sphere_s_page_of_rooms_they_are_not_in(
+    authenticated_client, active_user, event, sphere
+):
+    sphere.managers.add(active_user)
+    watched = SessionFactory(event=event, category=None)
+    elsewhere = SphereFactory()
+    elsewhere.managers.add(active_user)
+    SessionFactory(
+        event=EventFactory(
+            sphere=elsewhere, start_time=event.start_time, end_time=event.end_time
+        ),
+        category=None,
+    )
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    payload = response.json()
+    assert sorted((room["id"], room["moderating"]) for room in payload["rooms"]) == (
+        sorted(
+            [
+                (f"organizers:{sphere.pk}", False),
+                (f"organizers:{elsewhere.pk}", False),
+                (f"session:{sphere.pk}:{watched.pk}", True),
+            ]
+        )
+    )
+    assert payload["moderationUrl"] == reverse("multiverse:panel:chats")
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_leaves_the_moderation_page_out_for_someone_who_moderates_nothing_here(
+    authenticated_client, active_user, event
+):
+    session = SessionFactory(event=event, category=None)
+    SessionParticipationFactory(
+        session=session, user=active_user, status=SessionParticipationStatus.CONFIRMED
+    )
+
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    payload = response.json()
+    assert payload["moderationUrl"] is None
+
+
+@pytest.mark.usefixtures("parley_settings")
+def test_an_encounter_made_before_encounter_chats_has_one_once_they_open(
+    authenticated_client, active_user
+):
+    active_user.age_band = AgeBand.SIXTEEN_PLUS
+    active_user.save()
+    creator = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+    encounter = EncounterFactory(creator=creator, title="Sesja Blades")
+    EncounterRSVPFactory(encounter=encounter, user=active_user)
+
+    call_command("open_parley_encounter_chats", stdout=StringIO())
+    again = StringIO()
+    call_command("open_parley_encounter_chats", stdout=again)
+    response = authenticated_client.get(reverse("parley_bootstrap"))
+
+    assert_response(response, HTTPStatus.OK)
+    assert again.getvalue() == "Synced the chats of 1 encounters.\n"
+    [chat] = response.json()["conversations"]
+    assert (chat["kind"], chat["title"], chat["canWrite"]) == (
+        "encounter",
+        "Sesja Blades",
+        True,
+    )
+    assert {person["id"] for person in chat["members"]} == {
+        str(creator.pk),
+        str(active_user.pk),
+    }

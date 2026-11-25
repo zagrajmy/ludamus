@@ -13,6 +13,7 @@ from ludamus.inits.builders import (
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_encounter_chats,
     build_printables_reminder,
     build_sites,
     build_sphere_subscriptions,
@@ -37,13 +38,17 @@ from ludamus.links.db.django.encounter_invites import SignedReplyAddress
 from ludamus.links.db.django.moderation_mail import DjangoModerationMailer
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.parley_mention_mail import DjangoParleyMentionMailer
+from ludamus.links.db.django.tickets import DjangoTicketMailer
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.google_forms import GoogleDocsProposalImporter
 from ludamus.links.google_sheets import KonwencikSheetExporter
+from ludamus.links.order_claim_tokens import DjangoOrderClaimCodec
 from ludamus.links.parley_mention_tokens import HmacMentionVerifier
+from ludamus.links.payment_api.stripe import StripeBilling, StripeConnect, build_client
 from ludamus.links.signed_tokens import DjangoParleyMentionUnsubscribeCodec
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.mills.billing import PlanService
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.dashboard import DashboardService, SphereSubscriptionService
 from ludamus.mills.discounts import DiscountsService
@@ -66,6 +71,7 @@ from ludamus.mills.event import (
     LandingService,
     PanelTimeSlotsService,
 )
+from ludamus.mills.event_deletion import EventDeletionService
 from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -91,7 +97,7 @@ from ludamus.mills.panel_proposals import ProposalPageService, ProposalPanelServ
 from ludamus.mills.parley import ParleyRevocationService, ParleyService
 from ludamus.mills.parley_conversations import (
     ParleyConversationService,
-    ParleyPartyChatService,
+    ParleyOwnedChatService,
 )
 from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
@@ -129,6 +135,7 @@ from ludamus.mills.sphere import (
 from ludamus.mills.staff_cases import StaffCaseService
 from ludamus.mills.tags import TagService
 from ludamus.mills.team import SphereTeamService
+from ludamus.mills.tickets import PayoutService, TicketPanelService, TicketSalesService
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -156,10 +163,13 @@ from ludamus.pacts.propose import (
     ProposalCategorySettingsRepos,
     ProposeRepos,
 )
+from ludamus.pacts.tickets import TicketRepos
 from ludamus.pacts.timetable import TimetableRepos
 from ludamus.pacts.user import gravatar_url
 
 if TYPE_CHECKING:
+    import stripe
+
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
@@ -169,6 +179,17 @@ if TYPE_CHECKING:
         IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
+
+
+_STRIPE_CLIENTS: dict[str, stripe.StripeClient | None] = {}
+
+
+def _stripe_client(api_key: str) -> stripe.StripeClient | None:
+    # One pooled client per process; keyed by key, so a test overriding the
+    # setting gets its own.
+    if api_key not in _STRIPE_CLIENTS:
+        _STRIPE_CLIENTS[api_key] = build_client(api_key)
+    return _STRIPE_CLIENTS[api_key]
 
 
 class Services:
@@ -211,12 +232,16 @@ class Services:
         )
 
     @cached_property
-    def parley_party_chats(self) -> ParleyPartyChatService:
-        return ParleyPartyChatService(
+    def parley_party_chats(self) -> ParleyOwnedChatService:
+        return ParleyOwnedChatService(
             transaction=self._transaction,
-            repository=self._repos.parley_conversations,
+            repository=self._repos.party_chats,
             outbox=parley_membership_outbox(),
         )
+
+    @cached_property
+    def parley_encounter_chats(self) -> ParleyOwnedChatService:
+        return build_parley_encounter_chats(parley_membership_outbox())
 
     @cached_property
     def parley_revocations(self) -> ParleyRevocationService:
@@ -226,6 +251,7 @@ class Services:
             conversations=self._repos.parley_conversations,
             memberships=parley_membership_outbox(),
             party_chats=self.parley_party_chats,
+            encounter_chats=self.parley_encounter_chats,
         )
 
     @cached_property
@@ -411,6 +437,14 @@ class Services:
         )
 
     @cached_property
+    def event_deletion(self) -> EventDeletionService:
+        return EventDeletionService(
+            transaction=self._transaction,
+            repository=self._repos.event_deletion,
+            notifier=DjangoUserNotifier(),
+        )
+
+    @cached_property
     def panel_time_slots(self) -> PanelTimeSlotsService:
         return PanelTimeSlotsService(
             transaction=self._transaction,
@@ -542,7 +576,6 @@ class Services:
             panel_settings=self._repos.event_panel_settings,
             facilitators=self._repos.facilitators,
             tracks=self._repos.tracks,
-            time_slots=self._repos.time_slots,
         )
 
     @cached_property
@@ -563,6 +596,7 @@ class Services:
             schedule_change_logs=self._repos.schedule_change_logs,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
+            events=self._repos.events,
             notifier=DjangoUserNotifier(),
         )
 
@@ -611,7 +645,6 @@ class Services:
             ProposalCategorySettingsRepos(
                 categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
-                time_slots=self._repos.time_slots,
                 sessions=self._repos.sessions,
             ),
         )
@@ -740,7 +773,7 @@ class Services:
 
     @cached_property
     def _encounter_guests(self) -> EncounterGuests:
-        return build_encounter_guests(self.sites)
+        return build_encounter_guests(self.sites, self.parley_encounter_chats)
 
     @cached_property
     def encounter_replies(self) -> EncounterReplyService:
@@ -801,7 +834,6 @@ class Services:
             self._repos.session_fields,
             self._repos.personal_data_fields,
             self._repos.personal_data_field_values,
-            self._repos.time_slots,
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
@@ -844,6 +876,7 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitators=self._repos.facilitators,
                 users=self._repos.active_users,
+                time_slots=self._repos.time_slots,
             ),
             cache=DjangoCache(),
         )
@@ -864,7 +897,6 @@ class Services:
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
             spaces=self._repos.spaces,
-            time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
         )
@@ -892,4 +924,63 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def _ticket_repos(self) -> TicketRepos:
+        return TicketRepos(
+            ticket_types=self._repos.ticket_types,
+            orders=self._repos.ticket_orders,
+            accounts=self._repos.payout_accounts,
+            plans=self._repos.sphere_plans,
+            users=self._repos.active_users,
+        )
+
+    @cached_property
+    def _stripe_connect(self) -> StripeConnect:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_CONNECT_WEBHOOK_SECRET
+        root_domain: str = settings.ROOT_DOMAIN
+        return StripeConnect(
+            client=_stripe_client(api_key),
+            webhook_secret=webhook_secret,
+            idempotency_namespace=root_domain,
+        )
+
+    @cached_property
+    def payouts(self) -> PayoutService:
+        return PayoutService(
+            transaction=self._transaction,
+            accounts=self._repos.payout_accounts,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def ticket_sales(self) -> TicketSalesService:
+        return TicketSalesService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+            mailer=DjangoTicketMailer(),
+            claims=DjangoOrderClaimCodec(),
+        )
+
+    @cached_property
+    def ticket_panel(self) -> TicketPanelService:
+        return TicketPanelService(
+            transaction=self._transaction,
+            repos=self._ticket_repos,
+            payments=self._stripe_connect,
+        )
+
+    @cached_property
+    def plan(self) -> PlanService:
+        api_key: str = settings.STRIPE_SECRET_KEY
+        webhook_secret: str = settings.STRIPE_BILLING_WEBHOOK_SECRET
+        return PlanService(
+            transaction=self._transaction,
+            plans=self._repos.sphere_plans,
+            billing=StripeBilling(
+                client=_stripe_client(api_key), webhook_secret=webhook_secret
+            ),
         )

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ludamus.mills.propose.importing import ProposalImportService
-from ludamus.pacts.integrations import EventIntegrationDTO
 from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
@@ -17,7 +16,7 @@ from ludamus.pacts.propose import (
     QuestionTarget,
 )
 from ludamus.pacts.sessions import SessionStatus
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import FakeTransaction, event_integration_dto
 
 SPHERE_ID = 1
 EVENT_ID = 4
@@ -26,12 +25,13 @@ _NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 _SETTINGS = ImportSettings(questions={"Title": QuestionTarget(to="session.title")})
 
 if TYPE_CHECKING:
+    from ludamus.pacts.integrations import EventIntegrationDTO
     from ludamus.pacts.sessions import SessionData
 
 
 class _Integrations:
     def __init__(self, *titles: str) -> None:
-        self.integration = EventIntegrationDTO.model_construct(
+        self.integration = event_integration_dto(
             pk=INTEGRATION_PK, settings_json=_SETTINGS.model_dump_json()
         )
         self.rows = [ImportRow({"Title": title}) for title in titles]
@@ -90,7 +90,6 @@ def _service(
             session_fields=None,
             personal_fields=None,
             personal_data_field_values=None,
-            time_slots=None,
             tracks=None,
             categories=None,
             facilitators=None,

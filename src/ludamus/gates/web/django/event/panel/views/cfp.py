@@ -32,7 +32,7 @@ class CFPPageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["active_tab"] = "types"
         context["tab_urls"] = cfp_tab_urls(slug)
         page = self.request.services.proposal_categories.get_page_context(
@@ -43,10 +43,6 @@ class CFPPageView(EventPanelMixin, View):
         # Why Delete is unavailable, per row. Built here rather than on the page
         # DTO because that DTO is assembled in mills, which must not import
         # Django and so cannot hold a translated string.
-        # NOTE: "Has proposals" rather than the time-slot page's "Used by
-        # proposals" because Polish adjectives agree in gender: one msgid
-        # cannot serve both the feminine "kategoria" and the masculine
-        # "przedział czasowy". The verb form is gender-neutral.
         context["undeletable_category_reasons"] = dict.fromkeys(
             page.undeletable_pks, _("Has proposals")
         )
@@ -66,7 +62,7 @@ class CFPCreatePageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["form"] = ProposalCategoryForm()
         return TemplateResponse(self.request, "panel/cfp-create.html", context)
 
@@ -80,7 +76,7 @@ class CFPCreatePageView(EventPanelMixin, View):
 
         form = ProposalCategoryForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["form"] = form
             return TemplateResponse(self.request, "panel/cfp-create.html", context)
 

@@ -35,6 +35,18 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 -translate-y-px">
+                <button type="button"
+                        data-command-menu-open
+                        aria-haspopup="dialog"
+                        aria-keyshortcuts="Control+K Meta+K"
+                        aria-label="{% translate "Open command menu" %}"
+                        class="h-9 px-2 rounded-full flex items-center gap-1.5 cursor-pointer transition-colors duration-150 hover:bg-bg-tertiary focus:outline-none focus-visible:bg-bg-tertiary text-foreground-secondary hover:text-foreground-primary">
+                    {% icon "magnifying-glass" class="w-5 h-5" %}
+                    {# command-menu.ts rewrites this to ⌘K on Apple devices. #}
+                    <kbd data-command-menu-shortcut
+                         aria-hidden="true"
+                         class="hidden md:inline font-sans text-xs text-foreground-muted">Ctrl K</kbd>
+                </button>
                 {% if request.user.is_authenticated %}
                     {% include "components/notifications.html" %}
                     <div class="relative" data-menu data-menu-hover>
