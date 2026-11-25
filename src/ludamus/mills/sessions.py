@@ -425,6 +425,8 @@ class ProposalAcceptanceService:
             self._sessions.lock(session_id)
             if space_id is not None:
                 self._spaces.lock(space_id)
+            # Accepting on to a time the event does not cover yet moves the
+            # event, the same way dragging a card past its edge does.
             widen_event_dates(
                 events=self._agenda.events,
                 event_pk=event.pk,
