@@ -85,7 +85,9 @@ export function PlacesSheet() {
 
   return (
     <Sheet panel="places" title={copy.places}>
-      {editor !== null && naming !== null && <NameForm editor={editor} shape={naming} />}
+      {editor !== null && naming !== null && (
+        <NameForm editor={editor} key={naming} shape={naming} />
+      )}
       {naming === null && candidate !== null && (
         <button
           className="btn btn-secondary mb-2 min-h-11 w-full gap-2"

@@ -38,7 +38,7 @@ from ludamus.pacts.board import (
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.specs.board import BOARD_BOOTSTRAP_LIMIT, BOARD_SHARE_CODE_LENGTH
-from tests.unit.encounter_fakes import FakeCache
+from tests.unit.cache_fakes import FakeCounter
 from tests.unit.factories import FakeTransaction
 
 NOW = datetime(2026, 11, 12, 18, tzinfo=UTC)
@@ -150,12 +150,12 @@ class FakeRooms:
         self.wiped.append((board_id, token))
 
 
-def _service(*, worker=WORKER, boards=None, signer=None, cache=None, rooms=None):
+def _service(*, worker=WORKER, boards=None, signer=None, counter=None, rooms=None):
     return BoardService(
         transaction=FakeTransaction(),
         boards=boards if boards is not None else FakeBoards(),
         signer=signer or ClaimsSigner(),
-        cache=cache or FakeCache(),
+        counter=counter or FakeCounter(),
         rooms=rooms or FakeRooms(),
         worker=worker,
     )
@@ -380,8 +380,8 @@ class TestBootstrap:
         assert not signer.signed
 
     def test_one_address_is_throttled_another_is_not(self):
-        cache = FakeCache()
-        service = _service(cache=cache)
+        counter = FakeCounter()
+        service = _service(counter=counter)
         board = self._board(service)
         for _ in range(BOARD_BOOTSTRAP_LIMIT):
             _bootstrap(service, board, user_id=OTHER)
@@ -390,7 +390,7 @@ class TestBootstrap:
             _bootstrap(service, board, user_id=OTHER)
         assert _bootstrap(service, board, user_id=OTHER, client_ip="198.51.100.1")
         assert _bootstrap(service, board, user_id=OTHER, now=NOW + timedelta(minutes=1))
-        assert not any("203.0.113.5" in key for key in cache.entries)
+        assert not any("203.0.113.5" in key for key in counter.hits)
 
 
 class TestOwnerActions:

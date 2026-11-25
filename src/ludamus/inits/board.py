@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.links.board_worker import BoardWorkerClient
-from ludamus.links.cache import DjangoCache
+from ludamus.links.cache import DjangoCacheCounter
 from ludamus.links.encryption import JwtSigner
 from ludamus.links.parley_worker import is_local
 from ludamus.mills.board import BoardService
@@ -37,7 +37,7 @@ def board_service(
         transaction=transaction,
         boards=boards,
         signer=JwtSigner(signing_private_key),
-        cache=DjangoCache(),
+        counter=DjangoCacheCounter(),
         rooms=BoardWorkerClient(worker),
         worker=worker,
     )

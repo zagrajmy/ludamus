@@ -25,7 +25,11 @@ export function poolLabel(copy: Copy, sides: number[]): string {
 }
 
 export function rollSentence(copy: Copy, roll: Roll): string {
-  const values = roll.dice.map(({ value }) => value).join(", ");
+  // Same order as poolLabel, so each value reads next to its die.
+  const values = roll.dice
+    .toSorted((a, b) => a.sides - b.sides)
+    .map(({ value }) => value)
+    .join(", ");
   const pool = poolLabel(
     copy,
     roll.dice.map(({ sides }) => sides),

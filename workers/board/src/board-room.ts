@@ -87,13 +87,20 @@ export class BoardRoom extends DurableObject<Env> {
     return null;
   }
 
+  // A reconnect replaces its own retained session, so it takes no new seat.
+  private hasSeatFor(pass: Pass, sessionId: string): boolean {
+    if (this.room.getNumActiveSessions() < MAX_PEOPLE) return true;
+    return this.room
+      .getSessions()
+      .some((session) => session.sessionId === sessionId && session.meta.sub === pass.sub);
+  }
+
   // NOTE: a socket cannot cross an RPC call, so the Worker forwards the
   // upgrade as a request and names the verified pass in PASS_HEADER.
   override fetch(request: Request): Response {
     const pass: Pass = JSON.parse(request.headers.get(PASS_HEADER)!);
     const sessionId = new URL(request.url).searchParams.get("sessionId")!;
-    const refusal =
-      this.admit(pass) ?? (this.room.getNumActiveSessions() >= MAX_PEOPLE ? "full" : null);
+    const refusal = this.admit(pass) ?? (this.hasSeatFor(pass, sessionId) ? null : "full");
     if (refusal !== null) {
       log("board.refused", { board: pass.board, person: kind(pass.sub), reason: refusal });
       const { 0: client, 1: server } = new WebSocketPair();

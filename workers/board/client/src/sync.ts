@@ -79,14 +79,18 @@ export function useBoardStore({
     };
   }, [attempt, color, keeper, person, rolls.receive]);
   const store = useSync(syncOptions);
-  const refusal = store.status === "error" ? refusalOf(store.error) : null;
+  const error = store.status === "error" ? store.error : null;
+  const refusal = error === null ? null : refusalOf(error);
 
+  // NOTE: useSync keeps the old error until the next one replaces it, so a
+  // second ROOM_FULL leaves refusal at "full"; the error object is what
+  // changes, and the retry re-arms on it.
   useEffect(() => {
     if (refusal === "gone" || refusal === "link-reset") keeper.end(refusal);
     if (refusal !== "full") return;
     const retry = setTimeout(() => setAttempt((count) => count + 1), FULL_RETRY_MS);
     return () => clearTimeout(retry);
-  }, [keeper, refusal]);
+  }, [error, keeper, refusal]);
 
   return { refusal, store };
 }

@@ -44,7 +44,7 @@ if TYPE_CHECKING:
         BoardSignerProtocol,
         BoardWorkerDTO,
     )
-    from ludamus.pacts.cache import CacheProtocol
+    from ludamus.pacts.cache import CounterProtocol
     from ludamus.pacts.ids import UserId
     from ludamus.pacts.services import TransactionProtocol
 
@@ -89,14 +89,14 @@ class BoardService(BoardServiceProtocol):
         transaction: TransactionProtocol,
         boards: BoardRepositoryProtocol,
         signer: BoardSignerProtocol,
-        cache: CacheProtocol,
+        counter: CounterProtocol,
         rooms: BoardRoomsProtocol,
         worker: BoardWorkerDTO | None,
     ) -> None:
         self._transaction = transaction
         self._boards = boards
         self._signer = signer
-        self._cache = cache
+        self._counter = counter
         self._rooms = rooms
         self._worker = worker
 
@@ -241,11 +241,10 @@ class BoardService(BoardServiceProtocol):
         window = int(now.timestamp()) // BOARD_BOOTSTRAP_WINDOW_SECONDS
         address = sha256(client_ip.encode()).hexdigest()
         key = f"board_bootstrap_rate:{window}:{address}"
-        count = self._cache.get(key)
-        if (used := count if isinstance(count, int) else 0) >= BOARD_BOOTSTRAP_LIMIT:
+        hits = self._counter.hit(key, window_seconds=BOARD_BOOTSTRAP_WINDOW_SECONDS)
+        if hits > BOARD_BOOTSTRAP_LIMIT:
             logger.warning("Board pass refused: too many requests")
             raise BoardThrottledError
-        self._cache.set(key, used + 1, timeout=BOARD_BOOTSTRAP_WINDOW_SECONDS)
 
     def read_owned(self, *, pk: int, sphere_id: int, user_id: UserId) -> BoardDTO:
         self._require_available()

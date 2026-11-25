@@ -31,14 +31,14 @@ export function suggestedName(shape: TLShape): string {
 function setMeta(editor: Editor, id: TLShapeId, name: string | null): void {
   const shape = editor.getShape(id);
   if (shape === undefined) return;
-  const { [PLACE_KEY]: _previous, ...meta } = shape.meta;
-  // NOTE: maps and sheets are usually locked so nobody drags them by
-  // accident; naming one is not moving it.
+  // NOTE: updateShape merges meta, so removing a place writes null rather
+  // than leaving the key out. Maps and sheets are usually locked so nobody
+  // drags them by accident; naming one is not moving it.
   editor.run(
     () => {
       editor.updateShape({
         id,
-        meta: name === null ? meta : { ...meta, [PLACE_KEY]: name },
+        meta: { ...shape.meta, [PLACE_KEY]: name },
         type: shape.type,
       });
     },

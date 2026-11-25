@@ -1,7 +1,7 @@
 import { TLSyncErrorCloseEventCode, TLSyncErrorCloseEventReason } from "@tldraw/sync-core";
 import { describe, expect, it } from "vitest";
 
-import { MAX_PEOPLE } from "../src/limits";
+import { MAX_NAME_LENGTH, MAX_PEOPLE } from "../src/limits";
 import { call, now, open, pass, seat, until } from "./support";
 
 describe("a pass", () => {
@@ -10,7 +10,13 @@ describe("a pass", () => {
     expect(response.status).toBe(101);
   });
 
+  it("counts a name in characters, as Django does", async () => {
+    const { response } = await open("b1", await pass({ name: "🎲".repeat(MAX_NAME_LENGTH) }));
+    expect(response.status).toBe(101);
+  });
+
   it.each([
+    ["with a name one character too long", () => pass({ name: "🎲".repeat(MAX_NAME_LENGTH + 1) })],
     ["for another board", () => pass({ board: "b2" })],
     ["for Parley", () => pass({ audience: "parley" })],
     ["that expired", () => pass({ issuedAt: now() - 3_600 })],
@@ -65,5 +71,26 @@ describe("a refusal on the socket", () => {
     const free = seated[0]!;
     free.send({ type: "ping" });
     await until(() => free.received.some((message) => message.type === "pong"));
+  });
+
+  it("lets a seated person back into a full board, and nobody else in their seat", async () => {
+    const sessionId = crypto.randomUUID();
+    await seat("rejoin", await pass({ board: "rejoin", sub: "u:0" }), sessionId);
+    for (let person = 1; person < MAX_PEOPLE; person++) {
+      await seat("rejoin", await pass({ board: "rejoin", sub: `u:${person}` }));
+    }
+
+    const back = await seat("rejoin", await pass({ board: "rejoin", sub: "u:0" }), sessionId);
+    const impostor = await open(
+      "rejoin",
+      await pass({ board: "rejoin", sub: "u:late" }),
+      sessionId,
+    );
+
+    expect(back.isClosed()).toBe(false);
+    expect(await impostor.closure).toEqual({
+      code: TLSyncErrorCloseEventCode,
+      reason: TLSyncErrorCloseEventReason.ROOM_FULL,
+    });
   });
 });

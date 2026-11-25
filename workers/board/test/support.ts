@@ -88,8 +88,8 @@ type SyncMessage = { data?: unknown; type: string };
 
 // Speaks just enough of the tldraw sync protocol to become a connected
 // session, then collects what the room sends.
-export async function seat(board: string, token: string) {
-  const { closure, response, socket } = await open(board, token);
+export async function seat(board: string, token: string, sessionId = crypto.randomUUID()) {
+  const { closure, response, socket } = await open(board, token, sessionId);
   if (socket === null) throw new Error(`refused: ${response.status}`);
   const received: SyncMessage[] = [];
   let closed = false;
@@ -121,5 +121,6 @@ export async function until(condition: () => boolean) {
     if (condition()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+  if (condition()) return;
   throw new Error("timed out");
 }

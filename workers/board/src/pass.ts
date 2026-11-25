@@ -32,7 +32,7 @@ export async function verifyPass(token: string, env: PassEnv): Promise<Pass> {
     typeof board !== "string" ||
     typeof name !== "string" ||
     name.length === 0 ||
-    name.length > MAX_NAME_LENGTH ||
+    [...name].length > MAX_NAME_LENGTH ||
     typeof owner !== "boolean" ||
     !Number.isInteger(link) ||
     (link as number) < 0
