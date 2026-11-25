@@ -5577,7 +5577,6 @@ msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
 #: src/ludamus/templates/components/bottom-sheet.html
-#: src/ludamus/templates/event/parts/session-modal.html
 #: src/ludamus/templates/user/user/_email_verify_modal.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Close"
