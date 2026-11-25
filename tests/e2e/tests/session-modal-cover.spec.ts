@@ -309,6 +309,10 @@ test.describe("Session modal cover", () => {
     await page.setViewportSize(VIEWPORTS.phone);
     await page.goto(EVENT_URL);
     const dialog = await openSession(page, COVERED);
+    const close = dialog.getByRole("button", { name: "Close" });
+    // A bare white icon on the cover, which it leaves with below.
+    await expect(close).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(close).toHaveCSS("color", "rgb(255, 255, 255)");
 
     await dialog.locator("[data-session-description]").evaluate((element) => {
       element.insertAdjacentHTML(
@@ -325,7 +329,7 @@ test.describe("Session modal cover", () => {
     const tabsBox = await boxOf(dialog.getByRole("tablist"));
     const scrollerBox = await boxOf(scroller);
     expect(Math.abs(tabsBox.y - scrollerBox.y)).toBeLessThanOrEqual(1);
-    await expect(dialog.getByRole("button", { name: "Close" })).toBeInViewport();
+    await expect(close).not.toBeInViewport();
   });
 
   test("keeps the plain header for a session without a cover", async ({ page }) => {
