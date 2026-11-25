@@ -1,5 +1,5 @@
 import contextlib
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
@@ -12,8 +12,8 @@ from ludamus.mills.sessions import (
     SessionContentEditService,
     SessionDeletionService,
 )
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import SessionFieldValueData, SessionFieldValueDTO
 from ludamus.pacts.session_cards import (
@@ -36,27 +36,19 @@ from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import AgendaItemDTO, ScheduleChangeAction
 from ludamus.pacts.venues import SpaceOptionDTO
 from tests.unit.factories import (
+    FakeSessionFields,
     FakeTransaction,
     FakeUsers,
+    agenda_item_dto,
     event_dto,
+    facilitator_dto,
+    organizer_field_dto,
     session_dto,
+    session_field_value_dto,
+    sphere_dto,
     track_dto,
     user_dto,
 )
-
-
-def _make_item(**overrides):
-    defaults = {
-        "pk": 1,
-        "session_id": 1,
-        "session_title": "Session",
-        "space_id": 1,
-        "start_time": datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-        "end_time": datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        "schedule_confirmed": False,
-    }
-    defaults.update(overrides)
-    return AgendaItemDTO(**defaults)
 
 
 class TestContentEditRevert:
@@ -164,7 +156,7 @@ class TestContentEditRevert:
         )
 
     def test_session_history_rejects_cross_event_session(self, service, repos):
-        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+        repos.sessions.read_event.return_value = event_dto(pk=2)
 
         with pytest.raises(NotFoundError):
             service.session_history(event_id=1, session_id=5)
@@ -235,22 +227,19 @@ class TestContentEditStoresAnswers:
     def test_every_kind_of_change_is_written_and_logged_once(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Old")
         repos.sessions.read_field_values.return_value = [
-            SimpleNamespace(field_id=7, value="Pathfinder"),
-            SimpleNamespace(field_id=8, value="gone"),
+            session_field_value_dto(field_id=7, value="Pathfinder"),
+            session_field_value_dto(field_id=8, value="gone"),
         ]
         repos.sessions.read_facilitators.side_effect = [
-            [SimpleNamespace(display_name="Bob")],
-            [SimpleNamespace(display_name="Ann")],
+            [facilitator_dto(display_name="Bob")],
+            [facilitator_dto(display_name="Ann")],
         ]
         repos.sessions.read_tracks.side_effect = [
-            [SimpleNamespace(name="RPG")],
-            [SimpleNamespace(name="LARP")],
+            [track_dto(name="RPG")],
+            [track_dto(name="LARP")],
         ]
-        slot = SimpleNamespace(
-            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
-        )
-        repos.sessions.read_preferred_time_slots.side_effect = [[], [slot]]
+        evening = AvailabilityDTO(day=date(2026, 1, 1), offer=DayPart.EVENING)
+        repos.sessions.read_availability.side_effect = [[], [evening]]
 
         service.apply(
             session_id=5,
@@ -263,7 +252,7 @@ class TestContentEditStoresAnswers:
                 ],
                 facilitator_ids=[1],
                 track_ids=[2],
-                time_slot_ids=[3],
+                availability=[evening],
                 remove_field_ids=[8, 99],
             ),
         )
@@ -279,11 +268,8 @@ class TestContentEditStoresAnswers:
         repos.sessions.set_facilitators.assert_called_once_with(5, [1])
         assert repos.sessions.read_tracks.call_args_list == [call(5), call(5)]
         repos.sessions.set_session_tracks.assert_called_once_with(5, [2])
-        assert repos.sessions.read_preferred_time_slots.call_args_list == [
-            call(5),
-            call(5),
-        ]
-        repos.sessions.set_time_slots.assert_called_once_with(5, [3])
+        assert repos.sessions.read_availability.call_args_list == [call(5), call(5)]
+        repos.sessions.set_availability.assert_called_once_with(5, [evening])
         repos.content_change_logs.create.assert_called_once_with(
             {
                 "event_id": 1,
@@ -301,10 +287,10 @@ class TestContentEditStoresAnswers:
                     },
                     {"field": "tracks", "field_id": None, "old": "RPG", "new": "LARP"},
                     {
-                        "field": "time_slots",
+                        "field": "availability",
                         "field_id": None,
                         "old": "",
-                        "new": "2026-01-01T10:00:00+00:00 - 2026-01-01T12:00:00+00:00",
+                        "new": "2026-01-01 evening",
                     },
                 ],
             }
@@ -313,7 +299,7 @@ class TestContentEditStoresAnswers:
     def test_an_edit_that_changes_nothing_writes_no_log(self, service, repos):
         repos.sessions.read.return_value = _session_dto(pk=5, title="Same")
         repos.sessions.read_facilitators.return_value = [
-            SimpleNamespace(display_name="Bob")
+            facilitator_dto(display_name="Bob")
         ]
 
         service.apply(
@@ -355,7 +341,7 @@ class TestContentEditResizesAgendaItem:
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
-            agenda_items=_FakeAgendaItems(_make_item()),
+            agenda_items=_FakeAgendaItems(agenda_item_dto()),
             waitlist_promotion=MagicMock(),
         )
         repos.sessions.read.return_value = _session_dto(duration="PT1H")
@@ -502,6 +488,8 @@ class TestSessionConfirmation:
 
 
 _NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+_DEFAULT_DURATION_MINUTES = 60
+_END = _NOW + timedelta(minutes=_DEFAULT_DURATION_MINUTES)
 _SESSION_PK = 5
 
 
@@ -561,13 +549,22 @@ class TestProposalAcceptanceService:
         return MagicMock()
 
     @pytest.fixture
+    def events(self, sessions):
+        events = MagicMock()
+        # Widening re-reads the event under its lock; that row is the session's.
+        events.read.side_effect = lambda _pk: sessions.read_event.return_value
+        return events
+
+    @pytest.fixture
     def transaction(self):
         transaction = MagicMock()
         transaction.atomic.return_value.__enter__.return_value = None
         return transaction
 
     @pytest.fixture
-    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+    def service(
+        self, transaction, sessions, agenda_items, active_users, spheres, events
+    ):
         return ProposalAcceptanceService(
             transaction=transaction,
             sessions=sessions,
@@ -575,6 +572,7 @@ class TestProposalAcceptanceService:
             schedule_change_logs=MagicMock(),
             active_users=active_users,
             spheres=spheres,
+            events=events,
             notifier=MagicMock(),
         )
 
@@ -584,10 +582,20 @@ class TestProposalAcceptanceService:
         sessions.read_event.return_value = _event_dto()
         sessions.read_presenter.return_value = None
         sessions.read_space_options.return_value = []
-        sessions.read_time_slots.return_value = []
-        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_availability.return_value = [
+            AvailabilityDTO(day=_NOW.date(), offer=DayPart.MORNING)
+        ]
         sessions.read_field_values.return_value = []
         active_users.read.return_value = _user_dto()
+
+    @staticmethod
+    def _arrange_accept(sessions, *, auto_confirm_sessions=False):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_event.return_value = _event_dto(
+            start_time=_NOW - timedelta(days=1),
+            end_time=_NOW + timedelta(days=1),
+            auto_confirm_sessions=auto_confirm_sessions,
+        )
 
     def test_can_accept_true_for_superuser_without_a_role(
         self, service, sessions, active_users, spheres
@@ -632,15 +640,30 @@ class TestProposalAcceptanceService:
         assert context.can_accept is False
         spheres.manager_role.assert_called_once_with(3, "member")
 
+    def test_accept_session_past_the_event_end_widens_the_event(
+        self, service, sessions, agenda_items, active_users, spheres, events
+    ):
+        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
+        sessions.read_event.return_value = _event_dto(
+            start_time=_NOW - timedelta(days=1), end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5, space_id=7, start_time=_NOW, user_slug="manager", sphere_id=3
+        )
+
+        events.lock.assert_called_once_with(9)
+        events.update.assert_called_once_with(9, {"end_time": _END})
+
     def test_accept_session_raises_on_space_time_conflict(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
-        sessions.read_time_slot.return_value = SimpleNamespace(
-            start_time=_NOW, end_time=_NOW
-        )
+        self._arrange_accept(sessions)
         agenda_items.list_overlapping_in_space.return_value = [
-            _make_item(pk=9, space_id=7)
+            agenda_item_dto(pk=9, space_id=7)
         ]
         active_users.read.return_value = _user_dto()
         spheres.manager_role.return_value = SphereRole.MANAGER
@@ -649,7 +672,7 @@ class TestProposalAcceptanceService:
             service.accept_session(
                 session_id=5,
                 space_id=7,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )
@@ -660,17 +683,13 @@ class TestProposalAcceptanceService:
     def test_accept_session_allowed_for_superuser(
         self, service, sessions, agenda_items, active_users, spheres
     ):
-        sessions.read.return_value = _session_dto(pk=5, facilitator_name="Alice")
-        sessions.read_time_slot.return_value = SimpleNamespace(
-            start_time=_NOW, end_time=_NOW
-        )
-        sessions.read_event.return_value = _event_dto(auto_confirm_sessions=True)
+        self._arrange_accept(sessions, auto_confirm_sessions=True)
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto(is_superuser=True)
         spheres.manager_role.return_value = None
 
         service.accept_session(
-            session_id=5, space_id=7, time_slot_id=2, user_slug="root", sphere_id=3
+            session_id=5, space_id=7, start_time=_NOW, user_slug="root", sphere_id=3
         )
 
         sessions.update.assert_called_once_with(
@@ -690,7 +709,11 @@ class TestProposalAcceptanceService:
 
         with pytest.raises(ProposalAcceptDeniedError):
             service.accept_session(
-                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+                session_id=5,
+                space_id=7,
+                start_time=_NOW,
+                user_slug="press",
+                sphere_id=3,
             )
 
         sessions.update.assert_not_called()
@@ -706,7 +729,7 @@ class TestProposalAcceptanceService:
             service.accept_session(
                 session_id=5,
                 space_id=7,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="member",
                 sphere_id=3,
             )
@@ -729,15 +752,11 @@ class _FakeSessions:
         self.event = event or _event_dto()
         self.form: dict = {"presenter": None, "space_options": [], "field_values": []}
         self.updates: dict[int, dict] = {}
-        self.related: dict[str, dict] = {
-            "facilitators": {},
-            "tracks": {},
-            "time_slots": {},
-        }
+        self.related: dict[str, dict] = {"facilitators": {}, "tracks": {}}
         self.related_ids: dict[str, list[int]] = {
             "facilitators": [],
             "tracks": [],
-            "time_slots": [],
+            "availability": [],
         }
         self.calls: dict[str, list] = {
             "locked": [],
@@ -781,18 +800,6 @@ class _FakeSessions:
         self.read(session_id)
         return list(self.form["space_options"])
 
-    def read_time_slots(self, session_id):
-        self.read(session_id)
-        return list(self.related["time_slots"].values())
-
-    def read_time_slot(self, session_id, time_slot_id):
-        self.read(session_id)
-        return self.related["time_slots"][time_slot_id]
-
-    def read_preferred_time_slot_ids(self, session_id):
-        self.read(session_id)
-        return list(self.related_ids["time_slots"])
-
     def delete_field_values_for_fields(self, session_id, field_ids):
         self.calls["deleted_field_ids"].append((session_id, field_ids))
 
@@ -808,11 +815,11 @@ class _FakeSessions:
     def set_session_tracks(self, session_pk, track_pks):
         self.related_ids["tracks"] = track_pks
 
-    def read_preferred_time_slots(self, session_id):
-        return self._related("time_slots")
+    def read_availability(self, session_id):
+        return list(self.related_ids["availability"])
 
-    def set_time_slots(self, session_id, time_slot_ids):
-        self.related_ids["time_slots"] = time_slot_ids
+    def set_availability(self, session_id, offered):
+        self.related_ids["availability"] = list(offered)
 
     def _related(self, kind):
         return [self.related[kind][pk] for pk in self.related_ids[kind]]
@@ -867,21 +874,13 @@ class _FakeScheduleChangeLogs:
         return len(self.rows)
 
 
-class _FakeSessionFields:
-    def __init__(self, *fields):
-        self.rows = list(fields)
-
-    def list_by_event(self, event_id):
-        return [field for field in self.rows if field.event_id == event_id]
-
-
 class _FakeSpheres:
     def __init__(self, *, managers=(), require_session_space=True):
         self.managers = set(managers)
         self.require_session_space = require_session_space
 
     def read(self, _sphere_id):
-        return SimpleNamespace(require_session_space=self.require_session_space)
+        return sphere_dto(require_session_space=self.require_session_space)
 
     def manager_role(self, sphere_id, user_slug):
         return SphereRole.MANAGER if (sphere_id, user_slug) in self.managers else None
@@ -916,7 +915,7 @@ _EVENT_PK = 9
 
 class TestSessionConfirmationOfOwnEvent:
     def test_confirms_an_item_whose_session_belongs_to_the_event(self):
-        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(pk=7, session_id=_SESSION_PK))
         sessions = _FakeSessions(_session_dto())
         service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
 
@@ -934,7 +933,7 @@ class TestSessionDeletion:
         return SessionDeletionService(FakeTransaction(), sessions, agenda_items, logs)
 
     def test_soft_delete_frees_the_slot_and_logs_the_unassignment(self):
-        item = _make_item(pk=7, session_id=_SESSION_PK, space_id=4)
+        item = agenda_item_dto(pk=7, session_id=_SESSION_PK, space_id=4)
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
         agenda_items = _FakeAgendaItems(item)
         logs = _FakeScheduleChangeLogs()
@@ -974,7 +973,7 @@ class TestSessionDeletion:
 
     def test_soft_delete_rejects_a_session_from_another_event(self):
         sessions = _FakeSessions(_session_dto())
-        agenda_items = _FakeAgendaItems(_make_item(pk=7, session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(pk=7, session_id=_SESSION_PK))
 
         with pytest.raises(NotFoundError):
             self._service(
@@ -1135,7 +1134,7 @@ class TestProposalStatus:
 
     def test_a_scheduled_session_cannot_leave_accepted(self):
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
-        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(session_id=_SESSION_PK))
 
         with pytest.raises(ProposalScheduledError):
             self._service(sessions, agenda_items).mark_rejected(
@@ -1146,7 +1145,7 @@ class TestProposalStatus:
 
     def test_a_scheduled_session_can_be_re_accepted(self):
         sessions = _FakeSessions(_session_dto(status=SessionStatus.ACCEPTED))
-        agenda_items = _FakeAgendaItems(_make_item(session_id=_SESSION_PK))
+        agenda_items = _FakeAgendaItems(agenda_item_dto(session_id=_SESSION_PK))
 
         self._service(sessions, agenda_items).mark_accepted(
             event_pk=_EVENT_PK, session_pk=_SESSION_PK
@@ -1212,15 +1211,11 @@ class TestContentEditWithFakes:
             waitlist_promotion=MagicMock(),
         )
 
-    @staticmethod
-    def _field_value(field_id, value):
-        return SessionFieldValueDTO(
-            field_id=field_id, field_name="", field_question="", value=value
-        )
-
     def test_dropping_answers_of_removed_fields_logs_them_for_revert(self):
         sessions = _FakeSessions(_session_dto())
-        sessions.form["field_values"] = [self._field_value(7, "Pathfinder")]
+        sessions.form["field_values"] = [
+            session_field_value_dto(field_id=7, value="Pathfinder")
+        ]
         logs = _FakeContentChangeLogs()
 
         self._service(sessions, logs).apply(
@@ -1265,9 +1260,7 @@ class TestContentEditWithFakes:
         sessions.related_ids["facilitators"] = [1]
         sessions.related["tracks"] = {4: _track_dto(4, "RPG"), 5: _track_dto(5, "LARP")}
         sessions.related_ids["tracks"] = [5, 4]
-        sessions.related["time_slots"] = {
-            8: TimeSlotDTO(pk=8, start_time=_NOW, end_time=_NOW + timedelta(hours=2))
-        }
+        evening = AvailabilityDTO(day=date(2024, 6, 1), offer=DayPart.EVENING)
         logs = _FakeContentChangeLogs()
 
         self._service(sessions, logs).apply(
@@ -1275,14 +1268,14 @@ class TestContentEditWithFakes:
             event_id=_EVENT_PK,
             user_id=3,
             data=SessionContentEditData(
-                update={}, facilitator_ids=[2, 1], track_ids=[4], time_slot_ids=[8]
+                update={}, facilitator_ids=[2, 1], track_ids=[4], availability=[evening]
             ),
         )
 
         assert sessions.related_ids == {
             "facilitators": [2, 1],
             "tracks": [4],
-            "time_slots": [8],
+            "availability": [evening],
         }
         assert logs.created[0]["changes"] == [
             {
@@ -1293,10 +1286,10 @@ class TestContentEditWithFakes:
             },
             {"field": "tracks", "field_id": None, "old": "LARP, RPG", "new": "RPG"},
             {
-                "field": "time_slots",
+                "field": "availability",
                 "field_id": None,
                 "old": "",
-                "new": "2024-06-01T12:00:00+00:00 - 2024-06-01T14:00:00+00:00",
+                "new": "2024-06-01 evening",
             },
         ]
 
@@ -1393,10 +1386,14 @@ class TestContentEditWithFakes:
         assert service.list_log(_EVENT_PK) == [mine]
 
     def test_list_field_names_maps_pk_to_current_name(self):
-        session_fields = _FakeSessionFields(
-            SimpleNamespace(pk=7, name="System", event_id=_EVENT_PK),
-            SimpleNamespace(pk=8, name="Diet", event_id=_EVENT_PK),
-            SimpleNamespace(pk=9, name="Other", event_id=_EVENT_PK + 1),
+        session_fields = FakeSessionFields(
+            {
+                _EVENT_PK: [
+                    organizer_field_dto(pk=7, name="System"),
+                    organizer_field_dto(pk=8, name="Diet"),
+                ],
+                _EVENT_PK + 1: [organizer_field_dto(pk=9, name="Other")],
+            }
         )
         service = self._service(
             _FakeSessions(), _FakeContentChangeLogs(), session_fields=session_fields
@@ -1420,24 +1417,36 @@ class TestContentEditWithFakes:
         assert service.revertible_log_pks(_EVENT_PK, logs) == {2}
 
 
-class TestProposalAcceptanceWithFakes:
-    _SLOT = TimeSlotDTO(pk=2, start_time=_NOW, end_time=_NOW + timedelta(hours=1))
-    _LATER_SLOT = TimeSlotDTO(
-        pk=3, start_time=_NOW + timedelta(hours=2), end_time=_NOW + timedelta(hours=3)
-    )
+class _FakeEvents:
+    def __init__(self, event):
+        self.event = event
+        self.locked: list[int] = []
+        self.updates: dict[int, dict] = {}
 
-    @classmethod
-    def _sessions(cls):
+    def lock(self, pk):
+        self.locked.append(pk)
+
+    def read(self, pk):
+        return self.event
+
+    def update(self, pk, data):
+        self.updates[pk] = data
+
+
+class TestProposalAcceptanceWithFakes:
+    _EVENING = AvailabilityDTO(day=_NOW.date(), offer=DayPart.EVENING)
+
+    @staticmethod
+    def _sessions():
         sessions = _FakeSessions(
             _session_dto(facilitator_name="Alice"),
             event=_event_dto(auto_confirm_sessions=True),
         )
-        sessions.related["time_slots"] = {cls._SLOT.pk: cls._SLOT}
         sessions.form["space_options"] = [_HALL]
         return sessions
 
     @staticmethod
-    def _service(sessions, agenda_items, notifier=None):
+    def _service(sessions, agenda_items, events=None, notifier=None):
         return ProposalAcceptanceService(
             transaction=FakeTransaction(),
             sessions=sessions,
@@ -1445,13 +1454,14 @@ class TestProposalAcceptanceWithFakes:
             schedule_change_logs=MagicMock(),
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
+            events=events or _FakeEvents(sessions.event),
             notifier=notifier or _RecordingNotifier(),
         )
 
     def test_accept_context_reads_everything_about_the_session(self):
         sessions = self._sessions()
         sessions.form["presenter"] = _user_dto(pk=2, slug="speaker")
-        sessions.related_ids["time_slots"] = [2]
+        sessions.related_ids["availability"] = [self._EVENING]
         sessions.form["field_values"] = [
             SessionFieldValueDTO(
                 field_id=4, field_name="System", field_question="", value="D&D"
@@ -1467,28 +1477,23 @@ class TestProposalAcceptanceWithFakes:
             event=sessions.event,
             presenter=sessions.form["presenter"],
             space_options=[_HALL],
-            time_slots=[self._SLOT],
-            preferred_time_slot_ids=[2],
+            availability=[self._EVENING],
+            duration_minutes=_DEFAULT_DURATION_MINUTES,
             field_values=sessions.form["field_values"],
             can_accept=True,
             space_required=True,
-            placements=PlacementAvailabilityDTO(
-                taken_space_ids_by_slot={self._SLOT.pk: []},
-                taken_space_ids=[],
-                full_time_slot_ids=[],
-                has_free_placement=True,
-            ),
+            placements=PlacementAvailabilityDTO(busy_by_space={_HALL.pk: []}),
         )
 
     @pytest.mark.parametrize(
         ("space_pk", "taken"),
         (
             pytest.param(7, True, id="overlapping-another-session"),
-            pytest.param(8, False, id="ending-as-the-slot-starts"),
+            pytest.param(8, False, id="ending-as-the-placement-starts"),
             pytest.param(9, False, id="the-session-own-placement"),
         ),
     )
-    def test_the_context_marks_taken_exactly_what_accepting_refuses(
+    def test_the_context_marks_busy_exactly_what_accepting_refuses(
         self, space_pk, taken
     ):
         def placed(pk, space_id, session_id, start):
@@ -1520,8 +1525,12 @@ class TestProposalAcceptanceWithFakes:
             session_id=_SESSION_PK, user_slug="manager", sphere_id=3
         )
         assert context is not None
-        taken_then = context.placements.taken_space_ids_by_slot[self._SLOT.pk]
-        assert (space_pk in taken_then) is taken
+        busy_then = [
+            window
+            for window in context.placements.busy_by_space[space_pk]
+            if window.start < _END and window.end > _NOW
+        ]
+        assert bool(busy_then) is taken
         refusal = (
             pytest.raises(SpaceTimeConflictError) if taken else contextlib.nullcontext()
         )
@@ -1529,57 +1538,10 @@ class TestProposalAcceptanceWithFakes:
             service.accept_session(
                 session_id=_SESSION_PK,
                 space_id=space_pk,
-                time_slot_id=self._SLOT.pk,
+                start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )
-
-    @pytest.mark.parametrize(
-        ("slots", "booked_hall_in", "expected"),
-        (
-            pytest.param(
-                [_SLOT],
-                [_SLOT],
-                ([_HALL.pk], [_SLOT.pk], False),
-                id="the-only-space-booked-in-the-only-slot",
-            ),
-            pytest.param(
-                [_SLOT, _LATER_SLOT],
-                [_SLOT],
-                ([], [_SLOT.pk], True),
-                id="booked-in-one-slot-free-in-the-other",
-            ),
-            pytest.param([], [], ([], [], False), id="no-slots-takes-no-space"),
-        ),
-    )
-    def test_placements_name_what_neither_choice_can_offer(
-        self, slots, booked_hall_in, expected
-    ):
-        sessions = self._sessions()
-        sessions.related["time_slots"] = {slot.pk: slot for slot in slots}
-        booked = [
-            AgendaItemDTO(
-                pk=index,
-                space_id=_HALL.pk,
-                session_id=90 + index,
-                start_time=slot.start_time,
-                end_time=slot.end_time,
-                schedule_confirmed=True,
-            )
-            for index, slot in enumerate(booked_hall_in, start=1)
-        ]
-
-        context = self._service(sessions, _FakeAgendaItems(*booked)).get_accept_context(
-            session_id=_SESSION_PK, user_slug="manager", sphere_id=3
-        )
-
-        assert context is not None
-        placements = context.placements
-        assert (
-            placements.taken_space_ids,
-            placements.full_time_slot_ids,
-            placements.has_free_placement,
-        ) == expected
 
     def test_accepting_without_a_space_is_refused_where_one_is_required(self):
         agenda_items = _FakeAgendaItems()
@@ -1588,7 +1550,7 @@ class TestProposalAcceptanceWithFakes:
             self._service(self._sessions(), agenda_items).accept_session(
                 session_id=_SESSION_PK,
                 space_id=None,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )
@@ -1596,23 +1558,25 @@ class TestProposalAcceptanceWithFakes:
         assert not agenda_items.created
 
     def test_accepting_without_a_space_places_it_where_none_is_required(self):
+        sessions = self._sessions()
         agenda_items = _FakeAgendaItems()
         service = ProposalAcceptanceService(
             transaction=FakeTransaction(),
-            sessions=self._sessions(),
+            sessions=sessions,
             agenda_items=agenda_items,
             schedule_change_logs=MagicMock(),
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(
                 managers=[(3, "manager")], require_session_space=False
             ),
+            events=_FakeEvents(sessions.event),
             notifier=_RecordingNotifier(),
         )
 
         service.accept_session(
             session_id=_SESSION_PK,
             space_id=None,
-            time_slot_id=2,
+            start_time=_NOW,
             user_slug="manager",
             sphere_id=3,
         )
@@ -1621,21 +1585,21 @@ class TestProposalAcceptanceWithFakes:
         assert not agenda_items.overlap_queries
         assert [item["space_id"] for item in agenda_items.created] == [None]
 
-    def test_accept_session_places_the_session_in_the_chosen_slot(self):
+    def test_accept_session_places_the_session_at_the_chosen_start(self):
         sessions = self._sessions()
         agenda_items = _FakeAgendaItems()
+        events = _FakeEvents(sessions.event)
 
-        self._service(sessions, agenda_items).accept_session(
+        self._service(sessions, agenda_items, events).accept_session(
             session_id=_SESSION_PK,
             space_id=7,
-            time_slot_id=2,
+            start_time=_NOW,
             user_slug="manager",
             sphere_id=3,
         )
 
-        assert agenda_items.overlap_queries == [
-            (7, self._SLOT.start_time, self._SLOT.end_time, _SESSION_PK)
-        ]
+        assert agenda_items.overlap_queries == [(7, _NOW, _END, _SESSION_PK)]
+        assert events.updates == {sessions.event.pk: {"end_time": _END}}
         assert sessions.updates == {
             _SESSION_PK: {
                 "status": SessionStatus.ACCEPTED,
@@ -1648,8 +1612,8 @@ class TestProposalAcceptanceWithFakes:
                 "space_id": 7,
                 "session_id": _SESSION_PK,
                 "session_confirmed": True,
-                "start_time": self._SLOT.start_time,
-                "end_time": self._SLOT.end_time,
+                "start_time": _NOW,
+                "end_time": _END,
             }
         ]
 
@@ -1663,10 +1627,10 @@ class TestProposalAcceptanceWithFakes:
         sessions.rows[_SESSION_PK] = _session_dto(presenter_id=7, status=status)
         notifier = _RecordingNotifier()
 
-        self._service(sessions, _FakeAgendaItems(), notifier).accept_session(
+        self._service(sessions, _FakeAgendaItems(), notifier=notifier).accept_session(
             session_id=_SESSION_PK,
             space_id=7,
-            time_slot_id=2,
+            start_time=_NOW,
             user_slug="manager",
             sphere_id=3,
         )
@@ -1697,7 +1661,7 @@ class TestProposalAcceptanceWithFakes:
             self._service(sessions, agenda_items).accept_session(
                 session_id=_SESSION_PK,
                 space_id=space_id,
-                time_slot_id=2,
+                start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )

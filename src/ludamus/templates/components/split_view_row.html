@@ -1,0 +1,9 @@
+{% comment %}
+Rendered by {% split_view_row %} (split_view_tags): one row of the list; the
+page lays out what is inside it through extra_class.
+{% endcomment %}
+<a href="{{ href }}"
+   {% if current %}aria-current="page"{% endif %}
+   class="rounded-xl px-3 py-2.5 hover:bg-bg-tertiary aria-[current=page]:bg-primary-light focus-visible:outline-2 focus-visible:outline-border-focus {{ extra_class }}">
+    {{ content }}
+</a>

@@ -5,10 +5,31 @@
 # `multiverse` namespace itself, which gates/web/django/urls.py mounts.
 from django.urls import URLPattern, URLResolver, include, path
 
-from ludamus.gates.web.django.sphere import guilds, team
+from ludamus.gates.web.django.sphere import billing, chats, guilds, team
 from ludamus.gates.web.django.sphere.team import JoinSpherePageView
 
 urlpatterns = [
+    path("billing/", billing.BillingPageView.as_view(), name="billing"),
+    path(
+        "billing/do/connect",
+        billing.BillingConnectActionView.as_view(),
+        name="billing-connect",
+    ),
+    path(
+        "billing/do/resume",
+        billing.BillingResumeActionView.as_view(),
+        name="billing-resume",
+    ),
+    path(
+        "billing/do/return",
+        billing.BillingReturnActionView.as_view(),
+        name="billing-return",
+    ),
+    path(
+        "billing/do/portal",
+        billing.BillingPortalActionView.as_view(),
+        name="billing-portal",
+    ),
     path("team/", team.TeamPageView.as_view(), name="team"),
     path("team/do/invite", team.TeamInviteActionView.as_view(), name="team-invite"),
     path(
@@ -20,6 +41,12 @@ urlpatterns = [
         "team/invitations/<int:pk>/do/revoke",
         team.TeamInviteRevokeActionView.as_view(),
         name="team-invite-revoke",
+    ),
+    path("chats/", chats.ChatModerationPageView.as_view(), name="chats"),
+    path(
+        "chats/<slug:kind>/<int:pk>/",
+        chats.ChatModerationPageView.as_view(),
+        name="chat",
     ),
     path("guilds/", guilds.GuildsPageView.as_view(), name="guilds"),
     path("guilds/create/", guilds.GuildCreatePageView.as_view(), name="guild-create"),

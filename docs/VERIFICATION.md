@@ -61,6 +61,7 @@ A test or model that exposes a bug on `main` is kept, not skipped:
   code; the other models are tied only by review and the skill's trigger paths.
 - CrossHair costs about two seconds per example here, so its CI job is
   advisory and runs only the window-policy properties.
-- Bombadil explores at random: a clean run is a sample, not a proof, and its
-  CI job is advisory. It starts signed in as `e2e-party-host` and stays on
-  `/event/*` and `/dashboard/*`.
+- Bombadil explores at random: a clean run is a sample, not a proof. Its CI job
+  still gates the merge, so a violation it finds on any pull request, even one
+  that did not cause it, is fixed before anything else lands. It starts signed
+  in as `e2e-party-host` and stays on `/event/*` and `/dashboard/*`.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext, pgettext_lazy
@@ -16,7 +18,10 @@ from ludamus.gates.web.django.forms import (
     datetime_local_widget,
     logo_field,
 )
-from ludamus.pacts.event import EventVisibility
+from ludamus.pacts.event import PublicationChoice
+
+if TYPE_CHECKING:
+    from django.http import QueryDict
 
 
 class EventSettingsForm(forms.Form):
@@ -72,24 +77,24 @@ class EventSettingsForm(forms.Form):
         input_formats=DATETIME_LOCAL_FORMATS,
         error_messages={"required": _("End time is required.")},
     )
-    visibility = forms.ChoiceField(
+    publication = forms.ChoiceField(
         choices=[
             (
-                EventVisibility.PUBLIC.value,
+                PublicationChoice.LINK_ONLY.value,
                 _(
-                    "Public: listed and announced to followers from its "
-                    "publication time"
+                    "Link only: anyone with the link can open it; never listed "
+                    "or announced"
                 ),
             ),
             (
-                EventVisibility.UNLISTED.value,
-                _(
-                    "Link only: anyone with the link can open it now; never "
-                    "listed or announced"
-                ),
+                PublicationChoice.PUBLIC_NOW.value,
+                _("Public now: listed and announced to followers"),
+            ),
+            (
+                PublicationChoice.SCHEDULED.value,
+                _("Publish at a set time: listed and announced from then"),
             ),
         ],
-        initial=EventVisibility.PUBLIC.value,
         widget=forms.RadioSelect,
         label=_("Who can see the event"),
     )
@@ -97,11 +102,8 @@ class EventSettingsForm(forms.Form):
         required=False,
         widget=datetime_local_widget(),
         input_formats=DATETIME_LOCAL_FORMATS,
-        label=_("Publication time"),
-        help_text=_(
-            "For a public event: when it appears in event lists and followers "
-            "are notified. Leave empty to keep it hidden."
-        ),
+        label=_("Publish at"),
+        help_text=_("Leave empty to keep the event hidden until you pick a time."),
     )
     allow_facilitator_session_edit = forms.ChoiceField(
         required=False,
@@ -162,7 +164,45 @@ class EventSettingsForm(forms.Form):
         ),
     )
 
+    def full_clean(self) -> None:
+        super().full_clean()
+        # NOTE: the time field shows only for "Publish at", so its error would
+        # block a save under any other choice with nothing on screen to fix.
+        if (
+            self.is_bound
+            and self.cleaned_data.get("publication") != PublicationChoice.SCHEDULED
+        ):
+            self.errors.pop("publication_time", None)
+            self.cleaned_data["publication_time"] = None
+
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+
+class EventDeletionConfirmForm(forms.Form):
+    """Asks for the event's name before an approval to delete it counts.
+
+    Typing it is slower than a click on purpose: it makes sure the manager
+    knows which event they are voting away.
+    """
+
+    event_name = forms.CharField(
+        strip=True, error_messages={"required": _("Type the event's name to confirm.")}
+    )
+
+    def __init__(self, data: QueryDict | None = None, *, event_name: str) -> None:
+        super().__init__(data)
+        self._event_name = event_name
+        field = self.fields["event_name"]
+        field.label = gettext("Type the event's name to confirm: %(name)s") % {
+            "name": event_name
+        }
+        field.widget.attrs.update({"autocomplete": "off", "spellcheck": "false"})
+
+    def clean_event_name(self) -> str:
+        typed = str(self.cleaned_data.get("event_name") or "")
+        if typed != self._event_name.strip():
+            raise ValidationError(gettext("The name you typed does not match."))
+        return typed

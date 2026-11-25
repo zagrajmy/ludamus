@@ -27,16 +27,27 @@ importers.
 
 ## Helpers keep Arrange-Act-Assert visible
 
-Repeated setup or repeated expected-value construction goes into a module-level
-`_helper`, so each test stays three readable blocks. Extract when a block hides
-which phase a test is in, or when Pylint's `R0801` flags the duplication. One
-helper builds one thing, takes keyword-only arguments named after what varies,
-branches never, and asserts nothing. What the test is about stays at the call
-site: a helper that swallows the value under assertion trades duplication for a
-test that no longer says what it checks. Helpers live in the test module that
-owns them, or in a sibling `helpers.py` once a second module needs them — see
-`tests/integration/web/event/helpers.py` and the `_timetable_document` /
-`_one_hour_page` helpers in `test_event_print_page.py`.
+Repeated setup or repeated checking goes into a helper, so each test stays
+three readable blocks. Extract when a block hides which phase a test is in, or
+when Pylint's `R0801` flags the duplication.
+
+- A helper arranges or asserts; it never acts. The call under test stays in
+  the test body, so the test shows what it exercises. An assert helper checks
+  a value the test hands it and does not call the system to get one.
+- What the test is about stays at the call site. A helper that swallows the
+  value under assertion trades duplication for a test that no longer says what
+  it checks.
+- A helper has no `if`. Where a flag would pick between two behaviours, write
+  two functions named after the behaviours and extract what they share into a
+  third.
+- One helper builds one thing and takes keyword-only arguments named after
+  what varies.
+- A complicated object comes from a builder or factory class, not from a long
+  literal repeated per test: `ImportWorld` in `tests/unit/import_fakes.py`,
+  the factories in `tests/integration/factories.py`.
+- Helpers live in the test module that owns them, or in a shared sibling
+  module once a second module needs them:
+  `tests/integration/web/event/helpers.py`, `tests/unit/factories.py`.
 
 ## Unit tests
 

@@ -39,6 +39,12 @@ def _plural_forms(key: str, phrase: Callable[[int], str]) -> dict[str, str]:
 def _copy() -> dict[str, str]:
     return {
         **_plural_forms(
+            "moderatedRooms",
+            lambda count: ngettext(
+                "%(count)s chat you moderate", "%(count)s chats you moderate", count
+            ),
+        ),
+        **_plural_forms(
             "presence",
             lambda count: ngettext(
                 "%(count)s person here", "%(count)s people here", count
@@ -65,6 +71,9 @@ def _copy() -> dict[str, str]:
             "Just the organizers in here. Plan away, nobody else can read it."
         ),
         "emptyParty": _("Your party's own chat. Say hello to everyone."),
+        "emptyEncounter": _(
+            "A chat for everyone signed up for this encounter. Say hello to everyone."
+        ),
         "emptySession": _("You found the table first. Leave a note for the others."),
         "readOnly": _("You can read this conversation, but not write in it."),
         "emptyReadOnly": _("Nobody has written here yet."),
@@ -79,6 +88,7 @@ def _copy() -> dict[str, str]:
         "roomsLabel": _("Conversations"),
         "backLabel": _("Back to conversations"),
         "loadEarlier": _("Load earlier messages"),
+        "historyFailed": _("Could not load messages."),
         "retentionNote": _("Messages disappear a year after they are written."),
         "deletedMessage": _("Message deleted"),
         "retry": _("Try again"),
@@ -101,6 +111,11 @@ def _copy() -> dict[str, str]:
         "partyRoom": _("Party"),
         "partyHint": _(
             "Everyone in your party is here. To leave this chat, leave the party."
+        ),
+        "encounterRoom": _("Encounter"),
+        "encounterHint": _(
+            "The organizer and everyone signed up are here. To leave this chat,"
+            " cancel your signup."
         ),
         "moderatorDelete": _("Delete as moderator"),
         "muteOneHour": _("Mute for 1 hour"),
@@ -181,6 +196,15 @@ def _conversation_copy() -> dict[str, str]:
         "requests": _("Requests"),
         "onThisPage": _("On this page"),
         "allChats": _("All chats"),
+        "moderation": _("Moderation"),
+        "linkUnavailable": _(
+            "That chat can't be opened here. It may have closed, or your access to"
+            " it has changed."
+        ),
+        "moderatorView": _("Moderator view"),
+        "moderatorReading": _("You are reading this chat as a moderator."),
+        "writeAsOrganizer": _("Write as organizer"),
+        "organizerPlaceholder": _("Write to everyone in this chat…"),
         "messagingNeedsAge": _(
             "To message people directly, confirm you're 16 or older."
         ),
@@ -255,11 +279,16 @@ def bootstrap(request: RootHttpRequest) -> JsonResponse:
         return JsonResponse({"error": "authentication_required"}, status=401)
 
     payload = request.services.parley.bootstrap(
-        user_id=request.context.current_user_id, now=datetime.now(tz=UTC)
+        user_id=request.context.current_user_id,
+        sphere_id=request.context.current_sphere_id,
+        now=datetime.now(tz=UTC),
     )
     if payload is None:
         return JsonResponse({"error": "parley_unavailable"}, status=404)
     response_data = payload.model_dump(mode="json", by_alias=True)
+    response_data["moderationUrl"] = (
+        reverse("multiverse:panel:chats") if payload.has_moderated_rooms else None
+    )
     response_data["copy"] = _copy()
     response_data["csrfToken"] = get_token(request)
     response_data["ageUrl"] = reverse("user:profile-privacy")

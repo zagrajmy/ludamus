@@ -3,27 +3,27 @@
 {% load i18n %}
 {% load tessera %}
 {% block title %}
-    {% translate "Time Slots" %}
+    {% translate "Availability windows" %}
 {% endblock title %}
 {% block page_title %}
-    {% translate "Time Slots" %}
+    {% translate "Event Settings" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {{ current_event.name }} · {% translate "Schedule Configuration" %}
+    {{ current_event.name }}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% translate "Add Time Slot" as create_label %}
+    {% translate "Add availability window" as create_label %}
     {% tessera_button create_label href="?create=1" icon="plus" aria_controls="time-slot-create-modal" aria_haspopup="dialog" %}
 {% endblock header_actions %}
 {% block content %}
     {# Assigned once: the same confirmation for every row. #}
-    {% translate "Are you sure you want to delete this time slot?" as confirm_delete %}
-    {% tab_shell "panel/_cfp_tabs.html" %}
+    {% translate "Are you sure you want to delete this availability window?" as confirm_delete %}
+    {% tab_shell "panel/_event_settings_tabs.html" %}
         {% tab_shell_body %}
             <div class="mb-6">
-                <h2 class="text-sm font-semibold">{% translate "What are Time Slots?" %}</h2>
+                <h2 class="text-sm font-semibold">{% translate "What are availability windows?" %}</h2>
                 <p class="text-sm text-foreground-muted mt-1">
-                    {% translate "Time slots define the available scheduling blocks for your event. Hosts select which time slots they are available for when submitting proposals. Sessions are then scheduled into these slots." %}
+                    {% translate "Availability windows are the times proposers pick from when they say when they could host. Without any, they pick parts of a day instead. Windows do not place sessions: you choose each start time when you accept a proposal." %}
                 </p>
             </div>
             {% if event_days %}
@@ -89,7 +89,7 @@
                                         {% endif %}
                                     {% endwith %}
                                 {% empty %}
-                                    <p class="text-sm text-neutral-400 text-center py-4">{% translate "No slots" %}</p>
+                                    <p class="text-sm text-neutral-400 text-center py-4">{% translate "No availability windows" %}</p>
                                 {% endfor %}
                                 {% if day|date:"Y-m-d" == current_event.end_time|date:"Y-m-d" %}
                                     <div class="flex items-center justify-center p-3 rounded-lg border border-dashed border-border bg-bg-tertiary/50">
@@ -112,9 +112,9 @@
                 </div>
                 {% if orphaned_slots %}
                     <div class="mt-6">
-                        <h2 class="text-sm font-semibold">{% translate "Orphaned Time Slots" %}</h2>
+                        <h2 class="text-sm font-semibold">{% translate "Orphaned availability windows" %}</h2>
                         <p class="text-sm text-foreground-muted mt-1 mb-4">
-                            {% translate "These time slots fall outside the current event dates. Edit them to move within event dates, or delete them." %}
+                            {% translate "These availability windows fall outside the current event dates. Edit them to move within event dates, or delete them." %}
                         </p>
                         <div class="space-y-2">
                             {% for slot in orphaned_slots %}
@@ -133,14 +133,14 @@
             {% else %}
                 <div class="card p-8 text-center">
                     <p class="text-foreground-muted mb-4">
-                        {% translate "No time slots defined. Add time slots to configure the event schedule." %}
+                        {% translate "No availability windows yet. Until you add some, proposers pick parts of a day." %}
                     </p>
                     <a href="?create=1"
                        class="btn btn-primary"
                        aria-controls="time-slot-create-modal"
                        aria-haspopup="dialog">
                         {% icon "plus" class="w-4 h-4" %}
-                        {% translate "Add Time Slot" %}
+                        {% translate "Add availability window" %}
                     </a>
                 </div>
             {% endif %}

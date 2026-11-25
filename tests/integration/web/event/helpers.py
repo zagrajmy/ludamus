@@ -34,7 +34,7 @@ from ludamus.pacts.enrollment_member import (
     PartyMemberFlags,
     SessionUserParticipationData,
 )
-from ludamus.pacts.event import EventDTO, TimeSlotDTO
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
@@ -43,6 +43,7 @@ from ludamus.pacts.party import (
     SelectedEnrollmentPartyDTO,
 )
 from ludamus.pacts.sessions import PROGRAMME_DAYS, SessionDTO
+from ludamus.pacts.tickets import EventShopDTO
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.user import UserDTO
 from ludamus.pacts.venues import NO_LOCATION, LocationData
@@ -89,13 +90,13 @@ def session_card(agenda_item, *, presenter, **overrides):
     return replace(card, **overrides)
 
 
-def proposal_card(session, *, presenter, slots=(), **overrides):
+def proposal_card(session, *, presenter, offered_times=(), **overrides):
     # A pending proposal's card: the same component as session_card, minus
     # everything an agenda item supplies — no time, no space, nothing to enroll
-    # in — plus the slots the author would accept.
-    # `slots` is stated by the caller, in the order the card should show them,
-    # rather than re-read from the session: an expectation that re-runs the
-    # production query cannot catch that query ordering wrongly.
+    # in — plus the times the author could host at.
+    # `offered_times` is stated by the caller, in the order the card should show
+    # them, rather than re-read from the session: an expectation that re-runs
+    # the production query cannot catch that query ordering wrongly.
     card = SessionData(
         agenda_item=None,
         category_name=session.category.name if session.category else "",
@@ -104,7 +105,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         is_enrollment_available=False,
         is_full=False,
         loc=NO_LOCATION,
-        preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
+        offered_times=list(offered_times),
         presenter=UserInfo.from_user_dto(UserDTO.model_validate(presenter)),
         session=SessionDTO.model_validate(session),
         session_participations=[],
@@ -175,6 +176,9 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "ticket_shop": EventShopDTO(
+            offers=[], accepting_payments=False, viewer_ticket_count=0
+        ),
         "link_preview": LinkPreview(description=markdown_summary(event.description)),
         "google_calendar_url": google_calendar_url(
             event, page_url=f"http://testserver{url}"

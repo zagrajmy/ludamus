@@ -160,25 +160,8 @@
     min-height: max(20px, calc(var(--duration) * var(--minute-px)));
     left: calc(var(--lane-start) + 2px);
     width: calc(var(--lane-width) - 4px);
-    /* Over the assign-mode tint and closed hours (5, 6), so a booking left in
-       closed hours stays visible while assigning. */
+    /* Over the assign-mode tint (5). */
     z-index: 7;
-  }
-
-  /* Hours no time slot covers. Drawn before the sessions, so a booking left
-     there by an edited slot stays visible on top of it. */
-  .timetable-closed {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(var(--offset) * var(--minute-px) + 20px);
-    height: calc(var(--duration) * var(--minute-px));
-    background: repeating-linear-gradient(
-      -45deg,
-      color-mix(in oklch, var(--color-foreground-muted) 18%, transparent) 0 6px,
-      transparent 6px 12px
-    );
-    pointer-events: none;
   }
 
   .timetable-column.assign-mode-active {
@@ -198,13 +181,6 @@
     background: color-mix(in oklch, var(--color-danger) 10%, transparent);
   }
 
-  /* Lifted over the green while assigning, on an opaque base so closed hours
-     stay grey instead of reading as droppable. */
-  .timetable-column.assign-mode-active .timetable-closed {
-    background-color: var(--color-bg-secondary);
-    z-index: 6;
-  }
-
   .timetable-hover-preview {
     position: fixed;
     z-index: 20;
@@ -220,43 +196,13 @@
     display: none;
   }
 
-  .timetable-drop-guide {
+  .timetable-offered {
     position: absolute;
-    left: 2px;
-    right: 2px;
-    z-index: 8;
-    --guide-tone: var(--color-success);
-    border: 2px dashed var(--guide-tone);
-    border-radius: 6px;
-    background: color-mix(in oklch, var(--guide-tone) 15%, transparent);
-    color: var(--guide-tone);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    overflow: hidden;
+    left: 0;
+    right: 0;
+    background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+    border-block: 1px solid color-mix(in oklab, var(--color-primary) 40%, transparent);
     pointer-events: none;
-  }
-
-  .timetable-drop-guide[data-verdict="closed"] {
-    --guide-tone: var(--color-foreground-muted);
-  }
-
-  .timetable-drop-guide[data-verdict="occupied"],
-  .timetable-drop-guide[data-verdict="tooSmall"] {
-    --guide-tone: var(--color-danger);
-  }
-
-  /* A preference, not a problem: an outline only, so it never reads as the
-     warning a filled amber band would. Drawn over the sessions, so a slot
-     already booked still shows its edges. */
-  .timetable-preferred-slot {
-    position: absolute;
-    left: 2px;
-    right: 2px;
-    border: 2px dashed rgba(202, 138, 4, 0.8);
-    border-radius: 4px;
-    pointer-events: none;
-    z-index: 8;
   }
 
   .timetable-session:hover,
@@ -283,11 +229,6 @@
     overflow-wrap: anywhere;
   }
 
-  .timetable-session:hover .timetable-session-meta.hidden,
-  .timetable-session:focus-within .timetable-session-meta.hidden {
-    display: block;
-  }
-
   #session-list.htmx-request,
   #timetable-grid.htmx-request,
   #conflict-panel.htmx-request,
@@ -296,5 +237,61 @@
     opacity: 0.6;
     transition: opacity 120ms;
     pointer-events: none;
+  }
+}
+
+/* NOTE: `@layer utilities`, not `components`: these override utilities the
+   grid block and the list card carry in their markup, which a components rule
+   cannot. */
+@layer utilities {
+  /* A short block hides its meta lines with `hidden`; hover shows them. */
+  .timetable-session:hover .timetable-session-meta.hidden,
+  .timetable-session:focus-within .timetable-session-meta.hidden {
+    display: block;
+  }
+
+  /* The dragged card, picked up: tilted, lifted, snapped to where it lands.
+     An id, so it outranks the copied card's own position and size. */
+  #timetable-drag-card {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    width: auto;
+    margin: 0;
+    z-index: 9;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: none;
+    transform: rotate(2deg);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  /* A list card is padded for reading, not for a block one hour tall. */
+  #timetable-drag-card:not(.timetable-session) {
+    padding: 0.25rem 0.5rem;
+  }
+
+  #timetable-drag-card[data-verdict="closed"] {
+    outline: 2px dashed var(--color-foreground-muted);
+  }
+
+  #timetable-drag-card[data-verdict="occupied"],
+  #timetable-drag-card[data-verdict="tooSmall"] {
+    outline: 2px solid var(--color-danger);
+  }
+
+  /* Where the dragged card came from: an empty gray box until it lands. */
+  [draggable].is-drag-source,
+  [draggable].is-drag-source:hover {
+    opacity: 1;
+    border: 2px dashed var(--color-foreground-muted);
+    background: color-mix(in oklch, var(--color-foreground-muted) 15%, var(--color-bg-secondary));
+    box-shadow: none;
+    /* Under the drag card, though the pointer still hovers it as a drag starts. */
+    z-index: 7;
+  }
+
+  [draggable].is-drag-source > * {
+    visibility: hidden;
   }
 }

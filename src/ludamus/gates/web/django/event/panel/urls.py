@@ -13,6 +13,7 @@ from ludamus.gates.web.django.event.panel.views import (
     enrollment_settings,
     errata,
     event_create,
+    event_deletion,
     event_settings,
     export,
     facilitator_actions,
@@ -29,6 +30,7 @@ from ludamus.gates.web.django.event.panel.views import (
     proposal_edit,
     proposals,
     session_fields,
+    tickets,
     time_slots,
     timetable,
     tracks,
@@ -130,6 +132,16 @@ urlpatterns = [
         name="event-settings",
     ),
     path(
+        "event/<slug:slug>/settings/do/approve-deletion",
+        event_deletion.EventSettingsApproveDeletionActionView.as_view(),
+        name="event-approve-deletion",
+    ),
+    path(
+        "event/<slug:slug>/settings/do/withdraw-deletion",
+        event_deletion.EventSettingsWithdrawDeletionActionView.as_view(),
+        name="event-withdraw-deletion",
+    ),
+    path(
         "event/<slug:slug>/settings/proposals/",
         event_settings.EventProposalSettingsPageView.as_view(),
         name="event-proposal-settings",
@@ -173,6 +185,36 @@ urlpatterns = [
         "event/<slug:slug>/settings/discounts/<int:pk>/do/delete",
         discount_settings.DiscountRuleDeleteActionView.as_view(),
         name="discount-rule-delete",
+    ),
+    path(
+        "event/<slug:slug>/tickets/",
+        tickets.EventTicketsPageView.as_view(),
+        name="tickets",
+    ),
+    path(
+        "event/<slug:slug>/tickets/create/",
+        tickets.TicketTypeCreatePageView.as_view(),
+        name="ticket-type-create",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/edit/",
+        tickets.TicketTypeEditPageView.as_view(),
+        name="ticket-type-edit",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/archive",
+        tickets.TicketTypeArchiveActionView.as_view(),
+        name="ticket-type-archive",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/restore",
+        tickets.TicketTypeRestoreActionView.as_view(),
+        name="ticket-type-restore",
+    ),
+    path(
+        "event/<slug:slug>/tickets/orders/<int:pk>/do/refund",
+        tickets.TicketOrderRefundActionView.as_view(),
+        name="ticket-order-refund",
     ),
     path(
         "event/<slug:slug>/settings/display/",
@@ -253,22 +295,22 @@ urlpatterns = [
         name="space-move-to-root",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/",
+        "event/<slug:slug>/settings/availability/",
         time_slots.TimeSlotsPageView.as_view(),
         name="time-slots",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/create/",
+        "event/<slug:slug>/settings/availability/create/",
         time_slots.TimeSlotCreatePageView.as_view(),
         name="time-slot-create",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/edit/",
+        "event/<slug:slug>/settings/availability/<int:pk>/edit/",
         time_slots.TimeSlotEditPageView.as_view(),
         name="time-slot-edit",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/do/delete",
+        "event/<slug:slug>/settings/availability/<int:pk>/do/delete",
         time_slots.TimeSlotDeleteActionView.as_view(),
         name="time-slot-delete",
     ),

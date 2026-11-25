@@ -34,6 +34,8 @@ from ludamus.pacts.enrollment import (
     SessionParticipationStatus,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
+    last_closed_window,
+    open_windows,
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import (
@@ -261,7 +263,8 @@ def card_stats(
     start_time: datetime | None,
     enrolled_count: int,
     waiting_count: int,
-    active_configs: Collection[EnrollmentConfig],
+    configs: Collection[EnrollmentConfig],
+    now: datetime,
 ) -> SessionCardStatsDTO:
     """State a session's seats from the facts Session's own properties read.
 
@@ -271,17 +274,21 @@ def card_stats(
     """
     eligible = [
         config
-        for config in active_configs
+        for config in configs
         if config.can_seat(participants_limit=participants_limit, start_time=start_time)
     ]
+    opened = open_windows(eligible, now=now)
+    # Once sign-ups close the last window's share still caps the seats, so a
+    # waiting list refilling a half-capped session stops at half.
+    seating = opened or last_closed_window(eligible, now=now)
     return SessionCardStatsDTO(
         participants_limit=participants_limit,
         seating_percentage=max(
-            (config.percentage_slots for config in eligible), default=None
+            (config.percentage_slots for config in seating), default=None
         ),
         enrolled_count=enrolled_count,
         waiting_count=waiting_count,
-        enrollment_window_ids=frozenset(config.pk for config in eligible),
+        enrollment_window_ids=frozenset(config.pk for config in opened),
     )
 
 
@@ -297,7 +304,8 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
             status in OCCUPYING_PARTICIPATION_STATUSES for status in statuses
         ),
         waiting_count=statuses.count(SessionParticipationStatus.WAITING),
-        active_configs=session.event.get_active_enrollment_configs(),
+        configs=session.event.enrollment_configs.all(),
+        now=datetime.now(tz=UTC),
     )
 
 
@@ -426,7 +434,7 @@ class EventRepository(EventRepositoryProtocol):
         """
         # One aggregate instead of a COUNT per stat: this runs on every panel
         # page, and a big event pays for each extra scan.
-        session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
+        session_stats = Session.objects.filter(event_id=event_id).aggregate(
             pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
             total=Count("id"),
             hosts=Count("presenter_id", distinct=True),
@@ -452,7 +460,9 @@ class EventRepository(EventRepositoryProtocol):
 
     @staticmethod
     def slug_exists(sphere_id: int, slug: str) -> bool:
-        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
+        # A deleted event keeps its slug: the unique index still counts it, and
+        # restoring it must not find its address taken.
+        return Event.all_objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

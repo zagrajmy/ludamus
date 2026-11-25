@@ -35,7 +35,6 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
     SpaceFactory,
-    TimeSlotFactory,
     UserFactory,
     sponsor_user,
 )
@@ -690,7 +689,11 @@ class TestSessionEnrollPageView:
                 for future in [pool.submit(cancel, client) for client in clients]
             ]
 
-        assert all(response.status_code == HTTPStatus.FOUND for response in responses)
+        # NOTE: a request that reads the page after its rival committed no longer
+        # sees "cancel" as a choice and re-renders the form with a 200.
+        statuses = {response.status_code for response in responses}
+        assert statuses <= {HTTPStatus.OK, HTTPStatus.FOUND}
+        assert HTTPStatus.FOUND in statuses
         assert not SessionParticipation.objects.filter(
             user=active_user, session=agenda_item.session
         ).exists()
@@ -1001,22 +1004,17 @@ class TestSessionEnrollPageView:
         # this one takes the seat locks.
         space1 = SpaceFactory(event=event)
         space2 = SpaceFactory(event=event)
-        time_slot = TimeSlotFactory(event=event)
+        start = event.start_time
+        end = start + timedelta(hours=2)
 
         session1 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session1,
-            space=space1,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session1, space=space1, start_time=start, end_time=end
         )
 
         session2 = SessionFactory(event=event)
         AgendaItemFactory(
-            session=session2,
-            space=space2,
-            start_time=time_slot.start_time,
-            end_time=time_slot.end_time,
+            session=session2, space=space2, start_time=start, end_time=end
         )
 
         commit_before_seat_lock(

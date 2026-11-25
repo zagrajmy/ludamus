@@ -82,12 +82,12 @@ jobs:
           DB_USER: ${{ vars.DB_USER }}
           AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
-          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
           MEDIA_URL: ${{ vars.MEDIA_URL }}
           GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
           GS_LOCATION: ${{ vars.GS_LOCATION }}
+          MAIL_POSTAL_ADDRESS: ${{ vars.MAIL_POSTAL_ADDRESS }}
           # Per-environment, and the seam a second PostHog project would use:
           # set here it wins, unset it falls back to .env.production, which is
           # the production baseline and would put staging in that project.
