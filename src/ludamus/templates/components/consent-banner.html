@@ -22,10 +22,12 @@
 
     The scroller runs under iOS Safari's floating toolbar (see .app-shell in
     index.css), so the host sticks --toolbar-cover above the scroller's bottom
-    edge, not at it. z-50 keeps the card over the chat button, which shares
-    the bottom-right corner on a phone.
+    edge, not at it. On a phone the card spans the width and meets the chat
+    button, so it stacks above it there (the email banner hides meanwhile).
+    From sm up the card keeps to the left and stays under the email banner,
+    which can share that corner.
 {% endcomment %}
-<div class="sticky bottom-(--toolbar-cover) z-50 h-0 shrink-0">
+<div class="sticky bottom-(--toolbar-cover) z-40 max-sm:z-50 h-0 shrink-0">
     <section id="consent-banner"
              class="consent-banner absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
              aria-label="{% translate "Cookie consent" %}"
