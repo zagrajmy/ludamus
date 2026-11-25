@@ -35,8 +35,28 @@ const ACTION_STATUS: Record<string, RosterStatus> = {
   waitlist: "waiting",
 };
 
-// The panel as it stood before a request still in flight, by session.
-const pending = new Map<string, RosterState>();
+// Where the viewer's own row sat, so a rollback puts that row back with its
+// place in the list and its join time, rather than a fresh copy at the end.
+interface Placement {
+  list: Element;
+  next: Node | null;
+  row: Element;
+}
+
+// The panel as it stood before a request still in flight.
+interface Pending {
+  placement: Placement | null;
+  state: RosterState;
+}
+
+const SELF_ROW = "[data-roster-list] > [data-roster-self]";
+
+const pending = new Map<string, Pending>();
+
+// htmx re-fires htmx:afterRequest on an ancestor once a swap has detached the
+// form, and then names that ancestor as the event's element. The request
+// object is the one thing both firings share.
+const inFlight = new WeakMap<object, string>();
 
 const panelFor = (session: string): HTMLElement | null =>
   document.querySelector<HTMLElement>(`[data-roster="${session}"]`);
@@ -49,7 +69,7 @@ const seated = (status: RosterStatus): number => (status === "confirmed" ? 1 : 0
 const queued = (status: RosterStatus): number => (status === "waiting" ? 1 : 0);
 
 const selfStatus = (panel: HTMLElement): RosterStatus => {
-  const self = panel.querySelector("[data-roster-list] > [data-roster-self]");
+  const self = panel.querySelector(SELF_ROW);
   return toStatus(self?.closest<HTMLElement>("[data-roster-group]")?.dataset.rosterGroup);
 };
 
@@ -70,14 +90,28 @@ const predict = (before: RosterState, action: string): RosterState => {
   };
 };
 
-const showSelf = (panel: HTMLElement, status: RosterStatus): void => {
-  for (const row of panel.querySelectorAll("[data-roster-list] > [data-roster-self]")) row.remove();
+const placementOf = (panel: HTMLElement): Placement | null => {
+  const row = panel.querySelector(SELF_ROW);
+  const list = row?.parentElement;
+  return row && list ? { list, next: row.nextSibling, row } : null;
+};
+
+const addSelf = (panel: HTMLElement, status: RosterStatus): void => {
   const group = `[data-roster-group="${status}"]`;
   const template = panel.querySelector<HTMLTemplateElement>(
     `${group} template[data-roster-self-template]`,
   );
   const list = panel.querySelector(`${group} [data-roster-list]`);
   if (template && list) list.append(template.content.cloneNode(true));
+};
+
+// The saved row comes back only when the outcome is the status it had; any
+// other outcome is a new row.
+const showSelf = (panel: HTMLElement, status: RosterStatus, saved?: Pending): void => {
+  for (const row of panel.querySelectorAll(SELF_ROW)) row.remove();
+  const placement = saved?.state.status === status ? saved.placement : null;
+  if (placement) placement.list.insertBefore(placement.row, placement.next);
+  else addSelf(panel, status);
 };
 
 const setHidden = (root: ParentNode, selector: string, hidden: boolean): void => {
@@ -98,8 +132,8 @@ const hiddenWhen = ({ enrolled, waiting }: RosterState): [string, boolean][] => 
   ['[data-roster-empty="all"]', waiting > 0 || enrolled > 0],
 ];
 
-const renderPanel = (panel: HTMLElement, state: RosterState): void => {
-  showSelf(panel, state.status);
+const renderPanel = (panel: HTMLElement, state: RosterState, saved?: Pending): void => {
+  showSelf(panel, state.status, saved);
   panel.dataset.rosterEnrolled = String(state.enrolled);
   panel.dataset.rosterWaiting = String(state.waiting);
   setText(panel, "[data-roster-count]", String(state.enrolled));
@@ -116,8 +150,8 @@ const renderTab = (panel: HTMLElement, state: RosterState): void => {
   setHidden(tab, '[data-roster-badge="waiting"]', state.waiting === 0);
 };
 
-const render = (panel: HTMLElement, state: RosterState): void => {
-  renderPanel(panel, state);
+const render = (panel: HTMLElement, state: RosterState, saved?: Pending): void => {
+  renderPanel(panel, state, saved);
   renderTab(panel, state);
 };
 
@@ -134,22 +168,35 @@ const rosterRequest = (e: Event): RosterRequest | null => {
 const requestPanel = (request: RosterRequest | null): HTMLElement | null =>
   request ? panelFor(request.session) : null;
 
+const requestXhr = (e: Event): object | undefined =>
+  (e as CustomEvent<{ xhr?: object }>).detail?.xhr;
+
+const track = (e: Event, session: string): void => {
+  const xhr = requestXhr(e);
+  if (xhr) inFlight.set(xhr, session);
+};
+
+// A second submit before the first answers keeps the first snapshot: that is
+// the last state the server confirmed.
+const remember = (session: string, panel: HTMLElement): void => {
+  if (pending.has(session)) return;
+  pending.set(session, { placement: placementOf(panel), state: readState(panel) });
+};
+
 const restore = (session: string): void => {
-  const before = pending.get(session);
+  const saved = pending.get(session);
   const panel = panelFor(session);
   pending.delete(session);
-  if (before && panel) render(panel, before);
+  if (saved && panel) render(panel, saved.state, saved);
 };
 
 document.body.addEventListener("htmx:beforeRequest", (e) => {
   const request = rosterRequest(e);
   const panel = requestPanel(request);
   if (!request || !panel) return;
-  const before = readState(panel);
-  // A second submit before the first answers keeps the first snapshot: that
-  // is the last state the server confirmed.
-  pending.set(request.session, pending.get(request.session) ?? before);
-  render(panel, predict(before, request.action));
+  track(e, request.session);
+  remember(request.session, panel);
+  render(panel, predict(readState(panel), request.action));
 });
 
 // Sent by the enroll view in its HX-Trigger header, so htmx fires it before
@@ -157,22 +204,22 @@ document.body.addEventListener("htmx:beforeRequest", (e) => {
 document.body.addEventListener("roster-sync", (e) => {
   const sync = (e as CustomEvent<RosterSync>).detail;
   const session = String(sync.session);
+  const saved = pending.get(session);
   pending.delete(session);
   const panel = panelFor(session);
   if (!panel) return;
-  render(panel, {
+  const state = {
     enrolled: sync.enrolled,
     limit: String(sync.limit),
     status: toStatus(sync.status),
     waiting: sync.waiting,
-  });
+  };
+  render(panel, state, saved);
 });
 
 // Still pending here means no roster-sync came back: put the panel back.
-// The swap has detached the form, but its dataset still names the session,
-// and htmx re-fires this event on the nearest attached ancestor so it
-// reaches body once.
 document.body.addEventListener("htmx:afterRequest", (e) => {
-  const request = rosterRequest(e);
-  if (request) restore(request.session);
+  const xhr = requestXhr(e);
+  const session = xhr && inFlight.get(xhr);
+  if (session) restore(session);
 });
