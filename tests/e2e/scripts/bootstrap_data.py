@@ -350,9 +350,7 @@ def _create_event_deletion_scenario() -> None:
         )
         council.managers.add(member)
         _write_storage_state(
-            member,
-            domain=COUNCIL_HOST,
-            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+            member, domain=COUNCIL_HOST, path=STATE_DIR / f".auth-state-{slug}.json"
         )
     # A deletion cannot be taken back from the panel, so each attempt (CI
     # allows two retries) votes on an event of its own number.
